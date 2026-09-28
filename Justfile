@@ -75,12 +75,16 @@ help:
 [group('build')]
 build:
     tools/write-build-rev.sh
+    {{py}} tools/go-mods.py
+    {{py}} tools/app-lockfile.py
     kas-container build {{config}}
 
 # Open a shell in the build environment
 [group('build')]
 shell:
     tools/write-build-rev.sh
+    {{py}} tools/go-mods.py
+    {{py}} tools/app-lockfile.py
     kas-container shell {{config}}
 
 # === Clean ===
@@ -195,6 +199,8 @@ gap repo *args:
 [doc("Build with cve-check inherited: CVE manifest beside the image, snapshot in ~/.cache/wisekiosk")]
 cve-build:
     tools/write-build-rev.sh
+    {{py}} tools/go-mods.py
+    {{py}} tools/app-lockfile.py
     kas-container build {{config}}:includes/cve-audit.yaml
     {{py}} tools/cve-delta.py snapshot
 
