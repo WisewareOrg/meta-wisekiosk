@@ -890,6 +890,27 @@ PY
     fi
 fi
 
+# --- 19. the app lockfile generator must still pass its own self-test -----
+# tools/app-lockfile.py writes the app's npm shrinkwrap byte-for-byte from
+# its own lockfile at the pinned commit; a change to its URL derivation, its
+# JSON validation or its write path would silently ship a stale, truncated
+# or wrong-commit shrinkwrap. The self-test stubs the network at urlopen and
+# writes only into fixture paths, never the real wisekiosk-src.inc or the
+# real shrinkwrap path.
+locktest19="tools/app-lockfile-test.py"
+if [ ! -f "$locktest19" ]; then
+    bad "guard 19: $locktest19 missing -- the app lockfile generator is no longer self-tested"
+elif ! command -v "$PY" > /dev/null 2>&1; then
+    bad "guard 19: $PY missing -- the app lockfile generator cannot be self-tested"
+elif out19=$("$PY" "$locktest19" 2>&1); then
+    ok "the app lockfile generator passes its self-test ($(printf '%s\n' "$out19" | tail -n1))"
+else
+    bad "the app lockfile generator FAILS its own self-test:"
+    printf '%s\n' "$out19" \
+        | grep -E '^(FAIL|SKIP|  |pass=|Traceback|[A-Za-z_][A-Za-z0-9_.]*:)' \
+        | sed 's/^/        /'
+fi
+
 if [ "$fail" -ne 0 ]; then
     printf '\nguards FAILED\n'
     exit 1
