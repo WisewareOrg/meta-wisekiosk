@@ -25,10 +25,11 @@ SRC_URI += "npmsw://${THISDIR}/${BPN}/npm-shrinkwrap.json;dev=1;destsuffix=git/f
 # its <shrinkwrap>.srcrev stamp is read directly rather than as a bitbake var.
 python () {
     import os
-    stamp = os.path.join(d.getVar('THISDIR'), d.getVar('BPN'),
-                          'npm-shrinkwrap.json.srcrev')
+    shrinkwrap = os.path.join(d.getVar('THISDIR'), d.getVar('BPN'),
+                               'npm-shrinkwrap.json')
+    stamp = shrinkwrap + '.srcrev'
     recorded = open(stamp).read().strip() if os.path.exists(stamp) else None
-    if recorded != d.getVar('SRCREV'):
+    if not os.path.exists(shrinkwrap) or recorded != d.getVar('SRCREV'):
         bb.fatal("npm-shrinkwrap.json is missing or stale for this SRCREV: "
                  "run `just build`, or any other entry point that runs "
                  "tools/app-lockfile.py, before bitbake.")
