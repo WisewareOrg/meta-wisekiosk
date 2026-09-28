@@ -200,14 +200,19 @@ def write_shrinkwrap_cases():
         case("write_shrinkwrap: invalid JSON leaves no file behind",
              target.exists(), False)
 
-    # Must-not-fire, the partial-write half: a refusal must not disturb a
-    # file already at the target.
+    # Must-not-fire: a refusal happens before write_shrinkwrap ever calls
+    # `path.write_bytes` (JSON validation runs first), so an existing file at
+    # the target is left alone. This does NOT prove the write itself is
+    # atomic/partial-write-safe -- write_shrinkwrap's current write is a
+    # single non-atomic `path.write_bytes`, and this case cannot fail on a
+    # write that starts and is interrupted. See the tmp+os.replace follow-up
+    # content-reviewer requested from the implementer.
     with tempfile.TemporaryDirectory() as tmp, \
          contextlib.redirect_stderr(io.StringIO()):
         target = Path(tmp) / "npm-shrinkwrap.json"
         target.write_bytes(payload)
         app_lockfile.write_shrinkwrap(b"not json at all", path=target)
-        case("write_shrinkwrap: a refusal never touches an existing file",
+        case("write_shrinkwrap: a refusal leaves an existing file untouched",
              target.read_bytes(), payload)
 
 
