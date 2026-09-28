@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """Generate the checksummed Go module closure oapi-codegen needs at build time.
 
-    go-mods.py            -- regenerate wisekiosk-backend-go-mods.inc
-    go-mods.py --check    -- regenerate to a temp file and diff it against the
-                              committed one; exit 1 on drift
+    go-mods.py -- write wisekiosk-backend-go-mods.inc (gitignored, build input)
 
 Clones the pinned WiseKiosk commit and runs `go list -deps` against the
 codegen tool's own import path to populate a scratch GOMODCACHE with exactly
@@ -12,10 +10,8 @@ served. See meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md.
 
 `render_inc` is the importable seam tools/go-mods-test.py drives directly, on
 a fabricated cache -- no clone, no network, no real `go`. `fetch_cache` is the
-only function that touches either; `check` composes the two against INC_PATH
-the same way this script's own CLI does.
+only function that touches either.
 """
-import difflib
 import hashlib
 import os
 import re
@@ -32,8 +28,8 @@ ROOT = TOOLS.parent
 # wisekiosk-frontend_git.bb and wisekiosk-backend_git.bb.
 SRC_INC = ROOT / "meta-wisekiosk/recipes-wisekiosk/wisekiosk/wisekiosk-src.inc"
 
-# The committed output. Its own first line names the SRCREV it was rendered
-# from, so a stale file is visible in `git diff` without running --check.
+# Written at build entry (Justfile, right after tools/write-build-rev.sh) and
+# gitignored -- never committed (owner, 2026-09-27: nothing autogenerable is).
 INC_PATH = ROOT / "meta-wisekiosk/recipes-wisekiosk/wisekiosk/wisekiosk-backend-go-mods.inc"
 
 # The one binary the codegen module closure exists to build. `go list -deps`
@@ -77,11 +73,9 @@ def clean_env(**extra):
     return env
 
 
-# Workdirs fetch_cache() has created and not yet removed. A list, not a
-# single slot: `check` calls fetch_cache once per comparison and a caller
-# could call it more than once before cleaning up. Empty unless the real
-# fetch_cache ran -- a test that replaces fetch_cache with a fixture never
-# touches this, so _cleanup_workdirs() is a safe no-op there.
+# Workdirs fetch_cache() has created and not yet removed. Empty unless the
+# real fetch_cache ran -- a test that replaces fetch_cache with a fixture
+# never touches this, so _cleanup_workdirs() is a safe no-op there.
 _LEFTOVER_WORKDIRS = []
 
 
@@ -186,37 +180,12 @@ def fetch_cache(url: str, srcrev: str) -> Path:
     return gomodcache
 
 
-def check(url: str, srcrev: str, show_diff: bool = False) -> int:
-    """render_inc(fetch_cache(url, srcrev), srcrev), compared against
-    INC_PATH's committed content. Both names are looked up on this module at
-    call time, so a test can replace either -- the same pattern
-    cve-tools-test.py uses for layer-currency.py's check()."""
-    try:
-        cache_dir = fetch_cache(url, srcrev)
-        current = render_inc(cache_dir, srcrev)
-    finally:
-        _cleanup_workdirs()
-    committed = INC_PATH.read_text() if INC_PATH.exists() else ""
-    if current == committed:
-        return 0
-    if show_diff:
-        sys.stdout.writelines(difflib.unified_diff(
-            committed.splitlines(keepends=True),
-            current.splitlines(keepends=True),
-            fromfile=str(INC_PATH), tofile="regenerated"))
-    return 1
-
-
 def main() -> int:
-    argv = sys.argv[1:]
-    if argv not in ([], ["--check"]):
+    if sys.argv[1:]:
         print(__doc__.strip().split("\n\n")[1], file=sys.stderr)
         return 2
 
     url, srcrev = _src_inc_fields()
-    if argv == ["--check"]:
-        return check(url, srcrev, show_diff=True)
-
     try:
         cache_dir = fetch_cache(url, srcrev)
         INC_PATH.write_text(render_inc(cache_dir, srcrev))

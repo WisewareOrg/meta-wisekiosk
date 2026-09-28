@@ -19,6 +19,10 @@ scratchpad/
 # source. Must be ignored, not merely untracked -- see ci-guards.sh guard 10.
 meta-wisekiosk/conf/build-rev.inc
 
+# Written by tools/go-mods.py before every build, same as build-rev.inc above:
+# an autogenerable file is build input, never committed (owner, 2026-09-27).
+meta-wisekiosk/recipes-wisekiosk/wisekiosk/wisekiosk-backend-go-mods.inc
+
 # The skills under .claude/ are tracked; these two are per-checkout machine
 # state, and settings.local.json in particular carries local filesystem paths.
 .claude/settings.local.json
