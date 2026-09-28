@@ -24,7 +24,7 @@ build time rather than silently shipping something stale.
 
 Upstream [PR #340 generate boundary and config-type code at build instead of
 committing](https://github.com/tjwise99/WiseKiosk/pull/340) removed generated code from the app's
-own git history, so a bare pin bump no longer builds either half: `wisekiosk-frontend_git.bb`'s
+own git history, so a bare pin bump breaks both halves' builds: `wisekiosk-frontend_git.bb`'s
 `do_compile` runs `orval` and `json2ts` against the app's own OpenAPI document and JSON schema before
 vite builds, and `wisekiosk-backend_git.bb`'s `do_compile` runs `go tool oapi-codegen` against the
 same OpenAPI document before `go_do_compile`. Both regenerate from the pinned commit's own source on
@@ -32,8 +32,16 @@ every build, so this layer never carries a generated file that could go stale ag
 
 The backend's `go tool oapi-codegen` needs its own module graph to run, and `go build` in this recipe
 stays `GOPROXY=off` — see `wisekiosk-backend-go-mods.inc`'s header and `tools/go-mods.py` for how that
-closure arrives as checksummed `SRC_URI` entries instead. Those modules build the generator only; they
-never reach the shipped binary, so they carry no `LICENSE.inc` of their own.
+closure arrives as checksummed `SRC_URI` entries instead of `go-vendor`. Vendoring was rejected for the
+same reason [`app_from_source/README.md`](../../../docs/issue_investigation/app_from_source/README.md)
+rejected it for the app's own runtime dependencies: Go 1.24+ vendors `tool` directives, and
+`oapi-codegen` is exactly that — a tool-only dependency, absent from the shipped binary — so vendoring
+it would mean pinning and shipping the generator's own source for a tool that never runs on the
+device. The checksummed entries keep that closure out of both `vendor/` and the binary while still
+resolving offline. Those modules also carry no `LICENSE.inc` of their own, unlike upstream's own
+`go-mod-update-modules` recipe tooling, which adds one per vendored module: they build the generator
+only and ship nothing in the package, so there is nothing here for a package `LICENSE` field to
+account for.
 
 ## Node is held to the app's declared major
 

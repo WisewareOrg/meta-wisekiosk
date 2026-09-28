@@ -43,13 +43,13 @@ export GOPROXY = "off"
 # make_wrapper), overriding whatever the caller set. oapi-codegen is a
 # host-native tool, not the cross-compiled target the rest of this recipe
 # builds, so this calls the unwrapped go binary the wrapper itself execs
-# (${prefix_native}/lib/${TARGET_SYS}/go/bin/go under this recipe's own
-# RECIPE_SYSROOT_NATIVE, staged there because go-cross is a DEPENDS) directly,
-# where the GOOS/GOARCH set on the command line are the ones that take effect.
+# instead -- ${STAGING_LIBDIR_NATIVE}/${TARGET_SYS}/go/bin/go, staged there
+# because go-cross is a DEPENDS (go.bbclass's own GOTOOLDIR uses the same
+# base) -- where the GOOS/GOARCH set on the command line take effect.
 do_compile() {
     ( cd ${S}/src/${GO_WORKDIR} && GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} \
         GOFLAGS=-modcacherw GOPROXY=file://${WORKDIR}/goproxy GOSUMDB=off \
-        ${RECIPE_SYSROOT_NATIVE}${prefix_native}/lib/${TARGET_SYS}/go/bin/go \
+        ${STAGING_LIBDIR_NATIVE}/${TARGET_SYS}/go/bin/go \
         tool oapi-codegen -config oapi-codegen.yaml ../boundary/openapi.yaml )
     [ -s ${S}/src/${GO_WORKDIR}/internal/boundary/boundary.gen.go ] \
         || bbfatal "oapi-codegen produced no internal/boundary/boundary.gen.go"

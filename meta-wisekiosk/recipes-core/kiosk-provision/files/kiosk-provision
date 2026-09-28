@@ -14,10 +14,11 @@
 #                 there. This script only seeds /data on a device that has one
 #                 and has never been provisioned.
 #
-# wisekiosk-backend also reads /data/config/config.json directly, but a device
-# that has never had one written needs SOMETHING there rather than a 404
-# forever -- kiosk-seed-config seeds it from the image's own default, and
-# only when nothing is there yet; an operator's file is never touched.
+# /srv/kiosk/config.json is also a symlink into /data/config, served straight
+# off disk by wisekiosk-backend, but a device that has never had one written
+# needs SOMETHING there rather than a 404 forever -- kiosk-seed-config seeds
+# it from the image's own default, and only when nothing is there yet; an
+# operator's file is never touched.
 #
 # It never fails the boot. An unprovisioned device has no network and needs a
 # USB keyboard on tty1 -- which the image keeps `keyboard` and `usbhost` for --
