@@ -35,14 +35,22 @@ export GOPROXY = "off"
 # below -- it is a build-time-only dependency, but its own module graph still
 # has to resolve under GOPROXY=off above, so it runs against the goproxy tree
 # unpacked from wisekiosk-backend-go-mods.inc's SRC_URI entries rather than
-# DL_DIR directly. GOOS/GOARCH are forced to the build host on this one
-# command because oapi-codegen is a host-native tool, not the cross-compiled
-# target the rest of this recipe builds. Path is the app's own justfile
-# codegen recipe, run from backend/.
+# DL_DIR directly. Path is the app's own justfile codegen recipe, run from
+# backend/.
+#
+# ${GO} is go-cross's wrapper, and the wrapper is not a passthrough: it
+# unconditionally `export`s the TARGET GOOS/GOARCH inside itself (go-cross.inc
+# make_wrapper), overriding whatever the caller set. oapi-codegen is a
+# host-native tool, not the cross-compiled target the rest of this recipe
+# builds, so this calls the unwrapped go binary the wrapper itself execs
+# (${prefix_native}/lib/${TARGET_SYS}/go/bin/go under this recipe's own
+# RECIPE_SYSROOT_NATIVE, staged there because go-cross is a DEPENDS) directly,
+# where the GOOS/GOARCH set on the command line are the ones that take effect.
 do_compile() {
     ( cd ${S}/src/${GO_WORKDIR} && GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} \
         GOFLAGS=-modcacherw GOPROXY=file://${WORKDIR}/goproxy GOSUMDB=off \
-        ${GO} tool oapi-codegen -config oapi-codegen.yaml ../boundary/openapi.yaml )
+        ${RECIPE_SYSROOT_NATIVE}${prefix_native}/lib/${TARGET_SYS}/go/bin/go \
+        tool oapi-codegen -config oapi-codegen.yaml ../boundary/openapi.yaml )
     [ -s ${S}/src/${GO_WORKDIR}/internal/boundary/boundary.gen.go ] \
         || bbfatal "oapi-codegen produced no internal/boundary/boundary.gen.go"
     go_do_compile
