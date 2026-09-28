@@ -1,0 +1,41 @@
+#!/bin/sh
+# Seed /data/config/config.json from the image's shipped default the first
+# time a device (or a fresh /data) has none. Called by kiosk-provision, after
+# the machine-id seed.
+#
+# ROOT lets the whole path set be relocated for testing; a real boot leaves it
+# empty and the paths below are the real device ones. It never fails: an
+# operator's own config.json, however it got there -- including an empty file
+# -- must survive unchanged, and a missing image default is not an error.
+
+set -u
+ROOT="${ROOT:-}"
+CFG="$ROOT/data/config"
+SRC="$ROOT/usr/share/wisekiosk/config.example.json"
+log() { echo "kiosk-seed-config: $*"; }
+
+mkdir -p "$CFG"
+
+if [ ! -e "$CFG/config.json" ]; then
+    if [ -s "$SRC" ]; then
+        # cp + chmod, not install: the image's busybox carries no install
+        # applet.
+        tmp="$CFG/config.json.tmp"
+        if ! cp "$SRC" "$tmp"; then
+            rm -f "$tmp"
+            log "failed to seed /data/config/config.json: cp"
+        elif ! chmod 0644 "$tmp"; then
+            rm -f "$tmp"
+            log "failed to seed /data/config/config.json: chmod"
+        elif ! mv "$tmp" "$CFG/config.json"; then
+            rm -f "$tmp"
+            log "failed to seed /data/config/config.json: mv"
+        else
+            log "seeded /data/config/config.json from the image default"
+        fi
+    else
+        log "no image default config to seed"
+    fi
+fi
+
+exit 0

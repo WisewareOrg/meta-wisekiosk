@@ -75,12 +75,16 @@ help:
 [group('build')]
 build:
     tools/write-build-rev.sh
+    {{py}} tools/go-mods.py
+    {{py}} tools/app-lockfile.py
     kas-container build {{config}}
 
 # Open a shell in the build environment
 [group('build')]
 shell:
     tools/write-build-rev.sh
+    {{py}} tools/go-mods.py
+    {{py}} tools/app-lockfile.py
     kas-container shell {{config}}
 
 # === Clean ===
@@ -104,7 +108,7 @@ spotless: clean
 # two independent findings are worth more than the first one twice.
 [group('guards')]
 [script('bash')]
-[doc("Run repository guards: secrets, template, shell syntax, YAML, gitleaks, IPs, service reachability, recovery wiring, trailing-; hooks, guard wiring, guard self-test, review-checklist taxonomy, CVE tools self-test, python interpreter, device identity")]
+[doc("Run repository guards: secrets, template, shell syntax, YAML, gitleaks, IPs, service reachability, recovery wiring, trailing-; hooks, guard wiring, guard self-test, review-checklist taxonomy, CVE tools self-test, python interpreter, Go module generator self-test, config seed self-test, default-config path agreement, app lockfile self-test, device identity")]
 guards:
     rc=0
     tools/ci-guards.sh || rc=1
@@ -195,6 +199,8 @@ gap repo *args:
 [doc("Build with cve-check inherited: CVE manifest beside the image, snapshot in ~/.cache/wisekiosk")]
 cve-build:
     tools/write-build-rev.sh
+    {{py}} tools/go-mods.py
+    {{py}} tools/app-lockfile.py
     kas-container build {{config}}:includes/cve-audit.yaml
     {{py}} tools/cve-delta.py snapshot
 
