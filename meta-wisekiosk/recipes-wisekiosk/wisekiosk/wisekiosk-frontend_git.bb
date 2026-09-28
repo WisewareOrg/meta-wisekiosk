@@ -16,6 +16,24 @@ LIC_FILES_CHKSUM = "file://LICENSE;md5=4af5bdd6287d36bddd2161cdad4e1eb5"
 # package.json at git/frontend, where node resolves imports by walking up.
 SRC_URI += "npmsw://${THISDIR}/${BPN}/npm-shrinkwrap.json;dev=1;destsuffix=git/frontend"
 
+# The shrinkwrap above is gitignored and written by tools/app-lockfile.py at
+# build entry (owner, 2026-09-27: nothing autogenerable is committed), so a
+# tree that never ran it, or one still holding a previous pin's shrinkwrap,
+# parses here with no warning otherwise -- same shape as
+# meta-wisekiosk/classes/kiosk-buildinfo-cachesafe.bbclass's check on
+# KIOSK_BUILDINFO_REV. The shrinkwrap is a plain JSON file, not `require`d, so
+# its <shrinkwrap>.srcrev stamp is read directly rather than as a bitbake var.
+python () {
+    import os
+    stamp = os.path.join(d.getVar('THISDIR'), d.getVar('BPN'),
+                          'npm-shrinkwrap.json.srcrev')
+    recorded = open(stamp).read().strip() if os.path.exists(stamp) else None
+    if recorded != d.getVar('SRCREV'):
+        bb.fatal("npm-shrinkwrap.json is missing or stale for this SRCREV: "
+                 "run `just build`, or any other entry point that runs "
+                 "tools/app-lockfile.py, before bitbake.")
+}
+
 # Build-host only, and no `inherit npm`: npmsw places the closure and the
 # deliverable is the emitted bundle, not a target module.
 DEPENDS = "nodejs-binary-native"

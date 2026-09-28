@@ -7,6 +7,19 @@ layer's."
 require wisekiosk-src.inc
 require wisekiosk-backend-go-mods.inc
 
+# wisekiosk-backend-go-mods.inc is gitignored and written by tools/go-mods.py
+# at build entry (owner, 2026-09-27: nothing autogenerable is committed), so a
+# tree that never ran it, or one still holding a previous pin's .inc, parses
+# here with no warning otherwise -- same shape as
+# meta-wisekiosk/classes/kiosk-buildinfo-cachesafe.bbclass's check on
+# KIOSK_BUILDINFO_REV.
+python () {
+    if d.getVar('WISEKIOSK_GOMODS_SRCREV') != d.getVar('SRCREV'):
+        bb.fatal("wisekiosk-backend-go-mods.inc is missing or stale for this "
+                 "SRCREV: run `just build`, or any other entry point that "
+                 "runs tools/go-mods.py, before bitbake.")
+}
+
 # scarthgap unpacks file:// SRC_URI straight into WORKDIR; go.bbclass redirects
 # only the git entry, so this lands beside the checkout.
 SRC_URI += "file://wisekiosk.service"
