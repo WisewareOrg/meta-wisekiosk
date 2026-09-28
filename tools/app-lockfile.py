@@ -95,22 +95,26 @@ def is_current(srcrev: str, path: Path = SHRINKWRAP_PATH) -> bool:
 
 def write_shrinkwrap(content: bytes, srcrev: str, path: Path = SHRINKWRAP_PATH) -> int:
     """Validate `content` is JSON and write it verbatim to `path`
-    (atomically), refusing (no write, no stamp) on invalid JSON. Stamps
-    `path` with `srcrev` only once the write is verified good, so a stamp
-    never claims a file that isn't really there. The importable seam for
-    tests, alongside fetch_lockfile."""
+    (atomically), refusing (no write, no stamp) on invalid JSON. The old
+    stamp is removed before the replace, not just rewritten after: an
+    interrupt between a successful replace and the stamp write must never
+    leave a stamp claiming content it did not write, so the safe failure
+    mode is no stamp at all (is_current() then reads as stale, not
+    current). The importable seam for tests, alongside fetch_lockfile."""
     try:
         json.loads(content)
     except json.JSONDecodeError as exc:
         return refuse(f"fetched content is not valid JSON: {exc}")
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_bytes(content)
+    stamp = stamp_path_for(path)
+    stamp.unlink(missing_ok=True)
     try:
         os.replace(tmp, path)
     except OSError:
         tmp.unlink(missing_ok=True)
         raise
-    stamp_path_for(path).write_text(srcrev)
+    stamp.write_text(srcrev)
     return 0
 
 

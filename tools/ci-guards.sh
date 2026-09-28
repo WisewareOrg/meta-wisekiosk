@@ -460,13 +460,12 @@ else
         fi
 
         # The commit sha, the Go module closure and the npm shrinkwrap all reach
-        # bitbake only if the host writes them BEFORE the build. Missing the
-        # first trips kiosk-buildinfo-cachesafe's bb.fatal -- loud, but a broken
-        # build, not a guarantee -- and missing either of the other two either
-        # trips the equivalent bb.fatal in the two app recipes or (worse) reuses
-        # a stale .inc/shrinkwrap left from a previous pin. Checked per call
-        # site, in file order, so a new entry point missing any writer is caught
-        # here.
+        # bitbake only if the host writes them BEFORE the build. Missing, the
+        # first trips kiosk-buildinfo-cachesafe's bb.fatal, and a stale one is
+        # refused at flash time by the reproducibility gate instead; missing OR
+        # stale, the other two trip the app recipes' own bb.fatal. Loud, but a
+        # broken build, not a guarantee. Checked per call site, in file order,
+        # so a new entry point missing any writer is caught here.
         writers10=(tools/write-build-rev.sh tools/go-mods.py tools/app-lockfile.py)
         badwriter10=""
         for w in "${writers10[@]}"; do

@@ -13,9 +13,10 @@ Move `SRCREV` in `wisekiosk-src.inc` to the new commit — that is the whole bum
 `wisekiosk-frontend/npm-shrinkwrap.json` nor `wisekiosk-backend-go-mods.inc` is committed (owner,
 2026-09-27: nothing autogenerable is); `just build` and every other entry point that runs `kas`
 regenerates both from the new pin, via `tools/app-lockfile.py` and `tools/go-mods.py` respectively,
-before bitbake ever sees them. Both need network the first time a new pin is built; a gitignored stamp beside each output records
-which commit it is for, so every later build against the same pin skips the fetch entirely. `go-mods.py`
-also needs a `go` toolchain new enough for the app's `go.mod`.
+before bitbake ever sees them. Both need network the first time a new pin is built; each output
+records the commit it was generated for — a variable inside the `.inc`, a gitignored `.srcrev` stamp
+beside the shrinkwrap — so every later build against the same pin skips the fetch entirely.
+`go-mods.py` also needs a `go` toolchain new enough for the app's `go.mod`.
 
 A pin bump that changes the LICENSE file's contents, or removes `deploy/config.example.json`, breaks
 `LIC_FILES_CHKSUM` or `wisekiosk-frontend_git.bb`'s `do_install` respectively — both fail loudly at
