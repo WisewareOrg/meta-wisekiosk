@@ -33,7 +33,11 @@ out=$(ROOT="$A" "$SCRIPT" 2>&1); rc=$?
 target="$A/data/config/config.json"
 source="$A/usr/share/wisekiosk/config.example.json"
 
-[ "$rc" -eq 0 ] && ok "absent: exits 0" || bad "absent: exits 0" "rc=$rc"
+if [ "$rc" -eq 0 ]; then
+    ok "absent: exits 0"
+else
+    bad "absent: exits 0" "rc=$rc"
+fi
 if [ -e "$target" ] && cmp -s "$target" "$source"; then
     ok "absent: seeded byte-equal to the image default"
 else
@@ -41,8 +45,11 @@ else
         "target $([ -e "$target" ] && echo present || echo MISSING)"
 fi
 mode=$(stat -c '%a' "$target" 2>/dev/null || echo "?")
-[ "$mode" = "644" ] && ok "absent: seeded file is mode 0644" \
-    || bad "absent: seeded file is mode 0644" "got mode=$mode"
+if [ "$mode" = "644" ]; then
+    ok "absent: seeded file is mode 0644"
+else
+    bad "absent: seeded file is mode 0644" "got mode=$mode"
+fi
 case "$out" in
     *"seeded /data/config/config.json from the image default"*)
         ok "absent: logs the seed line" ;;
@@ -65,10 +72,16 @@ before=$(cksum "$B/data/config/config.json")
 ROOT="$B" "$SCRIPT" >/dev/null 2>&1; rc=$?
 after=$(cksum "$B/data/config/config.json")
 
-[ "$rc" -eq 0 ] && ok "present, non-empty: exits 0" \
-    || bad "present, non-empty: exits 0" "rc=$rc"
-[ "$before" = "$after" ] && ok "present, non-empty: byte-unchanged" \
-    || bad "present, non-empty: byte-unchanged" "checksum changed"
+if [ "$rc" -eq 0 ]; then
+    ok "present, non-empty: exits 0"
+else
+    bad "present, non-empty: exits 0" "rc=$rc"
+fi
+if [ "$before" = "$after" ]; then
+    ok "present, non-empty: byte-unchanged"
+else
+    bad "present, non-empty: byte-unchanged" "checksum changed"
+fi
 
 # --- present, empty: byte-unchanged (still zero bytes) --------------------
 C="$TOP/c"
@@ -80,10 +93,16 @@ printf '{"fixture":"a default that must not be applied either"}' \
 ROOT="$C" "$SCRIPT" >/dev/null 2>&1; rc=$?
 size=$(stat -c '%s' "$C/data/config/config.json" 2>/dev/null || echo "?")
 
-[ "$rc" -eq 0 ] && ok "present, empty: exits 0" \
-    || bad "present, empty: exits 0" "rc=$rc"
-[ "$size" = "0" ] && ok "present, empty: byte-unchanged (still empty)" \
-    || bad "present, empty: byte-unchanged (still empty)" "size=$size"
+if [ "$rc" -eq 0 ]; then
+    ok "present, empty: exits 0"
+else
+    bad "present, empty: exits 0" "rc=$rc"
+fi
+if [ "$size" = "0" ]; then
+    ok "present, empty: byte-unchanged (still empty)"
+else
+    bad "present, empty: byte-unchanged (still empty)" "size=$size"
+fi
 
 # --- source missing: no config.json created, exact log line --------------
 D="$TOP/d"
@@ -91,15 +110,21 @@ mkdir -p "$D/usr/share/wisekiosk"
 
 out=$(ROOT="$D" "$SCRIPT" 2>&1); rc=$?
 
-[ "$rc" -eq 0 ] && ok "source missing: exits 0" \
-    || bad "source missing: exits 0" "rc=$rc"
+if [ "$rc" -eq 0 ]; then
+    ok "source missing: exits 0"
+else
+    bad "source missing: exits 0" "rc=$rc"
+fi
 if [ -e "$D/data/config/config.json" ]; then
     bad "source missing: no config.json created" "file exists"
 else
     ok "source missing: no config.json created"
 fi
-[ -d "$D/data/config" ] && ok "source missing: /data/config still created" \
-    || bad "source missing: /data/config still created" "directory absent"
+if [ -d "$D/data/config" ]; then
+    ok "source missing: /data/config still created"
+else
+    bad "source missing: /data/config still created" "directory absent"
+fi
 case "$out" in
     *"no image default config to seed"*)
         ok "source missing: logs the exact no-source line" ;;
@@ -113,8 +138,11 @@ mkdir -p "$E/usr/share/wisekiosk"
 
 out=$(ROOT="$E" "$SCRIPT" 2>&1); rc=$?
 
-[ "$rc" -eq 0 ] && ok "empty source: exits 0" \
-    || bad "empty source: exits 0" "rc=$rc"
+if [ "$rc" -eq 0 ]; then
+    ok "empty source: exits 0"
+else
+    bad "empty source: exits 0" "rc=$rc"
+fi
 if [ -e "$E/data/config/config.json" ]; then
     bad "empty source: no config.json created" "file exists"
 else
