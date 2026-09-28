@@ -19,17 +19,18 @@ SCRIPT="$HERE/../meta-wisekiosk/recipes-core/kiosk-provision/files/kiosk-seed-co
 TOP=$(mktemp -d)
 trap 'rm -rf "$TOP"' EXIT
 
-pass=0; fail=0
-ok()  { printf 'ok    %s\n' "$1"; pass=$((pass+1)); }
-bad() { printf 'FAIL  %s\n' "$1"; [ $# -gt 1 ] && printf '        %s\n' "$2"; fail=$((fail+1)); }
+pass=0; fail=0; skip=0
+ok()   { printf 'ok    %s\n' "$1"; pass=$((pass+1)); }
+bad()  { printf 'FAIL  %s\n' "$1"; [ $# -gt 1 ] && printf '        %s\n' "$2"; fail=$((fail+1)); }
+skip() { printf 'SKIP  %s -- %s\n' "$1" "$2"; skip=$((skip+1)); }
 
-# A PATH holding only `busybox --list`'s applets on bench (W7, BusyBox
-# v1.36.1), verbatim -- not every command on the target (a separate setuid
-# busybox.suid provides more, e.g. ping, none of it needed by this script),
-# and not the dev host's own coreutils. Neither `install` nor `timeout` is on
-# this list. The host's own `install` on the earlier, unrestricted PATH is
-# why the seed cases above never caught this -- the fix must work with only
-# what this list provides, plus bash/sh to run the script itself.
+# A PATH holding only `busybox --list`'s applets on bench (BusyBox v1.36.1),
+# verbatim -- not every command on the target (a separate setuid busybox.suid
+# provides more, e.g. ping, none of it needed by this script), and not the
+# dev host's own coreutils. Neither `install` nor `timeout` is on this list;
+# the seed cases above run with the host's own unrestricted PATH, where
+# `install` exists. The fix must work with only what this list provides,
+# plus bash/sh to run the script itself.
 BUSYBOX_APPLETS='[ [[ addgroup adduser ascii ash awk base32 basename blkid bunzip2 bzcat bzip2 cat
 chattr chgrp chmod chown chroot chvt clear cmp cp cpio crc32 cut date dc dd deallocvt delgroup
 deluser depmod df diff dirname dmesg dnsdomainname du dumpkmap dumpleases echo egrep env expr false
@@ -183,52 +184,54 @@ esac
 
 # --- write failure: /data/config exists but is not writable ---------------
 # `mkdir -p` on an already-existing directory never needs write permission
-# on it, so this reaches the actual copy/move -- which does, and fails.
-# W7's real-device finding: with no `set -e`, a failed copy fell through to
-# the success log line and exit 0 regardless. A crash or a full /data must
-# not read as success, so this asserts the honest outcome: no config.json,
-# no leftover .tmp, no false "seeded" claim, a stated failure, still exit 0.
-F="$TOP/f"
-mkdir -p "$F/usr/share/wisekiosk" "$F/data/config"
-printf '{"fixture":"a default config, not a real site value"}' \
-    > "$F/usr/share/wisekiosk/config.example.json"
-chmod 0500 "$F/data/config"
+# on it, so this reaches the actual copy/move -- which does, and fails. The
+# honest outcome: no config.json, no leftover .tmp, no false "seeded" claim,
+# a stated failure, still exit 0.
+#
+# Not root-safe: root ignores a directory's write bit, so this only proves
+# anything as a normal user.
+if [ "$(id -u)" -eq 0 ]; then
+    skip "write failure" "running as root, permissions do not bind"
+else
+    F="$TOP/f"
+    mkdir -p "$F/usr/share/wisekiosk" "$F/data/config"
+    printf '{"fixture":"a default config, not a real site value"}' \
+        > "$F/usr/share/wisekiosk/config.example.json"
+    chmod 0500 "$F/data/config"
 
-out=$(ROOT="$F" "$SCRIPT" 2>&1); rc=$?
-chmod 0700 "$F/data/config"
+    out=$(ROOT="$F" "$SCRIPT" 2>&1); rc=$?
+    chmod 0700 "$F/data/config"
 
-if [ "$rc" -eq 0 ]; then
-    ok "write failure: exits 0"
-else
-    bad "write failure: exits 0" "rc=$rc"
+    if [ "$rc" -eq 0 ]; then
+        ok "write failure: exits 0"
+    else
+        bad "write failure: exits 0" "rc=$rc"
+    fi
+    if [ -e "$F/data/config/config.json" ]; then
+        bad "write failure: no config.json created" "file exists"
+    else
+        ok "write failure: no config.json created"
+    fi
+    if [ -e "$F/data/config/config.json.tmp" ]; then
+        bad "write failure: no config.json.tmp left behind" "tmp artifact still present"
+    else
+        ok "write failure: no config.json.tmp left behind"
+    fi
+    case "$out" in
+        *"seeded /data/config/config.json"*)
+            bad "write failure: log does not falsely claim success" "output: $out" ;;
+        *) ok "write failure: log does not falsely claim success" ;;
+    esac
+    case "$out" in
+        *[Ff]ail*|*"could not"*|*"not written"*|*[Ee]rror*)
+            ok "write failure: log states the failure" ;;
+        *) bad "write failure: log states the failure" "output: $out" ;;
+    esac
 fi
-if [ -e "$F/data/config/config.json" ]; then
-    bad "write failure: no config.json created" "file exists"
-else
-    ok "write failure: no config.json created"
-fi
-if [ -e "$F/data/config/config.json.tmp" ]; then
-    bad "write failure: no config.json.tmp left behind" "tmp artifact still present"
-else
-    ok "write failure: no config.json.tmp left behind"
-fi
-case "$out" in
-    *"seeded /data/config/config.json"*)
-        bad "write failure: log does not falsely claim success" "output: $out" ;;
-    *) ok "write failure: log does not falsely claim success" ;;
-esac
-case "$out" in
-    *[Ff]ail*|*"could not"*|*"not written"*|*[Ee]rror*)
-        ok "write failure: log states the failure" ;;
-    *) bad "write failure: log states the failure" "output: $out" ;;
-esac
 
 # --- busybox PATH, absent: install is not a busybox applet on the target --
 # The same "absent" scenario as the very first case above, run with only the
-# device's own command set on PATH -- `install` (and `timeout`) are missing
-# there. Against the unfixed script this must fail: that gap is the actual
-# W7 finding, invisible on a dev host whose own coreutils `install` papers
-# over it.
+# device's busybox applet set on PATH -- install and timeout are not in it.
 G="$TOP/g"
 mkdir -p "$G/usr/share/wisekiosk"
 printf '{"fixture":"a default config, not a real site value"}' \
@@ -267,5 +270,5 @@ else
 fi
 
 echo
-printf 'pass=%s fail=%s\n' "$pass" "$fail"
+printf 'pass=%s fail=%s skip=%s\n' "$pass" "$fail" "$skip"
 [ "$fail" -eq 0 ]
