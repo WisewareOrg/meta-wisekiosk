@@ -210,6 +210,16 @@ def check_complete(modules, cache_dir: Path):
             if (_escape_module_path(path), version) not in have_zip]
 
 
+def _deps_include_codegen_tool(modules) -> bool:
+    """True if some module in `modules` is the one providing CODEGEN_TOOL --
+    a prefix of it ending at a `/` boundary, or equal to it. oapi-codegen's
+    own module must always appear in a real `go list -deps` result; if it
+    doesn't, the JSON output is empty, garbled, or not what was asked for,
+    and nothing else in `modules` can be trusted either."""
+    return any(CODEGEN_TOOL == path or CODEGEN_TOOL.startswith(path + "/")
+               for path, _ in modules)
+
+
 def fetch_cache(url: str, srcrev: str) -> Path:
     """Clone the pinned commit and run the one Go command that touches the
     network: `go list -deps` against oapi-codegen's own import path, which
@@ -237,8 +247,7 @@ def fetch_cache(url: str, srcrev: str) -> Path:
     # satisfy `go list -deps`'s query for a module's package information
     # without re-extracting that module's .zip into the scratch GOMODCACHE,
     # producing a "mod present, zip missing" .inc that depends on what else
-    # has touched the host's shared Go build cache (found on real hardware,
-    # W7).
+    # has touched the host's shared Go build cache.
     gocache = workdir / "gocache"
     gocache.mkdir()
     env = clean_env(**GO_ENV, GOMODCACHE=str(gomodcache), GOCACHE=str(gocache))
@@ -248,6 +257,11 @@ def fetch_cache(url: str, srcrev: str) -> Path:
         capture_output=True, text=True)
 
     modules = _deps_modules(result.stdout)
+    if not _deps_include_codegen_tool(modules):
+        sys.exit(refuse(
+            f"go list -deps reported no module providing {CODEGEN_TOOL} -- "
+            "its own module must always appear, so this output cannot be "
+            "trusted"))
     missing = check_complete(modules, gomodcache)
     if missing:
         named = ", ".join(f"{p}@{v}" for p, v in missing)
