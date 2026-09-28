@@ -345,6 +345,26 @@ def write_shrinkwrap_cases():
              app_lockfile.is_current(SRCREV, path=target), False)
 
 
+# --- regression: the shrinkwrap's parent directory may not exist -----------
+#
+# wisekiosk-frontend/ carries no other tracked file, so a fresh checkout has
+# no such directory until something creates it. write_shrinkwrap's first
+# write is `tmp.write_bytes(content)` at a path under that directory --
+# Path.write_bytes does not create missing parents, so this died with
+# FileNotFoundError on a fresh checkout (W7).
+
+def missing_parent_dir_cases():
+    payload = b'{"lockfileVersion": 3, "packages": {}}'
+    with tempfile.TemporaryDirectory() as tmp:
+        target = Path(tmp) / "wisekiosk-frontend" / "npm-shrinkwrap.json"
+        rc = app_lockfile.write_shrinkwrap(payload, SRCREV, path=target)
+        case("write_shrinkwrap: creates a missing parent directory", rc, 0)
+        case("write_shrinkwrap: the shrinkwrap is written with the right "
+             "content", target.read_bytes(), payload)
+        case("write_shrinkwrap: the stamp is written with the right srcrev",
+             app_lockfile.stamp_path_for(target).read_text(), SRCREV)
+
+
 def main() -> int:
     src_inc_cases()
     raw_url_cases()
@@ -352,6 +372,7 @@ def main() -> int:
     stamp_path_for_cases()
     is_current_cases()
     write_shrinkwrap_cases()
+    missing_parent_dir_cases()
     print(f"\npass={len(PASS)} fail={len(FAIL)} skip=0")
     return 1 if FAIL else 0
 
