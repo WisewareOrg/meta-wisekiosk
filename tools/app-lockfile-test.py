@@ -338,9 +338,8 @@ def write_shrinkwrap_cases():
              "content written", target.read_bytes(), new_payload)
         case("write_shrinkwrap: a stamp-write failure leaves no stamp behind",
              stamp_path.exists(), False)
-        # THE property content-reviewer's report is about: new content, no
-        # stamp -- must not read as current for the OLD srcrev the vanished
-        # stamp used to name.
+        # New content with no stamp must not read as current for the srcrev
+        # the old (now-vanished) stamp named.
         case("write_shrinkwrap: is_current is False after a stamp-write "
              "failure, for the srcrev the old stamp named",
              app_lockfile.is_current(SRCREV, path=target), False)
