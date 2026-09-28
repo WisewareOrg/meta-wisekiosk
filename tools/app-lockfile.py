@@ -6,12 +6,17 @@
 
 The shrinkwrap has to be byte-for-byte what the app's own CI locked, not
 `npm`-regenerated here, so this fetches frontend/package-lock.json straight
-from the pinned commit rather than running npm at all.
+from the pinned commit rather than running npm at all. A gitignored
+`<shrinkwrap>.srcrev` stamp beside it records which commit it is for, so a
+build entry point that runs this on every invocation skips the fetch once
+it is already current.
 
-`fetch_lockfile(url, srcrev) -> bytes` is the only network-touching function,
-and the importable seam for tests.
+`fetch_lockfile(url, srcrev) -> bytes` is the only network-touching
+function; it and `is_current`/`write_shrinkwrap` are the importable seams
+for tests.
 """
 import json
+import os
 import re
 import sys
 import urllib.error
@@ -73,15 +78,39 @@ def fetch_lockfile(url: str, srcrev: str) -> bytes:
         sys.exit(refuse(f"{exc.geturl()}: HTTP {exc.code}"))
 
 
-def write_shrinkwrap(content: bytes, path: Path = SHRINKWRAP_PATH) -> int:
-    """Validate `content` is JSON and write it verbatim to `path`, refusing
-    (no write) on invalid JSON. The importable seam for tests, alongside
-    fetch_lockfile."""
+def stamp_path_for(path: Path) -> Path:
+    """The gitignored stamp file recording which SRCREV `path` was written
+    for, beside it."""
+    return path.with_name(path.name + ".srcrev")
+
+
+def is_current(srcrev: str, path: Path = SHRINKWRAP_PATH) -> bool:
+    """True when `path` already holds this srcrev's content, per its stamp --
+    both the file and its stamp must exist, and the stamp must match. The
+    importable seam for "skip when current" tests."""
+    stamp = stamp_path_for(path)
+    return (path.exists() and stamp.exists()
+            and stamp.read_text().strip() == srcrev)
+
+
+def write_shrinkwrap(content: bytes, srcrev: str, path: Path = SHRINKWRAP_PATH) -> int:
+    """Validate `content` is JSON and write it verbatim to `path`
+    (atomically), refusing (no write, no stamp) on invalid JSON. Stamps
+    `path` with `srcrev` only once the write is verified good, so a stamp
+    never claims a file that isn't really there. The importable seam for
+    tests, alongside fetch_lockfile."""
     try:
         json.loads(content)
     except json.JSONDecodeError as exc:
         return refuse(f"fetched content is not valid JSON: {exc}")
-    path.write_bytes(content)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_bytes(content)
+    try:
+        os.replace(tmp, path)
+    except OSError:
+        tmp.unlink(missing_ok=True)
+        raise
+    stamp_path_for(path).write_text(srcrev)
     return 0
 
 
@@ -91,8 +120,11 @@ def main() -> int:
         return 2
 
     url, srcrev = _src_inc_fields()
+    if is_current(srcrev):
+        return 0
+
     content = fetch_lockfile(url, srcrev)
-    return write_shrinkwrap(content)
+    return write_shrinkwrap(content, srcrev)
 
 
 if __name__ == "__main__":
