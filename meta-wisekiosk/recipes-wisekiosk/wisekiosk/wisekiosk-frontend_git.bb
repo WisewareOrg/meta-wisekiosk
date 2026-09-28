@@ -22,12 +22,17 @@ SRC_URI += "npmsw://${THISDIR}/${BPN}/npm-shrinkwrap.json;dev=1;destsuffix=git/f
 # parses here with no warning otherwise -- same shape as
 # meta-wisekiosk/classes/kiosk-buildinfo-cachesafe.bbclass's check on
 # KIOSK_BUILDINFO_REV. The shrinkwrap is a plain JSON file, not `require`d, so
-# its <shrinkwrap>.srcrev stamp is read directly rather than as a bitbake var.
+# neither it nor its <shrinkwrap>.srcrev stamp is tracked by bitbake's parse
+# cache on its own -- mark_dependency makes a changed mtime on either one
+# (including one appearing where it was previously absent) invalidate a
+# cached parse, the same way changing this .bb file itself would.
 python () {
     import os
     shrinkwrap = os.path.join(d.getVar('THISDIR'), d.getVar('BPN'),
                                'npm-shrinkwrap.json')
     stamp = shrinkwrap + '.srcrev'
+    bb.parse.mark_dependency(d, shrinkwrap)
+    bb.parse.mark_dependency(d, stamp)
     recorded = open(stamp).read().strip() if os.path.exists(stamp) else None
     if not os.path.exists(shrinkwrap) or recorded != d.getVar('SRCREV'):
         bb.fatal("npm-shrinkwrap.json is missing or stale for this SRCREV: "
