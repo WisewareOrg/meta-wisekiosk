@@ -264,7 +264,10 @@ def write_shrinkwrap_cases():
     # THE atomic-write case: an interrupted replace must leave the original
     # file exactly as it was and no `.tmp` sibling behind -- the write is
     # tmp-file-then-os.replace precisely so a crash mid-write cannot leave a
-    # half-written shrinkwrap in place.
+    # half-written shrinkwrap in place. The old stamp is unlinked BEFORE the
+    # replace, not after, so an interruption here is expected to remove it --
+    # a missing stamp reads as stale, but a stamp naming content that was
+    # never written would read as current for the WRONG file.
     with tempfile.TemporaryDirectory() as tmp, \
          contextlib.redirect_stderr(io.StringIO()):
         target = Path(tmp) / "npm-shrinkwrap.json"
@@ -292,12 +295,55 @@ def write_shrinkwrap_cases():
              "not silently swallowed", raised, True)
         case("write_shrinkwrap: an interrupted replace leaves the original "
              "file byte-unchanged", target.read_bytes(), payload)
-        case("write_shrinkwrap: an interrupted replace leaves the original "
-             "stamp untouched",
-             app_lockfile.stamp_path_for(target).read_text(), SRCREV)
+        case("write_shrinkwrap: an interrupted replace leaves no stamp "
+             "(unlinked before the replace)",
+             app_lockfile.stamp_path_for(target).exists(), False)
         case("write_shrinkwrap: an interrupted replace leaves no .tmp "
              "sibling behind",
              list(Path(tmp).glob("*.tmp")), [])
+
+    # A second failure point: the replace itself succeeds but the stamp
+    # write after it fails. The shrinkwrap now holds the NEW content with no
+    # stamp at all -- the safe failure mode, since a stamp naming the OLD
+    # srcrev next to NEW content would read as current for a commit whose
+    # content was never actually written.
+    with tempfile.TemporaryDirectory() as tmp, \
+         contextlib.redirect_stderr(io.StringIO()):
+        target = Path(tmp) / "npm-shrinkwrap.json"
+        target.write_bytes(payload)
+        app_lockfile.stamp_path_for(target).write_text(SRCREV)
+        new_payload = b'{"lockfileVersion": 3, "packages": {"new": 1}}'
+
+        stamp_path = app_lockfile.stamp_path_for(target)
+        was_write_text = Path.write_text
+
+        def failing_write_text(self, *a, **kw):
+            if self == stamp_path:
+                raise OSError("simulated crash writing the stamp")
+            return was_write_text(self, *a, **kw)
+
+        Path.write_text = failing_write_text
+        try:
+            try:
+                app_lockfile.write_shrinkwrap(new_payload, "f" * 40, path=target)
+                raised = False
+            except OSError:
+                raised = True
+        finally:
+            Path.write_text = was_write_text
+
+        case("write_shrinkwrap: a stamp-write failure after a successful "
+             "replace still propagates", raised, True)
+        case("write_shrinkwrap: a stamp-write failure still leaves the new "
+             "content written", target.read_bytes(), new_payload)
+        case("write_shrinkwrap: a stamp-write failure leaves no stamp behind",
+             stamp_path.exists(), False)
+        # THE property content-reviewer's report is about: new content, no
+        # stamp -- must not read as current for the OLD srcrev the vanished
+        # stamp used to name.
+        case("write_shrinkwrap: is_current is False after a stamp-write "
+             "failure, for the srcrev the old stamp named",
+             app_lockfile.is_current(SRCREV, path=target), False)
 
 
 def main() -> int:
