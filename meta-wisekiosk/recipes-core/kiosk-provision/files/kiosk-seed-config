@@ -19,8 +19,7 @@ mkdir -p "$CFG"
 if [ ! -e "$CFG/config.json" ]; then
     if [ -s "$SRC" ]; then
         # cp + chmod, not install: the image's busybox carries no install
-        # applet, and install -m silently failing there left the seed
-        # believing it had succeeded.
+        # applet.
         tmp="$CFG/config.json.tmp"
         if ! cp "$SRC" "$tmp"; then
             rm -f "$tmp"
