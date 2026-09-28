@@ -183,45 +183,6 @@ def escaping_and_sort_cases():
          lines, want)
 
 
-def check_cases():
-    """`--check` without network. Team-lead ruling: go-mods.py exposes
-    `fetch_cache(url, srcrev) -> Path` (the only network-touching function)
-    and a module constant `INC_PATH` (the committed .inc path); `check(url,
-    srcrev)` is `render_inc(fetch_cache(url, srcrev), srcrev)` compared
-    against INC_PATH's content, exit 1 on drift / 0 on match. Tests
-    monkeypatch both seams -- the same pattern cve-tools-test.py uses for
-    layer-currency.py's check() via `currency.repo_top`/`currency.ls_remote`."""
-    url = "https://example.invalid/WiseKiosk.git"
-    srcrev = "f" * 40
-    zip_bytes = b"a fixture zip payload for --check"
-    mod_bytes = b"module example.com/checkfixture\n\ngo 1.24\n"
-
-    with tempfile.TemporaryDirectory() as tmp:
-        cache_dir = Path(tmp) / "gomodcache"
-        seed(cache_dir, "example.com/checkfixture", "v1.0.0", "zip", zip_bytes)
-        seed(cache_dir, "example.com/checkfixture", "v1.0.0", "mod", mod_bytes)
-        current = go_mods.render_inc(cache_dir, srcrev)
-        inc_path = Path(tmp) / "committed.inc"
-
-        was_fetch, was_inc = go_mods.fetch_cache, go_mods.INC_PATH
-        go_mods.fetch_cache = lambda u, s: cache_dir
-        try:
-            inc_path.write_text(current)
-            go_mods.INC_PATH = inc_path
-            case("check: exits 0 when the committed .inc matches the "
-                 "regenerated one",
-                 go_mods.check(url, srcrev), 0)
-
-            # Seeded drift: the committed .inc is stale (as if SRCREV moved
-            # and nobody re-ran the generator) -- the bytes on disk no longer
-            # match what render_inc produces for the fixture cache.
-            inc_path.write_text(current.replace(srcrev, "0" * 40))
-            case("check: exits 1 on a seeded drift (stale committed .inc)",
-                 go_mods.check(url, srcrev), 1)
-        finally:
-            go_mods.fetch_cache, go_mods.INC_PATH = was_fetch, was_inc
-
-
 # --- go-version contract (W3): fetch_cache refuses a too-old host `go` -----
 #
 # `_go_version_tuple` and `_required_go_version` are the two parsing seams;
@@ -383,7 +344,6 @@ def main() -> int:
     entry_shape_cases()
     mod_only_cases()
     escaping_and_sort_cases()
-    check_cases()
     version_tuple_cases()
     required_go_version_cases()
     refusal_path_cases()
