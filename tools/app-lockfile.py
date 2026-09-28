@@ -105,6 +105,7 @@ def write_shrinkwrap(content: bytes, srcrev: str, path: Path = SHRINKWRAP_PATH) 
         json.loads(content)
     except json.JSONDecodeError as exc:
         return refuse(f"fetched content is not valid JSON: {exc}")
+    path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_bytes(content)
     stamp = stamp_path_for(path)

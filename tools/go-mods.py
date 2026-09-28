@@ -207,6 +207,7 @@ def main() -> int:
     finally:
         _cleanup_workdirs()
 
+    INC_PATH.parent.mkdir(parents=True, exist_ok=True)
     tmp = INC_PATH.with_suffix(INC_PATH.suffix + ".tmp")
     tmp.write_text(rendered)
     try:
