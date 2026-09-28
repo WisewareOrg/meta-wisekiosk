@@ -836,6 +836,57 @@ else
     printf '%s\n' "$out17" | sed 's/^/        /'
 fi
 
+# --- 18. the default-config path agrees between install and seed ----------
+# wisekiosk-frontend_git.bb installs the shipped default at one path;
+# kiosk-seed-config reads it from another, written independently in a
+# different recipe. Nothing else ties the two together -- a typo in either
+# one would seed nothing and fail silently, since kiosk-seed-config treats a
+# missing source exactly like "no default to seed".
+frontend18="meta-wisekiosk/recipes-wisekiosk/wisekiosk/wisekiosk-frontend_git.bb"
+seed18="meta-wisekiosk/recipes-core/kiosk-provision/files/kiosk-seed-config"
+if [ ! -f "$frontend18" ] || [ ! -f "$seed18" ]; then
+    bad "guard 18: $frontend18 or $seed18 missing -- the default-config path agreement cannot be checked"
+elif ! command -v "$PY" > /dev/null 2>&1; then
+    bad "guard 18: $PY missing -- the default-config path agreement cannot be checked"
+else
+    out18=$("$PY" - "$frontend18" "$seed18" <<'PY'
+import re
+import sys
+
+frontend, seed = (open(p, encoding='utf-8').read() for p in sys.argv[1:3])
+
+problems = []
+
+m = re.search(r'\$\{D\}(\S*config\.example\.json)', frontend)
+if not m:
+    problems.append(f'{sys.argv[1]}: no ${{D}}...config.example.json install destination found')
+    installed = None
+else:
+    installed = m.group(1).replace('${datadir}', '/usr/share')
+
+m = re.search(r'SRC="\$ROOT(\S*config\.example\.json)"', seed)
+if not m:
+    problems.append(f'{sys.argv[2]}: no SRC="$ROOT...config.example.json" assignment found')
+    src = None
+else:
+    src = m.group(1)
+
+if installed is not None and src is not None and installed != src:
+    problems.append(
+        f'{sys.argv[1]} installs the default at {installed}, '
+        f'{sys.argv[2]} reads it from {src} -- the seed would silently find nothing')
+
+print('\n'.join(problems))
+PY
+    )
+    if [ -n "$out18" ]; then
+        bad "guard 18: the default-config path does not agree between install and seed:"
+        printf '%s\n' "$out18" | sed 's/^/        /'
+    else
+        ok "the default-config path agrees between wisekiosk-frontend_git.bb and kiosk-seed-config"
+    fi
+fi
+
 if [ "$fail" -ne 0 ]; then
     printf '\nguards FAILED\n'
     exit 1
