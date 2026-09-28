@@ -18,9 +18,22 @@ mkdir -p "$CFG"
 
 if [ ! -e "$CFG/config.json" ]; then
     if [ -s "$SRC" ]; then
-        install -m 0644 "$SRC" "$CFG/config.json.tmp"
-        mv "$CFG/config.json.tmp" "$CFG/config.json"
-        log "seeded /data/config/config.json from the image default"
+        # cp + chmod, not install: the image's busybox carries no install
+        # applet, and install -m silently failing there left the seed
+        # believing it had succeeded.
+        tmp="$CFG/config.json.tmp"
+        if ! cp "$SRC" "$tmp"; then
+            rm -f "$tmp"
+            log "failed to seed /data/config/config.json: cp"
+        elif ! chmod 0644 "$tmp"; then
+            rm -f "$tmp"
+            log "failed to seed /data/config/config.json: chmod"
+        elif ! mv "$tmp" "$CFG/config.json"; then
+            rm -f "$tmp"
+            log "failed to seed /data/config/config.json: mv"
+        else
+            log "seeded /data/config/config.json from the image default"
+        fi
     else
         log "no image default config to seed"
     fi
