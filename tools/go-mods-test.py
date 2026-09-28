@@ -15,11 +15,16 @@ as-is off disk, so a fixture with a literal `!x` segment is what an uppercase
 module path actually looks like in GOMODCACHE, not a re-implementation of the
 escaping rule.
 """
+import contextlib
 import hashlib
 import importlib.util
+import io
+import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 
 TOOLS = Path(__file__).resolve().parent
 sys.dont_write_bytecode = True
@@ -217,12 +222,171 @@ def check_cases():
             go_mods.fetch_cache, go_mods.INC_PATH = was_fetch, was_inc
 
 
+# --- go-version contract (W3): fetch_cache refuses a too-old host `go` -----
+#
+# `_go_version_tuple` and `_required_go_version` are the two parsing seams;
+# `fetch_cache`'s `have < need` comparison between them is the refusal path
+# itself. `fetch_cache` also clones and runs `go list`, so exercising the
+# comparison end-to-end monkeypatches `subprocess.run` -- there is no wrapper
+# function to stub instead, the way layer-currency.py's `git()` gives
+# cve-tools-test.py one.
+
+GO_MOD_1260 = "module example.com/fixture\n\ngo 1.26.0\n"
+GO_MOD_1260_SHORT = "module example.com/fixture\n\ngo 1.26\n"
+
+
+def version_tuple_cases():
+    case("_go_version_tuple: exact three-component `go version` output",
+         go_mods._go_version_tuple("go version go1.26.0 linux/amd64\n"),
+         (1, 26, 0))
+    # Spelled differently but valid: a newer patch must not be misread as
+    # equal -- the comparison is a tuple compare, not a string compare.
+    case("_go_version_tuple: a newer patch parses strictly greater",
+         go_mods._go_version_tuple("go version go1.26.1 linux/amd64\n") >
+         go_mods._go_version_tuple("go version go1.26.0 linux/amd64\n"),
+         True)
+    case("_go_version_tuple: an older minor parses strictly less",
+         go_mods._go_version_tuple("go version go1.25.9 linux/amd64\n") <
+         go_mods._go_version_tuple("go version go1.26.0 linux/amd64\n"),
+         True)
+    # `go version` never emits a bare two-component string, but the regex's
+    # patch group is optional -- missing reads as 0, not refused outright.
+    case("_go_version_tuple: a two-component version fills patch with 0",
+         go_mods._go_version_tuple("go version go1.26 linux/amd64\n"),
+         (1, 26, 0))
+    # A devel/rc build string: the regex has no dedicated case for it, so it
+    # reads whatever `go\d+\.\d+` it finds first -- here the base series
+    # `go1.24` embedded in the devel build stamp, silently dropping the
+    # `-e705a...` commit suffix. This is the parser's actual behaviour, not a
+    # claimed feature: a devel toolchain built off an older series is (only
+    # coincidentally correctly) read as behind; one built off the SAME series
+    # as a later release would read as behind too, wrongly.
+    case("_go_version_tuple: a devel build string reads its embedded series",
+         go_mods._go_version_tuple(
+             "go version devel go1.24-e705a02574 Tue Sep 26 15:22:01 2023 "
+             "+0000 linux/amd64\n"),
+         (1, 24, 0))
+
+
+def required_go_version_cases():
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = Path(tmp)
+        (repo / "backend").mkdir()
+        (repo / "backend" / "go.mod").write_text(GO_MOD_1260)
+        case("_required_go_version: three-component `go` directive",
+             go_mods._required_go_version(repo), (1, 26, 0))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = Path(tmp)
+        (repo / "backend").mkdir()
+        (repo / "backend" / "go.mod").write_text(GO_MOD_1260_SHORT)
+        case("_required_go_version: two-component `go` directive fills "
+             "patch with 0",
+             go_mods._required_go_version(repo), (1, 26, 0))
+
+
+class FakeToolchain:
+    """Stands in for the four subprocess.run calls fetch_cache makes -- `go
+    version`, `git clone`, `git checkout` and `go list` -- around its version
+    gate. Recording whether `go list` ran is what proves a refusal
+    short-circuited rather than merely printing a message and continuing."""
+
+    def __init__(self, go_version_stdout, go_mod_text):
+        self.go_version_stdout = go_version_stdout
+        self.go_mod_text = go_mod_text
+        self.go_list_called = False
+        self.workdir = None
+
+    def __call__(self, argv, **kwargs):
+        if argv[:2] == ["go", "version"]:
+            return SimpleNamespace(stdout=self.go_version_stdout, returncode=0)
+        if argv[:2] == ["git", "clone"]:
+            repo = Path(argv[-1])
+            self.workdir = repo.parent
+            (repo / "backend").mkdir(parents=True)
+            (repo / "backend" / "go.mod").write_text(self.go_mod_text)
+            return SimpleNamespace(returncode=0)
+        if argv[:2] == ["git", "-C"] and "checkout" in argv:
+            return SimpleNamespace(returncode=0)
+        if argv[:2] == ["go", "list"]:
+            self.go_list_called = True
+            return SimpleNamespace(returncode=0)
+        raise AssertionError(f"unexpected subprocess call in fetch_cache: {argv}")
+
+
+def run_fetch_cache(go_version_stdout, go_mod_text):
+    """fetch_cache(), every subprocess call faked: returns (the SystemExit
+    code fetch_cache raised, or None; its stderr; the FakeToolchain, to check
+    whether `go list` ran)."""
+    toolchain = FakeToolchain(go_version_stdout, go_mod_text)
+    was_run = subprocess.run
+    subprocess.run = toolchain
+    stderr = io.StringIO()
+    code = None
+    try:
+        with contextlib.redirect_stderr(stderr):
+            try:
+                go_mods.fetch_cache("https://example.invalid/repo.git", "f" * 40)
+            except SystemExit as exc:
+                code = exc.code
+    finally:
+        subprocess.run = was_run
+        if toolchain.workdir is not None:
+            shutil.rmtree(toolchain.workdir, ignore_errors=True)
+    return code, stderr.getvalue(), toolchain
+
+
+def refusal_path_cases():
+    GO_VERSION = "go version go1.26.0 linux/amd64\n"
+
+    # Equal: the app's own pinned floor, exactly met. Must proceed, not
+    # refuse -- `have < need` is strict, not `<=`.
+    code, err, tc = run_fetch_cache(GO_VERSION, GO_MOD_1260)
+    case("fetch_cache: host go equal to the required version is not refused",
+         code, None)
+    case("fetch_cache: equal version still runs `go list`",
+         tc.go_list_called, True)
+
+    # Newer patch: the must-not-fire half of the same comparison.
+    code, err, tc = run_fetch_cache(
+        "go version go1.26.1 linux/amd64\n", GO_MOD_1260)
+    case("fetch_cache: a newer host patch is not refused", code, None)
+
+    # Older minor: THE case. Must refuse before `go list` ever runs.
+    code, err, tc = run_fetch_cache(
+        "go version go1.25.9 linux/amd64\n", GO_MOD_1260)
+    case("fetch_cache: an older host minor is refused", code, 2)
+    case("fetch_cache: refusal names both versions",
+         "1.25.9" in err and "1.26.0" in err, True)
+    case("fetch_cache: a refusal never runs `go list`",
+         tc.go_list_called, False)
+
+    # The two-component `go` directive form: same comparison, fed from
+    # `_required_go_version`'s other branch.
+    code, err, tc = run_fetch_cache(GO_VERSION, GO_MOD_1260_SHORT)
+    case("fetch_cache: a two-component go.mod directive is not refused",
+         code, None)
+
+    # A devel host toolchain, read as its embedded 1.24 series (see
+    # version_tuple_cases): behind a 1.26.0 floor, so it refuses here -- this
+    # documents the parser's literal behaviour, not a claim that devel builds
+    # are specially supported.
+    case("fetch_cache: a devel host string reading behind is refused",
+         run_fetch_cache(
+             "go version devel go1.24-e705a02574 Tue Sep 26 15:22:01 2023 "
+             "+0000 linux/amd64\n", GO_MOD_1260)[0],
+         2)
+
+
 def main() -> int:
     header_cases()
     entry_shape_cases()
     mod_only_cases()
     escaping_and_sort_cases()
     check_cases()
+    version_tuple_cases()
+    required_go_version_cases()
+    refusal_path_cases()
     print(f"\npass={len(PASS)} fail={len(FAIL)} skip=0")
     return 1 if FAIL else 0
 
