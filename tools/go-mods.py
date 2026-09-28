@@ -191,8 +191,8 @@ def check(url: str, srcrev: str, show_diff: bool = False) -> int:
     INC_PATH's committed content. Both names are looked up on this module at
     call time, so a test can replace either -- the same pattern
     cve-tools-test.py uses for layer-currency.py's check()."""
-    cache_dir = fetch_cache(url, srcrev)
     try:
+        cache_dir = fetch_cache(url, srcrev)
         current = render_inc(cache_dir, srcrev)
     finally:
         _cleanup_workdirs()
@@ -217,8 +217,8 @@ def main() -> int:
     if argv == ["--check"]:
         return check(url, srcrev, show_diff=True)
 
-    cache_dir = fetch_cache(url, srcrev)
     try:
+        cache_dir = fetch_cache(url, srcrev)
         INC_PATH.write_text(render_inc(cache_dir, srcrev))
     finally:
         _cleanup_workdirs()

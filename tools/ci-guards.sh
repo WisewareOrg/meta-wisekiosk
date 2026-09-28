@@ -849,7 +849,7 @@ if [ ! -f "$frontend18" ] || [ ! -f "$seed18" ]; then
 elif ! command -v "$PY" > /dev/null 2>&1; then
     bad "guard 18: $PY missing -- the default-config path agreement cannot be checked"
 else
-    out18=$("$PY" - "$frontend18" "$seed18" <<'PY'
+    out18=$("$PY" - "$frontend18" "$seed18" 2>&1 <<'PY'
 import re
 import sys
 
@@ -876,11 +876,14 @@ if installed is not None and src is not None and installed != src:
         f'{sys.argv[1]} installs the default at {installed}, '
         f'{sys.argv[2]} reads it from {src} -- the seed would silently find nothing')
 
-print('\n'.join(problems))
+if problems:
+    print('\n'.join(problems))
+    sys.exit(1)
 PY
     )
-    if [ -n "$out18" ]; then
-        bad "guard 18: the default-config path does not agree between install and seed:"
+    rc18=$?
+    if [ "$rc18" -ne 0 ] || [ -n "$out18" ]; then
+        bad "guard 18: the default-config path agreement check failed:"
         printf '%s\n' "$out18" | sed 's/^/        /'
     else
         ok "the default-config path agrees between wisekiosk-frontend_git.bb and kiosk-seed-config"

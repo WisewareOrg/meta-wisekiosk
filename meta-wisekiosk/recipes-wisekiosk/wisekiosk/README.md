@@ -32,16 +32,17 @@ every build, so this layer never carries a generated file that could go stale ag
 
 The backend's `go tool oapi-codegen` needs its own module graph to run, and `go build` in this recipe
 stays `GOPROXY=off` — see `wisekiosk-backend-go-mods.inc`'s header and `tools/go-mods.py` for how that
-closure arrives as checksummed `SRC_URI` entries instead of `go-vendor`. Vendoring was rejected for the
-same reason [`app_from_source/README.md`](../../../docs/issue_investigation/app_from_source/README.md)
-rejected it for the app's own runtime dependencies: Go 1.24+ vendors `tool` directives, and
-`oapi-codegen` is exactly that — a tool-only dependency, absent from the shipped binary — so vendoring
-it would mean pinning and shipping the generator's own source for a tool that never runs on the
-device. The checksummed entries keep that closure out of both `vendor/` and the binary while still
-resolving offline. Those modules also carry no `LICENSE.inc` of their own, unlike upstream's own
-`go-mod-update-modules` recipe tooling, which adds one per vendored module: they build the generator
-only and ship nothing in the package, so there is nothing here for a package `LICENSE` field to
-account for.
+closure arrives as checksummed `SRC_URI` entries instead of `go-vendor`. The owner ruled (2026-09-27)
+for this shape as the most idiomatic, industry-standard approach: it is the checksummed per-module
+proxy-zip layout Yocto's own `gomod://` fetcher and `go-mod-update-modules` use from styhead onward,
+not available on scarthgap here, so it is written as plain `https://proxy.golang.org/...` entries that
+convert mechanically once the layer moves. `go-vendor` is what scarthgap's own tooling emits, but it is
+the shape Yocto replaced: for this app it would mean vendoring every module every `go.mod` tool needs,
+not just oapi-codegen's own graph, and `go.sum` is not enforced under `-mod=vendor`. Committing the
+generated code instead of regenerating it was rejected outright. Those modules also carry no
+`LICENSE.inc` of their own, unlike upstream's own `go-mod-update-modules` recipe tooling, which adds
+one per vendored module: they build the generator only and ship nothing in the package, so there is
+nothing here for a package `LICENSE` field to account for.
 
 ## Node is held to the app's declared major
 
