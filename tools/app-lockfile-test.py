@@ -4,19 +4,21 @@
     app-lockfile-test.py        -- every case
 
 `app-lockfile.py` writes the app's npm shrinkwrap by fetching its own
-frontend/package-lock.json straight from the pinned commit, never running npm.
-Three importable seams: `_src_inc_fields(src_inc)` parses the pin and clone
-URL from a wisekiosk-src.inc path handed to it (a fixture here, the real file
-in production); `fetch_lockfile(url, srcrev)` is the only network-touching
-call, stubbed here by replacing `urllib.request.urlopen` for the call's
-duration -- never a real fetch; `write_shrinkwrap(content, path)` validates
-and writes to a path handed to it (a fixture here, SHRINKWRAP_PATH inside the
-real repo tree in production). No case here ever touches the real
+frontend/package-lock.json straight from the pinned commit, never running npm,
+and skips the fetch entirely once a gitignored `<shrinkwrap>.srcrev` stamp
+beside it already names the current pin. Importable seams: `_src_inc_fields
+(src_inc)` parses the pin and clone URL from a path handed to it (a fixture
+here); `fetch_lockfile(url, srcrev)` is the only network-touching call,
+stubbed here by replacing `urllib.request.urlopen` for the call's duration --
+never a real fetch; `is_current(srcrev, path)` and `write_shrinkwrap(content,
+srcrev, path)` take the shrinkwrap path as a parameter (a fixture here,
+SHRINKWRAP_PATH in production). No case here ever touches the real
 wisekiosk-src.inc or writes into the real repo tree.
 """
 import contextlib
 import importlib.util
 import io
+import os
 import sys
 import tempfile
 import urllib.error
@@ -177,49 +179,133 @@ def fetch_lockfile_cases():
     # to prove an HTTP error leaves no file behind.
 
 
-# --- write_shrinkwrap: validate, then write verbatim to a fixture path -----
+# --- stamp_path_for / is_current: the "already current" seam ---------------
+
+def stamp_path_for_cases():
+    case("stamp_path_for: <name> becomes <name>.srcrev, beside the target",
+         app_lockfile.stamp_path_for(Path("/x/npm-shrinkwrap.json")),
+         Path("/x/npm-shrinkwrap.json.srcrev"))
+
+
+def is_current_cases():
+    with tempfile.TemporaryDirectory() as tmp:
+        target = Path(tmp) / "npm-shrinkwrap.json"
+        target.write_bytes(b"{}")
+        app_lockfile.stamp_path_for(target).write_text(SRCREV)
+        case("is_current: file and matching stamp both present",
+             app_lockfile.is_current(SRCREV, path=target), True)
+
+    # Must-not-fire, three ways: a matching stamp with no file, a file with
+    # no stamp, and a stamp naming a different commit -- none of these is
+    # "current", or a half-seeded fixture or a stale pin would be trusted.
+    with tempfile.TemporaryDirectory() as tmp:
+        target = Path(tmp) / "npm-shrinkwrap.json"
+        app_lockfile.stamp_path_for(target).write_text(SRCREV)
+        case("is_current: a stamp with no shrinkwrap file is not current",
+             app_lockfile.is_current(SRCREV, path=target), False)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        target = Path(tmp) / "npm-shrinkwrap.json"
+        target.write_bytes(b"{}")
+        case("is_current: a shrinkwrap with no stamp is not current",
+             app_lockfile.is_current(SRCREV, path=target), False)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        target = Path(tmp) / "npm-shrinkwrap.json"
+        target.write_bytes(b"{}")
+        app_lockfile.stamp_path_for(target).write_text("f" * 40)
+        case("is_current: a stamp naming a different commit is not current",
+             app_lockfile.is_current(SRCREV, path=target), False)
+
+
+# --- write_shrinkwrap: validate, write atomically, then stamp --------------
 
 def write_shrinkwrap_cases():
     payload = b'{"lockfileVersion": 3, "packages": {}}'
 
     with tempfile.TemporaryDirectory() as tmp:
         target = Path(tmp) / "npm-shrinkwrap.json"
-        rc = app_lockfile.write_shrinkwrap(payload, path=target)
+        rc = app_lockfile.write_shrinkwrap(payload, SRCREV, path=target)
         case("write_shrinkwrap: valid JSON returns 0", rc, 0)
         case("write_shrinkwrap: bytes are written verbatim",
              target.read_bytes(), payload)
+        case("write_shrinkwrap: stamps the file with the given srcrev",
+             app_lockfile.stamp_path_for(target).read_text(), SRCREV)
+        case("write_shrinkwrap: is_current agrees once written",
+             app_lockfile.is_current(SRCREV, path=target), True)
 
-    # THE case: invalid JSON refuses and leaves no file at all, rather than a
-    # zero-byte or partial one an operator's build would then npm-install
-    # against silently.
+    # THE case: invalid JSON refuses and leaves no file and no stamp at all,
+    # rather than a zero-byte or partial shrinkwrap -- or a stamp claiming a
+    # file that was never written -- an operator's build would then trust.
     with tempfile.TemporaryDirectory() as tmp, \
          contextlib.redirect_stderr(io.StringIO()):
         target = Path(tmp) / "npm-shrinkwrap.json"
-        rc = app_lockfile.write_shrinkwrap(b"not json at all", path=target)
+        rc = app_lockfile.write_shrinkwrap(b"not json at all", SRCREV, path=target)
         case("write_shrinkwrap: invalid JSON refuses (non-zero)", rc != 0, True)
         case("write_shrinkwrap: invalid JSON leaves no file behind",
              target.exists(), False)
+        case("write_shrinkwrap: invalid JSON leaves no stamp behind",
+             app_lockfile.stamp_path_for(target).exists(), False)
 
-    # Must-not-fire: a refusal happens before write_shrinkwrap ever calls
-    # `path.write_bytes` (JSON validation runs first), so an existing file at
-    # the target is left alone. This does NOT prove the write itself is
-    # atomic/partial-write-safe -- write_shrinkwrap's current write is a
-    # single non-atomic `path.write_bytes`, and this case cannot fail on a
-    # write that starts and is interrupted. See the tmp+os.replace follow-up
-    # content-reviewer requested from the implementer.
+    # Must-not-fire: a refusal happens before write_shrinkwrap ever attempts
+    # a write (JSON validation runs first), so an existing file -- and its
+    # stamp -- are left alone.
     with tempfile.TemporaryDirectory() as tmp, \
          contextlib.redirect_stderr(io.StringIO()):
         target = Path(tmp) / "npm-shrinkwrap.json"
         target.write_bytes(payload)
-        app_lockfile.write_shrinkwrap(b"not json at all", path=target)
+        app_lockfile.stamp_path_for(target).write_text(SRCREV)
+        app_lockfile.write_shrinkwrap(b"not json at all", "f" * 40, path=target)
         case("write_shrinkwrap: a refusal leaves an existing file untouched",
              target.read_bytes(), payload)
+        case("write_shrinkwrap: a refusal leaves an existing stamp untouched",
+             app_lockfile.stamp_path_for(target).read_text(), SRCREV)
+
+    # THE atomic-write case: an interrupted replace must leave the original
+    # file exactly as it was and no `.tmp` sibling behind -- the write is
+    # tmp-file-then-os.replace precisely so a crash mid-write cannot leave a
+    # half-written shrinkwrap in place.
+    with tempfile.TemporaryDirectory() as tmp, \
+         contextlib.redirect_stderr(io.StringIO()):
+        target = Path(tmp) / "npm-shrinkwrap.json"
+        target.write_bytes(payload)
+        app_lockfile.stamp_path_for(target).write_text(SRCREV)
+
+        was_replace = os.replace
+
+        def failing_replace(*a, **kw):
+            raise OSError("simulated crash mid-replace")
+
+        os.replace = failing_replace
+        try:
+            try:
+                app_lockfile.write_shrinkwrap(
+                    b'{"lockfileVersion": 3, "packages": {"new": 1}}',
+                    "f" * 40, path=target)
+                raised = False
+            except OSError:
+                raised = True
+        finally:
+            os.replace = was_replace
+
+        case("write_shrinkwrap: an interrupted replace propagates, "
+             "not silently swallowed", raised, True)
+        case("write_shrinkwrap: an interrupted replace leaves the original "
+             "file byte-unchanged", target.read_bytes(), payload)
+        case("write_shrinkwrap: an interrupted replace leaves the original "
+             "stamp untouched",
+             app_lockfile.stamp_path_for(target).read_text(), SRCREV)
+        case("write_shrinkwrap: an interrupted replace leaves no .tmp "
+             "sibling behind",
+             list(Path(tmp).glob("*.tmp")), [])
 
 
 def main() -> int:
     src_inc_cases()
     raw_url_cases()
     fetch_lockfile_cases()
+    stamp_path_for_cases()
+    is_current_cases()
     write_shrinkwrap_cases()
     print(f"\npass={len(PASS)} fail={len(FAIL)} skip=0")
     return 1 if FAIL else 0
