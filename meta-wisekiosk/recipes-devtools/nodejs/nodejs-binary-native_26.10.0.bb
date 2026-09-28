@@ -6,7 +6,7 @@ node from source costs an hour to produce a compiler for HTML -- so this unpacks
 tarball the way poky's go-binary-native does, and is a native recipe only."
 HOMEPAGE = "https://nodejs.org/"
 LICENSE = "MIT"
-LIC_FILES_CHKSUM = "file://LICENSE;md5=edc0683b77d2c503217642fa000b5b31"
+LIC_FILES_CHKSUM = "file://LICENSE;md5=91714ce137cce8ffea829e50d3341205"
 
 # No PROVIDES = "nodejs-native": meta-oe already provides it, and a second
 # provider needs a PREFERRED_PROVIDER. Consumers name this recipe in DEPENDS.
