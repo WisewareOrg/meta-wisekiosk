@@ -800,6 +800,42 @@ else
     fi
 fi
 
+# --- 16. the Go module generator must still pass its own self-test --------
+# tools/go-mods.py's rendering seam (render_inc) is what turns a GOMODCACHE
+# into wisekiosk-backend-go-mods.inc; a change to its sort order, its id
+# derivation or its SRC_URI shape would silently ship a recipe bitbake
+# refuses, or one that resolves to the wrong module. The self-test drives
+# fabricated caches only, never a real `go list` or clone, so it needs no
+# network and no Go toolchain.
+gomodstest16="tools/go-mods-test.py"
+if [ ! -f "$gomodstest16" ]; then
+    bad "guard 16: $gomodstest16 missing -- the Go module generator is no longer self-tested"
+elif ! command -v "$PY" > /dev/null 2>&1; then
+    bad "guard 16: $PY missing -- the Go module generator cannot be self-tested"
+elif out16=$("$PY" "$gomodstest16" 2>&1); then
+    ok "the Go module generator passes its self-test ($(printf '%s\n' "$out16" | tail -n1))"
+else
+    bad "the Go module generator FAILS its own self-test:"
+    printf '%s\n' "$out16" \
+        | grep -E '^(FAIL|SKIP|  |pass=|Traceback|[A-Za-z_][A-Za-z0-9_.]*:)' \
+        | sed 's/^/        /'
+fi
+
+# --- 17. the config seed script must still pass its own self-test ---------
+# kiosk-seed-config must never overwrite an operator's file, however it got
+# there -- including an empty one -- and must seed byte-for-byte from the
+# image default otherwise. The self-test drives it against a fabricated ROOT,
+# never a real device or /data.
+seedtest17="tools/kiosk-seed-config-test.sh"
+if [ ! -f "$seedtest17" ]; then
+    bad "guard 17: $seedtest17 missing -- the config seed script is no longer self-tested"
+elif out17=$(bash "$seedtest17" 2>&1); then
+    ok "the config seed script passes its self-test ($(printf '%s\n' "$out17" | tail -n1))"
+else
+    bad "the config seed script FAILS its own self-test:"
+    printf '%s\n' "$out17" | sed 's/^/        /'
+fi
+
 if [ "$fail" -ne 0 ]; then
     printf '\nguards FAILED\n'
     exit 1
