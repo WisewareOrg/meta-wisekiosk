@@ -38,11 +38,12 @@ def refuse(message: str) -> int:
     return 2
 
 
-def _src_inc_fields():
+def _src_inc_fields(src_inc: Path = SRC_INC):
     """(url, srcrev) as bitbake reads them from wisekiosk-src.inc -- the same
     parse tools/go-mods.py does, kept separate rather than shared so neither
-    tool depends on the other."""
-    text = SRC_INC.read_text()
+    tool depends on the other. `src_inc` is the importable seam for tests, a
+    fixture file in place of the real one."""
+    text = src_inc.read_text()
     srcrev = re.search(r'^SRCREV\s*=\s*"([0-9a-f]{40})"', text, re.M).group(1)
     src_uri = re.search(r'^SRC_URI\s*=\s*"([^"]+)"', text, re.M).group(1)
     scheme_and_path, *params = src_uri.split(";")
@@ -72,6 +73,18 @@ def fetch_lockfile(url: str, srcrev: str) -> bytes:
         sys.exit(refuse(f"{exc.geturl()}: HTTP {exc.code}"))
 
 
+def write_shrinkwrap(content: bytes, path: Path = SHRINKWRAP_PATH) -> int:
+    """Validate `content` is JSON and write it verbatim to `path`, refusing
+    (no write) on invalid JSON. The importable seam for tests, alongside
+    fetch_lockfile."""
+    try:
+        json.loads(content)
+    except json.JSONDecodeError as exc:
+        return refuse(f"fetched content is not valid JSON: {exc}")
+    path.write_bytes(content)
+    return 0
+
+
 def main() -> int:
     if sys.argv[1:]:
         print(__doc__.strip().split("\n\n")[1], file=sys.stderr)
@@ -79,13 +92,7 @@ def main() -> int:
 
     url, srcrev = _src_inc_fields()
     content = fetch_lockfile(url, srcrev)
-    try:
-        json.loads(content)
-    except json.JSONDecodeError as exc:
-        return refuse(f"fetched content is not valid JSON: {exc}")
-
-    SHRINKWRAP_PATH.write_bytes(content)
-    return 0
+    return write_shrinkwrap(content)
 
 
 if __name__ == "__main__":
