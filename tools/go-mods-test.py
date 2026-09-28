@@ -19,6 +19,7 @@ import contextlib
 import hashlib
 import importlib.util
 import io
+import os
 import shutil
 import subprocess
 import sys
@@ -254,12 +255,17 @@ class FakeToolchain:
     """Stands in for the four subprocess.run calls fetch_cache makes -- `go
     version`, `git clone`, `git checkout` and `go list` -- around its version
     gate. Recording whether `go list` ran is what proves a refusal
-    short-circuited rather than merely printing a message and continuing."""
+    short-circuited rather than merely printing a message and continuing.
+    `go list`'s fake stdout defaults to empty (no modules), which
+    _deps_modules and check_complete both treat as trivially complete --
+    tests that care about the deps stream pass go_list_stdout explicitly."""
 
-    def __init__(self, go_version_stdout, go_mod_text):
+    def __init__(self, go_version_stdout, go_mod_text, go_list_stdout=""):
         self.go_version_stdout = go_version_stdout
         self.go_mod_text = go_mod_text
+        self.go_list_stdout = go_list_stdout
         self.go_list_called = False
+        self.go_list_env = None
         self.workdir = None
 
     def __call__(self, argv, **kwargs):
@@ -275,7 +281,8 @@ class FakeToolchain:
             return SimpleNamespace(returncode=0)
         if argv[:2] == ["go", "list"]:
             self.go_list_called = True
-            return SimpleNamespace(returncode=0)
+            self.go_list_env = kwargs.get("env")
+            return SimpleNamespace(stdout=self.go_list_stdout, returncode=0)
         raise AssertionError(f"unexpected subprocess call in fetch_cache: {argv}")
 
 
@@ -343,6 +350,95 @@ def refusal_path_cases():
          2)
 
 
+# --- GOCACHE isolation (W7) -------------------------------------------------
+#
+# GOMODCACHE already gets a fresh scratch dir per run; GOCACHE did not, so
+# `go list -deps` ran against the host's shared, possibly-warm build cache.
+# With a build already cached there, `go list` can report a module's package
+# without ever extracting that module's .zip into GOMODCACHE -- silently
+# dropping it from the rendered .inc. GOCACHE needs the same fresh-per-run
+# treatment GOMODCACHE already has.
+
+def gocache_isolation_cases():
+    host_gocache = "/nonexistent/host/shared/go-build"
+    was_gocache = os.environ.get("GOCACHE")
+    os.environ["GOCACHE"] = host_gocache
+    try:
+        code, err, tc = run_fetch_cache(
+            "go version go1.26.0 linux/amd64\n", GO_MOD_1260)
+    finally:
+        if was_gocache is None:
+            os.environ.pop("GOCACHE", None)
+        else:
+            os.environ["GOCACHE"] = was_gocache
+
+    gocache = (tc.go_list_env or {}).get("GOCACHE")
+    case("fetch_cache: GOCACHE differs from the inherited host GOCACHE",
+         gocache != host_gocache and gocache is not None, True)
+    # Under the run's OWN temp root, alongside GOMODCACHE -- not some other
+    # fixed, reused path, or a second run could warm it just the same way.
+    case("fetch_cache: GOCACHE lies under the run's own temp root",
+         gocache is not None and tc.workdir is not None
+         and Path(gocache).resolve().is_relative_to(tc.workdir.resolve()),
+         True)
+
+
+# --- check_complete: every package-providing module needs its .zip (W7) ---
+#
+# `go list -deps` reporting a module as providing a package means its
+# source, not just its go.mod, was needed to build -- a cache holding only
+# that module's .mod is incomplete, and W7 found exactly this happening
+# silently against a warm host GOCACHE. A module that provides no package
+# never appears in `modules` at all, so a mod-only cache entry for it stays
+# legal and is never asked about.
+
+def check_complete_cases():
+    with tempfile.TemporaryDirectory() as tmp:
+        # THE case: a package-providing module (named in `modules`) whose
+        # cache entry has only a .mod. Must be reported missing.
+        seed(tmp, "example.com/nozip", "v1.0.0", "mod",
+             b"module example.com/nozip\n")
+        missing = go_mods.check_complete(
+            [("example.com/nozip", "v1.0.0")], Path(tmp))
+        case("check_complete: a package-providing module with only a .mod "
+             "is reported missing",
+             missing, [("example.com/nozip", "v1.0.0")])
+
+    with tempfile.TemporaryDirectory() as tmp:
+        # The must-not-fire half: the same module, its .zip now present too.
+        seed(tmp, "example.com/haszip", "v1.0.0", "mod",
+             b"module example.com/haszip\n")
+        seed(tmp, "example.com/haszip", "v1.0.0", "zip",
+             b"a fixture zip payload")
+        missing = go_mods.check_complete(
+            [("example.com/haszip", "v1.0.0")], Path(tmp))
+        case("check_complete: a package-providing module with its .zip "
+             "present is complete", missing, [])
+
+    with tempfile.TemporaryDirectory() as tmp:
+        # A mod-only module: present in the cache with only a .mod, but
+        # never named in `modules` -- it provides no package, so this is not
+        # a completeness failure.
+        seed(tmp, "example.com/modonly", "v0.1.0", "mod",
+             b"module example.com/modonly\n")
+        missing = go_mods.check_complete([], Path(tmp))
+        case("check_complete: a mod-only module absent from `modules` is "
+             "not reported", missing, [])
+
+    with tempfile.TemporaryDirectory() as tmp:
+        # `go list -json`'s Module.Path is unescaped ("example.com/Foo"), but
+        # the cache directory name is Go's on-disk escaping
+        # ("example.com/!foo"). check_complete must convert before looking
+        # up, or every module with an uppercase path segment would read as
+        # missing regardless of whether its .zip is actually there.
+        seed(tmp, "example.com/!foo", "v1.0.0", "zip", b"a fixture zip payload")
+        missing = go_mods.check_complete(
+            [("example.com/Foo", "v1.0.0")], Path(tmp))
+        case("check_complete: an uppercase module path is escaped before "
+             "the lookup, so its .zip is found",
+             missing, [])
+
+
 # --- current_srcrev: the "already current" seam for skip-when-current -----
 
 def current_srcrev_cases():
@@ -372,6 +468,8 @@ def main() -> int:
     version_tuple_cases()
     required_go_version_cases()
     refusal_path_cases()
+    gocache_isolation_cases()
+    check_complete_cases()
     current_srcrev_cases()
     print(f"\npass={len(PASS)} fail={len(FAIL)} skip=0")
     return 1 if FAIL else 0

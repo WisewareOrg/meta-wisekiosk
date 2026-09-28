@@ -13,6 +13,7 @@ a fabricated cache -- no clone, no network, no real `go`. `fetch_cache` is the
 only function that touches either.
 """
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -101,6 +102,15 @@ def _src_inc_fields():
     return f"{protocol or 'https'}://{rest}", srcrev
 
 
+def _escape_module_path(path: str) -> str:
+    """Go's own on-disk module-cache escaping: each ASCII uppercase letter
+    becomes "!" plus its lower-case form. The inverse of what
+    _escaped_modules reads directly off disk -- needed here because `go
+    list -json`'s Module.Path is unescaped, and check_complete has to know
+    what directory name Go would have used for it."""
+    return "".join(f"!{c.lower()}" if "A" <= c <= "Z" else c for c in path)
+
+
 def _escaped_modules(cache_dir: Path):
     """(escaped, version, ext, file) for every zip/mod file `go mod download`
     left under cache_dir. `escaped` is read off the directory names as-is --
@@ -162,6 +172,44 @@ def current_srcrev(inc_path: Path = INC_PATH):
     return m.group(1) if m else None
 
 
+def _deps_modules(list_json: str):
+    """(path, version) for every non-main module that `go list -json=Dir,Module
+    -deps` reports as providing at least one package, deduplicated, in
+    first-seen order. The output is a stream of concatenated JSON objects --
+    one per package -- not a JSON array, so this decodes one object at a
+    time rather than a single json.loads."""
+    decoder = json.JSONDecoder()
+    seen, modules = set(), []
+    pos, length = 0, len(list_json)
+    while pos < length:
+        while pos < length and list_json[pos].isspace():
+            pos += 1
+        if pos >= length:
+            break
+        obj, pos = decoder.raw_decode(list_json, pos)
+        module = obj.get("Module")
+        if not module or module.get("Main"):
+            continue
+        key = (module["Path"], module["Version"])
+        if key not in seen:
+            seen.add(key)
+            modules.append(key)
+    return modules
+
+
+def check_complete(modules, cache_dir: Path):
+    """Every (path, version) in `modules` must have its escaped `.zip` under
+    cache_dir -- go list -deps reporting a module as providing a package
+    means its source, not just its go.mod, was needed. Returns the (path,
+    version) pairs missing their .zip; empty means complete. A module that
+    provides no package never appears in `modules` at all, so a mod-only
+    cache entry for it is not a completeness failure."""
+    have_zip = {(escaped, version) for escaped, version, ext, _
+                in _escaped_modules(cache_dir) if ext == "zip"}
+    return [(path, version) for path, version in modules
+            if (_escape_module_path(path), version) not in have_zip]
+
+
 def fetch_cache(url: str, srcrev: str) -> Path:
     """Clone the pinned commit and run the one Go command that touches the
     network: `go list -deps` against oapi-codegen's own import path, which
@@ -185,10 +233,27 @@ def fetch_cache(url: str, srcrev: str) -> Path:
 
     gomodcache = workdir / "gomodcache"
     gomodcache.mkdir()
-    env = clean_env(**GO_ENV, GOMODCACHE=str(gomodcache))
-    subprocess.run(["go", "list", "-json=Dir,Module", "-deps", CODEGEN_TOOL],
-                   cwd=repo / "backend", env=env, check=True,
-                   stdout=subprocess.DEVNULL)
+    # GOCACHE isolated too, not just GOMODCACHE: a warm host build cache can
+    # satisfy `go list -deps`'s query for a module's package information
+    # without re-extracting that module's .zip into the scratch GOMODCACHE,
+    # producing a "mod present, zip missing" .inc that depends on what else
+    # has touched the host's shared Go build cache (found on real hardware,
+    # W7).
+    gocache = workdir / "gocache"
+    gocache.mkdir()
+    env = clean_env(**GO_ENV, GOMODCACHE=str(gomodcache), GOCACHE=str(gocache))
+    result = subprocess.run(
+        ["go", "list", "-json=Dir,Module", "-deps", CODEGEN_TOOL],
+        cwd=repo / "backend", env=env, check=True,
+        capture_output=True, text=True)
+
+    modules = _deps_modules(result.stdout)
+    missing = check_complete(modules, gomodcache)
+    if missing:
+        named = ", ".join(f"{p}@{v}" for p, v in missing)
+        sys.exit(refuse(
+            "go list -deps reported modules whose .zip never reached the "
+            f"cache: {named}"))
     return gomodcache
 
 
