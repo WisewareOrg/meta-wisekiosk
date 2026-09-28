@@ -23,6 +23,9 @@ meta-wisekiosk/conf/build-rev.inc
 # an autogenerable file is build input, never committed (owner, 2026-09-27).
 meta-wisekiosk/recipes-wisekiosk/wisekiosk/wisekiosk-backend-go-mods.inc
 
+# Written by tools/app-lockfile.py before every build, same reason.
+meta-wisekiosk/recipes-wisekiosk/wisekiosk/wisekiosk-frontend/npm-shrinkwrap.json
+
 # The skills under .claude/ are tracked; these two are per-checkout machine
 # state, and settings.local.json in particular carries local filesystem paths.
 .claude/settings.local.json
