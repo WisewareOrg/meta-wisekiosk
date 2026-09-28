@@ -591,6 +591,29 @@ def codegen_tool_presence_cases():
     case("fetch_cache: that refusal names the codegen tool, not a "
          "completeness complaint", go_mods.CODEGEN_TOOL in err, True)
 
+    # A module path that is a raw STRING prefix of CODEGEN_TOOL but not a
+    # package-path-boundary ancestor of it -- CODEGEN_TOOL continues
+    # "-codegen/v2/..." right after this path, not "/...". Its own .zip is
+    # seeded, so only a boundary check (not a bare startswith) can tell this
+    # apart from the codegen tool's real module.
+    near_miss_path = "github.com/oapi-codegen/oapi"
+    near_miss_version = "v1.0.0"
+    near_miss = json.dumps({"Dir": "/x",
+                            "Module": {"Path": near_miss_path,
+                                      "Version": near_miss_version}})
+
+    def seed_near_miss(gomodcache):
+        seed(gomodcache, near_miss_path, near_miss_version, "zip",
+             b"fixture zip payload")
+
+    code, err, tc = run_fetch_cache(
+        GO_VERSION, GO_MOD_1260, go_list_stdout=near_miss,
+        seed_gomodcache=seed_near_miss)
+    case("fetch_cache: a string-prefix, non-boundary module is not "
+         "mistaken for the codegen tool's own module", code, 2)
+    case("fetch_cache: that refusal names the codegen tool",
+         go_mods.CODEGEN_TOOL in err, True)
+
 
 # --- current_srcrev: the "already current" seam for skip-when-current -----
 
