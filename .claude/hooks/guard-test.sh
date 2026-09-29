@@ -390,6 +390,40 @@ echo "--- W2: an expired grant blocks ---"
 KIOSK_PROD_AUTH_FILE="$GRANT_EXPIRED" t "expired grant: kiosk-ota"   BLOCK "$(b "just kiosk-ota host=root@$PROD")"
 KIOSK_PROD_AUTH_FILE="$GRANT_EXPIRED" t "expired grant: bare reboot" BLOCK "$(b "ssh root@$PROD reboot")"
 
+echo "--- W2: the expiry boundary -- exactly now blocks ---"
+# grant_valid() reads `[ "$exp" -gt "$(date +%s)" ]`: strict, so expires == now is
+# already expired, not still valid. This is settled precedent, not a fresh call --
+# ~/dotfiles/claude/guard-bash.sh's own authorized() requires `now -lt expires` for
+# the same reason (an exp equal to now must not authorize).
+#
+# guard.sh has no seam to fix "now" for a test -- grant_valid() calls `date +%s`
+# inline, with no override. So this pins the boundary without one: sample the
+# wall-clock second immediately BEFORE writing the grant and immediately AFTER the
+# guard returns, and retry unless they agree. When they do, guard.sh's own
+# `date +%s` ran strictly between them and so equals both -- the fixture and the
+# guard read the identical instant by construction, not by a sub-second coincidence
+# that could go either way.
+GRANT_BOUNDARY="$T/prod-auth-boundary"
+attempt=0
+while :; do
+    prepass=$pass; prefail=$fail
+    before=$(date +%s)
+    printf 'expires=%s\n' "$before" > "$GRANT_BOUNDARY"
+    KIOSK_PROD_AUTH_FILE="$GRANT_BOUNDARY" t "expiry boundary: expires == now blocks" BLOCK "$(b "just kiosk-ota host=root@$PROD")"
+    after=$(date +%s)
+    attempt=$((attempt+1))
+    [ "$before" = "$after" ] && break
+    # The second ticked over mid-call: this attempt's expires no longer equals what
+    # guard.sh's own date +%s read, so it proved nothing about the boundary. Discard
+    # the recorded result and retry with a fresh second.
+    pass=$prepass; fail=$prefail
+    if [ "$attempt" -ge 20 ]; then
+        fail=$((fail+1))
+        printf 'FAIL expected=BLOCK got=-      could not pin the expiry boundary in 20 attempts (clock too unstable)\n'
+        break
+    fi
+done
+
 echo "--- W2: a malformed grant blocks, whatever shape the defect takes ---"
 KIOSK_PROD_AUTH_FILE="$GRANT_MISSING_KEY"  t "malformed grant: missing key"          BLOCK "$(b "just kiosk-ota host=root@$PROD")"
 KIOSK_PROD_AUTH_FILE="$GRANT_NON_INTEGER"  t "malformed grant: non-integer"          BLOCK "$(b "just kiosk-ota host=root@$PROD")"
@@ -416,6 +450,14 @@ KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl poweroff still blocked" 
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl halt still blocked"     BLOCK "$(b "ssh root@$PROD systemctl halt")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: shutdown -r still blocked"        BLOCK "$(b "ssh root@$PROD 'shutdown -r now'")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl kexec still blocked"    BLOCK "$(b "ssh root@$PROD systemctl kexec")"
+
+echo "--- W2: a grant-scoped verb chained with an always-blocked verb still blocks ---"
+# always_blocked and grant_scoped are each computed once over the WHOLE command
+# line (guard.sh's RULE 1), not per ssh invocation or per '&&'-joined segment --
+# so this is exactly the interaction class this file's own header warns about: a
+# verb reachable only through a compound line, invisible to a suite that never
+# composes two verbs in one payload (the gpu-capture regression, recorded above).
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: chained OTA + poweroff still blocks" BLOCK "$(b "just kiosk-ota host=root@$PROD && ssh root@$PROD poweroff")"
 
 echo "--- W2: bench is unaffected by grant state either way ---"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID"   t "grant present: bench OTA still allowed" ALLOW "$(b "just kiosk-ota host=root@$BENCH")"
