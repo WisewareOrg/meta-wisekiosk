@@ -18,11 +18,11 @@ file is absent, `kiosk-provision` seeds it from the image's own
 update overwrites it.
 
 The kiosk browser unit defaults to that local app and treats `KIOSK_URL` as an optional override, so
-a site can still point the browser elsewhere. Provisioning does not share that default:
-[`tools/provision.sh`](tools/provision.sh) requires `KIOSK_URL` in `secrets.yaml` and always writes it
-into `/data/config/kiosk.conf`, which wins over the unit — so a provisioned board reaches the page
-through that value rather than through the local default. `http://localhost:8080` is the value for a
-board's own app; another origin — a Docker host, say — stays supported for debugging. A board already
+a site can still point the browser elsewhere. Provisioning shares that default: `KIOSK_URL` in
+`secrets.yaml` is optional, and [`tools/provision.sh`](tools/provision.sh) writes it into
+`/data/config/kiosk.conf`, which wins over the unit, only when a site sets one — left unset, no
+`KIOSK_URL` line is written at all, and the board reaches the local app through the unit's own
+default. Another origin — a Docker host, say — stays supported for debugging. A board already
 provisioned with a remote value is moved to the local app by editing `/data/config/kiosk.conf`
 directly (#96 provisioned boards keep their old `KIOSK_URL`).
 

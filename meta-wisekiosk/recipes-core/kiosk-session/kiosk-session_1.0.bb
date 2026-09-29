@@ -26,7 +26,8 @@ do_install() {
 
     # No /etc/kiosk.conf is generated. KIOSK_URL is site configuration and the
     # image must not carry it; kiosk.service reads /data/config/kiosk.conf,
-    # written by provisioning.
+    # written by provisioning when a site sets one, and falls back to its own
+    # localhost default otherwise.
 }
 
 FILES:${PN} += "${systemd_system_unitdir}/kiosk.service"

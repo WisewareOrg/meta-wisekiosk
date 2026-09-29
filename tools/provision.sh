@@ -3,6 +3,7 @@
 #
 #   tools/provision.sh device root@<host>     -- a running, reachable device
 #   tools/provision.sh card   /mnt/data       -- a mounted /data partition
+#   tools/provision.sh stage  <outdir>        -- the output alone, no card or ssh
 #
 # Values come from secrets.yaml, which is gitignored. Nothing here is echoed:
 # the SSID and PSK hash are not credential-shaped and would pass every scanner,
@@ -14,8 +15,8 @@
 # reach -- re-provisioning, or seeding one that still has a baked config.
 set -euo pipefail
 
-MODE=${1:?usage: provision.sh device <ssh-target> | card <mounted-/data>}
-DEST=${2:?usage: provision.sh device <ssh-target> | card <mounted-/data>}
+MODE=${1:?usage: provision.sh device <ssh-target> | card <mounted-/data> | stage <outdir>}
+DEST=${2:?usage: provision.sh device <ssh-target> | card <mounted-/data> | stage <outdir>}
 # The secrets live OUTSIDE the repository, deliberately. Nothing site-specific
 # reaches the image any more, so the build must not be able to read them even by
 # accident: with no secrets.yaml in the tree and no kas include for it, a
@@ -43,7 +44,7 @@ SSID=$(val WIFI_SSID);      PSK=$(val WIFI_PSK_HASH)
 URL=$(val KIOSK_URL);       HOST=$(val KIOSK_HOSTNAME)
 NS=$(val KIOSK_NAMESERVER); MID=$(val KIOSK_MACHINE_ID)
 
-for pair in SSID:WIFI_SSID PSK:WIFI_PSK_HASH URL:KIOSK_URL HOST:KIOSK_HOSTNAME NS:KIOSK_NAMESERVER; do
+for pair in SSID:WIFI_SSID PSK:WIFI_PSK_HASH HOST:KIOSK_HOSTNAME NS:KIOSK_NAMESERVER; do
     n=${pair%%:*}; real=${pair#*:}
     [ -n "${!n}" ] || { echo "secrets.yaml is missing $real"; exit 1; }
 done
@@ -74,7 +75,13 @@ network={
 }
 EOF
 umask 022
-printf 'KIOSK_URL=%s\nKIOSK_INSPECTOR=0\n' "$URL" > "$STAGE/config/kiosk.conf"
+# Unset: no KIOSK_URL line at all, so kiosk.service's own localhost default
+# applies -- the same as a board that was never provisioned with one.
+if [ -n "$URL" ]; then
+    printf 'KIOSK_URL=%s\nKIOSK_INSPECTOR=0\n' "$URL" > "$STAGE/config/kiosk.conf"
+else
+    printf 'KIOSK_INSPECTOR=0\n' > "$STAGE/config/kiosk.conf"
+fi
 printf '%s\n' "$HOST" > "$STAGE/config/hostname"
 : > "$STAGE/config/resolv.conf"
 for ns in $NS; do printf 'nameserver %s\n' "$ns" >> "$STAGE/config/resolv.conf"; done
@@ -142,6 +149,16 @@ case "$MODE" in
 
     sync
     echo "provisioned $DEST"
+    ;;
+  stage)
+    # No card, no ssh, no root: this mode exists to produce the exact
+    # provisioning output for a diff (W9's pre-write check), so it skips the
+    # card branch's device-only chown/mode enforcement.
+    mkdir -p "$DEST/config" "$DEST/etc"
+    cp "$STAGE/config/"* "$DEST/config/"
+    cp "$STAGE/etc/machine-id" "$DEST/etc/machine-id"
+    cp "$STAGE/RECOVER.sh" "$DEST/RECOVER.sh"
+    echo "staged $DEST"
     ;;
   device)
     ssh_opts=(-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
