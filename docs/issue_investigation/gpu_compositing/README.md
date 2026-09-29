@@ -4422,8 +4422,9 @@ kept for the record rather than deleted, since it is what the owner decided agai
 
 ### The `/boot` procedure (bench W7, prod W9)
 
-`/boot` is shared by both RAUC slots and an OTA does not carry it (new issue: "OTA does not carry
-`/boot` (config.txt, DTBs)"; the durable mechanism belongs to that issue, not here). What was done,
+`/boot` is shared by both RAUC slots and an OTA does not carry it — see
+[issue #104 "OTA does not carry `/boot` (config.txt, DTBs)"](https://github.com/tjwise99/meta-wisekiosk/issues/104),
+which owns the durable mechanism; this section is the procedure as run by hand. What was done,
 in order, on bench first and then on prod:
 
 1. Back up the board's `/boot` as a tar of every file except `uboot.env` and `System Volume
