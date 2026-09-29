@@ -104,6 +104,13 @@ fi
 # them; the existence check keeps a rename from silently shrinking the scan,
 # same as guard 1b. The pre-commit hook is in that set: it is the thing that
 # runs this script, so a syntax error in it disarms every guard here.
+#
+# docs/issue_investigation/ is excluded on purpose, not by oversight: those are
+# frozen record-of-record scripts, exactly as they were run, the same carve-out
+# .github/workflows/lint.yml already gives that tree for shellcheck. A
+# redaction placeholder like `root@<prod>` is deliberately not runnable -- `<`
+# and `>` are live shell metacharacters there -- and this guard is a lint of
+# live code, not a claim about a record.
 scan3=(meta-wisekiosk/recipes-core/kiosk-netcheck/files/kiosk-netcheck
        meta-wisekiosk/recipes-core/kiosk-provision/files/kiosk-provision
        meta-wisekiosk/recipes-core/kiosk-recover/files/kiosk-recover
@@ -120,7 +127,7 @@ while IFS= read -r f; do
         printf '%s\n' "$err" | sed 's/^/        /'
         badsh=1
     fi
-done < <(git ls-files -- '*.sh' "${scan3[@]}")
+done < <(git ls-files -- '*.sh' "${scan3[@]}" ':!:docs/issue_investigation/**')
 [ "$badsh" -eq 0 ] && ok "shell scripts parse"
 
 # --- 4. kas configs must be valid YAML ------------------------------------
