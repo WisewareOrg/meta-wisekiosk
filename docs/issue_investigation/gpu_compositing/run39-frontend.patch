@@ -1,0 +1,27 @@
+--- a/frontend/src/modules/park_wait_times/ParkWaitTimes.svelte
++++ b/frontend/src/modules/park_wait_times/ParkWaitTimes.svelte
+@@ hunk 1 of 1 -- transcript line 10618, 2026-09-23T02:52:02.095Z @@
+@@ -2 +2,9 @@
+-      tick++;
++      // DIAGNOSTIC (#100 Run 39 — strip before ship): ablate the rotation tick's derived recompute
++      // while leaving the marquee cycle untouched, so an interleaved probe can attribute the residual
++      // stall. Default path (no window.__abl) advances normally.
++      const w = window as unknown as { __abl?: { rotation?: boolean }; __ablRotSkip?: number };
++      if (w.__abl?.rotation) {
++        w.__ablRotSkip = (w.__ablRotSkip ?? 0) + 1;
++      } else {
++        tick++;
++      }
+--- a/frontend/src/modules/clock/Clock.svelte
++++ b/frontend/src/modules/clock/Clock.svelte
+@@ hunk 1 of 1 -- transcript line 10621, 2026-09-23T02:52:08.151Z @@
+@@ -2 +2,8 @@
+-      now = new Date();
++      // DIAGNOSTIC (#100 Run 39 — strip before ship): ablate the clock's per-second re-read/re-format
++      // so an interleaved probe can attribute the residual stall. Default path re-reads normally.
++      const w = window as unknown as { __abl?: { clock?: boolean }; __ablClkSkip?: number };
++      if (w.__abl?.clock) {
++        w.__ablClkSkip = (w.__ablClkSkip ?? 0) + 1;
++      } else {
++        now = new Date();
++      }

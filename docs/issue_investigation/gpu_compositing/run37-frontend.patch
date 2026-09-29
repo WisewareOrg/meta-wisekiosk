@@ -1,0 +1,57 @@
+--- a/frontend/src/modules/park_wait_times/marquee-clock.ts
++++ b/frontend/src/modules/park_wait_times/marquee-clock.ts
+@@ hunk 1 of 4 -- transcript line 10159, 2026-09-23T02:03:17.882Z @@
+@@ -1,0 +2,18 @@
++
++// DIAGNOSTIC (meta-wisekiosk #100, Run 37 — strip before ship). A flat mirror of `columns`,
++// rebuilt only on register/unregister, so `step` can iterate without the per-frame Map-iterator
++// and destructuring garbage. `window.__mqAlloc === false` selects this allocation-free path; any
++// other value keeps the current `Map` destructuring path, so the board's default behaviour is
++// unchanged. The per-path frame counters are the A/B landing check read back by the probe.
++interface MqDiag {
++  __mqAlloc?: boolean;
++  __mqAllocFrames?: number;
++  __mqCleanFrames?: number;
++}
++const mq = window as unknown as MqDiag;
++let nodes: HTMLElement[] = [];
++let dists: number[] = [];
++function rebuildFlat(): void {
++  nodes = Array.from(columns.keys());
++  dists = Array.from(columns.values());
++}
+@@ hunk 2 of 4 -- transcript line 10170, 2026-09-23T02:03:40.173Z @@
+@@ -0,0 +1,11 @@
++// The two home phases share a branch; `Math.min` covers the rest, clamping the ramp to `distance`
++// for the whole of the end hold rather than needing a phase test of its own. Factored out so both
++// the current and the allocation-free iteration below drive identical motion (Run 37 diagnostic).
++function setScroll(column: HTMLElement, distance: number, elapsed: number): void {
++  const moveTime = distance / MARQUEE_PX_PER_S;
++  column.scrollLeft =
++    elapsed < HOLD_HOME_S || elapsed >= HOLD_HOME_S + moveTime + HOLD_END_S
++      ? 0
++      : Math.min((elapsed - HOLD_HOME_S) * MARQUEE_PX_PER_S, distance);
++}
++
+@@ -5,8 +16,7 @@
+-  for (const [column, distance] of columns) {
+-    const moveTime = distance / MARQUEE_PX_PER_S;
+-    // The two home phases share a branch; `Math.min` covers the rest, clamping the ramp to
+-    // `distance` for the whole of the end hold rather than needing a phase test of its own.
+-    column.scrollLeft =
+-      elapsed < HOLD_HOME_S || elapsed >= HOLD_HOME_S + moveTime + HOLD_END_S
+-        ? 0
+-        : Math.min((elapsed - HOLD_HOME_S) * MARQUEE_PX_PER_S, distance);
++  // DIAGNOSTIC (Run 37): identical motion either way; the only difference is per-frame allocation.
++  if (mq.__mqAlloc === false) {
++    for (let i = 0; i < nodes.length; i++) setScroll(nodes[i], dists[i], elapsed);
++    mq.__mqCleanFrames = (mq.__mqCleanFrames ?? 0) + 1;
++  } else {
++    for (const [column, distance] of columns) setScroll(column, distance, elapsed);
++    mq.__mqAllocFrames = (mq.__mqAllocFrames ?? 0) + 1;
+@@ hunk 3 of 4 -- transcript line 10174, 2026-09-23T02:03:48.084Z @@
+@@ -1,0 +2 @@
++  rebuildFlat();
+@@ hunk 4 of 4 -- transcript line 10183, 2026-09-23T02:03:52.718Z @@
+@@ -1,0 +2 @@
++  rebuildFlat();
