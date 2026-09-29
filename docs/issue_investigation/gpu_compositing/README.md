@@ -217,9 +217,16 @@ from the capture's `R[]` series.
 | 52 | as 49 | as 49 | [`p31_rotcheck.js`](p31_rotcheck.js) → [`run52-rotation-8s-raw.txt`](run52-rotation-8s-raw.txt), read by [`parse_rotation.py`](parse_rotation.py) | Repeats Run 48's 8 s arm on the appliance. 585 s, 58.8 fps, 7 over 250 ms; **R[] empty** (no tour row on Closed cards); steady arrivals at 300.1 and 438.4 s only |
 | 53 | prod · Pi Zero W | `100-gpu-compositing:a929ef3` (slot A) | pending — captured after park opening, appended when recorded | *(slot reserved; no result written ahead of the run)* |
 
-**R2 is satisfied for Runs 8 to 46 and 48 except Run 36's analyser and Run 44's census-diff
-numbers, is not satisfied for Run 47, and is not satisfied for Runs 3 to 7.** Each exception is named
-where it bites, below.
+**R2 is now satisfied for Runs 3 to 48**, with two exceptions unchanged: Run 36's analyser
+([`parse_alloc.py`](parse_alloc.py) reads an earlier revision of the committed probe's payload than
+it emits) and Run 44's census-diff, which still banked no numbers (its tool is committed, but no
+re-run has produced a figure to record). Runs 3-7's harness scripts, Run 44's tool and Run 47's
+captures were recovered and committed in #100 W6; the driving command for every run from 3 to 48 was
+also recovered, one file per run, each carrying its own confidence level — see
+[`MANIFEST.md`](MANIFEST.md) for the full accounting (all HIGH except Runs 12 and 15, MEDIUM; Run
+48's 8 s-arm config provenance only partly traced — the driving command itself is unambiguous, only
+how the environment reached that state before it is not). Each exception is named where it bites,
+below.
 
 The probe family Runs 8 to 16 put on the board is committed beside this README, with the raw
 captures those runs' numbers are computed from:
@@ -262,24 +269,24 @@ obligation on this investigation.
 | [`hold2s-fps-169s-raw.txt`](hold2s-fps-169s-raw.txt) · [`hold2s-phase-289s-raw.txt`](hold2s-phase-289s-raw.txt) · [`stagger-phase-288s-raw.txt`](stagger-phase-288s-raw.txt) · [`layout-attribution-288s-raw.txt`](layout-attribution-288s-raw.txt) · [`fullpaint-bench-115s-raw.txt`](fullpaint-bench-115s-raw.txt) · [`contain-paint-286s-raw.txt`](contain-paint-286s-raw.txt) · [`freeze-188s-raw.txt`](freeze-188s-raw.txt) · [`continuous-pingpong-292s-raw.txt`](continuous-pingpong-292s-raw.txt) · [`tiled-shm-292s-raw.txt`](tiled-shm-292s-raw.txt) · [`painting-threads-294s-raw.txt`](painting-threads-294s-raw.txt) · [`res640x480-194s-raw.txt`](res640x480-194s-raw.txt) · [`alloc-pressure-raw.txt`](alloc-pressure-raw.txt) | Raw captures, Runs 26 to 36 |
 | [`freeze-720p-cv-raw.txt`](freeze-720p-cv-raw.txt) · [`deployed-scroll-raw.txt`](deployed-scroll-raw.txt) | **Uncatalogued captures, claimed by no run block.** The first is a `probe4`-family payload naming itself 228 s, 6052 frames, 38 frames over 250 ms — 0.167/s — at 26.5 fps; the second is one load-average and `VmRSS` read. Neither carries its own configuration, so neither is attributed to a run here, and no conclusion rests on either |
 
-The same obligation for Runs 37 to 48, **discharged for ten of the twelve, and the two exceptions
-are named here rather than in a footnote.** Every probe, every analyser and every raw capture for
-Runs 37 to 46 is committed here, the inspector session's output included, and Run 46's landing-check
-screenshots with it; **Run 48's probe and all three of its captures are committed too**, which makes
-it the cleanest discharge in this range. The two that are not:
+The same obligation for Runs 37 to 48, **discharged for eleven of the twelve, and the one remaining
+exception is named here rather than in a footnote.** Every probe, every analyser and every raw
+capture for Runs 37 to 46 is committed here, the inspector session's output included, and Run 46's
+landing-check screenshots with it; **Run 48's probe and all three of its captures are committed
+too**, which makes it the cleanest discharge in this range. Run 47's own two-arm capture, previously
+uncommitted, was recovered and committed in #100 W6 (redacted: the mirror `KIOSK_URL`, one line each
+— see [`MANIFEST.md`](MANIFEST.md)); the run's block still states, for the record, that its numbers
+were originally transcribed rather than read from that file. The one that remains:
 
-- **Run 44's census diff banked no numbers.** The capture names `profile-churn.mjs`, which is
-  committed nowhere in this repository — but the committed
+- **Run 44's census diff banked no numbers.** The capture names `profile-churn.mjs`, now committed
+  (#100 W6) — but the committed
   [`webkit-inspect.mjs`](../../../.claude/skills/webkit-inspector/webkit-inspect.mjs) implements the
   same experiment as its `diff <seconds>` mode, two snapshots N seconds apart with a forced
-  collection before each. **So the obligation is to bank the numbers, not to commit a missing
-  tool**: the specific run is not re-derivable because nothing numeric was recorded, while the
-  experiment itself is re-runnable today — see the Run 44 block.
-- **Run 47 has no committed capture at all.** Its two arms' arrival series are transcribed into its
-  run block from the session's own task output rather than read from a raw file in this directory.
-  The run is reported with that stated at its head.
+  collection before each. **The obligation is to bank the numbers, not to commit the tool** (that
+  half is now done): the specific run is not re-derivable because nothing numeric was recorded, while
+  the experiment itself is re-runnable today — see the Run 44 block.
 
-Both are outstanding R2 obligations on this investigation, alongside the two already named above.
+This is outstanding R2 obligation on this investigation, alongside the one already named above.
 **Run 48 carries neither defect**: its probe, its three raw captures and every figure quoted from
 them are in this directory, and the figures in its block were re-derived from those files rather than
 transcribed.
@@ -298,7 +305,7 @@ transcribed.
 | [`baseline-588s-raw.txt`](baseline-588s-raw.txt) · [`eager-gc-616s-raw.txt`](eager-gc-616s-raw.txt) · [`fix1-benchmark-600s-raw.txt`](fix1-benchmark-600s-raw.txt) · [`freq-lever-P16-535s-raw.txt`](freq-lever-P16-535s-raw.txt) · [`imperative-tour-587s-raw.txt`](imperative-tour-587s-raw.txt) | Raw captures, Runs 41, 42, 43, 45, 46 — all `BL` payloads from [`p30_baseline.js`](p30_baseline.js). The histogram reproduces each capture's stall count independently of the stall list, and every list is complete rather than truncated at the probe's 120-entry cap |
 | [`rotation-6s-588s-raw.txt`](rotation-6s-588s-raw.txt) · [`rotation-8s-589s-raw.txt`](rotation-8s-589s-raw.txt) · [`rotation-12s-586s-raw.txt`](rotation-12s-586s-raw.txt) | Raw captures, Run 48's three arms — all `BL` payloads from [`p31_rotcheck.js`](p31_rotcheck.js), each carrying its own `R[]` rotation series, its `LOAD` line and its `MemAvailable` read. One bundle across all three, named in each header. Read by [`parse_rotation.py`](parse_rotation.py), which reproduces every figure quoted for Run 48 |
 | [`fix1-600s-raw.txt`](fix1-600s-raw.txt) | An **earlier Fix-1 capture on the same bundle**, 801 s and 30 frames over 250 ms (0.037/s), superseded by [`fix1-benchmark-600s-raw.txt`](fix1-benchmark-600s-raw.txt) and **contributing no number to any run**. It carries only four on-beat arrivals and a large off-beat cluster between 150 s and 211 s, so its arrival cadence is not readable. Catalogued so it is not an uncatalogued capture, not because a conclusion rests on it |
-| [`inspector-gc-census-raw.txt`](inspector-gc-census-raw.txt) | Run 44's inspector output — the `Heap.startTracking` collection-type read, the `Heap.snapshot` census by class, and the 30 s forcing diff. It carries its own bound condition in the file: tracking quiesces the collector, so the read is of the collection **type** and not of the cadence. **The diff section of the file is a header with no numbers under it**, so nothing numeric from the diff is readable here; the tool it names, `profile-churn.mjs`, is not committed, though the committed `webkit-inspect.mjs` implements the same diff. The census above it does carry real per-class figures and they re-derive |
+| [`inspector-gc-census-raw.txt`](inspector-gc-census-raw.txt) | Run 44's inspector output — the `Heap.startTracking` collection-type read, the `Heap.snapshot` census by class, and the 30 s forcing diff. It carries its own bound condition in the file: tracking quiesces the collector, so the read is of the collection **type** and not of the cadence. **The diff section of the file is a header with no numbers under it**, so nothing numeric from the diff is readable here; the tool it names, `profile-churn.mjs`, is committed (#100 W6), though the committed `webkit-inspect.mjs` implements the same diff. The census above it does carry real per-class figures and they re-derive |
 | [`imperative-tour-render-shot1.png`](imperative-tour-render-shot1.png) · [`imperative-tour-render-shot2-rotated.png`](imperative-tour-render-shot2-rotated.png) | Run 46's landing check — the imperatively-filled tour before and after a rotation, the evidence that the bundle whose capture reads as a clean null was drawing the right rows. **The check has no oracle**: there is no matching pair from the reactive bundle at the same data state and no written expectation of which rows should appear after a rotation, so it establishes that rows were drawn in the right places, not that each cell carried the right value |
 | [`jsc-gc-findings.md`](jsc-gc-findings.md) | The JavaScriptCore source analysis behind "The JSC source: why the pause cannot be chunked on this board" — the option gating, the scheduler, the frequency lever and the ranked shortlist Run 45 was chosen from, with its own confirmed/not-confirmed split and its upstream sources |
 | [`webkit-inspect.mjs`](../../../.claude/skills/webkit-inspector/webkit-inspect.mjs) | Run 44's inspector client, banked as a **skill** rather than beside this investigation because it is reusable on any future board question — `.claude/skills/webkit-inspector/`, committed at `cd5cf9e`. It runs on the workstation through an `ssh -L` forward; the board has no node |
@@ -316,9 +323,10 @@ repository is public and the address is resolved at use time from the gitignored
 
 Every one-off script **Runs 3 to 7** put on the board — `probe.sh`, `inspect3.mjs`, `exp2-script.js`
 through `exp8-script.js` and the two `diag` scripts — is named in its run block and each was removed
-from the device, but none is committed here. They exist only in a scratch directory outside this
-repository, and R2 says that is not enough. Committing them is an outstanding obligation on this
-investigation, and Runs 3 to 7's numbers are not independently reproducible until it is met.
+from the device. **Correction: all 11 are now committed here**, recovered from this session's own
+transcripts and verified byte-identical to what was written to the board (#100 W6; see
+[`MANIFEST.md`](MANIFEST.md) for provenance and sha256 per file). Runs 3 to 7's numbers are
+independently reproducible.
 
 Two further pieces of work sit outside this table because they are not board runs: the Chromium
 layout-scope measurements that designed the fix, and the render-freeze diagnosis. They are recorded
@@ -1641,8 +1649,8 @@ truncated in the same way and carries no phase either.
   and no threshold under it. So "no retained growth" is **a claim the session made and did not
   record**: nothing numeric survives, so *this run's* result is not re-derivable and is not a datum
   of this record. **The experiment itself is not lost.** The tool the capture names,
-  `profile-churn.mjs`, is committed nowhere here — but
-  [`webkit-inspect.mjs`](../../../.claude/skills/webkit-inspector/webkit-inspect.mjs), which **is**
+  `profile-churn.mjs`, is now committed too (#100 W6) —
+  [`webkit-inspect.mjs`](../../../.claude/skills/webkit-inspector/webkit-inspect.mjs), also
   committed and catalogued, implements the same design as its `diff <seconds>` mode: two class
   censuses N seconds apart, each forcing a collection first so that a survivor is genuinely promoted
   growth. So the R2 obligation here is **bank the numbers**, not **commit a missing tool**, and a
@@ -1801,16 +1809,20 @@ truncated in the same way and carries no phase either.
   gitignored `local/` tree and is not citable from here**, unlike Run 46's two committed panel
   images; the restore landing check is the right check and a reader cannot currently verify it.
 - **Scripts deployed:** [`p30_baseline.js`](p30_baseline.js), unchanged from Run 41.
-- **R2 is NOT discharged for this run, in two distinct ways.** **No raw capture file is committed**
-  for either arm: the arrival series below are **transcribed** from the arms' `WM_NAME` payload lines
-  as reported in this session's own task output, not read from a file in this directory. And
-  **no analyser reads this run** — the block names a probe but no parser, where Runs 41, 42, 43, 45
-  and 46 are all read by [`parse_baseline.py`](parse_baseline.py). Those are separate gaps and the
-  second is the one with teeth: Run 46 volunteers that the parser's on-beat set is fifteen where its
-  own hand-curated list is thirteen, so a hand-transcribed beat and the parser's fold are known to
-  disagree on this payload. The obligation is therefore **bank the two captures *and* re-derive this
-  table through `parse_baseline.py`**, not bank the captures alone — and if the fold disagrees with
-  the transcription, as it did for Run 46, that must be visible here.
+- **R2 was NOT discharged for this run, in two distinct ways; one is now closed.** **The raw capture
+  for both arms is now committed** (#100 W6:
+  [`memory-pressure-baseline-588s-raw.txt`](memory-pressure-baseline-588s-raw.txt),
+  [`memory-pressure-monitoroff-589s-raw.txt`](memory-pressure-monitoroff-589s-raw.txt); redacted, one
+  `KIOSK_URL` line each) — the arrival series below were **transcribed** from the arms' `WM_NAME`
+  payload lines as reported in this session's own task output at the time this block was written, not
+  read from a file in this directory. **The second gap remains: no analyser reads this run** — the
+  block names a probe but no parser, where Runs 41, 42, 43, 45 and 46 are all read by
+  [`parse_baseline.py`](parse_baseline.py). Run 46 volunteers that the parser's on-beat set is fifteen
+  where its own hand-curated list is thirteen, so a hand-transcribed beat and the parser's fold are
+  known to disagree on this payload. The obligation is therefore **re-derive this table through
+  `parse_baseline.py`** against the now-committed captures, not treat the hand transcription as
+  final — and if the fold disagrees with the transcription, as it did for Run 46, that must be made
+  visible here.
 - **Why the run exists, and it is the record arguing with itself.** An adversarial architecture review
   of this investigation read WebKit's **memory-pressure** subsystem out of this image's own generated
   build configuration and proposed it as the driver the JSC levers kept missing: the UI-process
@@ -1961,7 +1973,8 @@ truncated in the same way and carries no phase either.
   proving it reports both outcomes — a scaled beat and an unscaled one.
 - **R2 is discharged for this run, and it is the cleanest discharge in this range.** Probe, analyser,
   analyser test and all three raw captures are committed here, and **every figure below is the
-  parser's output**, not a hand reading. Run 47, by contrast, has neither capture nor parser.
+  parser's output**, not a hand reading. Run 47, by contrast, has a capture now (#100 W6) but still no
+  parser — its arrival series is a hand reading of the raw file, not a script's output.
 - **The membership rule is uniform across the three arms, and it is the probe's own.** An earlier
   draft of this block scored the arms by hand at a 400 ms threshold. **That reading is withdrawn**: it
   admitted a 279 ms arrival in the 8 s arm while demoting 252-312 ms arrivals in the 6 s arm, which is
@@ -3205,7 +3218,7 @@ observation the identification was making by convergent inference"; **that is wi
 `--- diff (profile-churn.mjs) over 30s: NO retained growth (transient churn, no leak) ---` — with no
 before/after count, no per-class delta and no threshold under it. So "no retained growth" is **a
 claim this investigation made and did not record**, not a datum of it. The gap is the *numbers*, not
-the instrument: the capture names `profile-churn.mjs`, which is uncommitted, but the committed
+the instrument: the capture names `profile-churn.mjs`, now committed (#100 W6), but the committed
 `webkit-inspect.mjs` implements the same forced-GC census diff and the experiment can be re-run
 today, and the sentence this section carried — *"the heap is not
 leaking, it is **churning**, building and promoting and releasing the same volume every cycle"* — was
@@ -3384,11 +3397,12 @@ owner's.** What remains open under it:
   page's DOM-wrapper population, never enumerated and un-run.
 - **The durable image delivery**, still an untaken owner decision — see "Durable image delivery —
   pending owner decision".
-- **Four R2 obligations**, not two: the scripts Runs 3 to 7 put on the board are uncommitted;
-  [`parse_alloc.py`](parse_alloc.py) reads an earlier revision of Run 36's payload than the committed
-  probe emits; Run 44's census diff **banked no numbers** (its named tool `profile-churn.mjs` is
-  uncommitted, though the committed `webkit-inspect.mjs` implements the same experiment, so the
-  obligation is the numbers rather than the tool); and **Run 47 has no committed capture at all.**
+- **Two R2 gaps remain, not four.** [`parse_alloc.py`](parse_alloc.py) reads an earlier revision of
+  Run 36's payload than the committed probe emits; Run 44's census diff still **banked no numbers**
+  (its named tool `profile-churn.mjs` is committed, #100 W6, and the committed `webkit-inspect.mjs`
+  implements the same experiment, but no re-run has produced a figure). The other two of the original
+  four — Runs 3-7's scripts and Run 47's capture — were recovered and committed in W6; see
+  [`MANIFEST.md`](MANIFEST.md).
 - **Two harness obligations this record's own reviews surfaced.** The three arm-parsers print a
   confident VERDICT with no event-count guard — a capture with zero stalls in every arm reads as a
   confirmation — and [`parse_baseline.py`](parse_baseline.py), the analyser behind every *adopted*
@@ -4640,13 +4654,15 @@ gap "Changes configured as a result" records for the `.seconds` fix.
 - **The `probe4` harness, the motion probe family, the shipped-mechanism probes, the allocation probe
   and every raw capture they produced, committed beside this README** — the R2 obligation for Runs 8
   to 36, discharged on the artefacts. Every number in "Metrics" is reproduced from the named file by
-  the parser that row names, or from the `AL` record's own fields for Run 36. **Four** obligations
-  remain outstanding and are named in "Test runs": the scripts Runs 3 to 7 put on the board are not
-  committed here; [`parse_alloc.py`](parse_alloc.py) reads an earlier revision of Run 36's payload
-  than the committed probe emits; Run 44's census diff banked no numbers, its named tool
-  `profile-churn.mjs` being uncommitted while the committed `webkit-inspect.mjs` implements the same
-  experiment; and **Run 47 has no committed capture at
-  all**, its arrival series being transcribed into its run block from the session's own output.
+  the parser that row names, or from the `AL` record's own fields for Run 36. **Two** obligations
+  remain outstanding, not four, and are named in "Test runs": [`parse_alloc.py`](parse_alloc.py)
+  reads an earlier revision of Run 36's payload than the committed probe emits, and Run 44's census
+  diff still banked no numbers (its named tool `profile-churn.mjs` is committed, #100 W6, and the
+  committed `webkit-inspect.mjs` implements the same experiment, but no re-run has produced a
+  figure). The other two of the original four — the scripts Runs 3 to 7 put on the board, and Run
+  47's capture, previously transcribed into its run block rather than committed — were recovered and
+  committed in W6; see [`MANIFEST.md`](MANIFEST.md), which also carries the per-run driving commands
+  for Runs 3 to 48 with their own confidence levels.
 
 - **Correction: no longer true at `100-gpu-compositing:a929ef3`.** The bullet below described
   `7ce44ba`. The build now carries, verified on both boards: `VC4DTBO = "vc4-fkms-v3d"` (firmware
