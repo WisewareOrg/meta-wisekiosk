@@ -68,6 +68,40 @@ if [ ! -f "$IDFILE" ] && [ "$tool" = Bash ]; then
     printf '%s\n' "guard.sh: no local/device-identity.md reachable from $REPO -- the PROD-board rules (1, 3) are INERT for this call." >&2
 fi
 
+# tools/prod-authorize.sh writes this, resolved exactly like IDFILE above (a
+# linked worktree has no local/ of its own, and the grant must be found where
+# it was written, not fail open there). Overridable for the same reason.
+PAFILE=${KIOSK_PROD_AUTH_FILE:-}
+if [ -z "$PAFILE" ]; then
+    PAFILE=$REPO/local/prod-auth
+    if [ ! -f "$PAFILE" ]; then
+        gitcommon=$(git -C "$REPO" rev-parse --git-common-dir 2>/dev/null)
+        if [ -n "$gitcommon" ]; then
+            case "$gitcommon" in /*) ;; *) gitcommon=$REPO/$gitcommon ;; esac
+            primary=$(cd "$gitcommon/.." 2>/dev/null && pwd)
+            [ -n "$primary" ] && PAFILE=$primary/local/prod-auth
+        fi
+    fi
+fi
+
+# A valid grant is exactly one line, `expires=<unix-int>`, not in the future's
+# past and never a symlink -- a symlinked grant could point anywhere, so it is
+# never trusted regardless of what it resolves to. Anything else (missing key,
+# non-integer, extra content) is malformed, and malformed blocks the same as
+# absent.
+grant_valid() {
+    [ -f "$PAFILE" ] && [ ! -L "$PAFILE" ] || return 1
+    content=$(cat "$PAFILE" 2>/dev/null)
+    case "$content" in
+        expires=*) exp=${content#expires=} ;;
+        *) return 1 ;;
+    esac
+    case "$exp" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    [ "$exp" -gt "$(date +%s)" ]
+}
+
 # One `key = value` from the map's ```identity fence, empty when absent. Scoped
 # to the fence so the prose around it -- which necessarily shows the format --
 # cannot answer a lookup. The value may itself contain '=', so the split is at
@@ -242,8 +276,15 @@ Bash)
     # The prod unit is wall-mounted and carries the live soak run (issue #40).
     # An OTA, a reboot, a rollback or a reprovision there ends a run that cannot
     # be replayed, and a bad slot costs a physical trip. The owner's standing
-    # rule is that prod is read-only; the Justfile's own refusals cover the
-    # tree-state half, not the which-board half, so this is the one that knows.
+    # rule is that prod is read-only unless tools/prod-authorize.sh has granted
+    # a time-boxed exception (grant_valid(), above); the Justfile's own
+    # refusals cover the tree-state half, not the which-board half, so this is
+    # the one that knows.
+    #
+    # The grant only widens OTA/install/reboot/rollback/reprovision. flash,
+    # bootprofile, tools/rauc-rotate and any power-off verb (shutdown, halt,
+    # poweroff, kexec) stay blocked no matter what the grant says -- see
+    # always_blocked below.
     #
     # Read-only recipes (status, screenshot, soak-summary, kiosk-backup,
     # rauc-status, tcp-state, kiosk-preflight, gpu-check) are NOT here: blocking
@@ -284,12 +325,35 @@ Bash)
     # verb positions: command position (CMDPOS, so a `sudo` prefix is not a way
     # past it), and the remote command of an ssh (`ssh_verb`), which is where an
     # argument to a grep is not.
+    #
+    # `reboot` alone is GRANT-SCOPED, below. shutdown/halt/poweroff leave the
+    # board off rather than restarting it and are never in scope for a grant
+    # (owner, 2026-09-28), so they are split into their own always-blocked verb.
     prod_reboot=0
-    for v in reboot shutdown halt poweroff; do
-        ssh_verb "$v" && prod_reboot=1
+    ssh_verb reboot && prod_reboot=1
+    prod_power=0
+    for v in shutdown halt poweroff; do
+        ssh_verb "$v" && prod_power=1
     done
-    if [ "$targets_prod" -eq 1 ] && { [ "$prod_reboot" -eq 1 ] || printf '%s' "$code" | grep -qE \
-        "just[[:space:]]+(kiosk-ota|kiosk-install|kiosk-send-direct|kiosk-rollback|kiosk-reboot|reboot|rauc-install|provision-device|bootprofile|gpu-capture|flash)([[:space:]]|$)|rauc[[:space:]]+install|systemctl[[:space:]]+(reboot|poweroff|halt|kexec|shutdown)|${CMDPOS}(reboot|shutdown|halt|poweroff)([[:space:]]|$)|tools/provision\.sh[[:space:]]+device|tools/rauc-rotate|tools/kiosk-gpu-check\.sh[^|]*--capture"; }; then
+
+    # Verbs a valid grant (tools/prod-authorize.sh) allows against prod: an
+    # OTA, install, direct-send, rollback, reboot, rauc install or reprovision.
+    grant_scoped=0
+    if [ "$prod_reboot" -eq 1 ] || printf '%s' "$code" | grep -qE \
+        "just[[:space:]]+(kiosk-ota|kiosk-install|kiosk-send-direct|kiosk-rollback|kiosk-reboot|reboot|rauc-install|provision-device)([[:space:]]|$)|rauc[[:space:]]+install|systemctl[[:space:]]+reboot|${CMDPOS}reboot([[:space:]]|$)|tools/provision\.sh[[:space:]]+device"; then
+        grant_scoped=1
+    fi
+
+    # Never allowed against prod, grant or not: flash, bootprofile,
+    # tools/rauc-rotate, and any verb that leaves the board off rather than
+    # restarting it. gpu-capture is here until W3 retires kiosk-gpu-check.sh.
+    always_blocked=0
+    if [ "$prod_power" -eq 1 ] || printf '%s' "$code" | grep -qE \
+        "just[[:space:]]+(bootprofile|gpu-capture|flash)([[:space:]]|$)|systemctl[[:space:]]+(poweroff|halt|kexec|shutdown)|${CMDPOS}(shutdown|halt|poweroff)([[:space:]]|$)|tools/rauc-rotate|tools/kiosk-gpu-check\.sh[^|]*--capture"; then
+        always_blocked=1
+    fi
+
+    if [ "$targets_prod" -eq 1 ] && { [ "$always_blocked" -eq 1 ] || { [ "$grant_scoped" -eq 1 ] && ! grant_valid; }; }; then
         cat >&2 <<'MSG'
 BLOCKED: that is a destructive operation aimed at the PROD board.
 
@@ -297,6 +361,10 @@ Prod is wall-mounted and is carrying the live soak run. An OTA, install,
 rollback, reboot, reprovision, profile or gpu-capture there ends a run that
 cannot be replayed, and a slot that comes up wrong costs a physical trip to
 the wall.
+
+A valid grant (tools/prod-authorize.sh) allows the OTA/install/reboot/rollback/
+reprovision half of that list. flash, bootprofile, rauc-rotate and any
+power-off verb (shutdown, halt, poweroff, kexec) stay blocked regardless.
 
 Retarget the BENCH board -- `local/device-identity.md` has the role map, and
 `just find <cidr>` reports which address a swapped board took. Observation of

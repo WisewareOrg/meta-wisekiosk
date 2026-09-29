@@ -59,6 +59,22 @@ export KIOSK_IDENTITY_FILE="$T/device-identity.md"
 export KIOSK_SYSFS_ROOT="$T/sys"
 export KIOSK_DEV_ROOT="$T/dev"
 
+# W2 fixtures: the expiring prod grant. Real unix time, not a fixed constant --
+# a fixed "future" timestamp eventually becomes the past, and every case below
+# must agree on the same now().  KIOSK_PROD_AUTH_FILE is NEVER left to its
+# default resolution in these cases (except the dedicated worktree case
+# below): the default would touch this checkout's own local/prod-auth.
+NOW=$(date +%s)
+GRANT_VALID="$T/prod-auth-valid"
+GRANT_EXPIRED="$T/prod-auth-expired"
+GRANT_MISSING_KEY="$T/prod-auth-missing-key"
+GRANT_NON_INTEGER="$T/prod-auth-non-integer"
+GRANT_NONE="$T/prod-auth-none"   # deliberately never created -- "no grant"
+printf 'expires=%s\n' "$((NOW + 3600))" > "$GRANT_VALID"
+printf 'expires=%s\n' "$((NOW - 3600))" > "$GRANT_EXPIRED"
+printf 'notexpires=%s\n' "$((NOW + 3600))" > "$GRANT_MISSING_KEY"
+printf 'expires=notanumber\n' > "$GRANT_NON_INTEGER"
+
 pass=0; fail=0
 # Extra environment for the guard under test, as `env` arguments. Used by the
 # worktree block, which has to UNSET the identity-file override -- an assignment
@@ -356,6 +372,13 @@ if env "${GITUNSET[@]}" git -c init.defaultBranch=main init -q "$T/primary" \
     t "worktree prod reboot"  BLOCK "$(b "ssh root@$PROD reboot")"
     t "worktree prod suppress" BLOCK "$(b "ssh root@$PROD uptime 2>/dev/null")"
     t "worktree bench OTA"    ALLOW "$(b "just kiosk-ota host=root@$BENCH")"
+    # W2: local/prod-auth resolves the same way local/device-identity.md does --
+    # from the PRIMARY tree, via git-common-dir, never the worktree. No
+    # KIOSK_PROD_AUTH_FILE override in TENV: this is the default-resolution path.
+    printf 'expires=%s\n' "$((NOW + 3600))" > "$T/primary/local/prod-auth"
+    t "worktree grant: prod OTA allowed" ALLOW "$(b "just kiosk-ota host=root@$PROD")"
+    printf 'expires=%s\n' "$((NOW - 3600))" > "$T/primary/local/prod-auth"
+    t "worktree grant: expired still blocks" BLOCK "$(b "just kiosk-ota host=root@$PROD")"
     TENV=()
 else
     fail=$((fail+1))
@@ -378,6 +401,55 @@ case "$notice" in
     *)       r="FAIL"; fail=$((fail+1)) ;;
 esac
 printf '%s expected=NOTICE                   no-map fail-open announces itself on stderr\n' "$r"
+
+echo "--- W2: no grant -- in-scope verbs still block ---"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE" t "no grant: kiosk-ota"   BLOCK "$(b "just kiosk-ota host=root@$PROD")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE" t "no grant: bare reboot" BLOCK "$(b "ssh root@$PROD reboot")"
+
+echo "--- W2: an expired grant blocks ---"
+KIOSK_PROD_AUTH_FILE="$GRANT_EXPIRED" t "expired grant: kiosk-ota"   BLOCK "$(b "just kiosk-ota host=root@$PROD")"
+KIOSK_PROD_AUTH_FILE="$GRANT_EXPIRED" t "expired grant: bare reboot" BLOCK "$(b "ssh root@$PROD reboot")"
+
+echo "--- W2: a malformed grant blocks, whatever shape the defect takes ---"
+KIOSK_PROD_AUTH_FILE="$GRANT_MISSING_KEY"  t "malformed grant: missing key"          BLOCK "$(b "just kiosk-ota host=root@$PROD")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NON_INTEGER"  t "malformed grant: non-integer"          BLOCK "$(b "just kiosk-ota host=root@$PROD")"
+
+echo "--- W2: a valid grant allows every in-scope verb ---"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-ota"               ALLOW "$(b "just kiosk-ota host=root@$PROD")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-send-direct"       ALLOW "$(b "just kiosk-send-direct host=root@$PROD:/data")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-install"           ALLOW "$(b "just kiosk-install host=root@$PROD")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: rauc-install recipe"     ALLOW "$(b "just rauc-install root@$PROD build/tmp-$PHOST/deploy/images/$PHOST/update-bundle-$PHOST.raucb")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: rauc install literal"    ALLOW "$(b "ssh root@$PROD rauc install /data/update.raucb")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-reboot"            ALLOW "$(b "just kiosk-reboot host=root@$PHOST")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: just reboot"             ALLOW "$(b "just reboot root@$PROD")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl reboot"        ALLOW "$(b "ssh root@$PROD systemctl reboot")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: ssh bare reboot"         ALLOW "$(b "ssh root@$PROD reboot")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-rollback"          ALLOW "$(b "just kiosk-rollback host=root@$PROD")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: provision-device recipe" ALLOW "$(b "just provision-device host=root@$PROD")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: provision.sh device"     ALLOW "$(b "tools/provision.sh device root@$PROD")"
+
+echo "--- W2: a valid grant does not widen scope beyond the listed verbs ---"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: flash to fixed disk still blocked (RULE 2 unaffected)" BLOCK "$(b 'sudo bmaptool copy core-image.wic.bz2 /dev/sdz')"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: bootprofile still blocked"     BLOCK "$(b "just bootprofile host=root@$PROD outdir=local")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: rauc-rotate still blocked"     BLOCK "$(b "tools/rauc-rotate.sh root@$PROD local/keys/fleet-key")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl poweroff still blocked" BLOCK "$(b "ssh root@$PROD systemctl poweroff")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl halt still blocked"     BLOCK "$(b "ssh root@$PROD systemctl halt")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: shutdown -r still blocked"        BLOCK "$(b "ssh root@$PROD 'shutdown -r now'")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl kexec still blocked"    BLOCK "$(b "ssh root@$PROD systemctl kexec")"
+
+echo "--- W2: bench is unaffected by grant state either way ---"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID"   t "grant present: bench OTA still allowed" ALLOW "$(b "just kiosk-ota host=root@$BENCH")"
+KIOSK_PROD_AUTH_FILE="$GRANT_EXPIRED" t "grant expired: bench OTA still allowed" ALLOW "$(b "just kiosk-ota host=root@$BENCH")"
+
+echo "--- W2: revoking the grant (the file goes away) blocks again ---"
+# prod-authorize.sh's own --revoke behaviour is out of scope here (owner,
+# 2026-09-28) -- this proves the guard's SIDE of revocation: once the grant
+# file is gone, the verb it allowed a moment ago blocks again.
+GRANT_REVOKABLE="$T/prod-auth-revokable"
+printf 'expires=%s\n' "$((NOW + 3600))" > "$GRANT_REVOKABLE"
+KIOSK_PROD_AUTH_FILE="$GRANT_REVOKABLE" t "revoke: allowed before" ALLOW "$(b "just kiosk-ota host=root@$PROD")"
+rm -f "$GRANT_REVOKABLE"
+KIOSK_PROD_AUTH_FILE="$GRANT_REVOKABLE" t "revoke: blocked after (grant file removed)" BLOCK "$(b "just kiosk-ota host=root@$PROD")"
 
 echo
 printf 'pass=%s fail=%s\n' "$pass" "$fail"

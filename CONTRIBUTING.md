@@ -24,8 +24,10 @@ refuses at flash. See [`README.md`](README.md) §"Quick start".
 again, so it is a decision made before starting, not a tweak. `config.txt`-only knobs are free.
 
 **Two boards, two roles.** `prod` is wall-mounted and carries the live soak run; `bench` is the
-board to OTA, reboot and abuse. Nothing destructive goes near prod.
-`.claude/hooks/guard.sh` blocks it, but only as a backstop — and only as far as
+board to OTA, reboot and abuse. Nothing destructive goes near prod, except under a time-boxed
+`tools/prod-authorize.sh` grant, which widens only OTA, install, reboot, rollback and reprovision —
+flash, bootprofile, `tools/rauc-rotate` and any power-off verb stay blocked regardless.
+`.claude/hooks/guard.sh` enforces both halves, but only as a backstop — and only as far as
 `local/device-identity.md` is current, so update that file when a board is swapped.
 
 **Nothing autogenerable is committed (owner, 2026-09-27).** A file this tree can regenerate from what
