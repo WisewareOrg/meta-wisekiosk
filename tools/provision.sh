@@ -170,8 +170,7 @@ case "$MODE" in
     # The archive names STAGE's children (config, etc, RECOVER.sh), never `.`
     # itself: `tar -C "$STAGE" -cf - .` archives a `./` entry carrying
     # mktemp -d's own mode (0700), and `tar -C /data -xf -` applies THAT to
-    # /data itself, not just its contents. #100 W9: this took wisekiosk's
-    # User=kiosk config.json symlink traversal down on every re-provision.
+    # /data itself, not just its contents.
     #
     # rc is captured rather than left to errexit: a bare ssh diagnostic and a
     # silent exit 255 say nothing about which of this script's two remote steps

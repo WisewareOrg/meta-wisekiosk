@@ -5,8 +5,9 @@ plan's sequencing rule — not committed by this task). Layout matches that dire
 its root.
 
 Scope derived from `git show origin/100-gpu-compositing:docs/issue_investigation/gpu_compositing/README.md`
-(4469 lines) against the branch's tracked file list. The README's own R2 accounting (lines ~215,
-263-274) names exactly four unmet obligations; this recovery closes three of them and reports the
+(4469 lines) against the branch's tracked file list. The README's own R2 accounting (in
+[`README.md`](README.md) §"Test runs") names exactly four unmet obligations; this recovery closes
+three of them and reports the
 fourth as **not recoverable as a single file** (see "Not found" below). A full link-extraction sweep
 of every `[text]` `(path)` pair in the README confirmed every *linked* file already exists on the branch —
 the only gaps are items the README names in prose without a link, precisely because it says they
@@ -28,8 +29,8 @@ scan and by a direct grep for each literal KNOWN value.
 
 ## Recovered: Runs 3-7 harness (11 files)
 
-The README (lines 312-316) states these one-off scripts "exist only in a scratch directory outside
-this repository" and were never committed. They were not found on this host's live filesystem (a
+The README (in [`README.md`](README.md) §"Test runs") states these one-off scripts "exist only in a
+scratch directory outside this repository" and were never committed. They were not found on this host's live filesystem (a
 prior recon's `find / -xdev` found none — see `close-the-loop.md` §E1), so they are recovered from
 this session's own prior transcript (`~/.claude/projects/-home-tjwise-meta-wisekiosk/9253304a-ddb2-4c2c-827e-a05b0942ac7b.jsonl`
 and its subagents), which still holds the exact bytes each `Write` tool call produced.
@@ -56,7 +57,8 @@ was found: each derived file has exactly one transcript step that produced it, a
 deployed to the board for that run's capture.
 
 **No redaction needed.** None of these 11 files reference a board address, hostname or credential —
-consistent with the README's own claim (line 308) that "No device address is in any of these files."
+consistent with the README's own claim (in [`README.md`](README.md) §"Test runs") that "No device
+address is in any of these files."
 
 ## Recovered: Run 44's named tool (1 file, not board-run, banked no numbers)
 
@@ -64,7 +66,8 @@ consistent with the README's own claim (line 308) that "No device address is in 
 |---|---|---|
 | `profile-churn.mjs` | main transcript `9253304a…jsonl` line 11433 (`Write`, verbatim) | `ca46f65b85ea1aefac32047a4115feeb9d2e3166bc8709bf2ce772a8ed41f5c4` |
 
-The README (line 296) names this tool as "committed nowhere in this repository" and not the source
+The README (in [`README.md`](README.md) §"Test runs") names this tool as "committed nowhere in this
+repository" and not the source
 of any number in the record (its diff banked no numbers). Retained per the owner ruling — it was
 used, even though the run it served produced no retained figures. It is superseded for future use by
 the committed `webkit-inspect.mjs diff <seconds>` mode, which the README states implements the same
@@ -73,7 +76,7 @@ recommended tool going forward.
 
 ## Recovered: Run 47's capture (2 files)
 
-The README (line 213, 271) states "No capture file is committed — the arrival series is transcribed
+The README (in [`README.md`](README.md) §"Test runs") states "No capture file is committed — the arrival series is transcribed
 into the run block" from "the session's own task output." That task output still exists on disk,
 unaltered, at the paths below, and is reformatted here into the same raw-capture convention every
 other run uses (see `baseline-588s-raw.txt` for the committed precedent):
