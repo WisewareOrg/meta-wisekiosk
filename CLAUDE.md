@@ -41,9 +41,8 @@ One owner per fact. Read the owner; do not restate it here or anywhere else.
   bench is the OTA, reboot and rollback target. Roles and addresses are in
   `local/device-identity.md` — read them, do not remember them.
   `.claude/hooks/guard.sh` blocks a prod-targeted destructive op, and it is only as good as that file.
-  A `tools/prod-authorize.sh` grant lifts that block for OTA, install, reboot, rollback and
-  reprovision only, and only until it expires; flash, bootprofile, rauc-rotate and any power-off
-  verb stay blocked regardless.
+  A `tools/prod-authorize.sh` grant lifts that block for a fixed, time-boxed set of verbs — see
+  [`CONTRIBUTING.md`](CONTRIBUTING.md) §"Before you change anything".
 - **The RAUC keyring and `compatible` are a one-way lock.** A deployed board refuses a bundle it
   cannot verify and a compatible that is not its own. There is no remote undo; the order in
   [`docs/rauc-key-rotation.md`](docs/rauc-key-rotation.md) is the whole mechanism.
