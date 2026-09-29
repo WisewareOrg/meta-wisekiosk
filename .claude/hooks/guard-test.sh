@@ -495,6 +495,91 @@ KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl --force poweroff still b
 KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: kiosk-bootprofile.sh direct blocks"    BLOCK "$(b "tools/kiosk-bootprofile.sh root@$PROD")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-bootprofile.sh direct still blocks" BLOCK "$(b "tools/kiosk-bootprofile.sh root@$PROD")"
 
+echo "--- W2: prod log reads survive the B1 quote-strip fix (content-reviewer, 8b340f6) ---"
+# \$flat drops the command's own trailing quote so a verb right before it is
+# still caught (content-reviewer B1a). Each of these is a read that must stay
+# a read, proven with and without a grant: the always-blocked path does not
+# consult grant_valid, so a grant must not be what makes the difference here.
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: journalctl | grep 'reboot -p' allowed"  ALLOW "$(b "ssh root@$PROD \"journalctl -b -1 | grep -c 'reboot -p'\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: journalctl | grep 'reboot -p' allowed"     ALLOW "$(b "ssh root@$PROD \"journalctl -b -1 | grep -c 'reboot -p'\"")"
+# The --halt here is a nonsense flag to grep -- it is DATA (grep's own argv),
+# not a command, and a guard that reads argv positionally must not mistake it
+# for the verb.
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: grep ... --halt nonsense flag allowed" ALLOW "$(b "ssh root@$PROD \"grep reboot /var/log/messages --halt\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: grep ... --halt nonsense flag allowed"    ALLOW "$(b "ssh root@$PROD \"grep reboot /var/log/messages --halt\"")"
+# The documented workaround for a single -E/-cE alternation whose LAST branch
+# is a power or reboot verb (the residual, below): two -e patterns, so no bare
+# '|' ever sits immediately before the word being searched for.
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: grep -e panic -e poweroff (workaround) allowed" ALLOW "$(b "ssh root@$PROD \"grep -e panic -e poweroff /var/log/messages\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: grep -e panic -e poweroff (workaround) allowed"    ALLOW "$(b "ssh root@$PROD \"grep -e panic -e poweroff /var/log/messages\"")"
+# Reordering the alternation so the power/reboot word is NOT the last branch is
+# also a workaround: nothing follows it but the closing quote or another '|',
+# never whitespace-then-verb, so the always-blocked anchor never lands on it.
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: grep -cE halt|oom (reordered, workaround) allowed" ALLOW "$(b "ssh root@$PROD \"grep -cE 'halt|oom' /var/log/messages\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: grep -cE halt|oom (reordered, workaround) allowed"    ALLOW "$(b "ssh root@$PROD \"grep -cE 'halt|oom' /var/log/messages\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: last -x | grep -e reboot -e shutdown (workaround) allowed" ALLOW "$(b "ssh root@$PROD \"last -x | grep -e reboot -e shutdown\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: last -x | grep -e reboot -e shutdown (workaround) allowed"    ALLOW "$(b "ssh root@$PROD \"last -x | grep -e reboot -e shutdown\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: grep -c -e oom -e halt (workaround) allowed" ALLOW "$(b "ssh root@$PROD \"grep -c -e oom -e halt /var/log/messages\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: grep -c -e oom -e halt (workaround) allowed"    ALLOW "$(b "ssh root@$PROD \"grep -c -e oom -e halt /var/log/messages\"")"
+
+echo "--- W2: the quote-strip's documented residual (content-reviewer, 8b340f6; owner, 2026-09-28) ---"
+# Any quoted -E/-cE alternation, or piped grep -E, whose LAST branch is a
+# power-off or reboot verb sits a bare '|' away from it once the command's
+# quoting is stripped -- the same '|' CMDPOS reads as a command separator.
+# This is the one shape the quote-strip fix cannot tell from a real chained
+# command, and it is accepted as a residual (fail-closed is this guard's
+# posture) rather than silently broken. The workaround -- two -e flags, or
+# putting the power/reboot word first in the alternation -- is proven ALLOW
+# above.
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "documented residual: grep -cE oom|halt blocks"             BLOCK "$(b "ssh root@$PROD \"grep -cE 'oom|halt' /var/log/messages\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "documented residual (grant present): grep -cE oom|halt blocks" BLOCK "$(b "ssh root@$PROD \"grep -cE 'oom|halt' /var/log/messages\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "documented residual: last -x | grep reboot|shutdown blocks"             BLOCK "$(b "ssh root@$PROD \"last -x | grep -E 'reboot|shutdown'\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "documented residual (grant present): last -x | grep reboot|shutdown blocks" BLOCK "$(b "ssh root@$PROD \"last -x | grep -E 'reboot|shutdown'\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "documented residual: grep -cE panic|poweroff blocks" BLOCK "$(b "ssh root@$PROD \"grep -cE 'panic|poweroff' /var/log/messages\"")"
+
+echo "--- W2: further power-off/halt spellings block regardless of grant ---"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: sh -c poweroff blocks"                    BLOCK "$(b "ssh root@$PROD sh -c poweroff")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: sh -c poweroff still blocks"                 BLOCK "$(b "ssh root@$PROD sh -c poweroff")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: init 0 blocks"                            BLOCK "$(b "ssh root@$PROD init 0")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: init 0 still blocks"                         BLOCK "$(b "ssh root@$PROD init 0")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: telinit 0 blocks"                         BLOCK "$(b "ssh root@$PROD telinit 0")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: telinit 0 still blocks"                      BLOCK "$(b "ssh root@$PROD telinit 0")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: systemctl start poweroff.target blocks"   BLOCK "$(b "ssh root@$PROD systemctl start poweroff.target")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl start poweroff.target still blocks" BLOCK "$(b "ssh root@$PROD systemctl start poweroff.target")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: systemctl isolate halt.target blocks"     BLOCK "$(b "ssh root@$PROD systemctl isolate halt.target")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl isolate halt.target still blocks"  BLOCK "$(b "ssh root@$PROD systemctl isolate halt.target")"
+
+echo "--- W2: B1-bypass probes -- a grant-scoped verb chained with a power verb, wrapped every way a hand-typed command actually gets wrapped ---"
+# Each of these carries a grant-scoped verb (rauc install / reboot) AND an
+# always-blocked one on the SAME line, exactly like the original B1 case, but
+# with something else -- a redirect, a comment, a second pipeline stage, a
+# trailing shell operator, a wrapping shell, subshell parens, or a literal
+# embedded newline -- sitting around the power verb. None of that is a way
+# past always_blocked: it does not stop scanning at the first shell operator
+# it meets, and a verb followed by ANY of these is still followed by
+# whitespace or end of string.
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: chained + piped to tee still blocks"      BLOCK "$(b "ssh root@$PROD 'rauc install /data/update.raucb && poweroff' 2>&1 | tee log")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: chained + > out still blocks"             BLOCK "$(b "ssh root@$PROD 'rauc install /data/update.raucb && poweroff' > out")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: chained + trailing comment still blocks"  BLOCK "$(b "ssh root@$PROD 'rauc install /data/update.raucb && poweroff' # go")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: chained + || true still blocks"           BLOCK "$(b "ssh root@$PROD 'rauc install /data/update.raucb && poweroff' || true")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: chained + ; echo done still blocks"       BLOCK "$(b "ssh root@$PROD 'rauc install /data/update.raucb && poweroff' ; echo done")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: chained + && echo ok still blocks"        BLOCK "$(b "ssh root@$PROD 'rauc install /data/update.raucb && poweroff' && echo ok")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: timeout-wrapped, stdin redirected, still blocks" BLOCK "$(b "timeout 60 ssh root@$PROD 'rauc install /data/update.raucb; halt' </dev/null")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: sh -c wrapping the remote command still blocks"  BLOCK "$(b "ssh root@$PROD \"sh -c 'rauc install /data/update.raucb; poweroff'\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: sh -c wrapping + trailing 2>&1 still blocks"     BLOCK "$(b "ssh root@$PROD \"sh -c 'rauc install /data/update.raucb; poweroff'\" 2>&1")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: subshell parens still blocks"             BLOCK "$(b "ssh root@$PROD '(rauc install /data/update.raucb; poweroff)'")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: chained OTA + reboot -p, trailing 2>&1 still blocks" BLOCK "$(b "ssh root@$PROD 'rauc install /data/update.raucb && reboot -p' 2>&1")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: literal embedded newline still blocks" BLOCK "$(b "$(printf "ssh root@%s 'rauc install /data/update.raucb\npoweroff'\necho done" "$PROD")")"
+
+echo "--- W2: bare chained/multi-line power verbs block with no grant at all ---"
+# No grant-scoped verb here -- just an innocuous command chained ahead of the
+# always-blocked one, or split across a literal newline. These need no grant
+# to prove the point: always_blocked never consulted grant_valid to begin with.
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE" t "no grant: uptime ; poweroff, trailing 2>&1 blocks"  BLOCK "$(b "ssh root@$PROD 'uptime; poweroff' 2>&1")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE" t "no grant: uptime ; init 0, trailing 2>&1 blocks"    BLOCK "$(b "ssh root@$PROD 'uptime; init 0' 2>&1")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE" t "no grant: uptime ; /sbin/halt, trailing 2>&1 blocks" BLOCK "$(b "ssh root@$PROD 'uptime; /sbin/halt' 2>&1")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE" t "no grant: uptime, embedded newline, halt blocks"    BLOCK "$(b "$(printf "ssh root@%s 'uptime\nhalt' 2>&1" "$PROD")")"
+
 echo "--- W2: bench is unaffected by grant state either way ---"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID"   t "grant present: bench OTA still allowed" ALLOW "$(b "just kiosk-ota host=root@$BENCH")"
 KIOSK_PROD_AUTH_FILE="$GRANT_EXPIRED" t "grant expired: bench OTA still allowed" ALLOW "$(b "just kiosk-ota host=root@$BENCH")"

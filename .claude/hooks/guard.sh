@@ -333,35 +333,94 @@ Bash)
     # past it), and the remote command of an ssh (`ssh_verb`), which is where an
     # argument to a grep is not.
     #
-    # Quotes stripped for CMDPOS matching ONLY -- a verb immediately before a
-    # closing quote, `ssh <host> 'rauc install ... && poweroff'`, sat right
-    # before a `'`, which is neither whitespace nor end of string, so
-    # `${CMDPOS}poweroff([[:space:]]|$)` never matched it (content-reviewer
-    # B1a). A quote carries no command-boundary meaning CMDPOS's own anchor set
-    # (`;&|(`) does not already express, so dropping them opens no new gap; the
-    # flattened form is used only here, never for targets_prod or the other
-    # rules.
-    flat=$(printf '%s' "$code" | tr -d "'\"")
+    # No quotes are stripped anywhere (content-reviewer B1a/N1, second pass):
+    # stripping even just the command's LAST character opened back up on any
+    # SUFFIX after the closing quote -- `ssh <host> '... && poweroff' 2>&1`,
+    # `| tee log`, `; echo done`, a trailing `)`, a second line -- none of
+    # which is the command's own last character, so the verb was never
+    # exposed. Matching runs on $code as-is, and a verb's END is a TERMINATOR
+    # CLASS instead of "whitespace or end of string": whitespace, `;&|)'"`, or
+    # end of string. A closing quote or paren ends the verb exactly like a
+    # space does, whatever comes after it -- `poweroff'`, `poweroff)`,
+    # `poweroff;` are all now a match, matching CMDPOS's own anchor set (which
+    # already treats `;&|(` as command punctuation, not text).
+    #
+    # The one shape this still cannot tell from a real chained command is a
+    # quoted regex alternation whose LAST branch is a power verb, wherever it
+    # sits on the line -- `grep -cE 'panic|poweroff' /var/log/messages`: the
+    # `|` inside the quotes reads as CMDPOS's own pipe anchor, `poweroff` sits
+    # right after it, and the quote right behind `poweroff` now ends the verb
+    # like whitespace would. Accepted as a documented residual (owner,
+    # 2026-09-28: fail-closed is this guard's posture) -- `grep -e panic -e
+    # poweroff` is the workaround, and both sides are proven in guard-test.sh.
+    # An alternation that does NOT end in a power verb (`'reboot|panic'`) is
+    # unaffected: the anchor exists, but the word after it is not tracked.
+    VERBEND="([[:space:];&|)'\"]|\$)"
     #
     # `reboot` alone is GRANT-SCOPED, below -- UNLESS it carries one of its own
     # power-off-equivalent flags (`-p`, `--poweroff`, `--halt`), which leaves
     # the board off exactly like the always-blocked verbs and is never in scope
     # for a grant (owner, 2026-09-28). shutdown/halt/poweroff/kexec are
-    # always-blocked outright.
+    # always-blocked outright, and so are two more forms of "go to runlevel
+    # 0/off" the docs already promise stay blocked: `sh -c poweroff` (or any of
+    # bash/zsh/dash/ksh) and `init 0` / `telinit 0`.
+    #
+    # Each of these three is checked TWO ways, ORed, neither alone enough:
+    # CMDPOS anchors a LOCAL or CHAINED verb (`rauc install ... && reboot -p`,
+    # `&& sh -c 'poweroff'`), but cannot reach one that is itself the remote
+    # command of an ssh call (`ssh <prod> reboot -p`, `ssh <prod> sh -c
+    # poweroff`) -- "ssh" is not a CMDWRAP word, so CMDPOS's own prefix chain
+    # never reaches past it. ssh_verb covers exactly that gap, gated on the
+    # verb it captured actually BEING reboot/a shell/init -- a blind text
+    # search blocked an OBSERVATION whose real verb is `grep`
+    # (content-reviewer N1: `grep reboot ... --halt`, `grep -c 'reboot -p'`).
     prod_reboot=0
     ssh_verb reboot && prod_reboot=1
     prod_power=0
     for v in shutdown halt poweroff kexec; do
         ssh_verb "$v" && prod_power=1
     done
-    printf '%s' "$flat" | grep -qE 'reboot([^;&|]*[[:space:]])?(-p|--poweroff|--halt)([[:space:]]|$)' \
-        && prod_power=1
+    if printf '%s' "$code" | grep -qE \
+        "${CMDPOS}(\\S*/)?reboot([[:space:]]+[^;&|]*)?[[:space:]](-p|--poweroff|--halt)${VERBEND}"; then
+        prod_power=1
+    fi
+    if [ "$prod_reboot" -eq 1 ] && printf '%s' "$code" | grep -qE \
+        "reboot([^;&|]*[[:space:]])?(-p|--poweroff|--halt)${VERBEND}"; then
+        prod_power=1
+    fi
+    if printf '%s' "$code" | grep -qE \
+        "${CMDPOS}(\\S*/)?(ba|z|da|k)?sh[[:space:]]+-c[[:space:]]+[\"']?(\\S*/)?(shutdown|halt|poweroff|kexec)${VERBEND}"; then
+        prod_power=1
+    fi
+    prod_shc=0
+    for v in sh bash zsh dash ksh; do
+        ssh_verb "$v" && prod_shc=1
+    done
+    # -e, not a bare pattern: a pattern starting with `-` reads as an option to
+    # grep itself ("invalid option -- '['"), GNU grep and this sandbox's ugrep
+    # alike.
+    if [ "$prod_shc" -eq 1 ] && printf '%s' "$code" | grep -qE \
+        -e "-c[[:space:]]+[\"']?(\\S*/)?(shutdown|halt|poweroff|kexec)${VERBEND}"; then
+        prod_power=1
+    fi
+    if printf '%s' "$code" | grep -qE \
+        "${CMDPOS}(\\S*/)?(tel)?init[[:space:]]+0${VERBEND}"; then
+        prod_power=1
+    fi
+    prod_runlevel0=0
+    for v in init telinit; do
+        ssh_verb "$v" && prod_runlevel0=1
+    done
+    if [ "$prod_runlevel0" -eq 1 ] && printf '%s' "$code" | grep -qE \
+        "(init|telinit)[[:space:]]+0${VERBEND}"; then
+        prod_power=1
+    fi
 
     # Verbs a valid grant (tools/prod-authorize.sh) allows against prod: an
     # OTA, install, direct-send, rollback, reboot, rauc install or reprovision.
     grant_scoped=0
-    if [ "$prod_reboot" -eq 1 ] || printf '%s' "$flat" | grep -qE \
-        "just[[:space:]]+(kiosk-ota|kiosk-install|kiosk-send-direct|kiosk-rollback|kiosk-reboot|reboot|rauc-install|provision-device)([[:space:]]|$)|rauc[[:space:]]+install|systemctl([[:space:]]+-[^[:space:]]+)*[[:space:]]+reboot|${CMDPOS}reboot([[:space:]]|$)|tools/provision\.sh[[:space:]]+device"; then
+    if [ "$prod_reboot" -eq 1 ] || printf '%s' "$code" | grep -qE \
+        "just[[:space:]]+(kiosk-ota|kiosk-install|kiosk-send-direct|kiosk-rollback|kiosk-reboot|reboot|rauc-install|provision-device)${VERBEND}|rauc[[:space:]]+install|systemctl([[:space:]]+-[^[:space:]]+)*[[:space:]]+reboot${VERBEND}|${CMDPOS}(\\S*/)?reboot${VERBEND}|tools/provision\\.sh[[:space:]]+device"; then
         grant_scoped=1
     fi
 
@@ -370,8 +429,8 @@ Bash)
     # rather than restarting it -- bare, `/path/to/`-prefixed, or interleaved
     # with systemctl options (`systemctl --force poweroff`).
     always_blocked=0
-    if [ "$prod_power" -eq 1 ] || printf '%s' "$flat" | grep -qE \
-        "just[[:space:]]+(bootprofile|flash)([[:space:]]|$)|systemctl([[:space:]]+-[^[:space:]]+)*[[:space:]]+(poweroff|halt|kexec|shutdown)|${CMDPOS}((\\S*/)?(shutdown|halt|poweroff|kexec))([[:space:]]|$)|tools/rauc-rotate|tools/kiosk-bootprofile\.sh"; then
+    if [ "$prod_power" -eq 1 ] || printf '%s' "$code" | grep -qE \
+        "just[[:space:]]+(bootprofile|flash)${VERBEND}|systemctl([[:space:]]+-[^[:space:]]+)*[[:space:]]+(poweroff|halt|kexec|shutdown)${VERBEND}|systemctl([[:space:]]+-[^[:space:]]+)*[[:space:]]+(start|isolate)[[:space:]]+(poweroff|halt)\\.target${VERBEND}|${CMDPOS}((\\S*/)?(shutdown|halt|poweroff|kexec))${VERBEND}|tools/rauc-rotate|tools/kiosk-bootprofile\\.sh"; then
         always_blocked=1
     fi
 
