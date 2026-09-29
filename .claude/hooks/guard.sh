@@ -346,15 +346,17 @@ Bash)
     # already treats `;&|(` as command punctuation, not text).
     #
     # The one shape this still cannot tell from a real chained command is a
-    # quoted regex alternation whose LAST branch is a power verb, wherever it
-    # sits on the line -- `grep -cE 'panic|poweroff' /var/log/messages`: the
-    # `|` inside the quotes reads as CMDPOS's own pipe anchor, `poweroff` sits
-    # right after it, and the quote right behind `poweroff` now ends the verb
-    # like whitespace would. Accepted as a documented residual (owner,
-    # 2026-09-28: fail-closed is this guard's posture) -- `grep -e panic -e
-    # poweroff` is the workaround, and both sides are proven in guard-test.sh.
-    # An alternation that does NOT end in a power verb (`'reboot|panic'`) is
-    # unaffected: the anchor exists, but the word after it is not tracked.
+    # quoted regex alternation whose power verb is any branch but the FIRST,
+    # wherever it sits on the line -- `grep -cE 'panic|poweroff' /var/log/
+    # messages` and `grep -cE 'a|poweroff|b' ...` alike: the `|` right before
+    # the verb reads as CMDPOS's own pipe anchor, and the quote (or the next
+    # `|`) right behind the verb now ends it like whitespace would. Accepted as
+    # a documented residual (owner, 2026-09-28: fail-closed is this guard's
+    # posture) -- `grep -e panic -e poweroff` is the workaround, and both sides
+    # are proven in guard-test.sh. An alternation with the power verb FIRST
+    # (`'reboot|panic'`) is unaffected: nothing anchors immediately before it,
+    # only after -- and `reboot` first is grant-scoped, not always-blocked, so
+    # it still needs a grant like any other reboot.
     VERBEND="([[:space:];&|)'\"]|\$)"
     #
     # `reboot` alone is GRANT-SCOPED, below -- UNLESS it carries one of its own
