@@ -329,11 +329,13 @@ under "Off-board measurements" and "A separate defect found on this board".
   redeploying the mirror, independently of this image. That keeps one variable per run — the display
   stack — rather than shipping a browser change and a rendering change in one build.
 - **Scripts deployed:**
-  - [`kiosk-gpu-check.sh`](kiosk-gpu-check.sh) — DURABLE, committed at that path with
-    its self-test [`kiosk-gpu-check-test.sh`](kiosk-gpu-check-test.sh) and wired into
-    `tools/ci-guards.sh`. Reads the GPU path's footprint in the web process over SSH and exits
-    non-zero when it is absent or software-only. Its header records why the buffer mode itself is
-    not readable headless.
+  - [`kiosk-gpu-check.sh`](kiosk-gpu-check.sh) — DURABLE at the time of this run, in the tools
+    directory, with its self-test [`kiosk-gpu-check-test.sh`](kiosk-gpu-check-test.sh)
+    and wired into `tools/ci-guards.sh`. Reads the GPU path's footprint in the web process over SSH
+    and exits non-zero when it is absent or software-only. Its header records why the buffer mode
+    itself is not readable headless. **Retired from `tools/` in #100 W3 (owner, 2026-09-28:
+    "kiosk-gpu-check.sh is not useful") — both files moved byte-identical to this directory and no
+    longer run in `tools/ci-guards.sh`.**
   - `kiosk-soak.sh` — DURABLE, already in the image via
     `meta-wisekiosk/recipes-core/kiosk-soak/kiosk-soak_1.0.bb`.
 - **Kiosk config:** `KIOSK_URL`, `KIOSK_INSPECTOR=0`, `WEBKIT_FORCE_VBLANK_TIMER=1`. Accelerated
@@ -4328,10 +4330,16 @@ holds `/dev/dri` open with a `vc4`/`v3d` driver mapped. That was the right proxy
 was the goal. On the configuration this investigation measured as **correct** — compositing off, no
 accelerated backing store, so no DRM node held — it reports `NO GPU path` and exits non-zero: **a
 correctly configured board reads as broken.** Whether the tool is retired, re-aimed at the software
-path, or kept as a guard on a state the fleet does not want is an owner decision that has not been
-taken. It is flagged here because the tool is operator-facing — `justfiles/device.just` drives it in
-both modes, and its self-test runs in `tools/ci-guards.sh` — so the mis-aimed verdict reaches a
-person at a prompt, not just a file.
+path, or kept as a guard on a state the fleet does not want was, at the time of this finding, an
+owner decision that had not been taken. It was flagged here because the tool was operator-facing —
+`justfiles/device.just` drove it in both modes, and its self-test ran in `tools/ci-guards.sh` — so
+the mis-aimed verdict reached a person at a prompt, not just a file.
+
+**The decision has since been taken: retired (owner, 2026-09-28, "kiosk-gpu-check.sh is not
+useful").** #100 W3 moved the script and its self-test byte-identical into this directory, dropped
+the `gpu-check`/`gpu-capture` recipes from `justfiles/device.just`, and removed its self-test from
+`tools/ci-guards.sh`. The tool is no longer operator-facing; it is retained here as the record of
+what it measured and why.
 
 **The decisions the owner holds, none of them taken here:**
 
@@ -4435,10 +4443,12 @@ gap "Changes configured as a result" records for the `.seconds` fix.
 - **[`kiosk-render-check.sh`](../../../tools/kiosk-render-check.sh) and its self-test
   [`kiosk-render-check-test.sh`](../../../tools/kiosk-render-check-test.sh)** — the render-advance
   detector built against the freeze, with 34 verdict fixtures and 7 mutations proving each guard can
-  fail independently. Committed at those paths; invocation matches `kiosk-gpu-check.sh`. It has **no
-  `just` recipe and is not wired into [`tools/ci-guards.sh`](../../../tools/ci-guards.sh)**, where
-  `kiosk-gpu-check.sh`'s self-test does run — that wiring is an owner decision that has not been
-  taken, and the tool is usable by path in the meantime.
+  fail independently. Committed at those paths; invocation matched `kiosk-gpu-check.sh`'s, at the
+  time of this run. It has **no `just` recipe and is not wired into
+  [`tools/ci-guards.sh`](../../../tools/ci-guards.sh)** — that wiring is still an owner decision that
+  has not been taken, and the tool is usable by path in the meantime. (`kiosk-gpu-check.sh`'s own
+  self-test no longer runs there either: #100 W3 retired it from `tools/ci-guards.sh` along with the
+  script.)
 
 - **The `probe4` harness, the motion probe family, the shipped-mechanism probes, the allocation probe
   and every raw capture they produced, committed beside this README** — the R2 obligation for Runs 8
