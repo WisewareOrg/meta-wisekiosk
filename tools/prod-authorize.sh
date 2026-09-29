@@ -7,8 +7,11 @@
 # blocked regardless. Revoke when the work the grant was for is done.
 #
 #   tools/prod-authorize.sh [--hours H]   -- grant H hours (integer 1-12, default 12)
-#   tools/prod-authorize.sh --show        -- print the current grant, if any
+#   tools/prod-authorize.sh --show        -- print the grant file's raw contents, if any
 #   tools/prod-authorize.sh --revoke      -- remove the grant
+#
+# --show gives no verdict: .claude/hooks/guard.sh alone decides whether a
+# grant is valid.
 #
 # This does not gate itself -- nothing stops a session from running this on
 # its own authority. The gate is the human who approved the session running
@@ -48,19 +51,19 @@ case "$ACTION" in
 show)
     # Owner (2026-09-28): validity logic lives only in the enforcer
     # (guard.sh's grant_valid()), the way orchestrator-gate.sh alone validates
-    # what orchestrator-toggle.sh writes. This prints the file and the expiry
-    # as written -- no shape, symlink or malformed verdict of its own.
+    # what orchestrator-toggle.sh writes. Tightened by content-reviewer/
+    # test-reviewer's N3 finding: an "expired" check here was itself a shape
+    # verdict, and malformed content (a non-integer, a missing key) made its
+    # `[ -le ]` error to stderr and fall through to a false "rc=0, granted"
+    # report -- worse than giving no verdict at all. This prints the path and
+    # the file's raw content, nothing interpreted, and exits 0 whenever the
+    # path could be read.
     if [ ! -e "$PAFILE" ]; then
         echo "no grant file at $PAFILE"
         exit 1
     fi
-    content=$(cat "$PAFILE")
-    exp=${content#expires=}
-    if [ "$exp" -le "$(date +%s)" ]; then
-        echo "$PAFILE: expired ($(date -d "@$exp"))"
-        exit 1
-    fi
-    echo "$PAFILE: expires $(date -d "@$exp")"
+    echo "$PAFILE:"
+    cat "$PAFILE"
     ;;
 revoke)
     if [ -e "$PAFILE" ] || [ -L "$PAFILE" ]; then
