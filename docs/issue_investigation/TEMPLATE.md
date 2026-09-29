@@ -6,7 +6,10 @@
     R1  Every test run names its BOARD (role) and the IMAGE COMMIT it ran.
     R2  Every script put on a board is either SHIPPED (link its recipe/PR) or ONE-OFF
         (committed in this directory beside this README). Never left only in local/ or hot-swapped
-        without a tracked source.
+        without a tracked source. A COMMAND that drives a run is a script under this rule too — an
+        ssh heredoc, or a one-liner that deploys a probe, reads back a result, or computes a recorded
+        number. Write it to a file beside the README and run it from that file. A number that rests
+        on a command existing only in a terminal or a session transcript fails R2.
     R3  Runs are NEVER blended. One board × one build × one test = one run. Numbers from different
         runs never share a table.
   Example file names below are backticked, not linked: `just links` resolves every Markdown link
