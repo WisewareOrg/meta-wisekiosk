@@ -214,10 +214,17 @@ def contribution(by_layer, layers):
 
 # git exports these to a hook and to anything a hook runs. They name the
 # repository the hook fired in and they OUTRANK `git -C <path>`, so a command
-# meant for a layer checkout silently reads this tree instead.
-GIT_SCOPE = ("GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE",
-             "GIT_OBJECT_DIRECTORY", "GIT_COMMON_DIR", "GIT_CONFIG",
-             "GIT_PREFIX")
+# meant for a layer checkout silently reads this tree instead. Derived from
+# git's own canonical list (`--local-env-vars`) rather than hand-copied, so a
+# git version that adds one is picked up here without a second edit; unioned
+# with this file's own prior list so nothing already relied on here is lost if
+# a future git ever drops an entry --local-env-vars used to report.
+_GIT_SCOPE_HAND = frozenset((
+    "GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE", "GIT_OBJECT_DIRECTORY",
+    "GIT_COMMON_DIR", "GIT_CONFIG", "GIT_PREFIX"))
+GIT_SCOPE = tuple(_GIT_SCOPE_HAND | set(subprocess.run(
+    ["git", "rev-parse", "--local-env-vars"],
+    capture_output=True, text=True, check=True).stdout.split()))
 
 
 def git_env(**overrides):
