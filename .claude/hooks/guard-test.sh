@@ -70,6 +70,13 @@ GRANT_EXPIRED="$T/prod-auth-expired"
 GRANT_MISSING_KEY="$T/prod-auth-missing-key"
 GRANT_NON_INTEGER="$T/prod-auth-non-integer"
 GRANT_NONE="$T/prod-auth-none"   # deliberately never created -- "no grant"
+# Exported globally, like KIOSK_IDENTITY_FILE above: every case in this file
+# that does not set its own KIOSK_PROD_AUTH_FILE prefix (i.e. everything
+# outside the W2 sections) must not resolve to THIS checkout's own
+# local/prod-auth. Without this, a live grant during W9 flips every "prod op,
+# no grant" case in the file to ALLOW and the suite reports failures that are
+# not defects (content-reviewer S1).
+export KIOSK_PROD_AUTH_FILE="$GRANT_NONE"
 printf 'expires=%s\n' "$((NOW + 3600))" > "$GRANT_VALID"
 printf 'expires=%s\n' "$((NOW - 3600))" > "$GRANT_EXPIRED"
 printf 'notexpires=%s\n' "$((NOW + 3600))" > "$GRANT_MISSING_KEY"
@@ -344,17 +351,19 @@ if env "${GITUNSET[@]}" git -c init.defaultBranch=main init -q "$T/primary" \
    && env "${GITUNSET[@]}" git -C "$T/primary" worktree add -q "$T/wt" -b guard-test-wt; then
     mkdir -p "$T/primary/local"
     cp "$T/device-identity.md" "$T/primary/local/device-identity.md"
-    # -u, because the suite exports KIOSK_IDENTITY_FILE globally and this case
-    # is about the DEFAULT resolution path -- with the override in place it would
-    # pass without the primary tree ever being consulted.
-    TENV=("${GITUNSET[@]}" -u KIOSK_IDENTITY_FILE "CLAUDE_PROJECT_DIR=$T/wt")
+    # -u on both: the suite exports KIOSK_IDENTITY_FILE and (S1)
+    # KIOSK_PROD_AUTH_FILE globally, and this whole block is about the DEFAULT
+    # resolution path -- with either override in place it would pass without
+    # the primary tree ever being consulted.
+    TENV=("${GITUNSET[@]}" -u KIOSK_IDENTITY_FILE -u KIOSK_PROD_AUTH_FILE "CLAUDE_PROJECT_DIR=$T/wt")
     t "worktree prod OTA"     BLOCK "$(b "just kiosk-ota host=root@$PROD")"
     t "worktree prod reboot"  BLOCK "$(b "ssh root@$PROD reboot")"
     t "worktree prod suppress" BLOCK "$(b "ssh root@$PROD uptime 2>/dev/null")"
     t "worktree bench OTA"    ALLOW "$(b "just kiosk-ota host=root@$BENCH")"
     # W2: local/prod-auth resolves the same way local/device-identity.md does --
-    # from the PRIMARY tree, via git-common-dir, never the worktree. No
-    # KIOSK_PROD_AUTH_FILE override in TENV: this is the default-resolution path.
+    # from the PRIMARY tree, via git-common-dir, never the worktree. The -u
+    # above is what makes this the default-resolution path, not the global S1
+    # fixture.
     printf 'expires=%s\n' "$((NOW + 3600))" > "$T/primary/local/prod-auth"
     t "worktree grant: prod OTA allowed" ALLOW "$(b "just kiosk-ota host=root@$PROD")"
     printf 'expires=%s\n' "$((NOW - 3600))" > "$T/primary/local/prod-auth"
@@ -458,6 +467,33 @@ echo "--- W2: a grant-scoped verb chained with an always-blocked verb still bloc
 # verb reachable only through a compound line, invisible to a suite that never
 # composes two verbs in one payload (the gpu-capture regression, recorded above).
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: chained OTA + poweroff still blocks" BLOCK "$(b "just kiosk-ota host=root@$PROD && ssh root@$PROD poweroff")"
+# content-reviewer B1: the always-blocked power-verb alternation anchors on
+# `(shutdown|halt|poweroff)([[:space:]]|$)` and misses a verb followed by a
+# closing quote -- a grant-scoped verb earlier in the SAME quoted remote
+# command used to give that gap cover (nothing reached command position to
+# match), and the grant removed that cover. `reboot` is separately
+# grant-scoped whatever its arguments, so `reboot -p/--halt/--poweroff` leaves
+# the board off exactly like the always-blocked verbs, which the owner ruled
+# out of scope for any grant.
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: rauc install && poweroff still blocks" BLOCK "$(b "ssh root@$PROD 'rauc install /data/update.raucb && poweroff'")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: rauc install ; halt still blocks"      BLOCK "$(b "ssh root@$PROD 'rauc install /data/update.raucb; halt'")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: reboot -p still blocks"                BLOCK "$(b "ssh root@$PROD reboot -p")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: reboot --halt still blocks"            BLOCK "$(b "ssh root@$PROD reboot --halt")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: reboot --poweroff still blocks"        BLOCK "$(b "ssh root@$PROD reboot --poweroff")"
+
+echo "--- W2/S6: power-off, kexec and bootprofile spellings block with or without a grant ---"
+# Pre-existing RULE 1 gaps (predate the grant), surfaced by the new CLAUDE.md /
+# CONTRIBUTING.md / guard.sh prose that now promises bootprofile and "any
+# power-off verb (... kexec)" stay blocked regardless. None of these needed a
+# grant to slip through, so each is proven BOTH ways.
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: /sbin/poweroff blocks"        BLOCK "$(b "ssh root@$PROD /sbin/poweroff")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: /sbin/poweroff still blocks"     BLOCK "$(b "ssh root@$PROD /sbin/poweroff")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: kexec -e blocks"              BLOCK "$(b "ssh root@$PROD kexec -e")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kexec -e still blocks"           BLOCK "$(b "ssh root@$PROD kexec -e")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: systemctl --force poweroff blocks"    BLOCK "$(b "ssh root@$PROD systemctl --force poweroff")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl --force poweroff still blocks" BLOCK "$(b "ssh root@$PROD systemctl --force poweroff")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: kiosk-bootprofile.sh direct blocks"    BLOCK "$(b "tools/kiosk-bootprofile.sh root@$PROD")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-bootprofile.sh direct still blocks" BLOCK "$(b "tools/kiosk-bootprofile.sh root@$PROD")"
 
 echo "--- W2: bench is unaffected by grant state either way ---"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID"   t "grant present: bench OTA still allowed" ALLOW "$(b "just kiosk-ota host=root@$BENCH")"

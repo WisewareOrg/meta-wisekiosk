@@ -246,7 +246,13 @@ Bash)
     # hit, the producer dies of SIGPIPE at 141, and pipefail returns that -- the
     # test would read false precisely when the pattern matches.
     ssh_target() { [[ $'\n'$ssh_pairs$'\n' == *$'\n'"$1"$'\t'* ]]; }
-    ssh_verb() { [[ $'\n'$ssh_pairs$'\n' == *$'\t'"$1"$'\n'* ]]; }
+    # Tolerates a path prefix on the verb (`/sbin/poweroff`, `../bin/reboot`):
+    # the captured verb is the whole word, slashes included, and a bare-name
+    # match alone missed every absolute-path spelling of a power verb.
+    ssh_verb() {
+        [[ $'\n'$ssh_pairs$'\n' == *$'\t'"$1"$'\n'* ]] && return 0
+        [[ $'\n'$ssh_pairs$'\n' == *$'\t'*"/$1"$'\n'* ]]
+    }
 
     # True when $1 is the value of a `host=` recipe argument (`just … host=<host>`).
     # The pair is what makes this safe: `MACHINE=<host>` normalises to a different
@@ -326,30 +332,45 @@ Bash)
     # past it), and the remote command of an ssh (`ssh_verb`), which is where an
     # argument to a grep is not.
     #
-    # `reboot` alone is GRANT-SCOPED, below. shutdown/halt/poweroff leave the
-    # board off rather than restarting it and are never in scope for a grant
-    # (owner, 2026-09-28), so they are split into their own always-blocked verb.
+    # Quotes stripped for CMDPOS matching ONLY -- a verb immediately before a
+    # closing quote, `ssh <host> 'rauc install ... && poweroff'`, sat right
+    # before a `'`, which is neither whitespace nor end of string, so
+    # `${CMDPOS}poweroff([[:space:]]|$)` never matched it (content-reviewer
+    # B1a). A quote carries no command-boundary meaning CMDPOS's own anchor set
+    # (`;&|(`) does not already express, so dropping them opens no new gap; the
+    # flattened form is used only here, never for targets_prod or the other
+    # rules.
+    flat=$(printf '%s' "$code" | tr -d "'\"")
+    #
+    # `reboot` alone is GRANT-SCOPED, below -- UNLESS it carries one of its own
+    # power-off-equivalent flags (`-p`, `--poweroff`, `--halt`), which leaves
+    # the board off exactly like the always-blocked verbs and is never in scope
+    # for a grant (owner, 2026-09-28). shutdown/halt/poweroff/kexec are
+    # always-blocked outright.
     prod_reboot=0
     ssh_verb reboot && prod_reboot=1
     prod_power=0
-    for v in shutdown halt poweroff; do
+    for v in shutdown halt poweroff kexec; do
         ssh_verb "$v" && prod_power=1
     done
+    printf '%s' "$flat" | grep -qE 'reboot([^;&|]*[[:space:]])?(-p|--poweroff|--halt)([[:space:]]|$)' \
+        && prod_power=1
 
     # Verbs a valid grant (tools/prod-authorize.sh) allows against prod: an
     # OTA, install, direct-send, rollback, reboot, rauc install or reprovision.
     grant_scoped=0
-    if [ "$prod_reboot" -eq 1 ] || printf '%s' "$code" | grep -qE \
-        "just[[:space:]]+(kiosk-ota|kiosk-install|kiosk-send-direct|kiosk-rollback|kiosk-reboot|reboot|rauc-install|provision-device)([[:space:]]|$)|rauc[[:space:]]+install|systemctl[[:space:]]+reboot|${CMDPOS}reboot([[:space:]]|$)|tools/provision\.sh[[:space:]]+device"; then
+    if [ "$prod_reboot" -eq 1 ] || printf '%s' "$flat" | grep -qE \
+        "just[[:space:]]+(kiosk-ota|kiosk-install|kiosk-send-direct|kiosk-rollback|kiosk-reboot|reboot|rauc-install|provision-device)([[:space:]]|$)|rauc[[:space:]]+install|systemctl([[:space:]]+-[^[:space:]]+)*[[:space:]]+reboot|${CMDPOS}reboot([[:space:]]|$)|tools/provision\.sh[[:space:]]+device"; then
         grant_scoped=1
     fi
 
-    # Never allowed against prod, grant or not: flash, bootprofile,
-    # tools/rauc-rotate, and any verb that leaves the board off rather than
-    # restarting it.
+    # Never allowed against prod, grant or not: flash, bootprofile (both
+    # spellings), tools/rauc-rotate, and any verb that leaves the board off
+    # rather than restarting it -- bare, `/path/to/`-prefixed, or interleaved
+    # with systemctl options (`systemctl --force poweroff`).
     always_blocked=0
-    if [ "$prod_power" -eq 1 ] || printf '%s' "$code" | grep -qE \
-        "just[[:space:]]+(bootprofile|flash)([[:space:]]|$)|systemctl[[:space:]]+(poweroff|halt|kexec|shutdown)|${CMDPOS}(shutdown|halt|poweroff)([[:space:]]|$)|tools/rauc-rotate"; then
+    if [ "$prod_power" -eq 1 ] || printf '%s' "$flat" | grep -qE \
+        "just[[:space:]]+(bootprofile|flash)([[:space:]]|$)|systemctl([[:space:]]+-[^[:space:]]+)*[[:space:]]+(poweroff|halt|kexec|shutdown)|${CMDPOS}((\\S*/)?(shutdown|halt|poweroff|kexec))([[:space:]]|$)|tools/rauc-rotate|tools/kiosk-bootprofile\.sh"; then
         always_blocked=1
     fi
 
