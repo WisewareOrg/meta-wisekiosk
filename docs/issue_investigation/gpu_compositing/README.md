@@ -2219,9 +2219,9 @@ appliance's differences from Runs 8-48 are the treatment under test, not deviati
   277.5, 297.6, 347.2, 357.6, 397.6, 437.7, 477.6, 517.7, 557.7 s. Gaps: 9.6, 30.4, 40.0, 40.0, 40.1,
   15.9, 24.0, 40.0, 20.1, 49.6, 10.4, 40.0, 40.1, 39.9, 40.1, 40.0 s.
 - The ~300 s event is present (297.6 / 298.1 / 298.3 s).
-- **Beat only, against Run 48's 8 s arm:** the same 8.0 s rotation drives the same **40.0 s** grid
-  (Run 48: 14 of 15 on-grid, 0% dropped; here 13 of 17, 7%). Throughput and stall counts are not read
-  across the two captures (R3).
+- **Beat only, against Run 48's 8 s arm:** the **40.0 s** grid Run 48 recorded at 8.0 s rotation
+  returns (Run 48: 14 of 15 on-grid, 0% dropped; here 13 of 17, 7%). Throughput and stall counts are
+  not read across the two captures (R3).
 
 #### Observations on Runs 49-53 (for the owner; not conclusions)
 
@@ -2232,8 +2232,8 @@ appliance's differences from Runs 8-48 are the treatment under test, not deviati
   297.6 s (Run 53); Run 48 recorded it at 302.5 s in all three arms.
 - The **~40 s metronome does not appear** with Closed cards. Run 49 shows a 60 s series beginning
   after the ~300 s event; Run 52 shows none. Two captures of one state disagree — the n=1 caution the
-  record already states for Runs 26a/26b. **With the cards open (Run 53) the 40 s grid returns**,
-  locked to the 8.0 s rotation as Run 48 recorded.
+  record already states for Runs 26a/26b. **With the cards open (Run 53) the 40 s grid returns**, as
+  Run 48 recorded at the same 8.0 s rotation value.
 
 ### The JSC source: why the pause cannot be chunked on this board
 
