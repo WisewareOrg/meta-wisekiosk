@@ -89,6 +89,10 @@ fi
 # never trusted regardless of what it resolves to. Anything else (missing key,
 # non-integer, extra content) is malformed, and malformed blocks the same as
 # absent.
+#
+# tools/prod-authorize.sh's `--show` parses the same shape for the same reason
+# (report the grant honestly without trusting a symlink or malformed content);
+# keep the two in step if either changes.
 grant_valid() {
     [ -f "$PAFILE" ] && [ ! -L "$PAFILE" ] || return 1
     content=$(cat "$PAFILE" 2>/dev/null)

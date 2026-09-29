@@ -46,6 +46,8 @@ done
 
 case "$ACTION" in
 show)
+    # Parses the grant the same way guard.sh's grant_valid() does -- keep the
+    # two in step if either changes; guard-test.sh exercises only that copy.
     if [ -L "$PAFILE" ]; then
         echo "no grant -- $PAFILE is a symlink, never trusted" >&2
         exit 1
