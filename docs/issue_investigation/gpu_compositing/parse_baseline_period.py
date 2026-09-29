@@ -26,6 +26,8 @@ CLUSTER_S = 2.0
 def parse(path):
     txt = open(path).read()
     m = re.search(r'BL\|(\d+)\|f(\d+)\|big(\d+)\|av(\d+)\|mx(\d+)\|H([\d.]+)\|S\[([^\]]*)\]', txt)
+    if not m:
+        sys.exit(f'{path}: no p30_baseline.js payload (BL|el|f|big|av|mx|H|S[...]) -- for p31_rotcheck.js use parse_rotation.py')
     el, fr, big, av, mx = (int(m.group(i)) for i in range(1, 6))
     hist = [int(x) for x in m.group(6).split('.')]
     stalls = []

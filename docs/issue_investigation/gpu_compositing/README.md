@@ -215,7 +215,7 @@ from the capture's `R[]` series.
 | 50 | as 49 | as 49 | [`p7_min.js`](p7_min.js) → [`run50-hold2s-fps-raw.txt`](run50-hold2s-fps-raw.txt), read by [`parse_min.py`](parse_min.py) | Repeats Run 26a on the appliance. 164 s, mean 17 ms ~58.2 fps, 99.5% under 50 ms, 6 over 250 ms |
 | 51 | as 49 | as 49 | [`p7_min.js`](p7_min.js) → [`run51-hold2s-phase-raw.txt`](run51-hold2s-phase-raw.txt), read by [`parse_min.py`](parse_min.py) and [`parse_phase.py`](parse_phase.py) | Repeats Run 26b on the appliance. 284 s, mean 17 ms ~58.9 fps, 3 over 250 ms; no phase lock to read |
 | 52 | as 49 | as 49 | [`p31_rotcheck.js`](p31_rotcheck.js) → [`run52-rotation-8s-raw.txt`](run52-rotation-8s-raw.txt), read by [`parse_rotation.py`](parse_rotation.py) | Repeats Run 48's 8 s arm on the appliance. 585 s, 58.8 fps, 7 over 250 ms; **R[] empty** (no tour row on Closed cards); steady arrivals at 300.1 and 438.4 s only |
-| 53 | prod · Pi Zero W | `100-gpu-compositing:a929ef3` (slot A) | pending — captured after park opening, appended when recorded | *(slot reserved; no result written ahead of the run)* |
+| 53 | as 49 · **cards open** | as 49 | [`p31_rotcheck.js`](p31_rotcheck.js) → [`run53-rotation-8s-raw.txt`](run53-rotation-8s-raw.txt), read by [`parse_rotation.py`](parse_rotation.py) | Repeats Run 48's 8 s arm after park opening. 584 s, 48.7 fps, 30 over 250 ms; R[] median **8.0 s** (73 events); 5x-tick grid **40.0 s**: 13 of 17 arrivals on-grid, 7% of grid points dropped |
 
 **R2 is now satisfied for Runs 3 to 48**, with two exceptions unchanged: Run 36's analyser
 ([`parse_alloc.py`](parse_alloc.py) reads an earlier revision of the committed probe's payload than
@@ -2095,12 +2095,12 @@ truncated in the same way and carries no phase either.
   - **This locates the frequency, not the pause.** What the ~450 ms is spent on is still unidentified
     — see "The JSC source: why the pause cannot be chunked on this board".
 
-### Runs 49-52 — the appliance, measured
+### Runs 49-53 — the appliance, measured
 
 Stated once here rather than four times (plan W10; owner, overnight-autonomy ruling 2026-09-29): the
 appliance's differences from Runs 8-48 are the treatment under test, not deviations to control away.
 
-- **Board and image, all four runs.** prod, Raspberry Pi Zero W, slot A. Image commit
+- **Board and image, all five runs.** prod, Raspberry Pi Zero W, slot A. Image commit
   `100-gpu-compositing:a929ef3`, read off `/etc/buildinfo` in each capture's own header. Installed
   bundle: rauc `bundle.hash 7a9656b8…`, build `20260929084610`, slot sha256 equal to the built
   rootfs — the same bundle bench accepted in W7.
@@ -2203,20 +2203,37 @@ appliance's differences from Runs 8-48 are the treatment under test, not deviati
 - Steady arrivals (>= 250 ms, t >= 15 s, clustered): **300.1 s** (358 ms) and **438.4 s** (323 / 391
   ms). **No 60 s series** — contrast Run 49, same page state, 20 minutes earlier.
 
-#### Run 53 — pending
+#### Run 53 — Run 48's 8 s arm repeated on the appliance, cards open
 
-Captured after the park opens, appended here when recorded. No result is written ahead of the run.
+- **Page state:** captured 09:27-09:37 local (Run 48's 8 s arm ran at 09:25 local). Pre-run screenshot
+  `local/w10-screenshots/run53-pre.png` (not committed; sha256
+  `36504098c535ab26410e97297223dc23b93aabee60890f175fc6d0d593ee12f7`) shows all four park cards open,
+  with ride rows and tour rows, and no WiseKiosk#402 timeout. The capture's own `R[]` (73 tour-row
+  changes) confirms the tour ran throughout.
 
-#### Observations on Runs 49-52 (for the owner; not conclusions)
+| window | frames | fps | worst | >250 ms | R[] median | 5x-tick grid | on-grid | grid points dropped |
+|---|---|---|---|---|---|---|---|---|
+| 584 s | 28460 | 48.7 | 1439 ms | 30 | 8.0 s (73 events, uncapped) | 40.0 s | 13 of 17 | 7% |
 
-- Every appliance capture runs at mean 17 ms (~58 fps) against 24-25 ms (~41 fps) in Runs 26 and 41.
-  The treatment differs in several ways at once (Closed live page vs demonstration data, on-core app,
-  bundle, `/boot`), so this describes the appliance; it does not attribute the difference.
-- The **~300 s event** recurs at a fixed point after page load: 303.8 s (Run 49) and 300.1 s (Run 52);
-  Run 48 recorded it at 302.5 s in all three arms.
+- Beat arrivals (>= 250 ms, t >= 15 s, clustered): 37.5, 47.1, 77.5, 117.5, 157.5, 197.6, 213.5, 237.5,
+  277.5, 297.6, 347.2, 357.6, 397.6, 437.7, 477.6, 517.7, 557.7 s. Gaps: 9.6, 30.4, 40.0, 40.0, 40.1,
+  15.9, 24.0, 40.0, 20.1, 49.6, 10.4, 40.0, 40.1, 39.9, 40.1, 40.0 s.
+- The ~300 s event is present (297.6 / 298.1 / 298.3 s).
+- **Beat only, against Run 48's 8 s arm:** the same 8.0 s rotation drives the same **40.0 s** grid
+  (Run 48: 14 of 15 on-grid, 0% dropped; here 13 of 17, 7%). Throughput and stall counts are not read
+  across the two captures (R3).
+
+#### Observations on Runs 49-53 (for the owner; not conclusions)
+
+- Throughput and stall counts are in each run's own table and are **not compared** with Runs 26, 41 or
+  48: the plan reads the beat only across captures (R3), and the treatment differs in several ways at
+  once (live page vs demonstration data, Closed vs open cards, on-core app, bundle, `/boot`).
+- The **~300 s event** recurs at a fixed point after page load: 303.8 s (Run 49), 300.1 s (Run 52),
+  297.6 s (Run 53); Run 48 recorded it at 302.5 s in all three arms.
 - The **~40 s metronome does not appear** with Closed cards. Run 49 shows a 60 s series beginning
   after the ~300 s event; Run 52 shows none. Two captures of one state disagree — the n=1 caution the
-  record already states for Runs 26a/26b.
+  record already states for Runs 26a/26b. **With the cards open (Run 53) the 40 s grid returns**,
+  locked to the 8.0 s rotation as Run 48 recorded.
 
 ### The JSC source: why the pause cannot be chunked on this board
 
