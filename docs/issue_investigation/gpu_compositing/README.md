@@ -78,9 +78,9 @@ withdrawal, the evidence that overturned it and the reasoning that pointed away 
 "Root cause of the residual stall" and in the finding "WITHDRAWN — the residual stall is not a
 full-viewport software repaint". The engineering conclusion in "Real-time framing" changes with it:
 the lever is not a deterministic renderer but the **WiseKiosk frontend's per-second allocation
-churn**, and that lever is un-run. The durable image change that would reproduce the shipped
-configuration is staged and reviewed but undelivered, and remains an owner decision — see "Durable
-image delivery — pending owner decision".
+churn**, and that lever is un-run. The durable image change that reproduces the shipped
+configuration has been built and delivered (`100-gpu-compositing:a929ef3`, #100 W9) — see
+"Delivery, stated as fact, with sources" under "Durable image delivery — pending owner decision".
 
 **The lever this record was left open on is now closed, and closed against itself.** "Reduce the
 frontend's per-second allocation churn" was the right *mechanism* and the wrong *lever*, and Runs 37
@@ -2112,9 +2112,29 @@ appliance's differences from Runs 8-48 are the treatment under test, not deviati
   come from `kiosk-launch`'s own defaults; `kiosk.conf` holds only `KIOSK_INSPECTOR=0`.
 - **Config:** the owner's `config.json` (sha256 `767e3d1a…`), `park_wait_times.rotation_interval_seconds`
   absent — the 8 s schema default, the value Run 41 and Run 48's 8 s arm ran at.
-- **Page state, Runs 49-52:** captured 06:56-07:25 local, before the parks opened. **Every park card
-  showed Closed** (pre-run screenshots): no ride rows, no tour marquee, no `[data-pwt-tour-row]`.
-  WiseKiosk#402 timeouts: none shown (recorded, not filtered).
+- **Page state, Runs 49-52:** captured 06:56-07:25 local, before any park opened (the earliest
+  opening on the cards is 08:00). The evidence differs by run and is stated per run. The pre-run
+  screenshots are **held locally, not committed**: they are pictures of the owner's live dashboard,
+  and this repository is public. The two that show the page are cited by local path and sha256.
+  - Run 49: pre-run screenshot `local/w10-screenshots/run49-pre.png` (not committed; sha256
+    `f4ac8ea3d714234f1d5079af9cdf59cf571dcf2b5a3af00b10455d8d01183f78`) shows the full page with
+    **every park card Closed** — no ride rows, no tour marquee — and no WiseKiosk#402 timeout.
+  - Run 50: pre-run screenshot `local/w10-screenshots/run50-pre.png` (not committed; sha256
+    `cf4092085b00785c83d845991a778252cb9a56dc52fc52e9a3b702017df8a7e9`) shows the same.
+  - Run 51: no screenshot shows its page state (the one taken caught the page mid-load, every pixel
+    white, 13 s after Run 50's restore restarted the kiosk). Closed is inferred from the time, not
+    observed.
+  - Run 52: no screenshot shows its page state either (the one taken caught the page mid-load,
+    near-black). The capture itself carries direct evidence: its payload's `R[]` is empty, i.e. the
+    probe, reading every 500 ms for 585 s, never found a `[data-pwt-tour-row]` — no open card existed
+    during the window.
+  - What each committed capture's own header records about the page: `# started` / `# capture start`
+    / `# capture end` (UTC; the time-of-day evidence above), `# config.json sha256 767e3d1a…`,
+    `# park_wait_times.rotation_interval_seconds ABSENT (schema default)`, and `# bundle
+    index-CDN2Arem.js`. The header does **not** record the cards' open/closed state; only the
+    screenshots (49, 50) and Run 52's `R[]` do.
+  - #402 timeouts: none observed in the two screenshots that show the page; none observable for 51
+    and 52.
 - **Checks on every run:** 1280x720 live before and after (no run void); kiosk `NRestarts=0` at the
   end.
 - **R2.** Driver [`run-appliance.sh`](run-appliance.sh) (sha256
@@ -2168,7 +2188,8 @@ appliance's differences from Runs 8-48 are the treatment under test, not deviati
 
 - Histogram 16654 / 6 / 64 / 2 / 0 / 1 / 0. Big frames: 1.3 s (startup), 7.8 s, 161.3 s.
   `parse_phase.py`: two steady arrivals, t mod 8 = 7.8 and 1.3. **There is no phase to read.** Run
-  26b's 8 of 8 at the scroll-start has no counterpart, since there is no marquee on a Closed card.
+  26b's 8 of 8 at the scroll-start has no counterpart; a Closed card has no marquee, and Closed is
+  inferred for this run from the time of day (see "Page state" above), not observed.
 
 #### Run 52 — Run 48's 8 s arm repeated on the appliance, cards Closed
 
@@ -4491,6 +4512,8 @@ path), then on prod (W9).
   over static date text reads FROZEN; the `.seconds-slot` span sits inside the default crop in both
   layouts. Its own header comment says the crop is sized for a 1920x1080 panel — stale wording, not a
   wrong geometry. The file is out of scope for this investigation and was not edited.
+
+### Decision record, superseded by the delivery above
 
 **The gap.** The image these runs ran, `7ce44ba`, bakes the hypothesis this investigation disproved.
 Its `graphics` block sets `VC4DTBO = "vc4-kms-v3d"` — full KMS, which Run 2 found blacks this panel —
