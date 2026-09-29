@@ -75,16 +75,31 @@ show)
     fi
     ;;
 revoke)
-    rm -f "$PAFILE"
-    echo "revoked"
+    if [ -e "$PAFILE" ] || [ -L "$PAFILE" ]; then
+        rm -f "$PAFILE"
+        echo "revoked $PAFILE"
+    else
+        echo "no grant to revoke at $PAFILE"
+    fi
     ;;
 grant)
     case "$HOURS" in
         ''|*[!0-9]*)
             echo "--hours must be an integer from 1 to 12" >&2; exit 2 ;;
     esac
+    # Base 10, explicitly: bash's arithmetic context reads a leading 0 as
+    # octal, so `--hours 012` would grant 10h and `--hours 08` would crash
+    # ("value too great for base") despite passing the digits-only check above.
+    HOURS=$((10#$HOURS))
     if [ "$HOURS" -lt 1 ] || [ "$HOURS" -gt 12 ]; then
         echo "--hours must be an integer from 1 to 12" >&2; exit 2
+    fi
+    # guard.sh's grant_valid() never trusts a symlinked grant; writing through
+    # one anyway would report success here while the guard still blocks, and
+    # would clobber whatever the link actually points at.
+    if [ -L "$PAFILE" ]; then
+        echo "refusing to write through a symlink at $PAFILE" >&2
+        exit 1
     fi
     mkdir -p "$(dirname "$PAFILE")"
     expires=$(( $(date +%s) + HOURS * 3600 ))
