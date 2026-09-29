@@ -12,14 +12,19 @@ The page the kiosk shows is **WiseKiosk** ([`tjwise99/WiseKiosk`](https://github
 and this repository builds it from source into the image — both halves, at one pinned app commit.
 The backend serves the frontend's bundle over the loopback, so the display does not depend on a
 remote origin being reachable. The app's configuration is the one part that is never baked: it lives
-at `/data/config/config.json` on the slot-shared partition, so it survives an A/B update.
+at `/data/config/config.json` on the slot-shared partition, so it survives an A/B update. If that
+file is absent, `kiosk-provision` seeds it from the image's own
+`/usr/share/wisekiosk/config.example.json`; once seeded, the operator owns it, and no later image
+update overwrites it.
 
 The kiosk browser unit defaults to that local app and treats `KIOSK_URL` as an optional override, so
 a site can still point the browser elsewhere. Provisioning does not share that default:
 [`tools/provision.sh`](tools/provision.sh) requires `KIOSK_URL` in `secrets.yaml` and always writes it
 into `/data/config/kiosk.conf`, which wins over the unit — so a provisioned board reaches the page
-through that value rather than through the local default. The rollout decision behind that gap is
-#96 provisioned boards keep their old `KIOSK_URL`.
+through that value rather than through the local default. `http://localhost:8080` is the value for a
+board's own app; another origin — a Docker host, say — stays supported for debugging. A board already
+provisioned with a remote value is moved to the local app by editing `/data/config/kiosk.conf`
+directly (#96 provisioned boards keep their old `KIOSK_URL`).
 
 > ### Related project
 >
@@ -252,7 +257,7 @@ that qualifies, and "Known gaps" says what closes it.
 
 | | |
 |---|---|
-| Engine | WebKitGTK 2.44.3, `ENABLE_JIT=OFF`, `MinSizeRel` — genuine ARMv6 (`Tag_CPU_arch: v6KZ`) |
+| Engine | WebKitGTK 2.44.3, `ENABLE_JIT=OFF`, `USE_WOFF2=ON`, `MinSizeRel` — genuine ARMv6 (`Tag_CPU_arch: v6KZ`) |
 | Browser | `surf` 2.1 + the kiosk patch (milestones, override-redirect, shims) |
 | Display | bare Xorg on vc4 firmware KMS at 1280x720, `xf86-video-modesetting` + mesa for glamor, WebKit painting in software, no display manager, no window manager — **measured on prod, never out of a build** |
 | Update | RAUC A/B over U-Boot — both slots visible, **rollback never exercised** |

@@ -233,6 +233,11 @@ Nothing is computed at parse time — no python, no git, no subprocess — so ev
 context reads the same bytes. A build with no injected sha fails loudly rather than quietly
 skipping the re-stamp.
 
+The same shape has two more instances, run alongside it at every build entry point: `tools/go-mods.py`
+and `tools/app-lockfile.py` write the WiseKiosk app pin's Go module closure and npm shrinkwrap, also
+gitignored, also never committed (owner, 2026-09-27). See
+[`recipes-wisekiosk/wisekiosk/README.md`](../meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md).
+
 The class is reached through `IMAGE_CLASSES`, not `INHERIT`. `IMAGE_CLASSES` is a deferred inherit,
 so its anonymous python registers *after* `image.bbclass` has appended to the same flag with no
 trailing separator; the leading space inside the appended literal is what stops the two tokens

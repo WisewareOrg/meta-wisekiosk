@@ -19,6 +19,16 @@ scratchpad/
 # source. Must be ignored, not merely untracked -- see ci-guards.sh guard 10.
 meta-wisekiosk/conf/build-rev.inc
 
+# Written by tools/go-mods.py before every build, same as build-rev.inc above:
+# an autogenerable file is build input, never committed (owner, 2026-09-27).
+meta-wisekiosk/recipes-wisekiosk/wisekiosk/wisekiosk-backend-go-mods.inc
+
+# Written by tools/app-lockfile.py before every build, same reason. The
+# .srcrev stamp beside it is what lets app-lockfile.py skip a fetch when the
+# shrinkwrap is already current for the pinned commit.
+meta-wisekiosk/recipes-wisekiosk/wisekiosk/wisekiosk-frontend/npm-shrinkwrap.json
+meta-wisekiosk/recipes-wisekiosk/wisekiosk/wisekiosk-frontend/npm-shrinkwrap.json.srcrev
+
 # The skills under .claude/ are tracked; these two are per-checkout machine
 # state, and settings.local.json in particular carries local filesystem paths.
 .claude/settings.local.json

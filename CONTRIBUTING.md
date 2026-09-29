@@ -28,6 +28,13 @@ board to OTA, reboot and abuse. Nothing destructive goes near prod.
 `.claude/hooks/guard.sh` blocks it, but only as a backstop — and only as far as
 `local/device-identity.md` is current, so update that file when a board is swapped.
 
+**Nothing autogenerable is committed (owner, 2026-09-27).** A file this tree can regenerate from what
+is already pinned is gitignored and written at build entry instead of checked in —
+`meta-wisekiosk/conf/build-rev.inc` was the first of these; `wisekiosk-backend-go-mods.inc` and
+`wisekiosk-frontend/npm-shrinkwrap.json` are written the same way, by `tools/go-mods.py` and
+`tools/app-lockfile.py`. Bumping the WiseKiosk app pin is therefore a one-line `SRCREV` edit — see
+[`meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md`](meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md).
+
 ## Running the checks
 
 ```sh

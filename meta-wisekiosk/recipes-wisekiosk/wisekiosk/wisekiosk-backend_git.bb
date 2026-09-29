@@ -5,10 +5,29 @@ into /data and be picked up without a rebuild. The port and the two flags are th
 layer's."
 
 require wisekiosk-src.inc
+require wisekiosk-backend-go-mods.inc
+
+# wisekiosk-backend-go-mods.inc is gitignored and written by tools/go-mods.py
+# at build entry (owner, 2026-09-27: nothing autogenerable is committed), so a
+# tree that never ran it, or one still holding a previous pin's .inc, parses
+# here with no warning otherwise -- same shape as
+# meta-wisekiosk/classes/kiosk-buildinfo-cachesafe.bbclass's check on
+# KIOSK_BUILDINFO_REV.
+python () {
+    if d.getVar('WISEKIOSK_GOMODS_SRCREV') != d.getVar('SRCREV'):
+        bb.fatal("wisekiosk-backend-go-mods.inc is missing or stale for this "
+                 "SRCREV: run `just build`, or any other entry point that "
+                 "runs tools/go-mods.py, before bitbake.")
+}
 
 # scarthgap unpacks file:// SRC_URI straight into WORKDIR; go.bbclass redirects
 # only the git entry, so this lands beside the checkout.
 SRC_URI += "file://wisekiosk.service"
+
+# The proxy tree wisekiosk-backend-go-mods.inc's SRC_URI entries unpack into,
+# holding only the modules this unpack's own entries name -- a stale module
+# from a previous SRCREV never lingers to be read by mistake.
+do_unpack[cleandirs] += "${WORKDIR}/goproxy"
 
 GO_IMPORT = "github.com/tjwise99/WiseKiosk"
 
@@ -23,6 +42,32 @@ inherit go-mod
 
 # Any fetch at compile time fails the task.
 export GOPROXY = "off"
+
+# oapi-codegen generates internal/boundary/boundary.gen.go from the app's
+# shared OpenAPI document and never reaches the binary go_do_compile produces
+# below -- it is a build-time-only dependency, but its own module graph still
+# has to resolve under GOPROXY=off above, so it runs against the goproxy tree
+# unpacked from wisekiosk-backend-go-mods.inc's SRC_URI entries rather than
+# DL_DIR directly. Path is the app's own justfile codegen recipe, run from
+# backend/.
+#
+# ${GO} is go-cross's wrapper, and the wrapper is not a passthrough: it
+# unconditionally `export`s the TARGET GOOS/GOARCH inside itself (go-cross.inc
+# make_wrapper), overriding whatever the caller set. oapi-codegen is a
+# host-native tool, not the cross-compiled target the rest of this recipe
+# builds, so this calls the unwrapped go binary the wrapper itself execs
+# instead -- ${STAGING_LIBDIR_NATIVE}/${TARGET_SYS}/go/bin/go, staged there
+# because go-cross is a DEPENDS (go.bbclass's own GOTOOLDIR uses the same
+# base) -- where the GOOS/GOARCH set on the command line take effect.
+do_compile() {
+    ( cd ${S}/src/${GO_WORKDIR} && GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} \
+        GOFLAGS=-modcacherw GOPROXY=file://${WORKDIR}/goproxy GOSUMDB=off \
+        ${STAGING_LIBDIR_NATIVE}/${TARGET_SYS}/go/bin/go \
+        tool oapi-codegen -config oapi-codegen.yaml ../boundary/openapi.yaml )
+    [ -s ${S}/src/${GO_WORKDIR}/internal/boundary/boundary.gen.go ] \
+        || bbfatal "oapi-codegen produced no internal/boundary/boundary.gen.go"
+    go_do_compile
+}
 
 CGO_ENABLED = "0"
 

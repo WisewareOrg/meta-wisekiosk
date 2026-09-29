@@ -163,6 +163,10 @@ local_conf_header:
     RPI_KERNEL_DEVICETREE_OVERLAYS:append = " overlays/ramoops.dtbo"
     RPI_EXTRA_CONFIG:append = "\ndtoverlay=ramoops,total-size=0x40000,record-size=0x8000,console-size=0x20000\n"
     PACKAGECONFIG:append:pn-webkitgtk3 = " reduce-size"
+    # woff2: the app's bundled Inter and weather-icon faces are WOFF2-only, and
+    # webkitgtk3's default build cannot decode that format at all -- neither
+    # face ever loads without this. Recipe: meta-wisekiosk/recipes-graphics/woff2.
+    PACKAGECONFIG:append:pn-webkitgtk3 = " woff2"
     # imagemagick is here for `import -window root`, the only screenshot path
     # this image has: fbgrab was dropped on a misdiagnosis and never restored.
     # See docs/issue_investigation/screenshot_capture_fbgrab/README.md.

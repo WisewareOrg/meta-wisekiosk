@@ -9,11 +9,15 @@ exactly as before. Removing the baked values is a separate step and must not hap
 provisioning is proven on hardware. \
 \
 machine-id is NOT handled here and cannot be: journald reads it at ~8.2s, before /data is \
-mounted. It needs a RAUC post-install hook writing into the freshly-written slot."
+mounted. It needs a RAUC post-install hook writing into the freshly-written slot. \
+\
+kiosk-seed-config, called from here, seeds /data/config/config.json from the image's shipped \
+example the first time a device has none -- the app's own config is read straight from /data, \
+not substituted at build time, so it needs a starting point rather than an override."
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
-SRC_URI = "file://kiosk-provision file://kiosk-provision.service"
+SRC_URI = "file://kiosk-provision file://kiosk-provision.service file://kiosk-seed-config"
 S = "${WORKDIR}"
 
 inherit systemd
@@ -23,8 +27,9 @@ SYSTEMD_AUTO_ENABLE = "enable"
 do_install() {
     install -d ${D}${bindir}
     install -m 0755 ${WORKDIR}/kiosk-provision ${D}${bindir}/
+    install -m 0755 ${WORKDIR}/kiosk-seed-config ${D}${bindir}/
     install -d ${D}${systemd_system_unitdir}
     install -m 0644 ${WORKDIR}/kiosk-provision.service ${D}${systemd_system_unitdir}/
 }
 
-FILES:${PN} += "${bindir}/kiosk-provision ${systemd_system_unitdir}/kiosk-provision.service"
+FILES:${PN} += "${bindir}/kiosk-provision ${bindir}/kiosk-seed-config ${systemd_system_unitdir}/kiosk-provision.service"

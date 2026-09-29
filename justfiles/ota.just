@@ -142,6 +142,8 @@ casync-stats store:
 [doc("Build the RAUC update bundle")]
 kiosk-bundle kconfig="kiosk-zero-w.yaml":
     tools/write-build-rev.sh
+    {{py}} tools/go-mods.py
+    {{py}} tools/app-lockfile.py
     kas-container shell {{kconfig}} -c "bitbake update-bundle"
 
 # Every check here catches a failure that otherwise surfaces only after the

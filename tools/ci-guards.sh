@@ -459,39 +459,51 @@ else
             ok "the /etc/buildinfo stamp is cache-safe (host sha in do_image's signature)"
         fi
 
-        # The sha reaches bitbake only if the host writes it BEFORE the build.
-        # Every route to bitbake that can produce a flashable image must run the
-        # writer; one that does not trips the class's bb.fatal, which is loud but
-        # is a broken build, not a guarantee. Checked per call site, in file
-        # order, so a new entry point added without the writer is caught here.
-        writer10="tools/write-build-rev.sh"
-        if [ ! -x "$writer10" ]; then
-            bad "guard 10: $writer10 missing or not executable -- no build could inject the commit it is building from"
+        # The commit sha, the Go module closure and the npm shrinkwrap all reach
+        # bitbake only if the host writes them BEFORE the build. Missing, the
+        # first trips kiosk-buildinfo-cachesafe's bb.fatal, and a stale one is
+        # refused at flash time by the reproducibility gate instead; missing OR
+        # stale, the other two trip the app recipes' own bb.fatal. Loud, but a
+        # broken build, not a guarantee. Checked per call site, in file order,
+        # so a new entry point missing any writer is caught here.
+        writers10=(tools/write-build-rev.sh tools/go-mods.py tools/app-lockfile.py)
+        badwriter10=""
+        for w in "${writers10[@]}"; do
+            [ -x "$w" ] || badwriter10="$badwriter10 $w"
+        done
+        if [ -n "$badwriter10" ]; then
+            bad "guard 10: missing or not executable, so no build could inject it:$badwriter10"
         else
             uninj10=$(
                 for f in Justfile justfiles/ota.just tools/rauc-rotate-build.sh; do
                     [ -f "$f" ] || { printf '%s: MISSING FILE\n' "$f"; continue; }
-                    awk -v F="$f" -v W="$writer10" '
+                    awk -v F="$f" -v W1="${writers10[0]}" -v W2="${writers10[1]}" -v W3="${writers10[2]}" '
                         /^[[:space:]]*#/ { next }
-                        index($0, W) { armed = 1; next }
+                        index($0, W1) { armed1 = 1; next }
+                        index($0, W2) { armed2 = 1; next }
+                        index($0, W3) { armed3 = 1; next }
                         /kas-container[[:space:]]+(build|shell)/ {
-                            if (!armed) printf "%s:%d: %s\n", F, NR, $1
-                            armed = 0
+                            missing = ""
+                            if (!armed1) missing = missing " " W1
+                            if (!armed2) missing = missing " " W2
+                            if (!armed3) missing = missing " " W3
+                            if (missing != "") printf "%s:%d: missing before kas-container:%s\n", F, NR, missing
+                            armed1 = 0; armed2 = 0; armed3 = 0
                             next
                         }
                         # Last rule: the writer and build rules match first, so an
                         # unindented line in a shell script is not a boundary. A
                         # recipe header disarms, so a writer-only recipe cannot
                         # arm the next one.
-                        /^[^[:space:]#]/ { armed = 0 }
+                        /^[^[:space:]#]/ { armed1 = 0; armed2 = 0; armed3 = 0 }
                     ' "$f"
                 done
             )
             if [ -n "$uninj10" ]; then
-                bad "guard 10: a build that can produce a flashable image does not run $writer10 first:"
+                bad "guard 10: a build that can produce a flashable image is missing a writer before it:"
                 printf '%s\n' "$uninj10" | sed 's/^/        /'
             else
-                ok "every build entry point injects the commit it is building from"
+                ok "every build entry point runs all three build-input writers"
             fi
         fi
 
@@ -815,6 +827,117 @@ else
     else
         ok "every python recipe runs the resolved interpreter, not a bare python3"
     fi
+fi
+
+# --- 16. the Go module generator must still pass its own self-test --------
+# tools/go-mods.py's rendering seam (render_inc) is what turns a GOMODCACHE
+# into wisekiosk-backend-go-mods.inc; a change to its sort order, its id
+# derivation or its SRC_URI shape would silently ship a recipe bitbake
+# refuses, or one that resolves to the wrong module. The self-test drives
+# fabricated caches only, never a real `go list` or clone, so it needs no
+# network and no Go toolchain.
+gomodstest16="tools/go-mods-test.py"
+if [ ! -f "$gomodstest16" ]; then
+    bad "guard 16: $gomodstest16 missing -- the Go module generator is no longer self-tested"
+elif ! command -v "$PY" > /dev/null 2>&1; then
+    bad "guard 16: $PY missing -- the Go module generator cannot be self-tested"
+elif out16=$("$PY" "$gomodstest16" 2>&1); then
+    ok "the Go module generator passes its self-test ($(printf '%s\n' "$out16" | tail -n1))"
+else
+    bad "the Go module generator FAILS its own self-test:"
+    printf '%s\n' "$out16" \
+        | grep -E '^(FAIL|SKIP|  |pass=|Traceback|[A-Za-z_][A-Za-z0-9_.]*:)' \
+        | sed 's/^/        /'
+fi
+
+# --- 17. the config seed script must still pass its own self-test ---------
+# kiosk-seed-config must never overwrite an operator's file, however it got
+# there -- including an empty one -- and must seed byte-for-byte from the
+# image default otherwise. The self-test drives it against a fabricated ROOT,
+# never a real device or /data.
+seedtest17="tools/kiosk-seed-config-test.sh"
+if [ ! -f "$seedtest17" ]; then
+    bad "guard 17: $seedtest17 missing -- the config seed script is no longer self-tested"
+elif out17=$(bash "$seedtest17" 2>&1); then
+    ok "the config seed script passes its self-test ($(printf '%s\n' "$out17" | tail -n1))"
+else
+    bad "the config seed script FAILS its own self-test:"
+    printf '%s\n' "$out17" | sed 's/^/        /'
+fi
+
+# --- 18. the default-config path agrees between install and seed ----------
+# wisekiosk-frontend_git.bb installs the shipped default at one path;
+# kiosk-seed-config reads it from another, written independently in a
+# different recipe. Nothing else ties the two together -- a typo in either
+# one would seed nothing and fail silently, since kiosk-seed-config treats a
+# missing source exactly like "no default to seed".
+frontend18="meta-wisekiosk/recipes-wisekiosk/wisekiosk/wisekiosk-frontend_git.bb"
+seed18="meta-wisekiosk/recipes-core/kiosk-provision/files/kiosk-seed-config"
+if [ ! -f "$frontend18" ] || [ ! -f "$seed18" ]; then
+    bad "guard 18: $frontend18 or $seed18 missing -- the default-config path agreement cannot be checked"
+elif ! command -v "$PY" > /dev/null 2>&1; then
+    bad "guard 18: $PY missing -- the default-config path agreement cannot be checked"
+else
+    out18=$("$PY" - "$frontend18" "$seed18" 2>&1 <<'PY'
+import re
+import sys
+
+frontend, seed = (open(p, encoding='utf-8').read() for p in sys.argv[1:3])
+
+problems = []
+
+m = re.search(r'\$\{D\}(\S*config\.example\.json)', frontend)
+if not m:
+    problems.append(f'{sys.argv[1]}: no ${{D}}...config.example.json install destination found')
+    installed = None
+else:
+    installed = m.group(1).replace('${datadir}', '/usr/share')
+
+m = re.search(r'SRC="\$ROOT(\S*config\.example\.json)"', seed)
+if not m:
+    problems.append(f'{sys.argv[2]}: no SRC="$ROOT...config.example.json" assignment found')
+    src = None
+else:
+    src = m.group(1)
+
+if installed is not None and src is not None and installed != src:
+    problems.append(
+        f'{sys.argv[1]} installs the default at {installed}, '
+        f'{sys.argv[2]} reads it from {src} -- the seed would silently find nothing')
+
+if problems:
+    print('\n'.join(problems))
+    sys.exit(1)
+PY
+    )
+    rc18=$?
+    if [ "$rc18" -ne 0 ] || [ -n "$out18" ]; then
+        bad "guard 18: the default-config path agreement check failed:"
+        printf '%s\n' "$out18" | sed 's/^/        /'
+    else
+        ok "the default-config path agrees between wisekiosk-frontend_git.bb and kiosk-seed-config"
+    fi
+fi
+
+# --- 19. the app lockfile generator must still pass its own self-test -----
+# tools/app-lockfile.py writes the app's npm shrinkwrap byte-for-byte from
+# its own lockfile at the pinned commit; a change to its URL derivation, its
+# JSON validation or its write path would silently ship a stale, truncated
+# or wrong-commit shrinkwrap. The self-test stubs the network at urlopen and
+# writes only into fixture paths, never the real wisekiosk-src.inc or the
+# real shrinkwrap path.
+locktest19="tools/app-lockfile-test.py"
+if [ ! -f "$locktest19" ]; then
+    bad "guard 19: $locktest19 missing -- the app lockfile generator is no longer self-tested"
+elif ! command -v "$PY" > /dev/null 2>&1; then
+    bad "guard 19: $PY missing -- the app lockfile generator cannot be self-tested"
+elif out19=$("$PY" "$locktest19" 2>&1); then
+    ok "the app lockfile generator passes its self-test ($(printf '%s\n' "$out19" | tail -n1))"
+else
+    bad "the app lockfile generator FAILS its own self-test:"
+    printf '%s\n' "$out19" \
+        | grep -E '^(FAIL|SKIP|  |pass=|Traceback|[A-Za-z_][A-Za-z0-9_.]*:)' \
+        | sed 's/^/        /'
 fi
 
 if [ "$fail" -ne 0 ]; then
