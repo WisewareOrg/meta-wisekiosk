@@ -211,6 +211,11 @@ from the capture's `R[]` series.
 | 46 | prod · Pi Zero W | `100-gpu-compositing:7ce44ba` (by continuity) · bundle `index-DJUeJLKg.js` · 720p, clean config | [`p30_baseline.js`](p30_baseline.js) → [`imperative-tour-587s-raw.txt`](imperative-tour-587s-raw.txt), read by [`parse_baseline.py`](parse_baseline.py) | **The sharpest form of the lever, also null.** Tour rows rendered once and filled imperatively, bypassing the reactive `{#each}`, with a two-screenshot landing check that shows the right rows in the right places but **has no oracle** and cannot resolve a wrong-value fill: 587 s, **25 frames over 250 ms = 0.043/s**, beat at **39.9–40.1 s** across a hand-curated on-beat set. Mean frame time **22 ms against Run 41's 25 ms** and 298 frames in the 50–100 ms bucket against 682 — **consistent with a throughput win, not measured as one**: the comparison is cross-capture against the slowest of five, and the run carries no control arm |
 | 47 | prod · Pi Zero W | `100-gpu-compositing:7ce44ba` (by continuity) · bundle **not recorded** · 720p by continuity | [`p30_baseline.js`](p30_baseline.js), two arms differing only in `WEBKIT_DISABLE_MEMORY_PRESSURE_MONITOR`. **No capture file is committed** — the arrival series is transcribed into the run block | **The memory-pressure falsifier.** The complete kill switch for WebKit's memory-pressure handler, run back-to-back against a baseline arm on one board and one build, **with its landing verified in the UI process that reads it** (`WEBKIT_DISABLE_MEMORY_PRESSURE_MONITOR` found in surf's own `/proc/<pid>/environ` under the identical `kiosk.conf` mechanism, on a supplementary restart): the beat holds at **40.0 s** in **both** arms. The switch skips `install()` outright, so the arms close the **whole handler**; separately, reaching the monitor's **≥90%** would need `MemAvailable` to fall from ~263 MB to ~43.5 MB of 435, a ~220 MB excursion against a web process of ~90–106 MB, which closes the **polled path** on headroom. **The memory-pressure handler is not the driver.** `JSC_logGC` reached the WebProcess and its trace was still not captured — the sandbox blocked the file redirect |
 | 48 | prod · Pi Zero W | `100-gpu-compositing:7ce44ba` (by continuity) · bundle `index-DJUeJLKg.js`, **the same in all three arms** · 720p | [`p31_rotcheck.js`](p31_rotcheck.js) → [`rotation-6s-588s-raw.txt`](rotation-6s-588s-raw.txt) · [`rotation-8s-589s-raw.txt`](rotation-8s-589s-raw.txt) · [`rotation-12s-586s-raw.txt`](rotation-12s-586s-raw.txt) | **The lever that moves the beat, and it is the frontend's.** The app's `rotation_interval_seconds` varied across three same-bundle arms, each interval read back in band (`R[]` medians 6.000 / 8.000 / 12.000 s): under one uniform >=250 ms membership rule, **all three arms carry a beat at 5 x the rotation tick** — **30.0 s** (8 of 9 arrivals on-grid, 58% dropout, `R[]` capped), **40.0 s** (14 of 15, 0% dropout) and **60.0 s**. **The frequency is frontend-driven, not a hardware or engine floor.** *Why* five ticks is **unidentified** — the promotion-threshold model Run 42 falsified is not reinstated. The 6 s arm is the low-quality point, not a counter-example; its 167 s silent tail is unexplained. Diagnostic only — production stays at 8 s |
+| 49 | prod · Pi Zero W | `100-gpu-compositing:a929ef3` (slot A) · bundle `index-CDN2Arem.js` · 720p · cards Closed | [`p30_baseline.js`](p30_baseline.js) → [`run49-baseline-raw.txt`](run49-baseline-raw.txt), read by [`parse_baseline.py`](parse_baseline.py) and [`parse_baseline_period.py`](parse_baseline_period.py) | Repeats Run 41 on the appliance. 587 s, 34212 frames, mean 17 ms, max 1802 ms, 14 frames over 250 ms. **Beat 60.0 s, not 40 s**: 5 arrivals at 439-448 ms from 341.7 s |
+| 50 | as 49 | as 49 | [`p7_min.js`](p7_min.js) → [`run50-hold2s-fps-raw.txt`](run50-hold2s-fps-raw.txt), read by [`parse_min.py`](parse_min.py) | Repeats Run 26a on the appliance. 164 s, mean 17 ms ~58.2 fps, 99.5% under 50 ms, 6 over 250 ms |
+| 51 | as 49 | as 49 | [`p7_min.js`](p7_min.js) → [`run51-hold2s-phase-raw.txt`](run51-hold2s-phase-raw.txt), read by [`parse_min.py`](parse_min.py) and [`parse_phase.py`](parse_phase.py) | Repeats Run 26b on the appliance. 284 s, mean 17 ms ~58.9 fps, 3 over 250 ms; no phase lock to read |
+| 52 | as 49 | as 49 | [`p31_rotcheck.js`](p31_rotcheck.js) → [`run52-rotation-8s-raw.txt`](run52-rotation-8s-raw.txt), read by [`parse_rotation.py`](parse_rotation.py) | Repeats Run 48's 8 s arm on the appliance. 585 s, 58.8 fps, 7 over 250 ms; **R[] empty** (no tour row on Closed cards); steady arrivals at 300.1 and 438.4 s only |
+| 53 | prod · Pi Zero W | `100-gpu-compositing:a929ef3` (slot A) | pending — captured after park opening, appended when recorded | *(slot reserved; no result written ahead of the run)* |
 
 **R2 is satisfied for Runs 8 to 46 and 48 except Run 36's analyser and Run 44's census-diff
 numbers, is not satisfied for Run 47, and is not satisfied for Runs 3 to 7.** Each exception is named
@@ -488,8 +493,15 @@ Stated once here rather than six times. All six runs install a JavaScript probe 
 `/home/root/.surf/script.js` (surf's user-script hook), restart the kiosk onto a cleared WebKit
 cache, let it run, and read a payload back out of the X window title with `xprop`. The page's own
 `console.log` does not reach the journal on this image — measured, count 0 — so the window title is
-the exfil path. [`run-phase.sh`](run-phase.sh) is the driver and takes the board role's address on
-its command line.
+the exfil path.
+
+**Correction (W6 recovery):** no single driver ran all six. [`run-phase.sh`](run-phase.sh) is the
+committed 3-argument form and drove Runs 18-25 (and every run from there on); it is not what ran
+here. Per the recovery's `MANIFEST.md`, [`run-phase.sh.2arg-variant`](run-phase.sh.2arg-variant)
+(two positional arguments, the host baked in) drove Runs 8 and 9 and the aborted first half of
+Run 17; Runs 10 through 13 were bespoke inline `tools/kiosk-ssh.sh ... 'sh -s'` heredocs, no wrapper
+script at all. Every cited capture in this family is genuine — only the mechanism that produced it is
+corrected here.
 
 The probe times every `requestAnimationFrame` interval and splits each frame three ways: `js` is
 time inside app callbacks (wrapped rAF, `setTimeout`, `setInterval`, `queueMicrotask`), `lay` is
@@ -2070,6 +2082,107 @@ truncated in the same way and carries no phase either.
   - **This locates the frequency, not the pause.** What the ~450 ms is spent on is still unidentified
     — see "The JSC source: why the pause cannot be chunked on this board".
 
+### Runs 49-52 — the appliance, measured
+
+Stated once here rather than four times (plan W10; owner, overnight-autonomy ruling 2026-09-29): the
+appliance's differences from Runs 8-48 are the treatment under test, not deviations to control away.
+
+- **Board and image, all four runs.** prod, Raspberry Pi Zero W, slot A. Image commit
+  `100-gpu-compositing:a929ef3`, read off `/etc/buildinfo` in each capture's own header. Installed
+  bundle: rauc `bundle.hash 7a9656b8…`, build `20260929084610`, slot sha256 equal to the built
+  rootfs — the same bundle bench accepted in W7.
+- **What differs from Runs 8-48:** the app is served on-core by `wisekiosk` on localhost:8080, bundle
+  `index-CDN2Arem.js` (read off the board's own WebKit cache in every capture); live park data, not
+  the mirror and not the demonstration fixture Runs 8-36 used; `/boot` is the `.wic` boot partition —
+  `vc4-fkms-v3d`, `hdmi_force_hotplug=1`, `hdmi_group=1`, `hdmi_mode=16`, no `video=`; `kiosk-launch`
+  sets 1280x720 with `xrandr`. `WEBKIT_DISABLE_DMABUF_RENDERER=1` and `WEBKIT_FORCE_VBLANK_TIMER=1`
+  come from `kiosk-launch`'s own defaults; `kiosk.conf` holds only `KIOSK_INSPECTOR=0`.
+- **Config:** the owner's `config.json` (sha256 `767e3d1a…`), `park_wait_times.rotation_interval_seconds`
+  absent — the 8 s schema default, the value Run 41 and Run 48's 8 s arm ran at.
+- **Page state, Runs 49-52:** captured 06:56-07:25 local, before the parks opened. **Every park card
+  showed Closed** (pre-run screenshots): no ride rows, no tour marquee, no `[data-pwt-tour-row]`.
+  WiseKiosk#402 timeouts: none shown (recorded, not filtered).
+- **Checks on every run:** 1280x720 live before and after (no run void); kiosk `NRestarts=0` at the
+  end.
+- **R2.** Driver [`run-appliance.sh`](run-appliance.sh) (sha256
+  `2ba15523dba2985e3a4f4e6039a9e20601b2d31783742139b5dcb1728ce4167f`), frozen before the first run and
+  reviewed by content-reviewer and test-reviewer; both failure exits proved on bench (VOID rc=3 at
+  fbdev 1824x984; no-payload rc=1 at 1280x720). Built from the recovered Run 26/41/48 commands and
+  parameterised only for target, role, payload prefix, capture length and `xprop -len`. Each run's
+  invocation is in [`run-sequence.sh`](run-sequence.sh). No warm-up beyond the recorded method, because
+  none was recorded for these probes; each parser excludes startup as before.
+- **Analysis added (R2):**
+  - [`parse_phase.py`](parse_phase.py) — Run 26b's phase read (t mod 8 s), which was an inline
+    command. Reproduces 26b from `hold2s-phase-289s-raw.txt` (5 startup; 8 of 8 at 1.8-2.0 s) and
+    flags 26a's list as truncated.
+  - [`parse_baseline_period.py`](parse_baseline_period.py) — `parse_baseline.py` with the fold period
+    as a parameter. Default output byte-identical to `parse_baseline.py` on `baseline-588s-raw.txt`;
+    `--period auto` derives 40.0 s / phase 0.9 s there and reproduces Run 41's 14 on-beat / 7 off-beat.
+- **R3.** Each run is its own table row and its own metrics; rate is not compared across captures —
+  the record's own rule since Runs 26a/26b. Only the beat is read against Run 41, and only as a beat.
+
+#### Run 49 — Run 41 repeated on the appliance
+
+| window | frames | mean | max | >250 ms | histogram <50 / 50-100 / 100-250 / 250-500 / 500-1k / 1k-2k / >=2k |
+|---|---|---|---|---|---|
+| 587 s | 34212 | 17 ms | 1802 ms | 14 (list complete, 14 of 14) | 34061 / 11 / 126 / 9 / 2 / 3 / 0 |
+
+- **The beat.** `parse_baseline.py`'s 40 s fold finds 2 of 8 steady arrivals on-beat, which says only
+  that the beat is not 40 s. `parse_baseline_period.py --period auto` reads **60.0 s**, phase 41.8 s:
+
+| t (s) | 341.7 | 401.7 | 461.8 | 521.8 | 581.9 |
+|---|---|---|---|---|---|
+| duration (ms) | 439 | 448 | 443 | 444 | 444 |
+
+  Intervals 60.0, 60.1, 60.0, 60.1 s. **No steady arrival before 300 s.**
+- **Not on the beat:** 5 startup (1.9, 3.0, 4.3, 4.6, 5.4 s, up to 1802 ms); 1 at 11.8 s (262 ms); one
+  cluster at 303.8 / 304.2 / 304.5 s (789 / 386 / 282 ms). 5 + 1 + 3 + 5 = 14, the whole list.
+
+#### Run 50 — Run 26a repeated on the appliance
+
+| window | frames | mean | fps | max | <50 ms | >250 ms |
+|---|---|---|---|---|---|---|
+| 164 s | 9544 | 17 ms | 58.2 | 1124 ms | 99.5% | 6 (not truncated: 6 listed of 6) |
+
+- Histogram 9499 / 2 / 37 / 4 / 1 / 1 / 0. Big frames: 0.8, 1.9, 2.2 s (startup) and one cluster at
+  66.9 / 67.2 / 67.8 s. `parse_phase.py`: steady t mod 8 = 2.9 / 3.2 / 3.8 — one cluster, not a series.
+
+#### Run 51 — Run 26b repeated on the appliance
+
+| window | frames | mean | fps | max | <50 ms | >250 ms |
+|---|---|---|---|---|---|---|
+| 284 s | 16727 | 17 ms | 58.9 | 1014 ms | 99.6% | 3 (list complete) |
+
+- Histogram 16654 / 6 / 64 / 2 / 0 / 1 / 0. Big frames: 1.3 s (startup), 7.8 s, 161.3 s.
+  `parse_phase.py`: two steady arrivals, t mod 8 = 7.8 and 1.3. **There is no phase to read.** Run
+  26b's 8 of 8 at the scroll-start has no counterpart, since there is no marquee on a Closed card.
+
+#### Run 52 — Run 48's 8 s arm repeated on the appliance, cards Closed
+
+| window | frames | fps | worst | >250 ms | R[] |
+|---|---|---|---|---|---|
+| 585 s | 34422 | 58.8 | 1006 ms | 7 | empty (0 events) |
+
+- With every card Closed, `p31_rotcheck.js` has no `[data-pwt-tour-row]` to read, so no rotation
+  interval is measured and `parse_rotation.py` scores no grid (median None). This is a limit of the
+  probe on this page state, not a finding about the rotation.
+- Steady arrivals (>= 250 ms, t >= 15 s, clustered): **300.1 s** (358 ms) and **438.4 s** (323 / 391
+  ms). **No 60 s series** — contrast Run 49, same page state, 20 minutes earlier.
+
+#### Run 53 — pending
+
+Captured after the park opens, appended here when recorded. No result is written ahead of the run.
+
+#### Observations on Runs 49-52 (for the owner; not conclusions)
+
+- Every appliance capture runs at mean 17 ms (~58 fps) against 24-25 ms (~41 fps) in Runs 26 and 41.
+  The treatment differs in several ways at once (Closed live page vs demonstration data, on-core app,
+  bundle, `/boot`), so this describes the appliance; it does not attribute the difference.
+- The **~300 s event** recurs at a fixed point after page load: 303.8 s (Run 49) and 300.1 s (Run 52);
+  Run 48 recorded it at 302.5 s in all three arms.
+- The **~40 s metronome does not appear** with Closed cards. Run 49 shows a 60 s series beginning
+  after the ~300 s event; Run 52 shows none. Two captures of one state disagree — the n=1 caution the
+  record already states for Runs 26a/26b.
 
 ### The JSC source: why the pause cannot be chunked on this board
 
@@ -4288,10 +4401,81 @@ thing to close when bench is back.
 
 ## Durable image delivery — pending owner decision
 
-**The reconcile diff is written and independently reviewed. Nothing has been delivered.** No image
-was built, no bundle was created, no board was flashed and no OTA was pushed against any of it. The
-section states the gap, what is staged against it, and the decisions that close it, so the owner
-decides against a written position rather than against a session's memory.
+**Delivery, stated as fact, with sources:**
+
+- **`87c0b61` was installed to prod slot B on 2026-09-23 at 15:32:56Z**, per the board's own RAUC
+  status (bundle build `20260923145053`, `bundle.hash 6cc99c50…`). **Who installed it is not
+  recorded** and is stated as unknown. It carried no local app, so prod showed a white screen while
+  the mirror was down.
+- **`a929ef3` was delivered to prod on 2026-09-29** (#100 W9): OTA into slot A (bundle build
+  `20260929084610`, `bundle.hash 7a9656b8…`, the same bundle bench accepted in W7), then the `.wic`
+  `/boot` written file by file and prod `/data` reprovisioned — see "The `/boot` procedure" below.
+  Bench runs the same commit and bundle.
+- **Owner rulings (2026-09-28) that close this section's open decisions:** build equals prod, with
+  `config.json` the sole exception ("no shenanigans or exceptions"); HDMI hotplug retained and
+  1280x720 kept ("keep the same resolution because thats what helped a bunch with performance"); the
+  image is the only source of `WEBKIT_*`; `KIOSK_URL` defaults to localhost; the prod `/boot` update
+  and agent OTA/reboot/rollback under an expiring grant are authorized.
+
+The section below states the gap this closed, what was staged against it, and the decisions record —
+kept for the record rather than deleted, since it is what the owner decided against.
+
+### The `/boot` procedure (bench W7, prod W9)
+
+`/boot` is shared by both RAUC slots and an OTA does not carry it (new issue: "OTA does not carry
+`/boot` (config.txt, DTBs)"; the durable mechanism belongs to that issue, not here). What was done,
+in order, on bench first and then on prod:
+
+1. Back up the board's `/boot` as a tar of every file except `uboot.env` and `System Volume
+   Information/` (runtime state, never copied, written, restored or deleted), with each file's sha256
+   checked device vs local; back up `/data/config` the same way; take a sealed `dd` image of the boot
+   partition as a card-pull artefact only, never restored wholesale.
+2. Extract the `.wic` boot partition with mtools at its partition offset; sha256 manifest (108 files;
+   the `.wic` carries no `uboot.env`).
+3. Under `KIOSK_ALLOW_BOOT_WRITE=1`, write only the files whose sha differs (41 of 108 against prod's
+   pre-W9 `/boot`): stage each on `/data`, verify its sha, then `cp` to a temp name on `/boot`,
+   `sync`, `cmp`, `mv` over the target, `sync`. busybox on the board has no per-file fsync, so the
+   global `sync` stands in for it. Extras found on the board that are not in the `.wic`: none; only
+   `*.dtb`/`overlays/*.dtbo` would have been deletable, anything else stops the run before any write.
+4. Drop caches and re-hash `/boot` on the device: the set must equal the manifest exactly.
+5. `kiosk-reboot`, then acceptance. Restore path, on a failure at either stage: `/data/config`, then
+   `/boot` file by file from the backup with each sha verified, then reboot.
+
+The sequence was rehearsed on a scratch copy on bench `/data` first (refusal without the escape
+hatch, the non-dtb-extra stop, write, idempotent re-run, restore — 10 of 10), then on bench's real
+`/boot` twice (prod's pre-W9 `/boot`, then the `.wic`'s — W7's rehearsal of prod's own two-stage
+path), then on prod (W9).
+
+### Finding — `tools/provision.sh device` reset `/data`'s own mode (found in W9)
+
+- **Root cause.** Device mode tarred `.` of its `mktemp -d` stage directory (mode 0700); the
+  archive's first member was `./` (`drwx------`), and `tar -C /data -xf -` applied that mode to
+  `/data` itself, not just its contents.
+- **Effect.** `wisekiosk` runs as `User=kiosk`; `/srv/kiosk/config.json` is a symlink into
+  `/data/config`. With `/data` at 0700 the backend cannot traverse it: `GET /config.json` returns 404
+  (`index.html` still 200), and the page shows "No configuration file". Every device re-provision hit
+  it; card and stage modes did not.
+- **Evidence.** Prod `/data` was 0755 in both pre-W9 listings, then 0700 immediately after `just
+  provision-device`; reproduced on bench reversibly (0755 → 200, 0700 → 404, back to 0755 → 200); a
+  host-only repro shows a bare `mktemp -d` tar lists `./` as `drwx------`.
+  The bench rehearsal (W7) never ran `provision-device`, so it could not catch this.
+- **Disposition.** On prod, the pre-W9 mode was restored by hand (`chmod 755 /data`, DECISION) and
+  stage 2 was re-accepted after a reboot. The code fix is committed in Phase C
+  (`tools/provision.sh`): the archive now names the stage directory's children instead of `.`, so
+  extraction never carries a claim about `/data`'s own mode.
+
+### Other findings from W7-W10
+
+- **Bench boot-time X VT race.** X's first start at boot can fail `xf86OpenConsole: VT_ACTIVATE
+  failed: Input/output error` (`getty@tty1` active, X on vt1); systemd restarts it 10 s later and it
+  stays up. Bench: 23 of 67 journal boots since 2026-08-26, across every image; prod: 0 of 17.
+  Acceptance scores restarts inside the 10-minute window and reports boot-time restarts beside it
+  (DECISION, confirmed by the independent bench-evidence gate). Possible new issue.
+- **`kiosk-render-check.sh` at 1280x720 (W8).** Accurate, unmodified: default crop reports
+  "advancing" 3 of 3, both in the normal layout and in the backend-unreachable banner layout; a crop
+  over static date text reads FROZEN; the `.seconds-slot` span sits inside the default crop in both
+  layouts. Its own header comment says the crop is sized for a 1920x1080 panel — stale wording, not a
+  wrong geometry. The file is out of scope for this investigation and was not edited.
 
 **The gap.** The image these runs ran, `7ce44ba`, bakes the hypothesis this investigation disproved.
 Its `graphics` block sets `VC4DTBO = "vc4-kms-v3d"` — full KMS, which Run 2 found blacks this panel —
@@ -4308,8 +4492,10 @@ moves the tree to **firmware KMS, no `video=` on the kernel command line, softwa
 launcher's default, and 720p set in the launcher**, and **keeps mesa and `libgles2-mesa`**. The GLES
 package is not a compositing switch: WebKit `dlopen`s `libGLESv2.so.2`, so removing the package makes
 the web process segfault the instant compositing is attempted rather than turning compositing off,
-and the runtime switch is the launcher default plus the `/data/config/kiosk.conf` line. The diff has
-been **independently reviewed**. It has **not** been built and **not** been flashed.
+and the runtime switch is the launcher default plus the `/data/config/kiosk.conf` line. The diff was
+**independently reviewed** at the time of this writing, and had then been neither built nor flashed.
+**Correction:** it has since been built and delivered — see "Delivery, stated as fact, with sources"
+above; `100-gpu-compositing:a929ef3` is the commit that carries it.
 
 **Delivery is deferred, and the reason is in this record rather than in scheduling.** The corrected
 root cause reopens #100 gpu-compositing on the allocation lever — see "Real-time framing" — and
@@ -4461,10 +4647,19 @@ gap "Changes configured as a result" records for the `.seconds` fix.
   experiment; and **Run 47 has no committed capture at
   all**, its arrival series being transcribed into its run block from the session's own output.
 
-- **Must not merge as committed — the branch bakes full KMS, which blacks this panel.** `7ce44ba`
-  sets `VC4DTBO = "vc4-kms-v3d"`; the running board was hand-edited back to firmware KMS, and
-  `WEBKIT_FORCE_VBLANK_TIMER=1` is load-bearing on it but lives only in the device's `kiosk.conf`,
-  not the image. An OTA or reflash of this commit blacks the wall panel.
+- **Correction: no longer true at `100-gpu-compositing:a929ef3`.** The bullet below described
+  `7ce44ba`. The build now carries, verified on both boards: `VC4DTBO = "vc4-fkms-v3d"` (firmware
+  KMS, not full KMS); no `video=` on the command line; `hdmi_force_hotplug=1`, `hdmi_group=1`,
+  `hdmi_mode=16` live in `config.txt`; `kiosk-launch` sets 1280x720 and defaults
+  `WEBKIT_FORCE_VBLANK_TIMER=1` and `WEBKIT_DISABLE_DMABUF_RENDERER=1`. Bench and prod both ran it at
+  1280x720 with 0 restarts in acceptance (W7, W9). The original finding is kept below, in history
+  form, for the record it was written against.
+
+- **Must not merge as committed — the branch bakes full KMS, which blacks this panel** (`7ce44ba`,
+  superseded above). `7ce44ba` set `VC4DTBO = "vc4-kms-v3d"`; the running board was hand-edited back
+  to firmware KMS, and `WEBKIT_FORCE_VBLANK_TIMER=1` was load-bearing on it but lived only in the
+  device's `kiosk.conf`, not the image. An OTA or reflash of that commit would have blacked the wall
+  panel.
 
 - **OWNER DECISION, not taken here — whether the vc4 display-stack work should ship at all.** It was
   undertaken to fix the stutter; Run 5 measures the opposite of its premise, and the board runs
