@@ -1,0 +1,48 @@
+# run-appliance.sh role=prod probe=p7_min.js prefix=MP sleep=180 len=20000
+# started 2026-09-29T11:06:35Z
+# probe sha256 local    3d0e0c23a7b4012630c9c1870ffe44b6dd1eaa05518fa371e1e08e18b46a1248
+# buildinfo meta-wisekiosk    = 100-gpu-compositing:a929ef3725419339cc0a9f9cd15dacd5c688b229
+# Booted from: rootfs.0 (A)
+# config.json sha256 767e3d1afa72b855ce16cd451782c8395e71e8e3f589f12c6e6edeb90eb8ec48
+# kiosk.conf KIOSK_INSPECTOR=0
+# park_wait_times.rotation_interval_seconds ABSENT (schema default)
+# xrandr-before Screen 0: minimum 320 x 200, current 1280 x 720, maximum 2048 x 2048
+# xrandr-before HDMI-1 connected primary 1280x720+0+0 (normal left inverted right x axis y axis) 1600mm x 900mm
+# xrandr-before    1920x1080     60.00 +  59.94    24.00    23.98  
+# xrandr-before    1920x1080i    60.00    59.94  
+# xrandr-before    1280x1024     60.02  
+# xrandr-before    1280x720      60.00*   59.94  
+# xrandr-before    1024x768      60.00  
+# xrandr-before    1440x480i     59.94  
+# xrandr-before    800x600       60.32  
+# xrandr-before    720x480       60.00    59.94  
+# xrandr-before    720x480i      60.00    59.94  
+# xrandr-before    640x480       60.00    59.94  
+# probe sha256 deployed 3d0e0c23a7b4012630c9c1870ffe44b6dd1eaa05518fa371e1e08e18b46a1248
+# capture start 2026-09-29T11:06:36Z
+restarted, sleeping 180
+=== WM_NAME (MP) ===
+xprop: error: Invalid window id format: xwininfo:.
+xprop: error: Invalid window id format: Root.
+xprop: error: Invalid window id format: Parent.
+WM_NAME(STRING) = "@cgDISMfxT:- | MP|164|f9544|av17|mx1124|BT6|H9499.2.37.4.1.1.0|B0.8:776,1.9:1124,2.2:303,66.9:319,67.2:333,67.8:407"
+LOAD 1.04 0.88 0.75 1/137 1819
+MEM MemAvailable:     296560 kB
+=== DONE ===
+# capture end 2026-09-29T11:09:37Z
+# xrandr-after Screen 0: minimum 320 x 200, current 1280 x 720, maximum 2048 x 2048
+# xrandr-after HDMI-1 connected primary 1280x720+0+0 (normal left inverted right x axis y axis) 1600mm x 900mm
+# xrandr-after    1920x1080     60.00 +  59.94    24.00    23.98  
+# xrandr-after    1920x1080i    60.00    59.94  
+# xrandr-after    1280x1024     60.02  
+# xrandr-after    1280x720      60.00*   59.94  
+# xrandr-after    1024x768      60.00  
+# xrandr-after    1440x480i     59.94  
+# xrandr-after    800x600       60.32  
+# xrandr-after    720x480       60.00    59.94  
+# xrandr-after    720x480i      60.00    59.94  
+# xrandr-after    640x480       60.00    59.94  
+# bundle index-CDN2Arem.js 
+# kiosk NRestarts=0 ActiveEnterTimestamp=Tue 2026-09-29 07:06:37 EDT 
+# restored: script.js 0 bytes, kiosk restarted
+# complete 2026-09-29T11:09:38Z: 1 payload line(s)

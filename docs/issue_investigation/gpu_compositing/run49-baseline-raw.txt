@@ -1,0 +1,48 @@
+# run-appliance.sh role=prod probe=p30_baseline.js prefix=BL sleep=600 len=12000
+# started 2026-09-29T10:56:06Z
+# probe sha256 local    ed3e19eb1fe055c32d107f3fd2e4132679da9726378f907e3d4f0fc8fc7bfcef
+# buildinfo meta-wisekiosk    = 100-gpu-compositing:a929ef3725419339cc0a9f9cd15dacd5c688b229
+# Booted from: rootfs.0 (A)
+# config.json sha256 767e3d1afa72b855ce16cd451782c8395e71e8e3f589f12c6e6edeb90eb8ec48
+# kiosk.conf KIOSK_INSPECTOR=0
+# park_wait_times.rotation_interval_seconds ABSENT (schema default)
+# xrandr-before Screen 0: minimum 320 x 200, current 1280 x 720, maximum 2048 x 2048
+# xrandr-before HDMI-1 connected primary 1280x720+0+0 (normal left inverted right x axis y axis) 1600mm x 900mm
+# xrandr-before    1920x1080     60.00 +  59.94    24.00    23.98  
+# xrandr-before    1920x1080i    60.00    59.94  
+# xrandr-before    1280x1024     60.02  
+# xrandr-before    1280x720      60.00*   59.94  
+# xrandr-before    1024x768      60.00  
+# xrandr-before    1440x480i     59.94  
+# xrandr-before    800x600       60.32  
+# xrandr-before    720x480       60.00    59.94  
+# xrandr-before    720x480i      60.00    59.94  
+# xrandr-before    640x480       60.00    59.94  
+# probe sha256 deployed ed3e19eb1fe055c32d107f3fd2e4132679da9726378f907e3d4f0fc8fc7bfcef
+# capture start 2026-09-29T10:56:07Z
+restarted, sleeping 600
+=== WM_NAME (BL) ===
+xprop: error: Invalid window id format: xwininfo:.
+xprop: error: Invalid window id format: Root.
+xprop: error: Invalid window id format: Parent.
+WM_NAME(STRING) = "@cgDISMfxT:- | BL|587|f34212|big14|av17|mx1802|H34061.11.126.9.2.3.0|S[1.9:1802,3:1079,4.3:1326,4.6:292,5.4:795,11.8:262,303.8:789,304.2:386,304.5:282,341.7:439,401.7:448,461.8:443,521.8:444,581.9:444]"
+LOAD 0.70 0.74 0.67 1/136 1474
+MEM MemAvailable:     289052 kB
+=== DONE ===
+# capture end 2026-09-29T11:06:08Z
+# xrandr-after Screen 0: minimum 320 x 200, current 1280 x 720, maximum 2048 x 2048
+# xrandr-after HDMI-1 connected primary 1280x720+0+0 (normal left inverted right x axis y axis) 1600mm x 900mm
+# xrandr-after    1920x1080     60.00 +  59.94    24.00    23.98  
+# xrandr-after    1920x1080i    60.00    59.94  
+# xrandr-after    1280x1024     60.02  
+# xrandr-after    1280x720      60.00*   59.94  
+# xrandr-after    1024x768      60.00  
+# xrandr-after    1440x480i     59.94  
+# xrandr-after    800x600       60.32  
+# xrandr-after    720x480       60.00    59.94  
+# xrandr-after    720x480i      60.00    59.94  
+# xrandr-after    640x480       60.00    59.94  
+# bundle index-CDN2Arem.js 
+# kiosk NRestarts=0 ActiveEnterTimestamp=Tue 2026-09-29 06:56:07 EDT 
+# restored: script.js 0 bytes, kiosk restarted
+# complete 2026-09-29T11:06:09Z: 1 payload line(s)
