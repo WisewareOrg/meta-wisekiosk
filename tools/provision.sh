@@ -163,16 +163,22 @@ case "$MODE" in
   device)
     ssh_opts=(-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
     # tar over stdin: one stream, and a few kilobytes of it. Small enough that
-    # transfer shape is not a consideration here either way.
+    # transfer shape is not a consideration either way.
     # --owner/--group: tar otherwise preserves THIS host's uid/gid, landing the
     # wifi credentials owned by uid 1000 on the device.
+    #
+    # The archive names STAGE's children (config, etc, RECOVER.sh), never `.`
+    # itself: `tar -C "$STAGE" -cf - .` archives a `./` entry carrying
+    # mktemp -d's own mode (0700), and `tar -C /data -xf -` applies THAT to
+    # /data itself, not just its contents. #100 W9: this took wisekiosk's
+    # User=kiosk config.json symlink traversal down on every re-provision.
     #
     # rc is captured rather than left to errexit: a bare ssh diagnostic and a
     # silent exit 255 say nothing about which of this script's two remote steps
     # ran, and the difference matters -- a write that failed leaves /data as it
     # was, a read-back that failed does not say whether the write landed.
     rc=0
-    tar -C "$STAGE" --owner=root --group=root --numeric-owner -cf - . | ssh "${ssh_opts[@]}" "$DEST" \
+    tar -C "$STAGE" --owner=root --group=root --numeric-owner -cf - config etc RECOVER.sh | ssh "${ssh_opts[@]}" "$DEST" \
         'mkdir -p /data/config /data/etc && tar -C /data -xf - && chown -R 0:0 /data/config /data/etc && chmod 0600 /data/config/wpa_supplicant.conf && sync' || rc=$?
     [ "$rc" -eq 0 ] || { echo "could not write /data on $DEST (tar|ssh rc=$rc) -- nothing was provisioned" >&2; exit 1; }
 
