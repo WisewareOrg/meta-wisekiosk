@@ -152,7 +152,7 @@ case "$MODE" in
     ;;
   stage)
     # No card, no ssh, no root: this mode exists to produce the exact
-    # provisioning output for a diff (W9's pre-write check), so it skips the
+    # provisioning output for a diff before writing it for real, so it skips the
     # card branch's device-only chown/mode enforcement.
     mkdir -p "$DEST/config" "$DEST/etc"
     cp "$STAGE/config/"* "$DEST/config/"

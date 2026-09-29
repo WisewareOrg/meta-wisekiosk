@@ -19,11 +19,14 @@
 # repository is PUBLIC: a tracked address is the thing the repository exists to
 # not publish, so a guard keyed on one would be its own leak.
 #
-# Fail-open everywhere: no jq, no payload, no identity file, or an unparseable
-# anything, and the call goes through. A guard that blocks on its own breakage
-# gets disabled, and then it guards nothing. A missing map says so on stderr --
-# fail-open is a degradation, and a silent one cannot be told from a rule that
-# looked and found nothing.
+# Fail-open everywhere except the grant: no jq, no payload, no identity file,
+# or an unparseable anything, and the call goes through. A guard that blocks on
+# its own breakage gets disabled, and then it guards nothing. A missing map
+# says so on stderr -- fail-open is a degradation, and a silent one cannot be
+# told from a rule that looked and found nothing. The one exception is
+# tools/prod-authorize.sh's grant: missing, expired, malformed or symlinked all
+# count as no grant, because the grant WIDENS access rather than narrowing it,
+# and failing open there would be the opposite of a degradation.
 #
 # Self-test: bash .claude/hooks/guard-test.sh  (wired into `just guards` and CI)
 set -uo pipefail
@@ -84,11 +87,12 @@ if [ -z "$PAFILE" ]; then
     fi
 fi
 
-# A valid grant is exactly one line, `expires=<unix-int>`, not in the future's
-# past and never a symlink -- a symlinked grant could point anywhere, so it is
-# never trusted regardless of what it resolves to. Anything else (missing key,
-# non-integer, extra content) is malformed, and malformed blocks the same as
-# absent.
+# A valid grant holds `expires=<unix-int>` with that time still in the future,
+# and nothing else -- trailing blank lines aside, since `$(cat …)` strips those
+# the same way it strips a single trailing newline. Never a symlink: a
+# symlinked grant could point anywhere, so it is never trusted regardless of
+# what it resolves to. Anything else (missing key, non-integer, extra content)
+# is malformed, and malformed blocks the same as absent.
 #
 # tools/prod-authorize.sh's `--show` parses the same shape for the same reason
 # (report the grant honestly without trusting a symlink or malformed content);
