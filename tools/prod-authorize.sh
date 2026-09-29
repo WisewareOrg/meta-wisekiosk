@@ -46,33 +46,21 @@ done
 
 case "$ACTION" in
 show)
-    # Parses the grant the same way guard.sh's grant_valid() does -- keep the
-    # two in step if either changes; guard-test.sh exercises only that copy.
-    if [ -L "$PAFILE" ]; then
-        echo "no grant -- $PAFILE is a symlink, never trusted" >&2
-        exit 1
-    fi
-    if [ ! -f "$PAFILE" ]; then
-        echo "no grant"
+    # Owner (2026-09-28): validity logic lives only in the enforcer
+    # (guard.sh's grant_valid()), the way orchestrator-gate.sh alone validates
+    # what orchestrator-toggle.sh writes. This prints the file and the expiry
+    # as written -- no shape, symlink or malformed verdict of its own.
+    if [ ! -e "$PAFILE" ]; then
+        echo "no grant file at $PAFILE"
         exit 1
     fi
     content=$(cat "$PAFILE")
-    case "$content" in
-        expires=*) exp=${content#expires=} ;;
-        *) exp= ;;
-    esac
-    case "$exp" in
-        ''|*[!0-9]*)
-            echo "no grant -- $PAFILE is malformed"
-            exit 1
-            ;;
-    esac
-    if [ "$exp" -gt "$(date +%s)" ]; then
-        echo "granted until $(date -d "@$exp")"
-    else
-        echo "no grant -- expired $(date -d "@$exp")"
+    exp=${content#expires=}
+    if [ "$exp" -le "$(date +%s)" ]; then
+        echo "$PAFILE: expired ($(date -d "@$exp"))"
         exit 1
     fi
+    echo "$PAFILE: expires $(date -d "@$exp")"
     ;;
 revoke)
     if [ -e "$PAFILE" ] || [ -L "$PAFILE" ]; then

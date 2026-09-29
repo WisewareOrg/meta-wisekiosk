@@ -94,9 +94,10 @@ fi
 # what it resolves to. Anything else (missing key, non-integer, extra content)
 # is malformed, and malformed blocks the same as absent.
 #
-# tools/prod-authorize.sh's `--show` parses the same shape for the same reason
-# (report the grant honestly without trusting a symlink or malformed content);
-# keep the two in step if either changes.
+# This is the ONLY validity check (owner, 2026-09-28, following
+# orchestrator-gate.sh's precedent): tools/prod-authorize.sh's `--show` prints
+# the file as written and does not re-validate it, so there is nothing else to
+# keep in step with.
 grant_valid() {
     [ -f "$PAFILE" ] && [ ! -L "$PAFILE" ] || return 1
     content=$(cat "$PAFILE" 2>/dev/null)
