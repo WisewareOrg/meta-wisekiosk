@@ -62,6 +62,7 @@ fi
 
 STAGE=$(mktemp -d); trap 'rm -rf "$STAGE"' EXIT
 mkdir -p "$STAGE/config" "$STAGE/etc"
+chmod 0755 "$STAGE/config" "$STAGE/etc"
 umask 077
 cat > "$STAGE/config/wpa_supplicant.conf" <<EOF
 ctrl_interface=/var/run/wpa_supplicant
