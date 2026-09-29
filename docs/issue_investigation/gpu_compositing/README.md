@@ -329,8 +329,8 @@ under "Off-board measurements" and "A separate defect found on this board".
   redeploying the mirror, independently of this image. That keeps one variable per run — the display
   stack — rather than shipping a browser change and a rendering change in one build.
 - **Scripts deployed:**
-  - [`kiosk-gpu-check.sh`](../../../tools/kiosk-gpu-check.sh) — DURABLE, committed at that path with
-    its self-test [`kiosk-gpu-check-test.sh`](../../../tools/kiosk-gpu-check-test.sh) and wired into
+  - [`kiosk-gpu-check.sh`](kiosk-gpu-check.sh) — DURABLE, committed at that path with
+    its self-test [`kiosk-gpu-check-test.sh`](kiosk-gpu-check-test.sh) and wired into
     `tools/ci-guards.sh`. Reads the GPU path's footprint in the web process over SSH and exits
     non-zero when it is absent or software-only. Its header records why the buffer mode itself is
     not readable headless.
@@ -355,7 +355,7 @@ rebuilt with `IMAGE_INSTALL:append = " libgles2-mesa"` (committed `7ce44ba`) and
 
 **The compositing objective succeeded.** With vc4 + mesa the web process holds `/dev/dri` open with a
 `vc4`/`v3d` gallium driver and carries dma-buf fds — the `Hardware`/dma-buf path, confirmed on the
-board by [`kiosk-gpu-check.sh`](../../../tools/kiosk-gpu-check.sh)'s proxy.
+board by [`kiosk-gpu-check.sh`](kiosk-gpu-check.sh)'s proxy.
 
 **The marquee still stutters** — owner's direct observation, which is the #100 gpu-compositing gate.
 Compositing being achieved did not remove it. It is not the CSS (the animating row promotes a
@@ -2211,7 +2211,7 @@ The tree facts the runs rest on; each cited to its source.
   readable only as pixels, by a browser, by eye. There is no way to read it over SSH and no way to
   exit-code on it.
 
-  This is why [`kiosk-gpu-check.sh`](../../../tools/kiosk-gpu-check.sh) has two modes rather than
+  This is why [`kiosk-gpu-check.sh`](kiosk-gpu-check.sh) has two modes rather than
   one. Its default mode is the durable regression guard and reads a **proxy** — whether a web process
   holds `/dev/dri` open with a `vc4`/`v3d` gallium driver mapped — which is decidable from `/proc`
   and is what fails if a future change re-disables the GPU. Its `--capture` mode drives the page and
@@ -4203,7 +4203,7 @@ Each finding names the run that decided it. **OBSERVATION** is something read of
   earlier draft named `cma-128`; it was removed, and this is the decision that replaces it.
 
   **Trigger:** add `cma-128` **only if a soak shows CMA pressure**.
-  [`kiosk-gpu-check.sh`](../../../tools/kiosk-gpu-check.sh) reads `CmaTotal`/`CmaFree`.
+  [`kiosk-gpu-check.sh`](kiosk-gpu-check.sh) reads `CmaTotal`/`CmaFree`.
 
   **Rationale:** `cma-128` takes 128 MB of a 512 MB machine away from everything else, most of it
   from WebKit's headroom — on a board whose whole problem is that it has none. The pool is not
@@ -4323,7 +4323,7 @@ two-line `kiosk.conf`. That is a second failure mode on the same axis and it is 
 reflash argument.
 
 **An operator tool is now aimed at the wrong verdict.**
-[`kiosk-gpu-check.sh`](../../../tools/kiosk-gpu-check.sh)'s default mode passes when a web process
+[`kiosk-gpu-check.sh`](kiosk-gpu-check.sh)'s default mode passes when a web process
 holds `/dev/dri` open with a `vc4`/`v3d` driver mapped. That was the right proxy when the GPU path
 was the goal. On the configuration this investigation measured as **correct** — compositing off, no
 accelerated backing store, so no DRM node held — it reports `NO GPU path` and exits non-zero: **a
