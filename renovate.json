@@ -19,7 +19,7 @@
       "minimumReleaseAge": null
     },
     {
-      "description": "Its own branch, so its digest pin never shares one with the Actions pins that automerge.",
+      "description": "Its own branch, so its digest pin never joins the pin-dependencies branch that the Actions pins share.",
       "matchPackageNames": ["anchore/grype"],
       "groupName": "grype"
     },

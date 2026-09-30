@@ -970,9 +970,10 @@ app = manager(lambda m: m.get("datasourceTemplate") == "git-refs"
 
 rules = cfg.get("packageRules", [])
 hold = [i for i, r in enumerate(rules)
-        if r.get("automerge") is False and "includes/**" in r.get("matchFileNames", [])]
+        if r.get("automerge") is False and r.get("matchFileNames") == ["includes/**"]
+        and set(r) <= {"description", "matchFileNames", "automerge"}]
 if not hold:
-    sys.exit("renovate.json has no automerge: false rule over includes/**")
+    sys.exit("renovate.json has no unconditional automerge: false rule over exactly includes/**")
 if any(r.get("automerge") is True for r in rules[hold[-1] + 1:]):
     sys.exit("a packageRule after the includes/** hold turns automerge back on")
 
@@ -981,7 +982,7 @@ if not fallback:
     sys.exit("the kas manager's currentValueTemplate has no {{else}} fallback branch")
 fallback = fallback.group(1)
 fpat = re.compile(kas["managerFilePatterns"][0].strip("/"))
-files = [f for f in subprocess.run(["git", "ls-files", "includes"], capture_output=True,
+files = [f for f in subprocess.run(["git", "ls-files"], capture_output=True,
                                    text=True, check=True).stdout.split() if fpat.search(f)]
 if not files:
     sys.exit("no tracked file matches the kas manager's pattern")
