@@ -1,6 +1,3 @@
-# #119 D-K. `just pipeline-on`/`pipeline-off` wrap `systemctl --user
-# enable --now`/`disable --now` on this unit; `just pipeline-install`
-# symlinks it into ~/.config/systemd/user/ but does not enable it.
 [Unit]
 Description=Run the bench pipeline on a schedule
 

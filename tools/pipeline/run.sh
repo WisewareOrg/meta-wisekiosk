@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The bench pipeline's stage driver (#119 D-A, D-E, D-I, D-K; decision 9).
+# The bench pipeline's stage driver.
 #
 #   run.sh                  -- run tools/pipeline/candidates.py's next job
 #   run.sh baseline [<sha>] -- build & OTA a baseline run (default sha:
@@ -8,10 +8,8 @@
 #                               back to the baseline slot
 #
 # Reads PIPELINE_DRIVER, PIPELINE_TREE, KAS_BUILD_DIR, PIPELINE_BASELINE_REF,
-# PIPELINE_SSH_DIR from the environment -- normally `~/.config/wisekiosk/
-# pipeline.env`, EnvironmentFile= under the systemd unit or sourced by hand
-# by `just pipeline-run`. PIPELINE_BASELINE_REF is a full ref, already
-# qualified with its remote (e.g. `origin/main`) -- not a bare branch name.
+# PIPELINE_SSH_DIR from the environment. PIPELINE_BASELINE_REF is a full ref,
+# already qualified with its remote (e.g. `origin/main`).
 #
 # Stage order (a `pr` run; `baseline` is the same through the smoke, then
 # marks the slot good instead of rolling back):
@@ -22,19 +20,16 @@
 #   -> gpu check -> [baseline: mark-good | pr: always mark-bad, reboot,
 #   verify the baseline slot, testimage again there] -> post
 #
-# Bench's address is never a literal here: resolve-role.py reads it from the
-# dev tree's local/device-identity.md and refuses every role but bench
-# (decision 7) -- the pipeline's own safety control, since the Claude Code
-# guard does not run under a systemd timer.
+# Bench's address is resolved each run via resolve-role.py, which refuses
+# every role but bench.
 #
-# Decision 9 (infrastructure failure disables the timer): a pre-check
-# failure (bench unreachable, the build dir locked or a kas container
-# already running, the baseline ref or the tree checkout not resolvable)
-# happens BEFORE any status is posted, and posts nothing. A failure after a
-# `pending` status was posted overwrites it with `error`, description
-# "run aborted: <reason>; timer disabled". Either way: local/pipeline/
-# DISABLED under the driver gets the reason, and the timer is disabled --
-# nothing loops silently. A human reads DISABLED in the morning.
+# A pre-check failure (bench unreachable, the build dir locked or a kas
+# container already running, the baseline ref or the tree checkout not
+# resolvable) happens before any status is posted, and posts nothing. A
+# failure after a `pending` status was posted overwrites it with `error`,
+# description "run aborted: <reason>; timer disabled", and writes
+# local/pipeline/DISABLED under the driver with the reason, disabling the
+# timer.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -52,12 +47,8 @@ PY=python3
 
 TREE_JUST=(just --justfile "$PIPELINE_TREE/Justfile" --working-directory "$PIPELINE_TREE")
 
-# The convention every ota.just/device.just recipe already uses. Host-side
-# ssh (this script, and those recipes) is the trusted driver and uses the
-# operator's own ambient ~/.ssh, same as a human running them by hand;
-# decision 8's dedicated key is for the kas-container's testimage stage only
-# -- untrusted build/test code has no business holding the key that also
-# pushes to GitHub.
+# Host-side ssh, matching every ota.just/device.just recipe -- the
+# operator's ambient ~/.ssh, not PIPELINE_SSH_DIR.
 SSH_OPTS=(-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
 
 CONFIG="kiosk-zero-w.yaml"
@@ -69,20 +60,16 @@ STATUS_POSTED=""
 SHA="" ; KIND="" ; PR_NUMBER="" ; MERGE_BASE=""
 
 prune_runs() {
-    # Keep the newest 20 run dirs (D-J). Runs on every exit path. Every run
-    # dir is named after a git sha (see SHA/RUN_DIR below) -- never a
-    # newline or a glob-special character, so ls's usual filename hazards
-    # do not apply here.
-    # shellcheck disable=SC2012  # sha-named dirs only, see above
-    # shellcheck disable=SC2317  # reached through the trap below, which shellcheck does not follow
+    # Keeps the newest 20 run dirs. Runs on every exit via the trap below.
+    # shellcheck disable=SC2012  # sha-named dirs, no glob-special characters
+    # shellcheck disable=SC2317  # reached only through the trap
     ls -1dt "$PIPELINE_DRIVER"/local/pipeline/runs/*/ 2>/dev/null \
         | tail -n +21 | xargs -r rm -rf
 }
 trap prune_runs EXIT
 
 abort() {
-    # decision 9: an infrastructure failure. Never called for an ordinary
-    # build/smoke failure, which is reported normally via finish().
+    # An infrastructure failure; ordinary failures use finish() instead.
     reason=$1
     mkdir -p "$PIPELINE_DRIVER/local/pipeline"
     printf '%s\n%s\n' "$(date -Is)" "$reason" > "$PIPELINE_DRIVER/local/pipeline/DISABLED"
@@ -120,9 +107,8 @@ collect_failure_logs() {
 }
 
 booted_slot() {
-    # The bootname of the currently booted RAUC slot (kiosk-netcheck's own
-    # technique: meta-wisekiosk/recipes-core/kiosk-netcheck parses the same
-    # `rauc status --output-format=shell` variables).
+    # Bootname of the currently booted RAUC slot (see
+    # meta-wisekiosk/recipes-core/kiosk-netcheck).
     ssh "${SSH_OPTS[@]}" "$1" '
         eval "$(rauc status --output-format=shell)"
         for i in $RAUC_SLOTS; do
@@ -135,10 +121,8 @@ booted_slot() {
 }
 
 wait_for_boot() {
-    # wait_for_boot HOST BEFORE_BOOT_ID SECONDS -- polls, never reboots.
-    # Used after kiosk-reboot's own 180s attempt already failed, to give
-    # RAUC's own U-Boot fallback (already looping on the device) more time
-    # to land the board back on a good slot -- reboot() must not fire again.
+    # wait_for_boot HOST BEFORE_BOOT_ID SECONDS -- polls for a new boot_id;
+    # never triggers a reboot itself.
     local host=$1 before=$2 seconds=$3 t0 boot_id
     t0=$(date +%s)
     while :; do
@@ -152,9 +136,8 @@ wait_for_boot() {
 }
 
 bitbake_stage() {
-    # bitbake_stage NAME LOGFILE -- cmd... -- a build-time failure gets the
-    # last 200 lines of every "Logfile of failure stored in" bitbake named,
-    # attached to the report as --log inputs.
+    # bitbake_stage NAME LOGFILE -- cmd...; on failure, attaches the last
+    # 200 lines of every "Logfile of failure stored in" as --log inputs.
     local name=$1 log=$2; shift 2
     if ! run_logged "$log" "$@"; then
         local logargs=() f
@@ -165,19 +148,15 @@ bitbake_stage() {
 }
 
 ota_stage() {
-    # ota_stage NAME LOGFILE -- cmd... -- a non-bitbake OTA step; its own
-    # captured log is the evidence, no bitbake-log parsing applies.
+    # ota_stage NAME LOGFILE -- cmd...
     local name=$1 log=$2; shift 2
     run_logged "$log" "$@" || finish failure "$name failed"
 }
 
 finish() {
     # finish STATE DESCRIPTION [report.py-build --results/--log args...]
-    #
-    # Baseline runs post status only (D-J). A pr run always assembles the
-    # full body -- possibly with no --results, for an early exit before
-    # testimage ever ran -- checks it, and never posts one that fails the
-    # check.
+    # Baseline runs post status only. A pr run assembles and checks the
+    # full body first, withholding it if the check fails.
     local state=$1 desc=$2
     shift 2
 
@@ -294,10 +273,8 @@ fi
 git -C "$PIPELINE_TREE" rev-parse --verify -q "${BASELINE_REMOTE}^{commit}" > /dev/null \
     || abort "baseline ref $BASELINE_REMOTE does not resolve"
 if [ "$KIND" = pr ]; then
-    # D-B: a pr run diffs against baseline/<merge-base>, tagged in
-    # buildhistory by an earlier baseline run -- candidates.py's own
-    # ordering guarantees one ran first, but a run.sh invoked by hand
-    # (pipeline-run pr N) makes no such guarantee, so it is checked here too.
+    # A pr run diffs against baseline/<merge-base>, which must already be
+    # tagged in buildhistory.
     git -C "$KAS_BUILD_DIR/buildhistory" rev-parse --verify -q \
         "refs/tags/baseline/$MERGE_BASE" > /dev/null \
         || abort "no baseline/$MERGE_BASE tag in $KAS_BUILD_DIR/buildhistory -- run a baseline for the merge-base first"
@@ -327,8 +304,6 @@ else
     DELTA_RC=$?
     set -e
     if [ "$DELTA_RC" -eq 1 ]; then
-        # decision 4/D-A: empty delta is a failure, and stops here -- bench
-        # is never touched.
         finish failure "no change in image -- close as no-op"
     elif [ "$DELTA_RC" -ne 0 ]; then
         finish error "could not compute artifact delta: $(cat "$RUN_DIR/delta.err")"
@@ -347,7 +322,7 @@ ota_stage "send" "$RUN_DIR/send.log" \
 ota_stage "install" "$RUN_DIR/install.log" \
     "${TREE_JUST[@]}" kiosk-install "$SSH_HOST"
 
-# --- reboot onto the new slot (D-I: 180s, then poll up to 600s more) -----
+# --- reboot onto the new slot: 180s, then poll up to 600s more ---------
 
 BEFORE_BOOT_ID=$(ssh "${SSH_OPTS[@]}" "$SSH_HOST" \
     'cat /proc/sys/kernel/random/boot_id' 2>/dev/null || true)
@@ -365,7 +340,7 @@ if ! run_logged "$RUN_DIR/reboot.log" "${TREE_JUST[@]}" kiosk-reboot "$SSH_HOST"
     fi
 fi
 
-# --- testimage, settle, render, gpu (D-I) --------------------------------
+# --- testimage, settle, render, gpu --------------------------------------
 
 STAGE="smoke"
 mkdir -p "$PIPELINE_TREE/local/pipeline/runs/$SHA/$STAGE"
@@ -376,11 +351,8 @@ set +e
 TESTIMAGE_RC=$?
 set -e
 
-# oeqa's own JSON filename is not pinned here -- glob and take the newest,
-# robust either way.
-# oeqa writes into a directory this script alone controls; sha-named,
-# never a newline or a glob-special character.
-# shellcheck disable=SC2012
+# oeqa's own results filename is not pinned; glob for the newest.
+# shellcheck disable=SC2012  # sha-named dir, no glob-special characters
 RESULTS_JSON=$(ls -t "$PIPELINE_TREE/local/pipeline/runs/$SHA/$STAGE"/*.json 2>/dev/null | head -1 || true)
 if [ -z "$RESULTS_JSON" ]; then
     logargs=(); f=""
@@ -399,9 +371,8 @@ RENDER_RC=$?
 GPU_RC=$?
 set -e
 
-# decision 10: error means an instrument's rc 2 on an otherwise complete
-# run, or an aborted run. Skipped cases never degrade a status -- a
-# non-zero testimage rc already reflects bitbake's own tally, skips excluded.
+# TESTIMAGE_RC already reflects bitbake's own pass/fail tally; a skip does
+# not fail it.
 SMOKE_STATE=success
 [ "$TESTIMAGE_RC" -eq 0 ] || SMOKE_STATE=failure
 if [ "$RENDER_RC" -eq 2 ] || [ "$GPU_RC" -eq 2 ]; then
@@ -418,8 +389,6 @@ if [ "$KIND" = baseline ]; then
             || abort "mark-good failed on bench after a passing baseline smoke"
         finish success "baseline $SHA: smoke passed"
     fi
-    # Smoke fail on baseline: mark-bad, reboot, verify the previous slot
-    # booted, post failure on that sha; the tag stays (D-A).
     "${TREE_JUST[@]}" kiosk-rollback "$SSH_HOST" > "$RUN_DIR/rollback.log" 2>&1 || true
     if ! run_logged "$RUN_DIR/rollback-reboot.log" "${TREE_JUST[@]}" kiosk-reboot "$SSH_HOST" 180; then
         abort "bench did not come back after the baseline rollback reboot"
@@ -432,7 +401,7 @@ if [ "$KIND" = baseline ]; then
     finish "$SMOKE_STATE" "baseline $SHA: smoke $SMOKE_STATE"
 fi
 
-# pr: always roll back, regardless of SMOKE_STATE (D-A).
+# Always rolls back, regardless of SMOKE_STATE.
 "${TREE_JUST[@]}" kiosk-rollback "$SSH_HOST" > "$RUN_DIR/rollback.log" 2>&1 || true
 if ! run_logged "$RUN_DIR/rollback-reboot.log" "${TREE_JUST[@]}" kiosk-reboot "$SSH_HOST" 180; then
     abort "bench resting on PR slot"
@@ -457,9 +426,6 @@ fi
 cp "$RESULTS2" "$RUN_DIR/$STAGE2-testresults.json"
 
 if [ "$POSTRC" -ne 0 ]; then
-    # decision 10: a post-rollback baseline smoke failure additionally
-    # aborts -- it never turns a PR slot's success into failure, but the
-    # fallback slot being unhealthy is itself an infrastructure problem.
     abort "baseline slot's post-rollback smoke failed -- board may be unhealthy"
 fi
 

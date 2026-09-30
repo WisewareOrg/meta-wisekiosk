@@ -1,15 +1,9 @@
 #!/usr/bin/env python3
-"""Assemble, redact, cap and post the bench-pipeline run report (#119 D-J).
+"""Assemble, redact, cap and post the bench-pipeline run report.
 
     report.py build --map <path> --limit <n> --verdict <file> --delta <file>
                      [--results [<label>=]<file> ...] [--log [<label>=]<file> ...]
         -- assemble one run's report body on stdout
-
---results may be given more than once (e.g. the PR slot's testresults.json
-and, separately, the post-rollback baseline slot's) or omitted entirely --
-run.sh's early-exit reports (a build failure, an empty artifact delta) have
-no results.json yet. A single --results renders as one "Test results"
-section; more than one, each under its own "Test results -- <label>" heading.
 
     report.py check --map <path>
         -- read a candidate report body on stdin; rc 0 if it carries no
@@ -20,37 +14,25 @@ section; more than one, each under its own "Test results -- <label>" heading.
         -- post a commit status, and with --pr a PR comment linked as its
            target_url
 
-`build` assembles the body in three passes:
+--results may repeat or be omitted. One renders as a single "Test results"
+section; more than one, each under its own "Test results -- <label>" heading.
 
-  1. redact -- every value in the identity map's ```identity fence is
-     replaced by the literal `<role.key>`; the `public.` namespace is
-     excluded, exactly as tools/scrub-identity.py's own KNOWN half excludes
-     it (those values are legitimately public and appear throughout build
-     paths -- redacting them would not make the report safer, only
-     unreadable). Every remaining token shaped like scrub-identity.py's
-     PATTERN half (a MAC, a private IPv4, ...) -- imported from
-     tools/scrub-identity.py by path, since a hyphenated filename cannot be a
-     normal import (see tools/artifact-diff.py for the same technique) --
-     becomes `<redacted>`. Both passes run on every input before assembly, so
-     a --limit computed afterward bounds what actually gets posted.
-  2. cap -- if the body still exceeds --limit characters: truncate every
-     --log section from its head, at line boundaries, keeping the tail, one
-     log at a time in the order given; once every --log section is empty and
-     the body still does not fit, strip the `log` field from every entry of
-     every --results file (the case's own identity and status stay). The
-     verdict and the delta are never truncated. Still too long after both ->
-     rc 1 "cannot fit", nothing on stdout.
-  3. a missing --verdict/--delta/--results/--log file, or a --results file
-     that is not valid JSON -> rc 2, nothing on stdout.
+`build`: redact every identity-map value (the `public.` namespace excluded)
+to `<role.key>`, then every tools/scrub-identity.py PATTERN match to
+`<redacted>`. If the body still exceeds --limit: truncate each --log section
+from its head at line boundaries, one at a time in the order given; once all
+are empty, strip the `log` field from every --results entry (case identity
+and status stay). The verdict and delta are never truncated. Still too long
+-> rc 1, nothing on stdout. A missing input file, or a --results file that is
+not valid JSON -> rc 2, nothing on stdout.
 
-`check` reproduces the pre-post gate: the body is written into a throwaway
-git repository with local/device-identity.md symlinked to --map, and
-`tools/scrub-identity.py --check` is run there -- the same two-halved scan a
-tracked file gets before this repository accepts it. PARTIAL or a hit -> rc 1.
+`check`: write the body into a throwaway git repository with
+local/device-identity.md symlinked to --map, then run
+`tools/scrub-identity.py --check` there. A hit or PARTIAL -> rc 1.
 
-`post` never re-runs `check` itself: decision D-J puts that on the caller
-(run.sh) -- withhold the body and call `post` with description "report
-withheld: identity check failed" and no --pr/--body when check failed.
+`post` does not run `check` itself -- the caller withholds the body and
+posts description "report withheld: identity check failed" with no
+--pr/--body when the check fails.
 """
 import importlib.util
 import json
@@ -70,11 +52,8 @@ def _load_by_path(name, filename):
     return module
 
 
-# Hyphenated filenames, so neither can be a normal import (see
-# tools/artifact-diff.py for the same technique). Only PATTERNS is reused
-# from scrub-identity.py -- the map-value (KNOWN) half is reimplemented below,
-# same as tools/pipeline/resolve-role.py, because report.py's --map is an
-# arbitrary path and scrub-identity.py's own loader is scoped to a repo root.
+# Hyphenated filenames are not importable normally (see tools/artifact-diff.py).
+# Only PATTERNS is reused; the map-value half is reimplemented below.
 _scrub_identity = _load_by_path("scrub_identity", "scrub-identity.py")
 _layer_currency = _load_by_path("layer_currency", "layer-currency.py")
 PATTERNS = _scrub_identity.PATTERNS
@@ -84,14 +63,8 @@ FENCE_OPEN = re.compile(r'^```identity\s*$')
 FENCE_CLOSE = re.compile(r'^```\s*$')
 MAP_ROW = re.compile(r'^\s*([A-Za-z0-9_.]+)\s*=\s*(\S.*?)\s*$')
 
-# local/device-identity.md ## Format: "Keys under the public. namespace are
-# recorded here for completeness but are not scanned: they are legitimately
-# public strings that also happen to identify a board" -- the map's own
-# format owner, echoed in tools/scrub-identity.py's PUBLIC_NS (its header:
-# "raspberrypi0-wifi is the Yocto MACHINE name and appears in hundreds of
-# tracked paths"). Excluded from redaction here for the same reason that
-# file's KNOWN half excludes them: redacting a public value would not make
-# the report safer, only unreadable (it appears throughout build paths).
+# Format owned by local/device-identity.md's ## Format section and echoed in
+# tools/scrub-identity.py's PUBLIC_NS.
 PUBLIC_NS = "public."
 
 STATES = ("pending", "success", "failure", "error")

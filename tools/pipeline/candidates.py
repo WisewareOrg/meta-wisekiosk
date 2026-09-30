@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Print the next pipeline job, or nothing (#119 D-K, decision 4).
+"""Print the next pipeline job, or nothing.
 
     candidates.py
 
@@ -26,10 +26,7 @@ Order, one job per tick:
        - its head has no live `bench-pipeline` status -> `pr <head-sha> <number>`
 
 A status counts as live unless it is missing, or is `pending` and older than
-6 hours -- run.sh's own pre-checks (bench reachable, no lock held, baseline
-resolvable) run again before any build regardless of what this prints; a
-`git fetch` failure here exits non-zero so run.sh sees it as the same kind of
-infrastructure failure.
+6 hours. A `git fetch` failure exits non-zero.
 """
 import json
 import os
