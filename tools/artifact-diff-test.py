@@ -140,7 +140,7 @@ def empty_delta_cases():
         head = commit(repo, "same-size content change, unseen by buildhistory")
         got = run_diff(repo, base, head)
     case("artifact-diff: a same-size content change in a packaged file "
-         "is NOT detected (decision 3, size-blind)", got.returncode, 1)
+         "is NOT detected (reads as no change)", got.returncode, 1)
     case("artifact-diff: the size-blind case also names it on stderr",
          "no change in image" in got.stderr, True)
     case("artifact-diff: the size-blind case prints nothing on stdout",
