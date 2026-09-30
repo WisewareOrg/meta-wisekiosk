@@ -24,6 +24,11 @@
       "minimumReleaseAge": null
     },
     {
+      "description": "A poky or meta-openembedded bump invalidates WebKit's build cache, so both ride one rebuild instead of two.",
+      "matchDepNames": ["poky", "meta-openembedded"],
+      "groupName": "webkit-closure pins"
+    },
+    {
       "description": "Its own branch, so its digest pin never joins the pin-dependencies branch that the Actions pins share.",
       "matchPackageNames": ["anchore/grype"],
       "groupName": "grype"
