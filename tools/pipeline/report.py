@@ -19,12 +19,19 @@ section; more than one, each under its own "Test results -- <label>" heading.
 
 `build`: redact every identity-map value (the `public.` namespace excluded)
 to `<role.key>`, then every tools/scrub-identity.py PATTERN match to
-`<redacted>`. If the body still exceeds --limit: truncate each --log section
-from its head at line boundaries, one at a time in the order given; once all
-are empty, strip the `log` field from every --results entry (case identity
-and status stay). The verdict and delta are never truncated. Still too long
--> rc 1, nothing on stdout. A missing input file, or a --results file that is
-not valid JSON -> rc 2, nothing on stdout.
+`<redacted>`. If the body still exceeds --limit, in order: truncate each
+--log section from its head at line boundaries, one at a time; once all are
+empty, strip the `log` field from every --results entry (case identity and
+status stay); once those are exhausted, replace the delta with a summary
+derived from it ("<n> files changed, +a/−b", counting `diff --git`
+headers and `+`/`-` lines) plus its own first 200 lines plus a truncation
+note. The verdict is never truncated. Still too long -> rc 1, nothing on
+stdout. A missing input file, or a --results file that is not valid JSON ->
+rc 2, nothing on stdout.
+
+--results files may use either oeqa's own `{<result-id>: {configuration,
+result}}` shape or a bare `{configuration, result}` -- the inner `result`
+dict is found either way.
 
 `check`: write the body into a throwaway git repository with
 local/device-identity.md symlinked to --map, then run
@@ -102,11 +109,23 @@ def load_map_rows(map_path):
 
 
 def redact(text, rows):
-    for key, value in rows:
+    for key, value in sorted(rows, key=lambda row: -len(row[1])):
         text = text.replace(value, f"<{key}>")
     for _label, pattern, _remedy in PATTERNS:
         text = pattern.sub("<redacted>", text)
     return text
+
+
+def result_dict(data):
+    """The case->status dict inside a --results JSON, either oeqa's own
+    `{<result-id>: {configuration, result}}` shape or a bare
+    `{configuration, result}`."""
+    if isinstance(data.get("result"), dict):
+        return data["result"]
+    for value in data.values():
+        if isinstance(value, dict) and isinstance(value.get("result"), dict):
+            return value["result"]
+    return {}
 
 
 # --- build --------------------------------------------------------------
@@ -167,7 +186,7 @@ def render_results(entries):
                   else "## Test results")
         lines.append(heading)
         lines.append("")
-        for case_id, info in entry["data"].get("result", {}).items():
+        for case_id, info in result_dict(entry["data"]).items():
             status = info.get("status", "?")
             lines.append(f"- {case_id}: {status}")
             log = info.get("log")
@@ -180,10 +199,25 @@ def render_results(entries):
     return "\n".join(lines)
 
 
-def build_body(verdict_text, delta_text, results_entries, log_entries):
+DELTA_TRUNCATED_NOTE = "\n\n(delta truncated; full delta in the run dir)\n"
+DELTA_TRUNCATED_LINES = 200
+DIFF_HEADER = re.compile(r'^diff --git ', re.MULTILINE)
+DIFF_PLUS = re.compile(r'^\+(?!\+\+)', re.MULTILINE)
+DIFF_MINUS = re.compile(r'^-(?!--)', re.MULTILINE)
+
+
+def delta_summary(text):
+    """"<n> files changed, +a/−b" derived from a git diff's own text."""
+    files = len(DIFF_HEADER.findall(text))
+    plus = len(DIFF_PLUS.findall(text))
+    minus = len(DIFF_MINUS.findall(text))
+    return f"{files} files changed, +{plus}/−{minus}"
+
+
+def build_body(verdict_text, delta, results_entries, log_entries):
     parts = [
         "## Verdict", "", verdict_text.rstrip("\n"), "",
-        "## Artifact delta", "", "```diff", delta_text.rstrip("\n"), "```", "",
+        "## Artifact delta", "", "```diff", delta["text"].rstrip("\n"), "```", "",
         render_results(results_entries),
     ]
     for entry in log_entries:
@@ -192,10 +226,14 @@ def build_body(verdict_text, delta_text, results_entries, log_entries):
     return "\n".join(parts)
 
 
-def cap(verdict_text, delta_text, results_entries, log_entries, limit):
-    """The assembled body within `limit`, or None if it cannot fit."""
+def cap(verdict_text, delta, results_entries, log_entries, limit):
+    """The assembled body within `limit`, or None if it cannot fit.
+
+    `delta` is {"text": str} -- "text" is replaced in place, with a summary
+    derived from itself, once log truncation and results-log stripping are
+    both exhausted."""
     while True:
-        body = build_body(verdict_text, delta_text, results_entries, log_entries)
+        body = build_body(verdict_text, delta, results_entries, log_entries)
         if len(body) <= limit:
             return body
 
@@ -209,22 +247,33 @@ def cap(verdict_text, delta_text, results_entries, log_entries, limit):
             continue
 
         for entry in results_entries:
-            for info in entry["data"].get("result", {}).values():
+            for info in result_dict(entry["data"]).values():
                 if "log" in info:
                     del info["log"]
                     progressed = True
                     break
             if progressed:
                 break
-        if not progressed:
-            return None
+        if progressed:
+            continue
+
+        if not delta.get("truncated"):
+            summary = delta_summary(delta["text"])
+            truncated_lines = delta["text"].splitlines()[:DELTA_TRUNCATED_LINES]
+            delta["text"] = (summary + "\n\n" + "\n".join(truncated_lines)
+                            + DELTA_TRUNCATED_NOTE)
+            delta["truncated"] = True
+            continue
+
+        return None
 
 
 def cmd_build(argv):
     parsed, why = parse_build_args(argv)
     if why:
         return refuse(why)
-    map_arg, limit, verdict_path, delta_path, results_specs, log_specs = parsed
+    (map_arg, limit, verdict_path, delta_path,
+     results_specs, log_specs) = parsed
 
     try:
         rows = load_map_rows(Path(map_arg))
@@ -236,6 +285,7 @@ def cmd_build(argv):
         delta_text = redact(Path(delta_path).read_text(encoding="utf-8"), rows)
     except OSError as exc:
         return refuse(str(exc))
+    delta = {"text": delta_text}
 
     results_entries = []
     for label, path in results_specs:
@@ -247,7 +297,7 @@ def cmd_build(argv):
             data = json.loads(raw)
         except json.JSONDecodeError as exc:
             return refuse(f"{path}: not valid JSON ({exc})")
-        for info in data.get("result", {}).values():
+        for info in result_dict(data).values():
             if info.get("log"):
                 info["log"] = redact(info["log"], rows)
         results_entries.append({"label": label, "data": data})
@@ -262,10 +312,11 @@ def cmd_build(argv):
         log_entries.append({"label": label or Path(path).name,
                             "lines": text.splitlines()})
 
-    body = cap(verdict_text, delta_text, results_entries, log_entries, limit)
+    body = cap(verdict_text, delta, results_entries, log_entries, limit)
     if body is None:
-        print("cannot fit within --limit even after truncating log sections "
-              "and stripping results log fields", file=sys.stderr)
+        print("cannot fit within --limit even after truncating log sections, "
+              "stripping results log fields, and truncating the delta",
+              file=sys.stderr)
         return 1
 
     sys.stdout.write(body)

@@ -12,21 +12,24 @@ is current.
 
 Order, one job per tick:
 
-  1. `$PIPELINE_BASELINE_REF`'s HEAD, if it carries no `baseline/<sha>` tag
-     in `$KAS_BUILD_DIR/buildhistory` and no live `bench-pipeline` status ->
-     `baseline <sha>`.
+  1. `$PIPELINE_BASELINE_REF`'s HEAD, if its tree carries the pipeline
+     overlays, it has no `baseline/<sha>` tag in `$KAS_BUILD_DIR/buildhistory`,
+     and it has no live `bench-pipeline` status -> `baseline <sha>`.
   2. Every open PR whose head is in THIS repository (never a fork), oldest
      first, whose diff against `merge-base(baseline ref, head)` touches an
      image input (`includes/**`, `meta-wisekiosk/**`, `kiosk-zero-w.yaml`,
      `patches/**`) and whose head tree carries the pipeline overlays
      (`includes/buildhistory.yaml`, `includes/testimage.yaml`,
      `meta-wisekiosk/lib/oeqa/runtime/cases/wisekiosk.py`) -- drafts included:
-       - its merge-base has no `baseline/<sha>` tag -> `baseline <merge-base>`
+       - its merge-base has no `baseline/<sha>` tag and no live status ->
+         `baseline <merge-base>`; a live status on that merge-base (a prior
+         attempt not yet tagged) skips the PR instead of re-emitting it
        - its head equals its merge-base -> skip, the baseline run covers it
        - its head has no live `bench-pipeline` status -> `pr <head-sha> <number>`
 
 A status counts as live unless it is missing, or is `pending` and older than
-6 hours. A `git fetch` failure exits non-zero.
+6 hours; a `gh` failure while checking also counts as live (fails closed). A
+`git fetch` failure exits non-zero.
 """
 import json
 import os
@@ -80,16 +83,18 @@ def has_baseline_tag(build_dir, sha):
 
 
 def live_status(sha):
-    """True if `sha` already has a non-stale bench-pipeline status."""
+    """True if `sha` already has a non-stale bench-pipeline status, or if
+    that cannot be determined -- a gh failure fails closed (skip), not
+    open (re-trigger a build)."""
     result = subprocess.run(
         ["gh", "api", f"repos/:owner/:repo/commits/{sha}/statuses"],
         capture_output=True, text=True)
     if result.returncode != 0:
-        return False
+        return True
     try:
         statuses = json.loads(result.stdout)
     except json.JSONDecodeError:
-        return False
+        return True
     for status in statuses:
         if status.get("context") != CONTEXT:
             continue
@@ -108,7 +113,7 @@ def live_status(sha):
 def open_prs():
     """Open PRs, this repository's own heads only, oldest first."""
     result = subprocess.run(
-        ["gh", "pr", "list", "--state", "open", "--json",
+        ["gh", "pr", "list", "--state", "open", "--limit", "200", "--json",
          "number,headRefOid,headRefName,isDraft,headRepositoryOwner,"
          "baseRefName,createdAt"],
         capture_output=True, text=True)
@@ -138,7 +143,8 @@ def main():
     head_sha = git(tree, "rev-parse", baseline_remote)
     if head_sha.returncode == 0:
         sha = head_sha.stdout.strip()
-        if not has_baseline_tag(build_dir, sha) and not live_status(sha):
+        if (carries_overlays(tree, sha) and not has_baseline_tag(build_dir, sha)
+                and not live_status(sha)):
             print(f"baseline {sha}")
             return 0
 
@@ -157,8 +163,10 @@ def main():
             continue
 
         if not has_baseline_tag(build_dir, base):
-            print(f"baseline {base}")
-            return 0
+            if not live_status(base):
+                print(f"baseline {base}")
+                return 0
+            continue
         if head == base:
             continue
         if not live_status(head):
