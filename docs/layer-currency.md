@@ -19,8 +19,8 @@ fixes, so a pin left alone long enough is an image that is missing them.
 No package-manifest reader can see this, because a kas `commit:` is not a manifest.
 [`../renovate.json`](../renovate.json) reads the pins with a regex for the self-hosted Renovate in
 `tjwise99/wise-renovate`, which keeps one pull request per behind repo and rolls it forward in place
-while it stays unmerged. None of those pull requests automerges; only a GitHub Actions `uses:` bump
-does, because CI runs that and never builds the image. Renovate says *that* a pin is behind. This
+while it stays unmerged. None of those pull requests automerges (owner, 2026-09-29): CI never builds
+the image, so a green check says nothing about a layer. Renovate says *that* a pin is behind. This
 report and `just gap` say what the pin is worth. Guard 20 in
 [`../tools/ci-guards.sh`](../tools/ci-guards.sh) fails the day the regex stops reading a pin this
 report reads.

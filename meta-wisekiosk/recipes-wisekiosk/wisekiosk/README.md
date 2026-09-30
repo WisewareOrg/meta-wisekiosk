@@ -19,7 +19,7 @@ beside the shrinkwrap — so every later build against the same pin skips the fe
 `go-mods.py` also needs a `go` toolchain new enough for the app's `go.mod`.
 
 `SRCREV` follows the app's `main` (owner, 2026-09-29): Renovate keeps one pull request moving it to
-`main`'s head, rolled forward while unmerged, and never merges it itself — see
+`main`'s head, rolled forward while unmerged, and merges it once CI passes — see
 [`../../../docs/layer-currency.md`](../../../docs/layer-currency.md).
 
 A pin bump that changes the LICENSE file's contents, or removes `deploy/config.example.json`, breaks

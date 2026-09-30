@@ -941,7 +941,9 @@ fi
 # template carries it as a fallback literal, which this holds equal to the
 # YAML. The regex reads one entry at a time, so a url, branch or commit set in
 # a different file from the entry holding the commit, or a tag: pin, fails
-# here instead of being read wrong.
+# here instead of being read wrong. A layer pin never automerges (owner,
+# 2026-09-29), so the rule saying so must exist and no later rule may turn
+# automerge back on.
 if ! "$PY" -c 'import yaml' 2>/dev/null; then
     bad "guard 20 cannot check the Renovate managers: $PY has no yaml module (see guard 4)"
 elif out20=$("$PY" - <<'EOF' 2>&1
@@ -965,6 +967,14 @@ kas = manager(lambda m: m.get("datasourceTemplate") == "git-refs"
               and any("includes" in p for p in m.get("managerFilePatterns", [])), "kas git-refs")
 app = manager(lambda m: m.get("datasourceTemplate") == "git-refs"
               and any("wisekiosk-src" in p for p in m.get("managerFilePatterns", [])), "app SRCREV")
+
+rules = cfg.get("packageRules", [])
+hold = [i for i, r in enumerate(rules)
+        if r.get("automerge") is False and "includes/**" in r.get("matchFileNames", [])]
+if not hold:
+    sys.exit("renovate.json has no automerge: false rule over includes/**")
+if any(r.get("automerge") is True for r in rules[hold[-1] + 1:]):
+    sys.exit("a packageRule after the includes/** hold turns automerge back on")
 
 fallback = re.search(r"\{\{else\}\}([^{]+)\{\{/if\}\}$", kas["currentValueTemplate"])
 if not fallback:

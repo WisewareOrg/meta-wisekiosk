@@ -3,13 +3,8 @@
   "extends": ["github>tjwise99/wise-renovate#feat/onboard-meta-wisekiosk"],
   "packageRules": [
     {
-      "description": "Only the Actions uses: lines keep the preset's automerge, since CI runs them; CI never builds the image, so a green check says nothing about any other pin. Keyed on the manager, which every dependency has: a regex dependency has no depType, and a negated depType matcher skips it.",
-      "matchManagers": ["!github-actions"],
-      "automerge": false
-    },
-    {
-      "matchManagers": ["github-actions"],
-      "matchDepTypes": ["!action"],
+      "description": "A kas layer pin never automerges (owner, 2026-09-29); everything else keeps the preset's automerge.",
+      "matchFileNames": ["includes/**"],
       "automerge": false
     },
     {
