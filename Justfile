@@ -249,7 +249,7 @@ provision-card mountpoint:
 [group('pipeline')]
 [script('bash')]
 [doc("Provision the pipeline's checkouts, ssh key, env file and units (idempotent; does not enable the timer)")]
-pipeline-install driver_ref="main":
+pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main'):
     set -euo pipefail
     ROOT="{{justfile_directory()}}"
     DRIVER="$HOME/wisekiosk-pipeline/driver"
