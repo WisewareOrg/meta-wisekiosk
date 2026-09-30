@@ -1,18 +1,16 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>tjwise99/wise-renovate#v1.2.0"],
+  "extends": ["github>tjwise99/wise-renovate#feat/onboard-meta-wisekiosk"],
   "packageRules": [
     {
-      "description": "Nothing automerges: CI never builds the image, so a green check says nothing about a build input.",
-      "matchPackageNames": ["*"],
+      "description": "Only the Actions uses: lines keep the preset's automerge, since CI runs them; CI never builds the image, so a green check says nothing about any other pin. Keyed on the manager, which every dependency has: a regex dependency has no depType, and a negated depType matcher skips it.",
+      "matchManagers": ["!github-actions"],
       "automerge": false
     },
     {
-      "description": "Except the Actions uses: lines, which CI exercises by running them.",
       "matchManagers": ["github-actions"],
-      "matchDepTypes": ["action"],
-      "matchUpdateTypes": ["minor", "patch", "pin", "pinDigest", "digest"],
-      "automerge": true
+      "matchDepTypes": ["!action"],
+      "automerge": false
     },
     {
       "description": "A git-refs commit carries no release timestamp, so the preset's release-age wait would hold these forever.",
@@ -20,9 +18,10 @@
       "minimumReleaseAge": null
     },
     {
-      "description": "kas-container and the kas image cve-scan.py unpacks with are one tool at one version.",
+      "description": "kas-container and the kas image cve-scan.py unpacks with are one tool at one version; the image has no release timestamp, so both skip the release-age wait and move together.",
       "matchPackageNames": ["siemens/kas", "ghcr.io/siemens/kas/kas"],
-      "groupName": "kas"
+      "groupName": "kas",
+      "minimumReleaseAge": null
     },
     {
       "description": "Its own branch, so its digest pin never shares one with the Actions pins that automerge.",

@@ -977,13 +977,19 @@ if not files:
     sys.exit("no tracked file matches the kas manager's pattern")
 
 problems = []
-default, entries = None, {}
+defaults, entries = set(), {}
 for f in files:
     y = yaml.safe_load(read(f)) or {}
-    default = ((y.get("defaults") or {}).get("repos") or {}).get("branch") or default
+    d = ((y.get("defaults") or {}).get("repos") or {}).get("branch")
+    if d:
+        defaults.add(d)
     for name, e in (y.get("repos") or {}).items():
         if e and {"url", "branch", "commit", "tag"} & set(e):
             entries.setdefault(name, []).append((f, e))
+if len(defaults) > 1:
+    sys.exit(f"defaults.repos.branch is set to {sorted(defaults)} across includes/; "
+             "kas applies one per include chain, which the kas manager cannot follow")
+default = next(iter(defaults), None)
 if default != fallback:
     problems.append(f"renovate.json falls back to branch {fallback!r}; "
                     f"defaults.repos.branch is {default!r}")
