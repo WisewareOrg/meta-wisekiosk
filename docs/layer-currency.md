@@ -19,7 +19,9 @@ fixes, so a pin left alone long enough is an image that is missing them.
 No package-manifest reader can see this, because a kas `commit:` is not a manifest.
 [`../renovate.json`](../renovate.json) reads the pins with a regex for the self-hosted Renovate in
 `tjwise99/wise-renovate`, which keeps one pull request per behind repo and rolls it forward in place
-while it stays unmerged. None of those pull requests automerges (owner, 2026-09-30): CI never builds
+while it stays unmerged, except poky and meta-openembedded, which share one pull request because a
+bump of either rebuilds WebKit ([`../README.md`](../README.md) §"Quick start"). None of those pull
+requests automerges (owner, 2026-09-30): CI never builds
 the image, so a green check says nothing about a kas input. Renovate says *that* a pin is behind. This
 report and `just gap` say what the pin is worth.
 
