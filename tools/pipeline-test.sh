@@ -97,12 +97,17 @@ EOF
 BENCH_ADDR="198.51.100.14"
 PROD_ADDR="198.51.100.7"
 
-# A MAC and a private IPv4, each split so the contiguous shape never sits in
-# this file's own tracked text (see header comment).
+# A MAC, a private IPv4, and a PEM private-key header, each split so the
+# contiguous shape never sits in this file's own tracked text (see header
+# comment) -- a gitleaks pre-commit scan flags the PEM header shape on sight,
+# fixture or not.
 mac_hi="DE:AD:BE:EF:00"; mac_lo="01"
 STRAY_MAC="${mac_hi}:${mac_lo}"
 ip_hi="10.77.4"; ip_lo="9"
 STRAY_IP="${ip_hi}.${ip_lo}"
+pk_dash="-----"; pk_begin="BEGIN"; pk_priv="PRIVATE"; pk_key="KEY"
+PK_HEADER="${pk_dash}${pk_begin} ${pk_priv} ${pk_key}${pk_dash}"
+PK_HEADER_RSA="${pk_dash}${pk_begin} RSA ${pk_priv} ${pk_key}${pk_dash}"
 
 # =========================================================================
 # A. tools/pipeline/resolve-role.py
@@ -841,6 +846,47 @@ test_report_check() {
         ok "report check, a raw PATTERN token in the body: rc 1"
     else
         bad "report check, a raw PATTERN token in the body: rc 1" "rc=$rc out=$out err=$err"
+    fi
+
+    # A private-key header refuses before the identity scan even runs, and
+    # matches regardless of anything preceding it on the line (a log
+    # timestamp included) -- fixture text, no real key. PK_HEADER/_RSA are
+    # assembled at runtime (see the split above) so gitleaks never sees the
+    # PEM shape in this file's own tracked text.
+    pk_body1=$(printf 'VERDICT: pr-run -> success\n%s\nfixture, not a real key\n' "$PK_HEADER")
+    capture_stdin out err rc "$pk_body1" "$PY" "$REPORT" check --map "$GOODMAP"
+    if [ "$rc" -eq 2 ]; then
+        ok "report check, a bare private-key header: rc 2"
+    else
+        bad "report check, a bare private-key header: rc 2" "rc=$rc out=$out err=$err"
+    fi
+
+    pk_body2=$(printf 'VERDICT: pr-run -> success\n2026-09-30T10:00:00Z %s\nfixture, not a real key\n' \
+        "$PK_HEADER_RSA")
+    capture_stdin out err rc "$pk_body2" "$PY" "$REPORT" check --map "$GOODMAP"
+    if [ "$rc" -eq 2 ]; then
+        ok "report check, a private-key header behind a log-timestamp prefix: rc 2"
+    else
+        bad "report check, a private-key header behind a log-timestamp prefix: rc 2" \
+            "rc=$rc out=$out err=$err"
+    fi
+
+    capture_stdin out err rc \
+        $'VERDICT: pr-run -> success\nclean body, no identity, no private key\n' \
+        "$PY" "$REPORT" check --map "$GOODMAP"
+    if [ "$rc" -eq 0 ]; then
+        ok "report check, no private key and no identity: rc 0"
+    else
+        bad "report check, no private key and no identity: rc 0" "rc=$rc out=$out err=$err"
+    fi
+
+    capture_stdin out err rc \
+        "VERDICT: $BENCH_ADDR was never redacted, no private key here" \
+        "$PY" "$REPORT" check --map "$GOODMAP"
+    if [ "$rc" -eq 1 ]; then
+        ok "report check, an identity hit with no private key: rc 1"
+    else
+        bad "report check, an identity hit with no private key: rc 1" "rc=$rc out=$out err=$err"
     fi
 }
 
