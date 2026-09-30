@@ -22,7 +22,7 @@ RAUC slot layout), which stays unproven by every tier above soak.
 
 ```sh
 just pipeline-install                # once per host, idempotent -- reads $PIPELINE_DRIVER_REF,
-                                      # $PIPELINE_BASELINE_REF, $KAS_BUILD_DIR, $DL_DIR, $SSTATE_DIR
+                                      # $PIPELINE_BASELINE_REF, $DL_DIR, $SSTATE_DIR
 just pipeline-on                     # enable the timer
 just pipeline-off                    # disable it
 just pipeline-status                 # timer state + any DISABLED reason
@@ -38,13 +38,22 @@ does not also do. It creates, all under `$HOME`:
 - `wisekiosk-pipeline/tree` — a second, detached checkout of the same repository; the tree under test.
 - `wisekiosk-pipeline/{driver,tree}/local/device-identity.md` — symlinks to the dev tree's own copy.
   One source of truth: a board swap updates one file.
+- `wisekiosk-pipeline/{driver,tree}/local/keys` — symlinks to the dev tree's own `local/keys`, so
+  `kiosk-zero-w.yaml`'s `AUTONOMOS_RAUC_*` paths (which resolve relative to the tree being built)
+  find the fleet signing key without it ever being copied.
 - `.config/wisekiosk/pipeline.env` — `PIPELINE_DRIVER`, `PIPELINE_TREE`, `PIPELINE_BASELINE_REF`
-  (default `origin/main`), `PIPELINE_SSH_DIR`, the installing shell's own `PATH`, and three build
-  locations, all overridable at install time: `KAS_BUILD_DIR` (default `~/wisekiosk-pipeline/build`,
-  the pipeline's own — never the dev tree's, since its TMPDIR embeds absolute paths tied to the dev
-  tree's own container mount point), `DL_DIR` and `SSTATE_DIR` (default this repository's own `build/downloads` and
+  (default `origin/main`), `PIPELINE_SSH_DIR`, the installing shell's own `PATH`, `PIPELINE_BUILD_DIR`
+  (always `<tree checkout>/build`, kas's own default build directory for that checkout — gitignored,
+  so it never dirties the tree the reproducibility gate inspects), and two caches, overridable at
+  install time: `DL_DIR` and `SSTATE_DIR` (default this repository's own `build/downloads` and
   `build/sstate-cache`, shared read-write with the dev tree's ordinary builds to avoid refetching or
   recompiling what is already there).
+
+  `PIPELINE_BUILD_DIR` is never set as `KAS_BUILD_DIR`. Doing so moves bitbake's own `TMPDIR` to a
+  different container mount point (`/build` instead of kas's default `/work/build`) — every recipe
+  that resolves a path relative to `TOPDIR`, including `rauc-conf`'s search for the fleet signing key
+  under `../local/keys`, then looks in the wrong place, and bitbake's own sanity checker refuses a
+  build directory whose recorded `TMPDIR` does not match what it computes on the next run.
 - `.config/wisekiosk/pipeline-ssh/` — a new ed25519 keypair, installed on bench's `authorized_keys`;
   `config`; `known_hosts`. Used only inside the `testimage` stage's container — never `~/.ssh`, which
   also pushes to GitHub.

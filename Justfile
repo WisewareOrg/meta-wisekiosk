@@ -255,18 +255,17 @@ provision-card mountpoint:
 [doc("Provision the pipeline's checkouts, ssh key, env file and units (idempotent; does not enable the timer)")]
 pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
                  pipeline_baseline_ref=env('PIPELINE_BASELINE_REF', 'origin/main') \
-                 kas_build_dir=env('KAS_BUILD_DIR', (env('HOME') / 'wisekiosk-pipeline/build')) \
                  dl_dir=env('DL_DIR', (justfile_directory() / 'build/downloads')) \
                  sstate_dir=env('SSTATE_DIR', (justfile_directory() / 'build/sstate-cache')):
     set -euo pipefail
     ROOT=$(readlink -f "{{justfile_directory()}}")
-    mkdir -p "{{kas_build_dir}}" "{{dl_dir}}" "{{sstate_dir}}"
-    KAS_BUILD_DIR=$(readlink -f "{{kas_build_dir}}")
+    mkdir -p "{{dl_dir}}" "{{sstate_dir}}"
     DL_DIR=$(readlink -f "{{dl_dir}}")
     SSTATE_DIR=$(readlink -f "{{sstate_dir}}")
     DRIVER="$HOME/wisekiosk-pipeline/driver"
     TREE="$HOME/wisekiosk-pipeline/tree"
     MAP=$(readlink -f "$ROOT/local/device-identity.md")
+    KEYS=$(readlink -f "$ROOT/local/keys")
     ORIGIN_URL=$(git -C "$ROOT" remote get-url origin)
 
     # Force-syncs to driver_ref rather than merging drift.
@@ -287,6 +286,7 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
     for d in "$DRIVER" "$TREE"; do
         mkdir -p "$d/local"
         ln -sf "$MAP" "$d/local/device-identity.md"
+        ln -sf "$KEYS" "$d/local/keys"
     done
 
     CONF_DIR="$HOME/.config/wisekiosk"
@@ -294,10 +294,12 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
     SSH_DIR="$CONF_DIR/pipeline-ssh"
     # printf, not a heredoc: `just` ends a recipe body at a flush-left line.
     # Values are double-quoted for both an EnvironmentFile= parser and a
-    # plain `.`-sourced shell.
+    # plain `.`-sourced shell. PIPELINE_BUILD_DIR is kas's own default build
+    # dir for the tree checkout; never exported as KAS_BUILD_DIR (see
+    # docs/testing.md).
     {
         printf 'PATH="%s"\n' "$PATH"
-        printf 'KAS_BUILD_DIR="%s"\n' "$KAS_BUILD_DIR"
+        printf 'PIPELINE_BUILD_DIR="%s/build"\n' "$TREE"
         printf 'DL_DIR="%s"\n' "$DL_DIR"
         printf 'SSTATE_DIR="%s"\n' "$SSTATE_DIR"
         printf 'PIPELINE_DRIVER="%s"\n' "$DRIVER"
