@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Copy of docs/issue_investigation/gpu_compositing/kiosk-gpu-check-test.sh (frozen original, unchanged).
-# Sources kiosk-gpu-check.sh under KIOSK_GPU_CHECK_LIB=1 and checks gpu_verdict() against probe fixtures.
 #
 #   tools/kiosk-gpu-check-test.sh
 #

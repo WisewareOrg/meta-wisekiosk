@@ -1,5 +1,3 @@
-# Bench smoke tier for the wisekiosk backend, run under Yocto's oeqa harness.
-
 import time
 
 from oeqa.runtime.case import OERuntimeTestCase
@@ -9,7 +7,6 @@ HEALTHZ_URL = "http://127.0.0.1:8080/healthz"
 INDEX_URL = "http://127.0.0.1:8080/"
 BOUND_SECONDS = 60
 POLL_INTERVAL_SECONDS = 2
-# Per-attempt bound; ssh's default is an idle timeout.
 POLL_ATTEMPT_TIMEOUT_SECONDS = 10
 
 

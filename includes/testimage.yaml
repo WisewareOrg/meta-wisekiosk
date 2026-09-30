@@ -1,4 +1,3 @@
-# Adds the wisekiosk oeqa suite via IMAGE_CLASSES += "testimage".
 # Colon-joined onto the image config by `just testimage`.
 header:
   version: 20

@@ -117,7 +117,7 @@ PREP
         echo "no KIOSK_URL line at all, so there is nothing to put back)." >&2
         exit 2; }
 
-    # Polls for surf rather than a fixed sleep, so a still-blank page isn't captured.
+    # Polls for surf rather than a fixed sleep.
     up=0
     pollrc=0
     for _ in $(seq 1 30); do
