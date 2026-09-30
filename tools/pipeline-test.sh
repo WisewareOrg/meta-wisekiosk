@@ -99,6 +99,15 @@ capture_stdin() {
     rm -f "$_cap_errfile"
 }
 
+# utf8_len TEXT -- report.py's own --limit check is Python's len() on a
+# UTF-8-decoded str (the "## Log — <label>" em dash is one such character);
+# bash's ${#} is locale-dependent and can count its UTF-8 bytes instead, so
+# a boundary derived from ${#out} can be off by exactly that gap.
+utf8_len() {
+    printf '%s' "$1" | "$PY" -c \
+        'import sys; sys.stdout.write(str(len(sys.stdin.buffer.read().decode("utf-8"))))'
+}
+
 # --- fixture identity maps ---------------------------------------------
 # Format owner: tools/scrub-identity.py (the ```identity fence, `key = value`
 # rows). Real key names (prod.address, bench.address, wifi.ssid) copied from
@@ -176,9 +185,9 @@ test_resolve_role() {
 
     capture out err rc "$PY" "$RESOLVE_ROLE" --map "$GOODMAP" swampland
     if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
-        ok "resolve-role unknown role: refused, rc 2, nothing on stdout"
+        ok "resolve-role unknown role: refused, rc 2, nothing on stdout, reason on stderr"
     else
-        bad "resolve-role unknown role: refused, rc 2, nothing on stdout" \
+        bad "resolve-role unknown role: refused, rc 2, nothing on stdout, reason on stderr" \
             "rc=$rc out=$out err=$err"
     fi
 
@@ -191,10 +200,10 @@ test_resolve_role() {
     fi
 
     capture out err rc "$PY" "$RESOLVE_ROLE" --map "$GOODMAP" bench extra
-    if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
-        ok "resolve-role bench, extra positional: refused, rc 2 (no address argument)"
+    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
+        ok "resolve-role bench, extra positional: refused, rc 2, reason on stderr (no address argument)"
     else
-        bad "resolve-role bench, extra positional: refused, rc 2 (no address argument)" \
+        bad "resolve-role bench, extra positional: refused, rc 2, reason on stderr (no address argument)" \
             "rc=$rc out=$out err=$err"
     fi
 
@@ -317,6 +326,42 @@ EOF
         *) bad "report build: a case's status appears in the results section" "out=$out" ;;
     esac
 
+    # --- B2b: a public.* map row is excluded from redaction ---------------
+    # load_map_rows drops any key under PUBLIC_NS (mirrors scrub-identity.py's
+    # own PUBLIC_NS): its value is a build-time constant, not a site
+    # identifier, and must reach the PR unredacted. A non-public value in the
+    # same body proves the exclusion is per-row, not a redaction pass that
+    # merely failed.
+    PUBLICMAP="$TOP/device-identity-public.md"
+    cat > "$PUBLICMAP" <<'EOF'
+```identity
+prod.address    = 198.51.100.7
+bench.address   = 198.51.100.14
+public.machine  = raspberrypi0-wifi
+```
+EOF
+
+    mkdir -p "$TOP/b2b"
+    printf 'VERDICT pr-run -> success\n' > "$TOP/b2b/verdict.txt"
+    printf 'diff --git a/x b/x\nmachine=raspberrypi0-wifi bench=%s\n' \
+        "$BENCH_ADDR" > "$TOP/b2b/delta.txt"
+    printf '{"configuration": {}, "result": {}}\n' > "$TOP/b2b/results.json"
+
+    capture out err rc "$PY" "$REPORT" build --map "$PUBLICMAP" --limit 100000 \
+        --verdict "$TOP/b2b/verdict.txt" --delta "$TOP/b2b/delta.txt" \
+        --results "$TOP/b2b/results.json"
+
+    case "$out" in
+        *"raspberrypi0-wifi"*)
+            ok "report build: a public.* map value is left unredacted" ;;
+        *) bad "report build: a public.* map value is left unredacted" "out=$out" ;;
+    esac
+    case "$out" in
+        *"$BENCH_ADDR"*)
+            bad "report build: a non-public value in the same body is still redacted" "out=$out" ;;
+        *) ok "report build: a non-public value in the same body is still redacted" ;;
+    esac
+
     # --- B3: a missing required file ---------------------------------------
     capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit 100000 \
         --verdict "$TOP/b1/does-not-exist.txt" --delta "$TOP/b1/delta.txt" \
@@ -422,6 +467,93 @@ PYEOF
         ok "report build, log-stripped: body is within --limit"
     else
         bad "report build, log-stripped: body is within --limit" "len=${#out}"
+    fi
+
+    # --- B5b: cap order -- log truncation exhausts before results stripping
+    # starts. mid_len is measured, not guessed: it is the body's real size
+    # once --log's lines are fully popped, with the results log field still
+    # intact -- exactly where cap() sits right after step 1 finishes and
+    # before step 2 is ever tried. A limit of mid_len must be met by step 1
+    # alone; mid_len - 1 cannot, and only step 2 can close that last byte. ---
+    mkdir -p "$TOP/b5b"
+    printf 'VERDICT pr-run -> success\n' > "$TOP/b5b/verdict.txt"
+    printf 'diff --git a/x b/x\n+ok\n' > "$TOP/b5b/delta.txt"
+    "$PY" - <<PYEOF > "$TOP/b5b/results.json"
+import json
+biglog = "COMBOLOGDETAIL-B5B-PAYLOAD " * 100
+data = {"configuration": {}, "result": {
+    "wisekiosk.WiseKioskTest.test_backend_unit_active": {"status": "PASSED"},
+    "wisekiosk.WiseKioskTest.test_render_large_log": {"status": "FAILED", "log": biglog},
+}}
+print(json.dumps(data))
+PYEOF
+    : > "$TOP/b5b/log.txt"
+    i=1
+    while [ "$i" -le 100 ]; do
+        printf 'COMBOLOG %04d of the combined-cap-order log, padded so truncation has bytes to cut xxxx\n' \
+            "$i" >> "$TOP/b5b/log.txt"
+        i=$((i + 1))
+    done
+    : > "$TOP/b5b/log-empty.txt"
+
+    # Measured from a raw file, not a `capture`-captured variable: command
+    # substitution strips trailing newlines, which would shift this boundary
+    # by exactly the newlines the body ends in.
+    local mid_len
+    "$PY" "$REPORT" build --map "$GOODMAP" --limit 1000000 \
+        --verdict "$TOP/b5b/verdict.txt" --delta "$TOP/b5b/delta.txt" \
+        --results "$TOP/b5b/results.json" --log "combolog=$TOP/b5b/log-empty.txt" \
+        > "$TOP/b5b/mid.out"
+    mid_len=$("$PY" -c \
+        'import sys; sys.stdout.write(str(len(open(sys.argv[1], encoding="utf-8").read())))' \
+        "$TOP/b5b/mid.out")
+
+    capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit "$mid_len" \
+        --verdict "$TOP/b5b/verdict.txt" --delta "$TOP/b5b/delta.txt" \
+        --results "$TOP/b5b/results.json" --log "combolog=$TOP/b5b/log.txt"
+    if [ "$rc" -eq 0 ]; then
+        ok "report build, cap order at the log-exhausted size: exits 0"
+    else
+        bad "report build, cap order at the log-exhausted size: exits 0" "rc=$rc err=$err"
+    fi
+    case "$out" in
+        *"COMBOLOG "*)
+            bad "report build, cap order at the log-exhausted size: the log is fully truncated" "out=$out" ;;
+        *) ok "report build, cap order at the log-exhausted size: the log is fully truncated" ;;
+    esac
+    case "$out" in
+        *"COMBOLOGDETAIL-B5B-PAYLOAD"*)
+            ok "report build, cap order at the log-exhausted size: the results log field survives" ;;
+        *) bad "report build, cap order at the log-exhausted size: the results log field survives" "out=$out" ;;
+    esac
+
+    capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit "$((mid_len - 1))" \
+        --verdict "$TOP/b5b/verdict.txt" --delta "$TOP/b5b/delta.txt" \
+        --results "$TOP/b5b/results.json" --log "combolog=$TOP/b5b/log.txt"
+    if [ "$rc" -eq 0 ]; then
+        ok "report build, cap order one byte tighter: exits 0"
+    else
+        bad "report build, cap order one byte tighter: exits 0" "rc=$rc err=$err"
+    fi
+    case "$out" in
+        *"COMBOLOG "*)
+            bad "report build, cap order one byte tighter: the log stays fully truncated" "out=$out" ;;
+        *) ok "report build, cap order one byte tighter: the log stays fully truncated" ;;
+    esac
+    case "$out" in
+        *"COMBOLOGDETAIL-B5B-PAYLOAD"*)
+            bad "report build, cap order one byte tighter: the results log field is now stripped" "out=$out" ;;
+        *) ok "report build, cap order one byte tighter: the results log field is now stripped" ;;
+    esac
+    case "$out" in
+        *"test_render_large_log"*)
+            ok "report build, cap order one byte tighter: the case's own identity survives" ;;
+        *) bad "report build, cap order one byte tighter: the case's own identity survives" "out=$out" ;;
+    esac
+    if [ "$(utf8_len "$out")" -le "$((mid_len - 1))" ]; then
+        ok "report build, cap order one byte tighter: body is within --limit"
+    else
+        bad "report build, cap order one byte tighter: body is within --limit" "len=$(utf8_len "$out")"
     fi
 
     # --- B6: cannot fit even after every truncation step -------------------
