@@ -143,9 +143,10 @@ casync-stats store:
 # key read-only into the container -- see docs/testing.md. --runtime-args
 # sets kas-container's own KAS_EXTRA_RUNTIME_ARGS; its internal
 # KAS_RUNTIME_ARGS is reset unconditionally, so an ambient export would be
-# silently discarded. Like testimage's own --runtime-args line, guard 10's
-# kas-container[[:space:]]+(build|shell) regex does not match this recipe's
-# kas-container line -- widening guard 10 is a separate CI-guard change.
+# silently discarded. Guard 10's widened regex recognises a literal
+# --flag value option between kas-container and build/shell, but not a
+# shell array expansion, so this recipe's kas-container line still falls
+# outside its assertion.
 [group('ota')]
 [script('bash')]
 [doc("Build the RAUC update bundle")]
