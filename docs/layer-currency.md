@@ -16,8 +16,14 @@ gives — but nothing about a pin expires. It sits at whatever a person last typ
 came from keeps moving without saying so. On a stable branch that movement is mostly backported
 fixes, so a pin left alone long enough is an image that is missing them.
 
-Dependabot cannot see this. It reads package manifests, and a kas `commit:` is not one;
-[`../.github/dependabot.yml`](../.github/dependabot.yml) says so itself. This check is the substitute.
+No package-manifest reader can see this, because a kas `commit:` is not a manifest.
+[`../renovate.json`](../renovate.json) reads the pins with a regex for the self-hosted Renovate in
+`tjwise99/wise-renovate`, which keeps one pull request per behind repo and rolls it forward in place
+while it stays unmerged. None of those pull requests automerges; only a GitHub Actions `uses:` bump
+does, because CI runs that and never builds the image. Renovate says *that* a pin is behind. This
+report and `just gap` say what the pin is worth. Guard 20 in
+[`../tools/ci-guards.sh`](../tools/ci-guards.sh) fails the day the regex stops reading a pin this
+report reads.
 
 ## Running it
 

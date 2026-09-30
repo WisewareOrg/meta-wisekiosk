@@ -1,0 +1,76 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["github>tjwise99/wise-renovate#v1.2.0"],
+  "packageRules": [
+    {
+      "description": "Nothing automerges: CI never builds the image, so a green check says nothing about a build input.",
+      "matchPackageNames": ["*"],
+      "automerge": false
+    },
+    {
+      "description": "Except the Actions uses: lines, which CI exercises by running them.",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "pinDigest", "digest"],
+      "automerge": true
+    },
+    {
+      "description": "A git-refs commit carries no release timestamp, so the preset's release-age wait would hold these forever.",
+      "matchDatasources": ["git-refs"],
+      "minimumReleaseAge": null
+    },
+    {
+      "description": "kas-container and the kas image cve-scan.py unpacks with are one tool at one version.",
+      "matchPackageNames": ["siemens/kas", "ghcr.io/siemens/kas/kas"],
+      "groupName": "kas"
+    },
+    {
+      "matchManagers": ["custom.regex"],
+      "matchDatasources": ["docker"],
+      "pinDigests": false
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "kas layer pins. An entry naming no branch inherits defaults.repos.branch in includes/base.yaml; the template's fallback is that value, and tools/ci-guards.sh holds the two equal.",
+      "managerFilePatterns": ["/^includes/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "\\n  (?<depName>[a-z0-9-]+):\\n(?: {4}.*\\n)*? {4}url: \"?(?<packageName>[^\"\\s]+)\"?\\n(?: {4}.*\\n)*?(?: {4}branch: (?<branchBefore>\\S+)\\n(?: {4}.*\\n)*?)? {4}commit: (?<currentDigest>[0-9a-f]{40})\\n(?:(?: {4}.*\\n)*? {4}branch: (?<branchAfter>\\S+))?"
+      ],
+      "currentValueTemplate": "{{#if branchBefore}}{{branchBefore}}{{else if branchAfter}}{{branchAfter}}{{else}}scarthgap{{/if}}",
+      "datasourceTemplate": "git-refs"
+    },
+    {
+      "customType": "regex",
+      "description": "The WiseKiosk app commit, following its branch.",
+      "managerFilePatterns": ["/^meta-wisekiosk/recipes-wisekiosk/wisekiosk/wisekiosk-src\\.inc$/"],
+      "matchStrings": [
+        "SRC_URI = \"git://(?<host>[^/]+)/(?<depName>[^;]+?)\\.git;protocol=https;branch=(?<currentValue>[^\";]+)\"\\nSRCREV = \"(?<currentDigest>[0-9a-f]{40})\""
+      ],
+      "packageNameTemplate": "https://{{host}}/{{depName}}.git",
+      "datasourceTemplate": "git-refs"
+    },
+    {
+      "customType": "regex",
+      "description": "Release tarballs the workflows install by version.",
+      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "VER=(?<currentValue>\\d+\\.\\d+\\.\\d+)\\n\\s*curl -sSfL \"https://github\\.com/(?<depName>[^/]+/[^/]+)/releases/"
+      ],
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^README\\.md$/"],
+      "matchStrings": ["raw\\.githubusercontent\\.com/(?<depName>siemens/kas)/(?<currentValue>[0-9.]+)/kas-container"],
+      "datasourceTemplate": "github-tags"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^tools/cve-scan\\.py$/"],
+      "matchStrings": ["\"(?<depName>anchore/grype|ghcr\\.io/siemens/kas/kas):(?<currentValue>[^\"@]+)\""],
+      "datasourceTemplate": "docker"
+    }
+  ]
+}

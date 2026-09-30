@@ -930,6 +930,72 @@ else
         | sed 's/^/        /'
 fi
 
+# --- 20. Renovate must see every kas layer pin, on the branch kas uses ------
+# renovate.json finds the pins with a regex, and an entry the regex does not
+# match is not an error to Renovate -- the layer silently stops being tracked.
+# This runs that same regex (Python spelling of its named groups) against an
+# independent YAML parse of the same files and requires the two to agree on
+# every repo, branch and commit. An entry naming no branch inherits
+# defaults.repos.branch; the regex cannot read that, so renovate.json's
+# template carries it as a fallback literal, which this holds equal to the YAML.
+if ! "$PY" -c 'import yaml' 2>/dev/null; then
+    bad "guard 20 cannot check the Renovate kas manager: $PY has no yaml module (see guard 4)"
+elif out20=$("$PY" - <<'EOF' 2>&1
+import json, re, subprocess, sys, yaml
+
+cfg = json.load(open("renovate.json"))
+mgr = [m for m in cfg.get("customManagers", [])
+       if m.get("datasourceTemplate") == "git-refs"
+       and any("includes" in p for p in m.get("managerFilePatterns", []))]
+if len(mgr) != 1:
+    sys.exit(f"expected exactly one git-refs manager over includes/, found {len(mgr)}")
+mgr = mgr[0]
+fallback = re.search(r"\{\{else\}\}([^{]+)\{\{/if\}\}$", mgr["currentValueTemplate"])
+if not fallback:
+    sys.exit("currentValueTemplate has no {{else}} fallback branch")
+fallback = fallback.group(1)
+fpat = re.compile(mgr["managerFilePatterns"][0].strip("/"))
+pats = [re.compile(s.replace("(?<", "(?P<")) for s in mgr["matchStrings"]]
+
+files = [f for f in subprocess.run(["git", "ls-files", "includes"], capture_output=True,
+                                   text=True, check=True).stdout.split() if fpat.search(f)]
+if not files:
+    sys.exit("no tracked file matches the manager's pattern")
+
+default = None
+for f in files:
+    d = ((yaml.safe_load(open(f)) or {}).get("defaults") or {}).get("repos", {}).get("branch")
+    if d:
+        default = d
+if default != fallback:
+    sys.exit(f"renovate.json falls back to branch {fallback!r}; defaults.repos.branch is {default!r}")
+
+want, got = set(), set()
+for f in files:
+    text = open(f).read()
+    for name, e in ((yaml.safe_load(text) or {}).get("repos") or {}).items():
+        if e and "commit" in e:
+            want.add((f, name, e.get("branch", default), e["commit"]))
+    for p in pats:
+        for m in p.finditer(text):
+            g = m.groupdict()
+            got.add((f, g["depName"], g.get("branchBefore") or g.get("branchAfter") or fallback,
+                     g["currentDigest"]))
+for x in sorted(want - got):
+    print(f"untracked by Renovate: {x[0]} {x[1]} {x[2]} {x[3][:12]}")
+for x in sorted(got - want):
+    print(f"Renovate reads a pin kas does not: {x[0]} {x[1]} {x[2]} {x[3][:12]}")
+if want != got:
+    sys.exit(1)
+print(f"{len(want)} pins")
+EOF
+); then
+    ok "Renovate's kas manager reads every layer pin ($out20)"
+else
+    bad "Renovate's kas manager and the kas YAML disagree:"
+    printf '%s\n' "$out20" | sed 's/^/        /'
+fi
+
 if [ "$fail" -ne 0 ]; then
     printf '\nguards FAILED\n'
     exit 1
