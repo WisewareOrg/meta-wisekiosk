@@ -303,6 +303,32 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
     done
     mkdir -p "$TREE/local/keys"
 
+    # BB_HASHSERVE=auto (kas's default) runs one hash-equivalence server per
+    # build dir, backed by PERSISTENT_DIR/hashserv.db -- $TOPDIR/cache/hashserv.db
+    # (bitbake/lib/bb/cooker.py's handlePRServ; PERSISTENT_DIR = ${TOPDIR}/cache
+    # in bitbake.conf). The pipeline's build dir starts with none, so its first
+    # build misses every unihash lookup against the shared SSTATE_DIR and
+    # rebuilds from scratch. Seed it from the dev tree's own DB -- read-only,
+    # sqlite3 .backup where available (safe against a concurrent writer; a raw
+    # cp is not), never overwriting a DB the pipeline has since built its own.
+    DEV_HASHSERV_DB="$ROOT/build/cache/hashserv.db"
+    PIPELINE_HASHSERV_DB="$TREE/build/cache/hashserv.db"
+    if [ -f "$DEV_HASHSERV_DB" ] && [ ! -f "$PIPELINE_HASHSERV_DB" ]; then
+        mkdir -p "$TREE/build/cache"
+        if command -v sqlite3 >/dev/null 2>&1; then
+            sqlite3 "$DEV_HASHSERV_DB" ".backup '$PIPELINE_HASHSERV_DB'"
+            echo "seeded the pipeline's hash-equivalence DB from the dev tree (sqlite3 .backup)"
+        else
+            LOCK="$ROOT/build/bitbake.lock"
+            if [ ! -f "$LOCK" ] || flock -n "$LOCK" true; then
+                cp -- "$DEV_HASHSERV_DB" "$PIPELINE_HASHSERV_DB"
+                echo "seeded the pipeline's hash-equivalence DB from the dev tree (cp; sqlite3 not on PATH)"
+            else
+                echo "dev tree's bitbake.lock is held -- skipped seeding the hash-equivalence DB (sqlite3 not on PATH for a safe .backup, and a plain cp mid-write risks a corrupt copy)"
+            fi
+        fi
+    fi
+
     CONF_DIR="$HOME/.config/wisekiosk"
     mkdir -p "$CONF_DIR"
     SSH_DIR="$CONF_DIR/pipeline-ssh"
