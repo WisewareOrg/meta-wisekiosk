@@ -272,6 +272,16 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
                  dl_dir=env('DL_DIR', (justfile_directory() / 'build/downloads')) \
                  sstate_dir=env('SSTATE_DIR', (justfile_directory() / 'build/sstate-cache')):
     set -euo pipefail
+    # Same lock file and fd as run.sh -- a live run holds it for its whole
+    # duration, so this refuses to fetch/checkout the driver or tree out from
+    # under a run.sh that is still reading them.
+    PIPELINE_LOCK="$HOME/.config/wisekiosk/pipeline.lock"
+    mkdir -p "$(dirname "$PIPELINE_LOCK")"
+    exec 9>"$PIPELINE_LOCK"
+    if ! flock -n 9; then
+        echo "pipeline-install: pipeline lock held -- a run is in progress; refusing to touch the checkouts" >&2
+        exit 1
+    fi
     ROOT=$(readlink -f "{{justfile_directory()}}")
     mkdir -p "{{dl_dir}}" "{{sstate_dir}}"
     DL_DIR=$(readlink -f "{{dl_dir}}")
@@ -328,25 +338,28 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
     # (bitbake/lib/bb/cooker.py's handlePRServ; PERSISTENT_DIR = ${TOPDIR}/cache
     # in bitbake.conf). The pipeline's build dir starts with none, so its first
     # build misses every unihash lookup against the shared SSTATE_DIR and
-    # rebuilds from scratch. Seed it from the dev tree's own DB -- read-only,
-    # sqlite3 .backup where available (safe against a concurrent writer; a raw
-    # cp is not), never overwriting a DB the pipeline has since built its own.
+    # rebuilds from scratch. Seed it from the dev tree's own DB, never
+    # overwriting a DB the pipeline has since built its own.
+    #
+    # sqlite3's own online-backup API (not a plain cp), via the stdlib module
+    # so no external sqlite3 binary is required: bitbake's hashserv runs in
+    # WAL mode, so the dev DB can have a live, uncheckpointed WAL beside it
+    # (the most recent, most useful equivalences) while a dev build is
+    # running -- the backup API copies a consistent snapshot without
+    # blocking that writer or needing a lock here, where a plain cp would
+    # silently copy only the last checkpoint and lose the WAL's contents.
+    # Backup to .tmp then mv into place, so an interrupted seed never leaves
+    # a half-written DB that the "never overwrite" rule above would then
+    # protect forever.
     DEV_HASHSERV_DB="$ROOT/build/cache/hashserv.db"
     PIPELINE_HASHSERV_DB="$TREE/build/cache/hashserv.db"
     if [ -f "$DEV_HASHSERV_DB" ] && [ ! -f "$PIPELINE_HASHSERV_DB" ]; then
         mkdir -p "$TREE/build/cache"
-        if command -v sqlite3 >/dev/null 2>&1; then
-            sqlite3 "$DEV_HASHSERV_DB" ".backup '$PIPELINE_HASHSERV_DB'"
-            echo "seeded the pipeline's hash-equivalence DB from the dev tree (sqlite3 .backup)"
-        else
-            LOCK="$ROOT/build/bitbake.lock"
-            if [ ! -f "$LOCK" ] || flock -n "$LOCK" true; then
-                cp -- "$DEV_HASHSERV_DB" "$PIPELINE_HASHSERV_DB"
-                echo "seeded the pipeline's hash-equivalence DB from the dev tree (cp; sqlite3 not on PATH)"
-            else
-                echo "dev tree's bitbake.lock is held -- skipped seeding the hash-equivalence DB (sqlite3 not on PATH for a safe .backup, and a plain cp mid-write risks a corrupt copy)"
-            fi
-        fi
+        rm -f "$PIPELINE_HASHSERV_DB.tmp"
+        {{py}} -c 'import sqlite3, sys; src = sqlite3.connect("file:" + sys.argv[1] + "?mode=ro", uri=True); dst = sqlite3.connect(sys.argv[2]); src.backup(dst); dst.close(); src.close()' \
+            "$DEV_HASHSERV_DB" "$PIPELINE_HASHSERV_DB.tmp"
+        mv -- "$PIPELINE_HASHSERV_DB.tmp" "$PIPELINE_HASHSERV_DB"
+        echo "seeded the pipeline's hash-equivalence DB from the dev tree (sqlite3 online backup)"
     fi
 
     CONF_DIR="$HOME/.config/wisekiosk"
