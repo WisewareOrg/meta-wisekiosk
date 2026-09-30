@@ -3,14 +3,15 @@
 #
 #   run.sh                  -- run tools/pipeline/candidates.py's next job
 #   run.sh baseline [<sha>] -- build & OTA a baseline run (default sha:
-#                              origin/$PIPELINE_BASELINE_REF's current HEAD)
+#                              $PIPELINE_BASELINE_REF's current HEAD)
 #   run.sh pr <N>            -- build & OTA the PR's head, then always roll
 #                               back to the baseline slot
 #
 # Reads PIPELINE_DRIVER, PIPELINE_TREE, KAS_BUILD_DIR, PIPELINE_BASELINE_REF,
 # PIPELINE_SSH_DIR from the environment -- normally `~/.config/wisekiosk/
 # pipeline.env`, EnvironmentFile= under the systemd unit or sourced by hand
-# by `just pipeline-run`.
+# by `just pipeline-run`. PIPELINE_BASELINE_REF is a full ref, already
+# qualified with its remote (e.g. `origin/main`) -- not a bare branch name.
 #
 # Stage order (a `pr` run; `baseline` is the same through the smoke, then
 # marks the slot good instead of rolling back):
@@ -239,7 +240,7 @@ case "${1:-}" in
         if [ -n "${2:-}" ]; then
             SHA=$2
         else
-            SHA=$(git -C "$PIPELINE_TREE" rev-parse "origin/$PIPELINE_BASELINE_REF")
+            SHA=$(git -C "$PIPELINE_TREE" rev-parse "$PIPELINE_BASELINE_REF")
         fi
         ;;
     pr)
@@ -254,7 +255,7 @@ case "${1:-}" in
         ;;
 esac
 
-BASELINE_REMOTE="origin/$PIPELINE_BASELINE_REF"
+BASELINE_REMOTE="$PIPELINE_BASELINE_REF"
 [ "$KIND" = pr ] && MERGE_BASE=$(git -C "$PIPELINE_TREE" merge-base "$BASELINE_REMOTE" "$SHA")
 
 BOOT_CAVEAT=""
