@@ -196,8 +196,8 @@ unattributable. To move it:
    explanation of why it cannot be a bbappend and its upstream-submission status.
 4. Re-run `tools/ci-guards.sh`. Run `just build-with-history` before and after the bump, then
    `just artifact-diff <before-ref> <after-ref>` before shipping anything to a device — buildhistory
-   is a git repo under `build/buildhistory`, and the refs are its own commits, or a `baseline/<sha>`
-   tag.
+   is a git repo under `build/buildhistory`, and the refs are its own commits (`git -C
+   build/buildhistory log` names them).
 
 The same steps apply to every other pinned repo. The pins live in three files: most repos in
 `includes/base.yaml`, meta-rauc in `includes/rauc.yaml`, and the three Raspberry Pi repos

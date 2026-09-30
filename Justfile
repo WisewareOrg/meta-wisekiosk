@@ -81,7 +81,7 @@ build:
     kas-container build {{config}}
 
 [group('build')]
-[doc("Build with buildhistory inherited, for artifact-diff (#119 D-D)")]
+[doc("Build with buildhistory inherited, for artifact-diff")]
 build-with-history:
     tools/write-build-rev.sh
     {{py}} tools/go-mods.py
@@ -214,7 +214,7 @@ cve-build:
     {{py}} tools/cve-delta.py snapshot
 
 [group('audit')]
-[doc("Report whether the buildhistory image dir differs between two refs (#119 D-C; rc 1 = no change, rc 2 = could not tell)")]
+[doc("Report whether the buildhistory image dir differs between two refs (rc 1 = no change, rc 2 = could not tell)")]
 artifact-diff base head *args:
     {{py}} tools/artifact-diff.py {{args}} {{base}} {{head}}
 

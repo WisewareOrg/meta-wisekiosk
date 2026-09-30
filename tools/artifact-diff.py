@@ -15,12 +15,9 @@ GitPython, which this tree does not carry.
 Exit 0: at least one of the three files differs between the refs. The `git
         diff` of all three is printed on stdout.
 Exit 1: none of the three files differs. "no change in image" is printed on
-        stderr and nothing is printed on stdout. Per #119 (owner,
-        2026-09-30), an empty artifact delta on a candidate PR is a pipeline
-        FAILURE, not a pass -- and the predicate is size-blind: buildhistory
-        records package versions and file mode/owner/size/path, never
-        content, so a same-size content change in a packaged file also
-        reads as "no change".
+        stderr and nothing is printed on stdout -- a pipeline failure, not a
+        skip (#119 epic: automated build-and-test pipeline). The predicate
+        is size-blind by design (#121 artifact delta tier).
 Exit 2: the repo, a ref, or the image directory could not be resolved. The
         reason is printed on stderr, prefixed "could not tell", and nothing
         is printed on stdout.
