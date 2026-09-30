@@ -158,6 +158,8 @@ def empty_delta_cases():
          "is NOT detected (decision 3, size-blind)", got.returncode, 1)
     case("artifact-diff: the size-blind case also names it on stderr",
          "no change in image" in got.stderr, True)
+    case("artifact-diff: the size-blind case prints nothing on stdout",
+         got.stdout, "")
 
 
 # --- rc 0: the git diff of the three files ---------------------------------
@@ -298,6 +300,36 @@ def default_repo_cases():
          "explicit --repo would", got.stdout, expected)
 
 
+# --- a leaked GIT_DIR/GIT_WORK_TREE must not divert --repo -----------------
+
+def worktree_leak_cases():
+    with tempfile.TemporaryDirectory() as tmp:
+        fixture = init_repo(Path(tmp) / "fixture")
+        write_triple(image_dir(fixture), pkgver="curl 8.7.1-r0\n")
+        base = commit(fixture, "base")
+        write_triple(image_dir(fixture), pkgver="curl 8.9.0-r0\n")
+        head = commit(fixture, "bump curl")
+        expected = real_diff(fixture, base, head)
+
+        # A second, unrelated repository standing in for a hooked-in
+        # worktree's own .git: if GIT_DIR/GIT_WORK_TREE leaked through, git
+        # would resolve `base`/`head` -- fixture's SHAs -- against this
+        # repo instead, where they do not exist.
+        hostile = init_repo(Path(tmp) / "hostile")
+        commit(hostile, "unrelated hostile commit")
+
+        hostile_env = clean_env(GIT_DIR=str(hostile / ".git"),
+                                GIT_WORK_TREE=str(hostile))
+        got = subprocess.run(
+            [sys.executable, str(ARTIFACT_DIFF), "--repo", str(fixture),
+             base, head],
+            capture_output=True, text=True, env=hostile_env)
+    case("artifact-diff: a leaked GIT_DIR/GIT_WORK_TREE does not divert "
+         "--repo away from the fixture (still exits 0)", got.returncode, 0)
+    case("artifact-diff: a leaked GIT_DIR/GIT_WORK_TREE still yields the "
+         "fixture's own diff on stdout", got.stdout, expected)
+
+
 # --- --help ------------------------------------------------------------
 
 def help_cases():
@@ -308,8 +340,9 @@ def help_cases():
          "no change in image" in got.stdout, True)
     case("artifact-diff: --help names the rc-2 case by its own wording",
          "could not tell" in got.stdout, True)
-    case("artifact-diff: --help mentions exit code 0",
-         "0" in got.stdout, True)
+    case("artifact-diff: --help names the rc-0 case by its own wording",
+         "Exit 0: at least one of the three files differs between the "
+         "refs." in got.stdout, True)
 
 
 def main() -> int:
@@ -317,6 +350,7 @@ def main() -> int:
     changed_cases()
     could_not_tell_cases()
     default_repo_cases()
+    worktree_leak_cases()
     help_cases()
     print(f"\npass={len(PASS)} fail={len(FAIL)} skip=0")
     return 1 if FAIL else 0
