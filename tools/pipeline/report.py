@@ -351,6 +351,7 @@ def cmd_check(argv):
     body = sys.stdin.read()
 
     if PRIVATE_KEY.search(body):
+        print("private key material in body", file=sys.stderr)
         return 2
 
     with tempfile.TemporaryDirectory() as tmp:
