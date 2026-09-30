@@ -49,6 +49,18 @@ TOOLS="$(dirname "$HERE")"
 : "${PIPELINE_KEYS_DIR:?PIPELINE_KEYS_DIR not set}"
 export DL_DIR SSTATE_DIR PIPELINE_SSH_DIR PIPELINE_KEYS_DIR
 
+# Before anything else, including the fetch below: a pipeline-install racing
+# this run would otherwise checkout -B the driver or checkout --detach the
+# tree out from under a fetch or a build already reading them. Same lock
+# file and fd as pipeline-install's own.
+LOCK="$HOME/.config/wisekiosk/pipeline.lock"
+mkdir -p "$(dirname "$LOCK")"
+exec 9>"$LOCK"
+if ! flock -n 9; then
+    echo "run.sh: pipeline lock held -- another run in progress" >&2
+    exit 0
+fi
+
 # kas's own default build dir for the tree checkout -- not independently
 # tunable, so derived here rather than read from the environment. Unset
 # KAS_BUILD_DIR unconditionally: an ambient export (a hand-run shell that
@@ -368,14 +380,6 @@ SSH_HOST="root@$BENCH_ADDR"
 
 RUN_DIR="$PIPELINE_DRIVER/local/pipeline/runs/$SHA"
 mkdir -p "$RUN_DIR"
-
-LOCK="$HOME/.config/wisekiosk/pipeline.lock"
-mkdir -p "$(dirname "$LOCK")"
-exec 9>"$LOCK"
-if ! flock -n 9; then
-    echo "run.sh: pipeline lock held -- another run in progress" >&2
-    exit 0
-fi
 
 # --- pre-checks (before any status is posted) ---------------------------
 
