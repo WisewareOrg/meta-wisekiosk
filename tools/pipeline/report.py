@@ -7,7 +7,8 @@
 
     report.py check --map <path>
         -- read a candidate report body on stdin; rc 0 if it carries no
-           identity, rc 1 if it does
+           identity and no private key material, rc 2 if it matches a PEM
+           private-key header, rc 1 if it carries identity
 
     report.py post --sha <sha> --state {pending,success,failure,error}
                     --description <text> [--pr <n> --body <file>]
@@ -33,13 +34,17 @@ rc 2, nothing on stdout.
 result}}` shape or a bare `{configuration, result}` -- the inner `result`
 dict is found either way.
 
-`check`: write the body into a throwaway git repository with
-local/device-identity.md symlinked to --map, then run
+`check`: first scans the body for a line matching
+`-----BEGIN [A-Z ]*PRIVATE KEY-----` (unanchored, so a prefixed log line
+still matches) -> rc 2 if found, before anything else runs. Otherwise
+writes the body into a throwaway git repository with
+local/device-identity.md symlinked to --map, then runs
 `tools/scrub-identity.py --check` there. A hit or PARTIAL -> rc 1.
 
 `post` does not run `check` itself -- the caller withholds the body and
-posts description "report withheld: identity check failed" with no
---pr/--body when the check fails.
+posts description "report withheld: private key material" (rc 2) or
+"report withheld: identity check failed" (rc 1), with no --pr/--body,
+when the check fails.
 """
 import importlib.util
 import json
@@ -69,6 +74,10 @@ git_env = _layer_currency.git_env
 FENCE_OPEN = re.compile(r'^```identity\s*$')
 FENCE_CLOSE = re.compile(r'^```\s*$')
 MAP_ROW = re.compile(r'^\s*([A-Za-z0-9_.]+)\s*=\s*(\S.*?)\s*$')
+
+# Unanchored: a leaked key can appear mid-line, e.g. behind a log timestamp
+# prefix a verbose tool wrote ahead of echoing its own key argument.
+PRIVATE_KEY = re.compile(r'-----BEGIN [A-Z ]*PRIVATE KEY-----')
 
 # Format owned by local/device-identity.md's ## Format section and echoed in
 # tools/scrub-identity.py's PUBLIC_NS.
@@ -340,6 +349,9 @@ def cmd_check(argv):
         return refuse("--map is required")
 
     body = sys.stdin.read()
+
+    if PRIVATE_KEY.search(body):
+        return 2
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
