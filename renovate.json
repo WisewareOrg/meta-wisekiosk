@@ -25,6 +25,7 @@
     },
     {
       "description": "A poky or meta-openembedded bump invalidates WebKit's build cache, so both ride one rebuild instead of two.",
+      "matchFileNames": ["includes/**"],
       "matchDepNames": ["poky", "meta-openembedded"],
       "groupName": "webkit-closure pins"
     },
