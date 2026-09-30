@@ -234,3 +234,150 @@ provision-device host=kiosk-host:
 [doc("Provision a mounted /data partition on a fresh card")]
 provision-card mountpoint:
     tools/provision.sh card {{mountpoint}}
+
+# === Pipeline (#119) ===
+#
+# The bench pipeline builds, artifact-diffs, OTAs, testimages, rolls back and
+# reports on a systemd user timer -- see docs/testing.md "Running it". Every
+# host artifact below is created ONLY by pipeline-install; nothing here is
+# done to the host by hand.
+
+# Idempotent: re-running updates the two checkouts to driver_ref and
+# regenerates the env file and units, refusing nothing it can redo. Never
+# touches the timer -- pipeline-on is the separate, deliberate step, gated on
+# the falsifier pair passing (#119 decision 15).
+[group('pipeline')]
+[script('bash')]
+[doc("Provision the pipeline's checkouts, ssh key, env file and units (idempotent; does not enable the timer)")]
+pipeline-install driver_ref="main":
+    set -euo pipefail
+    ROOT="{{justfile_directory()}}"
+    DRIVER="$HOME/wisekiosk-pipeline/driver"
+    TREE="$HOME/wisekiosk-pipeline/tree"
+    ORIGIN_URL=$(git -C "$ROOT" remote get-url origin)
+
+    # Both checkouts are pure infrastructure -- nobody edits them by hand --
+    # so a re-run force-syncs them to driver_ref rather than merging drift.
+    if [ -d "$DRIVER/.git" ]; then
+        git -C "$DRIVER" fetch origin
+        git -C "$DRIVER" checkout -B "{{driver_ref}}" "origin/{{driver_ref}}"
+    else
+        git clone --branch "{{driver_ref}}" "$ORIGIN_URL" "$DRIVER"
+    fi
+    if [ -d "$TREE/.git" ]; then
+        git -C "$TREE" fetch origin
+    else
+        git clone "$ORIGIN_URL" "$TREE"
+    fi
+    git -C "$TREE" checkout --detach "origin/{{driver_ref}}"
+    echo "driver and tree at origin/{{driver_ref}}"
+
+    # One source of truth for the site: local/ is gitignored, so a symlink
+    # inside it is ignored too (#119 decision 7).
+    for d in "$DRIVER" "$TREE"; do
+        mkdir -p "$d/local"
+        ln -sf "$ROOT/local/device-identity.md" "$d/local/device-identity.md"
+    done
+
+    CONF_DIR="$HOME/.config/wisekiosk"
+    mkdir -p "$CONF_DIR"
+    SSH_DIR="$CONF_DIR/pipeline-ssh"
+    # printf, not a heredoc: `just` treats a flush-left line as ending the
+    # recipe body, so a heredoc's own terminator can never be flush-left here.
+    # Every value double-quoted: this file is both an EnvironmentFile= (which
+    # accepts that quoting per systemd.exec(5)) and, for `just pipeline-run`,
+    # a plain `. `-sourced shell file -- and PATH on this host has spaces in
+    # it (WSL's /mnt/c/Program Files/...), which an unquoted value would
+    # word-split under the latter.
+    {
+        printf 'PATH="%s"\n' "$PATH"
+        printf 'KAS_BUILD_DIR="%s"\n' "$ROOT/build"
+        printf 'PIPELINE_DRIVER="%s"\n' "$DRIVER"
+        printf 'PIPELINE_TREE="%s"\n' "$TREE"
+        printf 'PIPELINE_BASELINE_REF="origin/main"\n'
+        printf 'PIPELINE_SSH_DIR="%s"\n' "$SSH_DIR"
+    } > "$CONF_DIR/pipeline.env"
+    echo "wrote $CONF_DIR/pipeline.env"
+
+    # A dedicated bench-only key, never ~/.ssh (decision 8): mounted into the
+    # kas-container for the testimage stage only, so untrusted build/test
+    # code never touches the key that also pushes to GitHub.
+    mkdir -p "$SSH_DIR"
+    chmod 700 "$SSH_DIR"
+    if [ ! -f "$SSH_DIR/id_ed25519" ]; then
+        ssh-keygen -t ed25519 -N "" -C "wisekiosk-pipeline" -f "$SSH_DIR/id_ed25519" -q
+        echo "generated $SSH_DIR/id_ed25519"
+    fi
+    touch "$SSH_DIR/known_hosts"
+
+    # A catch-all Host block, not a bench-specific one: what the container
+    # connects to is TEST_TARGET_IP, a bare address passed at run time, never
+    # a literal "bench" alias -- and this ssh dir is mounted only for the
+    # testimage stage, so "every Host" already means "only bench".
+    {
+        printf 'Host *\n'
+        printf '    User root\n'
+        printf '    IdentityFile ~/.ssh/id_ed25519\n'
+        printf '    StrictHostKeyChecking accept-new\n'
+        printf '    UserKnownHostsFile ~/.ssh/known_hosts\n'
+    } > "$SSH_DIR/config"
+    echo "wrote $SSH_DIR/config"
+
+    BENCH=$({{py}} tools/pipeline/resolve-role.py --map "$ROOT/local/device-identity.md" bench)
+    PUBKEY=$(cat "$SSH_DIR/id_ed25519.pub")
+    SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10"
+    $SSH "root@$BENCH" "mkdir -p ~/.ssh && chmod 700 ~/.ssh && touch ~/.ssh/authorized_keys && grep -qxF '$PUBKEY' ~/.ssh/authorized_keys || echo '$PUBKEY' >> ~/.ssh/authorized_keys"
+    echo "installed the pipeline key on bench (root@$BENCH)"
+
+    mkdir -p "$HOME/.config/systemd/user"
+    ln -sf "$DRIVER/tools/pipeline/wisekiosk-pipeline.service" "$HOME/.config/systemd/user/wisekiosk-pipeline.service"
+    ln -sf "$DRIVER/tools/pipeline/wisekiosk-pipeline.timer" "$HOME/.config/systemd/user/wisekiosk-pipeline.timer"
+    systemctl --user daemon-reload
+    echo "symlinked the units into ~/.config/systemd/user/ and reloaded"
+
+    if ! loginctl show-user "$(id -un)" -p Linger 2>/dev/null | grep -q '^Linger=yes$'; then
+        loginctl enable-linger "$(id -un)"
+        echo "enabled linger for $(id -un)"
+    fi
+
+    # Proved under the same systemd --user context the timer itself runs
+    # under -- not just this interactive shell's.
+    systemd-run --user --wait --pipe -- gh auth status
+    systemd-run --user --wait --pipe -- git -C "$DRIVER" ls-remote origin HEAD
+    echo "gh auth and git ls-remote both proved under systemd-run --user"
+    echo "the timer is NOT enabled -- run 'just pipeline-on' when ready"
+
+[group('pipeline')]
+[doc("Enable the pipeline timer")]
+pipeline-on:
+    systemctl --user enable --now wisekiosk-pipeline.timer
+
+[group('pipeline')]
+[doc("Disable the pipeline timer")]
+pipeline-off:
+    systemctl --user disable --now wisekiosk-pipeline.timer
+
+[group('pipeline')]
+[script('bash')]
+[doc("Report the timer's state and any DISABLED reason")]
+pipeline-status:
+    systemctl --user status wisekiosk-pipeline.timer --no-pager || true
+    echo
+    DISABLED="$HOME/wisekiosk-pipeline/driver/local/pipeline/DISABLED"
+    if [ -f "$DISABLED" ]; then
+        echo "DISABLED:"
+        cat "$DISABLED"
+    else
+        echo "no DISABLED file"
+    fi
+
+# Sources the env file pipeline-install wrote, then runs the driver's own
+# run.sh -- the same invocation the timer makes, by hand.
+[group('pipeline')]
+[script('bash')]
+[doc("Run one pipeline job by hand: no args (next candidate) | baseline [sha] | pr N")]
+pipeline-run *args:
+    set -a
+    . "$HOME/.config/wisekiosk/pipeline.env"
+    set +a
+    "$HOME/wisekiosk-pipeline/driver/tools/pipeline/run.sh" {{args}}
