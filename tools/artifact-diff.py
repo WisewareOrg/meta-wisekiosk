@@ -27,10 +27,23 @@ Exit 2: the repo, a ref, or the image directory could not be resolved. The
 
 --repo defaults to build/buildhistory under the current directory.
 """
-import os
+import importlib.util
 import subprocess
 import sys
 from pathlib import Path
+
+TOOLS = Path(__file__).resolve().parent
+
+# Hyphenated filename, so it cannot be a normal import: loaded by path, only
+# for its git_env(), which is the worktree-git-env guard -- a leaked
+# GIT_DIR/GIT_INDEX_FILE from an enclosing worktree's hooks would send every
+# git call below at that worktree's repository instead of --repo. Owned by
+# tools/layer-currency.py; not duplicated here.
+_spec = importlib.util.spec_from_file_location(
+    "layer_currency", TOOLS / "layer-currency.py")
+_layer_currency = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_layer_currency)
+git_env = _layer_currency.git_env
 
 # The three files buildhistory writes into the image directory on every
 # build. This order does not affect `git diff`'s own output order, which is
@@ -45,20 +58,6 @@ IMAGE_GLOB = "images/*/*/core-image-base"
 DEFAULT_REPO = Path("build/buildhistory")
 
 COULD_NOT_TELL = "could not tell"
-
-# Same worktree-git-env guard as tools/layer-currency.py's git_env(): a
-# leaked GIT_DIR/GIT_INDEX_FILE from an enclosing worktree's hooks would send
-# every git call below at that worktree's repository instead of --repo.
-_GIT_SCOPE_HAND = frozenset((
-    "GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE", "GIT_OBJECT_DIRECTORY",
-    "GIT_COMMON_DIR", "GIT_CONFIG", "GIT_PREFIX"))
-GIT_SCOPE = tuple(_GIT_SCOPE_HAND | set(subprocess.run(
-    ["git", "rev-parse", "--local-env-vars"],
-    capture_output=True, text=True, check=True).stdout.split()))
-
-
-def git_env():
-    return {k: v for k, v in os.environ.items() if k not in GIT_SCOPE}
 
 
 def git(repo, *args):
