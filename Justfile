@@ -250,6 +250,7 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
                  sstate_dir=env('SSTATE_DIR', (justfile_directory() / 'build/sstate-cache')):
     set -euo pipefail
     ROOT=$(readlink -f "{{justfile_directory()}}")
+    mkdir -p "{{kas_build_dir}}" "{{dl_dir}}" "{{sstate_dir}}"
     KAS_BUILD_DIR=$(readlink -f "{{kas_build_dir}}")
     DL_DIR=$(readlink -f "{{dl_dir}}")
     SSTATE_DIR=$(readlink -f "{{sstate_dir}}")
