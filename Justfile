@@ -298,6 +298,10 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
     echo "driver and tree at origin/{{driver_ref}}"
 
     for d in "$DRIVER" "$TREE"; do
+        if [ -L "$d/local" ]; then
+            echo "$d/local is a symlink -- refusing (it could point at the dev tree's own local/, and the next step would then delete the real fleet key through it)" >&2
+            exit 1
+        fi
         mkdir -p "$d/local"
         ln -sf "$MAP" "$d/local/device-identity.md"
     done
@@ -305,11 +309,18 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
     # bind mount (run.sh/the Justfile's build/bundle/testimage recipes), never
     # by symlink or copy -- a symlink here would dangle inside kas-container's
     # own bind mount, which only maps $TREE itself into /work. The driver
-    # checkout never runs bitbake, so it needs no keys dir. rm -rf first: an
-    # idempotent re-install must also replace a pre-existing local/keys
+    # checkout never runs bitbake, so it needs no keys dir.
+    #
+    # An idempotent re-install must also replace a pre-existing local/keys
     # symlink (an older install, or the driver's own stale one) with this
     # real directory -- mkdir -p alone is a no-op against an existing path.
-    rm -rf "$DRIVER/local/keys" "$TREE/local/keys"
+    # rmdir, never rm -rf: rmdir refuses a non-empty directory, so this can
+    # only ever remove a symlink or an empty placeholder, never the real key
+    # directory even if the symlink check above were somehow wrong.
+    for p in "$DRIVER/local/keys" "$TREE/local/keys"; do
+        [ -L "$p" ] && rm -- "$p"
+        [ -d "$p" ] && rmdir -- "$p"
+    done
     mkdir -p "$TREE/local/keys"
 
     CONF_DIR="$HOME/.config/wisekiosk"
