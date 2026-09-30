@@ -68,6 +68,9 @@ caller that structurally cannot hold it — CI, which clones without `local/` �
 hook and `just guards` therefore fail where CI passes: create `local/device-identity.md`, or pass
 `--allow-partial` yourself and know that a hostname or an SSID went unlooked-for.
 
+None of the above builds or boots anything — [`docs/testing.md`](docs/testing.md) covers the tiers
+that do, what each one actually proves, and how to run the bench pipeline behind the two OTA tiers.
+
 ## Documentation conventions
 
 **Colocation, and one owner per fact.** Documentation lives beside the code it explains — a recipe's
