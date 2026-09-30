@@ -84,9 +84,10 @@ build:
 # key read-only into the container -- see docs/testing.md. --runtime-args
 # sets kas-container's own KAS_EXTRA_RUNTIME_ARGS; its internal
 # KAS_RUNTIME_ARGS is reset unconditionally, so an ambient export would be
-# silently discarded. Like testimage's own --runtime-args line, guard 10's
-# kas-container[[:space:]]+(build|shell) regex does not match this recipe's
-# kas-container line -- widening guard 10 is a separate CI-guard change.
+# silently discarded. Guard 10's widened regex recognises a literal
+# --flag value option between kas-container and build/shell, but not a
+# shell array expansion, so this recipe's kas-container line still falls
+# outside its assertion.
 [group('build')]
 [script('bash')]
 [doc("Build with buildhistory inherited, for artifact-diff")]
@@ -246,7 +247,6 @@ testimage ssh_dir=env('PIPELINE_SSH_DIR', ''):
     if [ -n "${PIPELINE_KEYS_DIR:-}" ]; then
         RUNTIME_ARGS="$RUNTIME_ARGS -v $PIPELINE_KEYS_DIR:/work/local/keys:ro"
     fi
-    # outside guard 10's regex (option before the subcommand)
     kas-container --ssh-dir {{ssh_dir}} --runtime-args "$RUNTIME_ARGS" build {{config}}:includes/testimage.yaml -c testimage
 
 # Write per-site config to a device's /data. The image carries none of it.
