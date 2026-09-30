@@ -22,7 +22,7 @@ RAUC slot layout), which stays unproven by every tier above soak.
 ## Running it
 
 ```sh
-just pipeline-install [driver_ref]   # once per host, idempotent (default driver_ref: main)
+just pipeline-install [driver_ref]   # once per host, idempotent (default: main, or $PIPELINE_DRIVER_REF)
 just pipeline-on                     # enable the timer
 just pipeline-off                    # disable it
 just pipeline-status                 # timer state + any DISABLED reason
