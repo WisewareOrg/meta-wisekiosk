@@ -1,20 +1,14 @@
 #!/usr/bin/env python3
-"""Self-test for tools/artifact-diff.py. Run by `just guards` and by CI.
+"""Self-test for tools/artifact-diff.py. Run as `python3 tools/artifact-diff-test.py`.
 
     artifact-diff-test.py       -- every case
 
 `artifact-diff.py [--repo <buildhistory dir>] <base-ref> <head-ref>` is the
-empty-artifact-delta predicate (#119 D-C): inside a buildhistory git repo, find
-the image dir by glob `images/*/*/core-image-base/` and `git diff` the three
-files it records -- installed-package-versions.txt, files-in-image.txt,
-image-info.txt -- between two refs. rc 0 + that diff on stdout when any of the
-three differs; rc 1 + "no change in image" on stderr when none does; rc 2 +
-"could not tell" plus the reason on stderr when the repo, a ref or the image
-dir cannot be resolved, printing nothing on stdout.
+empty-artifact-delta predicate; see its own docstring/--help for the exit
+contract this suite checks against.
 
 Every fixture here is its own small git repository, built in a tempdir and
-never this tree's own history: this repository is PUBLIC and the tool's job is
-to run against buildhistory, not against meta-wisekiosk itself.
+never this tree's own history.
 """
 import importlib.util
 import subprocess
@@ -25,9 +19,6 @@ from pathlib import Path
 TOOLS = Path(__file__).resolve().parent
 ARTIFACT_DIFF = TOOLS / "artifact-diff.py"
 
-# Loaded by path only for its git_env(): a fixture git call must not inherit
-# GIT_DIR/GIT_INDEX_FILE from a pre-commit hook running in a linked worktree,
-# or a fixture commit lands in the real repository instead of its own tmpdir.
 sys.dont_write_bytecode = True
 
 
@@ -39,6 +30,7 @@ def load(name):
     return module
 
 
+# `git_env()` (from layer-currency) keeps a fixture git call off a real GIT_DIR.
 currency = load("layer-currency")
 
 PASS, FAIL = [], []
@@ -69,9 +61,8 @@ def init_repo(where):
     return repo
 
 
-# The MACHINE_ARCH form (`raspberrypi0-wifi` -> `raspberrypi0_wifi`) is the
-# path segment throughout: an implementation that globbed on the literal
-# hyphenated machine name would match nothing against any fixture here.
+# raspberrypi0_wifi, not raspberrypi0-wifi: the MACHINE_ARCH path-segment
+# form used throughout below.
 IMAGE_REL = "images/raspberrypi0_wifi/glibc/core-image-base"
 
 
@@ -111,9 +102,7 @@ def run_diff(repo, base, head, argv_repo=True):
 
 
 def real_diff(repo, base, head, rel=IMAGE_REL):
-    """The independently-computed `git diff` of the three tracked files --
-    what "rc 0 + the git diff of those files on stdout" means, taken literally
-    and not re-derived through the tool under test."""
+    """The expected diff, computed independently of artifact-diff.py."""
     return subprocess.run(
         ["git", "-C", str(repo), "diff", base, head, "--",
          f"{rel}/installed-package-versions.txt",
@@ -138,18 +127,14 @@ def empty_delta_cases():
     case("artifact-diff: identical delta prints nothing on stdout",
          got.stdout, "")
 
-    # Decision 3 (size-blind): buildhistory's three files record package
-    # versions and file mode/owner/size/path, never content. A packaged file
-    # whose CONTENT changed at the same size, mode, owner and path leaves
-    # files-in-image.txt byte-identical, so this reads as "no change" too --
-    # the documented limit, not a bug this tool can see past.
+    # buildhistory's three files record package version, mode, owner, size
+    # and path -- never content, so a same-size content-only change is
+    # invisible here.
     with tempfile.TemporaryDirectory() as tmp:
         repo = init_repo(tmp)
         write_triple(image_dir(repo),
                      files="/usr/bin/wisekiosk 0755 root root 4213112\n")
         base = commit(repo, "base")
-        # The packaged file's bytes would differ in the real image; nothing
-        # buildhistory records about it does, so the fixture is byte-identical.
         write_triple(image_dir(repo),
                      files="/usr/bin/wisekiosk 0755 root root 4213112\n")
         head = commit(repo, "same-size content change, unseen by buildhistory")
@@ -311,10 +296,8 @@ def worktree_leak_cases():
         head = commit(fixture, "bump curl")
         expected = real_diff(fixture, base, head)
 
-        # A second, unrelated repository standing in for a hooked-in
-        # worktree's own .git: if GIT_DIR/GIT_WORK_TREE leaked through, git
-        # would resolve `base`/`head` -- fixture's SHAs -- against this
-        # repo instead, where they do not exist.
+        # `hostile` stands in for a linked worktree's real .git; a leaked
+        # GIT_DIR/GIT_WORK_TREE would make --repo resolve against it instead.
         hostile = init_repo(Path(tmp) / "hostile")
         commit(hostile, "unrelated hostile commit")
 
