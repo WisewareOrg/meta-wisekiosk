@@ -261,11 +261,13 @@ provision-card mountpoint:
 [group('pipeline')]
 [script('bash')]
 [doc("Provision the pipeline's checkouts, ssh key, env file and units (idempotent; does not enable the timer)")]
-pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main'):
+pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') kas_build_dir=env('KAS_BUILD_DIR', justfile_directory() / 'build'):
     set -euo pipefail
-    ROOT="{{justfile_directory()}}"
+    ROOT=$(readlink -f "{{justfile_directory()}}")
+    KAS_BUILD_DIR=$(readlink -f "{{kas_build_dir}}")
     DRIVER="$HOME/wisekiosk-pipeline/driver"
     TREE="$HOME/wisekiosk-pipeline/tree"
+    MAP=$(readlink -f "$ROOT/local/device-identity.md")
     ORIGIN_URL=$(git -C "$ROOT" remote get-url origin)
 
     # Both checkouts are pure infrastructure -- nobody edits them by hand --
@@ -288,7 +290,7 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main'):
     # inside it is ignored too (#119 decision 7).
     for d in "$DRIVER" "$TREE"; do
         mkdir -p "$d/local"
-        ln -sf "$ROOT/local/device-identity.md" "$d/local/device-identity.md"
+        ln -sf "$MAP" "$d/local/device-identity.md"
     done
 
     CONF_DIR="$HOME/.config/wisekiosk"
@@ -303,7 +305,7 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main'):
     # word-split under the latter.
     {
         printf 'PATH="%s"\n' "$PATH"
-        printf 'KAS_BUILD_DIR="%s"\n' "$ROOT/build"
+        printf 'KAS_BUILD_DIR="%s"\n' "$KAS_BUILD_DIR"
         printf 'PIPELINE_DRIVER="%s"\n' "$DRIVER"
         printf 'PIPELINE_TREE="%s"\n' "$TREE"
         printf 'PIPELINE_BASELINE_REF="origin/main"\n'
@@ -335,7 +337,7 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main'):
     } > "$SSH_DIR/config"
     echo "wrote $SSH_DIR/config"
 
-    BENCH=$({{py}} tools/pipeline/resolve-role.py --map "$ROOT/local/device-identity.md" bench)
+    BENCH=$({{py}} tools/pipeline/resolve-role.py --map "$MAP" bench)
     PUBKEY=$(cat "$SSH_DIR/id_ed25519.pub")
     SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10"
     $SSH "root@$BENCH" "mkdir -p ~/.ssh && chmod 700 ~/.ssh && touch ~/.ssh/authorized_keys && grep -qxF '$PUBKEY' ~/.ssh/authorized_keys || echo '$PUBKEY' >> ~/.ssh/authorized_keys"
