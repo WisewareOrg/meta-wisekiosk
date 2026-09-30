@@ -1,57 +1,27 @@
 #!/usr/bin/env bash
-# Self-test for the three pipeline components the owner allowed tests on
-# (#119 D-L(1), plan decision 12, Q6): role refusal, report redact-and-cap,
-# and the pre-post identity check. Everything else in tools/pipeline/ -- the
-# candidate filter, run.sh's orchestration, the timer units -- is structural
-# and gets no test (decision 12: "Nothing else gets a test; the fork filter
-# is structural ... not tested").
+# Self-test for resolve-role.py, report.py's redact-and-cap, and the pre-post identity check.
 #
 #   tools/pipeline-test.sh
 #
-# resolve-role.py (D-F) is the pipeline's OWN safety control: ".claude/
-# hooks/guard.sh does not run under a timer; this refusal is the pipeline's
-# own safety control" (decision 7). It must refuse every role but `bench`
-# and take no address argument -- a wrong answer here is a script that could
-# OTA or reboot the wall-mounted prod board unattended.
+# resolve-role.py is the pipeline's own safety control. It must refuse every
+# role but `bench` and take no address argument -- a wrong answer here is a
+# script that could OTA or reboot the wall-mounted prod board unattended.
 #
-# report.py (D-J) posts to a PUBLIC GitHub repo. Its redact
-# step must remove every value in the identity map plus anything shaped like
-# an address or a MAC before a byte leaves the host, and its cap step must
-# never truncate the verdict or the delta -- the two sections a reader relies
-# on to trust the rest.
+# Fixtures use RFC 5737 documentation addresses, never a real LAN address.
 #
-# This repository is PUBLIC, so every fixture below uses RFC 5737 /
-# TEST-NET-2 documentation addresses (198.51.100.0/24), never a real LAN
-# address -- the same convention .claude/hooks/guard-test.sh already
-# establishes, confirmed here against tools/ci-guards.sh guard 6 and
-# tools/scrub-identity.py's own private-IPv4 pattern: neither matches
-# 198.*.*.* (only 192.168/10/172.16-31), so these values are safe to commit.
-#
-# The MAC and the private (RFC1918) IPv4 used to prove PATTERN-half redaction
-# are each split across two variables and joined only at RUNTIME. A
-# contiguous literal of either shape in THIS file's own tracked source text
-# would trip the very guards (ci-guards.sh guard 6, scrub-identity.py's MAC
-# and private-IPv4 PATTERNs) that report.py's redaction step exists to
-# satisfy -- scanning is over `git ls-files`' tracked text, not over what a
-# script prints at runtime, so the split defeats the scanner without
-# defeating the test.
+# The MAC/IPv4 used to prove redaction are split across variables so the
+# literal never appears in this file's tracked text.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 RESOLVE_ROLE="$HERE/pipeline/resolve-role.py"
 REPORT="$HERE/pipeline/report.py"
 
-# A leaked GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE from an enclosing worktree's
-# hooks would divert every `git init`/`git rev-parse` fixture below at that
-# worktree's own repository instead of the throwaway one just created for it
-# (docs/issue_investigation/*, "worktree git env leak"). Nothing here
-# legitimately needs an inherited one.
+# Unset an inherited GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE/GIT_COMMON_DIR
+# before using git below.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR 2>/dev/null || true
 
-# Resolve the repo .venv python the way tools/ci-guards.sh does: a bare
-# python3 on this host may lack packages the repo's own .venv provides, and
-# a git hook / CI shell sources no startup file that would otherwise pick
-# one up.
+# Prefer the repo .venv's python3 if present.
 PY=python3
 REPO_ROOT="$(cd "$HERE/.." && pwd)"
 if [ -x "$REPO_ROOT/.venv/bin/python3" ]; then
@@ -69,13 +39,8 @@ bad() { printf 'FAIL  %s\n' "$1"; [ $# -gt 1 ] && printf '        %s\n' "$2"; fa
 # Runs cmd, splitting stdout/stderr/exit code into the three named variables
 # via `printf -v` (no eval, no subshell variable loss).
 #
-# The internal locals are deliberately NOT named out/err/rc: every caller
-# uses those same names for its own locals, and a `local rc` declared in
-# THIS function would shadow the caller's `rc`, so `printf -v "$_r"` (where
-# _r=="rc") would write to capture's own shadow instead of the caller's
-# variable -- silently, except that set -u then reports the caller's
-# never-assigned `rc` as unbound at the next read. Measured: this exact
-# collision was the first version of this file's own bug.
+# Internal locals avoid out/err/rc so callers' locals of those names are not
+# shadowed.
 capture() {
     local _o=$1 _e=$2 _r=$3; shift 3
     local _cap_errfile _cap_out _cap_rc
@@ -99,10 +64,8 @@ capture_stdin() {
     rm -f "$_cap_errfile"
 }
 
-# utf8_len TEXT -- report.py's own --limit check is Python's len() on a
-# UTF-8-decoded str (the "## Log — <label>" em dash is one such character);
-# bash's ${#} is locale-dependent and can count its UTF-8 bytes instead, so
-# a boundary derived from ${#out} can be off by exactly that gap.
+# utf8_len TEXT -- character length as report.py's own --limit computes it
+# (Python len() on UTF-8-decoded text), unlike bash's byte-counting ${#}.
 utf8_len() {
     printf '%s' "$1" | "$PY" -c \
         'import sys; sys.stdout.write(str(len(sys.stdin.buffer.read().decode("utf-8"))))'
@@ -142,18 +105,14 @@ ip_hi="10.77.4"; ip_lo="9"
 STRAY_IP="${ip_hi}.${ip_lo}"
 
 # =========================================================================
-# A. tools/pipeline/resolve-role.py  (D-F, decision 7)
+# A. tools/pipeline/resolve-role.py
 # =========================================================================
 
 test_resolve_role() {
     local out err rc
 
-    # A missing script and a correct refusal both produce rc 2, empty
-    # stdout, a stderr message -- Python's own "can't open file" for the
-    # former happens to satisfy the same shape as the latter's contract.
-    # Without this precondition, every refusal case below would read as
-    # passing before resolve-role.py is written at all, which is not RED
-    # for the specified reason; it is green by coincidence.
+    # Precondition: fails clearly if resolve-role.py is missing rather than
+    # passing by coincidence.
     if [ ! -f "$RESOLVE_ROLE" ]; then
         bad "resolve-role.py exists" "not found at $RESOLVE_ROLE"
         return
@@ -237,9 +196,9 @@ test_resolve_role() {
         *) ok "resolve-role bench, extra positional: the prod address appears in neither stdout nor stderr" ;;
     esac
 
-    # --map defaults to <repo root>/local/device-identity.md (D-F). Proven
-    # against a fresh, throwaway git repository -- never this checkout's own
-    # local/device-identity.md, which holds the real site.
+    # --map defaults to <repo root>/local/device-identity.md. Proven against
+    # a fresh, throwaway git repository, never this checkout's own
+    # local/device-identity.md.
     local fixture_repo="$TOP/fixture-repo"
     mkdir -p "$fixture_repo/local" "$fixture_repo/subdir"
     env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
@@ -263,27 +222,22 @@ test_resolve_role() {
 }
 
 # =========================================================================
-# B. tools/pipeline/report.py build  (D-J)
+# B. tools/pipeline/report.py build
 # =========================================================================
 
 test_report_build() {
     local out err rc
 
-    # Same reasoning as resolve-role.py's precondition above: a missing
-    # report.py and several of its correct rc-2/rc-1 cases below would
-    # otherwise read as green by coincidence rather than red for the
-    # specified reason.
+    # Precondition: fails clearly if report.py is missing rather than
+    # passing by coincidence.
     if [ ! -f "$REPORT" ]; then
         bad "report.py exists" "not found at $REPORT"
         return
     fi
 
     # --- B1/B2: happy path, plus both redaction halves in one body --------
-    # decision D-J step 1: every map value -> <role.key>; then an IPv4/MAC/
-    # hostname-shaped token -> <redacted>. The delta section is never
-    # truncated (never capped here either -- --limit is generous), so
-    # whatever the redaction pass leaves behind is exactly what would reach
-    # the PR.
+    # Every map value -> <role.key>; then an IPv4/MAC/hostname-shaped token
+    # -> <redacted>.
     mkdir -p "$TOP/b1"
     printf 'VERDICT pr-run sha=deadbeef01 -> success (bench)\n' > "$TOP/b1/verdict.txt"
     printf 'diff --git a/kiosk-zero-w.yaml b/kiosk-zero-w.yaml\n' \
@@ -291,9 +245,8 @@ test_report_build() {
     printf 'stray leak check: bench=%s mac=%s ip=%s\n' \
         "$BENCH_ADDR" "$STRAY_MAC" "$STRAY_IP" >> "$TOP/b1/delta.txt"
     printf 'FOO := bar\n' >> "$TOP/b1/delta.txt"
-    # Nested under a synthetic result_id -- oeqa's OETestResultJSONHelper
-    # always writes testresults.json this way (sources/poky/meta/lib/oeqa/
-    # core/runner.py), never a bare {configuration, result} object.
+    # Nested under a synthetic result_id, matching oeqa's real testresults.json
+    # shape (sources/poky/meta/lib/oeqa/core/runner.py).
     cat > "$TOP/b1/results.json" <<'EOF'
 {"runtime_kiosk-zero-w_raspberrypi0-wifi_20260930101500": {"configuration": {}, "result": {
   "wisekiosk.WiseKioskTest.test_backend_unit_active": {"status": "PASSED"},
@@ -360,11 +313,8 @@ EOF
     esac
 
     # --- B2b: a public.* map row is excluded from redaction ---------------
-    # load_map_rows drops any key under PUBLIC_NS (mirrors scrub-identity.py's
-    # own PUBLIC_NS): its value is a build-time constant, not a site
-    # identifier, and must reach the PR unredacted. A non-public value in the
-    # same body proves the exclusion is per-row, not a redaction pass that
-    # merely failed.
+    # load_map_rows drops any key under PUBLIC_NS. A non-public value in the
+    # same body confirms the exclusion is per-row.
     PUBLICMAP="$TOP/device-identity-public.md"
     cat > "$PUBLICMAP" <<'EOF'
 ```identity
@@ -407,8 +357,8 @@ EOF
             "rc=$rc out=$out err=$err"
     fi
 
-    # --- B4: cap step 1 -- truncate a --log file from its head, keep the
-    # tail, line boundary only. Verdict and delta are never truncated. -----
+    # --- B4: cap step 1 -- truncate a --log file from its head, keeping the
+    # tail, at a line boundary. ----------------------------------------------
     mkdir -p "$TOP/b4"
     printf 'VERDICT pr-run -> success\n' > "$TOP/b4/verdict.txt"
     printf 'diff --git a/x b/x\n+ok\n' > "$TOP/b4/delta.txt"
@@ -457,9 +407,8 @@ EOF
         bad "report build, capped log: body is within --limit" "len=${#out}"
     fi
 
-    # --- B5: cap step 2 -- once every --log section is exhausted (none was
-    # given here), strip `log` fields from the results JSON, keeping the
-    # case's own status/identity. ------------------------------------------
+    # --- B5: cap step 2 -- once --log is exhausted, strip `log` fields from
+    # --results (case identity/status stay). --------------------------------
     mkdir -p "$TOP/b5"
     printf 'VERDICT pr-run -> success\n' > "$TOP/b5/verdict.txt"
     printf 'diff --git a/x b/x\n+ok\n' > "$TOP/b5/delta.txt"
@@ -503,12 +452,9 @@ PYEOF
         bad "report build, log-stripped: body is within --limit" "len=${#out}"
     fi
 
-    # --- B5b: cap order -- log truncation exhausts before results stripping
-    # starts. mid_len is measured, not guessed: it is the body's real size
-    # once --log's lines are fully popped, with the results log field still
-    # intact -- exactly where cap() sits right after step 1 finishes and
-    # before step 2 is ever tried. A limit of mid_len must be met by step 1
-    # alone; mid_len - 1 cannot, and only step 2 can close that last byte. ---
+    # --- B5b: cap order -- log truncation exhausts before results-log
+    # stripping starts. mid_len is the body's size once --log's lines are
+    # fully popped, with the results log field still intact. ----------------
     mkdir -p "$TOP/b5b"
     printf 'VERDICT pr-run -> success\n' > "$TOP/b5b/verdict.txt"
     printf 'diff --git a/x b/x\n+ok\n' > "$TOP/b5b/delta.txt"
@@ -531,9 +477,8 @@ PYEOF
     done
     : > "$TOP/b5b/log-empty.txt"
 
-    # Measured from a raw file, not a `capture`-captured variable: command
-    # substitution strips trailing newlines, which would shift this boundary
-    # by exactly the newlines the body ends in.
+    # Measured from a raw file: command substitution strips trailing
+    # newlines and would shift this boundary.
     local mid_len
     "$PY" "$REPORT" build --map "$GOODMAP" --limit 1000000 \
         --verdict "$TOP/b5b/verdict.txt" --delta "$TOP/b5b/delta.txt" \
@@ -592,12 +537,10 @@ PYEOF
     fi
 
     # --- B5c: cap order extends to the delta -- once log truncation and
-    # results-log stripping are both exhausted, remaining overflow truncates
-    # the delta: --delta-stat's summary, then the delta's own first 200
-    # lines, then a truncation note. floor_len is measured the same way as
-    # mid_len above: the body once log and results are already at their
-    # minimum, with the delta still whole -- exactly where cap() sits before
-    # it ever touches the delta. -------------------------------------------
+    # results-log stripping are exhausted, overflow truncates the delta:
+    # --delta-stat's summary, the delta's first 200 lines, then a
+    # truncation note. floor_len is the body's size with log and results
+    # already minimal and the delta still whole. ----------------------------
     mkdir -p "$TOP/b5c"
     printf 'VERDICT pr-run -> success\n' > "$TOP/b5c/verdict.txt"
     "$PY" -c '
@@ -632,12 +575,8 @@ PYEOF
     done
     : > "$TOP/b5c/log-empty.txt"
 
-    # Measured with the log already empty and the results log field already
-    # absent -- the exact size cap() reaches right before it ever tries the
-    # delta.
-    # The 30 000-line delta alone is ~2.9 MB -- the measuring limit must clear
-    # that or this baseline call truncates its own delta before it can be
-    # measured whole.
+    # Measured with log and results already minimal, delta still whole. The
+    # limit must clear the ~2.9 MB delta or this call truncates it first.
     local floor_len
     "$PY" "$REPORT" build --map "$GOODMAP" --limit 10000000 \
         --verdict "$TOP/b5c/verdict.txt" --delta "$TOP/b5c/delta.txt" \
@@ -746,7 +685,7 @@ PYEOF
 }
 
 # =========================================================================
-# C. tools/pipeline/report.py check  (D-J step 3, the pre-post gate)
+# C. tools/pipeline/report.py check -- the pre-post gate
 # =========================================================================
 
 test_report_check() {
