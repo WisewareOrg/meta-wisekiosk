@@ -1,0 +1,47 @@
+# Bench smoke tier (#122): the wisekiosk-backend contract this pipeline
+# proves on every candidate boot, re-hosting WiseKiosk's own smoke-native
+# cases in Yocto's oeqa harness.
+
+import time
+
+from oeqa.runtime.case import OERuntimeTestCase
+
+# TEST_SUITES = "wisekiosk" (includes/testimage.yaml) replaces, rather than
+# extends, the default suite list, so the poky "ssh" module (and its
+# ssh.SSHTest.test_ssh) is never loaded here; these four cases are independent
+# and carry no OETestDepends chain to it or to each other.
+
+HEALTHZ_URL = "http://127.0.0.1:8080/healthz"
+INDEX_URL = "http://127.0.0.1:8080/"
+HEALTHZ_BOUND_SECONDS = 60
+HEALTHZ_POLL_INTERVAL_SECONDS = 2
+
+
+class WiseKioskTest(OERuntimeTestCase):
+
+    def test_backend_unit_active(self):
+        status, output = self.target.run("systemctl is-active wisekiosk.service")
+        self.assertEqual(output, "active", "wisekiosk.service is not active (rc %s): %s" % (status, output))
+
+    def test_healthz_within_bound(self):
+        deadline = time.time() + HEALTHZ_BOUND_SECONDS
+        status, output = None, None
+        while True:
+            status, output = self.target.run("wget -q -O- %s" % HEALTHZ_URL)
+            if status == 0:
+                return
+            if time.time() >= deadline:
+                break
+            time.sleep(HEALTHZ_POLL_INTERVAL_SECONDS)
+        self.fail("/healthz did not return within %ss (rc %s): %s" % (HEALTHZ_BOUND_SECONDS, status, output))
+
+    def test_page_serves(self):
+        status, output = self.target.run("wget -q -O- %s" % INDEX_URL)
+        self.assertEqual(status, 0, "GET / failed (rc %s): %s" % (status, output))
+        self.assertIn("<html", output, "GET / did not return an <html> body: %s" % output)
+
+    def test_health_check_flag(self):
+        status, output = self.target.run("/usr/bin/wisekiosk -health-check")
+        if status != 0 and "flag provided but not defined" in output:
+            self.skipTest("pinned app has no -health-check")
+        self.assertEqual(status, 0, "-health-check failed (rc %s): %s" % (status, output))
