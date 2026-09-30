@@ -219,6 +219,82 @@ test_resolve_role() {
     else
         bad "resolve-role --help: exits 0 and prints usage" "rc=$rc out=$out err=$err"
     fi
+
+    # --verify-hostname: rc 0 only when the observed hostname is bench's own
+    # and no other role's.
+    HOSTNAMEMAP="$TOP/device-identity-hostname.md"
+    cat > "$HOSTNAMEMAP" <<'EOF'
+```identity
+prod.address    = 198.51.100.7
+bench.address   = 198.51.100.14
+prod.hostname   = prod-fixture
+bench.hostname  = bench-fixture
+```
+EOF
+
+    capture out err rc "$PY" "$RESOLVE_ROLE" --map "$HOSTNAMEMAP" --verify-hostname bench-fixture
+    if [ "$rc" -eq 0 ]; then
+        ok "resolve-role --verify-hostname: matches bench's own hostname, rc 0"
+    else
+        bad "resolve-role --verify-hostname: matches bench's own hostname, rc 0" \
+            "rc=$rc out=$out err=$err"
+    fi
+
+    # A bare mismatch (prod-fixture != bench-fixture) would already refuse via
+    # the first check without ever reaching the cross-role one -- this map
+    # makes bench's own hostname ALSO another role's, so only the cross-role
+    # check (not the equality check) can be why this refuses.
+    HOSTNAMECOLLISIONMAP="$TOP/device-identity-hostname-collision.md"
+    cat > "$HOSTNAMECOLLISIONMAP" <<'EOF'
+```identity
+prod.address    = 198.51.100.7
+bench.address   = 198.51.100.14
+prod.hostname   = shared-fixture
+bench.hostname  = shared-fixture
+```
+EOF
+
+    capture out err rc "$PY" "$RESOLVE_ROLE" --map "$HOSTNAMECOLLISIONMAP" --verify-hostname shared-fixture
+    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
+        ok "resolve-role --verify-hostname: matches bench's own hostname but also another role's, refused rc 2"
+    else
+        bad "resolve-role --verify-hostname: matches bench's own hostname but also another role's, refused rc 2" \
+            "rc=$rc out=$out err=$err"
+    fi
+
+    capture out err rc "$PY" "$RESOLVE_ROLE" --map "$HOSTNAMEMAP" --verify-hostname nonexistent-fixture
+    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
+        ok "resolve-role --verify-hostname: matches no row, refused rc 2"
+    else
+        bad "resolve-role --verify-hostname: matches no row, refused rc 2" \
+            "rc=$rc out=$out err=$err"
+    fi
+
+    capture out err rc "$PY" "$RESOLVE_ROLE" --map "$HOSTNAMEMAP" --verify-hostname
+    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
+        ok "resolve-role --verify-hostname: no value, refused rc 2"
+    else
+        bad "resolve-role --verify-hostname: no value, refused rc 2" \
+            "rc=$rc out=$out err=$err"
+    fi
+
+    # bench.address colliding with another role's *.address row refuses too --
+    # a wrong map must not resolve bench to a board that is really prod's.
+    COLLISIONMAP="$TOP/device-identity-collision.md"
+    cat > "$COLLISIONMAP" <<'EOF'
+```identity
+prod.address    = 198.51.100.14
+bench.address   = 198.51.100.14
+```
+EOF
+
+    capture out err rc "$PY" "$RESOLVE_ROLE" --map "$COLLISIONMAP" bench
+    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
+        ok "resolve-role bench, address collides with another role: refused rc 2"
+    else
+        bad "resolve-role bench, address collides with another role: refused rc 2" \
+            "rc=$rc out=$out err=$err"
+    fi
 }
 
 # =========================================================================
@@ -344,6 +420,42 @@ EOF
         *"$BENCH_ADDR"*)
             bad "report build: a non-public value in the same body is still redacted" "out=$out" ;;
         *) ok "report build: a non-public value in the same body is still redacted" ;;
+    esac
+
+    # --- B2c: redaction replaces the longest matching map value first, so a
+    # shorter value that is a prefix of a longer one never fragments it -----
+    PREFIXMAP="$TOP/device-identity-prefix.md"
+    cat > "$PREFIXMAP" <<'EOF'
+```identity
+short.address   = 192.0.2.1
+long.address    = 192.0.2.10
+```
+EOF
+
+    mkdir -p "$TOP/b2c"
+    printf 'VERDICT pr-run -> success\n' > "$TOP/b2c/verdict.txt"
+    printf 'diff --git a/x b/x\nlong host at 192.0.2.10\n' > "$TOP/b2c/delta.txt"
+    printf '{"runtime_kiosk-zero-w_raspberrypi0-wifi_20260930101500": {"configuration": {}, "result": {}}}\n' \
+        > "$TOP/b2c/results.json"
+
+    capture out err rc "$PY" "$REPORT" build --map "$PREFIXMAP" --limit 100000 \
+        --verdict "$TOP/b2c/verdict.txt" --delta "$TOP/b2c/delta.txt" \
+        --results "$TOP/b2c/results.json"
+
+    case "$out" in
+        *"<long.address>"*)
+            ok "report build: the longer prefix-sharing value is replaced by its own token intact" ;;
+        *) bad "report build: the longer prefix-sharing value is replaced by its own token intact" "out=$out" ;;
+    esac
+    case "$out" in
+        *"192.0.2.10"*)
+            bad "report build: the longer prefix-sharing value is not left raw" "out=$out" ;;
+        *) ok "report build: the longer prefix-sharing value is not left raw" ;;
+    esac
+    case "$out" in
+        *"<short.address>"*)
+            bad "report build: no fragment of the shorter value's token appears" "out=$out" ;;
+        *) ok "report build: no fragment of the shorter value's token appears" ;;
     esac
 
     # --- B3: a missing required file ---------------------------------------
