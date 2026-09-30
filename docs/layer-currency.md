@@ -21,9 +21,7 @@ No package-manifest reader can see this, because a kas `commit:` is not a manife
 `tjwise99/wise-renovate`, which keeps one pull request per behind repo and rolls it forward in place
 while it stays unmerged. None of those pull requests automerges (owner, 2026-09-30): CI never builds
 the image, so a green check says nothing about a kas input. Renovate says *that* a pin is behind. This
-report and `just gap` say what the pin is worth. Guard 20 in
-[`../tools/ci-guards.sh`](../tools/ci-guards.sh) fails the day the regex stops reading a pin this
-report reads.
+report and `just gap` say what the pin is worth.
 
 ## Running it
 

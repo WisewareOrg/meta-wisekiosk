@@ -38,7 +38,7 @@
   "customManagers": [
     {
       "customType": "regex",
-      "description": "kas layer pins. An entry naming no branch inherits defaults.repos.branch in includes/base.yaml; the template's fallback is that value, and tools/ci-guards.sh holds the two equal.",
+      "description": "kas layer pins. An entry naming no branch inherits defaults.repos.branch in includes/base.yaml; the template's fallback is that value.",
       "managerFilePatterns": ["/^includes/.+\\.ya?ml$/"],
       "matchStrings": [
         "\\n  (?<depName>[a-z0-9-]+):\\n(?: {4}.*\\n)*? {4}url: [\"']?(?<packageName>[^\"'\\s]+)[\"']?\\n(?: {4}.*\\n)*?(?: {4}branch: (?<branchBefore>\\S+)\\n(?: {4}.*\\n)*?)? {4}commit: (?<currentDigest>[0-9a-f]{40})\\n(?:(?: {4}.*\\n)*? {4}branch: (?<branchAfter>\\S+))?"
