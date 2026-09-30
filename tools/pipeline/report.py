@@ -84,10 +84,14 @@ FENCE_OPEN = re.compile(r'^```identity\s*$')
 FENCE_CLOSE = re.compile(r'^```\s*$')
 MAP_ROW = re.compile(r'^\s*([A-Za-z0-9_.]+)\s*=\s*(\S.*?)\s*$')
 
-# Values recorded in the map under this namespace are legitimately public
-# (tools/scrub-identity.py's own header: "raspberrypi0-wifi is the Yocto
-# MACHINE name and appears in hundreds of tracked paths") and are excluded
-# from redaction for the same reason that file's KNOWN half excludes them.
+# local/device-identity.md ## Format: "Keys under the public. namespace are
+# recorded here for completeness but are not scanned: they are legitimately
+# public strings that also happen to identify a board" -- the map's own
+# format owner, echoed in tools/scrub-identity.py's PUBLIC_NS (its header:
+# "raspberrypi0-wifi is the Yocto MACHINE name and appears in hundreds of
+# tracked paths"). Excluded from redaction here for the same reason that
+# file's KNOWN half excludes them: redacting a public value would not make
+# the report safer, only unreadable (it appears throughout build paths).
 PUBLIC_NS = "public."
 
 STATES = ("pending", "success", "failure", "error")
