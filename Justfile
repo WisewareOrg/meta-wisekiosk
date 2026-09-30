@@ -5,6 +5,7 @@
 #
 # Quick start:
 #   just build              # Build the image (kas fetches sources/ on first run)
+#   just build-with-history # Build with buildhistory, for `just artifact-diff`
 #   just kiosk-ota          # Build a bundle and install it on the device
 #   just flash /dev/sdX     # Flash to SD card
 #   just rauc-status <ip>   # Check device RAUC status
@@ -78,6 +79,14 @@ build:
     {{py}} tools/go-mods.py
     {{py}} tools/app-lockfile.py
     kas-container build {{config}}
+
+[group('build')]
+[doc("Build with buildhistory inherited, for artifact-diff (#119 D-D)")]
+build-with-history:
+    tools/write-build-rev.sh
+    {{py}} tools/go-mods.py
+    {{py}} tools/app-lockfile.py
+    kas-container build {{config}}:includes/buildhistory.yaml
 
 # Open a shell in the build environment
 [group('build')]
@@ -203,6 +212,11 @@ cve-build:
     {{py}} tools/app-lockfile.py
     kas-container build {{config}}:includes/cve-audit.yaml
     {{py}} tools/cve-delta.py snapshot
+
+[group('audit')]
+[doc("Report whether the buildhistory image dir differs between two refs (#119 D-C; rc 1 = no change, rc 2 = could not tell)")]
+artifact-diff base head *args:
+    {{py}} tools/artifact-diff.py {{args}} {{base}} {{head}}
 
 # Write per-site config to a device's /data. The image carries none of it.
 [group('provision')]
