@@ -1,6 +1,4 @@
-# #119 D-K. User unit, triggered by wisekiosk-pipeline.timer -- never
-# enabled directly. `just pipeline-install` symlinks this (and the timer)
-# into ~/.config/systemd/user/.
+# Triggered by wisekiosk-pipeline.timer -- never enabled directly.
 [Unit]
 Description=Bench pipeline: one build / OTA / testimage / rollback / status run
 

@@ -245,17 +245,12 @@ provision-device host=kiosk-host:
 provision-card mountpoint:
     tools/provision.sh card {{mountpoint}}
 
-# === Pipeline (#119) ===
+# === Pipeline ===
 #
-# The bench pipeline builds, artifact-diffs, OTAs, testimages, rolls back and
-# reports on a systemd user timer -- see docs/testing.md "Running it". Every
-# host artifact below is created ONLY by pipeline-install; nothing here is
-# done to the host by hand.
+# Builds, artifact-diffs, OTAs, testimages, rolls back and reports on a
+# systemd user timer -- see docs/testing.md "Running it".
 
-# Idempotent: re-running updates the two checkouts to driver_ref and
-# regenerates the env file and units, refusing nothing it can redo. Never
-# touches the timer -- pipeline-on is the separate, deliberate step, gated on
-# the falsifier pair passing (#119 decision 15).
+# Idempotent; never touches the timer.
 [group('pipeline')]
 [script('bash')]
 [doc("Provision the pipeline's checkouts, ssh key, env file and units (idempotent; does not enable the timer)")]
@@ -268,8 +263,7 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') kas_build_dir=env
     MAP=$(readlink -f "$ROOT/local/device-identity.md")
     ORIGIN_URL=$(git -C "$ROOT" remote get-url origin)
 
-    # Both checkouts are pure infrastructure -- nobody edits them by hand --
-    # so a re-run force-syncs them to driver_ref rather than merging drift.
+    # Force-syncs to driver_ref rather than merging drift.
     if [ -d "$DRIVER/.git" ]; then
         git -C "$DRIVER" fetch origin
         git -C "$DRIVER" checkout -B "{{driver_ref}}" "origin/{{driver_ref}}"
@@ -284,8 +278,6 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') kas_build_dir=env
     git -C "$TREE" checkout --detach "origin/{{driver_ref}}"
     echo "driver and tree at origin/{{driver_ref}}"
 
-    # One source of truth for the site: local/ is gitignored, so a symlink
-    # inside it is ignored too (#119 decision 7).
     for d in "$DRIVER" "$TREE"; do
         mkdir -p "$d/local"
         ln -sf "$MAP" "$d/local/device-identity.md"
@@ -294,13 +286,9 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') kas_build_dir=env
     CONF_DIR="$HOME/.config/wisekiosk"
     mkdir -p "$CONF_DIR"
     SSH_DIR="$CONF_DIR/pipeline-ssh"
-    # printf, not a heredoc: `just` treats a flush-left line as ending the
-    # recipe body, so a heredoc's own terminator can never be flush-left here.
-    # Every value double-quoted: this file is both an EnvironmentFile= (which
-    # accepts that quoting per systemd.exec(5)) and, for `just pipeline-run`,
-    # a plain `. `-sourced shell file -- and PATH on this host has spaces in
-    # it (WSL's /mnt/c/Program Files/...), which an unquoted value would
-    # word-split under the latter.
+    # printf, not a heredoc: `just` ends a recipe body at a flush-left line.
+    # Values are double-quoted for both an EnvironmentFile= parser and a
+    # plain `.`-sourced shell.
     {
         printf 'PATH="%s"\n' "$PATH"
         printf 'KAS_BUILD_DIR="%s"\n' "$KAS_BUILD_DIR"
@@ -311,9 +299,6 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') kas_build_dir=env
     } > "$CONF_DIR/pipeline.env"
     echo "wrote $CONF_DIR/pipeline.env"
 
-    # A dedicated bench-only key, never ~/.ssh (decision 8): mounted into the
-    # kas-container for the testimage stage only, so untrusted build/test
-    # code never touches the key that also pushes to GitHub.
     mkdir -p "$SSH_DIR"
     chmod 700 "$SSH_DIR"
     if [ ! -f "$SSH_DIR/id_ed25519" ]; then
@@ -322,10 +307,8 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') kas_build_dir=env
     fi
     touch "$SSH_DIR/known_hosts"
 
-    # A catch-all Host block, not a bench-specific one: what the container
-    # connects to is TEST_TARGET_IP, a bare address passed at run time, never
-    # a literal "bench" alias -- and this ssh dir is mounted only for the
-    # testimage stage, so "every Host" already means "only bench".
+    # A catch-all Host block: the container connects to TEST_TARGET_IP, a
+    # bare address, not a "bench" alias.
     {
         printf 'Host *\n'
         printf '    User root\n'
@@ -352,8 +335,6 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') kas_build_dir=env
         echo "enabled linger for $(id -un)"
     fi
 
-    # Proved under the same systemd --user context the timer itself runs
-    # under -- not just this interactive shell's.
     systemd-run --user --wait --pipe -- gh auth status
     systemd-run --user --wait --pipe -- git -C "$DRIVER" ls-remote origin HEAD
     echo "gh auth and git ls-remote both proved under systemd-run --user"
@@ -383,8 +364,6 @@ pipeline-status:
         echo "no DISABLED file"
     fi
 
-# Sources the env file pipeline-install wrote, then runs the driver's own
-# run.sh -- the same invocation the timer makes, by hand.
 [group('pipeline')]
 [script('bash')]
 [doc("Run one pipeline job by hand: no args (next candidate) | baseline [sha] | pr N")]

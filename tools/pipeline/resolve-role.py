@@ -3,24 +3,14 @@
 
     resolve-role.py [--map <path>] bench
 
-Only `bench` ever resolves (#119 decision 7): the pipeline runs unattended
-under a systemd timer, where `.claude/hooks/guard.sh`'s prod protection does
-not run -- this refusal IS the pipeline's own safety control against an
-accidental OTA or reboot of the wall-mounted prod board. Any other role, no
-role, or a role plus anything else on the command line is refused: rc 2,
-nothing on stdout, the reason on stderr. There is no way to pass an address
-directly -- the only inputs are a role name and which map to read it from.
+Only `bench` resolves. Any other role, no role, extra arguments, a missing
+--map file, or a map with no `bench.address` row: rc 2, nothing on stdout,
+the reason on stderr.
 
 --map defaults to <repo root>/local/device-identity.md, the repo root found
-by `git rev-parse --show-toplevel` from the current directory.
-
-The map's ```identity fence and `key = value` row format is owned by
-tools/scrub-identity.py's module docstring; parsed fresh here rather than
-imported, since that script's own loader is scoped to a git repo root and
-every caller here already has an explicit --map path.
-
-Exit 2: refused -- wrong role, no role, extra arguments, no --map file, or
-        the map has no `bench.address` row. The reason is on stderr.
+by `git rev-parse --show-toplevel` from the current directory. The map's
+```identity fence and `key = value` row format is defined in
+tools/scrub-identity.py.
 """
 import importlib.util
 import re
@@ -30,12 +20,8 @@ from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parent.parent
 
-# Hyphenated filename, so it cannot be a normal import: loaded by path, only
-# for its git_env(), which is the worktree-git-env guard -- a leaked
-# GIT_DIR/GIT_INDEX_FILE from an enclosing worktree's hooks would send the
-# --map default's `git rev-parse` at that worktree's repository instead of
-# this one. Owned by tools/layer-currency.py; not duplicated here. Same
-# technique as tools/artifact-diff.py.
+# Loaded by path (see tools/artifact-diff.py): a hyphenated filename is not
+# a normal import. Provides git_env().
 _spec = importlib.util.spec_from_file_location(
     "layer_currency", TOOLS / "layer-currency.py")
 _layer_currency = importlib.util.module_from_spec(_spec)
