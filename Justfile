@@ -218,6 +218,22 @@ cve-build:
 artifact-diff base head *args:
     {{py}} tools/artifact-diff.py {{args}} {{base}} {{head}}
 
+[group('audit')]
+[script('bash')]
+[doc("Build with testimage inherited; run the wisekiosk oeqa suite over ssh (#119 D-G)")]
+testimage ssh_dir=env('PIPELINE_SSH_DIR', ''):
+    if [ -z "{{ssh_dir}}" ] || [ -z "${TEST_TARGET_IP:-}" ]; then
+        echo "testimage needs ssh_dir (or PIPELINE_SSH_DIR) and TEST_TARGET_IP set -- refusing" >&2
+        exit 2
+    fi
+    tools/write-build-rev.sh
+    {{py}} tools/go-mods.py
+    {{py}} tools/app-lockfile.py
+    # guard 10's kas-container[[:space:]]+(build|shell) regex does not match this
+    # line -- --ssh-dir sits between the binary and its subcommand, so this
+    # recipe is outside guard 10's assertion (#119 decision 16).
+    kas-container --ssh-dir {{ssh_dir}} --runtime-args "-e TEST_TARGET_IP=$TEST_TARGET_IP -e OEQA_JSON_RESULT_DIR=$OEQA_JSON_RESULT_DIR" build {{config}}:includes/testimage.yaml -c testimage
+
 # Write per-site config to a device's /data. The image carries none of it.
 [group('provision')]
 [doc("Provision a reachable device's /data from secrets.yaml")]
