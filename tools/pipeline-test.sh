@@ -174,6 +174,12 @@ test_resolve_role() {
         bad "resolve-role prod: refused, rc 2, nothing on stdout, reason on stderr" \
             "rc=$rc out=$out err=$err"
     fi
+    case "$out$err" in
+        *"$PROD_ADDR"*)
+            bad "resolve-role prod: the prod address appears in neither stdout nor stderr" \
+                "out=$out err=$err" ;;
+        *) ok "resolve-role prod: the prod address appears in neither stdout nor stderr" ;;
+    esac
 
     capture out err rc "$PY" "$RESOLVE_ROLE" --map "$GOODMAP"
     if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
@@ -182,6 +188,12 @@ test_resolve_role() {
         bad "resolve-role no-arg: refused, rc 2, nothing on stdout, reason on stderr" \
             "rc=$rc out=$out err=$err"
     fi
+    case "$out$err" in
+        *"$PROD_ADDR"*)
+            bad "resolve-role no-arg: the prod address appears in neither stdout nor stderr" \
+                "out=$out err=$err" ;;
+        *) ok "resolve-role no-arg: the prod address appears in neither stdout nor stderr" ;;
+    esac
 
     capture out err rc "$PY" "$RESOLVE_ROLE" --map "$GOODMAP" swampland
     if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
@@ -190,6 +202,12 @@ test_resolve_role() {
         bad "resolve-role unknown role: refused, rc 2, nothing on stdout, reason on stderr" \
             "rc=$rc out=$out err=$err"
     fi
+    case "$out$err" in
+        *"$PROD_ADDR"*)
+            bad "resolve-role unknown role: the prod address appears in neither stdout nor stderr" \
+                "out=$out err=$err" ;;
+        *) ok "resolve-role unknown role: the prod address appears in neither stdout nor stderr" ;;
+    esac
 
     capture out err rc "$PY" "$RESOLVE_ROLE" --map "$NOBENCHMAP" bench
     if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
@@ -198,6 +216,12 @@ test_resolve_role() {
         bad "resolve-role bench, map with no bench key: refused, rc 2" \
             "rc=$rc out=$out err=$err"
     fi
+    case "$out$err" in
+        *"$PROD_ADDR"*)
+            bad "resolve-role bench, map with no bench key: the prod address appears in neither stdout nor stderr" \
+                "out=$out err=$err" ;;
+        *) ok "resolve-role bench, map with no bench key: the prod address appears in neither stdout nor stderr" ;;
+    esac
 
     capture out err rc "$PY" "$RESOLVE_ROLE" --map "$GOODMAP" bench extra
     if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
@@ -206,6 +230,12 @@ test_resolve_role() {
         bad "resolve-role bench, extra positional: refused, rc 2, reason on stderr (no address argument)" \
             "rc=$rc out=$out err=$err"
     fi
+    case "$out$err" in
+        *"$PROD_ADDR"*)
+            bad "resolve-role bench, extra positional: the prod address appears in neither stdout nor stderr" \
+                "out=$out err=$err" ;;
+        *) ok "resolve-role bench, extra positional: the prod address appears in neither stdout nor stderr" ;;
+    esac
 
     # --map defaults to <repo root>/local/device-identity.md (D-F). Proven
     # against a fresh, throwaway git repository -- never this checkout's own
@@ -261,11 +291,14 @@ test_report_build() {
     printf 'stray leak check: bench=%s mac=%s ip=%s\n' \
         "$BENCH_ADDR" "$STRAY_MAC" "$STRAY_IP" >> "$TOP/b1/delta.txt"
     printf 'FOO := bar\n' >> "$TOP/b1/delta.txt"
+    # Nested under a synthetic result_id -- oeqa's OETestResultJSONHelper
+    # always writes testresults.json this way (sources/poky/meta/lib/oeqa/
+    # core/runner.py), never a bare {configuration, result} object.
     cat > "$TOP/b1/results.json" <<'EOF'
-{"configuration": {}, "result": {
+{"runtime_kiosk-zero-w_raspberrypi0-wifi_20260930101500": {"configuration": {}, "result": {
   "wisekiosk.WiseKioskTest.test_backend_unit_active": {"status": "PASSED"},
   "wisekiosk.WiseKioskTest.test_healthz_within_bound": {"status": "PASSED"}
-}}
+}}}
 EOF
 
     capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit 100000 \
@@ -345,7 +378,8 @@ EOF
     printf 'VERDICT pr-run -> success\n' > "$TOP/b2b/verdict.txt"
     printf 'diff --git a/x b/x\nmachine=raspberrypi0-wifi bench=%s\n' \
         "$BENCH_ADDR" > "$TOP/b2b/delta.txt"
-    printf '{"configuration": {}, "result": {}}\n' > "$TOP/b2b/results.json"
+    printf '{"runtime_kiosk-zero-w_raspberrypi0-wifi_20260930101500": {"configuration": {}, "result": {}}}\n' \
+        > "$TOP/b2b/results.json"
 
     capture out err rc "$PY" "$REPORT" build --map "$PUBLICMAP" --limit 100000 \
         --verdict "$TOP/b2b/verdict.txt" --delta "$TOP/b2b/delta.txt" \
@@ -379,9 +413,9 @@ EOF
     printf 'VERDICT pr-run -> success\n' > "$TOP/b4/verdict.txt"
     printf 'diff --git a/x b/x\n+ok\n' > "$TOP/b4/delta.txt"
     cat > "$TOP/b4/results.json" <<'EOF'
-{"configuration": {}, "result": {
+{"runtime_kiosk-zero-w_raspberrypi0-wifi_20260930101500": {"configuration": {}, "result": {
   "wisekiosk.WiseKioskTest.test_backend_unit_active": {"status": "PASSED"}
-}}
+}}}
 EOF
     : > "$TOP/b4/log.txt"
     i=1
@@ -432,10 +466,10 @@ EOF
     "$PY" - <<PYEOF > "$TOP/b5/results.json"
 import json
 biglog = "RESULTLOGDETAIL-B5-PAYLOAD " * 150
-data = {"configuration": {}, "result": {
+data = {"runtime_kiosk-zero-w_raspberrypi0-wifi_20260930101500": {"configuration": {}, "result": {
     "wisekiosk.WiseKioskTest.test_backend_unit_active": {"status": "PASSED"},
     "wisekiosk.WiseKioskTest.test_render_large_log": {"status": "FAILED", "log": biglog},
-}}
+}}}
 print(json.dumps(data))
 PYEOF
 
@@ -478,6 +512,7 @@ PYEOF
     mkdir -p "$TOP/b5b"
     printf 'VERDICT pr-run -> success\n' > "$TOP/b5b/verdict.txt"
     printf 'diff --git a/x b/x\n+ok\n' > "$TOP/b5b/delta.txt"
+    # Not nested under a result_id like the fixtures above -- see commit message.
     "$PY" - <<PYEOF > "$TOP/b5b/results.json"
 import json
 biglog = "COMBOLOGDETAIL-B5B-PAYLOAD " * 100
@@ -554,6 +589,137 @@ PYEOF
         ok "report build, cap order one byte tighter: body is within --limit"
     else
         bad "report build, cap order one byte tighter: body is within --limit" "len=$(utf8_len "$out")"
+    fi
+
+    # --- B5c: cap order extends to the delta -- once log truncation and
+    # results-log stripping are both exhausted, remaining overflow truncates
+    # the delta: --delta-stat's summary, then the delta's own first 200
+    # lines, then a truncation note. floor_len is measured the same way as
+    # mid_len above: the body once log and results are already at their
+    # minimum, with the delta still whole -- exactly where cap() sits before
+    # it ever touches the delta. -------------------------------------------
+    mkdir -p "$TOP/b5c"
+    printf 'VERDICT pr-run -> success\n' > "$TOP/b5c/verdict.txt"
+    "$PY" -c '
+for i in range(30000):
+    print(f"DELTALINE {i:05d} of a very long delta, padded so truncation has bytes to cut xxxxxxxxxxxxxxxxxxxx")
+' > "$TOP/b5c/delta.txt"
+    printf ' kiosk-zero-w.yaml | 30000 ++++++++++++++++++++\n 1 file changed, 30000 insertions(+)\n' \
+        > "$TOP/b5c/delta-stat.txt"
+    "$PY" - <<PYEOF > "$TOP/b5c/results.json"
+import json
+biglog = "DELTAORDER-B5C-PAYLOAD " * 100
+data = {"configuration": {}, "result": {
+    "wisekiosk.WiseKioskTest.test_backend_unit_active": {"status": "PASSED"},
+    "wisekiosk.WiseKioskTest.test_render_large_log": {"status": "FAILED", "log": biglog},
+}}
+print(json.dumps(data))
+PYEOF
+    "$PY" - <<PYEOF > "$TOP/b5c/results-stripped.json"
+import json
+data = {"configuration": {}, "result": {
+    "wisekiosk.WiseKioskTest.test_backend_unit_active": {"status": "PASSED"},
+    "wisekiosk.WiseKioskTest.test_render_large_log": {"status": "FAILED"},
+}}
+print(json.dumps(data))
+PYEOF
+    : > "$TOP/b5c/log.txt"
+    i=1
+    while [ "$i" -le 50 ]; do
+        printf 'DELTAORDERLOG %04d of a small log, padded so truncation has bytes to cut xxxx\n' \
+            "$i" >> "$TOP/b5c/log.txt"
+        i=$((i + 1))
+    done
+    : > "$TOP/b5c/log-empty.txt"
+
+    # Measured with the log already empty and the results log field already
+    # absent -- the exact size cap() reaches right before it ever tries the
+    # delta.
+    # The 30 000-line delta alone is ~2.9 MB -- the measuring limit must clear
+    # that or this baseline call truncates its own delta before it can be
+    # measured whole.
+    local floor_len
+    "$PY" "$REPORT" build --map "$GOODMAP" --limit 10000000 \
+        --verdict "$TOP/b5c/verdict.txt" --delta "$TOP/b5c/delta.txt" \
+        --delta-stat "$TOP/b5c/delta-stat.txt" \
+        --results "$TOP/b5c/results-stripped.json" \
+        --log "deltaorderlog=$TOP/b5c/log-empty.txt" \
+        > "$TOP/b5c/floor.out"
+    floor_len=$("$PY" -c \
+        'import sys; sys.stdout.write(str(len(open(sys.argv[1], encoding="utf-8").read())))' \
+        "$TOP/b5c/floor.out")
+
+    capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit "$floor_len" \
+        --verdict "$TOP/b5c/verdict.txt" --delta "$TOP/b5c/delta.txt" \
+        --delta-stat "$TOP/b5c/delta-stat.txt" \
+        --results "$TOP/b5c/results.json" --log "deltaorderlog=$TOP/b5c/log.txt"
+    if [ "$rc" -eq 0 ]; then
+        ok "report build, cap order at the delta-untouched size: exits 0"
+    else
+        bad "report build, cap order at the delta-untouched size: exits 0" "rc=$rc err=$err"
+    fi
+    case "$out" in
+        *"DELTAORDERLOG "*)
+            bad "report build, cap order at the delta-untouched size: the log is fully truncated" "out=$out" ;;
+        *) ok "report build, cap order at the delta-untouched size: the log is fully truncated" ;;
+    esac
+    case "$out" in
+        *"DELTAORDER-B5C-PAYLOAD"*)
+            bad "report build, cap order at the delta-untouched size: the results log field is stripped" "out=$out" ;;
+        *) ok "report build, cap order at the delta-untouched size: the results log field is stripped" ;;
+    esac
+    case "$out" in
+        *"DELTALINE 29999"*)
+            ok "report build, cap order at the delta-untouched size: the delta is still whole" ;;
+        *) bad "report build, cap order at the delta-untouched size: the delta is still whole" "out=$out" ;;
+    esac
+    case "$out" in
+        *"delta truncated"*)
+            bad "report build, cap order at the delta-untouched size: no truncation note yet" "out=$out" ;;
+        *) ok "report build, cap order at the delta-untouched size: no truncation note yet" ;;
+    esac
+
+    capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit "$((floor_len - 1))" \
+        --verdict "$TOP/b5c/verdict.txt" --delta "$TOP/b5c/delta.txt" \
+        --delta-stat "$TOP/b5c/delta-stat.txt" \
+        --results "$TOP/b5c/results.json" --log "deltaorderlog=$TOP/b5c/log.txt"
+    if [ "$rc" -eq 0 ]; then
+        ok "report build, cap order one byte tighter than the delta: exits 0"
+    else
+        bad "report build, cap order one byte tighter than the delta: exits 0" "rc=$rc err=$err"
+    fi
+    case "$out" in
+        *"VERDICT pr-run -> success"*)
+            ok "report build, cap order one byte tighter than the delta: the verdict is intact" ;;
+        *) bad "report build, cap order one byte tighter than the delta: the verdict is intact" "out=$out" ;;
+    esac
+    case "$out" in
+        *"delta truncated; full delta in the run dir"*)
+            ok "report build, cap order one byte tighter than the delta: the truncation note is present" ;;
+        *) bad "report build, cap order one byte tighter than the delta: the truncation note is present" \
+            "out=$out" ;;
+    esac
+    case "$out" in
+        *"DELTALINE 29999"*)
+            bad "report build, cap order one byte tighter than the delta: the delta's tail is gone" "out=$out" ;;
+        *) ok "report build, cap order one byte tighter than the delta: the delta's tail is gone" ;;
+    esac
+    case "$out" in
+        *"DELTALINE 00000"*)
+            ok "report build, cap order one byte tighter than the delta: the delta's head survives" ;;
+        *) bad "report build, cap order one byte tighter than the delta: the delta's head survives" "out=$out" ;;
+    esac
+    case "$out" in
+        *"1 file changed, 30000 insertions"*)
+            ok "report build, cap order one byte tighter than the delta: the --delta-stat summary survives" ;;
+        *) bad "report build, cap order one byte tighter than the delta: the --delta-stat summary survives" \
+            "out=$out" ;;
+    esac
+    if [ "$(utf8_len "$out")" -le "$((floor_len - 1))" ]; then
+        ok "report build, cap order one byte tighter than the delta: body is within --limit"
+    else
+        bad "report build, cap order one byte tighter than the delta: body is within --limit" \
+            "len=$(utf8_len "$out")"
     fi
 
     # --- B6: cannot fit even after every truncation step -------------------
