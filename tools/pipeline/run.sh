@@ -447,7 +447,9 @@ fi
 SLOTS_INFO=$(rauc_slots "$SSH_HOST") || true
 NEW_SLOT=$(booted_bootname "$SLOTS_INFO") || abort "could not read bench's booted slot after install"
 if [ "$NEW_SLOT" = "$BASELINE_SLOT" ]; then
-    abort "install did not switch slots; bench is still on the baseline slot"
+    # RAUC's own fallback already completed within the initial wait -- same
+    # outcome as the extended-wait branch above.
+    finish failure "new slot did not boot; RAUC fell back"
 fi
 BASELINE_STATUS=$(slot_status "$SLOTS_INFO" "$BASELINE_SLOT") \
     || abort "could not read the baseline slot's own status after install"
