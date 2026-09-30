@@ -42,18 +42,19 @@ does not also do. It creates, all under `$HOME`:
   `kiosk-zero-w.yaml`'s `AUTONOMOS_RAUC_*` paths (which resolve relative to the tree being built)
   find the fleet signing key without it ever being copied.
 - `.config/wisekiosk/pipeline.env` — `PIPELINE_DRIVER`, `PIPELINE_TREE`, `PIPELINE_BASELINE_REF`
-  (default `origin/main`), `PIPELINE_SSH_DIR`, the installing shell's own `PATH`, `PIPELINE_BUILD_DIR`
-  (always `<tree checkout>/build`, kas's own default build directory for that checkout — gitignored,
-  so it never dirties the tree the reproducibility gate inspects), and two caches, overridable at
-  install time: `DL_DIR` and `SSTATE_DIR` (default this repository's own `build/downloads` and
-  `build/sstate-cache`, shared read-write with the dev tree's ordinary builds to avoid refetching or
-  recompiling what is already there).
+  (default `origin/main`), `PIPELINE_SSH_DIR`, the installing shell's own `PATH`, and two caches,
+  overridable at install time: `DL_DIR` and `SSTATE_DIR` (default this repository's own
+  `build/downloads` and `build/sstate-cache`, shared read-write with the dev tree's ordinary builds to
+  avoid refetching or recompiling what is already there). The build dir itself is not recorded here:
+  `run.sh` and `candidates.py` both derive it as `$PIPELINE_TREE/build` — kas's own default for that
+  checkout — since it is never independently correct to set it to anything else.
 
-  `PIPELINE_BUILD_DIR` is never set as `KAS_BUILD_DIR`. Doing so moves bitbake's own `TMPDIR` to a
-  different container mount point (`/build` instead of kas's default `/work/build`) — every recipe
-  that resolves a path relative to `TOPDIR`, including `rauc-conf`'s search for the fleet signing key
-  under `../local/keys`, then looks in the wrong place, and bitbake's own sanity checker refuses a
-  build directory whose recorded `TMPDIR` does not match what it computes on the next run.
+  The build dir is never set as `KAS_BUILD_DIR`, and `run.sh` unsets any ambient one before running.
+  Doing so moves bitbake's own `TMPDIR` to a different container mount point (`/build` instead of
+  kas's default `/work/build`) — every recipe that resolves a path relative to `TOPDIR`, including
+  `rauc-conf`'s search for the fleet signing key under `../local/keys`, then looks in the wrong place,
+  and bitbake's own sanity checker refuses a build directory whose recorded `TMPDIR` does not match
+  what it computes on the next run.
 - `.config/wisekiosk/pipeline-ssh/` — a new ed25519 keypair, installed on bench's `authorized_keys`;
   `config`; `known_hosts`. Used only inside the `testimage` stage's container — never `~/.ssh`, which
   also pushes to GitHub.

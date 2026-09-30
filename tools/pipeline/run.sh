@@ -7,10 +7,11 @@
 #   run.sh pr <N>            -- build & OTA the PR's head, then always roll
 #                               back to the baseline slot
 #
-# Reads PIPELINE_DRIVER, PIPELINE_TREE, PIPELINE_BUILD_DIR, DL_DIR, SSTATE_DIR,
+# Reads PIPELINE_DRIVER, PIPELINE_TREE, DL_DIR, SSTATE_DIR,
 # PIPELINE_BASELINE_REF, PIPELINE_SSH_DIR from the environment.
 # PIPELINE_BASELINE_REF is a full ref, already qualified with its remote
-# (e.g. `origin/main`).
+# (e.g. `origin/main`). The build dir is $PIPELINE_TREE/build -- kas's own
+# default for that checkout -- not a separately-set value.
 #
 # Stage order (a `pr` run; `baseline` is the same through the smoke, then
 # marks the slot good instead of rolling back). The hostname guard runs
@@ -40,12 +41,19 @@ TOOLS="$(dirname "$HERE")"
 
 : "${PIPELINE_DRIVER:?PIPELINE_DRIVER not set}"
 : "${PIPELINE_TREE:?PIPELINE_TREE not set}"
-: "${PIPELINE_BUILD_DIR:?PIPELINE_BUILD_DIR not set}"
 : "${DL_DIR:?DL_DIR not set}"
 : "${SSTATE_DIR:?SSTATE_DIR not set}"
 : "${PIPELINE_BASELINE_REF:?PIPELINE_BASELINE_REF not set}"
 : "${PIPELINE_SSH_DIR:?PIPELINE_SSH_DIR not set}"
 export DL_DIR SSTATE_DIR PIPELINE_SSH_DIR
+
+# kas's own default build dir for the tree checkout -- not independently
+# tunable, so derived here rather than read from the environment. Unset
+# KAS_BUILD_DIR unconditionally: an ambient export (a hand-run shell that
+# also does dev-tree builds) would otherwise reach kas-container and move
+# TMPDIR again.
+unset KAS_BUILD_DIR
+PIPELINE_BUILD_DIR="$PIPELINE_TREE/build"
 
 PY=python3
 [ -x "$PIPELINE_DRIVER/.venv/bin/python3" ] && PY="$PIPELINE_DRIVER/.venv/bin/python3"
