@@ -1,16 +1,9 @@
-# Opt-in Yocto testimage overlay (#119 D-G), colon-joined onto the image config
-# by `just testimage` and never part of the ordinary build.
-#
-# The block name must stay unique across the include chain: kas merges
-# local_conf_header by name and discards a duplicate in silence.
-#
-# `env` forwards TEST_TARGET_IP and OEQA_JSON_RESULT_DIR from the invoking
-# shell into bitbake's BB_ENV_PASSTHROUGH_ADDITIONS (kas 5.4's
-# kas/schema-kas.json, at /usr/local/lib/python3.13/dist-packages/kas/ inside
-# ghcr.io/siemens/kas/kas:5.4, defines this top-level key).
+# Adds the wisekiosk oeqa suite via IMAGE_CLASSES += "testimage".
+# Colon-joined onto the image config by `just testimage`.
 header:
   version: 20
 
+# Forwards TEST_TARGET_IP and OEQA_JSON_RESULT_DIR from the shell into bitbake.
 env:
   TEST_TARGET_IP: ""
   OEQA_JSON_RESULT_DIR: ""
@@ -21,6 +14,5 @@ local_conf_header:
     TEST_TARGET = "simpleremote"
     TEST_SUITES = "wisekiosk"
 
-    # testimage_sanity requires TEST_SERVER_IP non-empty; no case here uses it
-    # (simpleremote never pushes packages or a UI manifest over it).
+    # required non-empty by testimage_sanity; unused
     TEST_SERVER_IP = "127.0.0.1"

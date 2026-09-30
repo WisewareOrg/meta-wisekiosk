@@ -1,29 +1,15 @@
-# Bench smoke tier (#122): the wisekiosk-backend contract this pipeline
-# proves on every candidate boot, re-hosting WiseKiosk's own smoke-native
-# cases in Yocto's oeqa harness.
+# Bench smoke tier for the wisekiosk backend, run under Yocto's oeqa harness.
 
 import time
 
 from oeqa.runtime.case import OERuntimeTestCase
 
-# TEST_SUITES = "wisekiosk" (includes/testimage.yaml) replaces, rather than
-# extends, the default suite list, so the poky "ssh" module (and its
-# ssh.SSHTest.test_ssh) is never loaded here; these four cases are independent
-# and carry no OETestDepends chain to it or to each other.
-
-# Busybox wget exits 0 only on a 2xx response, so `status == 0` below stands
-# in for "got a good response" without reading a body or a status line.
+# busybox wget: rc 0 only on 2xx
 HEALTHZ_URL = "http://127.0.0.1:8080/healthz"
 INDEX_URL = "http://127.0.0.1:8080/"
-# D-I's 60s reachability bound: the unit must be active before healthz can
-# answer, so both cases poll the same window from case start.
 BOUND_SECONDS = 60
 POLL_INTERVAL_SECONDS = 2
-# self.target.run()'s own default (SSHControl's 300s) is an IDLE timeout, not
-# a total one, and a wedged-but-connected backend -- or a wedged systemd/D-Bus,
-# for is-active -- produces no output at all, so left unset, one poll attempt
-# could itself block for up to 300s, well past BOUND_SECONDS. This bounds a
-# single attempt well under that, for every polled or single-shot command below.
+# Per-attempt bound; ssh's default is an idle timeout.
 POLL_ATTEMPT_TIMEOUT_SECONDS = 10
 
 

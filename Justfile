@@ -220,9 +220,7 @@ testimage ssh_dir=env('PIPELINE_SSH_DIR', ''):
     tools/write-build-rev.sh
     {{py}} tools/go-mods.py
     {{py}} tools/app-lockfile.py
-    # guard 10's kas-container[[:space:]]+(build|shell) regex does not match this
-    # line -- --ssh-dir sits between the binary and its subcommand, so this
-    # recipe is outside guard 10's assertion (#119 decision 16).
+    # outside guard 10's regex (option before the subcommand)
     kas-container --ssh-dir {{ssh_dir}} --runtime-args "-e TEST_TARGET_IP=$TEST_TARGET_IP -e OEQA_JSON_RESULT_DIR=$OEQA_JSON_RESULT_DIR" build {{config}}:includes/testimage.yaml -c testimage
 
 # Write per-site config to a device's /data. The image carries none of it.
