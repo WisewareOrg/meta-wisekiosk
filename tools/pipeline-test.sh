@@ -855,19 +855,20 @@ test_report_check() {
     # PEM shape in this file's own tracked text.
     pk_body1=$(printf 'VERDICT: pr-run -> success\n%s\nfixture, not a real key\n' "$PK_HEADER")
     capture_stdin out err rc "$pk_body1" "$PY" "$REPORT" check --map "$GOODMAP"
-    if [ "$rc" -eq 2 ]; then
-        ok "report check, a bare private-key header: rc 2"
+    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
+        ok "report check, a bare private-key header: rc 2, nothing on stdout, reason on stderr"
     else
-        bad "report check, a bare private-key header: rc 2" "rc=$rc out=$out err=$err"
+        bad "report check, a bare private-key header: rc 2, nothing on stdout, reason on stderr" \
+            "rc=$rc out=$out err=$err"
     fi
 
     pk_body2=$(printf 'VERDICT: pr-run -> success\n2026-09-30T10:00:00Z %s\nfixture, not a real key\n' \
         "$PK_HEADER_RSA")
     capture_stdin out err rc "$pk_body2" "$PY" "$REPORT" check --map "$GOODMAP"
-    if [ "$rc" -eq 2 ]; then
-        ok "report check, a private-key header behind a log-timestamp prefix: rc 2"
+    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
+        ok "report check, a private-key header behind a log-timestamp prefix: rc 2, nothing on stdout, reason on stderr"
     else
-        bad "report check, a private-key header behind a log-timestamp prefix: rc 2" \
+        bad "report check, a private-key header behind a log-timestamp prefix: rc 2, nothing on stdout, reason on stderr" \
             "rc=$rc out=$out err=$err"
     fi
 
