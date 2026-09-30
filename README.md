@@ -119,6 +119,13 @@ cp secrets.yaml.tmpl ~/.config/wisekiosk/secrets.yaml   # fill in; lives OUTSIDE
 just build          # kas fetches sources/, applies the patches, builds core-image-base
 ```
 
+**The version in that `curl` URL is the kas version the build uses, and it changes nothing on its
+own.** `just build` runs whatever `kas-container` sits in `~/bin`; nothing downloads it but that
+`curl`. Renovate opens a pull request when kas releases, and it waits for a human merge (owner,
+2026-09-30) because merging is the moment to re-run the `curl` and a full build. A new kas is a new
+build container, with a newer host distro that can break a build hours in, and CI never builds.
+`kas-container --version` shows what is installed.
+
 `just build` writes `meta-wisekiosk/conf/build-rev.inc` (the commit being built, see
 [what commit an image was built from](docs/layers-and-kas.md#what-commit-an-image-was-built-from))
 and then runs `kas-container build kiosk-zero-w.yaml`. Calling `kas-container` directly skips the

@@ -18,6 +18,10 @@ records the commit it was generated for — a variable inside the `.inc`, a giti
 beside the shrinkwrap — so every later build against the same pin skips the fetch entirely.
 `go-mods.py` also needs a `go` toolchain new enough for the app's `go.mod`.
 
+`SRCREV` follows the app's `main` (owner, 2026-09-29): Renovate keeps one pull request moving it to
+`main`'s head, rolled forward while unmerged; a human merges it (owner, 2026-09-30) — see
+[`../../../docs/layer-currency.md`](../../../docs/layer-currency.md).
+
 A pin bump that changes the LICENSE file's contents, or removes `deploy/config.example.json`, breaks
 `LIC_FILES_CHKSUM` or `wisekiosk-frontend_git.bb`'s `do_install` respectively — both fail loudly at
 build time rather than silently shipping something stale.
