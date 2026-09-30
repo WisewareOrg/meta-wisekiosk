@@ -4,16 +4,17 @@
     candidates.py
 
 No arguments -- every input comes from the environment: PIPELINE_BASELINE_REF,
-PIPELINE_TREE, KAS_BUILD_DIR. PIPELINE_BASELINE_REF is a full ref, already
-qualified with its remote (e.g. `origin/main`) -- not a bare branch name.
-Prints one line, `<kind> <sha> [<pr>]`, or nothing when there is no candidate
-ready. `git fetch origin` is run in PIPELINE_TREE first, so every ref below
-is current.
+PIPELINE_TREE. PIPELINE_BASELINE_REF is a full ref, already qualified with
+its remote (e.g. `origin/main`) -- not a bare branch name. The build dir is
+`$PIPELINE_TREE/build` -- kas's own default for that checkout, not a
+separately-set value -- matching run.sh. Prints one line, `<kind> <sha>
+[<pr>]`, or nothing when there is no candidate ready. `git fetch origin` is
+run in PIPELINE_TREE first, so every ref below is current.
 
 Order, one job per tick:
 
   1. `$PIPELINE_BASELINE_REF`'s HEAD, if its tree carries the pipeline
-     overlays, it has no `baseline/<sha>` tag in `$KAS_BUILD_DIR/buildhistory`,
+     overlays, it has no `baseline/<sha>` tag in `$PIPELINE_TREE/build/buildhistory`,
      and it has no live `bench-pipeline` status -> `baseline <sha>`.
   2. Every open PR whose head is in THIS repository (never a fork), oldest
      first, whose diff against `merge-base(baseline ref, head)` touches an
@@ -135,7 +136,7 @@ def main():
 
     baseline_remote = env("PIPELINE_BASELINE_REF")
     tree = env("PIPELINE_TREE")
-    build_dir = env("KAS_BUILD_DIR")
+    build_dir = f"{tree}/build"
 
     fetch = git(tree, "fetch", "origin")
     if fetch.returncode != 0:

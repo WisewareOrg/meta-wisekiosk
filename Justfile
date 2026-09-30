@@ -296,12 +296,11 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
     SSH_DIR="$CONF_DIR/pipeline-ssh"
     # printf, not a heredoc: `just` ends a recipe body at a flush-left line.
     # Values are double-quoted for both an EnvironmentFile= parser and a
-    # plain `.`-sourced shell. PIPELINE_BUILD_DIR is kas's own default build
-    # dir for the tree checkout; never exported as KAS_BUILD_DIR (see
-    # docs/testing.md).
+    # plain `.`-sourced shell. The build dir (kas's own default for the tree
+    # checkout) is not recorded here -- run.sh and candidates.py both derive
+    # it from PIPELINE_TREE (see docs/testing.md).
     {
         printf 'PATH="%s"\n' "$PATH"
-        printf 'PIPELINE_BUILD_DIR="%s/build"\n' "$TREE"
         printf 'DL_DIR="%s"\n' "$DL_DIR"
         printf 'SSTATE_DIR="%s"\n' "$SSTATE_DIR"
         printf 'PIPELINE_DRIVER="%s"\n' "$DRIVER"
