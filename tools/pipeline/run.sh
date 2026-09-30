@@ -7,7 +7,7 @@
 #   run.sh pr <N>            -- build & OTA the PR's head, then always roll
 #                               back to the baseline slot
 #
-# Reads PIPELINE_DRIVER, PIPELINE_TREE, KAS_BUILD_DIR, DL_DIR, SSTATE_DIR,
+# Reads PIPELINE_DRIVER, PIPELINE_TREE, PIPELINE_BUILD_DIR, DL_DIR, SSTATE_DIR,
 # PIPELINE_BASELINE_REF, PIPELINE_SSH_DIR from the environment.
 # PIPELINE_BASELINE_REF is a full ref, already qualified with its remote
 # (e.g. `origin/main`).
@@ -40,12 +40,12 @@ TOOLS="$(dirname "$HERE")"
 
 : "${PIPELINE_DRIVER:?PIPELINE_DRIVER not set}"
 : "${PIPELINE_TREE:?PIPELINE_TREE not set}"
-: "${KAS_BUILD_DIR:?KAS_BUILD_DIR not set}"
+: "${PIPELINE_BUILD_DIR:?PIPELINE_BUILD_DIR not set}"
 : "${DL_DIR:?DL_DIR not set}"
 : "${SSTATE_DIR:?SSTATE_DIR not set}"
 : "${PIPELINE_BASELINE_REF:?PIPELINE_BASELINE_REF not set}"
 : "${PIPELINE_SSH_DIR:?PIPELINE_SSH_DIR not set}"
-export KAS_BUILD_DIR DL_DIR SSTATE_DIR PIPELINE_SSH_DIR
+export DL_DIR SSTATE_DIR PIPELINE_SSH_DIR
 
 PY=python3
 [ -x "$PIPELINE_DRIVER/.venv/bin/python3" ] && PY="$PIPELINE_DRIVER/.venv/bin/python3"
@@ -58,8 +58,8 @@ SSH_OPTS=(-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/de
 
 CONFIG="kiosk-zero-w.yaml"
 MACHINE_DIR="raspberrypi0-wifi"
-IMAGE="$KAS_BUILD_DIR/tmp-$MACHINE_DIR/deploy/images/$MACHINE_DIR/core-image-base-$MACHINE_DIR.rootfs.ext4"
-BUNDLE="$KAS_BUILD_DIR/tmp-$MACHINE_DIR/deploy/images/$MACHINE_DIR/update-bundle-$MACHINE_DIR.raucb"
+IMAGE="$PIPELINE_BUILD_DIR/tmp-$MACHINE_DIR/deploy/images/$MACHINE_DIR/core-image-base-$MACHINE_DIR.rootfs.ext4"
+BUNDLE="$PIPELINE_BUILD_DIR/tmp-$MACHINE_DIR/deploy/images/$MACHINE_DIR/update-bundle-$MACHINE_DIR.raucb"
 
 STATUS_POSTED=""
 SHA="" ; KIND="" ; PR_NUMBER="" ; MERGE_BASE=""
@@ -129,15 +129,14 @@ run_logged() {
 collect_failure_logs() {
     # collect_failure_logs BUILD_LOG OUT_DIR -- the last 200 lines of each
     # file bitbake named in "Logfile of failure stored in", one path per
-    # line of output. Bitbake's own path is container-internal
-    # (/build/... or /work/...); mapped to the host paths behind those mounts.
+    # line of output. Bitbake's own path is container-internal (/work/...);
+    # mapped to the host path behind that mount.
     local buildlog=$1 outdir=$2 n=0 path hostpath out
     while IFS= read -r path; do
         n=$((n + 1))
         hostpath=$path
         case "$hostpath" in
-            /build/*) hostpath="$KAS_BUILD_DIR/${hostpath#/build/}" ;;
-            /work/*)  hostpath="$PIPELINE_TREE/${hostpath#/work/}" ;;
+            /work/*) hostpath="$PIPELINE_TREE/${hostpath#/work/}" ;;
         esac
         out="$outdir/failure-$n.log"
         tail -n 200 "$hostpath" > "$out" 2>/dev/null || echo "(could not read $path)" > "$out"
@@ -372,9 +371,9 @@ OBSERVED_HOSTNAME=$(ssh "${SSH_OPTS[@]}" "$SSH_HOST" hostname 2>/dev/null || tru
     --verify-hostname "$OBSERVED_HOSTNAME" \
     || abort "bench's hostname does not uniquely match the map's bench.hostname row"
 
-if [ -f "$KAS_BUILD_DIR/bitbake.lock" ] \
-    && ! flock -n "$KAS_BUILD_DIR/bitbake.lock" -c true 2>/dev/null; then
-    abort "bitbake.lock held in $KAS_BUILD_DIR"
+if [ -f "$PIPELINE_BUILD_DIR/bitbake.lock" ] \
+    && ! flock -n "$PIPELINE_BUILD_DIR/bitbake.lock" -c true 2>/dev/null; then
+    abort "bitbake.lock held in $PIPELINE_BUILD_DIR"
 fi
 if [ "$(docker ps --format '{{.Image}}' 2>/dev/null | grep -cE '^ghcr\.io/siemens/kas/kas')" -gt 0 ]; then
     abort "a kas-container is already running"
@@ -384,9 +383,9 @@ git -C "$PIPELINE_TREE" rev-parse --verify -q "${BASELINE_REMOTE}^{commit}" > /d
 if [ "$KIND" = pr ]; then
     # A pr run diffs against baseline/<merge-base>, which must already be
     # tagged in buildhistory.
-    git -C "$KAS_BUILD_DIR/buildhistory" rev-parse --verify -q \
+    git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse --verify -q \
         "refs/tags/baseline/$MERGE_BASE" > /dev/null \
-        || abort "no baseline/$MERGE_BASE tag in $KAS_BUILD_DIR/buildhistory -- run a baseline for the merge-base first"
+        || abort "no baseline/$MERGE_BASE tag in $PIPELINE_BUILD_DIR/buildhistory -- run a baseline for the merge-base first"
 fi
 git -C "$PIPELINE_TREE" checkout --detach "$SHA" > "$RUN_DIR/checkout.log" 2>&1 \
     || abort "could not check out $SHA in $PIPELINE_TREE"
@@ -400,7 +399,7 @@ if [ "$KIND" = pr ]; then
     BUILDINFO_SHA=$(ssh "${SSH_OPTS[@]}" "$SSH_HOST" \
         'grep "^meta-wisekiosk" /etc/buildinfo' 2>/dev/null | sed -E 's/.*:([0-9a-f]{40}).*/\1/') \
         || true
-    if [ -z "$BUILDINFO_SHA" ] || ! git -C "$KAS_BUILD_DIR/buildhistory" rev-parse --verify -q \
+    if [ -z "$BUILDINFO_SHA" ] || ! git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse --verify -q \
         "refs/tags/baseline/$BUILDINFO_SHA" > /dev/null; then
         abort "bench not on a baseline image"
     fi
@@ -417,12 +416,12 @@ STATUS_POSTED=1
 bitbake_stage "build" "$RUN_DIR/build.log" "${TREE_JUST[@]}" build-with-history
 
 if [ "$KIND" = baseline ]; then
-    git -C "$KAS_BUILD_DIR/buildhistory" tag -f "baseline/$SHA" \
+    git -C "$PIPELINE_BUILD_DIR/buildhistory" tag -f "baseline/$SHA" \
         || abort "could not tag baseline/$SHA in buildhistory"
 else
     set +e
     "${TREE_JUST[@]}" artifact-diff "baseline/$MERGE_BASE" HEAD \
-        --repo "$KAS_BUILD_DIR/buildhistory" \
+        --repo "$PIPELINE_BUILD_DIR/buildhistory" \
         > "$RUN_DIR/delta-raw.txt" 2> "$RUN_DIR/delta.err"
     DELTA_RC=$?
     set -e
