@@ -2,9 +2,14 @@
 """Assemble, redact, cap and post the bench-pipeline run report (#119 D-J).
 
     report.py build --map <path> --limit <n> --verdict <file> --delta <file>
-                     --results [<label>=]<file> [--results [<label>=]<file> ...]
-                     [--log [<label>=]<file> ...]
+                     [--results [<label>=]<file> ...] [--log [<label>=]<file> ...]
         -- assemble one run's report body on stdout
+
+--results may be given more than once (e.g. the PR slot's testresults.json
+and, separately, the post-rollback baseline slot's) or omitted entirely --
+run.sh's early-exit reports (a build failure, an empty artifact delta) have
+no results.json yet. A single --results renders as one "Test results"
+section; more than one, each under its own "Test results -- <label>" heading.
 
     report.py check --map <path>
         -- read a candidate report body on stdin; rc 0 if it carries no
@@ -161,8 +166,6 @@ def parse_build_args(argv):
             return None, f"{flag!r} is not an option this reads"
 
     missing = [k for k in ("map", "limit", "verdict", "delta") if opts[k] is None]
-    if not results:
-        missing.append("results")
     if missing:
         return None, "missing required: " + " ".join(f"--{m}" for m in missing)
 
@@ -178,6 +181,8 @@ def parse_build_args(argv):
 
 
 def render_results(entries):
+    if not entries:
+        return ""
     multi = len(entries) > 1
     lines = []
     for entry in entries:
