@@ -1,0 +1,16 @@
+# Opt-in buildhistory overlay (#119 D-D), colon-joined onto the image config by
+# `just build-with-history` and never part of the ordinary build.
+#
+# The block name must stay unique across the include chain: kas merges
+# local_conf_header by name and discards a duplicate in silence.
+header:
+  version: 20
+
+local_conf_header:
+  buildhistory: |
+    INHERIT += "buildhistory"
+    BUILDHISTORY_COMMIT = "1"
+
+    # BUILDHISTORY_DIR is left at bitbake's default, ${TOPDIR}/buildhistory,
+    # which resolves to build/buildhistory -- already gitignored, and visible
+    # from inside the kas container.
