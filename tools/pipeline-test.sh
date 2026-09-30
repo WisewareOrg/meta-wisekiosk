@@ -401,10 +401,10 @@ EOF
         *"LINE 0400"*) ok "report build, capped log: the tail of the log survives" ;;
         *) bad "report build, capped log: the tail of the log survives" "out=$out" ;;
     esac
-    if [ "${#out}" -le 4000 ]; then
+    if [ "$(utf8_len "$out")" -le 4000 ]; then
         ok "report build, capped log: body is within --limit"
     else
-        bad "report build, capped log: body is within --limit" "len=${#out}"
+        bad "report build, capped log: body is within --limit" "len=$(utf8_len "$out")"
     fi
 
     # --- B5: cap step 2 -- once --log is exhausted, strip `log` fields from
@@ -446,10 +446,10 @@ PYEOF
             bad "report build, log-stripped: the case's log field is gone, not raw" "out=$out" ;;
         *) ok "report build, log-stripped: the case's log field is gone, not raw" ;;
     esac
-    if [ "${#out}" -le 1000 ]; then
+    if [ "$(utf8_len "$out")" -le 1000 ]; then
         ok "report build, log-stripped: body is within --limit"
     else
-        bad "report build, log-stripped: body is within --limit" "len=${#out}"
+        bad "report build, log-stripped: body is within --limit" "len=$(utf8_len "$out")"
     fi
 
     # --- B5b: cap order -- log truncation exhausts before results-log
@@ -537,18 +537,29 @@ PYEOF
     fi
 
     # --- B5c: cap order extends to the delta -- once log truncation and
-    # results-log stripping are exhausted, overflow truncates the delta:
-    # --delta-stat's summary, the delta's first 200 lines, then a
-    # truncation note. floor_len is the body's size with log and results
-    # already minimal and the delta still whole. ----------------------------
+    # results-log stripping are exhausted, overflow truncates the delta: a
+    # summary derived from the delta's own diff headers and +/- lines, the
+    # delta's first 200 lines, then a truncation note. floor_len is the
+    # body's size with log and results already minimal and the delta still
+    # whole. ------------------------------------------------------------
     mkdir -p "$TOP/b5c"
     printf 'VERDICT pr-run -> success\n' > "$TOP/b5c/verdict.txt"
+    # 2000 files x 15 lines (5 metadata + 5 "-old" + 5 "+new") = 30 000 lines.
+    # files=2000, plus=10000, minus=10000 -- computed the same way report.py's
+    # delta_summary() does (count `^diff --git `, `^+` not `^++`, `^-` not `^--`).
     "$PY" -c '
-for i in range(30000):
-    print(f"DELTALINE {i:05d} of a very long delta, padded so truncation has bytes to cut xxxxxxxxxxxxxxxxxxxx")
+for i in range(2000):
+    print(f"diff --git a/file{i:04d}.yaml b/file{i:04d}.yaml")
+    print("index 1111111..2222222 100644")
+    print(f"--- a/file{i:04d}.yaml")
+    print(f"+++ b/file{i:04d}.yaml")
+    print("@@ -1,5 +1,5 @@")
+    for j in range(5):
+        print(f"-old line {j} of file {i:04d}, padded so truncation has bytes to cut")
+    for j in range(5):
+        print(f"+new line {j} of file {i:04d}, padded so truncation has bytes to cut")
 ' > "$TOP/b5c/delta.txt"
-    printf ' kiosk-zero-w.yaml | 30000 ++++++++++++++++++++\n 1 file changed, 30000 insertions(+)\n' \
-        > "$TOP/b5c/delta-stat.txt"
+    DELTA_SUMMARY="2000 files changed, +10000/$(printf '\xe2\x88\x92')10000"
     "$PY" - <<PYEOF > "$TOP/b5c/results.json"
 import json
 biglog = "DELTAORDER-B5C-PAYLOAD " * 100
@@ -576,11 +587,10 @@ PYEOF
     : > "$TOP/b5c/log-empty.txt"
 
     # Measured with log and results already minimal, delta still whole. The
-    # limit must clear the ~2.9 MB delta or this call truncates it first.
+    # limit must clear the ~1.5 MB delta or this call truncates it first.
     local floor_len
     "$PY" "$REPORT" build --map "$GOODMAP" --limit 10000000 \
         --verdict "$TOP/b5c/verdict.txt" --delta "$TOP/b5c/delta.txt" \
-        --delta-stat "$TOP/b5c/delta-stat.txt" \
         --results "$TOP/b5c/results-stripped.json" \
         --log "deltaorderlog=$TOP/b5c/log-empty.txt" \
         > "$TOP/b5c/floor.out"
@@ -590,7 +600,6 @@ PYEOF
 
     capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit "$floor_len" \
         --verdict "$TOP/b5c/verdict.txt" --delta "$TOP/b5c/delta.txt" \
-        --delta-stat "$TOP/b5c/delta-stat.txt" \
         --results "$TOP/b5c/results.json" --log "deltaorderlog=$TOP/b5c/log.txt"
     if [ "$rc" -eq 0 ]; then
         ok "report build, cap order at the delta-untouched size: exits 0"
@@ -608,7 +617,7 @@ PYEOF
         *) ok "report build, cap order at the delta-untouched size: the results log field is stripped" ;;
     esac
     case "$out" in
-        *"DELTALINE 29999"*)
+        *"file1999"*)
             ok "report build, cap order at the delta-untouched size: the delta is still whole" ;;
         *) bad "report build, cap order at the delta-untouched size: the delta is still whole" "out=$out" ;;
     esac
@@ -620,7 +629,6 @@ PYEOF
 
     capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit "$((floor_len - 1))" \
         --verdict "$TOP/b5c/verdict.txt" --delta "$TOP/b5c/delta.txt" \
-        --delta-stat "$TOP/b5c/delta-stat.txt" \
         --results "$TOP/b5c/results.json" --log "deltaorderlog=$TOP/b5c/log.txt"
     if [ "$rc" -eq 0 ]; then
         ok "report build, cap order one byte tighter than the delta: exits 0"
@@ -639,20 +647,20 @@ PYEOF
             "out=$out" ;;
     esac
     case "$out" in
-        *"DELTALINE 29999"*)
+        *"$DELTA_SUMMARY"*)
+            ok "report build, cap order one byte tighter than the delta: the derived summary line is present" ;;
+        *) bad "report build, cap order one byte tighter than the delta: the derived summary line is present" \
+            "out=$out" ;;
+    esac
+    case "$out" in
+        *"file1999"*)
             bad "report build, cap order one byte tighter than the delta: the delta's tail is gone" "out=$out" ;;
         *) ok "report build, cap order one byte tighter than the delta: the delta's tail is gone" ;;
     esac
     case "$out" in
-        *"DELTALINE 00000"*)
+        *"file0000"*)
             ok "report build, cap order one byte tighter than the delta: the delta's head survives" ;;
         *) bad "report build, cap order one byte tighter than the delta: the delta's head survives" "out=$out" ;;
-    esac
-    case "$out" in
-        *"1 file changed, 30000 insertions"*)
-            ok "report build, cap order one byte tighter than the delta: the --delta-stat summary survives" ;;
-        *) bad "report build, cap order one byte tighter than the delta: the --delta-stat summary survives" \
-            "out=$out" ;;
     esac
     if [ "$(utf8_len "$out")" -le "$((floor_len - 1))" ]; then
         ok "report build, cap order one byte tighter than the delta: body is within --limit"
