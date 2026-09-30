@@ -930,69 +930,111 @@ else
         | sed 's/^/        /'
 fi
 
-# --- 20. Renovate must see every kas layer pin, on the branch kas uses ------
-# renovate.json finds the pins with a regex, and an entry the regex does not
-# match is not an error to Renovate -- the layer silently stops being tracked.
-# This runs that same regex (Python spelling of its named groups) against an
-# independent YAML parse of the same files and requires the two to agree on
-# every repo, branch and commit. An entry naming no branch inherits
+# --- 20. Renovate must see every pin it is meant to track -----------------
+# renovate.json finds the kas layer pins and the app SRCREV with regexes, and a
+# pin a regex does not match is not an error to Renovate -- it silently stops
+# being tracked. This runs those same regexes (Python spelling of their named
+# groups, files read with their line endings intact, as Renovate reads them)
+# against an independent parse of the same files and requires the two to agree
+# on every repo, url, branch and commit. A kas entry naming no branch inherits
 # defaults.repos.branch; the regex cannot read that, so renovate.json's
-# template carries it as a fallback literal, which this holds equal to the YAML.
+# template carries it as a fallback literal, which this holds equal to the
+# YAML. The regex reads one entry at a time, so a url, branch or commit set in
+# a different file from the entry holding the commit, or a tag: pin, fails
+# here instead of being read wrong.
 if ! "$PY" -c 'import yaml' 2>/dev/null; then
-    bad "guard 20 cannot check the Renovate kas manager: $PY has no yaml module (see guard 4)"
+    bad "guard 20 cannot check the Renovate managers: $PY has no yaml module (see guard 4)"
 elif out20=$("$PY" - <<'EOF' 2>&1
 import json, re, subprocess, sys, yaml
 
-cfg = json.load(open("renovate.json"))
-mgr = [m for m in cfg.get("customManagers", [])
-       if m.get("datasourceTemplate") == "git-refs"
-       and any("includes" in p for p in m.get("managerFilePatterns", []))]
-if len(mgr) != 1:
-    sys.exit(f"expected exactly one git-refs manager over includes/, found {len(mgr)}")
-mgr = mgr[0]
-fallback = re.search(r"\{\{else\}\}([^{]+)\{\{/if\}\}$", mgr["currentValueTemplate"])
-if not fallback:
-    sys.exit("currentValueTemplate has no {{else}} fallback branch")
-fallback = fallback.group(1)
-fpat = re.compile(mgr["managerFilePatterns"][0].strip("/"))
-pats = [re.compile(s.replace("(?<", "(?P<")) for s in mgr["matchStrings"]]
+def read(f):
+    with open(f, newline="") as fh:
+        return fh.read()
 
+def py(s):
+    return re.compile(s.replace("(?<", "(?P<"))
+
+cfg = json.load(open("renovate.json"))
+def manager(pred, what):
+    m = [m for m in cfg.get("customManagers", []) if pred(m)]
+    if len(m) != 1:
+        sys.exit(f"expected exactly one {what} manager in renovate.json, found {len(m)}")
+    return m[0]
+
+kas = manager(lambda m: m.get("datasourceTemplate") == "git-refs"
+              and any("includes" in p for p in m.get("managerFilePatterns", [])), "kas git-refs")
+app = manager(lambda m: m.get("datasourceTemplate") == "git-refs"
+              and any("wisekiosk-src" in p for p in m.get("managerFilePatterns", [])), "app SRCREV")
+
+fallback = re.search(r"\{\{else\}\}([^{]+)\{\{/if\}\}$", kas["currentValueTemplate"])
+if not fallback:
+    sys.exit("the kas manager's currentValueTemplate has no {{else}} fallback branch")
+fallback = fallback.group(1)
+fpat = re.compile(kas["managerFilePatterns"][0].strip("/"))
 files = [f for f in subprocess.run(["git", "ls-files", "includes"], capture_output=True,
                                    text=True, check=True).stdout.split() if fpat.search(f)]
 if not files:
-    sys.exit("no tracked file matches the manager's pattern")
+    sys.exit("no tracked file matches the kas manager's pattern")
 
-default = None
+problems = []
+default, entries = None, {}
 for f in files:
-    d = ((yaml.safe_load(open(f)) or {}).get("defaults") or {}).get("repos", {}).get("branch")
-    if d:
-        default = d
+    y = yaml.safe_load(read(f)) or {}
+    default = ((y.get("defaults") or {}).get("repos") or {}).get("branch") or default
+    for name, e in (y.get("repos") or {}).items():
+        if e and {"url", "branch", "commit", "tag"} & set(e):
+            entries.setdefault(name, []).append((f, e))
 if default != fallback:
-    sys.exit(f"renovate.json falls back to branch {fallback!r}; defaults.repos.branch is {default!r}")
+    problems.append(f"renovate.json falls back to branch {fallback!r}; "
+                    f"defaults.repos.branch is {default!r}")
 
-want, got = set(), set()
+want = set()
+for name, es in sorted(entries.items()):
+    held = [(f, e) for f, e in es if "commit" in e]
+    if len(held) != 1 or len(es) != 1:
+        problems.append(f"{name}: url/branch/commit must sit together in one entry, "
+                        f"found in {', '.join(f for f, _ in es)}")
+        continue
+    f, e = held[0]
+    if "tag" in e:
+        problems.append(f"{name}: a tag: pin, which the kas manager does not read")
+        continue
+    want.add((f, name, e.get("url"), e.get("branch", default), e["commit"]))
+
+got = set()
 for f in files:
-    text = open(f).read()
-    for name, e in ((yaml.safe_load(text) or {}).get("repos") or {}).items():
-        if e and "commit" in e:
-            want.add((f, name, e.get("branch", default), e["commit"]))
-    for p in pats:
+    for p in map(py, kas["matchStrings"]):
+        for m in p.finditer(read(f)):
+            g = m.groupdict()
+            got.add((f, g["depName"], g["packageName"],
+                     g.get("branchBefore") or g.get("branchAfter") or fallback, g["currentDigest"]))
+
+src = "meta-wisekiosk/recipes-wisekiosk/wisekiosk/wisekiosk-src.inc"
+text = read(src)
+uri = re.findall(r'^SRC_URI = "git://([^;"]+?)(?:\.git)?;([^"]*)"', text, re.M)
+rev = re.findall(r'^SRCREV = "([0-9a-f]{40})"', text, re.M)
+if len(uri) != 1 or len(rev) != 1:
+    problems.append(f"{src}: expected one SRC_URI and one SRCREV, found {len(uri)} and {len(rev)}")
+else:
+    params = dict(kv.split("=", 1) for kv in uri[0][1].split(";") if "=" in kv)
+    want.add((src, uri[0][0], params.get("branch"), rev[0]))
+    for p in map(py, app["matchStrings"]):
         for m in p.finditer(text):
             g = m.groupdict()
-            got.add((f, g["depName"], g.get("branchBefore") or g.get("branchAfter") or fallback,
-                     g["currentDigest"]))
-for x in sorted(want - got):
-    print(f"untracked by Renovate: {x[0]} {x[1]} {x[2]} {x[3][:12]}")
-for x in sorted(got - want):
-    print(f"Renovate reads a pin kas does not: {x[0]} {x[1]} {x[2]} {x[3][:12]}")
-if want != got:
-    sys.exit(1)
+            got.add((src, f'{g["host"]}/{g["depName"]}', g["currentValue"], g["currentDigest"]))
+
+for x in sorted(want - got, key=str):
+    problems.append("untracked by Renovate: " + " ".join(str(v) for v in x))
+for x in sorted(got - want, key=str):
+    problems.append("Renovate reads a pin the file does not hold: " + " ".join(str(v) for v in x))
+if problems:
+    sys.exit("\n".join(problems))
 print(f"{len(want)} pins")
 EOF
 ); then
-    ok "Renovate's kas manager reads every layer pin ($out20)"
+    ok "Renovate's regex managers read every tracked pin ($out20)"
 else
-    bad "Renovate's kas manager and the kas YAML disagree:"
+    bad "Renovate's regex managers and the files they read disagree:"
     printf '%s\n' "$out20" | sed 's/^/        /'
 fi
 
