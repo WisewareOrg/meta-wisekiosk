@@ -8,7 +8,8 @@
 #                               back to the baseline slot
 #
 # Reads PIPELINE_DRIVER, PIPELINE_TREE, DL_DIR, SSTATE_DIR,
-# PIPELINE_BASELINE_REF, PIPELINE_SSH_DIR from the environment.
+# PIPELINE_BASELINE_REF, PIPELINE_SSH_DIR, PIPELINE_KEYS_DIR from the
+# environment.
 # PIPELINE_BASELINE_REF is a full ref, already qualified with its remote
 # (e.g. `origin/main`). The build dir is $PIPELINE_TREE/build -- kas's own
 # default for that checkout -- not a separately-set value.
@@ -45,7 +46,8 @@ TOOLS="$(dirname "$HERE")"
 : "${SSTATE_DIR:?SSTATE_DIR not set}"
 : "${PIPELINE_BASELINE_REF:?PIPELINE_BASELINE_REF not set}"
 : "${PIPELINE_SSH_DIR:?PIPELINE_SSH_DIR not set}"
-export DL_DIR SSTATE_DIR PIPELINE_SSH_DIR
+: "${PIPELINE_KEYS_DIR:?PIPELINE_KEYS_DIR not set}"
+export DL_DIR SSTATE_DIR PIPELINE_SSH_DIR PIPELINE_KEYS_DIR
 
 # kas's own default build dir for the tree checkout -- not independently
 # tunable, so derived here rather than read from the environment. Unset

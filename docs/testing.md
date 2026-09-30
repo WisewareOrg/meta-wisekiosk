@@ -38,16 +38,19 @@ does not also do. It creates, all under `$HOME`:
 - `wisekiosk-pipeline/tree` — a second, detached checkout of the same repository; the tree under test.
 - `wisekiosk-pipeline/{driver,tree}/local/device-identity.md` — symlinks to the dev tree's own copy.
   One source of truth: a board swap updates one file.
-- `wisekiosk-pipeline/{driver,tree}/local/keys` — symlinks to the dev tree's own `local/keys`, so
-  `kiosk-zero-w.yaml`'s `AUTONOMOS_RAUC_*` paths (which resolve relative to the tree being built)
-  find the fleet signing key without it ever being copied.
+- `wisekiosk-pipeline/tree/local/keys` — a real, empty directory. The fleet signing key is bind-mounted
+  read-only into the build container from the dev tree's own `local/keys` (`PIPELINE_KEYS_DIR` below);
+  it is never copied, and the driver checkout, which never runs bitbake, gets no keys dir at all. A
+  symlink here would dangle: kas-container's own bind mount only maps the tree checkout itself into
+  `/work`, so a symlink pointing outside it resolves to nothing inside the container.
 - `.config/wisekiosk/pipeline.env` — `PIPELINE_DRIVER`, `PIPELINE_TREE`, `PIPELINE_BASELINE_REF`
-  (default `origin/main`), `PIPELINE_SSH_DIR`, the installing shell's own `PATH`, and two caches,
-  overridable at install time: `DL_DIR` and `SSTATE_DIR` (default this repository's own
-  `build/downloads` and `build/sstate-cache`, shared read-write with the dev tree's ordinary builds to
-  avoid refetching or recompiling what is already there). The build dir itself is not recorded here:
-  `run.sh` and `candidates.py` both derive it as `$PIPELINE_TREE/build` — kas's own default for that
-  checkout — since it is never independently correct to set it to anything else.
+  (default `origin/main`), `PIPELINE_SSH_DIR`, `PIPELINE_KEYS_DIR` (the dev tree's own `local/keys`),
+  the installing shell's own `PATH`, and two caches, overridable at install time: `DL_DIR` and
+  `SSTATE_DIR` (default this repository's own `build/downloads` and `build/sstate-cache`, shared
+  read-write with the dev tree's ordinary builds to avoid refetching or recompiling what is already
+  there). The build dir itself is not recorded here: `run.sh` and `candidates.py` both derive it as
+  `$PIPELINE_TREE/build` — kas's own default for that checkout — since it is never independently
+  correct to set it to anything else.
 
   The build dir is never set as `KAS_BUILD_DIR`, and `run.sh` unsets any ambient one before running.
   Doing so moves bitbake's own `TMPDIR` to a different container mount point (`/build` instead of

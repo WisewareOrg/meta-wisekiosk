@@ -138,13 +138,27 @@ casync-stats store:
 # a KAS_CONFIG pointing at some other product cannot silently build the wrong
 # image into a bundle named like this one. Both default to kiosk-zero-w.yaml.
 # Comments must sit ABOVE the attributes -- just rejects one between them.
+#
+# PIPELINE_KEYS_DIR (unset for a hand build) bind-mounts the fleet signing
+# key read-only into the container -- see docs/testing.md. --runtime-args
+# sets kas-container's own KAS_EXTRA_RUNTIME_ARGS; its internal
+# KAS_RUNTIME_ARGS is reset unconditionally, so an ambient export would be
+# silently discarded. Like testimage's own --runtime-args line, guard 10's
+# kas-container[[:space:]]+(build|shell) regex does not match this recipe's
+# kas-container line -- widening guard 10 is a separate CI-guard change.
 [group('ota')]
+[script('bash')]
 [doc("Build the RAUC update bundle")]
 kiosk-bundle kconfig="kiosk-zero-w.yaml":
+    set -euo pipefail
     tools/write-build-rev.sh
     {{py}} tools/go-mods.py
     {{py}} tools/app-lockfile.py
-    kas-container shell {{kconfig}} -c "bitbake update-bundle"
+    RUNTIME_ARGS=()
+    if [ -n "${PIPELINE_KEYS_DIR:-}" ]; then
+        RUNTIME_ARGS=(--runtime-args "-v $PIPELINE_KEYS_DIR:/work/local/keys:ro")
+    fi
+    kas-container "${RUNTIME_ARGS[@]}" shell {{kconfig}} -c "bitbake update-bundle"
 
 # Every check here catches a failure that otherwise surfaces only after the
 # transfer completes, or does not surface at all.

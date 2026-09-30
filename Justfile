@@ -80,13 +80,26 @@ build:
     {{py}} tools/app-lockfile.py
     kas-container build {{config}}
 
+# PIPELINE_KEYS_DIR (unset for a hand build) bind-mounts the fleet signing
+# key read-only into the container -- see docs/testing.md. --runtime-args
+# sets kas-container's own KAS_EXTRA_RUNTIME_ARGS; its internal
+# KAS_RUNTIME_ARGS is reset unconditionally, so an ambient export would be
+# silently discarded. Like testimage's own --runtime-args line, guard 10's
+# kas-container[[:space:]]+(build|shell) regex does not match this recipe's
+# kas-container line -- widening guard 10 is a separate CI-guard change.
 [group('build')]
+[script('bash')]
 [doc("Build with buildhistory inherited, for artifact-diff")]
 build-with-history:
+    set -euo pipefail
     tools/write-build-rev.sh
     {{py}} tools/go-mods.py
     {{py}} tools/app-lockfile.py
-    kas-container build {{config}}:includes/buildhistory.yaml
+    RUNTIME_ARGS=()
+    if [ -n "${PIPELINE_KEYS_DIR:-}" ]; then
+        RUNTIME_ARGS=(--runtime-args "-v $PIPELINE_KEYS_DIR:/work/local/keys:ro")
+    fi
+    kas-container "${RUNTIME_ARGS[@]}" build {{config}}:includes/buildhistory.yaml
 
 # Open a shell in the build environment
 [group('build')]
@@ -229,8 +242,12 @@ testimage ssh_dir=env('PIPELINE_SSH_DIR', ''):
     tools/write-build-rev.sh
     {{py}} tools/go-mods.py
     {{py}} tools/app-lockfile.py
+    RUNTIME_ARGS="-e TEST_TARGET_IP=$TEST_TARGET_IP -e OEQA_JSON_RESULT_DIR=$OEQA_JSON_RESULT_DIR"
+    if [ -n "${PIPELINE_KEYS_DIR:-}" ]; then
+        RUNTIME_ARGS="$RUNTIME_ARGS -v $PIPELINE_KEYS_DIR:/work/local/keys:ro"
+    fi
     # outside guard 10's regex (option before the subcommand)
-    kas-container --ssh-dir {{ssh_dir}} --runtime-args "-e TEST_TARGET_IP=$TEST_TARGET_IP -e OEQA_JSON_RESULT_DIR=$OEQA_JSON_RESULT_DIR" build {{config}}:includes/testimage.yaml -c testimage
+    kas-container --ssh-dir {{ssh_dir}} --runtime-args "$RUNTIME_ARGS" build {{config}}:includes/testimage.yaml -c testimage
 
 # Write per-site config to a device's /data. The image carries none of it.
 [group('provision')]
@@ -286,8 +303,13 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
     for d in "$DRIVER" "$TREE"; do
         mkdir -p "$d/local"
         ln -sf "$MAP" "$d/local/device-identity.md"
-        ln -sf "$KEYS" "$d/local/keys"
     done
+    # A real, empty directory: the fleet signing key reaches the container by
+    # bind mount (run.sh/the Justfile's build/bundle/testimage recipes), never
+    # by symlink or copy -- a symlink here would dangle inside kas-container's
+    # own bind mount, which only maps $TREE itself into /work. The driver
+    # checkout never runs bitbake, so it needs no keys dir.
+    mkdir -p "$TREE/local/keys"
 
     CONF_DIR="$HOME/.config/wisekiosk"
     mkdir -p "$CONF_DIR"
@@ -305,6 +327,7 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
         printf 'PIPELINE_TREE="%s"\n' "$TREE"
         printf 'PIPELINE_BASELINE_REF="{{pipeline_baseline_ref}}"\n'
         printf 'PIPELINE_SSH_DIR="%s"\n' "$SSH_DIR"
+        printf 'PIPELINE_KEYS_DIR="%s"\n' "$KEYS"
     } > "$CONF_DIR/pipeline.env"
     echo "wrote $CONF_DIR/pipeline.env"
 
