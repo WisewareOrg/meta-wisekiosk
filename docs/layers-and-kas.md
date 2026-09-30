@@ -194,8 +194,10 @@ unattributable. To move it:
 3. Regenerate a patch by checking out the new upstream commit in a scratch worktree, making the
    change, and running `git format-patch` into `patches/meta-autonomos/`. Keep the header's
    explanation of why it cannot be a bbappend and its upstream-submission status.
-4. Re-run `tools/ci-guards.sh`, then rebuild and compare the image manifest against the previous
-   build before shipping anything to a device.
+4. Re-run `tools/ci-guards.sh`. Run `just build-with-history` before and after the bump, then
+   `just artifact-diff <before-ref> <after-ref>` before shipping anything to a device — buildhistory
+   is a git repo under `build/buildhistory`, and the refs are its own commits, or a `baseline/<sha>`
+   tag.
 
 The same steps apply to every other pinned repo. The pins live in three files: most repos in
 `includes/base.yaml`, meta-rauc in `includes/rauc.yaml`, and the three Raspberry Pi repos
