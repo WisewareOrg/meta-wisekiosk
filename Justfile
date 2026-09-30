@@ -250,14 +250,19 @@ provision-card mountpoint:
 # Builds, artifact-diffs, OTAs, testimages, rolls back and reports on a
 # systemd user timer -- see docs/testing.md "Running it".
 
-# Idempotent; never touches the timer.
 [group('pipeline')]
 [script('bash')]
 [doc("Provision the pipeline's checkouts, ssh key, env file and units (idempotent; does not enable the timer)")]
-pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') kas_build_dir=env('KAS_BUILD_DIR', justfile_directory() / 'build'):
+pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
+                 pipeline_baseline_ref=env('PIPELINE_BASELINE_REF', 'origin/main') \
+                 kas_build_dir=env('KAS_BUILD_DIR', (env('HOME') / 'wisekiosk-pipeline/build')) \
+                 dl_dir=env('DL_DIR', (justfile_directory() / 'build/downloads')) \
+                 sstate_dir=env('SSTATE_DIR', (justfile_directory() / 'build/sstate-cache')):
     set -euo pipefail
     ROOT=$(readlink -f "{{justfile_directory()}}")
     KAS_BUILD_DIR=$(readlink -f "{{kas_build_dir}}")
+    DL_DIR=$(readlink -f "{{dl_dir}}")
+    SSTATE_DIR=$(readlink -f "{{sstate_dir}}")
     DRIVER="$HOME/wisekiosk-pipeline/driver"
     TREE="$HOME/wisekiosk-pipeline/tree"
     MAP=$(readlink -f "$ROOT/local/device-identity.md")
@@ -292,9 +297,11 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') kas_build_dir=env
     {
         printf 'PATH="%s"\n' "$PATH"
         printf 'KAS_BUILD_DIR="%s"\n' "$KAS_BUILD_DIR"
+        printf 'DL_DIR="%s"\n' "$DL_DIR"
+        printf 'SSTATE_DIR="%s"\n' "$SSTATE_DIR"
         printf 'PIPELINE_DRIVER="%s"\n' "$DRIVER"
         printf 'PIPELINE_TREE="%s"\n' "$TREE"
-        printf 'PIPELINE_BASELINE_REF="origin/main"\n'
+        printf 'PIPELINE_BASELINE_REF="{{pipeline_baseline_ref}}"\n'
         printf 'PIPELINE_SSH_DIR="%s"\n' "$SSH_DIR"
     } > "$CONF_DIR/pipeline.env"
     echo "wrote $CONF_DIR/pipeline.env"
@@ -335,8 +342,8 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') kas_build_dir=env
         echo "enabled linger for $(id -un)"
     fi
 
-    systemd-run --user --wait --pipe -- gh auth status
-    systemd-run --user --wait --pipe -- git -C "$DRIVER" ls-remote origin HEAD
+    systemd-run --user --wait --pipe -p "EnvironmentFile=$CONF_DIR/pipeline.env" -- gh auth status
+    systemd-run --user --wait --pipe -p "EnvironmentFile=$CONF_DIR/pipeline.env" -- git -C "$DRIVER" ls-remote origin HEAD
     echo "gh auth and git ls-remote both proved under systemd-run --user"
     echo "the timer is NOT enabled -- run 'just pipeline-on' when ready"
 
