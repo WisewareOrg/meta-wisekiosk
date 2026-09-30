@@ -229,8 +229,16 @@ def main():
 
     scanned = 0
     for f, text in tracked_text(root):
-        scanned += 1
         rel = f.relative_to(root)
+        # Non-Markdown files under docs/issue_investigation/ are frozen
+        # record-of-record, committed exactly as they ran -- not live code, and
+        # not something a rename or a move gets to repoint. Excluded on purpose,
+        # the way .github/workflows/lint.yml excludes the same tree from
+        # shellcheck. The investigation's own README.md is NOT exempted: its
+        # links and citations are checked like any other Markdown.
+        if rel.parts[:2] == ('docs', 'issue_investigation') and f.suffix != '.md':
+            continue
+        scanned += 1
         for lineno, line in enumerate(text.splitlines(), 1):
             for m in CITATION.finditer(line):
                 target = m.group(1)

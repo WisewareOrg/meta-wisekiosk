@@ -59,6 +59,29 @@ export KIOSK_IDENTITY_FILE="$T/device-identity.md"
 export KIOSK_SYSFS_ROOT="$T/sys"
 export KIOSK_DEV_ROOT="$T/dev"
 
+# W2 fixtures: the expiring prod grant. Real unix time, not a fixed constant --
+# a fixed "future" timestamp eventually becomes the past, and every case below
+# must agree on the same now().  KIOSK_PROD_AUTH_FILE is NEVER left to its
+# default resolution in these cases (except the dedicated worktree case
+# below): the default would touch this checkout's own local/prod-auth.
+NOW=$(date +%s)
+GRANT_VALID="$T/prod-auth-valid"
+GRANT_EXPIRED="$T/prod-auth-expired"
+GRANT_MISSING_KEY="$T/prod-auth-missing-key"
+GRANT_NON_INTEGER="$T/prod-auth-non-integer"
+GRANT_NONE="$T/prod-auth-none"   # deliberately never created -- "no grant"
+# Exported globally, like KIOSK_IDENTITY_FILE above: every case in this file
+# that does not set its own KIOSK_PROD_AUTH_FILE prefix (i.e. everything
+# outside the W2 sections) must not resolve to THIS checkout's own
+# local/prod-auth. Without this, a live grant during W9 flips every "prod op,
+# no grant" case in the file to ALLOW and the suite reports failures that are
+# not defects (content-reviewer S1).
+export KIOSK_PROD_AUTH_FILE="$GRANT_NONE"
+printf 'expires=%s\n' "$((NOW + 3600))" > "$GRANT_VALID"
+printf 'expires=%s\n' "$((NOW - 3600))" > "$GRANT_EXPIRED"
+printf 'notexpires=%s\n' "$((NOW + 3600))" > "$GRANT_MISSING_KEY"
+printf 'expires=notanumber\n' > "$GRANT_NON_INTEGER"
+
 pass=0; fail=0
 # Extra environment for the guard under test, as `env` arguments. Used by the
 # worktree block, which has to UNSET the identity-file override -- an assignment
@@ -328,14 +351,23 @@ if env "${GITUNSET[@]}" git -c init.defaultBranch=main init -q "$T/primary" \
    && env "${GITUNSET[@]}" git -C "$T/primary" worktree add -q "$T/wt" -b guard-test-wt; then
     mkdir -p "$T/primary/local"
     cp "$T/device-identity.md" "$T/primary/local/device-identity.md"
-    # -u, because the suite exports KIOSK_IDENTITY_FILE globally and this case
-    # is about the DEFAULT resolution path -- with the override in place it would
-    # pass without the primary tree ever being consulted.
-    TENV=("${GITUNSET[@]}" -u KIOSK_IDENTITY_FILE "CLAUDE_PROJECT_DIR=$T/wt")
+    # -u on both: the suite exports KIOSK_IDENTITY_FILE and (S1)
+    # KIOSK_PROD_AUTH_FILE globally, and this whole block is about the DEFAULT
+    # resolution path -- with either override in place it would pass without
+    # the primary tree ever being consulted.
+    TENV=("${GITUNSET[@]}" -u KIOSK_IDENTITY_FILE -u KIOSK_PROD_AUTH_FILE "CLAUDE_PROJECT_DIR=$T/wt")
     t "worktree prod OTA"     BLOCK "$(b "just kiosk-ota host=root@$PROD")"
     t "worktree prod reboot"  BLOCK "$(b "ssh root@$PROD reboot")"
     t "worktree prod suppress" BLOCK "$(b "ssh root@$PROD uptime 2>/dev/null")"
     t "worktree bench OTA"    ALLOW "$(b "just kiosk-ota host=root@$BENCH")"
+    # W2: local/prod-auth resolves the same way local/device-identity.md does --
+    # from the PRIMARY tree, via git-common-dir, never the worktree. The -u
+    # above is what makes this the default-resolution path, not the global S1
+    # fixture.
+    printf 'expires=%s\n' "$((NOW + 3600))" > "$T/primary/local/prod-auth"
+    t "worktree grant: prod OTA allowed" ALLOW "$(b "just kiosk-ota host=root@$PROD")"
+    printf 'expires=%s\n' "$((NOW - 3600))" > "$T/primary/local/prod-auth"
+    t "worktree grant: expired still blocks" BLOCK "$(b "just kiosk-ota host=root@$PROD")"
     TENV=()
 else
     fail=$((fail+1))
@@ -358,6 +390,209 @@ case "$notice" in
     *)       r="FAIL"; fail=$((fail+1)) ;;
 esac
 printf '%s expected=NOTICE                   no-map fail-open announces itself on stderr\n' "$r"
+
+echo "--- W2: no grant -- in-scope verbs still block ---"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE" t "no grant: kiosk-ota"   BLOCK "$(b "just kiosk-ota host=root@$PROD")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE" t "no grant: bare reboot" BLOCK "$(b "ssh root@$PROD reboot")"
+
+echo "--- W2: an expired grant blocks ---"
+KIOSK_PROD_AUTH_FILE="$GRANT_EXPIRED" t "expired grant: kiosk-ota"   BLOCK "$(b "just kiosk-ota host=root@$PROD")"
+KIOSK_PROD_AUTH_FILE="$GRANT_EXPIRED" t "expired grant: bare reboot" BLOCK "$(b "ssh root@$PROD reboot")"
+
+echo "--- W2: the expiry boundary -- exactly now blocks ---"
+# grant_valid() reads `[ "$exp" -gt "$(date +%s)" ]`: strict, so expires == now is
+# already expired, not still valid. This is settled precedent, not a fresh call --
+# ~/dotfiles/claude/guard-bash.sh's own authorized() requires `now -lt expires` for
+# the same reason (an exp equal to now must not authorize).
+#
+# guard.sh has no seam to fix "now" for a test -- grant_valid() calls `date +%s`
+# inline, with no override. So this pins the boundary without one: sample the
+# wall-clock second immediately BEFORE writing the grant and immediately AFTER the
+# guard returns, and retry unless they agree. When they do, guard.sh's own
+# `date +%s` ran strictly between them and so equals both -- the fixture and the
+# guard read the identical instant by construction, not by a sub-second coincidence
+# that could go either way.
+GRANT_BOUNDARY="$T/prod-auth-boundary"
+attempt=0
+while :; do
+    prepass=$pass; prefail=$fail
+    before=$(date +%s)
+    printf 'expires=%s\n' "$before" > "$GRANT_BOUNDARY"
+    KIOSK_PROD_AUTH_FILE="$GRANT_BOUNDARY" t "expiry boundary: expires == now blocks" BLOCK "$(b "just kiosk-ota host=root@$PROD")"
+    after=$(date +%s)
+    attempt=$((attempt+1))
+    [ "$before" = "$after" ] && break
+    # The second ticked over mid-call: this attempt's expires no longer equals what
+    # guard.sh's own date +%s read, so it proved nothing about the boundary. Discard
+    # the recorded result and retry with a fresh second.
+    pass=$prepass; fail=$prefail
+    if [ "$attempt" -ge 20 ]; then
+        fail=$((fail+1))
+        printf 'FAIL expected=BLOCK got=-      could not pin the expiry boundary in 20 attempts (clock too unstable)\n'
+        break
+    fi
+done
+
+echo "--- W2: a malformed grant blocks, whatever shape the defect takes ---"
+KIOSK_PROD_AUTH_FILE="$GRANT_MISSING_KEY"  t "malformed grant: missing key"          BLOCK "$(b "just kiosk-ota host=root@$PROD")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NON_INTEGER"  t "malformed grant: non-integer"          BLOCK "$(b "just kiosk-ota host=root@$PROD")"
+
+echo "--- W2: a valid grant allows every in-scope verb ---"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-ota"               ALLOW "$(b "just kiosk-ota host=root@$PROD")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-send-direct"       ALLOW "$(b "just kiosk-send-direct host=root@$PROD:/data")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-install"           ALLOW "$(b "just kiosk-install host=root@$PROD")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: rauc-install recipe"     ALLOW "$(b "just rauc-install root@$PROD build/tmp-$PHOST/deploy/images/$PHOST/update-bundle-$PHOST.raucb")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: rauc install literal"    ALLOW "$(b "ssh root@$PROD rauc install /data/update.raucb")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-reboot"            ALLOW "$(b "just kiosk-reboot host=root@$PHOST")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: just reboot"             ALLOW "$(b "just reboot root@$PROD")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl reboot"        ALLOW "$(b "ssh root@$PROD systemctl reboot")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: ssh bare reboot"         ALLOW "$(b "ssh root@$PROD reboot")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-rollback"          ALLOW "$(b "just kiosk-rollback host=root@$PROD")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: provision-device recipe" ALLOW "$(b "just provision-device host=root@$PROD")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: provision.sh device"     ALLOW "$(b "tools/provision.sh device root@$PROD")"
+
+echo "--- W2: a valid grant does not widen scope beyond the listed verbs ---"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: flash to fixed disk still blocked (RULE 2 unaffected)" BLOCK "$(b 'sudo bmaptool copy core-image.wic.bz2 /dev/sdz')"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: bootprofile still blocked"     BLOCK "$(b "just bootprofile host=root@$PROD outdir=local")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: rauc-rotate still blocked"     BLOCK "$(b "tools/rauc-rotate.sh root@$PROD local/keys/fleet-key")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl poweroff still blocked" BLOCK "$(b "ssh root@$PROD systemctl poweroff")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl halt still blocked"     BLOCK "$(b "ssh root@$PROD systemctl halt")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: shutdown -r still blocked"        BLOCK "$(b "ssh root@$PROD 'shutdown -r now'")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl kexec still blocked"    BLOCK "$(b "ssh root@$PROD systemctl kexec")"
+
+echo "--- W2: a grant-scoped verb chained with an always-blocked verb still blocks ---"
+# always_blocked and grant_scoped are each computed once over the WHOLE command
+# line (guard.sh's RULE 1), not per ssh invocation or per '&&'-joined segment --
+# so this is exactly the interaction class this file's own header warns about: a
+# verb reachable only through a compound line, invisible to a suite that never
+# composes two verbs in one payload (the gpu-capture regression, recorded above).
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: chained OTA + poweroff still blocks" BLOCK "$(b "just kiosk-ota host=root@$PROD && ssh root@$PROD poweroff")"
+# content-reviewer B1: the always-blocked power-verb alternation anchors on
+# `(shutdown|halt|poweroff)([[:space:]]|$)` and misses a verb followed by a
+# closing quote -- a grant-scoped verb earlier in the SAME quoted remote
+# command used to give that gap cover (nothing reached command position to
+# match), and the grant removed that cover. `reboot` is separately
+# grant-scoped whatever its arguments, so `reboot -p/--halt/--poweroff` leaves
+# the board off exactly like the always-blocked verbs, which the owner ruled
+# out of scope for any grant.
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: rauc install && poweroff still blocks" BLOCK "$(b "ssh root@$PROD 'rauc install /data/update.raucb && poweroff'")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: rauc install ; halt still blocks"      BLOCK "$(b "ssh root@$PROD 'rauc install /data/update.raucb; halt'")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: reboot -p still blocks"                BLOCK "$(b "ssh root@$PROD reboot -p")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: reboot --halt still blocks"            BLOCK "$(b "ssh root@$PROD reboot --halt")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: reboot --poweroff still blocks"        BLOCK "$(b "ssh root@$PROD reboot --poweroff")"
+
+echo "--- W2/S6: power-off, kexec and bootprofile spellings block with or without a grant ---"
+# Pre-existing RULE 1 gaps (predate the grant), surfaced by the new CLAUDE.md /
+# CONTRIBUTING.md / guard.sh prose that now promises bootprofile and "any
+# power-off verb (... kexec)" stay blocked regardless. None of these needed a
+# grant to slip through, so each is proven BOTH ways.
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: /sbin/poweroff blocks"        BLOCK "$(b "ssh root@$PROD /sbin/poweroff")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: /sbin/poweroff still blocks"     BLOCK "$(b "ssh root@$PROD /sbin/poweroff")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: kexec -e blocks"              BLOCK "$(b "ssh root@$PROD kexec -e")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kexec -e still blocks"           BLOCK "$(b "ssh root@$PROD kexec -e")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: systemctl --force poweroff blocks"    BLOCK "$(b "ssh root@$PROD systemctl --force poweroff")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl --force poweroff still blocks" BLOCK "$(b "ssh root@$PROD systemctl --force poweroff")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: kiosk-bootprofile.sh direct blocks"    BLOCK "$(b "tools/kiosk-bootprofile.sh root@$PROD")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-bootprofile.sh direct still blocks" BLOCK "$(b "tools/kiosk-bootprofile.sh root@$PROD")"
+
+echo "--- W2: prod log reads survive the B1 quote-strip fix (content-reviewer, 8b340f6) ---"
+# \$flat drops the command's own trailing quote so a verb right before it is
+# still caught (content-reviewer B1a). Each of these is a read that must stay
+# a read, proven with and without a grant: the always-blocked path does not
+# consult grant_valid, so a grant must not be what makes the difference here.
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: journalctl | grep 'reboot -p' allowed"  ALLOW "$(b "ssh root@$PROD \"journalctl -b -1 | grep -c 'reboot -p'\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: journalctl | grep 'reboot -p' allowed"     ALLOW "$(b "ssh root@$PROD \"journalctl -b -1 | grep -c 'reboot -p'\"")"
+# The --halt here is a nonsense flag to grep -- it is DATA (grep's own argv),
+# not a command, and a guard that reads argv positionally must not mistake it
+# for the verb.
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: grep ... --halt nonsense flag allowed" ALLOW "$(b "ssh root@$PROD \"grep reboot /var/log/messages --halt\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: grep ... --halt nonsense flag allowed"    ALLOW "$(b "ssh root@$PROD \"grep reboot /var/log/messages --halt\"")"
+# The documented workaround for a single -E/-cE alternation whose LAST branch
+# is a power or reboot verb (the residual, below): two -e patterns, so no bare
+# '|' ever sits immediately before the word being searched for.
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: grep -e panic -e poweroff (workaround) allowed" ALLOW "$(b "ssh root@$PROD \"grep -e panic -e poweroff /var/log/messages\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: grep -e panic -e poweroff (workaround) allowed"    ALLOW "$(b "ssh root@$PROD \"grep -e panic -e poweroff /var/log/messages\"")"
+# Reordering the alternation so the power/reboot word is NOT the last branch is
+# also a workaround: nothing follows it but the closing quote or another '|',
+# never whitespace-then-verb, so the always-blocked anchor never lands on it.
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: grep -cE halt|oom (reordered, workaround) allowed" ALLOW "$(b "ssh root@$PROD \"grep -cE 'halt|oom' /var/log/messages\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: grep -cE halt|oom (reordered, workaround) allowed"    ALLOW "$(b "ssh root@$PROD \"grep -cE 'halt|oom' /var/log/messages\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: last -x | grep -e reboot -e shutdown (workaround) allowed" ALLOW "$(b "ssh root@$PROD \"last -x | grep -e reboot -e shutdown\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: last -x | grep -e reboot -e shutdown (workaround) allowed"    ALLOW "$(b "ssh root@$PROD \"last -x | grep -e reboot -e shutdown\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: grep -c -e oom -e halt (workaround) allowed" ALLOW "$(b "ssh root@$PROD \"grep -c -e oom -e halt /var/log/messages\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: grep -c -e oom -e halt (workaround) allowed"    ALLOW "$(b "ssh root@$PROD \"grep -c -e oom -e halt /var/log/messages\"")"
+
+echo "--- W2: the quote-strip's documented residual (content-reviewer, 8b340f6; owner, 2026-09-28) ---"
+# Any quoted -E/-cE alternation, or piped grep -E, whose LAST branch is a
+# power-off or reboot verb sits a bare '|' away from it once the command's
+# quoting is stripped -- the same '|' CMDPOS reads as a command separator.
+# This is the one shape the quote-strip fix cannot tell from a real chained
+# command, and it is accepted as a residual (fail-closed is this guard's
+# posture) rather than silently broken. The workaround -- two -e flags, or
+# putting the power/reboot word first in the alternation -- is proven ALLOW
+# above.
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "documented residual: grep -cE oom|halt blocks"             BLOCK "$(b "ssh root@$PROD \"grep -cE 'oom|halt' /var/log/messages\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "documented residual (grant present): grep -cE oom|halt blocks" BLOCK "$(b "ssh root@$PROD \"grep -cE 'oom|halt' /var/log/messages\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "documented residual: last -x | grep reboot|shutdown blocks"             BLOCK "$(b "ssh root@$PROD \"last -x | grep -E 'reboot|shutdown'\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "documented residual (grant present): last -x | grep reboot|shutdown blocks" BLOCK "$(b "ssh root@$PROD \"last -x | grep -E 'reboot|shutdown'\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "documented residual: grep -cE panic|poweroff blocks" BLOCK "$(b "ssh root@$PROD \"grep -cE 'panic|poweroff' /var/log/messages\"")"
+
+echo "--- W2: further power-off/halt spellings block regardless of grant ---"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: sh -c poweroff blocks"                    BLOCK "$(b "ssh root@$PROD sh -c poweroff")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: sh -c poweroff still blocks"                 BLOCK "$(b "ssh root@$PROD sh -c poweroff")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: init 0 blocks"                            BLOCK "$(b "ssh root@$PROD init 0")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: init 0 still blocks"                         BLOCK "$(b "ssh root@$PROD init 0")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: telinit 0 blocks"                         BLOCK "$(b "ssh root@$PROD telinit 0")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: telinit 0 still blocks"                      BLOCK "$(b "ssh root@$PROD telinit 0")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: systemctl start poweroff.target blocks"   BLOCK "$(b "ssh root@$PROD systemctl start poweroff.target")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl start poweroff.target still blocks" BLOCK "$(b "ssh root@$PROD systemctl start poweroff.target")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: systemctl isolate halt.target blocks"     BLOCK "$(b "ssh root@$PROD systemctl isolate halt.target")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl isolate halt.target still blocks"  BLOCK "$(b "ssh root@$PROD systemctl isolate halt.target")"
+
+echo "--- W2: B1-bypass probes -- a grant-scoped verb chained with a power verb, wrapped every way a hand-typed command actually gets wrapped ---"
+# Each of these carries a grant-scoped verb (rauc install / reboot) AND an
+# always-blocked one on the SAME line, exactly like the original B1 case, but
+# with something else -- a redirect, a comment, a second pipeline stage, a
+# trailing shell operator, a wrapping shell, subshell parens, or a literal
+# embedded newline -- sitting around the power verb. None of that is a way
+# past always_blocked: it does not stop scanning at the first shell operator
+# it meets, and a verb followed by ANY of these is still followed by
+# whitespace or end of string.
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: chained + piped to tee still blocks"      BLOCK "$(b "ssh root@$PROD 'rauc install /data/update.raucb && poweroff' 2>&1 | tee log")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: chained + > out still blocks"             BLOCK "$(b "ssh root@$PROD 'rauc install /data/update.raucb && poweroff' > out")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: chained + trailing comment still blocks"  BLOCK "$(b "ssh root@$PROD 'rauc install /data/update.raucb && poweroff' # go")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: chained + || true still blocks"           BLOCK "$(b "ssh root@$PROD 'rauc install /data/update.raucb && poweroff' || true")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: chained + ; echo done still blocks"       BLOCK "$(b "ssh root@$PROD 'rauc install /data/update.raucb && poweroff' ; echo done")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: chained + && echo ok still blocks"        BLOCK "$(b "ssh root@$PROD 'rauc install /data/update.raucb && poweroff' && echo ok")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: timeout-wrapped, stdin redirected, still blocks" BLOCK "$(b "timeout 60 ssh root@$PROD 'rauc install /data/update.raucb; halt' </dev/null")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: sh -c wrapping the remote command still blocks"  BLOCK "$(b "ssh root@$PROD \"sh -c 'rauc install /data/update.raucb; poweroff'\"")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: sh -c wrapping + trailing 2>&1 still blocks"     BLOCK "$(b "ssh root@$PROD \"sh -c 'rauc install /data/update.raucb; poweroff'\" 2>&1")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: subshell parens still blocks"             BLOCK "$(b "ssh root@$PROD '(rauc install /data/update.raucb; poweroff)'")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: chained OTA + reboot -p, trailing 2>&1 still blocks" BLOCK "$(b "ssh root@$PROD 'rauc install /data/update.raucb && reboot -p' 2>&1")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: literal embedded newline still blocks" BLOCK "$(b "$(printf "ssh root@%s 'rauc install /data/update.raucb\npoweroff'\necho done" "$PROD")")"
+
+echo "--- W2: bare chained/multi-line power verbs block with no grant at all ---"
+# No grant-scoped verb here -- just an innocuous command chained ahead of the
+# always-blocked one, or split across a literal newline. These need no grant
+# to prove the point: always_blocked never consulted grant_valid to begin with.
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE" t "no grant: uptime ; poweroff, trailing 2>&1 blocks"  BLOCK "$(b "ssh root@$PROD 'uptime; poweroff' 2>&1")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE" t "no grant: uptime ; init 0, trailing 2>&1 blocks"    BLOCK "$(b "ssh root@$PROD 'uptime; init 0' 2>&1")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE" t "no grant: uptime ; /sbin/halt, trailing 2>&1 blocks" BLOCK "$(b "ssh root@$PROD 'uptime; /sbin/halt' 2>&1")"
+KIOSK_PROD_AUTH_FILE="$GRANT_NONE" t "no grant: uptime, embedded newline, halt blocks"    BLOCK "$(b "$(printf "ssh root@%s 'uptime\nhalt' 2>&1" "$PROD")")"
+
+echo "--- W2: bench is unaffected by grant state either way ---"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID"   t "grant present: bench OTA still allowed" ALLOW "$(b "just kiosk-ota host=root@$BENCH")"
+KIOSK_PROD_AUTH_FILE="$GRANT_EXPIRED" t "grant expired: bench OTA still allowed" ALLOW "$(b "just kiosk-ota host=root@$BENCH")"
+
+echo "--- W2: revoking the grant (the file goes away) blocks again ---"
+# prod-authorize.sh's own --revoke behaviour is out of scope here (owner,
+# 2026-09-28) -- this proves the guard's SIDE of revocation: once the grant
+# file is gone, the verb it allowed a moment ago blocks again.
+GRANT_REVOKABLE="$T/prod-auth-revokable"
+printf 'expires=%s\n' "$((NOW + 3600))" > "$GRANT_REVOKABLE"
+KIOSK_PROD_AUTH_FILE="$GRANT_REVOKABLE" t "revoke: allowed before" ALLOW "$(b "just kiosk-ota host=root@$PROD")"
+rm -f "$GRANT_REVOKABLE"
+KIOSK_PROD_AUTH_FILE="$GRANT_REVOKABLE" t "revoke: blocked after (grant file removed)" BLOCK "$(b "just kiosk-ota host=root@$PROD")"
 
 echo
 printf 'pass=%s fail=%s\n' "$pass" "$fail"

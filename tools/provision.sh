@@ -3,6 +3,7 @@
 #
 #   tools/provision.sh device root@<host>     -- a running, reachable device
 #   tools/provision.sh card   /mnt/data       -- a mounted /data partition
+#   tools/provision.sh stage  <outdir>        -- the output alone, no card or ssh
 #
 # Values come from secrets.yaml, which is gitignored. Nothing here is echoed:
 # the SSID and PSK hash are not credential-shaped and would pass every scanner,
@@ -14,8 +15,8 @@
 # reach -- re-provisioning, or seeding one that still has a baked config.
 set -euo pipefail
 
-MODE=${1:?usage: provision.sh device <ssh-target> | card <mounted-/data>}
-DEST=${2:?usage: provision.sh device <ssh-target> | card <mounted-/data>}
+MODE=${1:?usage: provision.sh device <ssh-target> | card <mounted-/data> | stage <outdir>}
+DEST=${2:?usage: provision.sh device <ssh-target> | card <mounted-/data> | stage <outdir>}
 # The secrets live OUTSIDE the repository, deliberately. Nothing site-specific
 # reaches the image any more, so the build must not be able to read them even by
 # accident: with no secrets.yaml in the tree and no kas include for it, a
@@ -43,7 +44,7 @@ SSID=$(val WIFI_SSID);      PSK=$(val WIFI_PSK_HASH)
 URL=$(val KIOSK_URL);       HOST=$(val KIOSK_HOSTNAME)
 NS=$(val KIOSK_NAMESERVER); MID=$(val KIOSK_MACHINE_ID)
 
-for pair in SSID:WIFI_SSID PSK:WIFI_PSK_HASH URL:KIOSK_URL HOST:KIOSK_HOSTNAME NS:KIOSK_NAMESERVER; do
+for pair in SSID:WIFI_SSID PSK:WIFI_PSK_HASH HOST:KIOSK_HOSTNAME NS:KIOSK_NAMESERVER; do
     n=${pair%%:*}; real=${pair#*:}
     [ -n "${!n}" ] || { echo "secrets.yaml is missing $real"; exit 1; }
 done
@@ -61,6 +62,7 @@ fi
 
 STAGE=$(mktemp -d); trap 'rm -rf "$STAGE"' EXIT
 mkdir -p "$STAGE/config" "$STAGE/etc"
+chmod 0755 "$STAGE/config" "$STAGE/etc"
 umask 077
 cat > "$STAGE/config/wpa_supplicant.conf" <<EOF
 ctrl_interface=/var/run/wpa_supplicant
@@ -74,7 +76,13 @@ network={
 }
 EOF
 umask 022
-printf 'KIOSK_URL=%s\nKIOSK_INSPECTOR=0\n' "$URL" > "$STAGE/config/kiosk.conf"
+# Unset: no KIOSK_URL line at all, so kiosk.service's own localhost default
+# applies -- the same as a board that was never provisioned with one.
+if [ -n "$URL" ]; then
+    printf 'KIOSK_URL=%s\nKIOSK_INSPECTOR=0\n' "$URL" > "$STAGE/config/kiosk.conf"
+else
+    printf 'KIOSK_INSPECTOR=0\n' > "$STAGE/config/kiosk.conf"
+fi
 printf '%s\n' "$HOST" > "$STAGE/config/hostname"
 : > "$STAGE/config/resolv.conf"
 for ns in $NS; do printf 'nameserver %s\n' "$ns" >> "$STAGE/config/resolv.conf"; done
@@ -143,19 +151,34 @@ case "$MODE" in
     sync
     echo "provisioned $DEST"
     ;;
+  stage)
+    # No card, no ssh, no root: this mode exists to produce the exact
+    # provisioning output for a diff before writing it for real, so it skips the
+    # card branch's device-only chown/mode enforcement.
+    mkdir -p "$DEST/config" "$DEST/etc"
+    cp "$STAGE/config/"* "$DEST/config/"
+    cp "$STAGE/etc/machine-id" "$DEST/etc/machine-id"
+    cp "$STAGE/RECOVER.sh" "$DEST/RECOVER.sh"
+    echo "staged $DEST"
+    ;;
   device)
     ssh_opts=(-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
     # tar over stdin: one stream, and a few kilobytes of it. Small enough that
-    # transfer shape is not a consideration here either way.
+    # transfer shape is not a consideration either way.
     # --owner/--group: tar otherwise preserves THIS host's uid/gid, landing the
     # wifi credentials owned by uid 1000 on the device.
+    #
+    # The archive names STAGE's children (config, etc, RECOVER.sh), never `.`
+    # itself: `tar -C "$STAGE" -cf - .` archives a `./` entry carrying
+    # mktemp -d's own mode (0700), and `tar -C /data -xf -` applies THAT to
+    # /data itself, not just its contents.
     #
     # rc is captured rather than left to errexit: a bare ssh diagnostic and a
     # silent exit 255 say nothing about which of this script's two remote steps
     # ran, and the difference matters -- a write that failed leaves /data as it
     # was, a read-back that failed does not say whether the write landed.
     rc=0
-    tar -C "$STAGE" --owner=root --group=root --numeric-owner -cf - . | ssh "${ssh_opts[@]}" "$DEST" \
+    tar -C "$STAGE" --owner=root --group=root --numeric-owner -cf - config etc RECOVER.sh | ssh "${ssh_opts[@]}" "$DEST" \
         'mkdir -p /data/config /data/etc && tar -C /data -xf - && chown -R 0:0 /data/config /data/etc && chmod 0600 /data/config/wpa_supplicant.conf && sync' || rc=$?
     [ "$rc" -eq 0 ] || { echo "could not write /data on $DEST (tar|ssh rc=$rc) -- nothing was provisioned" >&2; exit 1; }
 

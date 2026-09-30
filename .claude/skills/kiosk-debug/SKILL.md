@@ -4,8 +4,8 @@ description: >-
   Diagnose a running wisekiosk device that has no keyboard, no visible console and a display
   whose correct state is a black screen. Decides which instrument to reach for — TCP-state
   inference, a screenshot, a soak read, or a boot profile — and drives the tools/kiosk-*.sh
-  scripts behind them. Invoke when the kiosk is unreachable, blank, stale, suspected of
-  leaking memory, or slow to come up, and when a boot-time change needs measuring.
+  scripts behind them. Invoke when the kiosk is unreachable, blank, stale, suspected of leaking
+  memory, or slow to come up, and when a boot-time change needs measuring.
 ---
 
 # Debugging a display you cannot see

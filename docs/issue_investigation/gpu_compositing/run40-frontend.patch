@@ -1,0 +1,24 @@
+--- a/frontend/src/modules/park_wait_times/ParkCard.svelte
++++ b/frontend/src/modules/park_wait_times/ParkCard.svelte
+@@ hunk 1 of 2 -- transcript line 10723, 2026-09-23T03:06:02.825Z @@
+@@ -1,0 +2,16 @@
++
++  // DIAGNOSTIC (#100 Run 40 — strip before ship): split the rotation tick's promoted allocation.
++  // measure() calls window.matchMedia on every re-registration, and each call makes a
++  // document-retained MediaQueryList. When window.__abl.matchmedia is set, serve a cached one so an
++  // interleaved probe can weigh that against the per-tick derived recompute. window.__mmReal counts
++  // the uncached (real) calls as the landing check.
++  let cachedMM: MediaQueryList | undefined;
++  function reducedMotion(): boolean {
++    const w = window as unknown as { __abl?: { matchmedia?: boolean }; __mmReal?: number };
++    if (w.__abl?.matchmedia) {
++      if (!cachedMM) cachedMM = window.matchMedia('(prefers-reduced-motion: reduce)');
++      return cachedMM.matches;
++    }
++    w.__mmReal = (w.__mmReal ?? 0) + 1;
++    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
++  }
+@@ hunk 2 of 2 -- transcript line 10726, 2026-09-23T03:06:07.641Z @@
+@@ -1 +1 @@
+-        if (distance <= 0 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
++        if (distance <= 0 || reducedMotion()) {

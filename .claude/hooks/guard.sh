@@ -19,11 +19,14 @@
 # repository is PUBLIC: a tracked address is the thing the repository exists to
 # not publish, so a guard keyed on one would be its own leak.
 #
-# Fail-open everywhere: no jq, no payload, no identity file, or an unparseable
-# anything, and the call goes through. A guard that blocks on its own breakage
-# gets disabled, and then it guards nothing. A missing map says so on stderr --
-# fail-open is a degradation, and a silent one cannot be told from a rule that
-# looked and found nothing.
+# Fail-open everywhere except the grant: no jq, no payload, no identity file,
+# or an unparseable anything, and the call goes through. A guard that blocks on
+# its own breakage gets disabled, and then it guards nothing. A missing map
+# says so on stderr -- fail-open is a degradation, and a silent one cannot be
+# told from a rule that looked and found nothing. The one exception is
+# tools/prod-authorize.sh's grant: missing, expired, malformed or symlinked all
+# count as no grant, because the grant WIDENS access rather than narrowing it,
+# and failing open there would be the opposite of a degradation.
 #
 # Self-test: bash .claude/hooks/guard-test.sh  (wired into `just guards` and CI)
 set -uo pipefail
@@ -67,6 +70,46 @@ fi
 if [ ! -f "$IDFILE" ] && [ "$tool" = Bash ]; then
     printf '%s\n' "guard.sh: no local/device-identity.md reachable from $REPO -- the PROD-board rules (1, 3) are INERT for this call." >&2
 fi
+
+# tools/prod-authorize.sh writes this, resolved exactly like IDFILE above (a
+# linked worktree has no local/ of its own, and the grant must be found where
+# it was written, not fail open there). Overridable for the same reason.
+PAFILE=${KIOSK_PROD_AUTH_FILE:-}
+if [ -z "$PAFILE" ]; then
+    PAFILE=$REPO/local/prod-auth
+    if [ ! -f "$PAFILE" ]; then
+        gitcommon=$(git -C "$REPO" rev-parse --git-common-dir 2>/dev/null)
+        if [ -n "$gitcommon" ]; then
+            case "$gitcommon" in /*) ;; *) gitcommon=$REPO/$gitcommon ;; esac
+            primary=$(cd "$gitcommon/.." 2>/dev/null && pwd)
+            [ -n "$primary" ] && PAFILE=$primary/local/prod-auth
+        fi
+    fi
+fi
+
+# A valid grant holds `expires=<unix-int>` with that time still in the future,
+# and nothing else -- trailing blank lines aside, since `$(cat …)` strips those
+# the same way it strips a single trailing newline. Never a symlink: a
+# symlinked grant could point anywhere, so it is never trusted regardless of
+# what it resolves to. Anything else (missing key, non-integer, extra content)
+# is malformed, and malformed blocks the same as absent.
+#
+# This is the ONLY validity check (owner, 2026-09-28, following
+# orchestrator-gate.sh's precedent): tools/prod-authorize.sh's `--show` prints
+# the file as written and does not re-validate it, so there is nothing else to
+# keep in step with.
+grant_valid() {
+    [ -f "$PAFILE" ] && [ ! -L "$PAFILE" ] || return 1
+    content=$(cat "$PAFILE" 2>/dev/null)
+    case "$content" in
+        expires=*) exp=${content#expires=} ;;
+        *) return 1 ;;
+    esac
+    case "$exp" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    [ "$exp" -gt "$(date +%s)" ]
+}
 
 # One `key = value` from the map's ```identity fence, empty when absent. Scoped
 # to the fence so the prose around it -- which necessarily shows the format --
@@ -204,7 +247,13 @@ Bash)
     # hit, the producer dies of SIGPIPE at 141, and pipefail returns that -- the
     # test would read false precisely when the pattern matches.
     ssh_target() { [[ $'\n'$ssh_pairs$'\n' == *$'\n'"$1"$'\t'* ]]; }
-    ssh_verb() { [[ $'\n'$ssh_pairs$'\n' == *$'\t'"$1"$'\n'* ]]; }
+    # Tolerates a path prefix on the verb (`/sbin/poweroff`, `../bin/reboot`):
+    # the captured verb is the whole word, slashes included, and a bare-name
+    # match alone missed every absolute-path spelling of a power verb.
+    ssh_verb() {
+        [[ $'\n'$ssh_pairs$'\n' == *$'\t'"$1"$'\n'* ]] && return 0
+        [[ $'\n'$ssh_pairs$'\n' == *$'\t'*"/$1"$'\n'* ]]
+    }
 
     # True when $1 is the value of a `host=` recipe argument (`just … host=<host>`).
     # The pair is what makes this safe: `MACHINE=<host>` normalises to a different
@@ -242,12 +291,22 @@ Bash)
     # The prod unit is wall-mounted and carries the live soak run (issue #40).
     # An OTA, a reboot, a rollback or a reprovision there ends a run that cannot
     # be replayed, and a bad slot costs a physical trip. The owner's standing
-    # rule is that prod is read-only; the Justfile's own refusals cover the
-    # tree-state half, not the which-board half, so this is the one that knows.
+    # rule is that prod is read-only unless tools/prod-authorize.sh has granted
+    # a time-boxed exception (grant_valid(), above); the Justfile's own
+    # refusals cover the tree-state half, not the which-board half, so this is
+    # the one that knows.
+    #
+    # The grant only widens OTA/install/reboot/rollback/reprovision. flash,
+    # bootprofile, tools/rauc-rotate and any power-off verb (shutdown, halt,
+    # poweroff, kexec) stay blocked no matter what the grant says -- see
+    # always_blocked below.
     #
     # Read-only recipes (status, screenshot, soak-summary, kiosk-backup,
     # rauc-status, tcp-state, kiosk-preflight) are NOT here: blocking those
     # would block the only way to observe the board this rule protects.
+    #
+    # BOTH spellings, recipe and direct script, the way tools/provision.sh and
+    # tools/rauc-rotate already appear beside their recipes.
     #
     # Limit, stated rather than hidden: the target must be visible IN THIS
     # COMMAND. A `KIOSK_HOST` exported in an earlier tool call is invisible to a
@@ -273,18 +332,121 @@ Bash)
     # verb positions: command position (CMDPOS, so a `sudo` prefix is not a way
     # past it), and the remote command of an ssh (`ssh_verb`), which is where an
     # argument to a grep is not.
+    #
+    # No quotes are stripped anywhere (content-reviewer B1a/N1, second pass):
+    # stripping even just the command's LAST character opened back up on any
+    # SUFFIX after the closing quote -- `ssh <host> '... && poweroff' 2>&1`,
+    # `| tee log`, `; echo done`, a trailing `)`, a second line -- none of
+    # which is the command's own last character, so the verb was never
+    # exposed. Matching runs on $code as-is, and a verb's END is a TERMINATOR
+    # CLASS instead of "whitespace or end of string": whitespace, `;&|)'"`, or
+    # end of string. A closing quote or paren ends the verb exactly like a
+    # space does, whatever comes after it -- `poweroff'`, `poweroff)`,
+    # `poweroff;` are all now a match, matching CMDPOS's own anchor set (which
+    # already treats `;&|(` as command punctuation, not text).
+    #
+    # The one shape this still cannot tell from a real chained command is a
+    # quoted regex alternation whose power verb is any branch but the FIRST,
+    # wherever it sits on the line -- `grep -cE 'panic|poweroff' /var/log/
+    # messages` and `grep -cE 'a|poweroff|b' ...` alike: the `|` right before
+    # the verb reads as CMDPOS's own pipe anchor, and the quote (or the next
+    # `|`) right behind the verb now ends it like whitespace would. Accepted as
+    # a documented residual (owner, 2026-09-28: fail-closed is this guard's
+    # posture) -- `grep -e panic -e poweroff` is the workaround, and both sides
+    # are proven in guard-test.sh. An alternation with the power verb FIRST
+    # (`'reboot|panic'`) is unaffected: nothing anchors immediately before it,
+    # only after -- and `reboot` first is grant-scoped, not always-blocked, so
+    # it still needs a grant like any other reboot.
+    VERBEND="([[:space:];&|)'\"]|\$)"
+    #
+    # `reboot` alone is GRANT-SCOPED, below -- UNLESS it carries one of its own
+    # power-off-equivalent flags (`-p`, `--poweroff`, `--halt`), which leaves
+    # the board off exactly like the always-blocked verbs and is never in scope
+    # for a grant (owner, 2026-09-28). shutdown/halt/poweroff/kexec are
+    # always-blocked outright, and so are two more forms of "go to runlevel
+    # 0/off" the docs already promise stay blocked: `sh -c poweroff` (or any of
+    # bash/zsh/dash/ksh) and `init 0` / `telinit 0`.
+    #
+    # Each of these three is checked TWO ways, ORed, neither alone enough:
+    # CMDPOS anchors a LOCAL or CHAINED verb (`rauc install ... && reboot -p`,
+    # `&& sh -c 'poweroff'`), but cannot reach one that is itself the remote
+    # command of an ssh call (`ssh <prod> reboot -p`, `ssh <prod> sh -c
+    # poweroff`) -- "ssh" is not a CMDWRAP word, so CMDPOS's own prefix chain
+    # never reaches past it. ssh_verb covers exactly that gap, gated on the
+    # verb it captured actually BEING reboot/a shell/init -- a blind text
+    # search blocked an OBSERVATION whose real verb is `grep`
+    # (content-reviewer N1: `grep reboot ... --halt`, `grep -c 'reboot -p'`).
     prod_reboot=0
-    for v in reboot shutdown halt poweroff; do
-        ssh_verb "$v" && prod_reboot=1
+    ssh_verb reboot && prod_reboot=1
+    prod_power=0
+    for v in shutdown halt poweroff kexec; do
+        ssh_verb "$v" && prod_power=1
     done
-    if [ "$targets_prod" -eq 1 ] && { [ "$prod_reboot" -eq 1 ] || printf '%s' "$code" | grep -qE \
-        "just[[:space:]]+(kiosk-ota|kiosk-install|kiosk-send-direct|kiosk-rollback|kiosk-reboot|reboot|rauc-install|provision-device|bootprofile|flash)([[:space:]]|$)|rauc[[:space:]]+install|systemctl[[:space:]]+(reboot|poweroff|halt|kexec|shutdown)|${CMDPOS}(reboot|shutdown|halt|poweroff)([[:space:]]|$)|tools/provision\.sh[[:space:]]+device|tools/rauc-rotate"; }; then
+    if printf '%s' "$code" | grep -qE \
+        "${CMDPOS}(\\S*/)?reboot([[:space:]]+[^;&|]*)?[[:space:]](-p|--poweroff|--halt)${VERBEND}"; then
+        prod_power=1
+    fi
+    if [ "$prod_reboot" -eq 1 ] && printf '%s' "$code" | grep -qE \
+        "reboot([^;&|]*[[:space:]])?(-p|--poweroff|--halt)${VERBEND}"; then
+        prod_power=1
+    fi
+    if printf '%s' "$code" | grep -qE \
+        "${CMDPOS}(\\S*/)?(ba|z|da|k)?sh[[:space:]]+-c[[:space:]]+[\"']?(\\S*/)?(shutdown|halt|poweroff|kexec)${VERBEND}"; then
+        prod_power=1
+    fi
+    prod_shc=0
+    for v in sh bash zsh dash ksh; do
+        ssh_verb "$v" && prod_shc=1
+    done
+    # -e, not a bare pattern: a pattern starting with `-` reads as an option to
+    # grep itself ("invalid option -- '['"), GNU grep and this sandbox's ugrep
+    # alike.
+    if [ "$prod_shc" -eq 1 ] && printf '%s' "$code" | grep -qE \
+        -e "-c[[:space:]]+[\"']?(\\S*/)?(shutdown|halt|poweroff|kexec)${VERBEND}"; then
+        prod_power=1
+    fi
+    if printf '%s' "$code" | grep -qE \
+        "${CMDPOS}(\\S*/)?(tel)?init[[:space:]]+0${VERBEND}"; then
+        prod_power=1
+    fi
+    prod_runlevel0=0
+    for v in init telinit; do
+        ssh_verb "$v" && prod_runlevel0=1
+    done
+    if [ "$prod_runlevel0" -eq 1 ] && printf '%s' "$code" | grep -qE \
+        "(init|telinit)[[:space:]]+0${VERBEND}"; then
+        prod_power=1
+    fi
+
+    # Verbs a valid grant (tools/prod-authorize.sh) allows against prod: an
+    # OTA, install, direct-send, rollback, reboot, rauc install or reprovision.
+    grant_scoped=0
+    if [ "$prod_reboot" -eq 1 ] || printf '%s' "$code" | grep -qE \
+        "just[[:space:]]+(kiosk-ota|kiosk-install|kiosk-send-direct|kiosk-rollback|kiosk-reboot|reboot|rauc-install|provision-device)${VERBEND}|rauc[[:space:]]+install|systemctl([[:space:]]+-[^[:space:]]+)*[[:space:]]+reboot${VERBEND}|${CMDPOS}(\\S*/)?reboot${VERBEND}|tools/provision\\.sh[[:space:]]+device"; then
+        grant_scoped=1
+    fi
+
+    # Never allowed against prod, grant or not: flash, bootprofile (both
+    # spellings), tools/rauc-rotate, and any verb that leaves the board off
+    # rather than restarting it -- bare, `/path/to/`-prefixed, or interleaved
+    # with systemctl options (`systemctl --force poweroff`).
+    always_blocked=0
+    if [ "$prod_power" -eq 1 ] || printf '%s' "$code" | grep -qE \
+        "just[[:space:]]+(bootprofile|flash)${VERBEND}|systemctl([[:space:]]+-[^[:space:]]+)*[[:space:]]+(poweroff|halt|kexec|shutdown)${VERBEND}|systemctl([[:space:]]+-[^[:space:]]+)*[[:space:]]+(start|isolate)[[:space:]]+(poweroff|halt)\\.target${VERBEND}|${CMDPOS}((\\S*/)?(shutdown|halt|poweroff|kexec))${VERBEND}|tools/rauc-rotate|tools/kiosk-bootprofile\\.sh"; then
+        always_blocked=1
+    fi
+
+    if [ "$targets_prod" -eq 1 ] && { [ "$always_blocked" -eq 1 ] || { [ "$grant_scoped" -eq 1 ] && ! grant_valid; }; }; then
         cat >&2 <<'MSG'
 BLOCKED: that is a destructive operation aimed at the PROD board.
 
 Prod is wall-mounted and is carrying the live soak run. An OTA, install,
 rollback, reboot, reprovision or profile there ends a run that cannot be
 replayed, and a slot that comes up wrong costs a physical trip to the wall.
+
+A valid grant (tools/prod-authorize.sh) allows the OTA/install/reboot/rollback/
+reprovision half of that list. flash, bootprofile, rauc-rotate and any
+power-off verb (shutdown, halt, poweroff, kexec) stay blocked regardless.
 
 Retarget the BENCH board -- `local/device-identity.md` has the role map, and
 `just find <cidr>` reports which address a swapped board took. Observation of
