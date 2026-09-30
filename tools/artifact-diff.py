@@ -1,28 +1,13 @@
 #!/usr/bin/env python3
-"""Report whether a buildhistory image directory differs between two refs.
+"""Diff two refs' buildhistory image directories.
 
     artifact-diff.py [--repo <buildhistory dir>] <base-ref> <head-ref>
 
-Inside a buildhistory git repository, the image directory is found by glob
-`images/*/*/core-image-base/` -- exactly one match is required, since the
-MACHINE_ARCH path segment swaps `-` for `_` (raspberrypi0-wifi ->
-raspberrypi0_wifi) and a literal machine name would silently match nothing.
-The three files buildhistory records there -- installed-package-versions.txt,
-files-in-image.txt, image-info.txt -- are compared between base-ref and
-head-ref with `git diff`. `buildhistory-diff` is not used: it needs
-GitPython, which this tree does not carry.
-
 Exit 0: at least one of the three files differs between the refs. The `git
         diff` of all three is printed on stdout.
-Exit 1: none of the three files differs. "no change in image" is printed on
-        stderr and nothing is printed on stdout -- a pipeline failure, not a
-        skip (#119 epic: automated build-and-test pipeline). The predicate
-        is size-blind by design (#121 artifact delta tier).
-Exit 2: the repo, a ref, or the image directory could not be resolved. The
-        reason is printed on stderr, prefixed "could not tell", and nothing
-        is printed on stdout.
-
---repo defaults to build/buildhistory under the current directory.
+Exit 1: none of the tracked files differs; "no change in image" on stderr.
+Exit 2: the repo, a ref, or the image directory could not be resolved;
+        "could not tell: <reason>" on stderr.
 """
 import importlib.util
 import subprocess
@@ -31,25 +16,19 @@ from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parent
 
-# Hyphenated filename, so it cannot be a normal import: loaded by path, only
-# for its git_env(), which is the worktree-git-env guard -- a leaked
-# GIT_DIR/GIT_INDEX_FILE from an enclosing worktree's hooks would send every
-# git call below at that worktree's repository instead of --repo. Owned by
-# tools/layer-currency.py; not duplicated here.
+# Loaded by path: a hyphenated filename cannot be imported normally.
 _spec = importlib.util.spec_from_file_location(
     "layer_currency", TOOLS / "layer-currency.py")
 _layer_currency = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_layer_currency)
 git_env = _layer_currency.git_env
 
-# The three files buildhistory writes into the image directory on every
-# build. This order does not affect `git diff`'s own output order, which is
-# by path, not by pathspec argument order.
+# The three files buildhistory tracks per image build; git diff's output
+# order follows path, not this order.
 TRACKED = ("installed-package-versions.txt", "files-in-image.txt",
            "image-info.txt")
 
-# MACHINE_ARCH swaps `-` -> `_` in this path segment; a literal machine name
-# would silently match nothing.
+# MACHINE_ARCH spells the machine with underscores in this path segment.
 IMAGE_GLOB = "images/*/*/core-image-base"
 
 DEFAULT_REPO = Path("build/buildhistory")
