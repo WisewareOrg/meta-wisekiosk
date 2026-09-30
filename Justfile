@@ -308,7 +308,11 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
     # bind mount (run.sh/the Justfile's build/bundle/testimage recipes), never
     # by symlink or copy -- a symlink here would dangle inside kas-container's
     # own bind mount, which only maps $TREE itself into /work. The driver
-    # checkout never runs bitbake, so it needs no keys dir.
+    # checkout never runs bitbake, so it needs no keys dir. rm -rf first: an
+    # idempotent re-install must also replace a pre-existing local/keys
+    # symlink (an older install, or the driver's own stale one) with this
+    # real directory -- mkdir -p alone is a no-op against an existing path.
+    rm -rf "$DRIVER/local/keys" "$TREE/local/keys"
     mkdir -p "$TREE/local/keys"
 
     CONF_DIR="$HOME/.config/wisekiosk"
