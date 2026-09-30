@@ -211,7 +211,7 @@ artifact-diff base head *args:
 
 [group('audit')]
 [script('bash')]
-[doc("Build with testimage inherited; run the wisekiosk oeqa suite over ssh (#119 D-G)")]
+[doc("Build with testimage inherited; run the wisekiosk oeqa suite over ssh")]
 testimage ssh_dir=env('PIPELINE_SSH_DIR', ''):
     if [ -z "{{ssh_dir}}" ] || [ -z "${TEST_TARGET_IP:-}" ]; then
         echo "testimage needs ssh_dir (or PIPELINE_SSH_DIR) and TEST_TARGET_IP set -- refusing" >&2
