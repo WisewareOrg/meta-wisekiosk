@@ -147,14 +147,28 @@ collect_failure_logs() {
 }
 
 rauc_slots() {
-    # rauc_slots HOST -- one line per slot: "<bootname> <state> <boot_status>"
+    # rauc_slots HOST -- one line per slot:
+    # "<bootname> <state> <boot_status> <primary:yes|no>". RAUC_BOOT_PRIMARY
+    # names the next-boot slot by its internal slot name (e.g. "rootfs.1"),
+    # not its bootname; RAUC_SYSTEM_SLOTS lists those internal names in the
+    # same order as RAUC_SLOTS, so position maps one to the other.
     ssh "${SSH_OPTS[@]}" "$1" '
         eval "$(rauc status --output-format=shell)"
+        set -- $RAUC_SYSTEM_SLOTS
+        n=1
+        primary_index=""
+        for idx in $RAUC_SLOTS; do
+            eval slotname=\$$n
+            [ "$slotname" = "$RAUC_BOOT_PRIMARY" ] && primary_index=$idx
+            n=$((n + 1))
+        done
         for i in $RAUC_SLOTS; do
             eval b=\$RAUC_SLOT_BOOTNAME_$i
             eval s=\$RAUC_SLOT_STATE_$i
             eval t=\$RAUC_SLOT_BOOT_STATUS_$i
-            echo "$b $s $t"
+            p=no
+            [ "$i" = "$primary_index" ] && p=yes
+            echo "$b $s $t $p"
         done
     '
 }
@@ -168,6 +182,12 @@ slot_status() {
     # slot_status SLOTS_TEXT BOOTNAME -- that slot's boot_status; fails if
     # the bootname is not present
     awk -v b="$2" '$1==b{print $3; found=1} END{if(!found) exit 1}' <<< "$1"
+}
+
+primary_bootname() {
+    # primary_bootname SLOTS_TEXT -- the bootname RAUC will boot next; fails
+    # if none is marked primary
+    awk '$4=="yes"{print $1; found=1} END{if(!found) exit 1}' <<< "$1"
 }
 
 wait_for_boot() {
@@ -426,6 +446,16 @@ ota_stage "send" "$RUN_DIR/send.log" \
 BENCH_MUTATED=1
 ota_stage "install" "$RUN_DIR/install.log" \
     "${TREE_JUST[@]}" kiosk-install "$SSH_HOST"
+
+# kiosk-install's own rc does not prove the install took: its last command
+# is a diagnostic, not `rauc install` itself. Check RAUC's own next-boot
+# slot designation before spending a reboot on it.
+SLOTS_INFO=$(rauc_slots "$SSH_HOST") || true
+PRIMARY_AFTER_INSTALL=$(primary_bootname "$SLOTS_INFO") \
+    || abort "could not read bench's primary slot after install"
+if [ "$PRIMARY_AFTER_INSTALL" = "$BASELINE_SLOT" ]; then
+    abort "install did not activate the new slot; bench's primary slot is still the baseline slot"
+fi
 
 # --- reboot onto the new slot: 180s, then poll up to 600s more ---------
 
