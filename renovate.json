@@ -3,8 +3,13 @@
   "extends": ["github>tjwise99/wise-renovate#feat/onboard-meta-wisekiosk"],
   "packageRules": [
     {
-      "description": "A kas layer pin never automerges (owner, 2026-09-29); everything else keeps the preset's automerge.",
-      "matchFileNames": ["includes/**"],
+      "description": "A kas input -- a layer pin, or a recipe's SRCREV -- needs a human merge (owner, 2026-09-30); everything else keeps the preset's automerge.",
+      "matchFileNames": ["includes/**", "meta-wisekiosk/**"],
+      "automerge": false
+    },
+    {
+      "description": "So does kas itself.",
+      "matchPackageNames": ["siemens/kas", "ghcr.io/siemens/kas/kas"],
       "automerge": false
     },
     {

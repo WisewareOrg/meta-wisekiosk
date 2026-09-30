@@ -941,9 +941,10 @@ fi
 # template carries it as a fallback literal, which this holds equal to the
 # YAML. The regex reads one entry at a time, so a url, branch or commit set in
 # a different file from the entry holding the commit, or a tag: pin, fails
-# here instead of being read wrong. A layer pin never automerges (owner,
-# 2026-09-29), so the rule saying so must exist and no later rule may turn
-# automerge back on.
+# here instead of being read wrong. A kas input needs a human merge (owner,
+# 2026-09-30): every file holding a pin read here, and every package in the kas
+# group, must sit under an unconditional automerge: false rule, and no later
+# rule may turn automerge back on.
 if ! "$PY" -c 'import yaml' 2>/dev/null; then
     bad "guard 20 cannot check the Renovate managers: $PY has no yaml module (see guard 4)"
 elif out20=$("$PY" - <<'EOF' 2>&1
@@ -969,13 +970,21 @@ app = manager(lambda m: m.get("datasourceTemplate") == "git-refs"
               and any("wisekiosk-src" in p for p in m.get("managerFilePatterns", [])), "app SRCREV")
 
 rules = cfg.get("packageRules", [])
-hold = [i for i, r in enumerate(rules)
-        if r.get("automerge") is False and r.get("matchFileNames") == ["includes/**"]
-        and set(r) <= {"description", "matchFileNames", "automerge"}]
-if not hold:
-    sys.exit("renovate.json has no unconditional automerge: false rule over exactly includes/**")
-if any(r.get("automerge") is True for r in rules[hold[-1] + 1:]):
-    sys.exit("a packageRule after the includes/** hold turns automerge back on")
+holds = [(i, r) for i, r in enumerate(rules) if r.get("automerge") is False
+         and len(set(r) - {"description", "automerge"}) == 1
+         and set(r) - {"description", "automerge"} <= {"matchFileNames", "matchPackageNames"}
+         and not any(str(v).startswith("!") for v in r.get("matchFileNames", []) + r.get("matchPackageNames", []))]
+if not holds:
+    sys.exit("renovate.json has no unconditional automerge: false rule")
+if any(r.get("automerge") is True for r in rules[holds[-1][0] + 1:]):
+    sys.exit("a packageRule after the automerge holds turns automerge back on")
+held_files = [g for _, r in holds for g in r.get("matchFileNames", [])]
+held_pkgs = {p for _, r in holds for p in r.get("matchPackageNames", [])}
+kas_group = [r for r in rules if r.get("groupName") == "kas"]
+if len(kas_group) != 1:
+    sys.exit(f"expected one packageRule with groupName kas, found {len(kas_group)}")
+if not set(kas_group[0].get("matchPackageNames", [])) <= held_pkgs:
+    sys.exit("a package in the kas group can automerge")
 
 fallback = re.search(r"\{\{else\}\}([^{]+)\{\{/if\}\}$", kas["currentValueTemplate"])
 if not fallback:
@@ -1040,6 +1049,10 @@ else:
             g = m.groupdict()
             got.add((src, f'{g["host"]}/{g["depName"]}', g["currentValue"], g["currentDigest"]))
 
+from fnmatch import fnmatch
+for f in sorted({x[0] for x in want}):
+    if not any(fnmatch(f, g) for g in held_files):
+        problems.append(f"{f} holds a kas input but no automerge: false rule covers it")
 for x in sorted(want - got, key=str):
     problems.append("untracked by Renovate: " + " ".join(str(v) for v in x))
 for x in sorted(got - want, key=str):
