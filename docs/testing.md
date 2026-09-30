@@ -38,9 +38,9 @@ host by hand that it does not also do. It creates, all under `$HOME`:
 - `wisekiosk-pipeline/tree` — a second, detached checkout of the same repository; the tree under test.
 - `wisekiosk-pipeline/{driver,tree}/local/device-identity.md` — symlinks to the dev tree's own copy.
   One source of truth: a board swap updates one file.
-- `.config/wisekiosk/pipeline.env` — `PIPELINE_DRIVER`, `PIPELINE_TREE`, `KAS_BUILD_DIR` (the dev
-  tree's own `build/`, shared by both checkouts), `PIPELINE_BASELINE_REF`, `PIPELINE_SSH_DIR`, and the
-  installing shell's own `PATH`.
+- `.config/wisekiosk/pipeline.env` — `PIPELINE_DRIVER`, `PIPELINE_TREE`, `KAS_BUILD_DIR` (default: this
+  repository's own `build/`, shared by both checkouts; override with `$KAS_BUILD_DIR` at install time),
+  `PIPELINE_BASELINE_REF`, `PIPELINE_SSH_DIR`, and the installing shell's own `PATH`.
 - `.config/wisekiosk/pipeline-ssh/` — a new ed25519 keypair, installed on bench's `authorized_keys`;
   `config`; `known_hosts`. Used only inside the `testimage` stage's container — never `~/.ssh`, which
   also pushes to GitHub.
