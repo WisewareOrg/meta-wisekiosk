@@ -4,15 +4,17 @@
     candidates.py
 
 No arguments -- every input comes from the environment: PIPELINE_BASELINE_REF,
-PIPELINE_TREE, KAS_BUILD_DIR. Prints one line, `<kind> <sha> [<pr>]`, or
-nothing when there is no candidate ready. `git fetch origin` is run in
-PIPELINE_TREE first, so every ref below is current.
+PIPELINE_TREE, KAS_BUILD_DIR. PIPELINE_BASELINE_REF is a full ref, already
+qualified with its remote (e.g. `origin/main`) -- not a bare branch name.
+Prints one line, `<kind> <sha> [<pr>]`, or nothing when there is no candidate
+ready. `git fetch origin` is run in PIPELINE_TREE first, so every ref below
+is current.
 
 Order, one job per tick:
 
-  1. `origin/<PIPELINE_BASELINE_REF>`'s HEAD, if it carries no
-     `baseline/<sha>` tag in `$KAS_BUILD_DIR/buildhistory` and no live
-     `bench-pipeline` status -> `baseline <sha>`.
+  1. `$PIPELINE_BASELINE_REF`'s HEAD, if it carries no `baseline/<sha>` tag
+     in `$KAS_BUILD_DIR/buildhistory` and no live `bench-pipeline` status ->
+     `baseline <sha>`.
   2. Every open PR whose head is in THIS repository (never a fork), oldest
      first, whose diff against `merge-base(baseline ref, head)` touches an
      image input (`includes/**`, `meta-wisekiosk/**`, `kiosk-zero-w.yaml`,
@@ -127,7 +129,7 @@ def main():
         print(__doc__.strip())
         return 0
 
-    baseline_ref = env("PIPELINE_BASELINE_REF")
+    baseline_remote = env("PIPELINE_BASELINE_REF")
     tree = env("PIPELINE_TREE")
     build_dir = env("KAS_BUILD_DIR")
 
@@ -136,7 +138,6 @@ def main():
         sys.exit(f"candidates.py: git fetch origin failed in {tree}: "
                  f"{fetch.stderr.strip()}")
 
-    baseline_remote = f"origin/{baseline_ref}"
     head_sha = git(tree, "rev-parse", baseline_remote)
     if head_sha.returncode == 0:
         sha = head_sha.stdout.strip()
