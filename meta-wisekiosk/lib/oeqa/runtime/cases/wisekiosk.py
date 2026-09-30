@@ -20,10 +20,11 @@ INDEX_URL = "http://127.0.0.1:8080/"
 BOUND_SECONDS = 60
 POLL_INTERVAL_SECONDS = 2
 # self.target.run()'s own default (SSHControl's 300s) is an IDLE timeout, not
-# a total one, and a wedged-but-connected backend produces no output at all --
-# so left unset, one poll attempt could itself block for up to 300s, well past
-# BOUND_SECONDS. This bounds a single attempt well under that.
-WGET_TIMEOUT_SECONDS = 10
+# a total one, and a wedged-but-connected backend -- or a wedged systemd/D-Bus,
+# for is-active -- produces no output at all, so left unset, one poll attempt
+# could itself block for up to 300s, well past BOUND_SECONDS. This bounds a
+# single attempt well under that, for every polled or single-shot command below.
+POLL_ATTEMPT_TIMEOUT_SECONDS = 10
 
 
 class WiseKioskTest(OERuntimeTestCase):
@@ -32,7 +33,8 @@ class WiseKioskTest(OERuntimeTestCase):
         deadline = time.time() + BOUND_SECONDS
         status, output = None, None
         while True:
-            status, output = self.target.run("systemctl is-active wisekiosk.service")
+            status, output = self.target.run(
+                "systemctl is-active wisekiosk.service", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
             if output == "active":
                 return
             if time.time() >= deadline:
@@ -44,7 +46,7 @@ class WiseKioskTest(OERuntimeTestCase):
         deadline = time.time() + BOUND_SECONDS
         status, output = None, None
         while True:
-            status, output = self.target.run("wget -q -O- %s" % HEALTHZ_URL, timeout=WGET_TIMEOUT_SECONDS)
+            status, output = self.target.run("wget -q -O- %s" % HEALTHZ_URL, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
             if status == 0:
                 return
             if time.time() >= deadline:
@@ -53,7 +55,7 @@ class WiseKioskTest(OERuntimeTestCase):
         self.fail("/healthz did not return within %ss (rc %s): %s" % (BOUND_SECONDS, status, output))
 
     def test_page_serves(self):
-        status, output = self.target.run("wget -q -O- %s" % INDEX_URL, timeout=WGET_TIMEOUT_SECONDS)
+        status, output = self.target.run("wget -q -O- %s" % INDEX_URL, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
         self.assertEqual(status, 0, "GET / failed (rc %s): %s" % (status, output))
         self.assertIn("<html", output, "GET / did not return an <html> body: %s" % output)
 
