@@ -220,7 +220,11 @@ testimage ssh_dir=env('PIPELINE_SSH_DIR', ''):
     tools/write-build-rev.sh
     {{py}} tools/go-mods.py
     {{py}} tools/app-lockfile.py
-    kas-container --ssh-dir {{ssh_dir}} --runtime-args "-e TEST_TARGET_IP=$TEST_TARGET_IP -e OEQA_JSON_RESULT_DIR=$OEQA_JSON_RESULT_DIR" build {{config}}:includes/testimage.yaml -c testimage
+    RUNTIME_ARGS="-e TEST_TARGET_IP=$TEST_TARGET_IP -e OEQA_JSON_RESULT_DIR=$OEQA_JSON_RESULT_DIR"
+    if [ -n "${PIPELINE_KEYS_DIR:-}" ]; then
+        RUNTIME_ARGS="$RUNTIME_ARGS -v $PIPELINE_KEYS_DIR:/work/local/keys:ro"
+    fi
+    kas-container --ssh-dir {{ssh_dir}} --runtime-args "$RUNTIME_ARGS" build {{config}}:includes/testimage.yaml -c testimage
 
 # Write per-site config to a device's /data. The image carries none of it.
 [group('provision')]
@@ -276,8 +280,13 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
     for d in "$DRIVER" "$TREE"; do
         mkdir -p "$d/local"
         ln -sf "$MAP" "$d/local/device-identity.md"
-        ln -sf "$KEYS" "$d/local/keys"
     done
+    # A real, empty directory: the fleet signing key reaches the container by
+    # bind mount (run.sh/the Justfile's build/bundle/testimage recipes), never
+    # by symlink or copy -- a symlink here would dangle inside kas-container's
+    # own bind mount, which only maps $TREE itself into /work. The driver
+    # checkout never runs bitbake, so it needs no keys dir.
+    mkdir -p "$TREE/local/keys"
 
     CONF_DIR="$HOME/.config/wisekiosk"
     mkdir -p "$CONF_DIR"
@@ -295,6 +304,7 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
         printf 'PIPELINE_TREE="%s"\n' "$TREE"
         printf 'PIPELINE_BASELINE_REF="{{pipeline_baseline_ref}}"\n'
         printf 'PIPELINE_SSH_DIR="%s"\n' "$SSH_DIR"
+        printf 'PIPELINE_KEYS_DIR="%s"\n' "$KEYS"
     } > "$CONF_DIR/pipeline.env"
     echo "wrote $CONF_DIR/pipeline.env"
 
