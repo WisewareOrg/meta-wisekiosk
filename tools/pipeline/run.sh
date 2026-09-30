@@ -13,13 +13,14 @@
 # (e.g. `origin/main`).
 #
 # Stage order (a `pr` run; `baseline` is the same through the smoke, then
-# marks the slot good instead of rolling back):
+# marks the slot good instead of rolling back). The hostname guard runs
+# during pre-checks, before any status is posted:
 #
 #   build -> [baseline: tag] / [pr: delta, empty -> failure, stop] -> bundle
-#   -> preflight -> send -> hostname guard -> install -> reboot (180s, then
-#   poll up to 600s more for RAUC's own fallback) -> testimage -> settle 30s
-#   -> render check -> gpu check -> [baseline: mark-good | pr: always
-#   mark-bad, reboot, verify the baseline slot, testimage again there] -> post
+#   -> preflight -> send -> install -> reboot (180s, then poll up to 600s
+#   more for RAUC's own fallback) -> testimage -> settle 30s -> render check
+#   -> gpu check -> [baseline: mark-good | pr: always mark-bad, reboot,
+#   verify the baseline slot, testimage again there] -> post
 #
 # Bench's address is resolved each run via resolve-role.py, which refuses
 # every role but bench.
@@ -187,11 +188,9 @@ wait_for_boot() {
 LAST_BOOT_ID_BEFORE=""
 
 reboot_and_wait() {
-    # reboot_and_wait HOST LOGFILE SECONDS -- triggers a reboot directly and
-    # decides reachability by boot-id polling; kiosk-reboot's own rc reflects
-    # its trailing diagnostics, not reachability, so it is not used for that.
-    # Sets LAST_BOOT_ID_BEFORE, so a caller can extend the wait on the same
-    # boot_id afterward.
+    # reboot_and_wait HOST LOGFILE SECONDS -- reboots directly, decides
+    # reachability via boot-id polling (not kiosk-reboot's own rc). Sets
+    # LAST_BOOT_ID_BEFORE for a caller to extend the wait.
     local host=$1 log=$2 seconds=$3
     LAST_BOOT_ID_BEFORE=$(ssh "${SSH_OPTS[@]}" "$host" 'cat /proc/sys/kernel/random/boot_id' 2>/dev/null || true)
     {
@@ -227,9 +226,8 @@ ota_stage() {
 finish() {
     # finish STATE DESCRIPTION [report.py-build --results/--log args...]
     # Baseline runs post status only. A pr run assembles and checks the
-    # full body first, withholding it if the check fails. Either way, a
-    # failed final post is treated as an infrastructure failure -- a run
-    # nobody can see the outcome of would otherwise be re-picked forever.
+    # full body first, withholding it if the check fails. A failed final
+    # post also aborts.
     BENCH_MUTATED=""
     local state=$1 desc=$2
     shift 2
@@ -349,6 +347,11 @@ fi
 
 ssh "${SSH_OPTS[@]}" "$SSH_HOST" true || abort "bench ($SSH_HOST) unreachable"
 
+OBSERVED_HOSTNAME=$(ssh "${SSH_OPTS[@]}" "$SSH_HOST" hostname 2>/dev/null || true)
+"$PY" "$TOOLS/pipeline/resolve-role.py" --map "$PIPELINE_DRIVER/local/device-identity.md" \
+    --verify-hostname "$OBSERVED_HOSTNAME" \
+    || abort "bench's hostname does not uniquely match the map's bench.hostname row"
+
 if [ -f "$KAS_BUILD_DIR/bitbake.lock" ] \
     && ! flock -n "$KAS_BUILD_DIR/bitbake.lock" -c true 2>/dev/null; then
     abort "bitbake.lock held in $KAS_BUILD_DIR"
@@ -372,9 +375,8 @@ SLOTS_INFO=$(rauc_slots "$SSH_HOST") || true
 BASELINE_SLOT=$(booted_bootname "$SLOTS_INFO") || abort "could not read bench's booted slot"
 
 if [ "$KIND" = pr ]; then
-    # The booted (baseline) slot's own /etc/buildinfo commit must itself
-    # already be a tagged baseline -- otherwise a pr run would roll back to
-    # an unproven image.
+    # The booted (baseline) slot's own /etc/buildinfo commit must already be
+    # a tagged baseline.
     BUILDINFO_SHA=$(ssh "${SSH_OPTS[@]}" "$SSH_HOST" \
         'grep "^meta-wisekiosk" /etc/buildinfo' 2>/dev/null | sed -E 's/.*:([0-9a-f]{40}).*/\1/') \
         || true
@@ -420,11 +422,6 @@ ota_stage "preflight" "$RUN_DIR/preflight.log" \
     "${TREE_JUST[@]}" kiosk-preflight "$IMAGE" "$BUNDLE" "$SSH_HOST"
 ota_stage "send" "$RUN_DIR/send.log" \
     "${TREE_JUST[@]}" kiosk-send-direct "$BUNDLE" "$SSH_HOST"
-
-OBSERVED_HOSTNAME=$(ssh "${SSH_OPTS[@]}" "$SSH_HOST" hostname 2>/dev/null || true)
-"$PY" "$TOOLS/pipeline/resolve-role.py" --map "$PIPELINE_DRIVER/local/device-identity.md" \
-    --verify-hostname "$OBSERVED_HOSTNAME" \
-    || abort "bench's hostname ($OBSERVED_HOSTNAME) does not uniquely match the map's bench.hostname row"
 
 BENCH_MUTATED=1
 ota_stage "install" "$RUN_DIR/install.log" \
@@ -473,31 +470,39 @@ set -e
 # oeqa's own results filename is not pinned; glob for the newest.
 # shellcheck disable=SC2012  # sha-named dir, no glob-special characters
 RESULTS_JSON=$(ls -t "$PIPELINE_TREE/local/pipeline/runs/$SHA/$STAGE"/*.json 2>/dev/null | head -1 || true)
-if [ -z "$RESULTS_JSON" ]; then
-    logargs=(); f=""
-    while IFS= read -r f; do logargs+=(--log "$(basename "$f")=$f"); done \
-        < <(collect_failure_logs "$RUN_DIR/$STAGE-testimage.log" "$RUN_DIR")
-    finish error "testimage produced no results" "${logargs[@]}"
-fi
-cp "$RESULTS_JSON" "$RUN_DIR/$STAGE-testresults.json"
 
-sleep 30
-
-set +e
-"$TOOLS/kiosk-render-check.sh" "$SSH_HOST" > "$RUN_DIR/$STAGE-render.log" 2>&1
-RENDER_RC=$?
-"$TOOLS/kiosk-gpu-check.sh" "$SSH_HOST" > "$RUN_DIR/$STAGE-gpu.log" 2>&1
-GPU_RC=$?
-set -e
-
-# TESTIMAGE_RC already reflects bitbake's own pass/fail tally; a skip does
-# not fail it.
 SMOKE_STATE=success
-[ "$TESTIMAGE_RC" -eq 0 ] || SMOKE_STATE=failure
-if [ "$RENDER_RC" -eq 2 ] || [ "$GPU_RC" -eq 2 ]; then
-    [ "$SMOKE_STATE" = success ] && SMOKE_STATE=error
-elif [ "$RENDER_RC" -ne 0 ] || [ "$GPU_RC" -ne 0 ]; then
-    SMOKE_STATE=failure
+SMOKE_RESULTS_ARGS=()
+SMOKE_LOGARGS=()
+if [ -z "$RESULTS_JSON" ]; then
+    # No results at all -- bench is still mid-flight (BENCH_MUTATED is set),
+    # so this falls through to the same mark-bad/mark-good path below rather
+    # than finishing directly.
+    SMOKE_STATE=error
+    f=""
+    while IFS= read -r f; do SMOKE_LOGARGS+=(--log "$(basename "$f")=$f"); done \
+        < <(collect_failure_logs "$RUN_DIR/$STAGE-testimage.log" "$RUN_DIR")
+else
+    cp "$RESULTS_JSON" "$RUN_DIR/$STAGE-testresults.json"
+    SMOKE_RESULTS_ARGS=(--results "pr-slot=$RUN_DIR/$STAGE-testresults.json")
+
+    sleep 30
+
+    set +e
+    "$TOOLS/kiosk-render-check.sh" "$SSH_HOST" > "$RUN_DIR/$STAGE-render.log" 2>&1
+    RENDER_RC=$?
+    "$TOOLS/kiosk-gpu-check.sh" "$SSH_HOST" > "$RUN_DIR/$STAGE-gpu.log" 2>&1
+    GPU_RC=$?
+    set -e
+
+    # TESTIMAGE_RC already reflects bitbake's own pass/fail tally; a skip
+    # does not fail it.
+    [ "$TESTIMAGE_RC" -eq 0 ] || SMOKE_STATE=failure
+    if [ "$RENDER_RC" -eq 2 ] || [ "$GPU_RC" -eq 2 ]; then
+        [ "$SMOKE_STATE" = success ] && SMOKE_STATE=error
+    elif [ "$RENDER_RC" -ne 0 ] || [ "$GPU_RC" -ne 0 ]; then
+        SMOKE_STATE=failure
+    fi
 fi
 
 # --- kind-specific finish -------------------------------------------------
@@ -548,10 +553,10 @@ if [ -z "$RESULTS2" ]; then
 fi
 cp "$RESULTS2" "$RUN_DIR/$STAGE2-testresults.json"
 
-# A post-rollback failure never changes the PR's own verdict (decision 10):
-# the report is posted first, and the timer is disabled only afterward.
+# A post-rollback failure never changes the PR's own verdict: the report is
+# posted first, and the timer is disabled only afterward.
 [ "$POSTRC" -ne 0 ] && POST_ROLLBACK_UNHEALTHY=1
 
 finish "$SMOKE_STATE" "pr #$PR_NUMBER $SHA: smoke $SMOKE_STATE" \
-    --results "pr-slot=$RUN_DIR/$STAGE-testresults.json" \
+    "${SMOKE_RESULTS_ARGS[@]}" "${SMOKE_LOGARGS[@]}" \
     --results "post-rollback=$RUN_DIR/$STAGE2-testresults.json"

@@ -41,8 +41,8 @@ does not also do. It creates, all under `$HOME`:
 - `.config/wisekiosk/pipeline.env` — `PIPELINE_DRIVER`, `PIPELINE_TREE`, `PIPELINE_BASELINE_REF`
   (default `origin/main`), `PIPELINE_SSH_DIR`, the installing shell's own `PATH`, and three build
   locations, all overridable at install time: `KAS_BUILD_DIR` (default `~/wisekiosk-pipeline/build`,
-  the pipeline's own — never the dev tree's, whose TMPDIR was recorded under a different container
-  mount point), `DL_DIR` and `SSTATE_DIR` (default this repository's own `build/downloads` and
+  the pipeline's own — never the dev tree's, since its TMPDIR embeds absolute paths tied to the dev
+  tree's own container mount point), `DL_DIR` and `SSTATE_DIR` (default this repository's own `build/downloads` and
   `build/sstate-cache`, shared read-write with the dev tree's ordinary builds to avoid refetching or
   recompiling what is already there).
 - `.config/wisekiosk/pipeline-ssh/` — a new ed25519 keypair, installed on bench's `authorized_keys`;

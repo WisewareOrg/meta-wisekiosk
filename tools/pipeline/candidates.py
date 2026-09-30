@@ -21,9 +21,11 @@ Order, one job per tick:
      `patches/**`) and whose head tree carries the pipeline overlays
      (`includes/buildhistory.yaml`, `includes/testimage.yaml`,
      `meta-wisekiosk/lib/oeqa/runtime/cases/wisekiosk.py`) -- drafts included:
-       - its merge-base has no `baseline/<sha>` tag and no live status ->
-         `baseline <merge-base>`; a live status on that merge-base (a prior
-         attempt not yet tagged) skips the PR instead of re-emitting it
+       - its merge-base's tree carries the pipeline overlays, has no
+         `baseline/<sha>` tag, and no live status -> `baseline <merge-base>`;
+         a merge-base without the overlays, or with a live status already
+         (a prior attempt not yet tagged), skips the PR instead of
+         re-emitting it
        - its head equals its merge-base -> skip, the baseline run covers it
        - its head has no live `bench-pipeline` status -> `pr <head-sha> <number>`
 
@@ -163,7 +165,7 @@ def main():
             continue
 
         if not has_baseline_tag(build_dir, base):
-            if not live_status(base):
+            if carries_overlays(tree, base) and not live_status(base):
                 print(f"baseline {base}")
                 return 0
             continue
