@@ -489,7 +489,7 @@ else
                         index($0, W1) { armed1 = 1; next }
                         index($0, W2) { armed2 = 1; next }
                         index($0, W3) { armed3 = 1; next }
-                        /kas-container[[:space:]]+(build|shell)/ {
+                        /kas-container([[:space:]]+--[^[:space:]]+([[:space:]]+("[^"]*"|[^-][^[:space:]]*))?)*[[:space:]]+(build|shell)/ {
                             missing = ""
                             if (!armed1) missing = missing " " W1
                             if (!armed2) missing = missing " " W2
