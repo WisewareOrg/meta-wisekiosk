@@ -205,7 +205,7 @@ cve-build:
     {{py}} tools/cve-delta.py snapshot
 
 [group('audit')]
-[doc("Report whether the buildhistory image dir differs between two refs (rc 1 = no change, rc 2 = could not tell)")]
+[doc("Diff buildhistory's image files between two buildhistory refs")]
 artifact-diff base head *args:
     {{py}} tools/artifact-diff.py {{args}} {{base}} {{head}}
 

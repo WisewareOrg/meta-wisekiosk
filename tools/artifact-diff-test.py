@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
-"""Self-test for tools/artifact-diff.py. Run as `python3 tools/artifact-diff-test.py`.
-
-`artifact-diff.py [--repo <buildhistory dir>] <base-ref> <head-ref>` is the
-empty-artifact-delta predicate; see its own --help for the exit contract this suite checks.
-
-Every fixture here is its own small git repository, built in a tempdir and
-never this tree's own history.
-"""
+"""Self-test for tools/artifact-diff.py. Run as `python3 tools/artifact-diff-test.py`."""
 import importlib.util
 import subprocess
 import sys
@@ -27,7 +20,6 @@ def load(name):
     return module
 
 
-# `git_env()` (from layer-currency) keeps a fixture git call off a real GIT_DIR.
 currency = load("layer-currency")
 
 PASS, FAIL = [], []
@@ -58,8 +50,6 @@ def init_repo(where):
     return repo
 
 
-# raspberrypi0_wifi, not raspberrypi0-wifi: the MACHINE_ARCH path-segment
-# form used throughout below.
 IMAGE_REL = "images/raspberrypi0_wifi/glibc/core-image-base"
 
 
@@ -89,7 +79,6 @@ def commit(repo, msg, tag=None):
 
 
 def run_diff(repo, base, head, argv_repo=True):
-    """One artifact-diff.py invocation, as a real subprocess."""
     argv = [sys.executable, str(ARTIFACT_DIFF)]
     if argv_repo:
         argv += ["--repo", str(repo)]
@@ -99,7 +88,6 @@ def run_diff(repo, base, head, argv_repo=True):
 
 
 def real_diff(repo, base, head, rel=IMAGE_REL):
-    """The expected diff, computed independently of artifact-diff.py."""
     return subprocess.run(
         ["git", "-C", str(repo), "diff", base, head, "--",
          f"{rel}/installed-package-versions.txt",
@@ -107,8 +95,6 @@ def real_diff(repo, base, head, rel=IMAGE_REL):
          f"{rel}/image-info.txt"],
         capture_output=True, text=True, env=clean_env()).stdout
 
-
-# --- rc 1: no change in image ----------------------------------------------
 
 def empty_delta_cases():
     with tempfile.TemporaryDirectory() as tmp:
@@ -124,8 +110,6 @@ def empty_delta_cases():
     case("artifact-diff: identical delta prints nothing on stdout",
          got.stdout, "")
 
-    # buildhistory's three files record package version, mode, owner, size,
-    # and path -- never content.
     with tempfile.TemporaryDirectory() as tmp:
         repo = init_repo(tmp)
         write_triple(image_dir(repo),
@@ -143,10 +127,7 @@ def empty_delta_cases():
          got.stdout, "")
 
 
-# --- rc 0: the git diff of the three files ---------------------------------
-
 def changed_cases():
-    # Package version bump: installed-package-versions.txt only.
     with tempfile.TemporaryDirectory() as tmp:
         repo = init_repo(tmp)
         write_triple(image_dir(repo), pkgver="curl 8.7.1-r0\n")
@@ -159,7 +140,6 @@ def changed_cases():
     case("artifact-diff: stdout is exactly `git diff` of the three files "
          "(package bump)", got.stdout, expected)
 
-    # File-list change only: files-in-image.txt.
     with tempfile.TemporaryDirectory() as tmp:
         repo = init_repo(tmp)
         write_triple(image_dir(repo),
@@ -175,7 +155,6 @@ def changed_cases():
     case("artifact-diff: stdout is exactly `git diff` of the three files "
          "(file-list change)", got.stdout, expected)
 
-    # image-info.txt change only.
     with tempfile.TemporaryDirectory() as tmp:
         repo = init_repo(tmp)
         write_triple(image_dir(repo),
@@ -193,10 +172,7 @@ def changed_cases():
          "(image-info change)", got.stdout, expected)
 
 
-# --- rc 2: could not tell ---------------------------------------------------
-
 def could_not_tell_cases():
-    # Missing image dir: the glob matches nothing.
     with tempfile.TemporaryDirectory() as tmp:
         repo = init_repo(tmp)
         (repo / "conf").mkdir()
@@ -210,7 +186,6 @@ def could_not_tell_cases():
     case("artifact-diff: no matching image dir says could not tell",
          "could not tell" in got.stderr, True)
 
-    # Ambiguous image dir: the glob matches more than one.
     with tempfile.TemporaryDirectory() as tmp:
         repo = init_repo(tmp)
         write_triple(image_dir(repo, "images/raspberrypi0_wifi/glibc/core-image-base"))
@@ -224,7 +199,6 @@ def could_not_tell_cases():
     case("artifact-diff: two matching image dirs says could not tell",
          "could not tell" in got.stderr, True)
 
-    # Unknown ref, in each position.
     with tempfile.TemporaryDirectory() as tmp:
         repo = init_repo(tmp)
         write_triple(image_dir(repo))
@@ -245,7 +219,6 @@ def could_not_tell_cases():
     case("artifact-diff: an unresolvable head-ref says could not tell",
          "could not tell" in bad_head.stderr, True)
 
-    # Not a git repo at all.
     with tempfile.TemporaryDirectory() as tmp:
         not_a_repo = Path(tmp) / "not-a-repo"
         not_a_repo.mkdir()
@@ -258,8 +231,6 @@ def could_not_tell_cases():
     case("artifact-diff: a non-git --repo says could not tell",
          "could not tell" in got.stderr, True)
 
-
-# --- --repo defaults to build/buildhistory ---------------------------------
 
 def default_repo_cases():
     with tempfile.TemporaryDirectory() as tmp:
@@ -277,11 +248,9 @@ def default_repo_cases():
         expected = real_diff(repo, base, head)
     case("artifact-diff: --repo omitted defaults to build/buildhistory "
          "under the cwd", got.returncode, 0)
-    case("artifact-diff: the default-repo run reads the same diff as an "
-         "explicit --repo would", got.stdout, expected)
+    case("artifact-diff: the default-repo run prints the `git diff` of the "
+         "three files", got.stdout, expected)
 
-
-# --- a leaked GIT_DIR/GIT_WORK_TREE must not divert --repo -----------------
 
 def worktree_leak_cases():
     with tempfile.TemporaryDirectory() as tmp:
@@ -292,8 +261,6 @@ def worktree_leak_cases():
         head = commit(fixture, "bump curl")
         expected = real_diff(fixture, base, head)
 
-        # `hostile` stands in for a linked worktree's real .git; a leaked
-        # GIT_DIR/GIT_WORK_TREE would make --repo resolve against it instead.
         hostile = init_repo(Path(tmp) / "hostile")
         commit(hostile, "unrelated hostile commit")
 
@@ -308,8 +275,6 @@ def worktree_leak_cases():
     case("artifact-diff: a leaked GIT_DIR/GIT_WORK_TREE still yields the "
          "fixture's own diff on stdout", got.stdout, expected)
 
-
-# --- --help ------------------------------------------------------------
 
 def help_cases():
     got = subprocess.run([sys.executable, str(ARTIFACT_DIFF), "--help"],

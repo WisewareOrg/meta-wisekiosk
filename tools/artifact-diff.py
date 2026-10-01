@@ -16,19 +16,16 @@ from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parent
 
-# Loaded by path: a hyphenated filename cannot be imported normally.
 _spec = importlib.util.spec_from_file_location(
     "layer_currency", TOOLS / "layer-currency.py")
 _layer_currency = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_layer_currency)
 git_env = _layer_currency.git_env
 
-# The three files buildhistory tracks per image build; git diff's output
-# order follows path, not this order.
 TRACKED = ("installed-package-versions.txt", "files-in-image.txt",
            "image-info.txt")
 
-# MACHINE_ARCH spells the machine with underscores in this path segment.
+# images/${MACHINE_ARCH}/${TCLIBC}/${IMAGE_BASENAME}
 IMAGE_GLOB = "images/*/*/core-image-base"
 
 DEFAULT_REPO = Path("build/buildhistory")
@@ -37,7 +34,6 @@ COULD_NOT_TELL = "could not tell"
 
 
 def git(repo, *args):
-    """One git invocation in `repo`, as a CompletedProcess."""
     return subprocess.run(["git", "-C", str(repo), *args],
                           capture_output=True, text=True, env=git_env())
 
@@ -48,13 +44,11 @@ def refuse(reason):
 
 
 def image_dir(repo):
-    """The one `images/*/*/core-image-base` directory in `repo`, or None."""
     matches = sorted(p for p in Path(repo).glob(IMAGE_GLOB) if p.is_dir())
     return matches[0] if len(matches) == 1 else None
 
 
 def parse_args(argv):
-    """(repo, base-ref, head-ref), or None on a malformed invocation."""
     repo = DEFAULT_REPO
     rest = list(argv)
     if rest[:1] == ["--repo"]:
