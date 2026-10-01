@@ -830,6 +830,28 @@ test_report_check() {
     else
         bad "report check, an identity hit with no private key: rc 1" "rc=$rc out=$out err=$err"
     fi
+
+    # A git shim ahead of the real one on PATH: fails only `git init`, so
+    # report.py's own module-level git calls still work.
+    FAKEGIT="$TOP/fakegit"
+    mkdir -p "$FAKEGIT"
+    REALGIT=$(command -v git)
+    printf '#!/bin/sh\nif [ "$1" = "init" ]; then exit 1; fi\nexec "%s" "$@"\n' "$REALGIT" \
+        > "$FAKEGIT/git"
+    chmod +x "$FAKEGIT/git"
+    capture_stdin out err rc \
+        $'VERDICT: pr-run -> success\nclean body, no identity, no private key\n' \
+        env PATH="$FAKEGIT:$PATH" "$PY" "$REPORT" check --map "$GOODMAP"
+    if [ "$rc" -eq 2 ]; then
+        ok "report check, git unusable: refused rc 2"
+    else
+        bad "report check, git unusable: refused rc 2" "rc=$rc out=$out err=$err"
+    fi
+    case "$err" in
+        *"private key"*)
+            bad "report check, git unusable: reason does not say private key" "err=$err" ;;
+        *) ok "report check, git unusable: reason does not say private key" ;;
+    esac
 }
 
 test_resolve_role

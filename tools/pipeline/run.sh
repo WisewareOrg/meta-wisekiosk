@@ -262,18 +262,16 @@ finish() {
     if "$PY" "$TOOLS/pipeline/report.py" build \
         --map "$PIPELINE_DRIVER/local/device-identity.md" --limit 60000 \
         --verdict "$verdict" --delta "$delta" "$@" > "$body"; then
-        local check_rc=0
-        "$PY" "$TOOLS/pipeline/report.py" check \
-            --map "$PIPELINE_DRIVER/local/device-identity.md" < "$body" || check_rc=$?
+        local check_rc=0 check_err=""
+        # Swaps stdout/stderr so check_err captures check's reason, not its always-empty stdout.
+        check_err=$("$PY" "$TOOLS/pipeline/report.py" check \
+            --map "$PIPELINE_DRIVER/local/device-identity.md" < "$body" 2>&1 >/dev/null) || check_rc=$?
         if [ "$check_rc" -eq 0 ]; then
             "$PY" "$TOOLS/pipeline/report.py" post --sha "$SHA" --state "$state" \
                 --description "$desc" --pr "$PR_NUMBER" --body "$body" && posted=1
-        elif [ "$check_rc" -eq 2 ]; then
-            "$PY" "$TOOLS/pipeline/report.py" post --sha "$SHA" --state "$state" \
-                --description "report withheld: private key material" && posted=1
         else
             "$PY" "$TOOLS/pipeline/report.py" post --sha "$SHA" --state "$state" \
-                --description "report withheld: identity check failed" && posted=1
+                --description "report withheld: $check_err" && posted=1
         fi
     else
         "$PY" "$TOOLS/pipeline/report.py" post --sha "$SHA" --state "$state" \

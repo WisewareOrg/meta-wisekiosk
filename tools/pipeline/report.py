@@ -322,13 +322,13 @@ def cmd_check(argv):
         init = subprocess.run(["git", "init", "-q", str(tmp_path)],
                               env=git_env(), capture_output=True, text=True)
         if init.returncode != 0:
-            return refuse(f"git init failed in {tmp_path}: {init.stderr.strip()}")
+            return refuse("git init failed")
 
         (tmp_path / "report-body.md").write_text(body, encoding="utf-8")
         add = subprocess.run(["git", "-C", str(tmp_path), "add", "report-body.md"],
                              env=git_env(), capture_output=True, text=True)
         if add.returncode != 0:
-            return refuse(f"git add failed in {tmp_path}: {add.stderr.strip()}")
+            return refuse("git add failed")
 
         local_dir = tmp_path / "local"
         local_dir.mkdir()
@@ -338,7 +338,13 @@ def cmd_check(argv):
             [sys.executable, str(TOOLS / "scrub-identity.py"), "--check", str(tmp_path)],
             env=git_env(), capture_output=True, text=True)
 
-    return 0 if scan.returncode == 0 else 1
+    if scan.returncode == 0:
+        return 0
+    if scan.returncode == 1:
+        reason = "identity check PARTIAL" if "PARTIAL" in scan.stdout else "identity found in body"
+        print(reason, file=sys.stderr)
+        return 1
+    return refuse(f"scrub-identity.py exited {scan.returncode}")
 
 
 # --- post -------------------------------------------------------------
