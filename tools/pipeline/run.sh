@@ -264,6 +264,17 @@ ota_stage() {
     run_logged "$log" "$@" || finish failure "$name failed"
 }
 
+refresh_remote() {
+    # tools/reproducibility-gate.sh never fetches (its answer must not
+    # depend on when it last ran), so it can only prove HEAD's ancestry
+    # against refs whose commits are already in PIPELINE_TREE's own object
+    # store. A fetch here closes that gap -- it only updates knowledge of
+    # origin's refs, never moving the detached HEAD or dirtying the tree.
+    # Best-effort: a failed fetch leaves the gate exactly as fail-closed as
+    # it is today, not worse.
+    git -C "$PIPELINE_TREE" fetch --quiet origin || true
+}
+
 finish() {
     # finish STATE DESCRIPTION [report.py-build --results/--log args...]
     # Baseline runs post status only. A pr run assembles and checks the
@@ -456,12 +467,15 @@ fi
 bitbake_stage "bundle" "$RUN_DIR/bundle.log" \
     "${TREE_JUST[@]}" kiosk-bundle "$CONFIG:includes/buildhistory.yaml"
 
+refresh_remote
 ota_stage "preflight" "$RUN_DIR/preflight.log" \
     "${TREE_JUST[@]}" kiosk-preflight "$IMAGE" "$BUNDLE" "$SSH_HOST"
+refresh_remote
 ota_stage "send" "$RUN_DIR/send.log" \
     "${TREE_JUST[@]}" kiosk-send-direct "$BUNDLE" "$SSH_HOST"
 
 BENCH_MUTATED=1
+refresh_remote
 ota_stage "install" "$RUN_DIR/install.log" \
     "${TREE_JUST[@]}" kiosk-install "$SSH_HOST"
 
