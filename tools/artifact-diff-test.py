@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 """Self-test for tools/artifact-diff.py. Run as `python3 tools/artifact-diff-test.py`.
 
-    artifact-diff-test.py       -- every case
-
 `artifact-diff.py [--repo <buildhistory dir>] <base-ref> <head-ref>` is the
-empty-artifact-delta predicate; see its own docstring/--help for the exit
-contract this suite checks against.
+empty-artifact-delta predicate; see its own --help for the exit contract this suite checks.
 
 Every fixture here is its own small git repository, built in a tempdir and
 never this tree's own history.
@@ -127,9 +124,8 @@ def empty_delta_cases():
     case("artifact-diff: identical delta prints nothing on stdout",
          got.stdout, "")
 
-    # buildhistory's three files record package version, mode, owner, size
-    # and path -- never content, so a same-size content-only change is
-    # invisible here.
+    # buildhistory's three files record package version, mode, owner, size,
+    # and path -- never content.
     with tempfile.TemporaryDirectory() as tmp:
         repo = init_repo(tmp)
         write_triple(image_dir(repo),
