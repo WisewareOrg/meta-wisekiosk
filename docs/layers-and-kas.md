@@ -194,7 +194,7 @@ unattributable. To move it:
 3. Regenerate a patch by checking out the new upstream commit in a scratch worktree, making the
    change, and running `git format-patch` into `patches/meta-autonomos/`. Keep the header's
    explanation of why it cannot be a bbappend and its upstream-submission status.
-4. Re-run `tools/ci-guards.sh`. Run `just build-with-history` before and after the bump, then
+4. Re-run `tools/ci-guards.sh`. Run `just build` before and after the bump, then
    `just artifact-diff <before-ref> <after-ref>` before shipping anything to a device — buildhistory
    is a git repo under `build/buildhistory`, and the refs are its own commits (`git -C
    build/buildhistory log` names them).

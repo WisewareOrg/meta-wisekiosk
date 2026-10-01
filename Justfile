@@ -5,7 +5,6 @@
 #
 # Quick start:
 #   just build              # Build the image (kas fetches sources/ on first run)
-#   just build-with-history # Build with buildhistory, for `just artifact-diff`
 #   just kiosk-ota          # Build a bundle and install it on the device
 #   just flash /dev/sdX     # Flash to SD card
 #   just rauc-status <ip>   # Check device RAUC status
@@ -79,14 +78,6 @@ build:
     {{py}} tools/go-mods.py
     {{py}} tools/app-lockfile.py
     kas-container build {{config}}
-
-[group('build')]
-[doc("Build with buildhistory inherited, for artifact-diff")]
-build-with-history:
-    tools/write-build-rev.sh
-    {{py}} tools/go-mods.py
-    {{py}} tools/app-lockfile.py
-    kas-container build {{config}}:includes/buildhistory.yaml
 
 # Open a shell in the build environment
 [group('build')]
