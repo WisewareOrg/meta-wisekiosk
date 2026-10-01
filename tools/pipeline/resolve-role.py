@@ -13,10 +13,7 @@ on stderr.
 map's `bench.hostname` row and no other `*.hostname` row; rc 2 otherwise
 (missing bench.hostname row included).
 
---map defaults to <repo root>/local/device-identity.md, the repo root found
-by `git rev-parse --show-toplevel` from the current directory. The map's
-```identity fence and `key = value` row format is defined in
-tools/scrub-identity.py.
+--map defaults to <repo root>/local/device-identity.md.
 """
 import importlib.util
 import re
@@ -26,8 +23,6 @@ from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parent.parent
 
-# Loaded by path (see tools/artifact-diff.py): a hyphenated filename is not
-# a normal import. Provides git_env().
 _spec = importlib.util.spec_from_file_location(
     "layer_currency", TOOLS / "layer-currency.py")
 _layer_currency = importlib.util.module_from_spec(_spec)

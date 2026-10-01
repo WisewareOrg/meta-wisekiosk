@@ -2,26 +2,14 @@
 # Self-test for resolve-role.py, report.py's redact-and-cap, and the pre-post identity check.
 #
 #   tools/pipeline-test.sh
-#
-# resolve-role.py is the pipeline's own safety control. It must refuse every
-# role but `bench` and take no address argument -- a wrong answer here is a
-# script that could OTA or reboot the wall-mounted prod board unattended.
-#
-# Fixtures use RFC 5737 documentation addresses, never a real LAN address.
-#
-# The MAC/IPv4 used to prove redaction are split across variables so the
-# literal never appears in this file's tracked text.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 RESOLVE_ROLE="$HERE/pipeline/resolve-role.py"
 REPORT="$HERE/pipeline/report.py"
 
-# Unset an inherited GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE/GIT_COMMON_DIR
-# before using git below.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR 2>/dev/null || true
 
-# Prefer the repo .venv's python3 if present.
 PY=python3
 REPO_ROOT="$(cd "$HERE/.." && pwd)"
 if [ -x "$REPO_ROOT/.venv/bin/python3" ]; then
@@ -36,11 +24,7 @@ ok()  { printf 'ok    %s\n' "$1"; pass=$((pass+1)); }
 bad() { printf 'FAIL  %s\n' "$1"; [ $# -gt 1 ] && printf '        %s\n' "$2"; fail=$((fail+1)); }
 
 # capture OUTVAR ERRVAR RCVAR -- cmd args...
-# Runs cmd, splitting stdout/stderr/exit code into the three named variables
-# via `printf -v` (no eval, no subshell variable loss).
-#
-# Internal locals avoid out/err/rc so callers' locals of those names are not
-# shadowed.
+# Sets the three named variables to cmd's stdout, stderr and rc.
 capture() {
     local _o=$1 _e=$2 _r=$3; shift 3
     local _cap_errfile _cap_out _cap_rc
@@ -64,17 +48,14 @@ capture_stdin() {
     rm -f "$_cap_errfile"
 }
 
-# utf8_len TEXT -- character length as report.py's own --limit computes it
-# (Python len() on UTF-8-decoded text), unlike bash's byte-counting ${#}.
+# utf8_len TEXT -- character count, as Python len() gives it.
 utf8_len() {
     printf '%s' "$1" | "$PY" -c \
         'import sys; sys.stdout.write(str(len(sys.stdin.buffer.read().decode("utf-8"))))'
 }
 
 # --- fixture identity maps ---------------------------------------------
-# Format owner: tools/scrub-identity.py (the ```identity fence, `key = value`
-# rows). Real key names (prod.address, bench.address, wifi.ssid) copied from
-# the shape of local/device-identity.md; every value here is a placeholder.
+# Map format: local/device-identity.md §"Format".
 
 GOODMAP="$TOP/device-identity-good.md"
 cat > "$GOODMAP" <<'EOF'
@@ -97,10 +78,7 @@ EOF
 BENCH_ADDR="198.51.100.14"
 PROD_ADDR="198.51.100.7"
 
-# A MAC, a private IPv4, and a PEM private-key header, each split so the
-# contiguous shape never sits in this file's own tracked text (see header
-# comment) -- a gitleaks pre-commit scan flags the PEM header shape on sight,
-# fixture or not.
+# Split: the joined literals trip gitleaks and tools/scrub-identity.py --check.
 mac_hi="DE:AD:BE:EF:00"; mac_lo="01"
 STRAY_MAC="${mac_hi}:${mac_lo}"
 ip_hi="10.77.4"; ip_lo="9"
@@ -116,8 +94,6 @@ PK_HEADER_RSA="${pk_dash}${pk_begin} RSA ${pk_priv} ${pk_key}${pk_dash}"
 test_resolve_role() {
     local out err rc
 
-    # Precondition: fails clearly if resolve-role.py is missing rather than
-    # passing by coincidence.
     if [ ! -f "$RESOLVE_ROLE" ]; then
         bad "resolve-role.py exists" "not found at $RESOLVE_ROLE"
         return
@@ -201,9 +177,6 @@ test_resolve_role() {
         *) ok "resolve-role bench, extra positional: the prod address appears in neither stdout nor stderr" ;;
     esac
 
-    # --map defaults to <repo root>/local/device-identity.md. Proven against
-    # a fresh, throwaway git repository, never this checkout's own
-    # local/device-identity.md.
     local fixture_repo="$TOP/fixture-repo"
     mkdir -p "$fixture_repo/local" "$fixture_repo/subdir"
     env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
@@ -225,8 +198,6 @@ test_resolve_role() {
         bad "resolve-role --help: exits 0 and prints usage" "rc=$rc out=$out err=$err"
     fi
 
-    # --verify-hostname: rc 0 only when the observed hostname is bench's own
-    # and no other role's.
     HOSTNAMEMAP="$TOP/device-identity-hostname.md"
     cat > "$HOSTNAMEMAP" <<'EOF'
 ```identity
@@ -245,10 +216,6 @@ EOF
             "rc=$rc out=$out err=$err"
     fi
 
-    # A bare mismatch (prod-fixture != bench-fixture) would already refuse via
-    # the first check without ever reaching the cross-role one -- this map
-    # makes bench's own hostname ALSO another role's, so only the cross-role
-    # check (not the equality check) can be why this refuses.
     HOSTNAMECOLLISIONMAP="$TOP/device-identity-hostname-collision.md"
     cat > "$HOSTNAMECOLLISIONMAP" <<'EOF'
 ```identity
@@ -283,8 +250,6 @@ EOF
             "rc=$rc out=$out err=$err"
     fi
 
-    # bench.address colliding with another role's *.address row refuses too --
-    # a wrong map must not resolve bench to a board that is really prod's.
     COLLISIONMAP="$TOP/device-identity-collision.md"
     cat > "$COLLISIONMAP" <<'EOF'
 ```identity
@@ -309,16 +274,12 @@ EOF
 test_report_build() {
     local out err rc
 
-    # Precondition: fails clearly if report.py is missing rather than
-    # passing by coincidence.
     if [ ! -f "$REPORT" ]; then
         bad "report.py exists" "not found at $REPORT"
         return
     fi
 
-    # --- B1/B2: happy path, plus both redaction halves in one body --------
-    # Every map value -> <role.key>; then an IPv4/MAC/hostname-shaped token
-    # -> <redacted>.
+    # --- happy path, both redaction halves ---
     mkdir -p "$TOP/b1"
     printf 'VERDICT pr-run sha=deadbeef01 -> success (bench)\n' > "$TOP/b1/verdict.txt"
     printf 'diff --git a/kiosk-zero-w.yaml b/kiosk-zero-w.yaml\n' \
@@ -326,8 +287,7 @@ test_report_build() {
     printf 'stray leak check: bench=%s mac=%s ip=%s\n' \
         "$BENCH_ADDR" "$STRAY_MAC" "$STRAY_IP" >> "$TOP/b1/delta.txt"
     printf 'FOO := bar\n' >> "$TOP/b1/delta.txt"
-    # Nested under a synthetic result_id, matching oeqa's real testresults.json
-    # shape (sources/poky/meta/lib/oeqa/core/runner.py).
+    # oeqa's testresults.json shape: sources/poky/meta/lib/oeqa/core/runner.py.
     cat > "$TOP/b1/results.json" <<'EOF'
 {"runtime_kiosk-zero-w_raspberrypi0-wifi_20260930101500": {"configuration": {}, "result": {
   "wisekiosk.WiseKioskTest.test_backend_unit_active": {"status": "PASSED"},
@@ -355,8 +315,8 @@ EOF
         *) bad "report build: delta boilerplate survives" "out=$out" ;;
     esac
     case "$out" in
-        *"FOO := bar"*) ok "report build: delta's tail line survives (nothing truncated it)" ;;
-        *) bad "report build: delta's tail line survives (nothing truncated it)" "out=$out" ;;
+        *"FOO := bar"*) ok "report build: delta's tail line survives" ;;
+        *) bad "report build: delta's tail line survives" "out=$out" ;;
     esac
     case "$out" in
         *"$BENCH_ADDR"*)
@@ -393,9 +353,7 @@ EOF
         *) bad "report build: a case's status appears in the results section" "out=$out" ;;
     esac
 
-    # --- B2b: a public.* map row is excluded from redaction ---------------
-    # load_map_rows drops any key under PUBLIC_NS. A non-public value in the
-    # same body confirms the exclusion is per-row.
+    # --- a public.* map row is not redacted ---
     PUBLICMAP="$TOP/device-identity-public.md"
     cat > "$PUBLICMAP" <<'EOF'
 ```identity
@@ -427,8 +385,7 @@ EOF
         *) ok "report build: a non-public value in the same body is still redacted" ;;
     esac
 
-    # --- B2c: redaction replaces the longest matching map value first, so a
-    # shorter value that is a prefix of a longer one never fragments it -----
+    # --- the longest map value is replaced first ---
     PREFIXMAP="$TOP/device-identity-prefix.md"
     cat > "$PREFIXMAP" <<'EOF'
 ```identity
@@ -463,7 +420,7 @@ EOF
         *) ok "report build: no fragment of the shorter value's token appears" ;;
     esac
 
-    # --- B3: a missing required file ---------------------------------------
+    # --- a missing required file ---
     capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit 100000 \
         --verdict "$TOP/b1/does-not-exist.txt" --delta "$TOP/b1/delta.txt" \
         --results "$TOP/b1/results.json"
@@ -474,8 +431,7 @@ EOF
             "rc=$rc out=$out err=$err"
     fi
 
-    # --- B4: cap step 1 -- truncate a --log file from its head, keeping the
-    # tail, at a line boundary. ----------------------------------------------
+    # --- cap step 1: --log truncated from its head ---
     mkdir -p "$TOP/b4"
     printf 'VERDICT pr-run -> success\n' > "$TOP/b4/verdict.txt"
     printf 'diff --git a/x b/x\n+ok\n' > "$TOP/b4/delta.txt"
@@ -502,12 +458,12 @@ EOF
         bad "report build, oversized log file: exits 0 (fits after truncation)" "rc=$rc err=$err"
     fi
     case "$out" in
-        *"VERDICT pr-run -> success"*) ok "report build, capped: the verdict is never truncated" ;;
-        *) bad "report build, capped: the verdict is never truncated" "out=$out" ;;
+        *"VERDICT pr-run -> success"*) ok "report build, capped: the verdict is intact" ;;
+        *) bad "report build, capped: the verdict is intact" "out=$out" ;;
     esac
     case "$out" in
-        *"diff --git a/x b/x"*"+ok"*) ok "report build, capped: the delta is never truncated" ;;
-        *) bad "report build, capped: the delta is never truncated" "out=$out" ;;
+        *"diff --git a/x b/x"*"+ok"*) ok "report build, capped: the delta is intact" ;;
+        *) bad "report build, capped: the delta is intact" "out=$out" ;;
     esac
     case "$out" in
         *"LINE 0001"*)
@@ -524,8 +480,7 @@ EOF
         bad "report build, capped log: body is within --limit" "len=$(utf8_len "$out")"
     fi
 
-    # --- B5: cap step 2 -- once --log is exhausted, strip `log` fields from
-    # --results (case identity/status stay). --------------------------------
+    # --- cap step 2: --results log fields stripped ---
     mkdir -p "$TOP/b5"
     printf 'VERDICT pr-run -> success\n' > "$TOP/b5/verdict.txt"
     printf 'diff --git a/x b/x\n+ok\n' > "$TOP/b5/delta.txt"
@@ -550,8 +505,8 @@ PYEOF
             "rc=$rc err=$err"
     fi
     case "$out" in
-        *"VERDICT pr-run -> success"*) ok "report build, log-stripped: the verdict is never truncated" ;;
-        *) bad "report build, log-stripped: the verdict is never truncated" "out=$out" ;;
+        *"VERDICT pr-run -> success"*) ok "report build, log-stripped: the verdict is intact" ;;
+        *) bad "report build, log-stripped: the verdict is intact" "out=$out" ;;
     esac
     case "$out" in
         *"test_render_large_log"*)
@@ -569,13 +524,12 @@ PYEOF
         bad "report build, log-stripped: body is within --limit" "len=$(utf8_len "$out")"
     fi
 
-    # --- B5b: cap order -- log truncation exhausts before results-log
-    # stripping starts. mid_len is the body's size once --log's lines are
-    # fully popped, with the results log field still intact. ----------------
+    # --- cap order: --log exhausts before results logs are stripped ---
+    # mid_len: body size with --log empty and the results log intact.
     mkdir -p "$TOP/b5b"
     printf 'VERDICT pr-run -> success\n' > "$TOP/b5b/verdict.txt"
     printf 'diff --git a/x b/x\n+ok\n' > "$TOP/b5b/delta.txt"
-    # Not nested under a result_id like the fixtures above -- see commit message.
+    # Bare {configuration, result} shape.
     "$PY" - <<PYEOF > "$TOP/b5b/results.json"
 import json
 biglog = "COMBOLOGDETAIL-B5B-PAYLOAD " * 100
@@ -594,8 +548,7 @@ PYEOF
     done
     : > "$TOP/b5b/log-empty.txt"
 
-    # Measured from a raw file: command substitution strips trailing
-    # newlines and would shift this boundary.
+    # Measured from a file: $(...) strips trailing newlines.
     local mid_len
     "$PY" "$REPORT" build --map "$GOODMAP" --limit 1000000 \
         --verdict "$TOP/b5b/verdict.txt" --delta "$TOP/b5b/delta.txt" \
@@ -639,8 +592,8 @@ PYEOF
     esac
     case "$out" in
         *"COMBOLOGDETAIL-B5B-PAYLOAD"*)
-            bad "report build, cap order one byte tighter: the results log field is now stripped" "out=$out" ;;
-        *) ok "report build, cap order one byte tighter: the results log field is now stripped" ;;
+            bad "report build, cap order one byte tighter: the results log field is stripped" "out=$out" ;;
+        *) ok "report build, cap order one byte tighter: the results log field is stripped" ;;
     esac
     case "$out" in
         *"test_render_large_log"*)
@@ -653,17 +606,11 @@ PYEOF
         bad "report build, cap order one byte tighter: body is within --limit" "len=$(utf8_len "$out")"
     fi
 
-    # --- B5c: cap order extends to the delta -- once log truncation and
-    # results-log stripping are exhausted, overflow truncates the delta: a
-    # summary derived from the delta's own diff headers and +/- lines, the
-    # delta's first 200 lines, then a truncation note. floor_len is the
-    # body's size with log and results already minimal and the delta still
-    # whole. ------------------------------------------------------------
+    # --- cap step 3: delta becomes summary + first 200 lines + note ---
+    # floor_len: body size with log and results minimal, delta whole.
     mkdir -p "$TOP/b5c"
     printf 'VERDICT pr-run -> success\n' > "$TOP/b5c/verdict.txt"
-    # 2000 files x 15 lines (5 metadata + 5 "-old" + 5 "+new") = 30 000 lines.
-    # files=2000, plus=10000, minus=10000 -- computed the same way report.py's
-    # delta_summary() does (count `^diff --git `, `^+` not `^++`, `^-` not `^--`).
+    # 2000 files, 10000 '+' and 10000 '-' lines: DELTA_SUMMARY below.
     "$PY" -c '
 for i in range(2000):
     print(f"diff --git a/file{i:04d}.yaml b/file{i:04d}.yaml")
@@ -703,8 +650,7 @@ PYEOF
     done
     : > "$TOP/b5c/log-empty.txt"
 
-    # Measured with log and results already minimal, delta still whole. The
-    # limit must clear the ~1.5 MB delta or this call truncates it first.
+    # --limit must exceed the ~1.5 MB delta.
     local floor_len
     "$PY" "$REPORT" build --map "$GOODMAP" --limit 10000000 \
         --verdict "$TOP/b5c/verdict.txt" --delta "$TOP/b5c/delta.txt" \
@@ -786,7 +732,7 @@ PYEOF
             "len=$(utf8_len "$out")"
     fi
 
-    # --- B6: cannot fit even after every truncation step -------------------
+    # --- cannot fit after every cap step ---
     capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit 50 \
         --verdict "$TOP/b5/verdict.txt" --delta "$TOP/b5/delta.txt" \
         --results "$TOP/b5/results.json"
@@ -848,11 +794,6 @@ test_report_check() {
         bad "report check, a raw PATTERN token in the body: rc 1" "rc=$rc out=$out err=$err"
     fi
 
-    # A private-key header refuses before the identity scan even runs, and
-    # matches regardless of anything preceding it on the line (a log
-    # timestamp included) -- fixture text, no real key. PK_HEADER/_RSA are
-    # assembled at runtime (see the split above) so gitleaks never sees the
-    # PEM shape in this file's own tracked text.
     pk_body1=$(printf 'VERDICT: pr-run -> success\n%s\nfixture, not a real key\n' "$PK_HEADER")
     capture_stdin out err rc "$pk_body1" "$PY" "$REPORT" check --map "$GOODMAP"
     if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then

@@ -3,36 +3,9 @@
 
     candidates.py
 
-No arguments -- every input comes from the environment: PIPELINE_BASELINE_REF,
-PIPELINE_TREE. PIPELINE_BASELINE_REF is a full ref, already qualified with
-its remote (e.g. `origin/main`) -- not a bare branch name. The build dir is
-`$PIPELINE_TREE/build` -- kas's own default for that checkout, not a
-separately-set value -- matching run.sh. Prints one line, `<kind> <sha>
-[<pr>]`, or nothing when there is no candidate ready. `git fetch origin` is
-run in PIPELINE_TREE first, so every ref below is current.
-
-Order, one job per tick:
-
-  1. `$PIPELINE_BASELINE_REF`'s HEAD, if its tree carries the pipeline
-     overlays, it has no `baseline/<sha>` tag in `$PIPELINE_TREE/build/buildhistory`,
-     and it has no live `bench-pipeline` status -> `baseline <sha>`.
-  2. Every open PR whose head is in THIS repository (never a fork), oldest
-     first, whose diff against `merge-base(baseline ref, head)` touches an
-     image input (`includes/**`, `meta-wisekiosk/**`, `kiosk-zero-w.yaml`,
-     `patches/**`) and whose head tree carries the pipeline overlays
-     (`kiosk-zero-w.yaml`'s `INHERIT += "buildhistory"` line, `includes/testimage.yaml`,
-     `meta-wisekiosk/lib/oeqa/runtime/cases/wisekiosk.py`) -- drafts included:
-       - its merge-base's tree carries the pipeline overlays, has no
-         `baseline/<sha>` tag, and no live status -> `baseline <merge-base>`;
-         a merge-base without the overlays, or with a live status already
-         (a prior attempt not yet tagged), skips the PR instead of
-         re-emitting it
-       - its head equals its merge-base -> skip, the baseline run covers it
-       - its head has no live `bench-pipeline` status -> `pr <head-sha> <number>`
-
-A status counts as live unless it is missing, or is `pending` and older than
-6 hours; a `gh` failure while checking also counts as live (fails closed). A
-`git fetch` failure exits non-zero.
+Reads PIPELINE_BASELINE_REF (remote-qualified, e.g. origin/main) and
+PIPELINE_TREE. Prints `<kind> <sha> [<pr>]`, or nothing with no candidate.
+rc 0 either way; rc 1 if a variable is unset or `git fetch origin` fails.
 """
 import json
 import os
@@ -87,9 +60,8 @@ def has_baseline_tag(build_dir, sha):
 
 
 def live_status(sha):
-    """True if `sha` already has a non-stale bench-pipeline status, or if
-    that cannot be determined -- a gh failure fails closed (skip), not
-    open (re-trigger a build)."""
+    """True if `sha` has a bench-pipeline status other than a stale pending,
+    or if gh or its output fails."""
     result = subprocess.run(
         ["gh", "api", f"repos/:owner/:repo/commits/{sha}/statuses"],
         capture_output=True, text=True)

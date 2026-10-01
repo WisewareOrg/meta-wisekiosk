@@ -7,34 +7,7 @@
 #   run.sh pr <N>            -- build & OTA the PR's head, then always roll
 #                               back to the baseline slot
 #
-# Reads PIPELINE_DRIVER, PIPELINE_TREE, DL_DIR, SSTATE_DIR,
-# PIPELINE_BASELINE_REF, PIPELINE_SSH_DIR, PIPELINE_KEYS_DIR from the
-# environment.
-# PIPELINE_BASELINE_REF is a full ref, already qualified with its remote
-# (e.g. `origin/main`). The build dir is $PIPELINE_TREE/build -- kas's own
-# default for that checkout -- not a separately-set value.
-#
-# Stage order (a `pr` run; `baseline` is the same through the smoke, then
-# marks the slot good instead of rolling back). The hostname guard runs
-# during pre-checks, before any status is posted:
-#
-#   build -> [baseline: tag] / [pr: delta, empty -> failure, stop] -> bundle
-#   -> preflight -> send -> install -> reboot (180s, then poll up to 600s
-#   more for RAUC's own fallback) -> testimage -> settle 30s -> render check
-#   -> gpu check -> [baseline: mark-good | pr: always mark-bad, reboot,
-#   verify the baseline slot, testimage again there] -> post
-#
-# Bench's address is resolved each run via resolve-role.py, which refuses
-# every role but bench.
-#
-# A pre-check failure (bench unreachable, the build dir locked or a kas
-# container already running, the baseline ref or its buildhistory tag or the
-# tree checkout not resolvable) happens before any status is posted, and
-# posts nothing. A failure after a `pending` status was posted overwrites it
-# with `error`, description "run aborted: <reason>; timer disabled", and
-# writes local/pipeline/DISABLED under the driver with the reason, disabling
-# the timer. The same happens if the process exits for any other reason
-# while bench sits mid-OTA, uncleared.
+# PIPELINE_BASELINE_REF is remote-qualified, e.g. origin/main.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -49,10 +22,7 @@ TOOLS="$(dirname "$HERE")"
 : "${PIPELINE_KEYS_DIR:?PIPELINE_KEYS_DIR not set}"
 export DL_DIR SSTATE_DIR PIPELINE_SSH_DIR PIPELINE_KEYS_DIR
 
-# Before anything else, including the fetch below: a pipeline-install racing
-# this run would otherwise checkout -B the driver or checkout --detach the
-# tree out from under a fetch or a build already reading them. Same lock
-# file and fd as pipeline-install's own.
+# Same lock file and fd as Justfile pipeline-install.
 LOCK="$HOME/.config/wisekiosk/pipeline.lock"
 mkdir -p "$(dirname "$LOCK")"
 exec 9>"$LOCK"
@@ -61,11 +31,7 @@ if ! flock -n 9; then
     exit 0
 fi
 
-# kas's own default build dir for the tree checkout -- not independently
-# tunable, so derived here rather than read from the environment. Unset
-# KAS_BUILD_DIR unconditionally: an ambient export (a hand-run shell that
-# also does dev-tree builds) would otherwise reach kas-container and move
-# TMPDIR again.
+# KAS_BUILD_DIR: docs/testing.md §"Running it".
 unset KAS_BUILD_DIR
 PIPELINE_BUILD_DIR="$PIPELINE_TREE/build"
 
@@ -74,8 +40,7 @@ PY=python3
 
 TREE_JUST=(just --justfile "$PIPELINE_TREE/Justfile" --working-directory "$PIPELINE_TREE")
 
-# Host-side ssh, matching every ota.just/device.just recipe -- the
-# operator's ambient ~/.ssh, not PIPELINE_SSH_DIR.
+# Host-side ssh: the ambient ~/.ssh, not PIPELINE_SSH_DIR.
 SSH_OPTS=(-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
 
 CONFIG="kiosk-zero-w.yaml"
@@ -88,10 +53,10 @@ SHA="" ; KIND="" ; PR_NUMBER="" ; MERGE_BASE=""
 BENCH_MUTATED=""
 POST_ROLLBACK_UNHEALTHY=""
 
-# shellcheck disable=SC2317  # called from on_exit, reached via the trap
+# shellcheck disable=SC2317
 prune_runs() {
     # Keeps the newest 20 run dirs.
-    # shellcheck disable=SC2012  # sha-named dirs, no glob-special characters
+    # shellcheck disable=SC2012
     ls -1dt "$PIPELINE_DRIVER"/local/pipeline/runs/*/ 2>/dev/null \
         | tail -n +21 | xargs -r rm -rf
 }
@@ -102,7 +67,7 @@ write_disabled() {
     systemctl --user disable --now wisekiosk-pipeline.timer 2>/dev/null || true
 }
 
-# shellcheck disable=SC2317  # reached through the trap below, which shellcheck does not follow
+# shellcheck disable=SC2317
 on_exit() {
     local rc=$?
     if [ -n "$BENCH_MUTATED" ]; then
@@ -117,7 +82,7 @@ on_exit() {
 }
 trap on_exit EXIT
 
-# shellcheck disable=SC2317  # reached through the trap strings below
+# shellcheck disable=SC2317
 on_signal() {
     echo "run.sh: received $1, exiting" >&2
     exit "$2"
@@ -139,7 +104,7 @@ abort() {
 }
 
 run_logged() {
-    # run_logged LOGFILE -- cmd args...  (never trips set -e on a nonzero rc)
+    # run_logged LOGFILE -- cmd args...
     local log=$1; shift
     set +e
     "$@" > "$log" 2>&1
@@ -149,13 +114,8 @@ run_logged() {
 }
 
 collect_failure_logs() {
-    # collect_failure_logs BUILD_LOG OUT_DIR -- the last 200 lines of each
-    # file bitbake named in "Logfile of failure stored in", one path per
-    # line of output. Bitbake's own path is container-internal (/work/...);
-    # mapped to the host path behind that mount. Bitbake sometimes prints
-    # this line twice for the same task failure (the live report and the
-    # final summary); deduped by resolved host path so a repeat never
-    # produces two copies of the same log.
+    # collect_failure_logs BUILD_LOG OUT_DIR -- copies the last 200 lines of each
+    # failure log bitbake names into OUT_DIR; prints one path per copy.
     local buildlog=$1 outdir=$2 n=0 path hostpath out
     local -A seen
     while IFS= read -r path; do
@@ -175,10 +135,9 @@ collect_failure_logs() {
 
 rauc_slots() {
     # rauc_slots HOST -- one line per slot:
-    # "<bootname> <state> <boot_status> <primary:yes|no>". RAUC_BOOT_PRIMARY
-    # names the next-boot slot by its internal slot name (e.g. "rootfs.1"),
-    # not its bootname; RAUC_SYSTEM_SLOTS lists those internal names in the
-    # same order as RAUC_SLOTS, so position maps one to the other.
+    # "<bootname> <state> <boot_status> <primary:yes|no>".
+    # RAUC_BOOT_PRIMARY is an internal slot name; RAUC_SYSTEM_SLOTS maps it
+    # to RAUC_SLOTS by position.
     ssh "${SSH_OPTS[@]}" "$1" '
         eval "$(rauc status --output-format=shell)"
         set -- $RAUC_SYSTEM_SLOTS
@@ -218,8 +177,7 @@ primary_bootname() {
 }
 
 wait_for_boot() {
-    # wait_for_boot HOST BEFORE_BOOT_ID SECONDS -- polls for a new boot_id;
-    # never triggers a reboot itself.
+    # wait_for_boot HOST BEFORE_BOOT_ID SECONDS -- polls for a new boot_id
     local host=$1 before=$2 seconds=$3 t0 boot_id
     t0=$(date +%s)
     while :; do
@@ -235,9 +193,8 @@ wait_for_boot() {
 LAST_BOOT_ID_BEFORE=""
 
 reboot_and_wait() {
-    # reboot_and_wait HOST LOGFILE SECONDS -- reboots directly, decides
-    # reachability via boot-id polling (not kiosk-reboot's own rc). Sets
-    # LAST_BOOT_ID_BEFORE for a caller to extend the wait.
+    # reboot_and_wait HOST LOGFILE SECONDS -- reboots, waits for a new boot_id,
+    # and sets LAST_BOOT_ID_BEFORE.
     local host=$1 log=$2 seconds=$3
     LAST_BOOT_ID_BEFORE=$(ssh "${SSH_OPTS[@]}" "$host" 'cat /proc/sys/kernel/random/boot_id' 2>/dev/null || true)
     {
@@ -253,8 +210,7 @@ reboot_and_wait() {
 }
 
 bitbake_stage() {
-    # bitbake_stage NAME LOGFILE -- cmd...; on failure, attaches the last
-    # 200 lines of every "Logfile of failure stored in" as --log inputs.
+    # bitbake_stage NAME LOGFILE -- cmd...; on failure, finishes with each failure log as --log.
     local name=$1 log=$2; shift 2
     if ! run_logged "$log" "$@"; then
         local logargs=() f
@@ -271,21 +227,12 @@ ota_stage() {
 }
 
 refresh_remote() {
-    # tools/reproducibility-gate.sh never fetches (its answer must not
-    # depend on when it last ran), so it can only prove HEAD's ancestry
-    # against refs whose commits are already in PIPELINE_TREE's own object
-    # store. A fetch here closes that gap -- it only updates knowledge of
-    # origin's refs, never moving the detached HEAD or dirtying the tree.
-    # Best-effort: a failed fetch leaves the gate exactly as fail-closed as
-    # it is today, not worse.
+    # Fetches origin's refs for tools/reproducibility-gate.sh, which never fetches.
     git -C "$PIPELINE_TREE" fetch --quiet origin || true
 }
 
 finish() {
     # finish STATE DESCRIPTION [report.py-build --results/--log args...]
-    # Baseline runs post status only. A pr run assembles and checks the
-    # full body first, withholding it if the check fails. A failed final
-    # post also aborts.
     BENCH_MUTATED=""
     local state=$1 desc=$2
     shift 2
@@ -351,7 +298,7 @@ case "${1:-}" in
             echo "run.sh: no candidate job" >&2
             exit 0
         fi
-        # shellcheck disable=SC2086  # candidates.py's own line, word-split by design
+        # shellcheck disable=SC2086
         set -- $job
         KIND=$1; SHA=$2; PR_NUMBER=${3:-}
         ;;
@@ -387,7 +334,7 @@ BOOT_CAVEAT=""
 if [ "$KIND" = pr ] \
     && [ "$(git -C "$PIPELINE_TREE" diff --name-only "$MERGE_BASE..$SHA" \
         | grep -cE '^(includes/base\.yaml|includes/platforms/|meta-wisekiosk/recipes-bsp/)')" -gt 0 ]; then
-    BOOT_CAVEAT="rootfs only -- /boot unproven, see #104"
+    BOOT_CAVEAT="rootfs only -- /boot unproven (issue #104 OTA does not carry /boot)"
 fi
 
 BENCH_ADDR=$("$PY" "$TOOLS/pipeline/resolve-role.py" \
@@ -417,8 +364,6 @@ fi
 git -C "$PIPELINE_TREE" rev-parse --verify -q "${BASELINE_REMOTE}^{commit}" > /dev/null \
     || abort "baseline ref $BASELINE_REMOTE does not resolve"
 if [ "$KIND" = pr ]; then
-    # A pr run diffs against baseline/<merge-base>, which must already be
-    # tagged in buildhistory.
     git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse --verify -q \
         "refs/tags/baseline/$MERGE_BASE" > /dev/null \
         || abort "no baseline/$MERGE_BASE tag in $PIPELINE_BUILD_DIR/buildhistory -- run a baseline for the merge-base first"
@@ -430,8 +375,6 @@ SLOTS_INFO=$(rauc_slots "$SSH_HOST") || true
 BASELINE_SLOT=$(booted_bootname "$SLOTS_INFO") || abort "could not read bench's booted slot"
 
 if [ "$KIND" = pr ]; then
-    # The booted (baseline) slot's own /etc/buildinfo commit must already be
-    # a tagged baseline.
     BUILDINFO_SHA=$(ssh "${SSH_OPTS[@]}" "$SSH_HOST" \
         'grep "^meta-wisekiosk" /etc/buildinfo' 2>/dev/null | sed -E 's/.*:([0-9a-f]{40}).*/\1/') \
         || true
@@ -485,9 +428,7 @@ refresh_remote
 ota_stage "install" "$RUN_DIR/install.log" \
     "${TREE_JUST[@]}" kiosk-install "$SSH_HOST"
 
-# kiosk-install's own rc does not prove the install took: its last command
-# is a diagnostic, not `rauc install` itself. Check RAUC's own next-boot
-# slot designation before spending a reboot on it.
+# kiosk-install's rc is its trailing diagnostic's, not rauc install's.
 SLOTS_INFO=$(rauc_slots "$SSH_HOST") || true
 PRIMARY_AFTER_INSTALL=$(primary_bootname "$SLOTS_INFO") \
     || abort "could not read bench's primary slot after install"
@@ -495,7 +436,7 @@ if [ "$PRIMARY_AFTER_INSTALL" = "$BASELINE_SLOT" ]; then
     abort "install did not activate the new slot; bench's primary slot is still the baseline slot"
 fi
 
-# --- reboot onto the new slot: 180s, then poll up to 600s more ---------
+# --- reboot onto the new slot ---
 
 if ! reboot_and_wait "$SSH_HOST" "$RUN_DIR/reboot.log" 180; then
     if wait_for_boot "$SSH_HOST" "$LAST_BOOT_ID_BEFORE" 600; then
@@ -515,8 +456,6 @@ fi
 SLOTS_INFO=$(rauc_slots "$SSH_HOST") || true
 NEW_SLOT=$(booted_bootname "$SLOTS_INFO") || abort "could not read bench's booted slot after install"
 if [ "$NEW_SLOT" = "$BASELINE_SLOT" ]; then
-    # RAUC's own fallback already completed within the initial wait -- same
-    # outcome as the extended-wait branch above.
     finish failure "new slot did not boot; RAUC fell back"
 fi
 BASELINE_STATUS=$(slot_status "$SLOTS_INFO" "$BASELINE_SLOT") \
@@ -537,17 +476,14 @@ set +e
 TESTIMAGE_RC=$?
 set -e
 
-# oeqa's own results filename is not pinned; glob for the newest.
-# shellcheck disable=SC2012  # sha-named dir, no glob-special characters
+# oeqa's results filename is not fixed.
+# shellcheck disable=SC2012
 RESULTS_JSON=$(ls -t "$PIPELINE_TREE/local/pipeline/runs/$SHA/$STAGE"/*.json 2>/dev/null | head -1 || true)
 
 SMOKE_STATE=success
 SMOKE_RESULTS_ARGS=()
 SMOKE_LOGARGS=()
 if [ -z "$RESULTS_JSON" ]; then
-    # No results at all -- bench is still mid-flight (BENCH_MUTATED is set),
-    # so this falls through to the same mark-bad/mark-good path below rather
-    # than finishing directly.
     SMOKE_STATE=error
     f=""
     while IFS= read -r f; do SMOKE_LOGARGS+=(--log "$(basename "$f")=$f"); done \
@@ -565,8 +501,7 @@ else
     GPU_RC=$?
     set -e
 
-    # TESTIMAGE_RC already reflects bitbake's own pass/fail tally; a skip
-    # does not fail it.
+    # A skipped oeqa case leaves TESTIMAGE_RC at 0.
     [ "$TESTIMAGE_RC" -eq 0 ] || SMOKE_STATE=failure
     if [ "$RENDER_RC" -eq 2 ] || [ "$GPU_RC" -eq 2 ]; then
         [ "$SMOKE_STATE" = success ] && SMOKE_STATE=error
@@ -596,7 +531,6 @@ if [ "$KIND" = baseline ]; then
     finish "$SMOKE_STATE" "baseline $SHA: smoke $SMOKE_STATE"
 fi
 
-# Always rolls back, regardless of SMOKE_STATE.
 "${TREE_JUST[@]}" kiosk-rollback "$SSH_HOST" > "$RUN_DIR/rollback.log" 2>&1 || true
 if ! reboot_and_wait "$SSH_HOST" "$RUN_DIR/rollback-reboot.log" 180; then
     abort "bench resting on PR slot"
@@ -616,15 +550,13 @@ set +e
 "${TREE_JUST[@]}" testimage > "$RUN_DIR/$STAGE2-testimage.log" 2>&1
 POSTRC=$?
 set -e
-# shellcheck disable=SC2012  # sha-named dir, see the smoke stage above
+# shellcheck disable=SC2012
 RESULTS2=$(ls -t "$PIPELINE_TREE/local/pipeline/runs/$SHA/$STAGE2"/*.json 2>/dev/null | head -1 || true)
 if [ -z "$RESULTS2" ]; then
     abort "post-rollback baseline smoke produced no results"
 fi
 cp "$RESULTS2" "$RUN_DIR/$STAGE2-testresults.json"
 
-# A post-rollback failure never changes the PR's own verdict: the report is
-# posted first, and the timer is disabled only afterward.
 [ "$POSTRC" -ne 0 ] && POST_ROLLBACK_UNHEALTHY=1
 
 finish "$SMOKE_STATE" "pr #$PR_NUMBER $SHA: smoke $SMOKE_STATE" \

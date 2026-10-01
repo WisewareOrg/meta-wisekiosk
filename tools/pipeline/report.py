@@ -3,48 +3,17 @@
 
     report.py build --map <path> --limit <n> --verdict <file> --delta <file>
                      [--results [<label>=]<file> ...] [--log [<label>=]<file> ...]
-        -- assemble one run's report body on stdout
-
+        -- assemble one run's redacted body, capped at --limit, on stdout
     report.py check --map <path>
-        -- read a candidate report body on stdin; rc 0 if it carries no
-           identity and no private key material, rc 2 if it matches a PEM
-           private-key header, rc 1 if it carries identity
-
+        -- read a candidate report body on stdin
     report.py post --sha <sha> --state {pending,success,failure,error}
                     --description <text> [--pr <n> --body <file>]
-        -- post a commit status, and with --pr a PR comment linked as its
-           target_url
+        -- post a commit status; with --pr, also --body as a PR comment
 
---results may repeat or be omitted. One renders as a single "Test results"
-section; more than one, each under its own "Test results -- <label>" heading.
-
-`build`: redact every identity-map value (the `public.` namespace excluded)
-to `<role.key>`, then every tools/scrub-identity.py PATTERN match to
-`<redacted>`. If the body still exceeds --limit, in order: truncate each
---log section from its head at line boundaries, one at a time; once all are
-empty, strip the `log` field from every --results entry (case identity and
-status stay); once those are exhausted, replace the delta with a summary
-derived from it ("<n> files changed, +a/−b", counting `diff --git`
-headers and `+`/`-` lines) plus its own first 200 lines plus a truncation
-note. The verdict is never truncated. Still too long -> rc 1, nothing on
-stdout. A missing input file, or a --results file that is not valid JSON ->
-rc 2, nothing on stdout.
-
---results files may use either oeqa's own `{<result-id>: {configuration,
-result}}` shape or a bare `{configuration, result}` -- the inner `result`
-dict is found either way.
-
-`check`: first scans the body for a line matching
-`-----BEGIN [A-Z ]*PRIVATE KEY-----` (unanchored, so a prefixed log line
-still matches) -> rc 2 if found, before anything else runs. Otherwise
-writes the body into a throwaway git repository with
-local/device-identity.md symlinked to --map, then runs
-`tools/scrub-identity.py --check` there. A hit or PARTIAL -> rc 1.
-
-`post` does not run `check` itself -- the caller withholds the body and
-posts description "report withheld: private key material" (rc 2) or
-"report withheld: identity check failed" (rc 1), with no --pr/--body,
-when the check fails.
+build: rc 1 if the body cannot fit --limit; rc 2 on a bad argument, a missing
+input or invalid --results JSON; nothing on stdout unless rc 0.
+check: rc 0 clean; rc 1 identity found; rc 2 private-key header or could not tell.
+post: rc 1 if gh fails; rc 2 on a bad argument.
 """
 import importlib.util
 import json
@@ -64,8 +33,6 @@ def _load_by_path(name, filename):
     return module
 
 
-# Hyphenated filenames are not importable normally (see tools/artifact-diff.py).
-# Only PATTERNS is reused; the map-value half is reimplemented below.
 _scrub_identity = _load_by_path("scrub_identity", "scrub-identity.py")
 _layer_currency = _load_by_path("layer_currency", "layer-currency.py")
 PATTERNS = _scrub_identity.PATTERNS
@@ -75,12 +42,9 @@ FENCE_OPEN = re.compile(r'^```identity\s*$')
 FENCE_CLOSE = re.compile(r'^```\s*$')
 MAP_ROW = re.compile(r'^\s*([A-Za-z0-9_.]+)\s*=\s*(\S.*?)\s*$')
 
-# Unanchored: a leaked key can appear mid-line, e.g. behind a log timestamp
-# prefix a verbose tool wrote ahead of echoing its own key argument.
 PRIVATE_KEY = re.compile(r'-----BEGIN [A-Z ]*PRIVATE KEY-----')
 
-# Format owned by local/device-identity.md's ## Format section and echoed in
-# tools/scrub-identity.py's PUBLIC_NS.
+# Format owner: local/device-identity.md §"Format".
 PUBLIC_NS = "public."
 
 STATES = ("pending", "success", "failure", "error")
@@ -238,9 +202,8 @@ def build_body(verdict_text, delta, results_entries, log_entries):
 def cap(verdict_text, delta, results_entries, log_entries, limit):
     """The assembled body within `limit`, or None if it cannot fit.
 
-    `delta` is {"text": str} -- "text" is replaced in place, with a summary
-    derived from itself, once log truncation and results-log stripping are
-    both exhausted."""
+    Truncates log_entries, results_entries' log fields and delta["text"]
+    in place."""
     while True:
         body = build_body(verdict_text, delta, results_entries, log_entries)
         if len(body) <= limit:

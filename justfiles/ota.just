@@ -138,7 +138,6 @@ casync-stats store:
 # a KAS_CONFIG pointing at some other product cannot silently build the wrong
 # image into a bundle named like this one. Both default to kiosk-zero-w.yaml.
 # Comments must sit ABOVE the attributes -- just rejects one between them.
-#
 [group('ota')]
 [script('bash')]
 [doc("Build the RAUC update bundle")]

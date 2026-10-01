@@ -246,21 +246,16 @@ provision-card mountpoint:
     tools/provision.sh card {{mountpoint}}
 
 # === Pipeline ===
-#
-# Builds, artifact-diffs, OTAs, testimages, rolls back and reports on a
-# systemd user timer -- see docs/testing.md "Running it".
 
 [group('pipeline')]
 [script('bash')]
-[doc("Provision the pipeline's checkouts, ssh key, env file and units (idempotent; does not enable the timer)")]
+[doc("Provision the pipeline's checkouts, ssh key, env file and units")]
 pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
                  pipeline_baseline_ref=env('PIPELINE_BASELINE_REF', 'origin/main') \
                  dl_dir=env('DL_DIR', (justfile_directory() / 'build/downloads')) \
                  sstate_dir=env('SSTATE_DIR', (justfile_directory() / 'build/sstate-cache')):
     set -euo pipefail
-    # Same lock file and fd as run.sh -- a live run holds it for its whole
-    # duration, so this refuses to fetch/checkout the driver or tree out from
-    # under a run.sh that is still reading them.
+    # Same lock file and fd as tools/pipeline/run.sh.
     PIPELINE_LOCK="$HOME/.config/wisekiosk/pipeline.lock"
     mkdir -p "$(dirname "$PIPELINE_LOCK")"
     exec 9>"$PIPELINE_LOCK"
@@ -278,7 +273,6 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
     KEYS=$(readlink -f "$ROOT/local/keys")
     ORIGIN_URL=$(git -C "$ROOT" remote get-url origin)
 
-    # Force-syncs to driver_ref rather than merging drift.
     if [ -d "$DRIVER/.git" ]; then
         git -C "$DRIVER" fetch origin
         git -C "$DRIVER" checkout -B "{{driver_ref}}" "origin/{{driver_ref}}"
@@ -301,42 +295,16 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
         mkdir -p "$d/local"
         ln -sf "$MAP" "$d/local/device-identity.md"
     done
-    # A real, empty directory: the fleet signing key reaches the container by
-    # bind mount (run.sh/the Justfile's build/bundle/testimage recipes), never
-    # by symlink or copy -- a symlink here would dangle inside kas-container's
-    # own bind mount, which only maps $TREE itself into /work. The driver
-    # checkout never runs bitbake, so it needs no keys dir.
-    #
-    # An idempotent re-install must also replace a pre-existing local/keys
-    # symlink (an older install, or the driver's own stale one) with this
-    # real directory -- mkdir -p alone is a no-op against an existing path.
-    # rmdir, never rm -rf: rmdir refuses a non-empty directory, so this can
-    # only ever remove a symlink or an empty placeholder, never the real key
-    # directory even if the symlink check above were somehow wrong.
+    # local/keys: an empty bind-mount target -- docs/testing.md §"Running it".
+    # rmdir refuses a non-empty directory: the real key dir survives.
     for p in "$DRIVER/local/keys" "$TREE/local/keys"; do
         [ -L "$p" ] && rm -- "$p"
         [ -d "$p" ] && rmdir -- "$p"
     done
     mkdir -p "$TREE/local/keys"
 
-    # BB_HASHSERVE=auto (kas's default) runs one hash-equivalence server per
-    # build dir, backed by PERSISTENT_DIR/hashserv.db -- $TOPDIR/cache/hashserv.db
-    # (bitbake/lib/bb/cooker.py's handlePRServ; PERSISTENT_DIR = ${TOPDIR}/cache
-    # in bitbake.conf). The pipeline's build dir starts with none, so its first
-    # build misses every unihash lookup against the shared SSTATE_DIR and
-    # rebuilds from scratch. Seed it from the dev tree's own DB, never
-    # overwriting a DB the pipeline has since built its own.
-    #
-    # sqlite3's own online-backup API (not a plain cp), via the stdlib module
-    # so no external sqlite3 binary is required: bitbake's hashserv runs in
-    # WAL mode, so the dev DB can have a live, uncheckpointed WAL beside it
-    # (the most recent, most useful equivalences) while a dev build is
-    # running -- the backup API copies a consistent snapshot without
-    # blocking that writer or needing a lock here, where a plain cp would
-    # silently copy only the last checkpoint and lose the WAL's contents.
-    # Backup to .tmp then mv into place, so an interrupted seed never leaves
-    # a half-written DB that the "never overwrite" rule above would then
-    # protect forever.
+    # Seed hashserv.db once from the dev tree's -- docs/testing.md §"Running it".
+    # sqlite3 online backup: includes the dev DB's live WAL, which cp misses.
     DEV_HASHSERV_DB="$ROOT/build/cache/hashserv.db"
     PIPELINE_HASHSERV_DB="$TREE/build/cache/hashserv.db"
     if [ -f "$DEV_HASHSERV_DB" ] && [ ! -f "$PIPELINE_HASHSERV_DB" ]; then
@@ -351,11 +319,7 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
     CONF_DIR="$HOME/.config/wisekiosk"
     mkdir -p "$CONF_DIR"
     SSH_DIR="$CONF_DIR/pipeline-ssh"
-    # printf, not a heredoc: `just` ends a recipe body at a flush-left line.
-    # Values are double-quoted for both an EnvironmentFile= parser and a
-    # plain `.`-sourced shell. The build dir (kas's own default for the tree
-    # checkout) is not recorded here -- run.sh and candidates.py both derive
-    # it from PIPELINE_TREE (see docs/testing.md).
+    # Read by systemd EnvironmentFile= and by pipeline-run's `.`.
     {
         printf 'PATH="%s"\n' "$PATH"
         printf 'DL_DIR="%s"\n' "$DL_DIR"
@@ -376,8 +340,7 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
     fi
     touch "$SSH_DIR/known_hosts"
 
-    # A catch-all Host block: the container connects to TEST_TARGET_IP, a
-    # bare address, not a "bench" alias.
+    # Host *: the testimage container dials TEST_TARGET_IP, a bare address.
     {
         printf 'Host *\n'
         printf '    User root\n'
@@ -411,7 +374,7 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
 
 [group('pipeline')]
 [script('bash')]
-[doc("Enable the pipeline timer, acknowledging and clearing any DISABLED reason")]
+[doc("Print and clear any DISABLED reason, then enable the pipeline timer")]
 pipeline-on:
     set -euo pipefail
     DISABLED="$HOME/wisekiosk-pipeline/driver/local/pipeline/DISABLED"
