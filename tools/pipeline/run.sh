@@ -401,7 +401,7 @@ else
     DELTA_RC=$?
     set -e
     if [ "$DELTA_RC" -eq 1 ]; then
-        finish failure "no change in image -- close as no-op"
+        finish success "no change in image; no board run"
     elif [ "$DELTA_RC" -ne 0 ]; then
         finish error "could not compute artifact delta"
     fi

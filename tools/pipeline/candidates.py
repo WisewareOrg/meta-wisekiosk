@@ -16,9 +16,6 @@ from datetime import datetime, timedelta, timezone
 STALE_PENDING_HOURS = 6
 CONTEXT = "bench-pipeline"
 
-IMAGE_INPUT_PREFIXES = ("includes/", "meta-wisekiosk/", "patches/")
-IMAGE_INPUT_FILES = ("kiosk-zero-w.yaml",)
-
 OVERLAY_PATHS = (
     "includes/testimage.yaml",
     "meta-wisekiosk/lib/oeqa/runtime/cases/wisekiosk.py",
@@ -35,15 +32,6 @@ def env(name):
 def git(tree, *args):
     return subprocess.run(["git", "-C", tree, *args],
                           capture_output=True, text=True)
-
-
-def touches_image_input(tree, base, head):
-    diff = git(tree, "diff", "--name-only", f"{base}..{head}")
-    if diff.returncode != 0:
-        return False
-    names = diff.stdout.splitlines()
-    return any(n.startswith(IMAGE_INPUT_PREFIXES) or n in IMAGE_INPUT_FILES
-              for n in names)
 
 
 def carries_overlays(tree, sha):
@@ -131,8 +119,6 @@ def main():
             continue
         base = merge_base.stdout.strip()
 
-        if not touches_image_input(tree, base, head):
-            continue
         if not carries_overlays(tree, head):
             continue
 
