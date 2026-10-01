@@ -86,8 +86,9 @@ The newest 20 run directories are kept; older ones are pruned automatically.
 running, the baseline ref or its buildhistory tag not resolvable, bench not resting on a tagged
 baseline image, bench's hostname not matching the map, a reboot that never comes back, or the process
 exiting for any other reason while bench sits mid-OTA — writes `local/pipeline/DISABLED` under the
-driver with the reason and disables the timer. Nothing loops silently. Read the file, fix the cause,
-and `just pipeline-on` again.
+driver with the reason and disables the timer. Nothing loops silently. Fix the cause, then
+`just pipeline-on` -- it prints the DISABLED reason and clears the file itself, as the operator's
+explicit acknowledgement, before re-enabling.
 
 A new host needs a clone, the dev tree's `local/device-identity.md`, `gh auth login`, and
 `just pipeline-install`.

@@ -404,8 +404,16 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
     echo "the timer is NOT enabled -- run 'just pipeline-on' when ready"
 
 [group('pipeline')]
-[doc("Enable the pipeline timer")]
+[script('bash')]
+[doc("Enable the pipeline timer, acknowledging and clearing any DISABLED reason")]
 pipeline-on:
+    set -euo pipefail
+    DISABLED="$HOME/wisekiosk-pipeline/driver/local/pipeline/DISABLED"
+    if [ -f "$DISABLED" ]; then
+        echo "clearing DISABLED:"
+        cat "$DISABLED"
+        rm -- "$DISABLED"
+    fi
     systemctl --user enable --now wisekiosk-pipeline.timer
 
 [group('pipeline')]
