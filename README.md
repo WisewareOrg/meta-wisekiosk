@@ -74,6 +74,7 @@ meta-wisekiosk/                    <- the repository (project scaffolding)
 │       ├── raspberrypi.yaml
 │       └── raspberrypi-zero-w.yaml
 ├── patches/meta-autonomos/        two patches kas applies to the upstream checkout
+├── patches/meta-raspberrypi/      one patch kas applies to the upstream checkout
 ├── meta-wisekiosk/                <- THE LAYER: recipes, bbappends, classes
 │   ├── conf/layer.conf
 │   ├── classes/
