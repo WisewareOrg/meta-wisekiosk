@@ -204,6 +204,11 @@ cve-build:
     kas-container build {{config}}:includes/cve-audit.yaml
     {{py}} tools/cve-delta.py snapshot
 
+[group('audit')]
+[doc("Diff buildhistory's image files between two buildhistory refs")]
+artifact-diff base head *args:
+    {{py}} tools/artifact-diff.py {{args}} {{base}} {{head}}
+
 # Write per-site config to a device's /data. The image carries none of it.
 [group('provision')]
 [doc("Provision a reachable device's /data from secrets.yaml")]
