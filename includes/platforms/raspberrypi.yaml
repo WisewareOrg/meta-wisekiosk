@@ -4,10 +4,16 @@ header:
   version: 20
 
 repos:
+  # patches/ carries the one change that cannot be expressed from a
+  # downstream layer -- see patches/meta-raspberrypi/.
   meta-raspberrypi:
     url: "https://github.com/agherzan/meta-raspberrypi.git"
     commit: 6ca1f75017cc5d5acdb8bb05634c4bc01fa049fd
     path: "sources/meta-raspberrypi"
+    patches:
+      01-parselogs:
+        repo: meta-wisekiosk
+        path: "patches/meta-raspberrypi/0001-parselogs_rpi-import-cleanly-against-scarthgap-parselogs.patch"
 
   meta-lts-mixins:
     url: https://git.yoctoproject.org/meta-lts-mixins
