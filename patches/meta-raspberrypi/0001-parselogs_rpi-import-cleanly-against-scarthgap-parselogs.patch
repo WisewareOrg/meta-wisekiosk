@@ -31,8 +31,8 @@ meta-raspberrypi master b2669c24bb577e1a48d841a60cfc0719f9ee1ff4
 (2026-09-24), which still carries the same two code paths unchanged.
 
 Applied by kas at checkout (see includes/platforms/raspberrypi.yaml);
-the applied tree must equal this patch's own result -- verifiable by
-diff against the pinned commit in this scratch clone.
+the applied tree must equal this patch applied on top of
+meta-raspberrypi's own pinned commit, 6ca1f75017cc5d5acdb8bb05634c4bc01fa049fd.
 ---
  lib/oeqa/runtime/cases/parselogs_rpi.py | 7 -------
  1 file changed, 7 deletions(-)
