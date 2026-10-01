@@ -73,11 +73,17 @@ help:
 
 # Build the kiosk image using kas-container
 [group('build')]
+[script('bash')]
 build:
+    set -euo pipefail
     tools/write-build-rev.sh
     {{py}} tools/go-mods.py
     {{py}} tools/app-lockfile.py
-    kas-container build {{config}}
+    RUNTIME_ARGS=()
+    if [ -n "${PIPELINE_KEYS_DIR:-}" ]; then
+        RUNTIME_ARGS=(--runtime-args "-v $PIPELINE_KEYS_DIR:/work/local/keys:ro")
+    fi
+    kas-container "${RUNTIME_ARGS[@]}" build {{config}}
 
 # Open a shell in the build environment
 [group('build')]

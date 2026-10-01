@@ -20,7 +20,7 @@ Order, one job per tick:
      first, whose diff against `merge-base(baseline ref, head)` touches an
      image input (`includes/**`, `meta-wisekiosk/**`, `kiosk-zero-w.yaml`,
      `patches/**`) and whose head tree carries the pipeline overlays
-     (`includes/buildhistory.yaml`, `includes/testimage.yaml`,
+     (`kiosk-zero-w.yaml`'s `INHERIT += "buildhistory"` line, `includes/testimage.yaml`,
      `meta-wisekiosk/lib/oeqa/runtime/cases/wisekiosk.py`) -- drafts included:
        - its merge-base's tree carries the pipeline overlays, has no
          `baseline/<sha>` tag, and no live status -> `baseline <merge-base>`;
@@ -42,13 +42,11 @@ from datetime import datetime, timedelta, timezone
 
 STALE_PENDING_HOURS = 6
 CONTEXT = "bench-pipeline"
-REPO_OWNER = "tjwise99"
 
 IMAGE_INPUT_PREFIXES = ("includes/", "meta-wisekiosk/", "patches/")
 IMAGE_INPUT_FILES = ("kiosk-zero-w.yaml",)
 
 OVERLAY_PATHS = (
-    "includes/buildhistory.yaml",
     "includes/testimage.yaml",
     "meta-wisekiosk/lib/oeqa/runtime/cases/wisekiosk.py",
 )
@@ -76,6 +74,9 @@ def touches_image_input(tree, base, head):
 
 
 def carries_overlays(tree, sha):
+    kas_config = git(tree, "show", f"{sha}:kiosk-zero-w.yaml")
+    if kas_config.returncode != 0 or 'INHERIT += "buildhistory"' not in kas_config.stdout:
+        return False
     return all(git(tree, "cat-file", "-e", f"{sha}:{path}").returncode == 0
               for path in OVERLAY_PATHS)
 
@@ -117,14 +118,13 @@ def open_prs():
     """Open PRs, this repository's own heads only, oldest first."""
     result = subprocess.run(
         ["gh", "pr", "list", "--state", "open", "--limit", "200", "--json",
-         "number,headRefOid,headRefName,isDraft,headRepositoryOwner,"
+         "number,headRefOid,headRefName,isDraft,isCrossRepository,"
          "baseRefName,createdAt"],
         capture_output=True, text=True)
     if result.returncode != 0:
         return []
     prs = json.loads(result.stdout)
-    prs = [p for p in prs
-          if (p.get("headRepositoryOwner") or {}).get("login") == REPO_OWNER]
+    prs = [p for p in prs if p.get("isCrossRepository") is False]
     prs.sort(key=lambda p: p.get("createdAt", ""))
     return prs
 

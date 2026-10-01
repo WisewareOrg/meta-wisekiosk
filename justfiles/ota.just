@@ -139,11 +139,6 @@ casync-stats store:
 # image into a bundle named like this one. Both default to kiosk-zero-w.yaml.
 # Comments must sit ABOVE the attributes -- just rejects one between them.
 #
-# PIPELINE_KEYS_DIR (unset for a hand build) bind-mounts the fleet signing
-# key read-only into the container -- see docs/testing.md. --runtime-args
-# sets kas-container's own KAS_EXTRA_RUNTIME_ARGS; its internal
-# KAS_RUNTIME_ARGS is reset unconditionally, so an ambient export would be
-# silently discarded.
 [group('ota')]
 [script('bash')]
 [doc("Build the RAUC update bundle")]

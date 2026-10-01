@@ -367,9 +367,9 @@ case "${1:-}" in
         [ -n "${2:-}" ] || { echo "usage: run.sh | run.sh baseline [<sha>] | run.sh pr <N>" >&2; exit 2; }
         KIND="pr"
         PR_NUMBER=$2
-        OWNER=$(gh pr view "$PR_NUMBER" --json headRepositoryOwner --jq .headRepositoryOwner.login)
-        if [ "$OWNER" != "tjwise99" ]; then
-            echo "run.sh: PR #$PR_NUMBER's head is not in tjwise99's own repository -- refusing" >&2
+        IS_CROSS=$(gh pr view "$PR_NUMBER" --json isCrossRepository --jq .isCrossRepository)
+        if [ "$IS_CROSS" != "false" ]; then
+            echo "run.sh: PR #$PR_NUMBER's head is in another repository -- refusing" >&2
             exit 2
         fi
         SHA=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)
@@ -449,7 +449,7 @@ STATUS_POSTED=1
 
 # --- build ------------------------------------------------------------
 
-bitbake_stage "build" "$RUN_DIR/build.log" "${TREE_JUST[@]}" build-with-history
+bitbake_stage "build" "$RUN_DIR/build.log" "${TREE_JUST[@]}" build
 
 if [ "$KIND" = baseline ]; then
     git -C "$PIPELINE_BUILD_DIR/buildhistory" tag -f "baseline/$SHA" \
@@ -471,7 +471,7 @@ fi
 # --- bundle, preflight, send, install ------------------------------------
 
 bitbake_stage "bundle" "$RUN_DIR/bundle.log" \
-    "${TREE_JUST[@]}" kiosk-bundle "$CONFIG:includes/buildhistory.yaml"
+    "${TREE_JUST[@]}" kiosk-bundle "$CONFIG"
 
 refresh_remote
 ota_stage "preflight" "$RUN_DIR/preflight.log" \
