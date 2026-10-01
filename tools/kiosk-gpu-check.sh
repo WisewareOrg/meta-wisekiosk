@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
-# Copy of docs/issue_investigation/gpu_compositing/kiosk-gpu-check.sh (frozen original, unchanged).
+# Checks that a surf/WebKit process holds /dev/dri open with vc4 or v3d mapped.
 #
 #   tools/kiosk-gpu-check.sh root@<host>                       read-only, exit-coded
 #   tools/kiosk-gpu-check.sh root@<host> --capture [out.png]   drives webkit://gpu, screenshots
 #
-# Exit: 0 GPU path present; 1 not present; 2 could not tell.
+# Exit: 0 GPU path present (--capture: captured); 1 not present (--capture: failed); 2 could not tell.
 # Reasoning and measurements: docs/issue_investigation/gpu_compositing/README.md §"Configuration under test"
 set -uo pipefail
 
-# Maps probe text to rc 0/1/2; pure text-in, no device access.
 gpu_verdict() {
     local probe=$1 procs gpu hw
 
@@ -58,9 +57,8 @@ gpu_verdict() {
     return 0
 }
 
-# Returns here when sourced (self-test); otherwise falls through.
 if [ "${KIOSK_GPU_CHECK_LIB:-0}" = "1" ]; then
-    # shellcheck disable=SC2317  # the `||` arm runs when this file is executed, not sourced
+    # shellcheck disable=SC2317
     return 0 2>/dev/null || exit 0
 fi
 
@@ -80,8 +78,7 @@ if [ -n "$MODE" ] && [ "$MODE" != "--capture" ]; then
 fi
 
 if [ "$MODE" = "--capture" ]; then
-    # Restores kiosk.conf from its own backup; trapped so an interrupt still runs it.
-    # shellcheck disable=SC2317  # reached through the trap below, which shellcheck does not follow
+    # shellcheck disable=SC2317
     restore() {
         local out rc
         out=$("$HERE/kiosk-ssh.sh" "$HOST" 'sh -s' <<'RESTORE'
@@ -117,7 +114,6 @@ PREP
         echo "no KIOSK_URL line at all, so there is nothing to put back)." >&2
         exit 2; }
 
-    # Polls for surf rather than a fixed sleep.
     up=0
     pollrc=0
     for _ in $(seq 1 30); do
@@ -149,7 +145,7 @@ PREP
     exit 0
 fi
 
-# Runs as /bin/sh on the device -- busybox userland, no bash guaranteed.
+# Heredoc runs under busybox sh on the device.
 PROBE=$("$HERE/kiosk-ssh.sh" "$HOST" 'sh -s' <<'REMOTE'
 if echo x_dri.so | grep -oE '[a-z0-9_]+_dri\.so' > /dev/null 2>&1; then
     echo "cap grep_o=1"

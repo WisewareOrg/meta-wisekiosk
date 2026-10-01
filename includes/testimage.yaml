@@ -2,7 +2,6 @@
 header:
   version: 20
 
-# Forwards TEST_TARGET_IP and OEQA_JSON_RESULT_DIR from the shell into bitbake.
 env:
   TEST_TARGET_IP: ""
   OEQA_JSON_RESULT_DIR: ""
