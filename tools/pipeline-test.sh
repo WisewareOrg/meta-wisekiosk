@@ -23,8 +23,7 @@ pass=0; fail=0
 ok()  { printf 'ok    %s\n' "$1"; pass=$((pass+1)); }
 bad() { printf 'FAIL  %s\n' "$1"; [ $# -gt 1 ] && printf '        %s\n' "$2"; fail=$((fail+1)); }
 
-# capture OUTVAR ERRVAR RCVAR -- cmd args...
-# Sets the three named variables to cmd's stdout, stderr and rc.
+# capture OUTVAR ERRVAR RCVAR cmd args... -- sets each var to cmd's stdout, stderr, rc.
 capture() {
     local _o=$1 _e=$2 _r=$3; shift 3
     local _cap_errfile _cap_out _cap_rc
@@ -36,7 +35,7 @@ capture() {
     rm -f "$_cap_errfile"
 }
 
-# capture_stdin OUTVAR ERRVAR RCVAR STDIN_TEXT -- cmd args...
+# capture_stdin OUTVAR ERRVAR RCVAR STDIN_TEXT cmd args...
 capture_stdin() {
     local _o=$1 _e=$2 _r=$3 _in=$4; shift 4
     local _cap_errfile _cap_out _cap_rc
@@ -48,7 +47,6 @@ capture_stdin() {
     rm -f "$_cap_errfile"
 }
 
-# utf8_len TEXT -- character count, as Python len() gives it.
 utf8_len() {
     printf '%s' "$1" | "$PY" -c \
         'import sys; sys.stdout.write(str(len(sys.stdin.buffer.read().decode("utf-8"))))'
@@ -59,7 +57,7 @@ utf8_len() {
 
 GOODMAP="$TOP/device-identity-good.md"
 cat > "$GOODMAP" <<'EOF'
-# Fixture identity map -- RFC 5737 placeholders only, never a real site.
+# Fixture identity map -- RFC 5737 placeholders only.
 ```identity
 prod.address    = 198.51.100.7
 bench.address   = 198.51.100.14
@@ -165,9 +163,9 @@ test_resolve_role() {
 
     capture out err rc "$PY" "$RESOLVE_ROLE" --map "$GOODMAP" bench extra
     if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
-        ok "resolve-role bench, extra positional: refused, rc 2, reason on stderr (no address argument)"
+        ok "resolve-role bench, extra positional: refused, rc 2, reason on stderr"
     else
-        bad "resolve-role bench, extra positional: refused, rc 2, reason on stderr (no address argument)" \
+        bad "resolve-role bench, extra positional: refused, rc 2, reason on stderr" \
             "rc=$rc out=$out err=$err"
     fi
     case "$out$err" in
@@ -453,9 +451,9 @@ EOF
         --results "$TOP/b4/results.json" --log "$TOP/b4/log.txt"
 
     if [ "$rc" -eq 0 ]; then
-        ok "report build, oversized log file: exits 0 (fits after truncation)"
+        ok "report build, oversized log file: exits 0"
     else
-        bad "report build, oversized log file: exits 0 (fits after truncation)" "rc=$rc err=$err"
+        bad "report build, oversized log file: exits 0" "rc=$rc err=$err"
     fi
     case "$out" in
         *"VERDICT pr-run -> success"*) ok "report build, capped: the verdict is intact" ;;
@@ -499,9 +497,9 @@ PYEOF
         --results "$TOP/b5/results.json"
 
     if [ "$rc" -eq 0 ]; then
-        ok "report build, oversized results log field: exits 0 (fits after stripping)"
+        ok "report build, oversized results log field: exits 0"
     else
-        bad "report build, oversized results log field: exits 0 (fits after stripping)" \
+        bad "report build, oversized results log field: exits 0" \
             "rc=$rc err=$err"
     fi
     case "$out" in
@@ -529,7 +527,6 @@ PYEOF
     mkdir -p "$TOP/b5b"
     printf 'VERDICT pr-run -> success\n' > "$TOP/b5b/verdict.txt"
     printf 'diff --git a/x b/x\n+ok\n' > "$TOP/b5b/delta.txt"
-    # Bare {configuration, result} shape.
     "$PY" - <<PYEOF > "$TOP/b5b/results.json"
 import json
 biglog = "COMBOLOGDETAIL-B5B-PAYLOAD " * 100
@@ -606,11 +603,10 @@ PYEOF
         bad "report build, cap order one byte tighter: body is within --limit" "len=$(utf8_len "$out")"
     fi
 
-    # --- cap step 3: delta becomes summary + first 200 lines + note ---
+    # --- cap step 3: delta becomes summary + head + note ---
     # floor_len: body size with log and results minimal, delta whole.
     mkdir -p "$TOP/b5c"
     printf 'VERDICT pr-run -> success\n' > "$TOP/b5c/verdict.txt"
-    # 2000 files, 10000 '+' and 10000 '-' lines: DELTA_SUMMARY below.
     "$PY" -c '
 for i in range(2000):
     print(f"diff --git a/file{i:04d}.yaml b/file{i:04d}.yaml")
@@ -831,8 +827,7 @@ test_report_check() {
         bad "report check, an identity hit with no private key: rc 1" "rc=$rc out=$out err=$err"
     fi
 
-    # A git shim ahead of the real one on PATH: fails only `git init`, so
-    # report.py's own module-level git calls still work.
+    # git shim first on PATH: only `git init` fails.
     FAKEGIT="$TOP/fakegit"
     mkdir -p "$FAKEGIT"
     REALGIT=$(command -v git)

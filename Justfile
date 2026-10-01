@@ -289,14 +289,14 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
 
     for d in "$DRIVER" "$TREE"; do
         if [ -L "$d/local" ]; then
-            echo "$d/local is a symlink -- refusing (it could point at the dev tree's own local/, and the next step would then delete the real fleet key through it)" >&2
+            echo "$d/local is a symlink -- refusing" >&2
             exit 1
         fi
         mkdir -p "$d/local"
         ln -sf "$MAP" "$d/local/device-identity.md"
     done
     # local/keys: an empty bind-mount target -- docs/testing.md §"Running it".
-    # rmdir refuses a non-empty directory: the real key dir survives.
+    # A non-empty keys dir fails rmdir and aborts the recipe.
     for p in "$DRIVER/local/keys" "$TREE/local/keys"; do
         [ -L "$p" ] && rm -- "$p"
         [ -d "$p" ] && rmdir -- "$p"
@@ -304,7 +304,7 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
     mkdir -p "$TREE/local/keys"
 
     # Seed hashserv.db once from the dev tree's -- docs/testing.md §"Running it".
-    # sqlite3 online backup: includes the dev DB's live WAL, which cp misses.
+    # sqlite3 online backup: copies the live WAL contents too.
     DEV_HASHSERV_DB="$ROOT/build/cache/hashserv.db"
     PIPELINE_HASHSERV_DB="$TREE/build/cache/hashserv.db"
     if [ -f "$DEV_HASHSERV_DB" ] && [ ! -f "$PIPELINE_HASHSERV_DB" ]; then

@@ -91,7 +91,7 @@ trap 'on_signal TERM 143' TERM
 trap 'on_signal INT 130' INT
 
 abort() {
-    # An infrastructure failure; ordinary failures use finish() instead.
+    # For infrastructure failures only.
     BENCH_MUTATED=""
     reason=$1
     write_disabled "$reason"
@@ -104,7 +104,7 @@ abort() {
 }
 
 run_logged() {
-    # run_logged LOGFILE -- cmd args...
+    # run_logged LOGFILE cmd args...
     local log=$1; shift
     set +e
     "$@" > "$log" 2>&1
@@ -114,8 +114,8 @@ run_logged() {
 }
 
 collect_failure_logs() {
-    # collect_failure_logs BUILD_LOG OUT_DIR -- copies the last 200 lines of each
-    # failure log bitbake names into OUT_DIR; prints one path per copy.
+    # collect_failure_logs BUILD_LOG OUT_DIR -- tails each failure log bitbake names
+    # into OUT_DIR; prints one path per copy.
     local buildlog=$1 outdir=$2 n=0 path hostpath out
     local -A seen
     while IFS= read -r path; do
@@ -134,10 +134,8 @@ collect_failure_logs() {
 }
 
 rauc_slots() {
-    # rauc_slots HOST -- one line per slot:
-    # "<bootname> <state> <boot_status> <primary:yes|no>".
-    # RAUC_BOOT_PRIMARY is an internal slot name; RAUC_SYSTEM_SLOTS maps it
-    # to RAUC_SLOTS by position.
+    # rauc_slots HOST -- prints "<bootname> <state> <boot_status> <primary:yes|no>" per slot.
+    # RAUC_BOOT_PRIMARY's position in RAUC_SYSTEM_SLOTS indexes RAUC_SLOTS.
     ssh "${SSH_OPTS[@]}" "$1" '
         eval "$(rauc status --output-format=shell)"
         set -- $RAUC_SYSTEM_SLOTS
@@ -210,7 +208,7 @@ reboot_and_wait() {
 }
 
 bitbake_stage() {
-    # bitbake_stage NAME LOGFILE -- cmd...; on failure, finishes with each failure log as --log.
+    # bitbake_stage NAME LOGFILE cmd...; on failure, finishes with each failure log as --log.
     local name=$1 log=$2; shift 2
     if ! run_logged "$log" "$@"; then
         local logargs=() f
@@ -221,13 +219,13 @@ bitbake_stage() {
 }
 
 ota_stage() {
-    # ota_stage NAME LOGFILE -- cmd...
+    # ota_stage NAME LOGFILE cmd...
     local name=$1 log=$2; shift 2
     run_logged "$log" "$@" || finish failure "$name failed"
 }
 
 refresh_remote() {
-    # Fetches origin's refs for tools/reproducibility-gate.sh, which never fetches.
+    # Fetches origin's commits for tools/reproducibility-gate.sh's ancestor test.
     git -C "$PIPELINE_TREE" fetch --quiet origin || true
 }
 
@@ -263,7 +261,7 @@ finish() {
         --map "$PIPELINE_DRIVER/local/device-identity.md" --limit 60000 \
         --verdict "$verdict" --delta "$delta" "$@" > "$body"; then
         local check_rc=0 check_err=""
-        # Swaps stdout/stderr so check_err captures check's reason, not its always-empty stdout.
+        # Captures check's stderr; stdout goes to /dev/null.
         check_err=$("$PY" "$TOOLS/pipeline/report.py" check \
             --map "$PIPELINE_DRIVER/local/device-identity.md" < "$body" 2>&1 >/dev/null) || check_rc=$?
         if [ "$check_rc" -eq 0 ]; then
@@ -332,7 +330,7 @@ BOOT_CAVEAT=""
 if [ "$KIND" = pr ] \
     && [ "$(git -C "$PIPELINE_TREE" diff --name-only "$MERGE_BASE..$SHA" \
         | grep -cE '^(includes/base\.yaml|includes/platforms/|meta-wisekiosk/recipes-bsp/)')" -gt 0 ]; then
-    BOOT_CAVEAT="rootfs only -- /boot unproven (issue #104 OTA does not carry /boot)"
+    BOOT_CAVEAT="rootfs only -- /boot unproven: an OTA carries no boot files"
 fi
 
 BENCH_ADDR=$("$PY" "$TOOLS/pipeline/resolve-role.py" \
@@ -474,7 +472,6 @@ set +e
 TESTIMAGE_RC=$?
 set -e
 
-# oeqa's results filename is not fixed.
 # shellcheck disable=SC2012
 RESULTS_JSON=$(ls -t "$PIPELINE_TREE/local/pipeline/runs/$SHA/$STAGE"/*.json 2>/dev/null | head -1 || true)
 

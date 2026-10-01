@@ -90,9 +90,8 @@ def redact(text, rows):
 
 
 def result_dict(data):
-    """The case->status dict inside a --results JSON, either oeqa's own
-    `{<result-id>: {configuration, result}}` shape or a bare
-    `{configuration, result}`."""
+    """The case->status dict from oeqa's `{<result-id>: {configuration, result}}`
+    shape or a bare `{configuration, result}`."""
     if isinstance(data.get("result"), dict):
         return data["result"]
     for value in data.values():
@@ -104,7 +103,6 @@ def result_dict(data):
 # --- build --------------------------------------------------------------
 
 def split_label(value, default):
-    """(label, path) from a `[LABEL=]path` --results/--log argument."""
     if "=" in value:
         label, _, path = value.partition("=")
         return label, path
@@ -112,7 +110,7 @@ def split_label(value, default):
 
 
 def parse_build_args(argv):
-    """(map, limit, verdict, delta, results_specs, log_specs), or
+    """((map, limit, verdict, delta, results_specs, log_specs), None), or
     (None, reason)."""
     opts = {"map": None, "limit": None, "verdict": None, "delta": None}
     results, logs = [], []
@@ -180,7 +178,6 @@ DIFF_MINUS = re.compile(r'^-(?!--)', re.MULTILINE)
 
 
 def delta_summary(text):
-    """"<n> files changed, +a/−b" derived from a git diff's own text."""
     files = len(DIFF_HEADER.findall(text))
     plus = len(DIFF_PLUS.findall(text))
     minus = len(DIFF_MINUS.findall(text))

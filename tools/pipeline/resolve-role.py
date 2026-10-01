@@ -44,7 +44,6 @@ def refuse(reason):
 
 
 def default_map():
-    """<repo root>/local/device-identity.md, or None with no repo found."""
     result = subprocess.run(["git", "rev-parse", "--show-toplevel"],
                             capture_output=True, text=True, env=git_env())
     if result.returncode != 0:
@@ -74,7 +73,6 @@ def read_all_rows(map_path):
 
 
 def read_row(map_path, key):
-    """The value of `key` inside map_path's ```identity fence, or None."""
     rows = read_all_rows(map_path)
     if rows is None:
         return None
@@ -85,13 +83,10 @@ def read_row(map_path, key):
 
 
 def resolve_map(map_arg):
-    """The map path to use, or None with no repo found to default it from."""
     return Path(map_arg) if map_arg is not None else default_map()
 
 
 def verify_hostname(map_path, observed):
-    """0 if `observed` is bench's own hostname and no other role's; 2
-    otherwise, with the reason on stderr."""
     rows = read_all_rows(map_path)
     if rows is None:
         return refuse(f"{map_path}: could not read the map")

@@ -87,7 +87,6 @@ def live_status(sha):
 
 
 def open_prs():
-    """Open PRs, this repository's own heads only, oldest first."""
     result = subprocess.run(
         ["gh", "pr", "list", "--state", "open", "--limit", "200", "--json",
          "number,headRefOid,headRefName,isDraft,isCrossRepository,"
