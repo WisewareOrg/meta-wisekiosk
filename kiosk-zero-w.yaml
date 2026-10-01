@@ -384,3 +384,6 @@ local_conf_header:
     HALT,${DL_DIR},100M,1K \
     HALT,${SSTATE_DIR},100M,1K \
     HALT,/tmp,10M,1K"
+
+  seed-defect: |
+    SYSTEMD_AUTO_ENABLE:pn-wisekiosk-backend = "disable"
