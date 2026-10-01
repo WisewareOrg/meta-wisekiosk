@@ -77,7 +77,6 @@ $MEM"
 TOOL="$HERE/kiosk-gpu-check.sh"
 emitter=$(sed -n '/^PROBE=/,/^REMOTE$/p' "$TOOL")
 verdict=$(sed -n '/^gpu_verdict()/,/^}$/p' "$TOOL")
-# Greps the tool's own source: each sentinel must appear in the emitter and the verdict.
 sentinel_pair() {
     local name=$1 emit=$2 read=$3 e r
     e=$(printf '%s\n' "$emitter" | grep -cF "$emit")

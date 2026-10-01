@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Checks that a surf/WebKit process holds /dev/dri open with vc4 or v3d mapped.
 #
-#   tools/kiosk-gpu-check.sh root@<host>                       read-only, exit-coded
-#   tools/kiosk-gpu-check.sh root@<host> --capture [out.png]   drives webkit://gpu, screenshots
+#   tools/kiosk-gpu-check.sh root@<host>                       read-only
+#   tools/kiosk-gpu-check.sh root@<host> --capture [out.png]   mutating: kiosk on webkit://gpu, screenshot, restore
 #
 # Exit: 0 GPU path present (--capture: captured); 1 not present (--capture: failed); 2 could not tell.
 # Reasoning and measurements: docs/issue_investigation/gpu_compositing/README.md §"Configuration under test"
