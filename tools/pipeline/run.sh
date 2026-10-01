@@ -152,14 +152,20 @@ collect_failure_logs() {
     # collect_failure_logs BUILD_LOG OUT_DIR -- the last 200 lines of each
     # file bitbake named in "Logfile of failure stored in", one path per
     # line of output. Bitbake's own path is container-internal (/work/...);
-    # mapped to the host path behind that mount.
+    # mapped to the host path behind that mount. Bitbake sometimes prints
+    # this line twice for the same task failure (the live report and the
+    # final summary); deduped by resolved host path so a repeat never
+    # produces two copies of the same log.
     local buildlog=$1 outdir=$2 n=0 path hostpath out
+    local -A seen
     while IFS= read -r path; do
-        n=$((n + 1))
         hostpath=$path
         case "$hostpath" in
             /work/*) hostpath="$PIPELINE_TREE/${hostpath#/work/}" ;;
         esac
+        [ -n "${seen[$hostpath]:-}" ] && continue
+        seen[$hostpath]=1
+        n=$((n + 1))
         out="$outdir/failure-$n.log"
         tail -n 200 "$hostpath" > "$out" 2>/dev/null || echo "(could not read $path)" > "$out"
         echo "$out"
