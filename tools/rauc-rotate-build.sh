@@ -103,19 +103,13 @@ YAML
 
 echo "== build A: end-state bundle (new keyring, NEW-signed)"
 gen_override "$OUT/override-endstate.yaml" signing.key.pem signing.cert.pem
-tools/write-build-rev.sh
-tools/go-mods.py
-tools/app-lockfile.py
-kas-container shell "$KCONFIG:$OUT/override-endstate.yaml" -c "bitbake update-bundle"
+tools/kas-run.sh shell "$KCONFIG:$OUT/override-endstate.yaml" -c "bitbake update-bundle"
 test -f "$BUNDLE_LINK" || { echo "build A produced no bundle at $BUNDLE_LINK" >&2; exit 1; }
 cp -L "$BUNDLE_LINK" "$OUT/new-signed.raucb"
 
 echo "== build B: transition bundle (new keyring, OLD-signed)"
 gen_override "$OUT/override-transition.yaml" old.key.pem old.cert.pem
-tools/write-build-rev.sh
-tools/go-mods.py
-tools/app-lockfile.py
-kas-container shell "$KCONFIG:$OUT/override-transition.yaml" -c "bitbake update-bundle"
+tools/kas-run.sh shell "$KCONFIG:$OUT/override-transition.yaml" -c "bitbake update-bundle"
 test -f "$BUNDLE_LINK" || { echo "build B produced no bundle at $BUNDLE_LINK" >&2; exit 1; }
 cp -L "$BUNDLE_LINK" "$OUT/transition.raucb"
 

@@ -1,14 +1,7 @@
 #!/usr/bin/env python3
-"""Render one pipeline run's report body.
+"""Render one pipeline run's report body on stdout.
 
-    report-build.py --verdict <file> --delta <file> [--results <file>]
-                     [--log <path> ...]
-        -- assemble the run's Markdown body on stdout
-
-Each --log is a path already tailed by the caller; its label is the file's
-own basename. Each test case's own log, embedded in --results, is tailed to
-the last TAIL_LINES lines. rc 0 always prints a body; rc 2 on a bad argument
-or a --verdict/--delta file that cannot be read.
+    report-build.py --verdict <file> --delta <file> [--results <file>] [--log <path> ...]
 """
 import argparse
 import json
@@ -74,17 +67,12 @@ def render_logs(paths):
     return "\n".join(parts)
 
 
-def build_parser():
+def main():
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument("--verdict", required=True)
     parser.add_argument("--delta", required=True)
     parser.add_argument("--results")
     parser.add_argument("--log", action="append", default=[], dest="logs", metavar="PATH")
-    return parser
-
-
-def main():
-    parser = build_parser()
     args = parser.parse_args(sys.argv[1:])
 
     try:

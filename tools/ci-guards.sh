@@ -466,8 +466,6 @@ else
             ok "the /etc/buildinfo stamp is cache-safe (host sha in do_image's signature)"
         fi
 
-        # #58: tools/kas-run.sh is the only thing that runs the writers and
-        # calls kas, so that is now the whole check -- two greps.
         writers10=(tools/write-build-rev.sh tools/go-mods.py tools/app-lockfile.py)
         kasrun10="tools/kas-run.sh"
         if [ ! -x "$kasrun10" ]; then

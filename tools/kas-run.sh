@@ -2,28 +2,8 @@
 # Runs the build-input writers, then execs kas-container with the given args.
 set -euo pipefail
 
-usage() {
-    cat <<'EOF'
-Usage: tools/kas-run.sh [--help] <kas-container args...>
-
-Environment:
-  PIPELINE_KEYS_DIR   mounted read-only at /work/local/keys; no whitespace
-  KAS_RUN_ENV         space-separated variable NAMES passed through to
-                      kas-container as -e NAME, for each that is non-empty
-
-Refuses --runtime-args and --docker-args in <kas-container args...>.
-
-Exits with kas-container's status, a failing writer's status, or 2 on bad usage.
-EOF
-}
-
-if [ "${1:-}" = "--help" ]; then
-    usage
-    exit 0
-fi
-
 if [ $# -eq 0 ]; then
-    usage >&2
+    echo "usage: tools/kas-run.sh <kas-container args...>" >&2
     exit 2
 fi
 
