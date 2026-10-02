@@ -309,8 +309,8 @@ def ls_remote(url: str, branch: str):
 def check() -> int:
     if yaml is None:
         return refuse("python3 has no yaml module, so no pin could be parsed "
-                      "-- install PyYAML; the README prerequisites give a "
-                      "PEP-668-safe route")
+                      "-- run uv sync to install PyYAML into the repo "
+                      ".venv/bin/python3; see the README prerequisites")
     top = repo_top()
     if top is None:
         return refuse("not inside a git work tree, so includes/ could not be "
@@ -430,8 +430,8 @@ def gap(name: str, fetch: bool) -> int:
     make a stale clone indistinguishable from an upstream with nothing new."""
     if yaml is None:
         return refuse("python3 has no yaml module, so no pin could be parsed "
-                      "-- install PyYAML; the README prerequisites give a "
-                      "PEP-668-safe route")
+                      "-- run uv sync to install PyYAML into the repo "
+                      ".venv/bin/python3; see the README prerequisites")
     top = repo_top()
     if top is None:
         return refuse("not inside a git work tree, so includes/ could not be "
