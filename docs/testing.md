@@ -14,8 +14,8 @@ result at that tier does **not** let you conclude.
 ## Running it
 
 ```sh
-just pipeline-install                # once per host, idempotent -- reads $PIPELINE_DRIVER_REF,
-                                      # $DL_DIR, $SSTATE_DIR, $PIPELINE_TARGET
+just pipeline-install                # once per host, idempotent -- reads $DL_DIR, $SSTATE_DIR,
+                                      # $PIPELINE_TARGET
 just pipeline-on                     # enable the timer
 just pipeline-off                    # disable it
 just pipeline-status                 # timer state + any DISABLED reason
@@ -32,7 +32,13 @@ including a cross-repository PR: enqueueing is the trust decision, not where the
 `pipeline-install` is the whole reprovisioning procedure — nothing is done to a host by hand that it
 does not also do. It creates, all under `$HOME`:
 
-- `wisekiosk-pipeline/driver` — this repository, checked out at `driver_ref`; runs `run.sh`.
+- `wisekiosk-pipeline/driver` — this repository at `origin/main`; runs `run.sh`. Every tick fetches
+  it first and, if its HEAD is not `origin/main`, checks that out and restarts itself from the fresh
+  copy, so the driver always runs at `origin/main`'s current commit: a change to the driver is judged
+  by the driver before it and takes effect once merged. The tick follows that commit; it does not
+  reset local edits to the driver checkout. When a driver on `main` cannot judge its own fix, run
+  `just pipeline-off`, merge the fix with an admin override of the merge queue, then run `just
+  pipeline-on`.
 - `wisekiosk-pipeline/tree` — a second, detached checkout of the same repository; the tree under test.
 - `wisekiosk-pipeline/driver/local/device-identity.md` — a symlink to the dev tree's own copy;
   `tools/scrub-identity.py --filter` is the only thing that reads it, when a run posts its report.
@@ -57,6 +63,11 @@ does not also do. It creates, all under `$HOME`:
 - `wisekiosk-pipeline/tree/build/cache/hashserv.db` — seeded from the dev tree's own hash-equivalence
   database (never overwritten once the pipeline has built its own), so a fresh build dir's unihash
   lookups hit the shared `SSTATE_DIR` instead of missing and rebuilding from scratch.
+
+Unlike the driver checkout above, `pipeline.env` and the ssh directory are written once by
+`pipeline-install` and do not follow `origin/main`. A merged change that needs a new environment
+variable needs `just pipeline-install` run again. The units are the driver checkout's own files,
+which systemd keeps loaded as they were until `just pipeline-on` re-links them.
 
 It does **not** touch the systemd units — `pipeline-on` enables them by path, the separate,
 deliberate step that also links them into the user unit search path.

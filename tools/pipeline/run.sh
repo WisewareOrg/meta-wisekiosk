@@ -98,6 +98,14 @@ run_or_fail() {
     finish failure "$name failed" "${LOGARGS[@]}"
 }
 
+git -C "$PIPELINE_DRIVER" fetch --quiet origin \
+    || abort "git fetch origin failed in $PIPELINE_DRIVER"
+if [ "$(git -C "$PIPELINE_DRIVER" rev-parse HEAD)" != "$(git -C "$PIPELINE_DRIVER" rev-parse origin/main)" ]; then
+    git -C "$PIPELINE_DRIVER" checkout --quiet --detach origin/main \
+        || abort "could not check out origin/main in $PIPELINE_DRIVER"
+    exec "$PIPELINE_DRIVER/tools/pipeline/run.sh" "$@"
+fi
+
 git fetch origin || abort "git fetch origin failed in $PIPELINE_TREE"
 
 [ -z "${1:-}" ] || { echo "usage: run.sh" >&2; exit 2; }

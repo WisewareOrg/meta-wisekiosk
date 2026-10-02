@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 # Provision the pipeline's checkouts, ssh key and env file.
-# Env: PIPELINE_DRIVER_REF (default main), DL_DIR (default
-# <repo>/build/downloads), SSTATE_DIR (default <repo>/build/sstate-cache),
-# PIPELINE_TARGET (required).
+# Env: DL_DIR (default <repo>/build/downloads), SSTATE_DIR (default
+# <repo>/build/sstate-cache), PIPELINE_TARGET (required).
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT=$(readlink -f "$HERE/../..")
 
-PIPELINE_DRIVER_REF="${PIPELINE_DRIVER_REF:-main}"
 DL_DIR="${DL_DIR:-$ROOT/build/downloads}"
 SSTATE_DIR="${SSTATE_DIR:-$ROOT/build/sstate-cache}"
 PIPELINE_TARGET="${PIPELINE_TARGET:-}"
@@ -36,9 +34,10 @@ ORIGIN_URL=$(git -C "$ROOT" remote get-url origin)
 
 if [ -d "$DRIVER/.git" ]; then
     git -C "$DRIVER" fetch origin
-    git -C "$DRIVER" checkout -B "$PIPELINE_DRIVER_REF" "origin/$PIPELINE_DRIVER_REF"
+    git -C "$DRIVER" checkout --detach origin/main
 else
-    git clone --branch "$PIPELINE_DRIVER_REF" "$ORIGIN_URL" "$DRIVER"
+    git clone "$ORIGIN_URL" "$DRIVER"
+    git -C "$DRIVER" checkout --detach origin/main
 fi
 if [ -d "$TREE/.git" ]; then
     git -C "$TREE" fetch origin
