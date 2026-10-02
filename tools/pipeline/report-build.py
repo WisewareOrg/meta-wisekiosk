@@ -75,7 +75,8 @@ def render_logs(paths):
 
 
 def main():
-    parser = argparse.ArgumentParser(add_help=False)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--verdict", required=True)
     parser.add_argument("--delta", required=True)
     parser.add_argument("--results")
