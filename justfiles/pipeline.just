@@ -2,7 +2,7 @@
 # Requires py from the root Justfile.
 
 [group('pipeline')]
-[doc("Provision the pipeline's checkouts, env file and units; install its ssh key on the target")]
+[doc("Provision the pipeline's checkouts and env file; install its ssh key on the target")]
 pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
                  dl_dir=env('DL_DIR', (justfile_directory() / 'build/downloads')) \
                  sstate_dir=env('SSTATE_DIR', (justfile_directory() / 'build/sstate-cache')) \
@@ -14,13 +14,14 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
 [doc("Print and clear any DISABLED reason, then enable the pipeline timer")]
 pipeline-on:
     set -euo pipefail
-    DISABLED="$HOME/wisekiosk-pipeline/driver/local/pipeline/DISABLED"
+    DRIVER="$HOME/wisekiosk-pipeline/driver"
+    DISABLED="$DRIVER/local/pipeline/DISABLED"
     if [ -f "$DISABLED" ]; then
         echo "clearing DISABLED:"
         cat "$DISABLED"
         rm -- "$DISABLED"
     fi
-    systemctl --user enable --now wisekiosk-pipeline.timer
+    systemctl --user enable --now "$DRIVER/tools/pipeline/wisekiosk-pipeline.service" "$DRIVER/tools/pipeline/wisekiosk-pipeline.timer"
 
 [group('pipeline')]
 [doc("Disable the pipeline timer")]

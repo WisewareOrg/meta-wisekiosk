@@ -57,9 +57,9 @@ does not also do. It creates, all under `$HOME`:
 - `wisekiosk-pipeline/tree/build/cache/hashserv.db` — seeded from the dev tree's own hash-equivalence
   database (never overwritten once the pipeline has built its own), so a fresh build dir's unihash
   lookups hit the shared `SSTATE_DIR` instead of missing and rebuilding from scratch.
-- `.config/systemd/user/wisekiosk-pipeline.{service,timer}` — symlinks to this repository's copies.
 
-It does **not** enable the timer — `pipeline-on` is the separate, deliberate step.
+It does **not** touch the systemd units — `pipeline-on` enables them by path, the separate,
+deliberate step that also links them into the user unit search path.
 
 **The device under test, and the shared `downloads/`/`sstate-cache/`, are reserved while the timer is
 on.** A hand `just build` or a manual OTA while `pipeline-on` races the pipeline's own run; `just
