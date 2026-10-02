@@ -96,7 +96,7 @@ RESTORE
             echo "the panel is showing webkit://gpu, not the kiosk page." >&2
         fi
     }
-    trap restore INT TERM
+    trap restore EXIT INT TERM
 
     "$HERE/kiosk-ssh.sh" "$HOST" 'sh -s' <<'PREP' || {
 grep -q '^KIOSK_URL=' /data/config/kiosk.conf || exit 3
@@ -107,7 +107,7 @@ systemctl restart kiosk
 PREP
         echo "could not stage the probe URL on $HOST (exit 3 means kiosk.conf has" >&2
         echo "no KIOSK_URL line at all, so there is nothing to put back)." >&2
-        restore; exit 2; }
+        restore; trap - EXIT; exit 2; }
 
     up=0
     pollrc=0
@@ -121,23 +121,23 @@ PREP
         echo "cannot tell: lost contact with $HOST while waiting for surf (ssh exited" >&2
         echo "$pollrc). Whether the browser came back is unknown. kiosk.conf is put" >&2
         echo "back on the way out -- verify it by hand if that restore also failed." >&2
-        restore; exit 2
+        restore; trap - EXIT; exit 2
     fi
     if [ "${up:-0}" = "0" ]; then
         echo "surf did not come back up within 60s -- not capturing a screen that" >&2
         echo "has nothing on it yet. kiosk.conf is put back on the way out." >&2
-        restore; exit 1
+        restore; trap - EXIT; exit 1
     fi
     sleep 5
 
-    "$HERE/kiosk-screenshot.sh" "$HOST" ${OUT:+"$OUT"} || { echo "capture failed" >&2; restore; exit 1; }
+    "$HERE/kiosk-screenshot.sh" "$HOST" ${OUT:+"$OUT"} || { echo "capture failed" >&2; restore; trap - EXIT; exit 1; }
 
     echo
     echo "Read the 'Hardware Acceleration Information' table in the capture:"
     echo "  Renderer: DMABuf (Supported buffers: Hardware, Shared Memory)  -- GPU"
     echo "  Renderer row ABSENT                                           -- no mode at all"
     echo "This mode reports only that the capture came back, not what it shows."
-    restore; exit 0
+    restore; trap - EXIT; exit 0
 fi
 
 # Heredoc runs under busybox sh on the device.
