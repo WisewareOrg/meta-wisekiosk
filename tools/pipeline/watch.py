@@ -4,10 +4,12 @@
     watch.py [--help]
 
 Reads $PIPELINE_ENV (default ~/.config/wisekiosk/pipeline.env) for
-PIPELINE_DRIVER, never writes under it, never calls systemctl, never touches
-the device. Screen, top to bottom: header (driver sha, DISABLED reason, last
-refresh), the merge queue (refreshed every 30s), the current run's phase and
-ETA (refreshed every 5s), and a tail of the active phase's log file.
+PIPELINE_DRIVER, never writes under it, never touches the device. The only
+systemctl call is a read-only `is-active` poll on wisekiosk-pipeline.service,
+used to tell a live run from one that ended. Screen, top to bottom: header
+(driver sha, DISABLED reason, last refresh), the merge queue (refreshed every
+30s), the current run's phase and ETA (refreshed every 5s), and a tail of the
+active phase's log file.
 
 Keys: q quit, j/k or up/down scroll the log, G or End resume following,
 p pause/resume refresh.
@@ -48,7 +50,11 @@ PHASES = (
 )
 
 TASK_LINE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*Running task (\d+) of (\d+)")
+STARTED_RE = re.compile(r"NOTE: recipe ([^:]+): task (do_\S+): Started")
+DONE_RE = re.compile(r"NOTE: recipe ([^:]+): task (do_\S+): (?:Succeeded|Failed)")
 VERDICT_RE = re.compile(r"^VERDICT: (.*)$", re.MULTILINE)
+HISTORY_LIMIT = 5
+RUNNING_TASKS_LIMIT = 3
 GRAPHQL_QUERY = (
     '{ repository(owner:"WisewareOrg", name:"meta-wisekiosk") '
     '{ mergeQueue(branch:"main") { entries(first:20) '
@@ -76,6 +82,19 @@ def driver_sha(driver):
         return out.stdout.strip() if out.returncode == 0 else "unknown"
     except OSError:
         return "unknown"
+
+
+def service_active():
+    """True while the pipeline's run.sh is actually executing. The unit is
+    Type=oneshot with no RemainAfterExit, so `is-active` reads "activating"
+    for its whole run and only "inactive" once it exits -- it never reads
+    the bare "active" a non-oneshot unit would."""
+    try:
+        out = subprocess.run(["systemctl", "--user", "is-active", "wisekiosk-pipeline.service"],
+                              capture_output=True, text=True, timeout=5)
+        return out.stdout.strip() in ("active", "activating")
+    except OSError:
+        return False
 
 
 def disabled_reason(driver):
@@ -134,28 +153,14 @@ def current_phase(run_dir):
     return idx, path, (prev if prev and prev.exists() else None)
 
 
-def build_eta(log_path, now):
-    try:
-        lines = log_path.read_text(errors="replace").splitlines()
-    except OSError:
-        return "elapsed 0m, no task count yet"
-    matches = [m for m in (TASK_LINE_RE.match(line) for line in lines) if m]
-    if not matches:
-        mins = int((now - log_path.stat().st_mtime) / 60) if log_path.exists() else 0
-        return f"elapsed {mins}m, no task count yet"
-    first_ts = time.mktime(time.strptime(matches[0].group(1), "%Y-%m-%d %H:%M:%S"))
-    done, total = int(matches[-1].group(2)), int(matches[-1].group(3))
-    elapsed = now - first_ts
-    rate = done / elapsed if elapsed > 0 else 0
-    eta_mins = int((total - done) / rate / 60) if rate > 0 else 0
-    return f"{done}/{total} tasks, elapsed {int(elapsed / 60)}m, ETA ~{eta_mins}m"
-
-
-def other_eta(idx, phase_file, prev_file, run_dir, now):
-    start = prev_file.stat().st_mtime if prev_file else phase_file.stat().st_mtime
-    elapsed_mins = int((now - start) / 60)
+def median_durations(idx, run_dir, limit=HISTORY_LIMIT):
+    """Up to `limit` non-negative (this file's mtime - previous file's mtime)
+    samples from sibling run dirs that have both files; never a directory
+    mtime fallback."""
     this_name = PHASES[idx][1]
     prev_name = PHASES[idx - 1][1] if idx > 0 else None
+    if prev_name is None:
+        return []
     durations = []
     try:
         siblings = sorted((d for d in run_dir.parent.iterdir() if d.is_dir() and d != run_dir),
@@ -163,13 +168,63 @@ def other_eta(idx, phase_file, prev_file, run_dir, now):
     except OSError:
         siblings = []
     for cand in siblings:
-        if len(durations) >= 5:
+        if len(durations) >= limit:
             break
-        this_file = cand / this_name
-        prev_cand = cand / prev_name if prev_name else None
-        if not this_file.exists() or not (prev_cand and prev_cand.exists()):
+        this_file, prev_file = cand / this_name, cand / prev_name
+        if not this_file.exists() or not prev_file.exists():
             continue
-        durations.append(this_file.stat().st_mtime - prev_cand.stat().st_mtime)
+        dur = this_file.stat().st_mtime - prev_file.stat().st_mtime
+        if dur < 0:
+            continue
+        durations.append(dur)
+    return durations
+
+
+def running_tasks(lines, limit=RUNNING_TASKS_LIMIT):
+    """"recipe:do_task" for the last `limit` Started tasks with no later
+    Succeeded/Failed line for that same recipe:task."""
+    done = set()
+    started = []
+    for line in lines:
+        match = DONE_RE.search(line)
+        if match:
+            done.add(match.group(1, 2))
+            continue
+        match = STARTED_RE.search(line)
+        if match:
+            started.append(match.group(1, 2))
+    return [f"{recipe}:{task}" for recipe, task in started if (recipe, task) not in done][-limit:]
+
+
+def build_status(log_path, now, idx, run_dir):
+    try:
+        lines = log_path.read_text(errors="replace").splitlines()
+    except OSError:
+        return "elapsed 0m, no task count yet  ETA unknown"
+    running = running_tasks(lines)
+    running_str = f"  running: {', '.join(running)}" if running else ""
+    task_lines = [m for m in (TASK_LINE_RE.match(line) for line in lines) if m]
+    if not task_lines:
+        mins = int((now - log_path.stat().st_mtime) / 60) if log_path.exists() else 0
+        return f"elapsed {mins}m, no task count yet{running_str}  ETA unknown"
+    first_ts = time.mktime(time.strptime(task_lines[0].group(1), "%Y-%m-%d %H:%M:%S"))
+    done, total = int(task_lines[-1].group(2)), int(task_lines[-1].group(3))
+    elapsed = now - first_ts
+    rate = done / elapsed if elapsed > 0 else 0
+    remaining_by_rate = (total - done) / rate if rate > 0 else None
+
+    history = median_durations(idx, run_dir)
+    remaining_by_history = max(statistics.median(history) - elapsed, 0) if history else None
+
+    bases = [b for b in (remaining_by_rate, remaining_by_history) if b is not None]
+    eta = f"ETA ~{int(max(bases) / 60)}m (rough)" if bases else "ETA unknown"
+    return f"{done}/{total} tasks, elapsed {int(elapsed / 60)}m{running_str}  {eta}"
+
+
+def other_eta(idx, phase_file, prev_file, run_dir, now):
+    start = prev_file.stat().st_mtime if prev_file else run_dir.stat().st_ctime
+    elapsed_mins = int((now - start) / 60)
+    durations = median_durations(idx, run_dir)
     if not durations:
         return f"elapsed {elapsed_mins}m, no history"
     return f"elapsed {elapsed_mins}m, typical ~{int(statistics.median(durations) / 60)}m"
@@ -186,16 +241,22 @@ def verdict_text(run_dir):
     return text.strip().splitlines()[-1] if text.strip() else ""
 
 
-def phase_line(run_dir, now):
-    """"PHASE: ..." text for run_dir's current phase, and its log Path (or None)."""
+def phase_line(run_dir, now, live):
+    """"PHASE: ..." text for run_dir's current phase, and its log Path (or
+    None). When the pipeline service is not active, nothing ticks: the run
+    reads as posted (if verdict.txt exists) or ended with none."""
     idx, phase_file, prev_file = current_phase(run_dir)
+    if not live:
+        if (run_dir / "verdict.txt").exists():
+            return f"PHASE: posted {verdict_text(run_dir)}", phase_file
+        return "PHASE: ended: no verdict (baseline build, or aborted; see DISABLED)", phase_file
     if idx is None:
         return "no phase yet", None
     name = PHASES[idx][0]
     if name == "posted":
         return f"PHASE: posted {verdict_text(run_dir)}", phase_file
     if name == "build":
-        return f"PHASE: build  {build_eta(phase_file, now)}", phase_file
+        return f"PHASE: build  {build_status(phase_file, now, idx, run_dir)}", phase_file
     return f"PHASE: {name}  {other_eta(idx, phase_file, prev_file, run_dir, now)}", phase_file
 
 
@@ -204,6 +265,14 @@ def tail_lines(path, n=500):
         return path.read_text(errors="replace").splitlines()[-n:]
     except OSError:
         return []
+
+
+def safe_addnstr(stdscr, y, x, text, max_x, max_y):
+    """addnstr, one column short on the window's last row: writing a full-width
+    string into the bottom-right cell makes ncurses try to wrap and raise."""
+    width = max_x - 1 if y == max_y - 1 else max_x
+    if width > 0:
+        stdscr.addnstr(y, x, text, width)
 
 
 def draw(stdscr, state):
@@ -229,7 +298,7 @@ def draw(stdscr, state):
     for line in top:
         if row >= max_y:
             break
-        stdscr.addnstr(row, 0, line, max_x)
+        safe_addnstr(stdscr, row, 0, line, max_x, max_y)
         row += 1
 
     lines = state["log_lines"] or []
@@ -239,7 +308,7 @@ def draw(stdscr, state):
         end = len(lines) - offset if offset else len(lines)
         start = max(0, end - visible)
         for i, line in enumerate(lines[start:end]):
-            stdscr.addnstr(row + i, 0, line, max_x)
+            safe_addnstr(stdscr, row + i, 0, line, max_x, max_y)
 
     stdscr.noutrefresh()
     curses.doupdate()
@@ -282,7 +351,7 @@ def main(stdscr):
             if run_dir is None:
                 state["phase_line"], state["log_lines"] = "", None
             else:
-                state["phase_line"], log_path = phase_line(run_dir, now)
+                state["phase_line"], log_path = phase_line(run_dir, now, service_active())
                 state["log_lines"] = tail_lines(log_path) if log_path else None
             state["refreshed"] = now
             last_run = now
