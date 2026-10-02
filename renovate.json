@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>WisewareOrg/wise-renovate#v1.4.0"],
+  "extends": ["github>WisewareOrg/wise-renovate#v1.5.0"],
   "packageRules": [
     {
       "description": "A kas input -- a layer pin, or a recipe's SRCREV -- needs a human merge (owner, 2026-09-30); everything else keeps the preset's automerge.",
