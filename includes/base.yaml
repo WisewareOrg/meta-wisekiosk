@@ -70,7 +70,7 @@ repos:
 
   meta-arm:
     url: "https://git.yoctoproject.org/meta-arm"
-    commit: 045eb74bd9abe7d9ccf365a2417e440ce83bcbb0
+    commit: 0a4b911d9fd63ab29c4532a907fae3282dbdcfe4
     path: "sources/meta-arm"
     layers:
       meta-arm-toolchain:
