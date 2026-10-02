@@ -108,7 +108,9 @@ failing logs, and the timer stays on for the next job.
 
 `PIPELINE_TARGET` or `PIPELINE_TARGET_HOSTNAME` unset refuses the run outright (rc 2) without
 touching the timer — a `pipeline.env` configuration problem, like any other required variable
-missing, not an infrastructure failure.
+missing, not an infrastructure failure. More than one merge-queue ref based on `origin/main`'s tip
+refuses the same way (rc 2, timer untouched): the ambiguity is visible only in the timer's own log,
+with no DISABLED file and no PR comment.
 
 A new host needs a clone, the dev tree's `local/device-identity.md`, `gh auth login`, and
 `just pipeline-install`.

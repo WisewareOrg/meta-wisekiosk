@@ -267,10 +267,12 @@ def main():
         print(f'usage: {SELF} [--check|--apply|--filter] [--allow-partial] [root]', file=sys.stderr)
         return 2
 
-    root = repo_root(argv[1] if len(argv) > 1 else None)
-
     if mode == '--filter':
+        root = Path(argv[1]).resolve() if len(argv) > 1 \
+            else Path(__file__).resolve().parents[1]
         return cmd_filter(root)
+
+    root = repo_root(argv[1] if len(argv) > 1 else None)
 
     rows = load_map(root)
 

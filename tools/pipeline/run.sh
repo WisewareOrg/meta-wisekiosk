@@ -25,12 +25,13 @@ SSH_HOST="root@$PIPELINE_TARGET"
 export KIOSK_HOST="$SSH_HOST"
 
 MUTATED=""
+rc=0
 write_disabled() {
     mkdir -p "$PIPELINE_DRIVER/local/pipeline"
     printf '%s\n%s\n' "$(date -Is)" "$1" > "$PIPELINE_DRIVER/local/pipeline/DISABLED"
     systemctl --user disable --now wisekiosk-pipeline.timer 2>/dev/null || true
 }
-trap '[ -n "$MUTATED" ] && write_disabled "run.sh exited (rc=$?) with the device mid-OTA"' EXIT
+trap 'rc=$?; [ -n "$MUTATED" ] && write_disabled "run.sh exited (rc=$rc) with the device mid-OTA"' EXIT
 
 abort() {
     MUTATED=""
@@ -133,7 +134,7 @@ case "${1:-}" in
         ;;
     baseline)
         KIND=baseline
-        SHA=${2:-$(git rev-parse "$PIPELINE_BASELINE_REF")}
+        SHA=$(git rev-parse "${2:-$PIPELINE_BASELINE_REF}^{commit}")
         ;;
     *)
         echo "usage: run.sh | run.sh baseline [<sha>]" >&2
