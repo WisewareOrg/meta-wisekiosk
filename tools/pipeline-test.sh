@@ -831,6 +831,7 @@ test_report_check() {
     FAKEGIT="$TOP/fakegit"
     mkdir -p "$FAKEGIT"
     REALGIT=$(command -v git)
+    # shellcheck disable=SC2016
     printf '#!/bin/sh\nif [ "$1" = "init" ]; then exit 1; fi\nexec "%s" "$@"\n' "$REALGIT" \
         > "$FAKEGIT/git"
     chmod +x "$FAKEGIT/git"
