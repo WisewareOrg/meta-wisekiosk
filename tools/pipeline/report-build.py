@@ -20,13 +20,9 @@ TAIL_LINES = 200
 
 def result_dict(data):
     """The case->status dict from oeqa's `{<result-id>: {configuration, result}}`
-    shape or a bare `{configuration, result}`, or {} if data is not shaped
-    like either."""
+    shape, or {} if data is not shaped like that."""
     if not isinstance(data, dict):
         return {}
-    result = data.get("result")
-    if isinstance(result, dict):
-        return result
     for value in data.values():
         if isinstance(value, dict):
             inner = value.get("result")

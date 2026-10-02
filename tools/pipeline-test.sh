@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Self-test for report-build.py's renderer and scrub-identity.py --filter.
-#
 #   tools/pipeline-test.sh
 set -uo pipefail
 
@@ -37,10 +36,10 @@ printf '+package-a 1.0 -> 1.1\n' > "$DELTA"
 
 RESULTS="$TOP/testresults.json"
 cat > "$RESULTS" <<'EOF'
-{"result": {
+{"5678-efgh": {"configuration": {}, "result": {
     "test_backend_unit_active": {"status": "PASSED"},
     "test_healthz": {"status": "FAILED", "log": "line1\nline2\nconnection refused\n"}
-}}
+}}}
 EOF
 
 WRAPPED="$TOP/testresults-wrapped.json"
@@ -122,8 +121,7 @@ else
 fi
 
 # --- scrub-identity.py --filter fixtures --------------------------------
-# Split: a joined literal here would trip gitleaks and scrub-identity.py's
-# own --check.
+# Split: a joined literal here would trip gitleaks and scrub-identity.py's own --check.
 ip_hi="10.77.4"; ip_lo="9"
 STRAY_IP="${ip_hi}.${ip_lo}"
 pk_dash="-----"; pk_begin="BEGIN"; pk_priv="PRIVATE"; pk_key="KEY"; pk_end="END"

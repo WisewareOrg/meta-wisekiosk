@@ -217,8 +217,7 @@ def load_map(root):
 
 def cmd_filter(root):
     """Redact stdin to stdout: known map values, then PATTERNS, then any
-    private-key block. Fails closed: a missing or dangling map refuses (rc 2)
-    rather than posting text the KNOWN half never got a chance to check."""
+    private-key block. Fails closed: exits 2 if the map is missing or dangling."""
     path = map_path(root)
     if not path.exists():
         print(f'{SELF}: no {MAP_REL} reachable from {root} -- refusing to filter',

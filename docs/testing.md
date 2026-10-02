@@ -95,9 +95,9 @@ each OTA stage's log, `testresults.json`, and the assembled report body.
 
 **An infrastructure failure** — the device unreachable, the device's live hostname not matching the
 recorded `PIPELINE_TARGET_HOSTNAME` (the address now reaches a different device), a baseline build
-failing, the baseline ref or its buildhistory tag not resolvable, a reboot that never comes back, the
-rollback not landing back on the pre-install slot, a report or status failing to post, or the process
-exiting for any other reason while the device sits mid-OTA — writes `local/pipeline/DISABLED` under
+failing, the baseline ref or its buildhistory tag not resolvable, the rollback reboot never coming
+back, the rollback not landing back on the pre-install slot, a report or status failing to post, or
+the process exiting for any other reason while the device sits mid-OTA — writes `local/pipeline/DISABLED` under
 the driver with the reason and disables the timer. Nothing loops silently. Fix the cause, then `just
 pipeline-on` -- it prints the DISABLED reason and clears the file itself, as an explicit
 acknowledgement, before re-enabling.
