@@ -1,0 +1,12 @@
+# The required `bench-pipeline` check. On a pull request it passes without doing
+# anything, which lets the PR enter the merge queue; on the merge-group commit the
+# build host posts the real result as a commit status under the same name.
+name: bench-pipeline
+on:
+  pull_request:
+permissions: {}
+jobs:
+  bench-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "bench-pipeline runs on the merge-group commit; see docs/testing.md"
