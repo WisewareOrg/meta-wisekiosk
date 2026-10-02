@@ -26,6 +26,7 @@ import re
 import statistics
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -83,8 +84,6 @@ DONE_RE = re.compile(r"NOTE: recipe (\S+): task (do_\S+): (?:Succeeded|Failed)")
 ERROR_TASK_RE = re.compile(r"ERROR: (\S+) (do_\S+): ")
 VERDICT_RE = re.compile(r"^VERDICT: (.*)$", re.MULTILINE)
 QUEUE_REF_RE = re.compile(r"refs/heads/gh-readonly-queue/main/pr-(\d+)-([0-9a-f]+)$")
-HISTORY_LIMIT = 5
-RUNNING_TASKS_LIMIT = 3
 GRAPHQL_QUERY = (
     '{ repository(owner:"WisewareOrg", name:"meta-wisekiosk") '
     '{ mergeQueue(branch:"main") { entries(first:20) '
@@ -190,6 +189,34 @@ def queue_refs(driver):
     return refs
 
 
+class QueueWorker:
+    """Fetches the queue and its refs on a background thread, on
+    QUEUE_REFRESH_S, so a slow gh or git call never blocks the UI loop. A
+    failed fetch keeps the last successful queue/refs; snapshot() reports
+    their age alongside the latest error, if any."""
+
+    def __init__(self, driver):
+        self.driver = driver
+        self.lock = threading.Lock()
+        self.queue, self.refs, self.error, self.updated_at = [], {}, None, None
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
+        while True:
+            queue, error = fetch_queue()
+            with self.lock:
+                if queue is not None:
+                    self.queue, self.updated_at, self.error = queue, time.time(), None
+                    self.refs = queue_refs(self.driver)
+                else:
+                    self.error = error
+            time.sleep(QUEUE_REFRESH_S)
+
+    def snapshot(self):
+        with self.lock:
+            return list(self.queue), dict(self.refs), self.error, self.updated_at
+
+
 def newest_run_dir(driver):
     try:
         dirs = [d for d in (Path(driver) / "local/pipeline/runs").iterdir() if d.is_dir()]
@@ -217,7 +244,7 @@ def current_phase(run_dir):
     return idx, path, (prev if prev and prev.exists() else None)
 
 
-def median_durations(idx, run_dir, limit=HISTORY_LIMIT):
+def median_durations(idx, run_dir, limit=5):
     """Up to `limit` non-negative (this file's mtime - previous file's mtime)
     samples from sibling run dirs that have both files."""
     this_name = PHASES[idx][1]
@@ -243,7 +270,7 @@ def median_durations(idx, run_dir, limit=HISTORY_LIMIT):
     return durations
 
 
-def running_tasks(lines, limit=RUNNING_TASKS_LIMIT):
+def running_tasks(lines, limit=3):
     """"recipe:do_task" for the last `limit` Started tasks with no later
     Succeeded/Failed/ERROR line for that same recipe:task. A setscene
     failure logs no Failed NOTE, only an ERROR line sharing the same
@@ -309,9 +336,7 @@ def verdict_text(run_dir):
     except OSError:
         return ""
     match = VERDICT_RE.search(text)
-    if match:
-        return match.group(1)
-    return text.strip().splitlines()[-1] if text.strip() else ""
+    return match.group(1) if match else ""
 
 
 def phase_detail(run_dir, now, live):
@@ -422,10 +447,15 @@ def draw(stdscr, state):
     log_y = header_h + queue_h + run_h
     log_h = max(max_y - log_y, 0)
 
-    queue_win = bordered(queue_h, max_x, header_h, 0, f"Merge queue ({len(queue)} entries)")
+    age = state["queue_age"]
+    title = (f"Merge queue ({len(queue)} entries, updated {age}s ago)" if age is not None
+             else f"Merge queue ({len(queue)} entries)")
+    queue_win = bordered(queue_h, max_x, header_h, 0, title)
     content_w = max_x - 4
-    if state["queue_error"]:
+    if age is None and state["queue_error"]:
         safe_addnstr(queue_win, 1, 2, f"queue: unavailable ({state['queue_error']})", content_w)
+    elif age is None:
+        safe_addnstr(queue_win, 1, 2, "queue: loading...", content_w)
     elif not queue:
         safe_addnstr(queue_win, 1, 2, "queue: empty", content_w)
     else:
@@ -484,21 +514,21 @@ def main(stdscr, driver):
     curses.curs_set(0)
     stdscr.timeout(200)
 
+    worker = QueueWorker(driver)
     state = {"sha": "unknown", "disabled": None, "timer_on": False, "service_running": False,
-              "queue": [], "queue_error": None, "building_pr": None,
+              "queue": [], "refs": {}, "queue_error": None, "queue_age": None,
+              "building_pr": None,
               "run_dir": None, "run_title": "no runs yet", "stage_parts": [],
               "phase_detail": "", "log_path": None,
               "log_lines": None, "scroll": 0, "log_visible": 0, "paused": False,
               "refreshed": time.time()}
-    last_queue = last_run = 0
+    last_run = 0
 
     while True:
         now = time.time()
-        if not state["paused"] and now - last_queue >= QUEUE_REFRESH_S:
-            state["queue"], state["queue_error"] = fetch_queue()
-            state["queue"] = state["queue"] or []
-            state["refs"] = queue_refs(driver)
-            last_queue = now
+        if not state["paused"]:
+            state["queue"], state["refs"], state["queue_error"], updated_at = worker.snapshot()
+            state["queue_age"] = int(now - updated_at) if updated_at else None
 
         if not state["paused"] and now - last_run >= RUN_REFRESH_S:
             state["sha"] = driver_sha(driver)
@@ -508,7 +538,7 @@ def main(stdscr, driver):
             state["service_running"] = live
             run_dir = newest_run_dir(driver)
             state["run_dir"] = run_dir
-            refs = state.get("refs", {})
+            refs = state["refs"]
             if run_dir is None:
                 state["run_title"] = "no runs yet"
                 state["stage_parts"], state["phase_detail"], state["log_path"] = [], "", None
@@ -529,9 +559,7 @@ def main(stdscr, driver):
         key = stdscr.getch()
         if key == ord("q"):
             return None
-        if key == curses.KEY_RESIZE:
-            curses.update_lines_cols()
-        elif key in (ord("j"), curses.KEY_DOWN):
+        if key in (ord("j"), curses.KEY_DOWN):
             state["scroll"] = max(0, state["scroll"] - 1)
         elif key in (ord("k"), curses.KEY_UP) and state["log_lines"]:
             max_scroll = max(0, len(state["log_lines"]) - state["log_visible"])
