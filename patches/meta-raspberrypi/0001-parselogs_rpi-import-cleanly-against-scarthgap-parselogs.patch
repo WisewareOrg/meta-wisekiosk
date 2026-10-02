@@ -6,7 +6,7 @@ Subject: [PATCH] oeqa: parselogs_rpi imports cleanly against scarthgap's
 
 parselogs_rpi.py referenced two module-level names, ignore_errors and
 common_errors, that this file's own `from oeqa.runtime.cases.parselogs
-import *` never provided even when it was written: poky scarthgap's
+import *` does not provide: poky scarthgap's
 parselogs.py keeps ignore_errors as a class attribute on ParseLogsTest
 (populated from parselogs-ignores-*.txt resource files via
 load_machine_ignores()), not a module global, and defines no

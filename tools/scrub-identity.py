@@ -126,8 +126,7 @@ PATTERNS = [
     ),
 ]
 
-# A full BEGIN..END block, non-greedy and multiline, so --filter drops the key
-# material itself rather than just flagging the header line.
+# A full BEGIN..END private-key block, non-greedy, across lines.
 PRIVATE_KEY_BLOCK = re.compile(
     r'-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----',
     re.DOTALL)

@@ -54,7 +54,6 @@ ln -sf "$MAP" "$DRIVER/local/device-identity.md"
 # local/keys: an empty bind-mount target -- docs/testing.md §"Running it".
 mkdir -p "$TREE/local/keys"
 
-# Seed hashserv.db once from the dev tree's -- docs/testing.md §"Running it".
 # sqlite3 online backup: copies the live WAL contents too.
 DEV_HASHSERV_DB="$ROOT/build/cache/hashserv.db"
 PIPELINE_HASHSERV_DB="$TREE/build/cache/hashserv.db"

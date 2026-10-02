@@ -1,8 +1,8 @@
-# Pipeline provisioning and control -- docs/testing.md covers what each tier
-# proves and how to run it. Required variable: py, the python3 interpreter.
+# Pipeline provisioning and control: docs/testing.md §"Running it".
+# Requires py from the root Justfile.
 
 [group('pipeline')]
-[doc("Provision the pipeline's checkouts, ssh key, env file and units")]
+[doc("Provision the pipeline's checkouts, env file and units; install its ssh key on the target")]
 pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
                  dl_dir=env('DL_DIR', (justfile_directory() / 'build/downloads')) \
                  sstate_dir=env('SSTATE_DIR', (justfile_directory() / 'build/sstate-cache')) \

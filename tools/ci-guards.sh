@@ -485,8 +485,8 @@ else
             fi
         fi
 
-        # Checks no build or shell invocation of kas-container bypasses
-        # tools/kas-run.sh.
+        # Checks no kas-container build/shell call in Justfile or justfiles/*.just
+        # bypasses tools/kas-run.sh.
         direct10=$(
             for f in Justfile justfiles/*.just; do
                 [ -f "$f" ] || continue

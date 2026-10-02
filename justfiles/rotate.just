@@ -12,9 +12,7 @@
 #
 # Why the order matters is written up in docs/rauc-key-rotation.md.
 #
-# `name` selects a dir under the gitignored local/keys, never committed.
-# kas-container mounts the repository root into the container, and
-# kiosk-zero-w.yaml reads the key at ${TOPDIR}/../local/keys.
+# `name` selects a dir under the gitignored local/keys.
 # justfile_directory() keeps the path absolute, so the recipes work from any cwd.
 #
 # The key NAME defaults from `fleet-key` in the root Justfile. Completing a

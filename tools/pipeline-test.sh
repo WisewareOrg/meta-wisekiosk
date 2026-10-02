@@ -83,7 +83,7 @@ else
 fi
 
 # --- scrub-identity.py --filter fixtures --------------------------------
-# Split: a joined literal here would trip gitleaks and scrub-identity.py's own --check.
+# Split literals: neither gitleaks nor scrub-identity.py --check matches them.
 ip_hi="10.77.4"; ip_lo="9"
 STRAY_IP="${ip_hi}.${ip_lo}"
 pk_dash="-----"; pk_begin="BEGIN"; pk_priv="PRIVATE"; pk_key="KEY"; pk_end="END"
@@ -107,7 +107,7 @@ run_filter() { "$PY" "$SCRUB" --filter "$TOP/filterroot" < "$TOP/filter-in"; }
 printf 'bench is 198.51.100.14, prod is 198.51.100.7\n' > "$TOP/filter-in"
 out=$(run_filter)
 if [[ "$out" == *"<bench.address>"* ]] && [[ "$out" == *"<prod.address>"* ]]; then
-    ok "filter: known map values become <role.key>, longest first"
+    ok "filter: known map values become <key>, longest first"
 else
     bad "filter known values" "$out"
 fi
