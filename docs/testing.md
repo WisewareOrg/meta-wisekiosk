@@ -20,6 +20,7 @@ just pipeline-on                     # enable the timer
 just pipeline-off                    # disable it
 just pipeline-status                 # timer state + any DISABLED reason
 just pipeline-run                    # one job by hand: the queue head, or a missing baseline
+just pipeline-watch                  # live, read-only view of the current run; q or Ctrl-C quits
 ```
 
 The job is the head of the merge queue — the entry whose own base commit is `origin/main`'s current

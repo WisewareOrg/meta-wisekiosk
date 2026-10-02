@@ -29,6 +29,11 @@ pipeline-off:
     systemctl --user disable --now wisekiosk-pipeline.timer
 
 [group('pipeline')]
+[doc("Live view of the current pipeline run; q or Ctrl-C quits")]
+pipeline-watch:
+    tools/pipeline/watch.sh
+
+[group('pipeline')]
 [script('bash')]
 [doc("Report the timer's state and any DISABLED reason")]
 pipeline-status:
