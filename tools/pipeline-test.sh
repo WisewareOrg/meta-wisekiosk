@@ -848,6 +848,20 @@ test_report_check() {
     else
         bad "report check, git unusable: posted reason is the fixed constant" "err=$err"
     fi
+
+    # Invalid UTF-8 must not raise past the fixed vocabulary.
+    BADUTF8=$(printf '\xff\xfeVERDICT: pr-run -> success')
+    capture_stdin out err rc "$BADUTF8" "$PY" "$REPORT" check --map "$GOODMAP"
+    if [ "$rc" -eq 2 ]; then
+        ok "report check, invalid UTF-8 input: refused rc 2"
+    else
+        bad "report check, invalid UTF-8 input: refused rc 2" "rc=$rc out=$out err=$err"
+    fi
+    if [ "$err" = "tool failure" ]; then
+        ok "report check, invalid UTF-8 input: posted reason is the fixed constant"
+    else
+        bad "report check, invalid UTF-8 input: posted reason is the fixed constant" "err=$err"
+    fi
 }
 
 test_resolve_role

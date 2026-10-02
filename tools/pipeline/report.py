@@ -294,8 +294,7 @@ def cmd_build(argv):
 
 # --- check ----------------------------------------------------------------
 
-# The only words `check` ever writes to stderr -- posted verbatim into a
-# public commit-status description, so never a path or other matched content.
+# check's fixed stderr reasons.
 REASON_PRIVATE_KEY = "private key material"
 REASON_IDENTITY_FOUND = "identity found"
 REASON_IDENTITY_PARTIAL = "identity check PARTIAL"
@@ -308,6 +307,13 @@ def _tool_failure():
 
 
 def cmd_check(argv):
+    try:
+        return _cmd_check(argv)
+    except Exception:
+        return _tool_failure()
+
+
+def _cmd_check(argv):
     map_arg = None
     rest = list(argv)
     while rest:
