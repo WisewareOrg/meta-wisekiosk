@@ -62,6 +62,7 @@ import 'justfiles/ota.just'
 import 'justfiles/deploy.just'
 import 'justfiles/device.just'
 import 'justfiles/rotate.just'
+import 'justfiles/pipeline.just'
 
 default: help
 
