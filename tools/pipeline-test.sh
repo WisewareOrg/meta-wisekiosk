@@ -585,37 +585,54 @@ test_report_check() {
     capture_stdin out err rc \
         "VERDICT: $BENCH_ADDR was never redacted" \
         "$PY" "$REPORT" check --map "$GOODMAP"
-    if [ "$rc" -eq 1 ]; then
-        ok "report check, a raw map value in the body: rc 1"
+    if [ "$rc" -eq 1 ] && [ "$err" = "identity found" ]; then
+        ok "report check, a raw map value in the body: rc 1, reason is the identity-found constant"
     else
-        bad "report check, a raw map value in the body: rc 1" "rc=$rc out=$out err=$err"
+        bad "report check, a raw map value in the body: rc 1, reason is the identity-found constant" \
+            "rc=$rc out=$out err=$err"
     fi
 
     capture_stdin out err rc \
         "stray mac ${mac_hi}:${mac_lo} leaked into the body" \
         "$PY" "$REPORT" check --map "$GOODMAP"
-    if [ "$rc" -eq 1 ]; then
-        ok "report check, a raw PATTERN token in the body: rc 1"
+    if [ "$rc" -eq 1 ] && [ "$err" = "identity found" ]; then
+        ok "report check, a raw PATTERN token in the body: rc 1, reason is the identity-found constant"
     else
-        bad "report check, a raw PATTERN token in the body: rc 1" "rc=$rc out=$out err=$err"
+        bad "report check, a raw PATTERN token in the body: rc 1, reason is the identity-found constant" \
+            "rc=$rc out=$out err=$err"
+    fi
+
+    NOFENCEMAP="$TOP/device-identity-no-fence.md"
+    cat > "$NOFENCEMAP" <<'EOF'
+# Fixture map with no identity fence at all -- the KNOWN half has nothing to scan.
+Nothing here to redact against.
+EOF
+    capture_stdin out err rc \
+        $'VERDICT: pr-run -> success\nclean body, no identity, no private key\n' \
+        "$PY" "$REPORT" check --map "$NOFENCEMAP"
+    if [ "$rc" -eq 1 ] && [ "$err" = "identity check PARTIAL" ]; then
+        ok "report check, map with no usable identity-fence rows: rc 1, reason is the PARTIAL constant"
+    else
+        bad "report check, map with no usable identity-fence rows: rc 1, reason is the PARTIAL constant" \
+            "rc=$rc out=$out err=$err"
     fi
 
     pk_body1=$(printf 'VERDICT: pr-run -> success\n%s\nfixture, not a real key\n' "$PK_HEADER")
     capture_stdin out err rc "$pk_body1" "$PY" "$REPORT" check --map "$GOODMAP"
-    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
-        ok "report check, a bare private-key header: rc 2, nothing on stdout, reason on stderr"
+    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ "$err" = "private key material" ]; then
+        ok "report check, a bare private-key header: rc 2, nothing on stdout, reason is the private-key constant"
     else
-        bad "report check, a bare private-key header: rc 2, nothing on stdout, reason on stderr" \
+        bad "report check, a bare private-key header: rc 2, nothing on stdout, reason is the private-key constant" \
             "rc=$rc out=$out err=$err"
     fi
 
     pk_body2=$(printf 'VERDICT: pr-run -> success\n2026-09-30T10:00:00Z %s\nfixture, not a real key\n' \
         "$PK_HEADER_RSA")
     capture_stdin out err rc "$pk_body2" "$PY" "$REPORT" check --map "$GOODMAP"
-    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
-        ok "report check, a private-key header behind a log-timestamp prefix: rc 2, nothing on stdout, reason on stderr"
+    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ "$err" = "private key material" ]; then
+        ok "report check, a private-key header behind a log-timestamp prefix: rc 2, nothing on stdout, reason is the private-key constant"
     else
-        bad "report check, a private-key header behind a log-timestamp prefix: rc 2, nothing on stdout, reason on stderr" \
+        bad "report check, a private-key header behind a log-timestamp prefix: rc 2, nothing on stdout, reason is the private-key constant" \
             "rc=$rc out=$out err=$err"
     fi
 
@@ -631,10 +648,11 @@ test_report_check() {
     capture_stdin out err rc \
         "VERDICT: $BENCH_ADDR was never redacted, no private key here" \
         "$PY" "$REPORT" check --map "$GOODMAP"
-    if [ "$rc" -eq 1 ]; then
-        ok "report check, an identity hit with no private key: rc 1"
+    if [ "$rc" -eq 1 ] && [ "$err" = "identity found" ]; then
+        ok "report check, an identity hit with no private key: rc 1, reason is the identity-found constant"
     else
-        bad "report check, an identity hit with no private key: rc 1" "rc=$rc out=$out err=$err"
+        bad "report check, an identity hit with no private key: rc 1, reason is the identity-found constant" \
+            "rc=$rc out=$out err=$err"
     fi
 
     # git shim first on PATH: only `git init` fails.
@@ -675,8 +693,103 @@ EOF
     fi
 }
 
+# =========================================================================
+# C. tools/pipeline/report.py post
+# =========================================================================
+
+test_report_post() {
+    local out err rc
+
+    if [ ! -f "$REPORT" ]; then
+        bad "report.py exists" "not found at $REPORT"
+        return
+    fi
+
+    capture out err rc "$PY" "$REPORT" post --state success --description "ok"
+    if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
+        ok "report post, missing --sha: rc 2, nothing on stdout"
+    else
+        bad "report post, missing --sha: rc 2, nothing on stdout" "rc=$rc out=$out err=$err"
+    fi
+
+    capture out err rc "$PY" "$REPORT" post --sha deadbeef01 --description "ok"
+    if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
+        ok "report post, missing --state: rc 2, nothing on stdout"
+    else
+        bad "report post, missing --state: rc 2, nothing on stdout" "rc=$rc out=$out err=$err"
+    fi
+
+    capture out err rc "$PY" "$REPORT" post --sha deadbeef01 --state success
+    if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
+        ok "report post, missing --description: rc 2, nothing on stdout"
+    else
+        bad "report post, missing --description: rc 2, nothing on stdout" "rc=$rc out=$out err=$err"
+    fi
+
+    capture out err rc "$PY" "$REPORT" post
+    if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
+        ok "report post, no arguments at all: rc 2, nothing on stdout"
+    else
+        bad "report post, no arguments at all: rc 2, nothing on stdout" "rc=$rc out=$out err=$err"
+    fi
+
+    capture out err rc "$PY" "$REPORT" post --sha deadbeef01 --state sideways --description "ok"
+    if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
+        ok "report post, invalid --state value: rc 2, nothing on stdout"
+    else
+        bad "report post, invalid --state value: rc 2, nothing on stdout" "rc=$rc out=$out err=$err"
+    fi
+
+    capture out err rc "$PY" "$REPORT" post --sha deadbeef01 --state success \
+        --description "ok" --pr 1
+    if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
+        ok "report post, --pr without --body: rc 2, nothing on stdout"
+    else
+        bad "report post, --pr without --body: rc 2, nothing on stdout" "rc=$rc out=$out err=$err"
+    fi
+
+    capture out err rc "$PY" "$REPORT" post --sha deadbeef01 --state success \
+        --description "ok" --body "$TOP/does-not-matter.md"
+    if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
+        ok "report post, --body without --pr: rc 2, nothing on stdout"
+    else
+        bad "report post, --body without --pr: rc 2, nothing on stdout" "rc=$rc out=$out err=$err"
+    fi
+
+    # Fake gh shim: records its own argv, one token per line, and always
+    # succeeds -- proves what report.py sends without a real gh/network.
+    FAKEGH="$TOP/fakegh"
+    mkdir -p "$FAKEGH"
+    FAKEGH_LOG="$TOP/fakegh.log"
+    cat > "$FAKEGH/gh" <<EOF
+#!/bin/sh
+printf '%s\n' "\$@" > "$FAKEGH_LOG"
+exit 0
+EOF
+    chmod +x "$FAKEGH/gh"
+
+    LONGDESC=$(printf 'x%.0s' $(seq 1 200))
+    EXPECTED_DESC="${LONGDESC:0:140}"
+    capture out err rc env PATH="$FAKEGH:$PATH" \
+        "$PY" "$REPORT" post --sha deadbeef01 --state success --description "$LONGDESC"
+    if [ "$rc" -eq 0 ]; then
+        ok "report post, description over 140 chars: posts via the gh shim"
+    else
+        bad "report post, description over 140 chars: posts via the gh shim" \
+            "rc=$rc out=$out err=$err"
+    fi
+    SENT_DESC=$(grep '^description=' "$FAKEGH_LOG" || true)
+    if [ "$SENT_DESC" = "description=$EXPECTED_DESC" ]; then
+        ok "report post, description over 140 chars: truncated to DESCRIPTION_MAX before reaching gh"
+    else
+        bad "report post, description over 140 chars: truncated to DESCRIPTION_MAX before reaching gh" \
+            "sent=$SENT_DESC expected=description=$EXPECTED_DESC"
+    fi
+}
+
 test_report_build
 test_report_check
+test_report_post
 
 echo
 printf 'pass=%s fail=%s\n' "$pass" "$fail"
