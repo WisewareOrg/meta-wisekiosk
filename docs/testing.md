@@ -10,13 +10,12 @@ result at that tier does **not** let you conclude.
 | Artifact delta (`just artifact-diff`; size-blind) | Whether package versions, the file list, or file metadata (mode/owner/size/path) changed between two builds sharing one buildhistory-enabled build directory. An empty delta is itself a pass: the bench pipeline posts `success` and runs no OTA, `testimage` or rollback for that candidate. | After two `just build` runs. | Content. Buildhistory records path/mode/owner/size, not bytes — a same-size content edit reads as "no change". |
 | Bench smoke (`testimage` + stages) | The backend unit is active, `/healthz` answers, the page serves, WebKit still composites on the GPU, the page is still painting — on **one** physical board, **one** boot, after an OTA install (never a flash). | The bench pipeline, once per candidate. | Anything about `/boot` (kernel, U-Boot, the RAUC slot layout — an OTA never touches it), a second boot, or the **prod** board specifically. |
 | OTA/rollback (the `pr` run) | Install, reboot, and — for a `pr` run — mark-bad, reboot and land back on the baseline slot all completed, and the board answered again each time. | Every `pr` candidate whose artifact delta is non-empty. | Whether the slot rolled back *into* would itself survive a fresh install — it was booted back into, not reinstalled. There are only two slots. Whether this tier ran at all — a `pr` candidate with an empty delta posts `success` without it. |
-| Soak (prod, `kiosk-soak`) | The **prod** board's long-run memory and process health, read with `just soak-summary`. | Continuously, on the one board that carries it. | Anything about a candidate build — soak watches whatever image prod runs, never a PR's. |
 
 Three limits worth restating because they are easy to read past in the table: the artifact-delta tier
 is **size-blind** by design — a same-size content change is invisible to it. The bench-smoke and
 OTA/rollback tiers run **one boot on one bench board** — nothing here proves a second boot, a cold
 boot, or the prod board's own behaviour, and nothing here ever touches `/boot` (kernel, U-Boot, the
-RAUC slot layout), which stays unproven by every tier above soak.
+RAUC slot layout), which stays unproven by every tier in the table.
 
 ## Running it
 

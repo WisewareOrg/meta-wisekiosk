@@ -231,8 +231,8 @@ refresh_remote() {
 }
 
 finish() {
-    # finish STATE DESCRIPTION [report.py-build --results/--log args...]; returns 0
-    # or never returns (abort exits 1) -- a caller with more script after it must exit.
+    # finish STATE DESCRIPTION [report.py-build --results/--log args...] -- posts
+    # the final status and returns 0, or exits 1 through abort.
     BENCH_MUTATED=""
     local state=$1 desc=$2
     shift 2
@@ -560,7 +560,6 @@ cp "$RESULTS2" "$RUN_DIR/$STAGE2-testresults.json"
 
 [ "$POSTRC" -ne 0 ] && POST_ROLLBACK_UNHEALTHY=1
 
-# The script's own end here is finish()'s return code: nothing follows it.
 finish "$SMOKE_STATE" "pr #$PR_NUMBER $SHA: smoke $SMOKE_STATE" \
     "${SMOKE_RESULTS_ARGS[@]}" "${SMOKE_LOGARGS[@]}" \
     --results "post-rollback=$RUN_DIR/$STAGE2-testresults.json"

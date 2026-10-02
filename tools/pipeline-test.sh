@@ -7,6 +7,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 RESOLVE_ROLE="$HERE/pipeline/resolve-role.py"
 REPORT="$HERE/pipeline/report.py"
+RUNSH="$HERE/pipeline/run.sh"
 
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR 2>/dev/null || true
 
@@ -865,9 +866,63 @@ EOF
     fi
 }
 
+# =========================================================================
+# D. tools/pipeline/run.sh -- static shape
+# =========================================================================
+
+test_run_sh_shape() {
+    local out err rc
+
+    if [ ! -f "$RUNSH" ]; then
+        bad "run.sh exists" "not found at $RUNSH"
+        return
+    fi
+
+    cat > "$TOP/finish_exit_shape.py" <<'PYEOF'
+import re
+import sys
+
+path = sys.argv[1]
+with open(path) as f:
+    lines = f.readlines()
+
+call_re = re.compile(r'^\s*finish\s+("\$|failure|success|error)')
+def_re = re.compile(r'^\s*finish\(\)\s*\{')
+
+violations = []
+n = len(lines)
+i = 0
+while i < n:
+    line = lines[i]
+    if def_re.match(line):
+        i += 1
+        continue
+    if call_re.match(line):
+        j = i
+        while lines[j].rstrip("\n").endswith("\\"):
+            j += 1
+        if j + 1 < n:
+            nxt = lines[j + 1].strip()
+            if not nxt.startswith("exit"):
+                violations.append(i + 1)
+    i += 1
+
+for v in violations:
+    print(v)
+PYEOF
+
+    capture out err rc "$PY" "$TOP/finish_exit_shape.py" "$RUNSH"
+    if [ -z "$out" ]; then
+        ok "run.sh: every finish call exits, except the last"
+    else
+        bad "run.sh: every finish call exits, except the last" "violating lines: $out"
+    fi
+}
+
 test_resolve_role
 test_report_build
 test_report_check
+test_run_sh_shape
 
 echo
 printf 'pass=%s fail=%s\n' "$pass" "$fail"
