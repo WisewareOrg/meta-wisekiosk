@@ -7,9 +7,9 @@ result at that tier does **not** let you conclude.
 |---|---|---|---|
 | Static (`just guards`, CI) | Repository invariants hold: no secret or identity reaches a tracked file, shell and YAML parse, every wiring self-test passes. | Every commit (pre-commit hook), every PR (CI). | Anything about a Yocto build. This tier never invokes bitbake. |
 | Build (`just build`) | The kas config resolves and bitbake completes: an image artifact exists. | On demand, locally — never in CI, which does not build. | Whether the image differs from the last one, whether it boots, whether it serves anything. |
-| Artifact delta (`just artifact-diff`; size-blind) | Whether package versions, the file list, or file metadata (mode/owner/size/path) changed between two builds sharing one buildhistory-enabled build directory. An empty delta is itself a pass: the pipeline posts success and runs no OTA, `testimage` or rollback for that candidate. | After two `just build` runs. | Content. Buildhistory records path/mode/owner/size, not bytes — a same-size content edit reads as "no change". |
-| Device smoke (`testimage` + stages) | The backend unit is active, `/healthz` answers, the page serves, WebKit still composites on the GPU, the page is still painting — on **one** physical device (the one named in the gitignored `local/device-identity.md`, [`CONTRIBUTING.md`](../CONTRIBUTING.md) §"Before you change anything"), **one** boot, after an OTA install (never a flash). | The pipeline, once per candidate. | Any boot file (kernel, `config.txt`, `cmdline.txt`, device tree) — the pipeline writes none of them — the RAUC slot layout, which an OTA never touches, or a second boot. |
-| OTA/rollback (the `pr` run) | Install, reboot, and — for a `pr` run — mark-bad, reboot and land back on the baseline slot all completed, and the device answered again each time. | Every `pr` candidate whose artifact delta is non-empty. | Whether the slot rolled back *into* would itself survive a fresh install — it was booted back into, not reinstalled. There are only two slots. Whether this tier ran at all — a `pr` candidate with an empty delta posts success without it. |
+| Artifact delta (`just artifact-diff`; size-blind) | Whether package versions, the file list, or file metadata (mode/owner/size/path) changed between two builds sharing one buildhistory-enabled build directory. An empty delta is itself a pass: the pipeline posts success and runs no OTA, `testimage` or rollback for it. | After two `just build` runs. | Content. Buildhistory records path/mode/owner/size, not bytes — a same-size content edit reads as "no change". |
+| Device smoke (`testimage` + stages) | The backend unit is active, `/healthz` answers, the page serves, WebKit still composites on the GPU, the page is still painting — on **one** physical device (the one named in the gitignored `local/device-identity.md`, [`CONTRIBUTING.md`](../CONTRIBUTING.md) §"Before you change anything"), **one** boot, after an OTA install (never a flash). | The pipeline, once per run. | Any boot file (kernel, `config.txt`, `cmdline.txt`, device tree) — the pipeline writes none of them — the RAUC slot layout, which an OTA never touches, or a second boot. |
+| OTA/rollback (the queue run) | Install, reboot, and — for a queue run — mark-bad, reboot and land back on the baseline slot all completed, and the device answered again each time. | Every queue run whose artifact delta is non-empty. | Whether the slot rolled back *into* would itself survive a fresh install — it was booted back into, not reinstalled. There are only two slots. Whether this tier ran at all — a queue run with an empty delta posts success without it. |
 
 Three limits worth restating because they are easy to read past in the table: the artifact-delta tier
 is **size-blind** by design — a same-size content change is invisible to it. The device-smoke and
@@ -25,10 +25,12 @@ just pipeline-install                # once per host, idempotent -- reads $PIPEL
 just pipeline-on                     # enable the timer
 just pipeline-off                    # disable it
 just pipeline-status                 # timer state + any DISABLED reason
-just pipeline-run                    # one job by hand: the next candidate
+just pipeline-run                    # one job by hand: the queue head, or a missing baseline
 just pipeline-run baseline [sha]     # one job by hand: a baseline run
-just pipeline-run pr <N>             # one job by hand: a PR's head
 ```
+
+The job is the head of the merge queue; a PR enters the queue after its static checks pass and
+merges only if `bench-pipeline` is green on its merge-group commit.
 
 `pipeline-install` is the whole reprovisioning procedure — nothing is done to a host by hand that it
 does not also do. It creates, all under `$HOME`:
@@ -50,9 +52,9 @@ does not also do. It creates, all under `$HOME`:
   installing shell's own `PATH`, and two caches, overridable at install time: `DL_DIR` and
   `SSTATE_DIR` (default this repository's own `build/downloads` and `build/sstate-cache`, shared
   read-write with the dev tree's ordinary builds to avoid refetching or recompiling what is already
-  there). The build dir itself is not recorded here: `run.sh` and `candidates.py` both derive it as
-  `$PIPELINE_TREE/build` — kas's own default for that checkout — since it is never independently
-  correct to set it to anything else.
+  there). The build dir itself is not recorded here: `run.sh` derives it as `$PIPELINE_TREE/build`
+  — kas's own default for that checkout — since it is never independently correct to set it to
+  anything else.
 
   The build dir is never set as `KAS_BUILD_DIR`, and `run.sh` unsets any ambient one before running.
   Doing so moves bitbake's own `TMPDIR` to a different container mount point (`/build` instead of
@@ -80,8 +82,8 @@ Install, `rauc status mark-good` and `mark-bad` write only RAUC's own boot-selec
 ever written; that is `/boot`'s own gap, stated in the device-smoke row above. The `/boot`-class header
 also applies when a candidate moves poky's own pin, since U-Boot's recipe is poky's.
 
-**An empty artifact delta is a pass.** A `pr` run whose delta comes back empty posts success and stops
-there — no bundle, OTA, `testimage` or rollback runs for that candidate.
+**An empty artifact delta is a pass.** A queue run whose delta comes back empty posts success and
+stops there — no bundle, OTA, `testimage` or rollback runs for it.
 
 **Records** live at `local/pipeline/runs/<sha>/` under the driver: the build log, the artifact delta,
 every stage's log, each stage's `testresults.json`, and the assembled (redacted, capped) report body.

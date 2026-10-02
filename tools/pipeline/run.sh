@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # The bench pipeline's stage driver.
 #
-#   run.sh                  -- run tools/pipeline/candidates.py's next job
+#   run.sh                  -- build & OTA the head of the merge queue, or a
+#                              missing baseline for it
 #   run.sh baseline [<sha>] -- build & OTA a baseline run (default sha:
 #                              $PIPELINE_BASELINE_REF's current HEAD)
-#   run.sh pr <N>            -- build & OTA the PR's head, then always roll
-#                               back to the baseline slot
 #
 # PIPELINE_BASELINE_REF is remote-qualified, e.g. origin/main.
 set -euo pipefail
@@ -291,12 +290,32 @@ git -C "$PIPELINE_TREE" fetch origin \
 
 case "${1:-}" in
     "")
-        job=$("$PY" "$TOOLS/pipeline/candidates.py") || abort "candidates.py failed"
-        if [ -z "$job" ]; then
-            echo "run.sh: no candidate job" >&2
+        QUEUE_REFS=$(git ls-remote origin 'refs/heads/gh-readonly-queue/main/*') \
+            || abort "git ls-remote for the merge queue failed"
+        QUEUE_LINE_COUNT=$(printf '%s\n' "$QUEUE_REFS" | grep -c . || true)
+        if [ "$QUEUE_LINE_COUNT" -eq 0 ]; then
+            echo "run.sh: no job" >&2
             exit 0
         fi
-        read -r KIND SHA PR_NUMBER <<< "$job"
+        if [ "$QUEUE_LINE_COUNT" -gt 1 ]; then
+            echo "run.sh: no job (more than one gh-readonly-queue ref for main)" >&2
+            exit 0
+        fi
+        QUEUE_SHA=$(printf '%s' "$QUEUE_REFS" | cut -f1)
+        QUEUE_REF=$(printf '%s' "$QUEUE_REFS" | cut -f2)
+        QUEUE_PR=$(printf '%s' "$QUEUE_REF" \
+            | sed -nE 's#^refs/heads/gh-readonly-queue/main/pr-([0-9]+)-.*#\1#p')
+        [ -n "$QUEUE_PR" ] || abort "could not parse a PR number from $QUEUE_REF"
+        git -C "$PIPELINE_TREE" fetch --quiet origin "$QUEUE_REF" \
+            || abort "could not fetch $QUEUE_REF"
+        QUEUE_BASELINE=$(git -C "$PIPELINE_TREE" rev-parse "$QUEUE_SHA^1") \
+            || abort "could not resolve $QUEUE_SHA^1"
+        if git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse --verify -q \
+            "refs/tags/baseline/$QUEUE_BASELINE" > /dev/null; then
+            KIND="queue"; SHA="$QUEUE_SHA"; PR_NUMBER="$QUEUE_PR"; MERGE_BASE="$QUEUE_BASELINE"
+        else
+            KIND=baseline; SHA="$QUEUE_BASELINE"
+        fi
         ;;
     baseline)
         KIND=baseline
@@ -306,28 +325,16 @@ case "${1:-}" in
             SHA=$(git -C "$PIPELINE_TREE" rev-parse "$PIPELINE_BASELINE_REF")
         fi
         ;;
-    pr)
-        [ -n "${2:-}" ] || { echo "usage: run.sh | run.sh baseline [<sha>] | run.sh pr <N>" >&2; exit 2; }
-        KIND="pr"
-        PR_NUMBER=$2
-        IS_CROSS=$(gh pr view "$PR_NUMBER" --json isCrossRepository --jq .isCrossRepository)
-        if [ "$IS_CROSS" != "false" ]; then
-            echo "run.sh: PR #$PR_NUMBER's head is in another repository -- refusing" >&2
-            exit 2
-        fi
-        SHA=$(gh pr view "$PR_NUMBER" --json headRefOid --jq .headRefOid)
-        ;;
     *)
-        echo "usage: run.sh | run.sh baseline [<sha>] | run.sh pr <N>" >&2
+        echo "usage: run.sh | run.sh baseline [<sha>]" >&2
         exit 2
         ;;
 esac
 
 BASELINE_REMOTE="$PIPELINE_BASELINE_REF"
-[ "$KIND" = pr ] && MERGE_BASE=$(git -C "$PIPELINE_TREE" merge-base "$BASELINE_REMOTE" "$SHA")
 
 BOOT_CAVEAT=""
-if [ "$KIND" = pr ] \
+if [ "$KIND" = queue ] \
     && [ "$(git -C "$PIPELINE_TREE" diff --name-only "$MERGE_BASE..$SHA" \
         | grep -cE '^(includes/base\.yaml|includes/platforms/|meta-wisekiosk/recipes-bsp/)')" -gt 0 ]; then
     BOOT_CAVEAT="rootfs only -- /boot unproven: an OTA carries no boot files"
@@ -362,18 +369,13 @@ if [ "$(docker ps --format '{{.Image}}' 2>/dev/null | grep -cE '^ghcr\.io/siemen
 fi
 git -C "$PIPELINE_TREE" rev-parse --verify -q "${BASELINE_REMOTE}^{commit}" > /dev/null \
     || abort "baseline ref $BASELINE_REMOTE does not resolve"
-if [ "$KIND" = pr ]; then
-    git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse --verify -q \
-        "refs/tags/baseline/$MERGE_BASE" > /dev/null \
-        || abort "no baseline/$MERGE_BASE tag in $PIPELINE_BUILD_DIR/buildhistory -- run a baseline for the merge-base first"
-fi
 git -C "$PIPELINE_TREE" checkout --detach "$SHA" > "$RUN_DIR/checkout.log" 2>&1 \
     || abort "could not check out $SHA in $PIPELINE_TREE"
 
 SLOTS_INFO=$(rauc_slots "$SSH_HOST") || true
 BASELINE_SLOT=$(booted_bootname "$SLOTS_INFO") || abort "could not read bench's booted slot"
 
-if [ "$KIND" = pr ]; then
+if [ "$KIND" = queue ]; then
     BUILDINFO_SHA=$(ssh "${SSH_OPTS[@]}" "$SSH_HOST" \
         'grep "^meta-wisekiosk" /etc/buildinfo' 2>/dev/null | sed -E 's/.*:([0-9a-f]{40}).*/\1/') \
         || true
