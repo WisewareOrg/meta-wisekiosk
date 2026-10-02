@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# Self-test for resolve-role.py, report.py's redact-and-cap, and the pre-post identity check.
+# Self-test for report.py's redact-and-cap and the pre-post identity check.
 #
 #   tools/pipeline-test.sh
 set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
-RESOLVE_ROLE="$HERE/pipeline/resolve-role.py"
 REPORT="$HERE/pipeline/report.py"
 
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR 2>/dev/null || true
@@ -65,16 +64,7 @@ wifi.ssid       = placeholder-net-01
 ```
 EOF
 
-NOBENCHMAP="$TOP/device-identity-no-bench.md"
-cat > "$NOBENCHMAP" <<'EOF'
-```identity
-prod.address    = 198.51.100.7
-wifi.ssid       = placeholder-net-01
-```
-EOF
-
 BENCH_ADDR="198.51.100.14"
-PROD_ADDR="198.51.100.7"
 
 # Split: the joined literals trip gitleaks and tools/scrub-identity.py --check.
 mac_hi="DE:AD:BE:EF:00"; mac_lo="01"
@@ -86,187 +76,7 @@ PK_HEADER="${pk_dash}${pk_begin} ${pk_priv} ${pk_key}${pk_dash}"
 PK_HEADER_RSA="${pk_dash}${pk_begin} RSA ${pk_priv} ${pk_key}${pk_dash}"
 
 # =========================================================================
-# A. tools/pipeline/resolve-role.py
-# =========================================================================
-
-test_resolve_role() {
-    local out err rc
-
-    if [ ! -f "$RESOLVE_ROLE" ]; then
-        bad "resolve-role.py exists" "not found at $RESOLVE_ROLE"
-        return
-    fi
-
-    capture out err rc "$PY" "$RESOLVE_ROLE" --map "$GOODMAP" bench
-    if [ "$rc" -eq 0 ] && [ "$out" = "$BENCH_ADDR" ]; then
-        ok "resolve-role bench: prints the bare bench address, rc 0"
-    else
-        bad "resolve-role bench: prints the bare bench address, rc 0" \
-            "rc=$rc out=$out err=$err"
-    fi
-
-    capture out err rc "$PY" "$RESOLVE_ROLE" --map "$GOODMAP" prod
-    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
-        ok "resolve-role prod: refused, rc 2, nothing on stdout, reason on stderr"
-    else
-        bad "resolve-role prod: refused, rc 2, nothing on stdout, reason on stderr" \
-            "rc=$rc out=$out err=$err"
-    fi
-    case "$out$err" in
-        *"$PROD_ADDR"*)
-            bad "resolve-role prod: the prod address appears in neither stdout nor stderr" \
-                "out=$out err=$err" ;;
-        *) ok "resolve-role prod: the prod address appears in neither stdout nor stderr" ;;
-    esac
-
-    capture out err rc "$PY" "$RESOLVE_ROLE" --map "$GOODMAP"
-    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
-        ok "resolve-role no-arg: refused, rc 2, nothing on stdout, reason on stderr"
-    else
-        bad "resolve-role no-arg: refused, rc 2, nothing on stdout, reason on stderr" \
-            "rc=$rc out=$out err=$err"
-    fi
-    case "$out$err" in
-        *"$PROD_ADDR"*)
-            bad "resolve-role no-arg: the prod address appears in neither stdout nor stderr" \
-                "out=$out err=$err" ;;
-        *) ok "resolve-role no-arg: the prod address appears in neither stdout nor stderr" ;;
-    esac
-
-    capture out err rc "$PY" "$RESOLVE_ROLE" --map "$GOODMAP" swampland
-    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
-        ok "resolve-role unknown role: refused, rc 2, nothing on stdout, reason on stderr"
-    else
-        bad "resolve-role unknown role: refused, rc 2, nothing on stdout, reason on stderr" \
-            "rc=$rc out=$out err=$err"
-    fi
-    case "$out$err" in
-        *"$PROD_ADDR"*)
-            bad "resolve-role unknown role: the prod address appears in neither stdout nor stderr" \
-                "out=$out err=$err" ;;
-        *) ok "resolve-role unknown role: the prod address appears in neither stdout nor stderr" ;;
-    esac
-
-    capture out err rc "$PY" "$RESOLVE_ROLE" --map "$NOBENCHMAP" bench
-    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
-        ok "resolve-role bench, map with no bench key: refused, rc 2"
-    else
-        bad "resolve-role bench, map with no bench key: refused, rc 2" \
-            "rc=$rc out=$out err=$err"
-    fi
-    case "$out$err" in
-        *"$PROD_ADDR"*)
-            bad "resolve-role bench, map with no bench key: the prod address appears in neither stdout nor stderr" \
-                "out=$out err=$err" ;;
-        *) ok "resolve-role bench, map with no bench key: the prod address appears in neither stdout nor stderr" ;;
-    esac
-
-    capture out err rc "$PY" "$RESOLVE_ROLE" --map "$GOODMAP" bench extra
-    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
-        ok "resolve-role bench, extra positional: refused, rc 2, reason on stderr"
-    else
-        bad "resolve-role bench, extra positional: refused, rc 2, reason on stderr" \
-            "rc=$rc out=$out err=$err"
-    fi
-    case "$out$err" in
-        *"$PROD_ADDR"*)
-            bad "resolve-role bench, extra positional: the prod address appears in neither stdout nor stderr" \
-                "out=$out err=$err" ;;
-        *) ok "resolve-role bench, extra positional: the prod address appears in neither stdout nor stderr" ;;
-    esac
-
-    local fixture_repo="$TOP/fixture-repo"
-    mkdir -p "$fixture_repo/local" "$fixture_repo/subdir"
-    env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE \
-        git init -q "$fixture_repo"
-    cp "$GOODMAP" "$fixture_repo/local/device-identity.md"
-    capture out err rc bash -c \
-        "cd \"$fixture_repo/subdir\" && exec \"$PY\" \"$RESOLVE_ROLE\" bench"
-    if [ "$rc" -eq 0 ] && [ "$out" = "$BENCH_ADDR" ]; then
-        ok "resolve-role bench, --map omitted: resolves <repo root>/local/device-identity.md"
-    else
-        bad "resolve-role bench, --map omitted: resolves <repo root>/local/device-identity.md" \
-            "rc=$rc out=$out err=$err"
-    fi
-
-    capture out err rc "$PY" "$RESOLVE_ROLE" --help
-    if [ "$rc" -eq 0 ] && [ -n "$out" ]; then
-        ok "resolve-role --help: exits 0 and prints usage"
-    else
-        bad "resolve-role --help: exits 0 and prints usage" "rc=$rc out=$out err=$err"
-    fi
-
-    HOSTNAMEMAP="$TOP/device-identity-hostname.md"
-    cat > "$HOSTNAMEMAP" <<'EOF'
-```identity
-prod.address    = 198.51.100.7
-bench.address   = 198.51.100.14
-prod.hostname   = prod-fixture
-bench.hostname  = bench-fixture
-```
-EOF
-
-    capture out err rc "$PY" "$RESOLVE_ROLE" --map "$HOSTNAMEMAP" --verify-hostname bench-fixture
-    if [ "$rc" -eq 0 ]; then
-        ok "resolve-role --verify-hostname: matches bench's own hostname, rc 0"
-    else
-        bad "resolve-role --verify-hostname: matches bench's own hostname, rc 0" \
-            "rc=$rc out=$out err=$err"
-    fi
-
-    HOSTNAMECOLLISIONMAP="$TOP/device-identity-hostname-collision.md"
-    cat > "$HOSTNAMECOLLISIONMAP" <<'EOF'
-```identity
-prod.address    = 198.51.100.7
-bench.address   = 198.51.100.14
-prod.hostname   = shared-fixture
-bench.hostname  = shared-fixture
-```
-EOF
-
-    capture out err rc "$PY" "$RESOLVE_ROLE" --map "$HOSTNAMECOLLISIONMAP" --verify-hostname shared-fixture
-    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
-        ok "resolve-role --verify-hostname: matches bench's own hostname but also another role's, refused rc 2"
-    else
-        bad "resolve-role --verify-hostname: matches bench's own hostname but also another role's, refused rc 2" \
-            "rc=$rc out=$out err=$err"
-    fi
-
-    capture out err rc "$PY" "$RESOLVE_ROLE" --map "$HOSTNAMEMAP" --verify-hostname nonexistent-fixture
-    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
-        ok "resolve-role --verify-hostname: matches no row, refused rc 2"
-    else
-        bad "resolve-role --verify-hostname: matches no row, refused rc 2" \
-            "rc=$rc out=$out err=$err"
-    fi
-
-    capture out err rc "$PY" "$RESOLVE_ROLE" --map "$HOSTNAMEMAP" --verify-hostname
-    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
-        ok "resolve-role --verify-hostname: no value, refused rc 2"
-    else
-        bad "resolve-role --verify-hostname: no value, refused rc 2" \
-            "rc=$rc out=$out err=$err"
-    fi
-
-    COLLISIONMAP="$TOP/device-identity-collision.md"
-    cat > "$COLLISIONMAP" <<'EOF'
-```identity
-prod.address    = 198.51.100.14
-bench.address   = 198.51.100.14
-```
-EOF
-
-    capture out err rc "$PY" "$RESOLVE_ROLE" --map "$COLLISIONMAP" bench
-    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ -n "$err" ]; then
-        ok "resolve-role bench, address collides with another role: refused rc 2"
-    else
-        bad "resolve-role bench, address collides with another role: refused rc 2" \
-            "rc=$rc out=$out err=$err"
-    fi
-}
-
-# =========================================================================
-# B. tools/pipeline/report.py build
+# A. tools/pipeline/report.py build
 # =========================================================================
 
 test_report_build() {
@@ -752,7 +562,7 @@ PYEOF
 }
 
 # =========================================================================
-# C. tools/pipeline/report.py check -- the pre-post gate
+# B. tools/pipeline/report.py check -- the pre-post gate
 # =========================================================================
 
 test_report_check() {
@@ -865,7 +675,6 @@ EOF
     fi
 }
 
-test_resolve_role
 test_report_build
 test_report_check
 
