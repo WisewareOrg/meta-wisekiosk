@@ -36,9 +36,9 @@ does not also do. It creates, all under `$HOME`:
   it first and, if its HEAD is not `origin/main`, checks that out and restarts itself from the fresh
   copy, so the driver always runs at `origin/main`'s current commit: a change to the driver is judged
   by the driver before it and takes effect once merged. The tick follows that commit; it does not
-  reset local edits to the driver checkout. To recover from a driver on `main` that cannot judge its
-  own fix, set `PIPELINE_DRIVER_REF=<fix branch>` in the env file, enqueue the fix PR, and remove the
-  line once it merges; every tick follows that ref instead of `main` while it is set.
+  reset local edits to the driver checkout. When a driver on `main` cannot judge its own fix,
+  `just pipeline-off`, merge the fix with an admin override of the merge queue, then `just
+  pipeline-on`.
 - `wisekiosk-pipeline/tree` — a second, detached checkout of the same repository; the tree under test.
 - `wisekiosk-pipeline/driver/local/device-identity.md` — a symlink to the dev tree's own copy;
   `tools/scrub-identity.py --filter` is the only thing that reads it, when a run posts its report.
