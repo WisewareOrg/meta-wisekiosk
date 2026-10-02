@@ -3,21 +3,45 @@
 
     watch.py [--help]
 
-Reads $PIPELINE_ENV (default ~/.config/wisekiosk/pipeline.env) for
-PIPELINE_DRIVER, never writes under it, never touches the device. The only
-systemctl calls are read-only `is-active` polls on wisekiosk-pipeline.timer
-and .service.
+Reads the file at $PIPELINE_ENV (default ~/.config/wisekiosk/pipeline.env)
+for a PIPELINE_DRIVER=<path> line; that path is the pipeline driver checkout
+this reads from. Never writes under it, never touches the device. The only
+subprocesses besides `git -C <driver> rev-parse` (the header's driver sha)
+and `gh api graphql` (the merge queue) are read-only
+`systemctl --user is-active` polls on wisekiosk-pipeline.timer and
+wisekiosk-pipeline.service.
 
-Layout: a header line (driver sha, timer/service state, clock; any DISABLED
-reason on a second line in reverse video), then three bordered panes --
-the merge queue, the current run (a stage strip plus its phase detail), and
-a tail of the active phase's log file, which takes the rest of the screen.
+Screen, top to bottom:
+  1. Header: "pipeline-watch", the driver's short HEAD sha, "timer on/off",
+     "service running/idle", and the time of the last refresh. A DISABLED
+     reason (driver's local/pipeline/DISABLED file) adds a second header
+     line in reverse video.
+  2. Merge queue, refreshed every QUEUE_REFRESH_S = 30s on a background
+     thread: one row per entry -- position, PR number, state, title, and
+     GitHub's own ETA as a right-hand "~Xm" column -- up to QUEUE_ROWS_MAX
+     = 10 rows. The entry whose head commit matches the current run's sha
+     is marked with a bold "▶" while the service is active/activating, or
+     the word "next" once it goes idle. An empty queue reads "queue:
+     empty"; a `gh` failure reads "queue: unavailable (<its first error
+     line>)", shown beside the last successful queue and its age once one
+     has ever loaded, in place of the queue before that.
+  3. Current run, refreshed every RUN_REFRESH_S = 5s: a stage strip (one
+     node per pipeline phase, wrapping onto a second row rather than
+     truncating) and a detail line below it -- elapsed time and an ETA for
+     an in-progress phase, or "posted: <verdict>" / "ended: no verdict" for
+     a finished one. A live `build` phase also shows up to 3 running
+     recipe:task names on their own row underneath, so they can't push the
+     ETA off the line.
+  4. Log pane, the rest of the screen: the tail of the active phase's own
+     log file, titled with the file name and following/paused/scrolled,
+     following the end by default.
 
-Keys: q quit, j/k or up/down scroll the log, G or End resume following,
-p pause/resume refresh.
+Keys: q quit; j or the down arrow moves the log pane's view toward its live
+end, k or the up arrow scrolls it back; G or End jumps back to the live end
+and resumes following; p pauses or resumes all refresh.
 
-Exits 2 if PIPELINE_DRIVER cannot be resolved, or if the terminal is smaller
-than 70x20.
+Exits 2, printing one line to stderr, if PIPELINE_DRIVER cannot be resolved
+from the env file, or if the terminal is smaller than 70 columns by 20 rows.
 """
 import curses
 import json
@@ -34,9 +58,15 @@ MIN_COLS, MIN_LINES = 70, 20
 QUEUE_REFRESH_S, RUN_REFRESH_S = 30, 5
 QUEUE_ROWS_MAX = 10
 
-# (internal name, log file, display name) in tools/pipeline/run.sh's order.
-# Two internal names share one display name: the two rollback log files,
-# and the two posted files.
+# STAGES: (internal name, log file, display name), one row per phase in
+# tools/pipeline/run.sh's order.
+#   internal name  the phase as run.sh names it; "posted" for both rows
+#                  after a run ends (verdict.txt, body.md)
+#   log file       the file run.sh writes for that phase, inside a run
+#                  directory (<driver>/local/pipeline/runs/<sha>/)
+#   display name   the stage-strip label; the two rollback rows and the
+#                  two posted rows each share one display name, collapsing
+#                  to a single stage-strip node
 STAGES = (
     ("checkout", "checkout.log", "checkout"),
     ("build", "build.log", "build"),
@@ -58,7 +88,10 @@ INTERNAL_TO_DISPLAY = {name: display for name, _file, display in STAGES}
 
 
 def _stage_display():
-    """[(display name, (file, ...)), ...], in first-seen order."""
+    """Group STAGES by display name, keeping each name's files together.
+
+    Returns [(display name, (file, ...)), ...], one entry per distinct
+    display name, in the order each first appears in STAGES."""
     files_by_display = {}
     order = []
     for _name, file, display in STAGES:
@@ -77,6 +110,8 @@ DONE_RE = re.compile(r"NOTE: recipe (\S+): task (do_\S+): (?:Succeeded|Failed)")
 ERROR_TASK_RE = re.compile(r"ERROR: (\S+) (do_\S+): ")
 VERDICT_RE = re.compile(r"^VERDICT: (.*)$", re.MULTILINE)
 FAILED_STAGE_RE = re.compile(r"^(\w+) failed$")
+# Position, state, ETA, head/base commit oid and PR number/title for each
+# entry in this repo's main-branch merge queue.
 GRAPHQL_QUERY = (
     '{ repository(owner:"WisewareOrg", name:"meta-wisekiosk") '
     '{ mergeQueue(branch:"main") { entries(first:20) '
@@ -87,7 +122,10 @@ GRAPHQL_QUERY = (
 
 
 def load_driver(env_path):
-    """PIPELINE_DRIVER from env_path's KEY=value lines, or None."""
+    """Parse env_path's KEY=value lines for PIPELINE_DRIVER.
+
+    Returns its value (surrounding quotes stripped), or None if env_path
+    can't be read or has no such line."""
     try:
         lines = Path(env_path).read_text().splitlines()
     except OSError:
@@ -99,6 +137,10 @@ def load_driver(env_path):
 
 
 def driver_sha(driver):
+    """Run `git -C driver rev-parse --short HEAD`.
+
+    Returns its stripped stdout, or "unknown" on a non-zero exit, a
+    missing git, or a timeout past 5s."""
     try:
         out = subprocess.run(["git", "-C", driver, "rev-parse", "--short", "HEAD"],
                               capture_output=True, text=True, timeout=5)
@@ -108,6 +150,10 @@ def driver_sha(driver):
 
 
 def timer_active():
+    """Run `systemctl --user is-active wisekiosk-pipeline.timer`.
+
+    Returns True only when its stdout is exactly "active"; False on any
+    other value, a missing systemctl, or a timeout past 5s."""
     try:
         out = subprocess.run(["systemctl", "--user", "is-active", "wisekiosk-pipeline.timer"],
                               capture_output=True, text=True, timeout=5)
@@ -117,7 +163,12 @@ def timer_active():
 
 
 def service_active():
-    """True while run.sh is executing (is-active reads "activating" or "active")."""
+    """True while run.sh is executing (is-active reads "activating" or "active").
+
+    Runs `systemctl --user is-active wisekiosk-pipeline.service`. The unit
+    is Type=oneshot, so a live run reads "activating" for its whole
+    duration and never the bare "active". Returns False on any other
+    stdout, a missing systemctl, or a timeout past 5s."""
     try:
         out = subprocess.run(["systemctl", "--user", "is-active", "wisekiosk-pipeline.service"],
                               capture_output=True, text=True, timeout=5)
@@ -127,6 +178,10 @@ def service_active():
 
 
 def disabled_reason(driver):
+    """Read driver's local/pipeline/DISABLED file.
+
+    Returns its second line (the reason), "" if the file has only one
+    line, or None if the file doesn't exist."""
     try:
         lines = (Path(driver) / "local/pipeline/DISABLED").read_text().splitlines()
     except OSError:
@@ -135,8 +190,22 @@ def disabled_reason(driver):
 
 
 def fetch_queue():
-    """(list of {position, state, number, title, eta_s} dicts, None), or
-    (None, error string) on gh failure."""
+    """Run `gh api graphql` with GRAPHQL_QUERY to list the merge queue.
+
+    Returns (entries, None) on success, or (None, error string) if the gh
+    call fails or times out (15s), or its JSON doesn't have the expected
+    shape. `entries` is a list of dicts, one per queue node that carries a
+    pullRequest (a node with none is dropped), each:
+      position  int, 1-based queue position
+      state     str, GitHub's queue state (e.g. "QUEUED", "AWAITING_CHECKS")
+      number    int, the PR number
+      title     str, the PR title ("" if GitHub returned none)
+      eta_s     int or None, estimatedTimeToMerge in seconds
+      head_sha  str or None, the entry's headCommit oid
+      base_sha  str or None, the entry's baseCommit oid
+    The error string is the first line of gh's stderr, of the raised
+    exception, or "unexpected response: <exc>" if the JSON shape doesn't
+    match."""
     try:
         out = subprocess.run(["gh", "api", "graphql", "-f", f"query={GRAPHQL_QUERY}"],
                               capture_output=True, text=True, timeout=15)
@@ -169,9 +238,15 @@ def fetch_queue():
 
 
 class QueueWorker:
-    """Fetches the queue on a background thread, every QUEUE_REFRESH_S. A
-    failed fetch keeps the last successful queue; snapshot() reports its age
-    alongside the latest error, if any."""
+    """Fetches the merge queue on a background thread, every QUEUE_REFRESH_S.
+
+    Attributes (read via snapshot(), not directly):
+      queue       list of entry dicts as fetch_queue() returns; the last
+                  successful fetch's result ([] until the first one lands)
+      error       str or None, the most recent fetch's error (gh can keep
+                  failing after queue was last populated, or can recover)
+      updated_at  float or None, time.time() of the last successful fetch
+    """
 
     def __init__(self):
         self.lock = threading.Lock()
@@ -179,6 +254,10 @@ class QueueWorker:
         threading.Thread(target=self._run, daemon=True).start()
 
     def _run(self):
+        """Loop: fetch_queue(), store the result under self.lock, sleep
+        QUEUE_REFRESH_S. Any exception fetch_queue() doesn't itself catch
+        is caught here and stored as self.error rather than killing the
+        thread."""
         while True:
             try:
                 queue, err = fetch_queue()
@@ -192,11 +271,17 @@ class QueueWorker:
             time.sleep(QUEUE_REFRESH_S)
 
     def snapshot(self):
+        """Return (list(self.queue), self.error, self.updated_at), copied
+        under self.lock so the caller never reads a partial update."""
         with self.lock:
             return list(self.queue), self.error, self.updated_at
 
 
 def newest_run_dir(driver):
+    """The most-recently-modified directory under
+    driver/local/pipeline/runs/.
+
+    Returns a Path, or None if that directory is missing or empty."""
     try:
         dirs = [d for d in (Path(driver) / "local/pipeline/runs").iterdir() if d.is_dir()]
     except OSError:
@@ -205,8 +290,16 @@ def newest_run_dir(driver):
 
 
 def current_phase(run_dir):
-    """(STAGES index, its log Path, the previous phase's Path or None) for the
-    newest-mtime phase file present, or (None, None, None) if none exist."""
+    """Find which STAGES entry's file was modified most recently in run_dir.
+
+    Returns (idx, path, prev_path):
+      idx        index into STAGES of the phase whose file has the latest
+                 mtime among all STAGES files present in run_dir (a tie
+                 keeps the later STAGES index)
+      path       that file's Path
+      prev_path  STAGES[idx - 1]'s file's Path, if it exists; else None
+                 (always None when idx == 0)
+    Returns (None, None, None) if no STAGES file exists in run_dir."""
     best = None
     for idx, (_name, fname, _display) in enumerate(STAGES):
         path = run_dir / fname
@@ -224,8 +317,16 @@ def current_phase(run_dir):
 
 
 def median_durations(idx, run_dir, limit=5):
-    """Up to `limit` non-negative (this file's mtime - previous file's mtime)
-    samples from sibling run dirs that have both files."""
+    """Sample how long the STAGES[idx] phase has taken in prior runs.
+
+    For up to `limit` sibling directories under run_dir's parent (newest
+    mtime first, run_dir itself excluded), a sample is taken when both
+    STAGES[idx]'s file and STAGES[idx - 1]'s file exist there:
+    (STAGES[idx] file's mtime - STAGES[idx - 1] file's mtime). A negative
+    sample is dropped (the dir was reused out of order).
+
+    Returns a list of up to `limit` floats (seconds), or [] when idx == 0
+    (no previous phase to pair with) or no sibling has both files."""
     this_name = STAGES[idx][1]
     prev_name = STAGES[idx - 1][1] if idx > 0 else None
     if prev_name is None:
@@ -250,8 +351,17 @@ def median_durations(idx, run_dir, limit=5):
 
 
 def running_tasks(lines, limit=3):
-    """"recipe:do_task" for the last `limit` Started tasks with no later
-    Succeeded/Failed/ERROR line for that same recipe:task."""
+    """Which bitbake tasks in `lines` look still in progress.
+
+    Matches three line shapes: STARTED_RE ("NOTE: recipe R: task T:
+    Started"), DONE_RE ("NOTE: recipe R: task T: Succeeded" or
+    "...Failed"), and ERROR_TASK_RE ("ERROR: R T: ..."). A (recipe, task)
+    pair counts as done once a DONE_RE or ERROR_TASK_RE line names it; the
+    remaining started pairs, in the order their Started line appeared, are
+    formatted "recipe:task".
+
+    Returns the last `limit` such strings (closest to the end of
+    `lines`)."""
     done = set()
     started = []
     for line in lines:
@@ -270,8 +380,26 @@ def running_tasks(lines, limit=3):
 
 
 def build_status(log_path, now, idx, run_dir, prev_file):
-    """(elapsed/ETA line, running-tasks line or None). Elapsed is since the
-    previous phase's file (or the run dir's ctime)."""
+    """Elapsed time, task progress and ETA for a live `build` phase.
+
+    Elapsed is `now` minus prev_file's mtime (run_dir's ctime if prev_file
+    is None). Reads log_path (build.log) for TASK_LINE_RE's
+    "<timestamp> ... Running task N of M" lines and for running_tasks()'s
+    input. The rate is (tasks done - tasks done at the first such line)
+    over the time since that first line's own timestamp; "remaining by
+    rate" is (total - done) / rate. "remaining by history" is
+    max(median(median_durations(idx, run_dir)) - elapsed, 0). The ETA
+    shown is whichever of the two is larger, labelled "(rough)"; "ETA
+    unknown" if neither is available.
+
+    Returns (line, running_line):
+      line          "elapsed Xm, no task count yet  ETA unknown" before
+                    any Running-task line is found, else
+                    "N/M tasks, elapsed Xm  ETA ~Ym (rough)" (or
+                    "...ETA unknown" with no rate and no history)
+      running_line  "running: r1:t1, r2:t2, ..." from running_tasks(), or
+                    None if none are in progress or log_path can't be read
+    """
     elapsed = now - (prev_file.stat().st_mtime if prev_file else run_dir.stat().st_ctime)
     elapsed_mins = int(elapsed / 60)
     try:
@@ -299,6 +427,14 @@ def build_status(log_path, now, idx, run_dir, prev_file):
 
 
 def other_eta(idx, prev_file, run_dir, now):
+    """Elapsed time and a typical duration for any non-build phase.
+
+    Elapsed is `now` minus prev_file's mtime (run_dir's ctime if prev_file
+    is None). The typical duration is the median of
+    median_durations(idx, run_dir), when it returns any samples.
+
+    Returns "elapsed Xm, no history" with no samples, else
+    "elapsed Xm, typical ~Ym"."""
     start = prev_file.stat().st_mtime if prev_file else run_dir.stat().st_ctime
     elapsed_mins = int((now - start) / 60)
     durations = median_durations(idx, run_dir)
@@ -308,6 +444,10 @@ def other_eta(idx, prev_file, run_dir, now):
 
 
 def verdict_text(run_dir):
+    """The text after "VERDICT: " in run_dir's verdict.txt (VERDICT_RE,
+    matched anywhere in the file).
+
+    Returns "" if the file is missing or has no such line."""
     try:
         text = (run_dir / "verdict.txt").read_text()
     except OSError:
@@ -317,10 +457,27 @@ def verdict_text(run_dir):
 
 
 def phase_detail(run_dir, now, live):
-    """(detail text, running-tasks line or None, its log Path or None,
-    internal phase name or None, the display name of a failed stage or
-    None). Posted requires verdict.txt or body.md to be the newest phase
-    file."""
+    """The run pane's detail line(s) for run_dir's current phase.
+
+    `live` is service_active()'s result. When not live, the run has
+    ended: a `posted` phase (verdict.txt or body.md is the newest file)
+    reads the verdict text and, if it matches FAILED_STAGE_RE
+    ("<stage> failed"), names that stage's display name as failed; any
+    other phase being newest with the service idle means the run ended
+    there with no verdict (an aborted run, or a baseline build, which
+    writes no verdict.txt). When live, an in-progress `build` phase is
+    delegated to build_status(); any other in-progress phase to
+    other_eta(); no phase file yet gives "no phase yet".
+
+    Returns (detail, running_line, log_path, internal_name,
+    failed_display):
+      detail          the phase-detail row's text (see above)
+      running_line    build_status()'s running-tasks line, or None
+      log_path        current_phase()'s matched file Path, or None with
+                      no phase yet
+      internal_name   the current phase's STAGES[*][0] name, or None
+      failed_display  the STAGES display name of the failed phase, or
+                      None"""
     idx, phase_file, prev_file = current_phase(run_dir)
     name = STAGES[idx][0] if idx is not None else None
     if not live:
@@ -342,8 +499,17 @@ def phase_detail(run_dir, now, live):
 
 
 def _stage_reached(run_dir, files, checkout_mtime):
-    """A stage's file counts only from this run: at least checkout.log's own
-    mtime, and (for delta.txt specifically) non-empty."""
+    """Whether any of `files` (one STAGE_DISPLAY node's file names) counts
+    as reached in run_dir.
+
+    A file counts only if its mtime is >= checkout_mtime (a None
+    checkout_mtime skips this check; this excludes a file left over from
+    a previous run in a reused run directory), and, specifically for
+    delta.txt, only if it is non-empty (run.sh truncates it to empty
+    before checkout starts, so an empty one hasn't been written this
+    run).
+
+    Returns True if any file in `files` counts, else False."""
     for fname in files:
         path = run_dir / fname
         try:
@@ -359,8 +525,18 @@ def _stage_reached(run_dir, files, checkout_mtime):
 
 
 def stage_strip(run_dir, current_internal_name, failed_display):
-    """[(label, state), ...] for each STAGE_DISPLAY node, state one of
-    "current", "done", "pending", "failed"."""
+    """One row per STAGE_DISPLAY node, for the run pane's stage strip.
+
+    checkout_mtime is checkout.log's own mtime (None if it doesn't
+    exist), passed to _stage_reached() for every node. A node's state is
+    "failed" if its display name equals failed_display, else "current" if
+    it equals current_internal_name's display name, else "done" if
+    _stage_reached() holds for its own files and for any later node's
+    files, else "pending".
+
+    Returns [(label, state), ...] in STAGE_DISPLAY order, where label is
+    "<display name> <marker>" (✗ failed, ● current, ✓ done, · pending)
+    and state is one of "failed", "current", "done", "pending"."""
     try:
         checkout_mtime = (run_dir / "checkout.log").stat().st_mtime
     except OSError:
@@ -382,8 +558,18 @@ def stage_strip(run_dir, current_internal_name, failed_display):
 
 
 def run_title(run_dir, queue):
-    """"Current run: ..." from the queue entry whose headCommit or
-    baseCommit oid matches the run dir's sha, else the sha alone."""
+    """The run pane's border title for run_dir.
+
+    `queue` is the list of entry dicts fetch_queue() returns. Matches
+    run_dir's directory name (the run's git sha) against each entry's
+    head_sha first, then (if no head_sha matched) each entry's base_sha.
+
+    Returns:
+      "Current run: PR #N  <title>  sha <short>"         on a head_sha
+                                                          match
+      "Current run: baseline <short> for PR #N  <title>" on a base_sha
+                                                          match
+      "Current run: sha <short>"                         with no match"""
     sha = run_dir.name
     for entry in queue:
         if entry.get("head_sha") == sha:
@@ -395,6 +581,9 @@ def run_title(run_dir, queue):
 
 
 def tail_lines(path, n=500):
+    """The last `n` lines of path, decoding errors replaced.
+
+    Returns [] if path can't be read."""
     try:
         return path.read_text(errors="replace").splitlines()[-n:]
     except OSError:
@@ -402,7 +591,10 @@ def tail_lines(path, n=500):
 
 
 def safe_addnstr(win, y, x, text, width, attr=0):
-    """addnstr, one column short of the window's own last row."""
+    """win.addnstr(y, x, text, width, attr), with `width` capped one
+    column short of win's own last row (ncurses raises if a full-width
+    write reaches a window's bottom-right cell). Writes nothing if the
+    capped width is 0 or less."""
     max_y, max_x = win.getmaxyx()
     if y == max_y - 1:
         width = min(width, max_x - x - 1)
@@ -411,6 +603,10 @@ def safe_addnstr(win, y, x, text, width, attr=0):
 
 
 def draw_segments(win, y, x, segments, width):
+    """Write `segments` (a list of (text, attr) pairs) onto row y of win,
+    left to right starting at column x, with one blank column between
+    each pair. Each segment is truncated to the columns remaining within
+    `width`, and no further segment is drawn once none remain."""
     col, remaining = x, width
     for text, attr in segments:
         if remaining <= 0:
@@ -422,8 +618,13 @@ def draw_segments(win, y, x, segments, width):
 
 
 def wrap_segments(parts, width):
-    """[[(label, state), ...], ...], parts packed greedily into lines no
-    wider than width."""
+    """Pack `parts` (a list of (label, state) pairs, e.g. stage_strip()'s
+    result) greedily onto lines no wider than `width` columns, counting
+    each label as len(label) + 1 columns (the blank column drawn after
+    it).
+
+    Returns [[(label, state), ...], ...], one inner list per output
+    line."""
     lines, current, current_w = [], [], 0
     for label, state in parts:
         seg_w = len(label) + 1
@@ -438,6 +639,12 @@ def wrap_segments(parts, width):
 
 
 def bordered(height, width, y, x, title):
+    """A new curses window at (y, x), at least 3 rows by 4 columns
+    (height/width are raised to that floor), erased and boxed. `title`,
+    if truthy, is written " <title> ", truncated to width - 4 columns,
+    starting at column 2 of the top border.
+
+    Returns the curses window."""
     height, width = max(height, 3), max(width, 4)
     win = curses.newwin(height, width, y, x)
     win.erase()
@@ -451,6 +658,29 @@ STAGE_ATTR = {"current": curses.A_BOLD, "done": 0, "pending": 0}
 
 
 def draw(stdscr, state):
+    """Render one frame into stdscr from `state`, then curses.doupdate().
+
+    Reads from `state`:
+      sha, timer_on, service_running, refreshed, disabled  the header line
+                 and its optional DISABLED second line
+      queue, queue_age, queue_error, marker_pr, marker_live  the merge
+                 queue pane: queue is fetch_queue()'s entry-dict list;
+                 marker_pr is the PR number to mark (or None); marker_live
+                 is whether to draw it as "▶" (True) or "next" (False)
+      run_dir, run_title, stage_parts, phase_detail, running_line,
+      failed_attr  the current-run pane: stage_parts is stage_strip()'s
+                 result, failed_attr the curses attribute for a "failed"
+                 stage-strip node
+      log_path, log_lines, paused, scroll  the log pane: log_lines is
+                 tail_lines()'s result, scroll the number of lines back
+                 from the end currently shown
+    Writes into `state`:
+      log_visible  the log pane's visible row count, for the caller to
+                 clamp further scrolling against
+
+    A fresh bordered window is built for each pane on every call;
+    curses.doupdate() only sends the terminal the cells that actually
+    changed since the last call, regardless."""
     stdscr.erase()
     max_y, max_x = stdscr.getmaxyx()
 
@@ -546,8 +776,28 @@ def draw(stdscr, state):
 
 
 def main(stdscr, driver):
-    """None on a clean quit, else an error line for the caller to print after
-    curses tears down."""
+    """Run the TUI's event loop against `driver` (PIPELINE_DRIVER's path).
+
+    Returns immediately, without entering the loop, with a one-line
+    "terminal must be at least ..." string if stdscr is smaller than
+    MIN_COLS x MIN_LINES. Otherwise starts a QueueWorker, builds the
+    state dict draw() reads and writes (see its docstring for the keys),
+    and loops, paced by stdscr.timeout(200) (each getch() below waits up
+    to 200ms):
+      - every iteration, unless state["paused"]: copies the worker's
+        latest queue/error/age via QueueWorker.snapshot()
+      - every RUN_REFRESH_S seconds, unless state["paused"]: re-reads the
+        driver sha, DISABLED reason, timer and service state, the newest
+        run directory, and (via phase_detail()/stage_strip()) that run's
+        phase detail, running-tasks line and stage strip
+      - calls draw(stdscr, state), then reads one key: q returns; j or
+        KEY_DOWN decrements state["scroll"] (toward the log's live end);
+        k or KEY_UP increments it, capped at the log's length minus its
+        visible rows (scrolling back); G or KEY_END resets it to 0
+        (resume following); p flips state["paused"]
+
+    Returns None on a clean quit (q); the caller prints the terminal-size
+    string above, if returned, after curses tears down."""
     max_y, max_x = stdscr.getmaxyx()
     if max_x < MIN_COLS or max_y < MIN_LINES:
         return f"watch.py: terminal must be at least {MIN_COLS}x{MIN_LINES}"
