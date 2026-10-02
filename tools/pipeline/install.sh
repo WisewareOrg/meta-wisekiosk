@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Provision the pipeline's checkouts, ssh key, env file and units.
+# Provision the pipeline's checkouts, ssh key and env file.
 # Env: PIPELINE_DRIVER_REF (default main), DL_DIR (default
 # <repo>/build/downloads), SSTATE_DIR (default <repo>/build/sstate-cache),
 # PIPELINE_TARGET (required).
@@ -102,11 +102,6 @@ $SSH "root@$TARGET" "mkdir -p ~/.ssh && chmod 700 ~/.ssh && touch ~/.ssh/authori
 
 TARGET_HOSTNAME=$($SSH -i "$SSH_DIR/id_ed25519" "root@$TARGET" hostname)
 printf 'PIPELINE_TARGET_HOSTNAME="%s"\n' "$TARGET_HOSTNAME" >> "$CONF_DIR/pipeline.env"
-
-mkdir -p "$HOME/.config/systemd/user"
-ln -sf "$DRIVER/tools/pipeline/wisekiosk-pipeline.service" "$HOME/.config/systemd/user/wisekiosk-pipeline.service"
-ln -sf "$DRIVER/tools/pipeline/wisekiosk-pipeline.timer" "$HOME/.config/systemd/user/wisekiosk-pipeline.timer"
-systemctl --user daemon-reload
 
 if ! loginctl show-user "$(id -un)" -p Linger 2>/dev/null | grep -q '^Linger=yes$'; then
     loginctl enable-linger "$(id -un)"
