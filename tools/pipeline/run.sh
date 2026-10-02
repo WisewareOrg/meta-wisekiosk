@@ -143,6 +143,7 @@ esac
 
 RUN_DIR="$PIPELINE_DRIVER/local/pipeline/runs/$SHA"
 mkdir -p "$RUN_DIR"
+: > "$RUN_DIR/delta.txt"
 
 if [ "$KIND" = baseline ]; then
     git checkout --detach "$SHA" > "$RUN_DIR/checkout.log" 2>&1 \
@@ -195,11 +196,10 @@ export OEQA_JSON_RESULT_DIR="/work/local/pipeline/runs/$SHA/smoke"
 TESTIMAGE_RC=0
 "${TREE_JUST[@]}" testimage > "$RUN_DIR/testimage.log" 2>&1 || TESTIMAGE_RC=$?
 
-RESULTS_JSON=$(find "$PIPELINE_TREE/local/pipeline/runs/$SHA/smoke" -maxdepth 1 -name '*.json' \
-        -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2- || true)
+RESULTS_JSON="$PIPELINE_TREE/local/pipeline/runs/$SHA/smoke/testresults.json"
 RESULTSARG=()
 LOGARGS=()
-if [ -n "$RESULTS_JSON" ]; then
+if [ -f "$RESULTS_JSON" ]; then
     cp "$RESULTS_JSON" "$RUN_DIR/testresults.json"
     RESULTSARG=(--results "$RUN_DIR/testresults.json")
 else
