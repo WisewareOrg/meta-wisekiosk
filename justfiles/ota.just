@@ -239,7 +239,11 @@ kiosk-install host=kiosk-host:
     target_activated() {
         local before=$1 after=$2 prev target new_order target_left
         prev=$(sed -n 's/.*Booted from: rootfs\.[0-9] (\(.\)).*/\1/p' <<<"$before")
-        if [ "$prev" = A ]; then target=B; else target=A; fi
+        case "$prev" in
+            A) target=B ;;
+            B) target=A ;;
+            *) return 1 ;;
+        esac
         new_order=$(sed -n 's/^BOOT_ORDER=//p' <<<"$after")
         target_left=$(sed -n "s/^BOOT_${target}_LEFT=//p" <<<"$after")
         [[ "$new_order" == "$target"* ]] && [ "${target_left:-0}" -gt 0 ]

@@ -103,7 +103,9 @@ acknowledgement, before re-enabling.
 A job's own build, bundle, preflight, send or install failing, the device not booting the new slot, or
 `artifact-diff` exiting 1 without really meaning "no change" are not infrastructure failures: each
 posts its own status (`failure`, or `error` for artifact-diff) on the job's commit with a PR comment
-carrying the failing logs, and the timer stays on for the next job. `artifact-diff` genuinely unable to
+carrying the failing logs, and the timer stays on for the next job. An install failure additionally
+runs `rauc status mark-bad other` over ssh before posting, best effort, so an install that finishes in
+the background after the ssh session dropped can never be booted. `artifact-diff` genuinely unable to
 tell also posts `error` and leaves the timer on, but with no log attached — the reason is in its own
 stderr only. A missing buildhistory tag for the baseline commit is not a failure either: it selects a
 baseline build for that commit instead of a job run.

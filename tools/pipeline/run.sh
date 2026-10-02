@@ -147,6 +147,14 @@ mkdir -p "$RUN_DIR"
 if [ "$KIND" = baseline ]; then
     git checkout --detach "$SHA" > "$RUN_DIR/checkout.log" 2>&1 \
         || abort "could not check out $SHA in $PIPELINE_TREE"
+    LATEST_BASELINE=$(git -C "$PIPELINE_BUILD_DIR/buildhistory" for-each-ref --sort=-creatordate \
+        --format='%(refname)' refs/tags/baseline 2>/dev/null | head -1)
+    if [ -n "$LATEST_BASELINE" ]; then
+        git -C "$PIPELINE_BUILD_DIR/buildhistory" reset --hard "$LATEST_BASELINE" \
+            || abort "could not reset buildhistory to $LATEST_BASELINE"
+        git -C "$PIPELINE_BUILD_DIR/buildhistory" clean -fdq \
+            || abort "could not clean buildhistory before the baseline build"
+    fi
     "${TREE_JUST[@]}" build > "$RUN_DIR/build.log" 2>&1 || abort "baseline build failed"
     git -C "$PIPELINE_BUILD_DIR/buildhistory" tag -f "baseline/$SHA" \
         || abort "could not tag baseline/$SHA"
@@ -163,10 +171,15 @@ PREV_SLOT=$(booted_slot "$SSH_HOST") || abort "could not read the booted slot be
 
 git -C "$PIPELINE_BUILD_DIR/buildhistory" reset --hard "refs/tags/baseline/$BASELINE" \
     || abort "could not reset buildhistory to baseline/$BASELINE"
+git -C "$PIPELINE_BUILD_DIR/buildhistory" clean -fdq \
+    || abort "could not clean buildhistory before the job build"
 run_or_fail build "$RUN_DIR/build.log" "${TREE_JUST[@]}" build
 
+BASELINE_BH=$(git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse "refs/tags/baseline/$BASELINE") \
+    || abort "could not read the baseline buildhistory commit"
 JOB_BH=$(git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse HEAD) \
     || abort "could not read the job's buildhistory commit"
+[ "$JOB_BH" != "$BASELINE_BH" ] || abort "buildhistory did not commit for $SHA"
 DELTA_RC=0
 "${TREE_JUST[@]}" artifact-diff "baseline/$BASELINE" "$JOB_BH" \
     > "$RUN_DIR/delta.txt" 2> "$RUN_DIR/delta.err" || DELTA_RC=$?
@@ -182,7 +195,12 @@ run_or_fail bundle "$RUN_DIR/bundle.log" "${TREE_JUST[@]}" kiosk-bundle
 run_or_fail preflight "$RUN_DIR/preflight.log" "${TREE_JUST[@]}" kiosk-preflight
 run_or_fail send "$RUN_DIR/send.log" "${TREE_JUST[@]}" kiosk-send-direct
 MUTATED=1
-run_or_fail install "$RUN_DIR/install.log" "${TREE_JUST[@]}" kiosk-install
+if ! "${TREE_JUST[@]}" kiosk-install > "$RUN_DIR/install.log" 2>&1; then
+    ssh "${SSH_OPTS[@]}" "$SSH_HOST" 'rauc status mark-bad other' >> "$RUN_DIR/install.log" 2>&1 \
+        || echo "could not mark the other slot bad after the failed install" >> "$RUN_DIR/install.log"
+    stage_logargs install "$RUN_DIR/install.log"
+    finish failure "install failed" "${LOGARGS[@]}"
+fi
 
 DEVICE_BACK=1
 "${TREE_JUST[@]}" kiosk-reboot "$SSH_HOST" 180 > "$RUN_DIR/reboot.log" 2>&1 || DEVICE_BACK=0
