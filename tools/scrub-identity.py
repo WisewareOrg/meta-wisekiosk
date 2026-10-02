@@ -3,7 +3,8 @@
 
     scrub-identity.py --check [root]    exit 1 if any identifier is present
     scrub-identity.py --apply [root]    rewrite tracked files, print what changed
-    scrub-identity.py --filter [root]   stdin -> stdout, redacted; always exit 0
+    scrub-identity.py --filter [root]   stdin -> stdout, redacted; exit 2 if the map
+                                         is missing or a dangling symlink
 
 `--check --allow-partial` downgrades a missing map from a failure to a reported
 degradation. It is for the one caller that structurally cannot have the map --
@@ -216,12 +217,16 @@ def load_map(root):
 
 def cmd_filter(root):
     """Redact stdin to stdout: known map values, then PATTERNS, then any
-    private-key block. Always exits 0 -- a missing map just skips the known
-    half, the same degradation `--check`/`--apply` report instead of hide."""
-    text = sys.stdin.read()
-
+    private-key block. Fails closed: a missing or dangling map refuses (rc 2)
+    rather than posting text the KNOWN half never got a chance to check."""
     path = map_path(root)
-    rows = _map_rows(path) if path.exists() else []
+    if not path.exists():
+        print(f'{SELF}: no {MAP_REL} reachable from {root} -- refusing to filter',
+              file=sys.stderr)
+        return 2
+
+    text = sys.stdin.read()
+    rows = _map_rows(path)
     if rows:
         ordered = sorted(rows, key=lambda row: -len(row[1]))
         value_to_key = {}

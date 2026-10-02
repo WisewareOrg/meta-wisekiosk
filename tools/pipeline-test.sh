@@ -61,8 +61,12 @@ if [ "$rc" -eq 2 ]; then ok "build: missing --verdict refuses (rc 2)"; else bad 
 capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --delta "$DELTA" --bogus x
 if [ "$rc" -eq 2 ]; then ok "build: an unknown flag refuses (rc 2)"; else bad "unknown flag" "rc=$rc"; fi
 
-capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --delta "$DELTA" --log nolabel
-if [ "$rc" -eq 2 ]; then ok "build: --log without label=path refuses (rc 2)"; else bad "--log shape" "rc=$rc"; fi
+capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --delta "$DELTA" --log "$TOP/no-such-log"
+if [ "$rc" -eq 0 ] && [[ "$out" == *"could not read"* ]]; then
+    ok "build: a --log path that does not exist still renders (rc 0, with a note)"
+else
+    bad "--log missing path" "rc=$rc out=$out"
+fi
 
 capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --delta "$DELTA"
 if [ "$rc" -eq 0 ] && [[ "$out" == *"## Verdict"* ]] && [[ "$out" == *"VERDICT: failure"* ]] \
@@ -93,28 +97,28 @@ else
     bad "wrapped results shape" "rc=$rc out=$out"
 fi
 
-capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --delta "$DELTA" --log "build=$LONGLOG"
-if [ "$rc" -eq 0 ] && [[ "$out" == *"## Log — build"* ]] && [[ "$out" == *"(tailed to the last 200 lines)"* ]] \
-        && [[ "$out" != *$'\n1\n'* ]] && [[ "$out" == *$'\n250'* ]]; then
-    ok "build: a long --log is tailed to 200 lines with a truncation note"
+capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --delta "$DELTA" --log "$LONGLOG"
+if [ "$rc" -eq 0 ] && [[ "$out" == *"## Log — long.log"* ]] \
+        && [[ "$out" == *$'\n1\n'* ]] && [[ "$out" == *$'\n250'* ]]; then
+    ok "build: a --log's label is its basename, and the renderer does not re-tail it"
 else
-    bad "log tail limit" "rc=$rc"
+    bad "log label and no re-tail" "rc=$rc"
 fi
 
 BIGDELTA="$TOP/big-delta.txt"
 "$PY" -c "print('x' * 100000)" > "$BIGDELTA"
 capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --delta "$BIGDELTA"
-if [ "$rc" -eq 0 ] && [ "${#out}" -le 60100 ] && [[ "$out" == *"report truncated"* ]]; then
-    ok "build: the whole body is capped at 60000 chars"
+if [ "$rc" -eq 0 ] && [ "${#out}" -gt 60000 ] && [[ "$out" != *"report truncated"* ]]; then
+    ok "build: the renderer itself caps nothing -- the driver's head -c does that"
 else
-    bad "total size limit" "rc=$rc len=${#out}"
+    bad "no renderer-side size cap" "rc=$rc len=${#out}"
 fi
 
 capture out rc "$PY" "$REPORT" --help
-if [ "$rc" -eq 0 ] && [[ "$out" == *"report-build.py"* ]]; then
-    ok "build: --help prints usage"
+if [ "$rc" -eq 2 ]; then
+    ok "build: --help is rejected like any other unrecognized flag (rc 2)"
 else
-    bad "--help" "rc=$rc"
+    bad "--help no longer special-cased" "rc=$rc"
 fi
 
 # --- scrub-identity.py --filter fixtures --------------------------------
@@ -175,8 +179,8 @@ fi
 rm "$TOP/filterroot/local/device-identity.md"
 printf 'stray address %s, no map here\n' "$STRAY_IP" > "$TOP/filter-in"
 out=$("$PY" "$SCRUB" --filter "$TOP/filterroot" < "$TOP/filter-in"); rc=$?
-if [ "$rc" -eq 0 ] && [[ "$out" == *"<redacted>"* ]]; then
-    ok "filter: no map present still redacts PATTERNS and exits 0"
+if [ "$rc" -eq 2 ] && [[ "$out" != *"$STRAY_IP"* ]]; then
+    ok "filter: a missing map fails closed (rc 2), posting nothing"
 else
     bad "filter with no map" "rc=$rc out=$out"
 fi
