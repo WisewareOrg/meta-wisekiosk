@@ -84,6 +84,10 @@ stops there — no bundle, OTA, `testimage` or rollback runs for it.
 stops — no status is posted and no PR comment is written, because no job's own commit is under test.
 The next tick picks up the queue job against the now-tagged baseline.
 
+**Each queue job's buildhistory starts from the baseline tag.** Immediately before the job's own
+build, `build/buildhistory` is reset to `baseline/<BASELINE>`; a job's commits are disposable, so no
+candidate's artifact delta is ever measured against another candidate's leftover build state.
+
 **Records** live at `local/pipeline/runs/<sha>/` under the driver: the build log, the artifact delta,
 each OTA stage's log, `testresults.json`, and the assembled report body.
 

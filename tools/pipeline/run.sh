@@ -161,6 +161,8 @@ git checkout --detach "$SHA" > "$RUN_DIR/checkout.log" 2>&1 \
     || abort "could not check out $SHA in $PIPELINE_TREE"
 PREV_SLOT=$(booted_slot "$SSH_HOST") || abort "could not read the booted slot before install"
 
+git -C "$PIPELINE_BUILD_DIR/buildhistory" reset --hard "refs/tags/baseline/$BASELINE" \
+    || abort "could not reset buildhistory to baseline/$BASELINE"
 run_or_fail build "$RUN_DIR/build.log" "${TREE_JUST[@]}" build
 
 JOB_BH=$(git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse HEAD) \
