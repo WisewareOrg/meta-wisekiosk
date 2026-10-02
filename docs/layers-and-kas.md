@@ -230,13 +230,13 @@ entry, so `do_image`, `do_image_ext4` and `do_image_complete` all regenerate and
 is fresh. `do_rootfs` is untouched and stays cached, which is where the hours are.
 
 The sha is resolved on the **host** by
-[`tools/write-build-rev.sh`](../tools/write-build-rev.sh), which every build entry point runs before
-bitbake, and read as a plain assignment from a gitignored `meta-wisekiosk/conf/build-rev.inc`.
-Nothing is computed at parse time — no python, no git, no subprocess — so every parse in every
-context reads the same bytes. A build with no injected sha fails loudly rather than quietly
-skipping the re-stamp.
+[`tools/write-build-rev.sh`](../tools/write-build-rev.sh), run by
+[`tools/kas-run.sh`](../tools/kas-run.sh) before every `kas-container build` or `shell` call, and
+read as a plain assignment from a gitignored `meta-wisekiosk/conf/build-rev.inc`. Nothing is computed
+at parse time — no python, no git, no subprocess — so every parse in every context reads the same
+bytes. A build with no injected sha fails loudly rather than quietly skipping the re-stamp.
 
-The same shape has two more instances, run alongside it at every build entry point: `tools/go-mods.py`
+The same shape has two more instances, run alongside it by the same wrapper: `tools/go-mods.py`
 and `tools/app-lockfile.py` write the WiseKiosk app pin's Go module closure and npm shrinkwrap, also
 gitignored, also never committed (owner, 2026-09-27). See
 [`recipes-wisekiosk/wisekiosk/README.md`](../meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md).

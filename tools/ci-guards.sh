@@ -512,6 +512,61 @@ else
             else
                 ok "every build entry point runs all three build-input writers"
             fi
+
+            # tools/kas-run.sh forwards an arbitrary kas-container subcommand via
+            # "$@" -- its call site never spells "build"/"shell" literally -- and,
+            # unlike a just recipe body, its top-level statements are unindented
+            # and its --help text mentions both the writers and kas-container by
+            # name. Neither fits the scanner above, so it is checked on its own:
+            # the heredoc is skipped entirely, and the one real invocation is
+            # whatever line outside it mentions kas-container.
+            kasrun10="tools/kas-run.sh"
+            if [ ! -f "$kasrun10" ]; then
+                bad "guard 10: $kasrun10 missing -- the wrapper's writer precedence cannot be checked"
+            else
+                kasrunmiss10=$(awk -v W1="${writers10[0]}" -v W2="${writers10[1]}" -v W3="${writers10[2]}" '
+                    /<</ { heredoc = 1; next }
+                    heredoc && $0 == "EOF" { heredoc = 0; next }
+                    heredoc { next }
+                    /^[[:space:]]*#/ { next }
+                    index($0, W1) { armed1 = 1 }
+                    index($0, W2) { armed2 = 1 }
+                    index($0, W3) { armed3 = 1 }
+                    /kas-container/ {
+                        missing = ""
+                        if (!armed1) missing = missing " " W1
+                        if (!armed2) missing = missing " " W2
+                        if (!armed3) missing = missing " " W3
+                        if (missing != "") printf "%d: missing before kas-container:%s\n", NR, missing
+                    }
+                ' "$kasrun10")
+                if [ -n "$kasrunmiss10" ]; then
+                    bad "guard 10: $kasrun10 calls kas-container before running a writer:"
+                    printf '%s\n' "$kasrunmiss10" | sed "s|^|        $kasrun10:|"
+                else
+                    ok "$kasrun10 runs all three build-input writers before kas-container"
+                fi
+            fi
+
+            # The other half: a justfile recipe that calls kas-container build or
+            # shell directly, bypassing tools/kas-run.sh, would run against an
+            # uninjected rev with no finding above -- the uninj10 scan only sees
+            # files already on its list. purge and checkout are not build entry
+            # points and stay direct.
+            direct10=$(
+                for f in Justfile justfiles/*.just; do
+                    [ -f "$f" ] || continue
+                    grep -nE '^[[:space:]]*[^#[:space:]]' "$f" \
+                        | grep -E 'kas-container[[:space:]]+(.*[[:space:]]+)?(build|shell)([[:space:]]|$)' \
+                        | sed "s|^|$f:|"
+                done
+            )
+            if [ -n "$direct10" ]; then
+                bad "guard 10: calls kas-container build/shell directly instead of tools/kas-run.sh:"
+                printf '%s\n' "$direct10" | sed 's/^/        /'
+            else
+                ok "every kas-container build/shell call in Justfile and justfiles/*.just goes through tools/kas-run.sh"
+            fi
         fi
 
         # Generated build input, never source. Untracked instead of ignored would
@@ -794,7 +849,7 @@ fi
 # with nothing in the diff to say why.
 if [ ! -f Justfile ]; then
     bad "guard 15: Justfile missing -- the python interpreter is unpinned"
-elif ! grep -qE '^py[[:space:]]*:=' Justfile; then
+elif ! grep -qE '^(export[[:space:]]+)?py[[:space:]]*:=' Justfile; then
     bad "guard 15: Justfile sets no \`py\` variable -- python recipes would take whatever python3 is on PATH"
 else
     bare15=""
