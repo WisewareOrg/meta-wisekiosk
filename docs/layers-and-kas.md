@@ -99,7 +99,8 @@ meta-autonomos:
 that repository's root. The patch is applied to `sources/meta-autonomos`.
 
 Almost everything this project needs is expressible as a bbappend or a higher-priority file in
-`meta-wisekiosk/`, and lives there. Two things are not, and only those two are patches.
+`meta-wisekiosk/`, and lives there. Two things in meta-autonomos are not, and only those two are
+patched there.
 
 ### Why patch 0001 cannot be a bbappend
 
@@ -121,7 +122,8 @@ Adding our own bbappend does not help, because **bbappend bodies concatenate**. 
 `/etc/wpa_supplicant.conf` itself, so masking it would change what the image contains. The only
 surgical option is to patch the body to a no-op.
 
-Both patch headers record this reasoning and whether the change is suitable to send upstream.
+meta-autonomos's two patch headers record this reasoning and whether the change is suitable to send
+upstream.
 
 ## Layer priority
 
