@@ -46,6 +46,7 @@ CONFIG="kiosk-zero-w.yaml"
 MACHINE_DIR="raspberrypi0-wifi"
 IMAGE="$PIPELINE_BUILD_DIR/tmp-$MACHINE_DIR/deploy/images/$MACHINE_DIR/core-image-base-$MACHINE_DIR.rootfs.ext4"
 BUNDLE="$PIPELINE_BUILD_DIR/tmp-$MACHINE_DIR/deploy/images/$MACHINE_DIR/update-bundle-$MACHINE_DIR.raucb"
+MAP="$PIPELINE_DRIVER/local/device-identity.md"
 
 STATUS_POSTED=""
 SHA="" ; KIND="" ; PR_NUMBER="" ; MERGE_BASE=""
@@ -71,7 +72,7 @@ on_exit() {
         BENCH_MUTATED=""
         write_disabled "run.sh exited (rc=$rc) with bench mid-flight"
         if [ -n "$STATUS_POSTED" ] && [ -n "$SHA" ]; then
-            "$PY" "$TOOLS/pipeline/report.py" post --sha "$SHA" --state error \
+            "$PY" "$TOOLS/pipeline/report.py" post --sha "$SHA" --state error --map "$MAP" \
                 --description "run aborted: exited with bench mid-flight; timer disabled" || true
         fi
     fi
@@ -92,7 +93,7 @@ abort() {
     reason=$1
     write_disabled "$reason"
     if [ -n "$STATUS_POSTED" ] && [ -n "$SHA" ]; then
-        "$PY" "$TOOLS/pipeline/report.py" post --sha "$SHA" --state error \
+        "$PY" "$TOOLS/pipeline/report.py" post --sha "$SHA" --state error --map "$MAP" \
             --description "run aborted: ${reason}; timer disabled" || true
     fi
     echo "run.sh: ABORTED -- $reason" >&2
@@ -237,7 +238,7 @@ finish() {
     shift 2
 
     if [ "$KIND" = baseline ]; then
-        "$PY" "$TOOLS/pipeline/report.py" post --sha "$SHA" --state "$state" \
+        "$PY" "$TOOLS/pipeline/report.py" post --sha "$SHA" --state "$state" --map "$MAP" \
             --description "$desc" \
             || abort "could not post the final status for $SHA"
         [ -n "$POST_ROLLBACK_UNHEALTHY" ] \
@@ -259,21 +260,21 @@ finish() {
 
     local body="$RUN_DIR/report-body.md" posted=""
     if "$PY" "$TOOLS/pipeline/report.py" build \
-        --map "$PIPELINE_DRIVER/local/device-identity.md" --limit 60000 \
+        --map "$MAP" --limit 60000 \
         --verdict "$verdict" --delta "$delta" "$@" > "$body"; then
         local check_rc=0 check_err=""
         # Captures check's stderr; stdout goes to /dev/null.
         check_err=$("$PY" "$TOOLS/pipeline/report.py" check \
-            --map "$PIPELINE_DRIVER/local/device-identity.md" < "$body" 2>&1 >/dev/null) || check_rc=$?
+            --map "$MAP" < "$body" 2>&1 >/dev/null) || check_rc=$?
         if [ "$check_rc" -eq 0 ]; then
-            "$PY" "$TOOLS/pipeline/report.py" post --sha "$SHA" --state "$state" \
+            "$PY" "$TOOLS/pipeline/report.py" post --sha "$SHA" --state "$state" --map "$MAP" \
                 --description "$desc" --pr "$PR_NUMBER" --body "$body" && posted=1
         else
-            "$PY" "$TOOLS/pipeline/report.py" post --sha "$SHA" --state "$state" \
+            "$PY" "$TOOLS/pipeline/report.py" post --sha "$SHA" --state "$state" --map "$MAP" \
                 --description "report withheld: $check_err" && posted=1
         fi
     else
-        "$PY" "$TOOLS/pipeline/report.py" post --sha "$SHA" --state "$state" \
+        "$PY" "$TOOLS/pipeline/report.py" post --sha "$SHA" --state "$state" --map "$MAP" \
             --description "$desc" && posted=1
     fi
     [ -n "$posted" ] || abort "could not post the final status for $SHA"
@@ -297,12 +298,33 @@ case "${1:-}" in
             echo "run.sh: no job" >&2
             exit 0
         fi
-        if [ "$QUEUE_LINE_COUNT" -gt 1 ]; then
-            echo "run.sh: no job (more than one gh-readonly-queue ref for main)" >&2
+
+        CURRENT_MAIN=$(git -C "$PIPELINE_TREE" rev-parse origin/main) \
+            || abort "could not resolve origin/main"
+
+        # The head of the queue is the one ref whose own encoded base sha
+        # equals origin/main's current tip -- every other entry is built on
+        # an earlier, not-yet-merged entry's speculative result, not on main.
+        MATCHING_REFS=$(printf '%s\n' "$QUEUE_REFS" | while IFS="$(printf '\t')" read -r sha ref; do
+            base=$(printf '%s' "$ref" \
+                | sed -nE 's#^refs/heads/gh-readonly-queue/main/pr-[0-9]+-([0-9a-f]+)$#\1#p')
+            if [ "$base" = "$CURRENT_MAIN" ]; then
+                printf '%s\t%s\n' "$sha" "$ref"
+            fi
+        done)
+        MATCH_COUNT=$(printf '%s\n' "$MATCHING_REFS" | grep -c . || true)
+
+        if [ "$MATCH_COUNT" -eq 0 ]; then
+            echo "run.sh: no job (no gh-readonly-queue ref based on origin/main's current tip)" >&2
             exit 0
         fi
-        QUEUE_SHA=$(printf '%s' "$QUEUE_REFS" | cut -f1)
-        QUEUE_REF=$(printf '%s' "$QUEUE_REFS" | cut -f2)
+        if [ "$MATCH_COUNT" -gt 1 ]; then
+            echo "run.sh: more than one gh-readonly-queue ref based on origin/main's current tip" >&2
+            exit 2
+        fi
+
+        QUEUE_SHA=$(printf '%s' "$MATCHING_REFS" | cut -f1)
+        QUEUE_REF=$(printf '%s' "$MATCHING_REFS" | cut -f2)
         QUEUE_PR=$(printf '%s' "$QUEUE_REF" \
             | sed -nE 's#^refs/heads/gh-readonly-queue/main/pr-([0-9]+)-.*#\1#p')
         [ -n "$QUEUE_PR" ] || abort "could not parse a PR number from $QUEUE_REF"
@@ -391,7 +413,7 @@ fi
 # --- pending --------------------------------------------------------------
 
 STATUS_POSTED=1
-"$PY" "$TOOLS/pipeline/report.py" post --sha "$SHA" --state pending \
+"$PY" "$TOOLS/pipeline/report.py" post --sha "$SHA" --state pending --map "$MAP" \
     --description "pipeline $KIND $(printf '%.7s' "$SHA")" || true
 
 # --- build ------------------------------------------------------------

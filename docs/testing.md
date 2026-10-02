@@ -29,8 +29,10 @@ just pipeline-run                    # one job by hand: the queue head, or a mis
 just pipeline-run baseline [sha]     # one job by hand: a baseline run
 ```
 
-The job is the head of the merge queue; a PR enters the queue after its static checks pass and
-merges only if `bench-pipeline` is green on its merge-group commit.
+The job is the head of the merge queue — the entry whose own base commit is `origin/main`'s current
+tip, since every later entry is built on an earlier one's still-speculative result, not on main — and
+a PR enters the queue after its static checks pass and merges only if `bench-pipeline` is green on its
+merge-group commit.
 
 `pipeline-install` is the whole reprovisioning procedure — nothing is done to a host by hand that it
 does not also do. It creates, all under `$HOME`:
