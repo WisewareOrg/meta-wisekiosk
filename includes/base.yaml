@@ -87,5 +87,5 @@ repos:
   meta-lts-mixins-go:
     url: "https://git.yoctoproject.org/meta-lts-mixins"
     branch: scarthgap/go
-    commit: df1df57da4ee43ecf23413796531b8942d949963
+    commit: 12112daf97ec982cf0ae4afe32d9066420c7d523
     path: "sources/meta-lts-mixins-go"
