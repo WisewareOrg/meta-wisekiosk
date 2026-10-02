@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Assemble, redact, cap and post the bench-pipeline run report.
+"""Assemble, redact, cap and post the pipeline run report.
 
     report.py build --map <path> --limit <n> --verdict <file> --delta <file>
                      [--results [<label>=]<file> ...] [--log [<label>=]<file> ...]
