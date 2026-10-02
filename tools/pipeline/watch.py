@@ -5,17 +5,19 @@
 
 Reads $PIPELINE_ENV (default ~/.config/wisekiosk/pipeline.env) for
 PIPELINE_DRIVER, never writes under it, never touches the device. The only
-systemctl call is a read-only `is-active` poll on wisekiosk-pipeline.service,
-used to tell a live run from one that ended. Screen, top to bottom: header
-(driver sha, DISABLED reason, last refresh), the merge queue (refreshed every
-30s), the current run's phase and ETA (refreshed every 5s), and a tail of the
-active phase's log file.
+systemctl calls are read-only `is-active` polls on wisekiosk-pipeline.timer
+and .service.
+
+Layout: a header line (driver sha, timer/service state, clock; any DISABLED
+reason on a second line in reverse video), then three bordered panes --
+the merge queue, the current run (a stage strip plus its phase detail), and
+a tail of the active phase's log file, which takes the rest of the screen.
 
 Keys: q quit, j/k or up/down scroll the log, G or End resume following,
 p pause/resume refresh.
 
 Exits 2 if PIPELINE_DRIVER cannot be resolved, or if the terminal is smaller
-than 60x15.
+than 70x20.
 """
 import curses
 import json
@@ -27,8 +29,9 @@ import sys
 import time
 from pathlib import Path
 
-MIN_COLS, MIN_LINES = 60, 15
+MIN_COLS, MIN_LINES = 70, 20
 QUEUE_REFRESH_S, RUN_REFRESH_S = 30, 5
+QUEUE_ROWS_MAX = 10
 
 # (phase name, log file written for it) in tools/pipeline/run.sh's order.
 PHASES = (
@@ -49,10 +52,37 @@ PHASES = (
     ("posted", "body.md"),
 )
 
+# Display-only consolidation of PHASES for the stage strip: one node per
+# visible stage, "rollback"/"rollback-reboot" and the two posted files each
+# collapsed to one name.
+STAGE_DISPLAY = (
+    ("checkout", ("checkout.log",)),
+    ("build", ("build.log",)),
+    ("delta", ("delta.txt",)),
+    ("bundle", ("bundle.log",)),
+    ("preflight", ("preflight.log",)),
+    ("send", ("send.log",)),
+    ("install", ("install.log",)),
+    ("reboot", ("reboot.log",)),
+    ("smoke", ("testimage.log",)),
+    ("render", ("render.log",)),
+    ("gpu", ("gpu.log",)),
+    ("rollback", ("rollback.log", "rollback-reboot.log")),
+    ("posted", ("verdict.txt", "body.md")),
+)
+INTERNAL_TO_DISPLAY = {
+    "checkout": "checkout", "build": "build", "delta": "delta", "bundle": "bundle",
+    "preflight": "preflight", "send": "send", "install": "install", "reboot": "reboot",
+    "testimage": "smoke", "render": "render", "gpu": "gpu",
+    "rollback": "rollback", "rollback-reboot": "rollback", "posted": "posted",
+}
+
 TASK_LINE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*Running task (\d+) of (\d+)")
-STARTED_RE = re.compile(r"NOTE: recipe ([^:]+): task (do_\S+): Started")
-DONE_RE = re.compile(r"NOTE: recipe ([^:]+): task (do_\S+): (?:Succeeded|Failed)")
+STARTED_RE = re.compile(r"NOTE: recipe (\S+): task (do_\S+): Started")
+DONE_RE = re.compile(r"NOTE: recipe (\S+): task (do_\S+): (?:Succeeded|Failed)")
+ERROR_TASK_RE = re.compile(r"ERROR: (\S+) (do_\S+): ")
 VERDICT_RE = re.compile(r"^VERDICT: (.*)$", re.MULTILINE)
+QUEUE_REF_RE = re.compile(r"refs/heads/gh-readonly-queue/main/pr-(\d+)-([0-9a-f]+)$")
 HISTORY_LIMIT = 5
 RUNNING_TASKS_LIMIT = 3
 GRAPHQL_QUERY = (
@@ -84,11 +114,17 @@ def driver_sha(driver):
         return "unknown"
 
 
+def timer_active():
+    try:
+        out = subprocess.run(["systemctl", "--user", "is-active", "wisekiosk-pipeline.timer"],
+                              capture_output=True, text=True, timeout=5)
+        return out.stdout.strip() == "active"
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def service_active():
-    """True while the pipeline's run.sh is actually executing. The unit is
-    Type=oneshot with no RemainAfterExit, so `is-active` reads "activating"
-    for its whole run and only "inactive" once it exits -- it never reads
-    the bare "active" a non-oneshot unit would."""
+    """True while run.sh is executing (is-active reads "activating" or "active")."""
     try:
         out = subprocess.run(["systemctl", "--user", "is-active", "wisekiosk-pipeline.service"],
                               capture_output=True, text=True, timeout=5)
@@ -106,7 +142,8 @@ def disabled_reason(driver):
 
 
 def fetch_queue():
-    """(entry display strings, None) or (None, error string) on gh failure."""
+    """(list of {position, state, number, title, eta_s} dicts, None), or
+    (None, error string) on gh failure."""
     try:
         out = subprocess.run(["gh", "api", "graphql", "-f", f"query={GRAPHQL_QUERY}"],
                               capture_output=True, text=True, timeout=15)
@@ -121,9 +158,36 @@ def fetch_queue():
     entries = []
     for node in nodes:
         pr = node.get("pullRequest") or {}
-        entries.append(f"{node.get('position')}  #{pr.get('number')}  "
-                        f"{node.get('state')}  {pr.get('title', '')}")
+        entries.append({
+            "position": node.get("position"),
+            "state": node.get("state"),
+            "number": pr.get("number"),
+            "title": pr.get("title") or "",
+            "eta_s": node.get("estimatedTimeToMerge"),
+        })
     return entries, None
+
+
+def queue_refs(driver):
+    """{full sha: (PR number, base sha)} for each merge-queue ref."""
+    try:
+        out = subprocess.run(["git", "-C", driver, "ls-remote", "origin",
+                               "refs/heads/gh-readonly-queue/main/*"],
+                              capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    if out.returncode != 0:
+        return {}
+    refs = {}
+    for line in out.stdout.splitlines():
+        parts = line.split("\t")
+        if len(parts) != 2:
+            continue
+        sha, ref = parts
+        match = QUEUE_REF_RE.search(ref)
+        if match:
+            refs[sha] = (int(match.group(1)), match.group(2))
+    return refs
 
 
 def newest_run_dir(driver):
@@ -155,8 +219,7 @@ def current_phase(run_dir):
 
 def median_durations(idx, run_dir, limit=HISTORY_LIMIT):
     """Up to `limit` non-negative (this file's mtime - previous file's mtime)
-    samples from sibling run dirs that have both files; never a directory
-    mtime fallback."""
+    samples from sibling run dirs that have both files."""
     this_name = PHASES[idx][1]
     prev_name = PHASES[idx - 1][1] if idx > 0 else None
     if prev_name is None:
@@ -182,11 +245,17 @@ def median_durations(idx, run_dir, limit=HISTORY_LIMIT):
 
 def running_tasks(lines, limit=RUNNING_TASKS_LIMIT):
     """"recipe:do_task" for the last `limit` Started tasks with no later
-    Succeeded/Failed line for that same recipe:task."""
+    Succeeded/Failed/ERROR line for that same recipe:task. A setscene
+    failure logs no Failed NOTE, only an ERROR line sharing the same
+    recipe-PV-PR identifier as Started."""
     done = set()
     started = []
     for line in lines:
         match = DONE_RE.search(line)
+        if match:
+            done.add(match.group(1, 2))
+            continue
+        match = ERROR_TASK_RE.search(line)
         if match:
             done.add(match.group(1, 2))
             continue
@@ -197,12 +266,8 @@ def running_tasks(lines, limit=RUNNING_TASKS_LIMIT):
 
 
 def build_status(log_path, now, idx, run_dir, prev_file):
-    """Elapsed shown and fed to the history term is since the previous phase's
-    file (or the run dir's ctime), like every other phase. The rate term is
-    separate: bitbake's task counter is already deep into the build by the
-    first logged line (most early tasks are instant cache hits with no NOTE),
-    so the rate is tasks done SINCE that line over time since that line, not
-    the absolute count over the same window."""
+    """Elapsed is since the previous phase's file (or the run dir's ctime).
+    Rate is tasks done since the first logged line, not the absolute count."""
     elapsed = now - (prev_file.stat().st_mtime if prev_file else run_dir.stat().st_ctime)
     elapsed_mins = int(elapsed / 60)
     try:
@@ -229,7 +294,7 @@ def build_status(log_path, now, idx, run_dir, prev_file):
     return f"{done}/{total} tasks, elapsed {elapsed_mins}m{running_str}  {eta}"
 
 
-def other_eta(idx, phase_file, prev_file, run_dir, now):
+def other_eta(idx, prev_file, run_dir, now):
     start = prev_file.stat().st_mtime if prev_file else run_dir.stat().st_ctime
     elapsed_mins = int((now - start) / 60)
     durations = median_durations(idx, run_dir)
@@ -249,25 +314,51 @@ def verdict_text(run_dir):
     return text.strip().splitlines()[-1] if text.strip() else ""
 
 
-def phase_line(run_dir, now, live):
-    """"PHASE: ..." text for run_dir's current phase, and its log Path (or
-    None). When the pipeline service is not active, nothing ticks: the run
-    reads as posted only if verdict.txt or body.md is itself the newest
-    phase file (not merely present -- run.sh reuses runs/<sha> for a later
-    baseline of the same sha, which leaves a stale verdict.txt behind)."""
+def phase_detail(run_dir, now, live):
+    """(detail text, its log Path or None, internal phase name or None).
+    Posted requires verdict.txt or body.md to be the newest phase file,
+    not merely present."""
     idx, phase_file, prev_file = current_phase(run_dir)
+    name = PHASES[idx][0] if idx is not None else None
     if not live:
-        if idx is not None and PHASES[idx][0] == "posted":
-            return f"PHASE: posted {verdict_text(run_dir)}", phase_file
-        return "PHASE: ended: no verdict (baseline build, or aborted; see DISABLED)", phase_file
+        if name == "posted":
+            return f"posted: {verdict_text(run_dir)}", phase_file, name
+        return "ended: no verdict (baseline build, or aborted; see DISABLED)", phase_file, name
     if idx is None:
-        return "no phase yet", None
-    name = PHASES[idx][0]
+        return "no phase yet", None, None
     if name == "posted":
-        return f"PHASE: posted {verdict_text(run_dir)}", phase_file
+        return f"posted: {verdict_text(run_dir)}", phase_file, name
     if name == "build":
-        return f"PHASE: build  {build_status(phase_file, now, idx, run_dir, prev_file)}", phase_file
-    return f"PHASE: {name}  {other_eta(idx, phase_file, prev_file, run_dir, now)}", phase_file
+        return build_status(phase_file, now, idx, run_dir, prev_file), phase_file, name
+    return other_eta(idx, prev_file, run_dir, now), phase_file, name
+
+
+def stage_strip(run_dir, current_internal_name):
+    """[(label, is_current), ...] for each STAGE_DISPLAY node: a done stage's
+    file exists and a later stage's does too; the current stage is the one
+    phase_detail() is reporting on; everything else is pending."""
+    reached = [any((run_dir / f).exists() for f in files) for _n, files in STAGE_DISPLAY]
+    current_display = INTERNAL_TO_DISPLAY.get(current_internal_name)
+    parts = []
+    for i, (name, _files) in enumerate(STAGE_DISPLAY):
+        if name == current_display:
+            marker, current = "●", True       # current
+        elif reached[i] and any(reached[i + 1:]):
+            marker, current = "✓", False       # done
+        else:
+            marker, current = "·", False       # pending
+        parts.append((f"{name} {marker}", current))
+    return parts
+
+
+def run_title(run_dir, refs, queue):
+    sha = run_dir.name
+    info = refs.get(sha)
+    if not info:
+        return f"Current run: sha {sha[:7]}"
+    number, base = info
+    title = next((e["title"] for e in queue if e["number"] == number), "")
+    return f"Current run: PR #{number}  {title}  sha {sha[:7]}  base {base[:7]}"
 
 
 def tail_lines(path, n=500):
@@ -277,58 +368,115 @@ def tail_lines(path, n=500):
         return []
 
 
-def safe_addnstr(stdscr, y, x, text, max_x, max_y):
-    """addnstr, one column short on the window's last row: writing a full-width
-    string into the bottom-right cell makes ncurses try to wrap and raise."""
-    width = max_x - 1 if y == max_y - 1 else max_x
+def safe_addnstr(win, y, x, text, width, attr=0):
+    """addnstr, one column short of the window's own last row."""
+    max_y, max_x = win.getmaxyx()
+    if y == max_y - 1:
+        width = min(width, max_x - x - 1)
     if width > 0:
-        stdscr.addnstr(y, x, text, width)
+        win.addnstr(y, x, text, width, attr)
+
+
+def draw_segments(win, y, x, segments, width):
+    col, remaining = x, width
+    for text, attr in segments:
+        if remaining <= 0:
+            break
+        chunk = text[: min(len(text), remaining)]
+        safe_addnstr(win, y, col, chunk, len(chunk), attr)
+        col += len(chunk) + 1
+        remaining -= len(chunk) + 1
+
+
+def bordered(height, width, y, x, title):
+    height, width = max(height, 3), max(width, 4)
+    win = curses.newwin(height, width, y, x)
+    win.erase()
+    win.box()
+    if title:
+        safe_addnstr(win, 0, 2, f" {title} "[: width - 4], width - 4)
+    return win
 
 
 def draw(stdscr, state):
     stdscr.erase()
     max_y, max_x = stdscr.getmaxyx()
-    top = [f"pipeline-watch  driver {state['sha']}"
-           + (f"  DISABLED: {state['disabled']}" if state["disabled"] is not None else "")
-           + f"  refreshed {time.strftime('%H:%M:%S', time.localtime(state['refreshed']))}"]
-    if state["queue_error"]:
-        top.append(f"queue: unavailable ({state['queue_error']})")
-    elif not state["queue"]:
-        top.append("queue: empty")
-    else:
-        top.append("queue:")
-        top.extend(state["queue"])
-    top.append("")
-    top.append(f"run {state['run_dir'].name[:7]}" if state["run_dir"] else "no runs yet")
-    if state["run_dir"]:
-        top.append(state["phase_line"])
-    top.append("")
 
-    row = 0
-    for line in top:
-        if row >= max_y:
-            break
-        safe_addnstr(stdscr, row, 0, line, max_x, max_y)
-        row += 1
-
-    lines = state["log_lines"] or []
-    visible = max_y - row
-    state["log_visible"] = visible
-    if visible > 0 and lines:
-        offset = state["scroll"]
-        end = len(lines) - offset if offset else len(lines)
-        start = max(0, end - visible)
-        for i, line in enumerate(lines[start:end]):
-            safe_addnstr(stdscr, row + i, 0, line, max_x, max_y)
-
+    header = (f"pipeline-watch   driver {state['sha']}   "
+              f"timer {'on' if state['timer_on'] else 'off'}   "
+              f"service {'running' if state['service_running'] else 'idle'}   "
+              f"{time.strftime('%H:%M:%S', time.localtime(state['refreshed']))}")
+    safe_addnstr(stdscr, 0, 0, header, max_x)
+    header_h = 1
+    if state["disabled"] is not None:
+        safe_addnstr(stdscr, 1, 0, f"DISABLED: {state['disabled']}".ljust(max_x),
+                     max_x, curses.A_REVERSE)
+        header_h = 2
     stdscr.noutrefresh()
+
+    queue = state["queue"] or []
+    shown = queue[:QUEUE_ROWS_MAX]
+    queue_content_h = max(len(shown), 1)
+    queue_h = queue_content_h + 2
+    run_h = 4
+    log_y = header_h + queue_h + run_h
+    log_h = max(max_y - log_y, 0)
+
+    queue_win = bordered(queue_h, max_x, header_h, 0, f"Merge queue ({len(queue)} entries)")
+    content_w = max_x - 4
+    if state["queue_error"]:
+        safe_addnstr(queue_win, 1, 2, f"queue: unavailable ({state['queue_error']})", content_w)
+    elif not queue:
+        safe_addnstr(queue_win, 1, 2, "queue: empty", content_w)
+    else:
+        for i, entry in enumerate(shown):
+            building = entry["number"] is not None and entry["number"] == state["building_pr"]
+            marker = "▶ " if building else "  "
+            eta = f"~{int(entry['eta_s'] / 60)}m" if entry.get("eta_s") else ""
+            left = (f"{marker}{entry['position']:<4}#{entry['number']:<6}"
+                    f"{entry['state']:<17}{entry['title']}")
+            line = left[: content_w - len(eta) - 1].ljust(content_w - len(eta)) + eta
+            safe_addnstr(queue_win, 1 + i, 2, line[:content_w], content_w,
+                         curses.A_BOLD if building else 0)
+    queue_win.noutrefresh()
+
+    run_win = bordered(run_h, max_x, header_h + queue_h, 0, state["run_title"])
+    if state["run_dir"]:
+        draw_segments(run_win, 1, 2, [(f"{label} ", curses.A_BOLD if cur else 0)
+                                       for label, cur in state["stage_parts"]], max_x - 4)
+        safe_addnstr(run_win, 2, 2, state["phase_detail"], max_x - 4)
+    else:
+        safe_addnstr(run_win, 1, 2, "no runs yet", max_x - 4)
+    run_win.noutrefresh()
+
+    if log_h > 0:
+        if state["paused"]:
+            follow_state = "paused"
+        elif state["scroll"] == 0:
+            follow_state = "following"
+        else:
+            follow_state = "scrolled"
+        log_name = state["log_path"].name if state["log_path"] else "log"
+        log_win = bordered(log_h, max_x, log_y, 0, f"{log_name}  ({follow_state})")
+        lines = state["log_lines"] or []
+        visible = log_h - 2
+        state["log_visible"] = visible
+        if visible > 0 and lines:
+            offset = state["scroll"]
+            end = len(lines) - offset if offset else len(lines)
+            start = max(0, end - visible)
+            for i, line in enumerate(lines[start:end]):
+                safe_addnstr(log_win, 1 + i, 2, line, max_x - 4)
+        log_win.noutrefresh()
+    else:
+        state["log_visible"] = 0
+
     curses.doupdate()
 
 
 def main(stdscr, driver):
     """None on a clean quit, else an error line for the caller to print after
-    curses has torn down -- curses.wrapper() already calls endwin() once
-    func returns, so this never calls it itself."""
+    curses tears down."""
     max_y, max_x = stdscr.getmaxyx()
     if max_x < MIN_COLS or max_y < MIN_LINES:
         return f"watch.py: terminal must be at least {MIN_COLS}x{MIN_LINES}"
@@ -336,28 +484,42 @@ def main(stdscr, driver):
     curses.curs_set(0)
     stdscr.timeout(200)
 
-    state = {"sha": "unknown", "disabled": None,
-              "queue": [], "queue_error": None, "run_dir": None, "phase_line": "",
-              "log_lines": None, "scroll": 0, "log_visible": 0, "refreshed": time.time()}
+    state = {"sha": "unknown", "disabled": None, "timer_on": False, "service_running": False,
+              "queue": [], "queue_error": None, "building_pr": None,
+              "run_dir": None, "run_title": "no runs yet", "stage_parts": [],
+              "phase_detail": "", "log_path": None,
+              "log_lines": None, "scroll": 0, "log_visible": 0, "paused": False,
+              "refreshed": time.time()}
     last_queue = last_run = 0
-    paused = False
 
     while True:
         now = time.time()
-        if not paused and now - last_queue >= QUEUE_REFRESH_S:
+        if not state["paused"] and now - last_queue >= QUEUE_REFRESH_S:
             state["queue"], state["queue_error"] = fetch_queue()
             state["queue"] = state["queue"] or []
+            state["refs"] = queue_refs(driver)
             last_queue = now
 
-        if not paused and now - last_run >= RUN_REFRESH_S:
+        if not state["paused"] and now - last_run >= RUN_REFRESH_S:
             state["sha"] = driver_sha(driver)
             state["disabled"] = disabled_reason(driver)
+            state["timer_on"] = timer_active()
+            live = service_active()
+            state["service_running"] = live
             run_dir = newest_run_dir(driver)
             state["run_dir"] = run_dir
+            refs = state.get("refs", {})
             if run_dir is None:
-                state["phase_line"], state["log_lines"] = "", None
+                state["run_title"] = "no runs yet"
+                state["stage_parts"], state["phase_detail"], state["log_path"] = [], "", None
+                state["log_lines"], state["building_pr"] = None, None
             else:
-                state["phase_line"], log_path = phase_line(run_dir, now, service_active())
+                state["run_title"] = run_title(run_dir, refs, state["queue"])
+                state["building_pr"] = (refs.get(run_dir.name) or (None,))[0]
+                detail, log_path, internal_name = phase_detail(run_dir, now, live)
+                state["phase_detail"] = detail
+                state["log_path"] = log_path
+                state["stage_parts"] = stage_strip(run_dir, internal_name)
                 state["log_lines"] = tail_lines(log_path) if log_path else None
             state["refreshed"] = now
             last_run = now
@@ -377,7 +539,7 @@ def main(stdscr, driver):
         elif key in (ord("G"), curses.KEY_END):
             state["scroll"] = 0
         elif key == ord("p"):
-            paused = not paused
+            state["paused"] = not state["paused"]
 
 
 if __name__ == "__main__":
