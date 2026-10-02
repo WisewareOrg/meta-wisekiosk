@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>WisewareOrg/wise-renovate#v1.5.0"],
+  "extends": ["github>WisewareOrg/wise-renovate#v1.6.0"],
   "packageRules": [
     {
       "description": "A git-refs commit carries no release timestamp, so the preset's release-age wait would hold these forever.",
