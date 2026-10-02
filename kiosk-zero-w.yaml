@@ -388,3 +388,6 @@ local_conf_header:
   buildhistory: |
     INHERIT += "buildhistory"
     BUILDHISTORY_COMMIT = "1"
+
+  seed-defect: |
+    SYSTEMD_AUTO_ENABLE:pn-wisekiosk-backend = "disable"
