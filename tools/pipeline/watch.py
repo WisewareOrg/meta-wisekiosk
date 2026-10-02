@@ -77,11 +77,11 @@ DONE_RE = re.compile(r"NOTE: recipe (\S+): task (do_\S+): (?:Succeeded|Failed)")
 ERROR_TASK_RE = re.compile(r"ERROR: (\S+) (do_\S+): ")
 VERDICT_RE = re.compile(r"^VERDICT: (.*)$", re.MULTILINE)
 FAILED_STAGE_RE = re.compile(r"^(\w+) failed$")
-QUEUE_REF_RE = re.compile(r"refs/heads/gh-readonly-queue/main/pr-(\d+)-([0-9a-f]+)$")
 GRAPHQL_QUERY = (
     '{ repository(owner:"WisewareOrg", name:"meta-wisekiosk") '
     '{ mergeQueue(branch:"main") { entries(first:20) '
     '{ nodes { position state estimatedTimeToMerge '
+    'headCommit { oid } baseCommit { oid } '
     'pullRequest { number title } } } } } }'
 )
 
@@ -162,64 +162,38 @@ def fetch_queue():
             "number": number,
             "title": pr.get("title") or "",
             "eta_s": node.get("estimatedTimeToMerge"),
+            "head_sha": (node.get("headCommit") or {}).get("oid"),
+            "base_sha": (node.get("baseCommit") or {}).get("oid"),
         })
     return entries, None
 
 
-def queue_refs(driver):
-    """({full sha: (PR number, base sha)}, None), or (None, error string)
-    on failure."""
-    try:
-        out = subprocess.run(["git", "-C", driver, "ls-remote", "origin",
-                               "refs/heads/gh-readonly-queue/main/*"],
-                              capture_output=True, text=True, timeout=10)
-    except (OSError, subprocess.SubprocessError) as exc:
-        return None, str(exc).splitlines()[0]
-    if out.returncode != 0:
-        return None, (out.stderr or "git ls-remote failed").splitlines()[0]
-    refs = {}
-    for line in out.stdout.splitlines():
-        parts = line.split("\t")
-        if len(parts) != 2:
-            continue
-        sha, ref = parts
-        match = QUEUE_REF_RE.search(ref)
-        if match:
-            refs[sha] = (int(match.group(1)), match.group(2))
-    return refs, None
-
-
 class QueueWorker:
-    """Fetches the queue and its refs together on a background thread, every
-    QUEUE_REFRESH_S. A failed fetch keeps the last successful queue/refs;
-    snapshot() reports their age alongside the latest error, if any."""
+    """Fetches the queue on a background thread, every QUEUE_REFRESH_S. A
+    failed fetch keeps the last successful queue; snapshot() reports its age
+    alongside the latest error, if any."""
 
-    def __init__(self, driver):
-        self.driver = driver
+    def __init__(self):
         self.lock = threading.Lock()
-        self.queue, self.refs, self.error, self.updated_at = [], {}, None, None
+        self.queue, self.error, self.updated_at = [], None, None
         threading.Thread(target=self._run, daemon=True).start()
 
     def _run(self):
         while True:
             try:
-                queue, queue_err = fetch_queue()
-                refs, refs_err = queue_refs(self.driver)
+                queue, err = fetch_queue()
             except Exception as exc:
-                queue, refs, queue_err, refs_err = None, None, str(exc), None
+                queue, err = None, str(exc)
             with self.lock:
                 if queue is not None:
                     self.queue = queue
-                if refs is not None:
-                    self.refs = refs
-                if queue is not None or refs is not None:
                     self.updated_at = time.time()
-                self.error = queue_err or refs_err
+                self.error = err
             time.sleep(QUEUE_REFRESH_S)
 
     def snapshot(self):
         with self.lock:
-            return list(self.queue), dict(self.refs), self.error, self.updated_at
+            return list(self.queue), self.error, self.updated_at
 
 
 def newest_run_dir(driver):
@@ -296,18 +270,19 @@ def running_tasks(lines, limit=3):
 
 
 def build_status(log_path, now, idx, run_dir, prev_file):
-    """Elapsed is since the previous phase's file (or the run dir's ctime)."""
+    """(elapsed/ETA line, running-tasks line or None). Elapsed is since the
+    previous phase's file (or the run dir's ctime)."""
     elapsed = now - (prev_file.stat().st_mtime if prev_file else run_dir.stat().st_ctime)
     elapsed_mins = int(elapsed / 60)
     try:
         lines = log_path.read_text(errors="replace").splitlines()
     except OSError:
-        return f"elapsed {elapsed_mins}m, no task count yet  ETA unknown"
+        return f"elapsed {elapsed_mins}m, no task count yet  ETA unknown", None
     running = running_tasks(lines)
-    running_str = f"  running: {', '.join(running)}" if running else ""
+    running_line = f"running: {', '.join(running)}" if running else None
     task_lines = [m for m in (TASK_LINE_RE.match(line) for line in lines) if m]
     if not task_lines:
-        return f"elapsed {elapsed_mins}m, no task count yet  ETA unknown{running_str}"
+        return f"elapsed {elapsed_mins}m, no task count yet  ETA unknown", running_line
     first_ts = time.mktime(time.strptime(task_lines[0].group(1), "%Y-%m-%d %H:%M:%S"))
     first_done = int(task_lines[0].group(2))
     done, total = int(task_lines[-1].group(2)), int(task_lines[-1].group(3))
@@ -320,7 +295,7 @@ def build_status(log_path, now, idx, run_dir, prev_file):
 
     bases = [b for b in (remaining_by_rate, remaining_by_history) if b is not None]
     eta = f"ETA ~{int(max(bases) / 60)}m (rough)" if bases else "ETA unknown"
-    return f"{done}/{total} tasks, elapsed {elapsed_mins}m  {eta}{running_str}"
+    return f"{done}/{total} tasks, elapsed {elapsed_mins}m  {eta}", running_line
 
 
 def other_eta(idx, prev_file, run_dir, now):
@@ -342,9 +317,10 @@ def verdict_text(run_dir):
 
 
 def phase_detail(run_dir, now, live):
-    """(detail text, its log Path or None, internal phase name or None, the
-    display name of a failed stage or None). Posted requires verdict.txt or
-    body.md to be the newest phase file."""
+    """(detail text, running-tasks line or None, its log Path or None,
+    internal phase name or None, the display name of a failed stage or
+    None). Posted requires verdict.txt or body.md to be the newest phase
+    file."""
     idx, phase_file, prev_file = current_phase(run_dir)
     name = STAGES[idx][0] if idx is not None else None
     if not live:
@@ -352,16 +328,17 @@ def phase_detail(run_dir, now, live):
             text = verdict_text(run_dir)
             match = FAILED_STAGE_RE.match(text)
             failed = INTERNAL_TO_DISPLAY.get(match.group(1)) if match else None
-            return f"posted: {text}", phase_file, name, failed
-        return ("ended: no verdict (baseline build, or aborted; see DISABLED)", phase_file, name,
-                INTERNAL_TO_DISPLAY.get(name))
+            return f"posted: {text}", None, phase_file, name, failed
+        return ("ended: no verdict (baseline build, or aborted; see DISABLED)", None, phase_file,
+                name, INTERNAL_TO_DISPLAY.get(name))
     if idx is None:
-        return "no phase yet", None, None, None
+        return "no phase yet", None, None, None, None
     if name == "posted":
-        return f"posted: {verdict_text(run_dir)}", phase_file, name, None
+        return f"posted: {verdict_text(run_dir)}", None, phase_file, name, None
     if name == "build":
-        return build_status(phase_file, now, idx, run_dir, prev_file), phase_file, name, None
-    return other_eta(idx, prev_file, run_dir, now), phase_file, name, None
+        detail, running_line = build_status(phase_file, now, idx, run_dir, prev_file)
+        return detail, running_line, phase_file, name, None
+    return other_eta(idx, prev_file, run_dir, now), None, phase_file, name, None
 
 
 def _stage_reached(run_dir, files, checkout_mtime):
@@ -404,14 +381,17 @@ def stage_strip(run_dir, current_internal_name, failed_display):
     return parts
 
 
-def run_title(run_dir, refs, queue):
+def run_title(run_dir, queue):
+    """"Current run: ..." from the queue entry whose headCommit or
+    baseCommit oid matches the run dir's sha, else the sha alone."""
     sha = run_dir.name
-    info = refs.get(sha)
-    if not info:
-        return f"Current run: sha {sha[:7]}"
-    number, base = info
-    title = next((e["title"] for e in queue if e["number"] == number), "")
-    return f"Current run: PR #{number}  {title}  sha {sha[:7]}  base {base[:7]}"
+    for entry in queue:
+        if entry.get("head_sha") == sha:
+            return f"Current run: PR #{entry['number']}  {entry['title']}  sha {sha[:7]}"
+    for entry in queue:
+        if entry.get("base_sha") == sha:
+            return f"Current run: baseline {sha[:7]} for PR #{entry['number']}  {entry['title']}"
+    return f"Current run: sha {sha[:7]}"
 
 
 def tail_lines(path, n=500):
@@ -488,34 +468,43 @@ def draw(stdscr, state):
 
     queue = state["queue"] or []
     shown = queue[:QUEUE_ROWS_MAX]
-    queue_content_h = max(len(shown), 1)
+    age = state["queue_age"]
+    error = state["queue_error"]
+    error_row = 1 if (age is not None and error) else 0
+    queue_content_h = max(len(shown), 1) + error_row
     queue_h = queue_content_h + 2
     strip_lines = wrap_segments(state["stage_parts"], max_x - 4) if state["run_dir"] else []
-    run_h = len(strip_lines) + 3 if strip_lines else 4
+    running_extra = 1 if state["running_line"] else 0
+    run_h = len(strip_lines) + 3 + running_extra if strip_lines else 4
     log_y = header_h + queue_h + run_h
     log_h = max(max_y - log_y, 0)
 
-    age = state["queue_age"]
     title = (f"Merge queue ({len(queue)} entries, updated {age}s ago)" if age is not None
              else f"Merge queue ({len(queue)} entries)")
     queue_win = bordered(queue_h, max_x, header_h, 0, title)
     content_w = max_x - 4
-    if age is None and state["queue_error"]:
-        safe_addnstr(queue_win, 1, 2, f"queue: unavailable ({state['queue_error']})", content_w)
+    if age is None and error:
+        safe_addnstr(queue_win, 1, 2, f"queue: unavailable ({error})", content_w)
     elif age is None:
         safe_addnstr(queue_win, 1, 2, "queue: loading...", content_w)
-    elif not queue:
-        safe_addnstr(queue_win, 1, 2, "queue: empty", content_w)
     else:
-        for i, entry in enumerate(shown):
-            building = entry["number"] is not None and entry["number"] == state["building_pr"]
-            marker = "▶ " if building else "  "
-            eta = f"~{int(entry['eta_s'] / 60)}m" if entry.get("eta_s") else ""
-            left = (f"{marker}{entry['position']:<4}#{entry['number']:<6}"
-                    f"{entry['state']:<17}{entry['title']}")
-            line = left[: content_w - len(eta) - 1].ljust(content_w - len(eta)) + eta
-            safe_addnstr(queue_win, 1 + i, 2, line[:content_w], content_w,
-                         curses.A_BOLD if building else 0)
+        if not queue:
+            safe_addnstr(queue_win, 1, 2, "queue: empty", content_w)
+        else:
+            for i, entry in enumerate(shown):
+                matched = (entry["number"] is not None
+                           and entry["number"] == state["marker_pr"])
+                live_match = matched and state["marker_live"]
+                marker = "▶" if live_match else ("next" if matched else "")
+                eta = f"~{int(entry['eta_s'] / 60)}m" if entry.get("eta_s") else ""
+                left = (f"{marker:<5}{entry['position']:<4}#{entry['number']:<6}"
+                        f"{entry['state']:<17}{entry['title']}")
+                line = left[: content_w - len(eta) - 1].ljust(content_w - len(eta)) + eta
+                safe_addnstr(queue_win, 1 + i, 2, line[:content_w], content_w,
+                             curses.A_BOLD if live_match else 0)
+        if error:
+            safe_addnstr(queue_win, 1 + max(len(shown), 1), 2,
+                         f"queue: unavailable ({error})", content_w)
     queue_win.noutrefresh()
 
     run_win = bordered(run_h, max_x, header_h + queue_h, 0, state["run_title"])
@@ -525,6 +514,8 @@ def draw(stdscr, state):
             draw_segments(run_win, row, 2, [(f"{label} ", attrs[s]) for label, s in line],
                           max_x - 4)
         safe_addnstr(run_win, len(strip_lines) + 1, 2, state["phase_detail"], max_x - 4)
+        if state["running_line"]:
+            safe_addnstr(run_win, len(strip_lines) + 2, 2, state["running_line"], max_x - 4)
     else:
         safe_addnstr(run_win, 1, 2, "no runs yet", max_x - 4)
     run_win.noutrefresh()
@@ -571,12 +562,12 @@ def main(stdscr, driver):
         curses.init_pair(1, curses.COLOR_RED, -1)
         failed_attr = curses.color_pair(1) | curses.A_BOLD
 
-    worker = QueueWorker(driver)
+    worker = QueueWorker()
     state = {"sha": "unknown", "disabled": None, "timer_on": False, "service_running": False,
-              "queue": [], "refs": {}, "queue_error": None, "queue_age": None,
-              "building_pr": None, "failed_attr": failed_attr,
+              "queue": [], "queue_error": None, "queue_age": None,
+              "marker_pr": None, "marker_live": False, "failed_attr": failed_attr,
               "run_dir": None, "run_title": "no runs yet", "stage_parts": [],
-              "phase_detail": "", "log_path": None,
+              "phase_detail": "", "running_line": None, "log_path": None,
               "log_lines": None, "scroll": 0, "log_visible": 0, "paused": False,
               "refreshed": time.time()}
     last_run = 0
@@ -584,7 +575,7 @@ def main(stdscr, driver):
     while True:
         now = time.time()
         if not state["paused"]:
-            state["queue"], state["refs"], state["queue_error"], updated_at = worker.snapshot()
+            state["queue"], state["queue_error"], updated_at = worker.snapshot()
             state["queue_age"] = int(now - updated_at) if updated_at else None
 
         if not state["paused"] and now - last_run >= RUN_REFRESH_S:
@@ -593,18 +584,21 @@ def main(stdscr, driver):
             state["timer_on"] = timer_active()
             live = service_active()
             state["service_running"] = live
+            state["marker_live"] = live
             run_dir = newest_run_dir(driver)
             state["run_dir"] = run_dir
-            refs = state["refs"]
             if run_dir is None:
                 state["run_title"] = "no runs yet"
-                state["stage_parts"], state["phase_detail"], state["log_path"] = [], "", None
-                state["log_lines"], state["building_pr"] = None, None
+                state["stage_parts"], state["phase_detail"], state["running_line"] = [], "", None
+                state["log_path"], state["log_lines"], state["marker_pr"] = None, None, None
             else:
-                state["run_title"] = run_title(run_dir, refs, state["queue"])
-                state["building_pr"] = (refs.get(run_dir.name) or (None,))[0] if live else None
-                detail, log_path, internal_name, failed = phase_detail(run_dir, now, live)
+                state["run_title"] = run_title(run_dir, state["queue"])
+                state["marker_pr"] = next((e["number"] for e in state["queue"]
+                                            if e.get("head_sha") == run_dir.name), None)
+                detail, running_line, log_path, internal_name, failed = phase_detail(
+                    run_dir, now, live)
                 state["phase_detail"] = detail
+                state["running_line"] = running_line
                 state["log_path"] = log_path
                 state["stage_parts"] = stage_strip(run_dir, internal_name, failed)
                 state["log_lines"] = tail_lines(log_path) if log_path else None
