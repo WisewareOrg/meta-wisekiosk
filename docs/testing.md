@@ -64,9 +64,10 @@ does not also do. It creates, all under `$HOME`:
   database (never overwritten once the pipeline has built its own), so a fresh build dir's unihash
   lookups hit the shared `SSTATE_DIR` instead of missing and rebuilding from scratch.
 
-Unlike the driver checkout above, `pipeline.env`, the installed units and the ssh directory are
-written once by `pipeline-install` and do not follow `origin/main`: a merged change that needs a new
-environment variable or unit needs `just pipeline-install` run again to pick it up.
+Unlike the driver checkout above, `pipeline.env` and the ssh directory are written once by
+`pipeline-install` and do not follow `origin/main`. A merged change that needs a new environment
+variable needs `just pipeline-install` run again. The units are the driver checkout's own files,
+which systemd keeps loaded as they were until `just pipeline-on` re-links them.
 
 It does **not** touch the systemd units — `pipeline-on` enables them by path, the separate,
 deliberate step that also links them into the user unit search path.
