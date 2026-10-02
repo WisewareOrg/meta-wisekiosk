@@ -86,10 +86,12 @@ pipeline-on` -- it prints the DISABLED reason and clears the file itself, as an 
 acknowledgement, before re-enabling.
 
 A job's own build, bundle, preflight, send or install failing, the device not booting the new slot, or
-`artifact-diff` being unable to tell are not infrastructure failures: each posts its own status
-(`failure`, or `error` for artifact-diff) on the job's commit with a PR comment carrying the failing
-logs, and the timer stays on for the next job. A missing buildhistory tag for the baseline commit is
-not a failure either: it selects a baseline build for that commit instead of a job run.
+`artifact-diff` exiting 1 without really meaning "no change" are not infrastructure failures: each
+posts its own status (`failure`, or `error` for artifact-diff) on the job's commit with a PR comment
+carrying the failing logs, and the timer stays on for the next job. `artifact-diff` genuinely unable to
+tell also posts `error` and leaves the timer on, but with no log attached — the reason is in its own
+stderr only. A missing buildhistory tag for the baseline commit is not a failure either: it selects a
+baseline build for that commit instead of a job run.
 
 `PIPELINE_TARGET` or `PIPELINE_TARGET_HOSTNAME` unset refuses the run outright (rc 2) without
 touching the timer — a `pipeline.env` configuration problem, like any other required variable
@@ -97,5 +99,5 @@ missing, not an infrastructure failure. More than one merge-queue ref based on `
 refuses the same way (rc 2, timer untouched): the ambiguity is visible only in the timer's own log,
 with no DISABLED file and no PR comment.
 
-A new host needs a clone, the dev tree's `local/device-identity.md`, `gh auth login`, and
-`just pipeline-install`.
+A new host needs a clone, the dev tree's `local/device-identity.md`, `gh auth login`, the host user's
+own ssh identity already accepted as root on the device, and `just pipeline-install`.
