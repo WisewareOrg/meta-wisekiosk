@@ -169,7 +169,12 @@ JOB_BH=$(git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse HEAD) \
 DELTA_RC=0
 "${TREE_JUST[@]}" artifact-diff "baseline/$BASELINE" "$JOB_BH" \
     > "$RUN_DIR/delta.txt" 2> "$RUN_DIR/delta.err" || DELTA_RC=$?
-[ "$DELTA_RC" -eq 1 ] && finish success "no change in image; no device run"
+if [ "$DELTA_RC" -eq 1 ]; then
+    grep -qx 'no change in image' "$RUN_DIR/delta.err" \
+        && finish success "no change in image; no device run"
+    stage_logargs delta "$RUN_DIR/delta.err"
+    finish error "artifact diff failed" "${LOGARGS[@]}"
+fi
 [ "$DELTA_RC" -eq 0 ] || finish error "artifact diff could not tell"
 
 run_or_fail bundle "$RUN_DIR/bundle.log" "${TREE_JUST[@]}" kiosk-bundle
