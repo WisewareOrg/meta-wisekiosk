@@ -3,11 +3,10 @@
 
 [group('pipeline')]
 [doc("Provision the pipeline's checkouts and env file; install its ssh key on the target")]
-pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
-                 dl_dir=env('DL_DIR', (justfile_directory() / 'build/downloads')) \
+pipeline-install dl_dir=env('DL_DIR', (justfile_directory() / 'build/downloads')) \
                  sstate_dir=env('SSTATE_DIR', (justfile_directory() / 'build/sstate-cache')) \
                  target=env('PIPELINE_TARGET', ''):
-    PIPELINE_DRIVER_REF={{driver_ref}} DL_DIR={{dl_dir}} SSTATE_DIR={{sstate_dir}} PIPELINE_TARGET={{target}} tools/pipeline/install.sh
+    DL_DIR={{dl_dir}} SSTATE_DIR={{sstate_dir}} PIPELINE_TARGET={{target}} tools/pipeline/install.sh
 
 [group('pipeline')]
 [script('bash')]

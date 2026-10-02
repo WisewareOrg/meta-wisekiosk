@@ -14,8 +14,8 @@ result at that tier does **not** let you conclude.
 ## Running it
 
 ```sh
-just pipeline-install                # once per host, idempotent -- reads $PIPELINE_DRIVER_REF,
-                                      # $DL_DIR, $SSTATE_DIR, $PIPELINE_TARGET
+just pipeline-install                # once per host, idempotent -- reads $DL_DIR, $SSTATE_DIR,
+                                      # $PIPELINE_TARGET
 just pipeline-on                     # enable the timer
 just pipeline-off                    # disable it
 just pipeline-status                 # timer state + any DISABLED reason
@@ -32,7 +32,10 @@ including a cross-repository PR: enqueueing is the trust decision, not where the
 `pipeline-install` is the whole reprovisioning procedure — nothing is done to a host by hand that it
 does not also do. It creates, all under `$HOME`:
 
-- `wisekiosk-pipeline/driver` — this repository, checked out at `driver_ref`; runs `run.sh`.
+- `wisekiosk-pipeline/driver` — this repository at `origin/main`; runs `run.sh`. Every tick fetches
+  it first and, if `origin/main` has moved, checks that out and restarts itself from the fresh copy,
+  so the driver is always `main`'s code and never the job's: a change to the driver is judged by the
+  driver before it and takes effect once merged.
 - `wisekiosk-pipeline/tree` — a second, detached checkout of the same repository; the tree under test.
 - `wisekiosk-pipeline/driver/local/device-identity.md` — a symlink to the dev tree's own copy;
   `tools/scrub-identity.py --filter` is the only thing that reads it, when a run posts its report.
