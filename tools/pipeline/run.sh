@@ -204,7 +204,7 @@ MUTATED=1
 run_or_fail install "$RUN_DIR/install.log" "${TREE_JUST[@]}" kiosk-install "$SSH_HOST"
 
 DEVICE_BACK=1
-"${TREE_JUST[@]}" kiosk-reboot "$SSH_HOST" timeout=180 > "$RUN_DIR/reboot.log" 2>&1 || DEVICE_BACK=0
+"${TREE_JUST[@]}" kiosk-reboot "$SSH_HOST" 180 > "$RUN_DIR/reboot.log" 2>&1 || DEVICE_BACK=0
 
 SMOKE_STATE=error
 RESULTSARG=()

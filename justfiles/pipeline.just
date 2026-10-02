@@ -14,7 +14,7 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
                  target=env('PIPELINE_TARGET', ''):
     set -euo pipefail
     if [ -z "{{target}}" ]; then
-        echo "pipeline-install: target not given -- pass target=<address> or set PIPELINE_TARGET" >&2
+        echo "pipeline-install: target not given -- set PIPELINE_TARGET" >&2
         exit 1
     fi
     TARGET="{{target}}"
