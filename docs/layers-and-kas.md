@@ -188,12 +188,13 @@ Upstream is dormant, and the pin is deliberate — a floating branch would make 
 unattributable. To move it:
 
 1. Edit `commit:` under `meta-autonomos` in `includes/base.yaml`.
-2. `kas-container checkout kiosk-zero-w.yaml`. kas re-clones and re-applies both patches. **If either
-   patch does not apply, kas fails here** — that is the signal that upstream touched one of the two
-   files, and the patch needs regenerating against the new tree.
+2. `kas-container checkout kiosk-zero-w.yaml`. kas re-clones and re-applies every patch in the tree —
+   meta-autonomos's two and meta-raspberrypi's one. **If any patch does not apply, kas fails here** —
+   that is the signal that upstream touched one of the patched files, and the patch needs
+   regenerating against the new tree.
 3. Regenerate a patch by checking out the new upstream commit in a scratch worktree, making the
-   change, and running `git format-patch` into `patches/meta-autonomos/`. Keep the header's
-   explanation of why it cannot be a bbappend and its upstream-submission status.
+   change, and running `git format-patch` into `patches/<repo>/`. Keep the header's explanation of
+   why it cannot be a bbappend and its upstream-submission status.
 4. Re-run `tools/ci-guards.sh`. Run `just build` before and after the bump, then
    `just artifact-diff <before-ref> <after-ref>` before shipping anything to a device — buildhistory
    is a git repo under `build/buildhistory`, and the refs are its own commits (`git -C

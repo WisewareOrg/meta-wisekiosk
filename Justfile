@@ -73,11 +73,17 @@ help:
 
 # Build the kiosk image using kas-container
 [group('build')]
+[script('bash')]
 build:
+    set -euo pipefail
     tools/write-build-rev.sh
     {{py}} tools/go-mods.py
     {{py}} tools/app-lockfile.py
-    kas-container build {{config}}
+    RUNTIME_ARGS=()
+    if [ -n "${PIPELINE_KEYS_DIR:-}" ]; then
+        RUNTIME_ARGS=(--runtime-args "-v $PIPELINE_KEYS_DIR:/work/local/keys:ro")
+    fi
+    kas-container "${RUNTIME_ARGS[@]}" build {{config}}
 
 # Open a shell in the build environment
 [group('build')]
@@ -220,7 +226,11 @@ testimage ssh_dir=env('PIPELINE_SSH_DIR', ''):
     tools/write-build-rev.sh
     {{py}} tools/go-mods.py
     {{py}} tools/app-lockfile.py
-    kas-container --ssh-dir {{ssh_dir}} --runtime-args "-e TEST_TARGET_IP=$TEST_TARGET_IP -e OEQA_JSON_RESULT_DIR=$OEQA_JSON_RESULT_DIR" build {{config}}:includes/testimage.yaml -c testimage
+    RUNTIME_ARGS="-e TEST_TARGET_IP=$TEST_TARGET_IP -e OEQA_JSON_RESULT_DIR=$OEQA_JSON_RESULT_DIR"
+    if [ -n "${PIPELINE_KEYS_DIR:-}" ]; then
+        RUNTIME_ARGS="$RUNTIME_ARGS -v $PIPELINE_KEYS_DIR:/work/local/keys:ro"
+    fi
+    kas-container --ssh-dir {{ssh_dir}} --runtime-args "$RUNTIME_ARGS" build {{config}}:includes/testimage.yaml -c testimage
 
 # Write per-site config to a device's /data. The image carries none of it.
 [group('provision')]
