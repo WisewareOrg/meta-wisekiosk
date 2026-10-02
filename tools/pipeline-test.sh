@@ -831,9 +831,11 @@ test_report_check() {
     FAKEGIT="$TOP/fakegit"
     mkdir -p "$FAKEGIT"
     REALGIT=$(command -v git)
-    # shellcheck disable=SC2016
-    printf '#!/bin/sh\nif [ "$1" = "init" ]; then exit 1; fi\nexec "%s" "$@"\n' "$REALGIT" \
-        > "$FAKEGIT/git"
+    cat > "$FAKEGIT/git" <<EOF
+#!/bin/sh
+if [ "\$1" = "init" ]; then exit 1; fi
+exec "$REALGIT" "\$@"
+EOF
     chmod +x "$FAKEGIT/git"
     capture_stdin out err rc \
         $'VERDICT: pr-run -> success\nclean body, no identity, no private key\n' \

@@ -56,9 +56,9 @@ POST_ROLLBACK_UNHEALTHY=""
 # shellcheck disable=SC2317
 prune_runs() {
     # Keeps the newest 20 run dirs.
-    # shellcheck disable=SC2012
-    ls -1dt "$PIPELINE_DRIVER"/local/pipeline/runs/*/ 2>/dev/null \
-        | tail -n +21 | xargs -r rm -rf
+    find "$PIPELINE_DRIVER/local/pipeline/runs" -mindepth 1 -maxdepth 1 -type d \
+            -printf '%T@ %p\n' 2>/dev/null \
+        | sort -rn | tail -n +21 | cut -d' ' -f2- | xargs -r rm -rf
 }
 
 write_disabled() {
@@ -294,9 +294,7 @@ case "${1:-}" in
             echo "run.sh: no candidate job" >&2
             exit 0
         fi
-        # shellcheck disable=SC2086
-        set -- $job
-        KIND=$1; SHA=$2; PR_NUMBER=${3:-}
+        read -r KIND SHA PR_NUMBER <<< "$job"
         ;;
     baseline)
         KIND=baseline
@@ -472,8 +470,8 @@ set +e
 TESTIMAGE_RC=$?
 set -e
 
-# shellcheck disable=SC2012
-RESULTS_JSON=$(ls -t "$PIPELINE_TREE/local/pipeline/runs/$SHA/$STAGE"/*.json 2>/dev/null | head -1 || true)
+RESULTS_JSON=$(find "$PIPELINE_TREE/local/pipeline/runs/$SHA/$STAGE" -maxdepth 1 -name '*.json' \
+        -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2- || true)
 
 SMOKE_STATE=success
 SMOKE_RESULTS_ARGS=()
@@ -545,8 +543,8 @@ set +e
 "${TREE_JUST[@]}" testimage > "$RUN_DIR/$STAGE2-testimage.log" 2>&1
 POSTRC=$?
 set -e
-# shellcheck disable=SC2012
-RESULTS2=$(ls -t "$PIPELINE_TREE/local/pipeline/runs/$SHA/$STAGE2"/*.json 2>/dev/null | head -1 || true)
+RESULTS2=$(find "$PIPELINE_TREE/local/pipeline/runs/$SHA/$STAGE2" -maxdepth 1 -name '*.json' \
+        -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2- || true)
 if [ -z "$RESULTS2" ]; then
     abort "post-rollback baseline smoke produced no results"
 fi
