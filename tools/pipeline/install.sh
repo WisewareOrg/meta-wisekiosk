@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Provision the pipeline's checkouts, ssh key and env file.
-# Env: DL_DIR (default
-# <repo>/build/downloads), SSTATE_DIR (default <repo>/build/sstate-cache),
-# PIPELINE_TARGET (required).
+# Env: DL_DIR (default <repo>/build/downloads), SSTATE_DIR (default
+# <repo>/build/sstate-cache), PIPELINE_TARGET (required).
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"

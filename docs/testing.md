@@ -33,9 +33,9 @@ including a cross-repository PR: enqueueing is the trust decision, not where the
 does not also do. It creates, all under `$HOME`:
 
 - `wisekiosk-pipeline/driver` — this repository at `origin/main`; runs `run.sh`. Every tick fetches
-  it first and, if `origin/main` has moved, checks that out and restarts itself from the fresh copy,
-  so the driver is always `main`'s code and never the job's: a change to the driver is judged by the
-  driver before it and takes effect once merged.
+  it first and, if its HEAD is not `origin/main`, checks that out and restarts itself from the fresh
+  copy, so the driver is always `main`'s code and never the job's: a change to the driver is judged by
+  the driver before it and takes effect once merged.
 - `wisekiosk-pipeline/tree` — a second, detached checkout of the same repository; the tree under test.
 - `wisekiosk-pipeline/driver/local/device-identity.md` — a symlink to the dev tree's own copy;
   `tools/scrub-identity.py --filter` is the only thing that reads it, when a run posts its report.
