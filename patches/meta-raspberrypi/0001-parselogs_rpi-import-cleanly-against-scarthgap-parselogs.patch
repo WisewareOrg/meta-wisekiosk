@@ -1,0 +1,57 @@
+From c195fa47b005e78adc5be6b8f40bd1edc2a094f4 Mon Sep 17 00:00:00 2001
+From: Wise <47094117+tjwise99@users.noreply.github.com>
+Date: Wed, 30 Sep 2026 23:53:57 -0400
+Subject: [PATCH] oeqa: parselogs_rpi imports cleanly against scarthgap's
+ parselogs
+
+parselogs_rpi.py referenced two module-level names, ignore_errors and
+common_errors, that this file's own `from oeqa.runtime.cases.parselogs
+import *` never provided even when it was written: poky scarthgap's
+parselogs.py keeps ignore_errors as a class attribute on ParseLogsTest
+(populated from parselogs-ignores-*.txt resource files via
+load_machine_ignores()), not a module global, and defines no
+common_errors at all. Every oeqa test run that reaches test discovery
+imports every case file under every layer's lib/oeqa/runtime/cases/ to
+build its registry, so this file's NameError at import time fails
+do_testimage outright, before any case -- rpi's own or any other
+layer's -- gets a chance to run.
+
+rpi_errors was an empty list; removing it and the four
+ignore_errors[...] assignments it fed loses no actual ignore content,
+only the names that do not resolve. The import and the
+ParseLogsTestRpi subclass are unchanged.
+
+This cannot be a bbappend: lib/oeqa is a Python module tree consumed by
+bitbake's oeqa loader, not a recipe, so there is no do_install or
+equivalent task to append into.
+
+Upstream submission: suitable -- a straightforward compatibility fix,
+not specific to this fork. Not yet submitted; not upstreamed as of
+meta-raspberrypi master b2669c24bb577e1a48d841a60cfc0719f9ee1ff4
+(2026-09-24), which still carries the same two code paths unchanged.
+
+Applied by kas at checkout (see includes/platforms/raspberrypi.yaml).
+---
+ lib/oeqa/runtime/cases/parselogs_rpi.py | 7 -------
+ 1 file changed, 7 deletions(-)
+
+diff --git a/lib/oeqa/runtime/cases/parselogs_rpi.py b/lib/oeqa/runtime/cases/parselogs_rpi.py
+index 49226ae..06c9bb9 100644
+--- a/lib/oeqa/runtime/cases/parselogs_rpi.py
++++ b/lib/oeqa/runtime/cases/parselogs_rpi.py
+@@ -1,12 +1,5 @@
+ from oeqa.runtime.cases.parselogs import *
+ 
+-rpi_errors = [
+-]
+-
+-ignore_errors['raspberrypi4'] = rpi_errors + common_errors
+-ignore_errors['raspberrypi4-64'] = rpi_errors + common_errors
+-ignore_errors['raspberrypi3'] = rpi_errors + common_errors
+-ignore_errors['raspberrypi3-64'] = rpi_errors + common_errors
+ 
+ class ParseLogsTestRpi(ParseLogsTest):
+     pass
+-- 
+2.53.0
+

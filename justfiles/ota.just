@@ -141,10 +141,7 @@ casync-stats store:
 [group('ota')]
 [doc("Build the RAUC update bundle")]
 kiosk-bundle kconfig="kiosk-zero-w.yaml":
-    tools/write-build-rev.sh
-    {{py}} tools/go-mods.py
-    {{py}} tools/app-lockfile.py
-    kas-container shell {{kconfig}} -c "bitbake update-bundle"
+    tools/kas-run.sh shell {{kconfig}} -c "bitbake update-bundle"
 
 # Every check here catches a failure that otherwise surfaces only after the
 # transfer completes, or does not surface at all.

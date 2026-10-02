@@ -466,52 +466,42 @@ else
             ok "the /etc/buildinfo stamp is cache-safe (host sha in do_image's signature)"
         fi
 
-        # The commit sha, the Go module closure and the npm shrinkwrap all reach
-        # bitbake only if the host writes them BEFORE the build. Missing, the
-        # first trips kiosk-buildinfo-cachesafe's bb.fatal, and a stale one is
-        # refused at flash time by the reproducibility gate instead; missing OR
-        # stale, the other two trip the app recipes' own bb.fatal. Loud, but a
-        # broken build, not a guarantee. Checked per call site, in file order,
-        # so a new entry point missing any writer is caught here.
+        # #58: tools/kas-run.sh is the only thing that runs the writers and
+        # calls kas, so that is now the whole check -- two greps.
         writers10=(tools/write-build-rev.sh tools/go-mods.py tools/app-lockfile.py)
-        badwriter10=""
-        for w in "${writers10[@]}"; do
-            [ -x "$w" ] || badwriter10="$badwriter10 $w"
-        done
-        if [ -n "$badwriter10" ]; then
-            bad "guard 10: missing or not executable, so no build could inject it:$badwriter10"
+        kasrun10="tools/kas-run.sh"
+        if [ ! -x "$kasrun10" ]; then
+            bad "guard 10: $kasrun10 missing or not executable"
         else
-            uninj10=$(
-                for f in Justfile justfiles/ota.just tools/rauc-rotate-build.sh; do
-                    [ -f "$f" ] || { printf '%s: MISSING FILE\n' "$f"; continue; }
-                    awk -v F="$f" -v W1="${writers10[0]}" -v W2="${writers10[1]}" -v W3="${writers10[2]}" '
-                        /^[[:space:]]*#/ { next }
-                        index($0, W1) { armed1 = 1; next }
-                        index($0, W2) { armed2 = 1; next }
-                        index($0, W3) { armed3 = 1; next }
-                        /kas-container[[:space:]]+(build|shell)/ {
-                            missing = ""
-                            if (!armed1) missing = missing " " W1
-                            if (!armed2) missing = missing " " W2
-                            if (!armed3) missing = missing " " W3
-                            if (missing != "") printf "%s:%d: missing before kas-container:%s\n", F, NR, missing
-                            armed1 = 0; armed2 = 0; armed3 = 0
-                            next
-                        }
-                        # Last rule: the writer and build rules match first, so an
-                        # unindented line in a shell script is not a boundary. A
-                        # recipe header disarms, so a writer-only recipe cannot
-                        # arm the next one.
-                        /^[^[:space:]#]/ { armed1 = 0; armed2 = 0; armed3 = 0 }
-                    ' "$f"
-                done
-            )
-            if [ -n "$uninj10" ]; then
-                bad "guard 10: a build that can produce a flashable image is missing a writer before it:"
-                printf '%s\n' "$uninj10" | sed 's/^/        /'
+            # Checks presence of each writer invocation, not their order.
+            kbody10=$(grep -vE '^[[:space:]]*#' "$kasrun10")
+            kasrunmiss10=""
+            for w in "${writers10[@]}"; do
+                n10=$(grep -cF -- "$w" <<< "$kbody10")
+                [ "$n10" -ge 1 ] || kasrunmiss10="$kasrunmiss10 $w"
+            done
+            if [ -n "$kasrunmiss10" ]; then
+                bad "guard 10: $kasrun10 does not call:$kasrunmiss10"
             else
-                ok "every build entry point runs all three build-input writers"
+                ok "$kasrun10 calls all three build-input writers"
             fi
+        fi
+
+        # Checks no build or shell invocation of kas-container bypasses
+        # tools/kas-run.sh.
+        direct10=$(
+            for f in Justfile justfiles/*.just; do
+                [ -f "$f" ] || continue
+                grep -nE '^[[:space:]]*[^#[:space:]]' "$f" \
+                    | grep -E 'kas-container[[:space:]]+(.*[[:space:]]+)?(build|shell)([[:space:]]|$)' \
+                    | sed "s|^|$f:|"
+            done
+        )
+        if [ -n "$direct10" ]; then
+            bad "guard 10: calls kas-container build/shell directly instead of tools/kas-run.sh:"
+            printf '%s\n' "$direct10" | sed 's/^/        /'
+        else
+            ok "every kas-container build/shell call in Justfile and justfiles/*.just goes through tools/kas-run.sh"
         fi
 
         # Generated build input, never source. Untracked instead of ignored would
@@ -794,7 +784,7 @@ fi
 # with nothing in the diff to say why.
 if [ ! -f Justfile ]; then
     bad "guard 15: Justfile missing -- the python interpreter is unpinned"
-elif ! grep -qE '^py[[:space:]]*:=' Justfile; then
+elif ! grep -qE '^(export[[:space:]]+)?py[[:space:]]*:=' Justfile; then
     bad "guard 15: Justfile sets no \`py\` variable -- python recipes would take whatever python3 is on PATH"
 else
     bare15=""
