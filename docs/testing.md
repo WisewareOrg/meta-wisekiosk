@@ -7,15 +7,15 @@ result at that tier does **not** let you conclude.
 |---|---|---|---|
 | Static (`just guards`, CI) | Repository invariants hold: no secret or identity reaches a tracked file, shell and YAML parse, every wiring self-test passes. | Every commit (pre-commit hook), every PR (CI). | Anything about a Yocto build. This tier never invokes bitbake. |
 | Build (`just build`) | The kas config resolves and bitbake completes: an image artifact exists. | On demand, locally — never in CI, which does not build. | Whether the image differs from the last one, whether it boots, whether it serves anything. |
-| Artifact delta (`just artifact-diff`; size-blind) | Whether package versions, the file list, or file metadata (mode/owner/size/path) changed between two builds sharing one buildhistory-enabled build directory. An empty delta is itself a pass: the bench pipeline posts `success` and runs no OTA, `testimage` or rollback for that candidate. | After two `just build` runs. | Content. Buildhistory records path/mode/owner/size, not bytes — a same-size content edit reads as "no change". |
-| Bench smoke (`testimage` + stages) | The backend unit is active, `/healthz` answers, the page serves, WebKit still composites on the GPU, the page is still painting — on **one** physical board, **one** boot, after an OTA install (never a flash). | The bench pipeline, once per candidate. | Anything about `/boot` (kernel, U-Boot, the RAUC slot layout — an OTA never touches it), a second boot, or the **prod** board specifically. |
-| OTA/rollback (the `pr` run) | Install, reboot, and — for a `pr` run — mark-bad, reboot and land back on the baseline slot all completed, and the board answered again each time. | Every `pr` candidate whose artifact delta is non-empty. | Whether the slot rolled back *into* would itself survive a fresh install — it was booted back into, not reinstalled. There are only two slots. Whether this tier ran at all — a `pr` candidate with an empty delta posts `success` without it. |
+| Artifact delta (`just artifact-diff`; size-blind) | Whether package versions, the file list, or file metadata (mode/owner/size/path) changed between two builds sharing one buildhistory-enabled build directory. An empty delta is itself a pass: the pipeline posts success and runs no OTA, `testimage` or rollback for that candidate. | After two `just build` runs. | Content. Buildhistory records path/mode/owner/size, not bytes — a same-size content edit reads as "no change". |
+| Device smoke (`testimage` + stages) | The backend unit is active, `/healthz` answers, the page serves, WebKit still composites on the GPU, the page is still painting — on **one** physical device (the one named in the gitignored `local/device-identity.md`, [`CONTRIBUTING.md`](../CONTRIBUTING.md) §"Before you change anything"), **one** boot, after an OTA install (never a flash). | The pipeline, once per candidate. | Anything about `/boot` (kernel, U-Boot, the RAUC slot layout — an OTA never touches it), or a second boot. |
+| OTA/rollback (the `pr` run) | Install, reboot, and — for a `pr` run — mark-bad, reboot and land back on the baseline slot all completed, and the device answered again each time. | Every `pr` candidate whose artifact delta is non-empty. | Whether the slot rolled back *into* would itself survive a fresh install — it was booted back into, not reinstalled. There are only two slots. Whether this tier ran at all — a `pr` candidate with an empty delta posts success without it. |
 
 Three limits worth restating because they are easy to read past in the table: the artifact-delta tier
-is **size-blind** by design — a same-size content change is invisible to it. The bench-smoke and
-OTA/rollback tiers run **one boot on one bench board** — nothing here proves a second boot, a cold
-boot, or the prod board's own behaviour, and nothing here ever touches `/boot` (kernel, U-Boot, the
-RAUC slot layout), which stays unproven by every tier in the table.
+is **size-blind** by design — a same-size content change is invisible to it. The device-smoke and
+OTA/rollback tiers run **one boot on one device at a time** — nothing here proves a second boot or a
+cold boot. `/boot` (kernel, U-Boot, the RAUC slot layout) is unproven by the pipeline, which installs
+over the air and never writes `/boot`.
 
 ## Running it
 
@@ -36,7 +36,7 @@ does not also do. It creates, all under `$HOME`:
 - `wisekiosk-pipeline/driver` — this repository, checked out at `driver_ref`; runs `run.sh`.
 - `wisekiosk-pipeline/tree` — a second, detached checkout of the same repository; the tree under test.
 - `wisekiosk-pipeline/{driver,tree}/local/device-identity.md` — symlinks to the dev tree's own copy.
-  One source of truth: a board swap updates one file.
+  One source of truth: updating the dev tree's `local/device-identity.md` updates both.
 - `wisekiosk-pipeline/tree/local/keys` — a real, empty directory. The fleet signing key is bind-mounted
   read-only into the build container from the dev tree's own `local/keys` (`PIPELINE_KEYS_DIR` below);
   it is never copied, and the driver checkout, which never runs bitbake, gets no keys dir at all. A
@@ -57,7 +57,7 @@ does not also do. It creates, all under `$HOME`:
   `rauc-conf`'s search for the fleet signing key under `../local/keys`, then looks in the wrong place,
   and bitbake's own sanity checker refuses a build directory whose recorded `TMPDIR` does not match
   what it computes on the next run.
-- `.config/wisekiosk/pipeline-ssh/` — a new ed25519 keypair, installed on bench's `authorized_keys`;
+- `.config/wisekiosk/pipeline-ssh/` — a new ed25519 keypair, installed on the device's `authorized_keys`;
   `config`; `known_hosts`. Used only inside the `testimage` stage's container — never `~/.ssh`, which
   also pushes to GitHub.
 - `wisekiosk-pipeline/tree/build/cache/hashserv.db` — seeded from the dev tree's own hash-equivalence
@@ -67,31 +67,30 @@ does not also do. It creates, all under `$HOME`:
 
 It does **not** enable the timer — `pipeline-on` is the separate, deliberate step.
 
-**Bench, and the shared `downloads/`/`sstate-cache/`, are reserved while the timer is on.** A hand
-`just build` or a manual OTA while `pipeline-on` races the pipeline's own run; `just pipeline-off`
-first. The pipeline's own `build/` (TMPDIR) is not shared, so it alone never conflicts with a hand
-build.
+**The device under test, and the shared `downloads/`/`sstate-cache/`, are reserved while the timer is
+on.** A hand `just build` or a manual OTA while `pipeline-on` races the pipeline's own run; `just
+pipeline-off` first. The pipeline's own `build/` (TMPDIR) is not shared, so it alone never conflicts
+with a hand build.
 
 Install, `rauc status mark-good` and `mark-bad` write only RAUC's own boot-selection variables in
 `uboot.env`, exactly as every OTA does. No boot file -- kernel, DTB, `config.txt`, U-Boot itself -- is
-ever written; that is `/boot`'s own gap, stated in the bench-smoke row above. The `/boot`-class header
+ever written; that is `/boot`'s own gap, stated in the device-smoke row above. The `/boot`-class header
 also applies when a candidate moves poky's own pin, since U-Boot's recipe is poky's.
 
-**An empty artifact delta is a pass.** A `pr` run whose delta comes back empty posts `bench-pipeline`
-`success` ("no change in image; no board run") and stops there — no bundle, OTA, `testimage` or
-rollback runs for that candidate.
+**An empty artifact delta is a pass.** A `pr` run whose delta comes back empty posts success and stops
+there — no bundle, OTA, `testimage` or rollback runs for that candidate.
 
 **Records** live at `local/pipeline/runs/<sha>/` under the driver: the build log, the artifact delta,
 every stage's log, each stage's `testresults.json`, and the assembled (redacted, capped) report body.
 The newest 20 run directories are kept; older ones are pruned automatically.
 
-**An infrastructure failure** — bench unreachable, the build directory locked, a kas container already
-running, the baseline ref or its buildhistory tag not resolvable, bench not resting on a tagged
-baseline image, bench's hostname not matching the map, a reboot that never comes back, or the process
-exiting for any other reason while bench sits mid-OTA — writes `local/pipeline/DISABLED` under the
-driver with the reason and disables the timer. Nothing loops silently. Fix the cause, then
-`just pipeline-on` -- it prints the DISABLED reason and clears the file itself, as the operator's
-explicit acknowledgement, before re-enabling.
+**An infrastructure failure** — the device unreachable, the build directory locked, a kas container
+already running, the baseline ref or its buildhistory tag not resolvable, the device not resting on a
+tagged baseline image, the device's hostname not matching the map, a reboot that never comes back, or
+the process exiting for any other reason while the device sits mid-OTA — writes
+`local/pipeline/DISABLED` under the driver with the reason and disables the timer. Nothing loops
+silently. Fix the cause, then `just pipeline-on` -- it prints the DISABLED reason and clears the file
+itself, as an explicit acknowledgement, before re-enabling.
 
 A new host needs a clone, the dev tree's `local/device-identity.md`, `gh auth login`, and
 `just pipeline-install`.
