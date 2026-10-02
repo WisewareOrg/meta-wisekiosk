@@ -53,7 +53,6 @@ SHA="" ; KIND="" ; PR_NUMBER="" ; MERGE_BASE=""
 BENCH_MUTATED=""
 POST_ROLLBACK_UNHEALTHY=""
 
-# shellcheck disable=SC2317
 prune_runs() {
     # Keeps the newest 20 run dirs.
     find "$PIPELINE_DRIVER/local/pipeline/runs" -mindepth 1 -maxdepth 1 -type d \
@@ -67,7 +66,6 @@ write_disabled() {
     systemctl --user disable --now wisekiosk-pipeline.timer 2>/dev/null || true
 }
 
-# shellcheck disable=SC2317
 on_exit() {
     local rc=$?
     if [ -n "$BENCH_MUTATED" ]; then
@@ -82,7 +80,6 @@ on_exit() {
 }
 trap on_exit EXIT
 
-# shellcheck disable=SC2317
 on_signal() {
     echo "run.sh: received $1, exiting" >&2
     exit "$2"
@@ -215,13 +212,17 @@ bitbake_stage() {
         while IFS= read -r f; do logargs+=(--log "$(basename "$f")=$f"); done \
             < <(collect_failure_logs "$log" "$RUN_DIR")
         finish failure "$name failed" "${logargs[@]}"
+        exit 0
     fi
 }
 
 ota_stage() {
     # ota_stage NAME LOGFILE cmd...
     local name=$1 log=$2; shift 2
-    run_logged "$log" "$@" || finish failure "$name failed"
+    if ! run_logged "$log" "$@"; then
+        finish failure "$name failed"
+        exit 0
+    fi
 }
 
 refresh_remote() {
@@ -230,7 +231,8 @@ refresh_remote() {
 }
 
 finish() {
-    # finish STATE DESCRIPTION [report.py-build --results/--log args...]
+    # finish STATE DESCRIPTION [report.py-build --results/--log args...]; returns 0
+    # or never returns (abort exits 1) -- a caller with more script after it must exit.
     BENCH_MUTATED=""
     local state=$1 desc=$2
     shift 2
@@ -241,7 +243,7 @@ finish() {
             || abort "could not post the final status for $SHA"
         [ -n "$POST_ROLLBACK_UNHEALTHY" ] \
             && write_disabled "baseline slot's post-rollback smoke failed -- board may be unhealthy; timer disabled"
-        exit 0
+        return 0
     fi
 
     local verdict="$RUN_DIR/verdict.txt"
@@ -279,7 +281,7 @@ finish() {
     if [ -n "$POST_ROLLBACK_UNHEALTHY" ]; then
         write_disabled "baseline slot's post-rollback smoke failed -- board may be unhealthy; timer disabled"
     fi
-    exit 0
+    return 0
 }
 
 # --- usage: resolve KIND, SHA, PR_NUMBER --------------------------------
@@ -400,8 +402,10 @@ else
     set -e
     if [ "$DELTA_RC" -eq 1 ]; then
         finish success "no change in image; no board run"
+        exit 0
     elif [ "$DELTA_RC" -ne 0 ]; then
         finish error "could not compute artifact delta"
+        exit 0
     fi
 fi
 
@@ -439,6 +443,7 @@ if ! reboot_and_wait "$SSH_HOST" "$RUN_DIR/reboot.log" 180; then
             || abort "could not read bench's booted slot after the fallback wait"
         if [ "$SLOT_NOW" = "$BASELINE_SLOT" ]; then
             finish failure "new slot did not boot; RAUC fell back"
+            exit 0
         else
             abort "bench came back on an unexpected slot after the new image failed to boot"
         fi
@@ -451,6 +456,7 @@ SLOTS_INFO=$(rauc_slots "$SSH_HOST") || true
 NEW_SLOT=$(booted_bootname "$SLOTS_INFO") || abort "could not read bench's booted slot after install"
 if [ "$NEW_SLOT" = "$BASELINE_SLOT" ]; then
     finish failure "new slot did not boot; RAUC fell back"
+    exit 0
 fi
 BASELINE_STATUS=$(slot_status "$SLOTS_INFO" "$BASELINE_SLOT") \
     || abort "could not read the baseline slot's own status after install"
@@ -510,6 +516,7 @@ if [ "$KIND" = baseline ]; then
         ssh "${SSH_OPTS[@]}" "$SSH_HOST" 'rauc status mark-good booted' \
             || abort "mark-good failed on bench after a passing baseline smoke"
         finish success "baseline $SHA: smoke passed"
+        exit 0
     fi
     "${TREE_JUST[@]}" kiosk-rollback "$SSH_HOST" > "$RUN_DIR/rollback.log" 2>&1 || true
     if ! reboot_and_wait "$SSH_HOST" "$RUN_DIR/rollback-reboot.log" 180; then
@@ -522,6 +529,7 @@ if [ "$KIND" = baseline ]; then
         abort "bench resting on the wrong slot after a baseline rollback"
     fi
     finish "$SMOKE_STATE" "baseline $SHA: smoke $SMOKE_STATE"
+    exit 0
 fi
 
 "${TREE_JUST[@]}" kiosk-rollback "$SSH_HOST" > "$RUN_DIR/rollback.log" 2>&1 || true
@@ -552,6 +560,7 @@ cp "$RESULTS2" "$RUN_DIR/$STAGE2-testresults.json"
 
 [ "$POSTRC" -ne 0 ] && POST_ROLLBACK_UNHEALTHY=1
 
+# The script's own end here is finish()'s return code: nothing follows it.
 finish "$SMOKE_STATE" "pr #$PR_NUMBER $SHA: smoke $SMOKE_STATE" \
     "${SMOKE_RESULTS_ARGS[@]}" "${SMOKE_LOGARGS[@]}" \
     --results "post-rollback=$RUN_DIR/$STAGE2-testresults.json"
