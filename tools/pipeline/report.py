@@ -12,7 +12,7 @@
 
 build: rc 1 if the body cannot fit --limit; rc 2 on a bad argument, a missing
 input or invalid --results JSON; nothing on stdout unless rc 0.
-check: rc 0 clean; rc 1 identity found; rc 2 private-key header or could not tell.
+check: rc 0 clean; rc 1 identity found or PARTIAL; rc 2 private-key header or a tool/git failure.
 post: rc 1 if gh fails; rc 2 on a bad argument.
 """
 import importlib.util
@@ -294,6 +294,19 @@ def cmd_build(argv):
 
 # --- check ----------------------------------------------------------------
 
+# The only words `check` ever writes to stderr -- posted verbatim into a
+# public commit-status description, so never a path or other matched content.
+REASON_PRIVATE_KEY = "private key material"
+REASON_IDENTITY_FOUND = "identity found"
+REASON_IDENTITY_PARTIAL = "identity check PARTIAL"
+REASON_TOOL_FAILURE = "tool failure"
+
+
+def _tool_failure():
+    print(REASON_TOOL_FAILURE, file=sys.stderr)
+    return 2
+
+
 def cmd_check(argv):
     map_arg = None
     rest = list(argv)
@@ -301,17 +314,17 @@ def cmd_check(argv):
         flag = rest.pop(0)
         if flag == "--map":
             if not rest:
-                return refuse("--map takes a value")
+                return _tool_failure()
             map_arg = rest.pop(0)
         else:
-            return refuse(f"{flag!r} is not an option this reads")
+            return _tool_failure()
     if map_arg is None:
-        return refuse("--map is required")
+        return _tool_failure()
 
     body = sys.stdin.read()
 
     if PRIVATE_KEY.search(body):
-        print("private key material in body", file=sys.stderr)
+        print(REASON_PRIVATE_KEY, file=sys.stderr)
         return 2
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -319,13 +332,13 @@ def cmd_check(argv):
         init = subprocess.run(["git", "init", "-q", str(tmp_path)],
                               env=git_env(), capture_output=True, text=True)
         if init.returncode != 0:
-            return refuse("git init failed")
+            return _tool_failure()
 
         (tmp_path / "report-body.md").write_text(body, encoding="utf-8")
         add = subprocess.run(["git", "-C", str(tmp_path), "add", "report-body.md"],
                              env=git_env(), capture_output=True, text=True)
         if add.returncode != 0:
-            return refuse("git add failed")
+            return _tool_failure()
 
         local_dir = tmp_path / "local"
         local_dir.mkdir()
@@ -338,10 +351,10 @@ def cmd_check(argv):
     if scan.returncode == 0:
         return 0
     if scan.returncode == 1:
-        reason = "identity check PARTIAL" if "PARTIAL" in scan.stdout else "identity found in body"
-        print(reason, file=sys.stderr)
+        print(REASON_IDENTITY_PARTIAL if "PARTIAL" in scan.stdout else REASON_IDENTITY_FOUND,
+              file=sys.stderr)
         return 1
-    return refuse(f"scrub-identity.py exited {scan.returncode}")
+    return _tool_failure()
 
 
 # --- post -------------------------------------------------------------

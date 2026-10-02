@@ -842,11 +842,11 @@ test_report_check() {
     else
         bad "report check, git unusable: refused rc 2" "rc=$rc out=$out err=$err"
     fi
-    case "$err" in
-        *"private key"*)
-            bad "report check, git unusable: reason does not say private key" "err=$err" ;;
-        *) ok "report check, git unusable: reason does not say private key" ;;
-    esac
+    if [ "$err" = "tool failure" ]; then
+        ok "report check, git unusable: posted reason is the fixed constant"
+    else
+        bad "report check, git unusable: posted reason is the fixed constant" "err=$err"
+    fi
 }
 
 test_resolve_role
