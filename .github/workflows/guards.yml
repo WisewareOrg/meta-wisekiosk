@@ -5,6 +5,7 @@ name: guards
 # and whether the files a build reads still parse.
 on:
   pull_request:
+  merge_group:
   push:
     branches: [main]
 

@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
 # Provision the pipeline's checkouts, ssh key, env file and units.
-# Env: PIPELINE_DRIVER_REF (default main), PIPELINE_BASELINE_REF (default
-# origin/main), DL_DIR (default <repo>/build/downloads), SSTATE_DIR (default
-# <repo>/build/sstate-cache), PIPELINE_TARGET (required).
+# Env: PIPELINE_DRIVER_REF (default main), DL_DIR (default
+# <repo>/build/downloads), SSTATE_DIR (default <repo>/build/sstate-cache),
+# PIPELINE_TARGET (required).
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT=$(readlink -f "$HERE/../..")
 
 PIPELINE_DRIVER_REF="${PIPELINE_DRIVER_REF:-main}"
-PIPELINE_BASELINE_REF="${PIPELINE_BASELINE_REF:-origin/main}"
 DL_DIR="${DL_DIR:-$ROOT/build/downloads}"
 SSTATE_DIR="${SSTATE_DIR:-$ROOT/build/sstate-cache}"
 PIPELINE_TARGET="${PIPELINE_TARGET:-}"
@@ -55,7 +54,6 @@ ln -sf "$MAP" "$DRIVER/local/device-identity.md"
 # local/keys: an empty bind-mount target -- docs/testing.md §"Running it".
 mkdir -p "$TREE/local/keys"
 
-# Seed hashserv.db once from the dev tree's -- docs/testing.md §"Running it".
 # sqlite3 online backup: copies the live WAL contents too.
 DEV_HASHSERV_DB="$ROOT/build/cache/hashserv.db"
 PIPELINE_HASHSERV_DB="$TREE/build/cache/hashserv.db"
@@ -77,7 +75,6 @@ SSH_DIR="$CONF_DIR/pipeline-ssh"
     printf 'SSTATE_DIR="%s"\n' "$SSTATE_DIR"
     printf 'PIPELINE_DRIVER="%s"\n' "$DRIVER"
     printf 'PIPELINE_TREE="%s"\n' "$TREE"
-    printf 'PIPELINE_BASELINE_REF="%s"\n' "$PIPELINE_BASELINE_REF"
     printf 'PIPELINE_SSH_DIR="%s"\n' "$SSH_DIR"
     printf 'PIPELINE_KEYS_DIR="%s"\n' "$KEYS"
     printf 'PIPELINE_TARGET="%s"\n' "$TARGET"

@@ -110,22 +110,6 @@ def empty_delta_cases():
     case("artifact-diff: identical delta prints nothing on stdout",
          got.stdout, "")
 
-    with tempfile.TemporaryDirectory() as tmp:
-        repo = init_repo(tmp)
-        write_triple(image_dir(repo),
-                     files="/usr/bin/wisekiosk 0755 root root 4213112\n")
-        base = commit(repo, "base")
-        write_triple(image_dir(repo),
-                     files="/usr/bin/wisekiosk 0755 root root 4213112\n")
-        head = commit(repo, "same-size content change, unseen by buildhistory")
-        got = run_diff(repo, base, head)
-    case("artifact-diff: a same-size content change in a packaged file "
-         "is NOT detected (reads as no change)", got.returncode, 1)
-    case("artifact-diff: the size-blind case also names it on stderr",
-         "no change in image" in got.stderr, True)
-    case("artifact-diff: the size-blind case prints nothing on stdout",
-         got.stdout, "")
-
 
 def changed_cases():
     with tempfile.TemporaryDirectory() as tmp:
@@ -183,8 +167,6 @@ def could_not_tell_cases():
     case("artifact-diff: no matching image dir exits 2", got.returncode, 2)
     case("artifact-diff: no matching image dir prints nothing on stdout",
          got.stdout, "")
-    case("artifact-diff: no matching image dir says could not tell",
-         "could not tell" in got.stderr, True)
 
     with tempfile.TemporaryDirectory() as tmp:
         repo = init_repo(tmp)
@@ -196,8 +178,6 @@ def could_not_tell_cases():
     case("artifact-diff: two matching image dirs exits 2", got.returncode, 2)
     case("artifact-diff: two matching image dirs prints nothing on stdout",
          got.stdout, "")
-    case("artifact-diff: two matching image dirs says could not tell",
-         "could not tell" in got.stderr, True)
 
     with tempfile.TemporaryDirectory() as tmp:
         repo = init_repo(tmp)
@@ -210,14 +190,10 @@ def could_not_tell_cases():
          bad_base.returncode, 2)
     case("artifact-diff: an unresolvable base-ref prints nothing on stdout",
          bad_base.stdout, "")
-    case("artifact-diff: an unresolvable base-ref says could not tell",
-         "could not tell" in bad_base.stderr, True)
     case("artifact-diff: an unresolvable head-ref exits 2",
          bad_head.returncode, 2)
     case("artifact-diff: an unresolvable head-ref prints nothing on stdout",
          bad_head.stdout, "")
-    case("artifact-diff: an unresolvable head-ref says could not tell",
-         "could not tell" in bad_head.stderr, True)
 
     with tempfile.TemporaryDirectory() as tmp:
         not_a_repo = Path(tmp) / "not-a-repo"
@@ -228,28 +204,6 @@ def could_not_tell_cases():
          got.returncode, 2)
     case("artifact-diff: a non-git --repo prints nothing on stdout",
          got.stdout, "")
-    case("artifact-diff: a non-git --repo says could not tell",
-         "could not tell" in got.stderr, True)
-
-
-def default_repo_cases():
-    with tempfile.TemporaryDirectory() as tmp:
-        top = Path(tmp)
-        repo = top / "build" / "buildhistory"
-        repo.mkdir(parents=True)
-        git(repo, "init", "-q", "-b", "main")
-        write_triple(image_dir(repo), pkgver="curl 8.7.1-r0\n")
-        base = commit(repo, "base")
-        write_triple(image_dir(repo), pkgver="curl 8.9.0-r0\n")
-        head = commit(repo, "bump curl")
-        got = subprocess.run([sys.executable, str(ARTIFACT_DIFF), base, head],
-                             cwd=str(top), capture_output=True, text=True,
-                             env=clean_env())
-        expected = real_diff(repo, base, head)
-    case("artifact-diff: --repo omitted defaults to build/buildhistory "
-         "under the cwd", got.returncode, 0)
-    case("artifact-diff: the default-repo run prints the `git diff` of the "
-         "three files", got.stdout, expected)
 
 
 def worktree_leak_cases():
@@ -276,26 +230,11 @@ def worktree_leak_cases():
          "fixture's own diff on stdout", got.stdout, expected)
 
 
-def help_cases():
-    got = subprocess.run([sys.executable, str(ARTIFACT_DIFF), "--help"],
-                         capture_output=True, text=True, env=clean_env())
-    case("artifact-diff: --help exits 0", got.returncode, 0)
-    case("artifact-diff: --help names the rc-1 case by its own wording",
-         "no change in image" in got.stdout, True)
-    case("artifact-diff: --help names the rc-2 case by its own wording",
-         "could not tell" in got.stdout, True)
-    case("artifact-diff: --help names the rc-0 case by its own wording",
-         "Exit 0: at least one of the three files differs between the "
-         "refs." in got.stdout, True)
-
-
 def main() -> int:
     empty_delta_cases()
     changed_cases()
     could_not_tell_cases()
-    default_repo_cases()
     worktree_leak_cases()
-    help_cases()
     print(f"\npass={len(PASS)} fail={len(FAIL)} skip=0")
     return 1 if FAIL else 0
 

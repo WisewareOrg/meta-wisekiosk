@@ -1,14 +1,13 @@
-# Pipeline provisioning and control -- docs/testing.md covers what each tier
-# proves and how to run it. Required variable: py, the python3 interpreter.
+# Pipeline provisioning and control: docs/testing.md §"Running it".
+# Requires py from the root Justfile.
 
 [group('pipeline')]
-[doc("Provision the pipeline's checkouts, ssh key, env file and units")]
+[doc("Provision the pipeline's checkouts, env file and units; install its ssh key on the target")]
 pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
-                 pipeline_baseline_ref=env('PIPELINE_BASELINE_REF', 'origin/main') \
                  dl_dir=env('DL_DIR', (justfile_directory() / 'build/downloads')) \
                  sstate_dir=env('SSTATE_DIR', (justfile_directory() / 'build/sstate-cache')) \
                  target=env('PIPELINE_TARGET', ''):
-    PIPELINE_DRIVER_REF={{driver_ref}} PIPELINE_BASELINE_REF={{pipeline_baseline_ref}} DL_DIR={{dl_dir}} SSTATE_DIR={{sstate_dir}} PIPELINE_TARGET={{target}} tools/pipeline/install.sh
+    PIPELINE_DRIVER_REF={{driver_ref}} DL_DIR={{dl_dir}} SSTATE_DIR={{sstate_dir}} PIPELINE_TARGET={{target}} tools/pipeline/install.sh
 
 [group('pipeline')]
 [script('bash')]
@@ -44,7 +43,7 @@ pipeline-status:
 
 [group('pipeline')]
 [script('bash')]
-[doc("Run one pipeline job by hand: no args (queue head, or a missing baseline) | baseline [sha]")]
+[doc("Run one pipeline job by hand: the queue head, or a missing baseline")]
 pipeline-run *args:
     set -a
     . "$HOME/.config/wisekiosk/pipeline.env"

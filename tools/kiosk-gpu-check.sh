@@ -18,15 +18,11 @@ gpu_verdict() {
     fi
 
     if [ "$(printf '%s\n' "$probe" | grep -c '^cap grep_o=0')" -ne 0 ]; then
-        echo "cannot tell: the device's grep has no -o, so no driver name could be" >&2
-        echo "extracted from any process's maps. Every drv= field is meaningless," >&2
-        echo "and a good vc4 board would read as software mesa." >&2
+        echo "cannot tell: the device's grep has no -o, so no drv= field is readable." >&2
         return 2
     fi
     if [ "$(printf '%s\n' "$probe" | grep -c '^proc .* drifd=?')" -ne 0 ]; then
         echo "cannot tell: a process's fd directory could not be read (drifd=? above)." >&2
-        echo "An unreadable /proc/<pid>/fd and a process holding no DRM fd are" >&2
-        echo "different answers; this is the first, and it is not a verdict." >&2
         return 2
     fi
 
@@ -46,8 +42,7 @@ gpu_verdict() {
             return 2
         fi
         echo "SOFTWARE mesa: a web process holds /dev/dri open, but no vc4/v3d driver" >&2
-        echo "is mapped -- the drv= field above says which. mesa fell back to its" >&2
-        echo "software rasteriser, so compositing is still on the CPU." >&2
+        echo "is mapped -- the drv= field above says which." >&2
         return 1
     fi
 
@@ -124,8 +119,8 @@ PREP
         restore; trap - EXIT; exit 2
     fi
     if [ "${up:-0}" = "0" ]; then
-        echo "surf did not come back up within 60s -- not capturing a screen that" >&2
-        echo "has nothing on it yet. kiosk.conf is put back on the way out." >&2
+        echo "surf did not come back up within 60s -- not capturing. kiosk.conf is" >&2
+        echo "put back on the way out." >&2
         restore; trap - EXIT; exit 1
     fi
     sleep 5

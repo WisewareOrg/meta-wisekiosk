@@ -5,6 +5,7 @@ name: lint
 # and the workflow files. Neither needs a Yocto build, so both can gate a PR.
 on:
   pull_request:
+  merge_group:
   push:
     branches: [main]
 

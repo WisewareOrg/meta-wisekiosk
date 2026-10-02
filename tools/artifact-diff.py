@@ -9,18 +9,11 @@ Exit 1: none of the tracked files differs; "no change in image" on stderr.
 Exit 2: the repo, a ref, or the image directory could not be resolved;
         "could not tell: <reason>" on stderr.
 """
-import importlib.util
+import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
-
-TOOLS = Path(__file__).resolve().parent
-
-_spec = importlib.util.spec_from_file_location(
-    "layer_currency", TOOLS / "layer-currency.py")
-_layer_currency = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_layer_currency)
-git_env = _layer_currency.git_env
 
 TRACKED = ("installed-package-versions.txt", "files-in-image.txt",
            "image-info.txt")
@@ -34,8 +27,9 @@ COULD_NOT_TELL = "could not tell"
 
 
 def git(repo, *args):
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
     return subprocess.run(["git", "-C", str(repo), *args],
-                          capture_output=True, text=True, env=git_env())
+                          capture_output=True, text=True, env=env)
 
 
 def refuse(reason):
@@ -48,29 +42,14 @@ def image_dir(repo):
     return matches[0] if len(matches) == 1 else None
 
 
-def parse_args(argv):
-    repo = DEFAULT_REPO
-    rest = list(argv)
-    if rest[:1] == ["--repo"]:
-        if len(rest) < 2:
-            return None
-        repo, rest = Path(rest[1]), rest[2:]
-    if len(rest) != 2:
-        return None
-    return repo, rest[0], rest[1]
-
-
 def main() -> int:
-    argv = sys.argv[1:]
-    if argv == ["--help"]:
-        print(__doc__.strip())
-        return 0
-
-    parsed = parse_args(argv)
-    if parsed is None:
-        print(__doc__.strip().split("\n\n")[1], file=sys.stderr)
-        return 2
-    repo, base, head = parsed
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--repo", type=Path, default=DEFAULT_REPO)
+    parser.add_argument("base")
+    parser.add_argument("head")
+    args = parser.parse_args()
+    repo, base, head = args.repo, args.base, args.head
 
     if git(repo, "rev-parse", "--is-inside-work-tree").returncode != 0:
         return refuse(f"{repo} is not a git repository")

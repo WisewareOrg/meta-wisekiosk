@@ -74,17 +74,13 @@ def render_logs(paths):
     return "\n".join(parts)
 
 
-def build_parser():
-    parser = argparse.ArgumentParser(add_help=False)
+def main():
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--verdict", required=True)
     parser.add_argument("--delta", required=True)
     parser.add_argument("--results")
     parser.add_argument("--log", action="append", default=[], dest="logs", metavar="PATH")
-    return parser
-
-
-def main():
-    parser = build_parser()
     args = parser.parse_args(sys.argv[1:])
 
     try:

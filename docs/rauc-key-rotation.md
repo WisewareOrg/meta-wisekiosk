@@ -20,7 +20,7 @@ back — `git clean -xfd` deletes an untracked file and no checkout restores it 
 encrypted archive or password manager, for that alone.
 Losing every copy ends OTA for every fielded unit: a device accepts only bundles signed by the key its
 running slot trusts, leaving an SD card reflash as the only way back. The pipeline's own tree checkout
-bind-mounts a second, read-only key directory onto this same path — [`testing.md`](testing.md)
+bind-mounts this same directory, read-only, onto this same path — [`testing.md`](testing.md)
 §"Running it".
 
 ## Build prerequisite: the signing key must be present

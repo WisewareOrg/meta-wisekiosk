@@ -126,8 +126,7 @@ PATTERNS = [
     ),
 ]
 
-# A full BEGIN..END block, non-greedy and multiline, so --filter drops the key
-# material itself rather than just flagging the header line.
+# A full BEGIN..END private-key block, non-greedy, across lines.
 PRIVATE_KEY_BLOCK = re.compile(
     r'-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----',
     re.DOTALL)
@@ -267,10 +266,12 @@ def main():
         print(f'usage: {SELF} [--check|--apply|--filter] [--allow-partial] [root]', file=sys.stderr)
         return 2
 
-    root = repo_root(argv[1] if len(argv) > 1 else None)
-
     if mode == '--filter':
+        root = Path(argv[1]).resolve() if len(argv) > 1 \
+            else Path(__file__).resolve().parents[1]
         return cmd_filter(root)
+
+    root = repo_root(argv[1] if len(argv) > 1 else None)
 
     rows = load_map(root)
 

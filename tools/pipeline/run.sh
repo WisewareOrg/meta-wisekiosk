@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# run.sh [baseline [<sha>]] -- build, OTA and smoke-test the merge-queue head,
-# or a missing baseline for it.
+# run.sh -- build, OTA and smoke-test the merge-queue head, or a missing
+# baseline for it.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 TOOLS="$(dirname "$HERE")"
 
-for v in PIPELINE_DRIVER PIPELINE_TREE PIPELINE_BASELINE_REF PIPELINE_SSH_DIR \
+for v in PIPELINE_DRIVER PIPELINE_TREE PIPELINE_SSH_DIR \
         PIPELINE_KEYS_DIR PIPELINE_TARGET PIPELINE_TARGET_HOSTNAME PIPELINE_LOCK \
         DL_DIR SSTATE_DIR PATH; do
     [ -n "${!v:-}" ] || { echo "run.sh: $v not set" >&2; exit 2; }
@@ -25,12 +25,13 @@ SSH_HOST="root@$PIPELINE_TARGET"
 export KIOSK_HOST="$SSH_HOST"
 
 MUTATED=""
+rc=0
 write_disabled() {
     mkdir -p "$PIPELINE_DRIVER/local/pipeline"
     printf '%s\n%s\n' "$(date -Is)" "$1" > "$PIPELINE_DRIVER/local/pipeline/DISABLED"
     systemctl --user disable --now wisekiosk-pipeline.timer 2>/dev/null || true
 }
-trap '[ -n "$MUTATED" ] && write_disabled "run.sh exited (rc=$?) with the device mid-OTA"' EXIT
+trap 'rc=$?; [ -n "$MUTATED" ] && write_disabled "run.sh exited (rc=$rc) with the device mid-OTA"' EXIT
 
 abort() {
     MUTATED=""
@@ -99,47 +100,37 @@ run_or_fail() {
 
 git fetch origin || abort "git fetch origin failed in $PIPELINE_TREE"
 
-case "${1:-}" in
-    "")
-        QUEUE_REFS=$(git ls-remote origin 'refs/heads/gh-readonly-queue/main/*') \
-            || abort "git ls-remote for the merge queue failed"
-        CURRENT_MAIN=$(git rev-parse origin/main) || abort "could not resolve origin/main"
-        MATCHING=$(printf '%s\n' "$QUEUE_REFS" | awk -F'\t' -v base="$CURRENT_MAIN" '
-            { n = split($2, a, "/"); ref = a[n]
-              if (ref ~ /^pr-[0-9]+-[0-9a-f]+$/) {
-                  split(ref, b, "-")
-                  if (b[3] == base) print $1 "\t" b[2] "\t" $2
-              }
-            }')
-        MATCH_COUNT=$(printf '%s\n' "$MATCHING" | grep -c . || true)
-        if [ "$MATCH_COUNT" -eq 0 ]; then
-            echo "run.sh: no job" >&2
-            exit 0
-        elif [ "$MATCH_COUNT" -gt 1 ]; then
-            echo "run.sh: more than one gh-readonly-queue ref based on origin/main" >&2
-            exit 2
-        fi
-        QUEUE_SHA=$(printf '%s' "$MATCHING" | cut -f1)
-        PR_NUMBER=$(printf '%s' "$MATCHING" | cut -f2)
-        QUEUE_REF=$(printf '%s' "$MATCHING" | cut -f3)
-        git fetch --quiet origin "$QUEUE_REF" || abort "could not fetch $QUEUE_REF"
-        BASELINE=$(git rev-parse "$QUEUE_SHA^1") || abort "could not resolve $QUEUE_SHA^1"
-        if git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse --verify -q \
-                "refs/tags/baseline/$BASELINE" > /dev/null 2>&1; then
-            KIND=queue; SHA=$QUEUE_SHA
-        else
-            KIND=baseline; SHA=$BASELINE
-        fi
-        ;;
-    baseline)
-        KIND=baseline
-        SHA=${2:-$(git rev-parse "$PIPELINE_BASELINE_REF")}
-        ;;
-    *)
-        echo "usage: run.sh | run.sh baseline [<sha>]" >&2
-        exit 2
-        ;;
-esac
+[ -z "${1:-}" ] || { echo "usage: run.sh" >&2; exit 2; }
+
+QUEUE_REFS=$(git ls-remote origin 'refs/heads/gh-readonly-queue/main/*') \
+    || abort "git ls-remote for the merge queue failed"
+CURRENT_MAIN=$(git rev-parse origin/main) || abort "could not resolve origin/main"
+MATCHING=$(printf '%s\n' "$QUEUE_REFS" | awk -F'\t' -v base="$CURRENT_MAIN" '
+    { n = split($2, a, "/"); ref = a[n]
+      if (ref ~ /^pr-[0-9]+-[0-9a-f]+$/) {
+          split(ref, b, "-")
+          if (b[3] == base) print $1 "\t" b[2] "\t" $2
+      }
+    }')
+MATCH_COUNT=$(printf '%s\n' "$MATCHING" | grep -c . || true)
+if [ "$MATCH_COUNT" -eq 0 ]; then
+    echo "run.sh: no job" >&2
+    exit 0
+elif [ "$MATCH_COUNT" -gt 1 ]; then
+    echo "run.sh: more than one gh-readonly-queue ref based on origin/main" >&2
+    exit 2
+fi
+QUEUE_SHA=$(printf '%s' "$MATCHING" | cut -f1)
+PR_NUMBER=$(printf '%s' "$MATCHING" | cut -f2)
+QUEUE_REF=$(printf '%s' "$MATCHING" | cut -f3)
+git fetch --quiet origin "$QUEUE_REF" || abort "could not fetch $QUEUE_REF"
+BASELINE=$(git rev-parse "$QUEUE_SHA^1") || abort "could not resolve $QUEUE_SHA^1"
+if git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse --verify -q \
+        "refs/tags/baseline/$BASELINE" > /dev/null 2>&1; then
+    KIND=queue; SHA=$QUEUE_SHA
+else
+    KIND=baseline; SHA=$BASELINE
+fi
 
 RUN_DIR="$PIPELINE_DRIVER/local/pipeline/runs/$SHA"
 mkdir -p "$RUN_DIR"
@@ -169,7 +160,12 @@ JOB_BH=$(git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse HEAD) \
 DELTA_RC=0
 "${TREE_JUST[@]}" artifact-diff "baseline/$BASELINE" "$JOB_BH" \
     > "$RUN_DIR/delta.txt" 2> "$RUN_DIR/delta.err" || DELTA_RC=$?
-[ "$DELTA_RC" -eq 1 ] && finish success "no change in image; no device run"
+if [ "$DELTA_RC" -eq 1 ]; then
+    grep -qx 'no change in image' "$RUN_DIR/delta.err" \
+        && finish success "no change in image; no device run"
+    stage_logargs delta "$RUN_DIR/delta.err"
+    finish error "artifact diff failed" "${LOGARGS[@]}"
+fi
 [ "$DELTA_RC" -eq 0 ] || finish error "artifact diff could not tell"
 
 run_or_fail bundle "$RUN_DIR/bundle.log" "${TREE_JUST[@]}" kiosk-bundle

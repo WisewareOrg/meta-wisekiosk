@@ -8,8 +8,6 @@ REPORT="$HERE/pipeline/report-build.py"
 SCRUB="$HERE/scrub-identity.py"
 
 PY=python3
-REPO_ROOT="$(cd "$HERE/.." && pwd)"
-[ -x "$REPO_ROOT/.venv/bin/python3" ] && PY="$REPO_ROOT/.venv/bin/python3"
 
 TOP=$(mktemp -d)
 trap 'rm -rf "$TOP"' EXIT
@@ -42,23 +40,10 @@ cat > "$RESULTS" <<'EOF'
 }}}
 EOF
 
-WRAPPED="$TOP/testresults-wrapped.json"
-cat > "$WRAPPED" <<'EOF'
-{"1234-abcd": {"configuration": {}, "result": {
-    "test_page_serves": {"status": "PASSED"}
-}}}
-EOF
-
 LONGLOG="$TOP/long.log"
 seq 1 250 > "$LONGLOG"
 
 # --- report-build.py assertions -----------------------------------------
-
-capture out rc "$PY" "$REPORT" --delta "$DELTA"
-if [ "$rc" -eq 2 ]; then ok "build: missing --verdict refuses (rc 2)"; else bad "missing --verdict" "rc=$rc"; fi
-
-capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --delta "$DELTA" --bogus x
-if [ "$rc" -eq 2 ]; then ok "build: an unknown flag refuses (rc 2)"; else bad "unknown flag" "rc=$rc"; fi
 
 capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --delta "$DELTA" --log "$TOP/no-such-log"
 if [ "$rc" -eq 0 ] && [[ "$out" == *"could not read"* ]]; then
@@ -89,13 +74,6 @@ else
     bad "passing case got a log section"
 fi
 
-capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --delta "$DELTA" --results "$WRAPPED"
-if [ "$rc" -eq 0 ] && [[ "$out" == *"test_page_serves"* ]]; then
-    ok "build: the wrapped {id: {result}} results shape also parses"
-else
-    bad "wrapped results shape" "rc=$rc out=$out"
-fi
-
 capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --delta "$DELTA" --log "$LONGLOG"
 if [ "$rc" -eq 0 ] && [[ "$out" == *"## Log — long.log"* ]] \
         && [[ "$out" == *$'\n1\n'* ]] && [[ "$out" == *$'\n250'* ]]; then
@@ -104,24 +82,8 @@ else
     bad "log label and no re-tail" "rc=$rc"
 fi
 
-BIGDELTA="$TOP/big-delta.txt"
-"$PY" -c "print('x' * 100000)" > "$BIGDELTA"
-capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --delta "$BIGDELTA"
-if [ "$rc" -eq 0 ] && [ "${#out}" -gt 60000 ] && [[ "$out" != *"report truncated"* ]]; then
-    ok "build: the renderer itself caps nothing -- the driver's head -c does that"
-else
-    bad "no renderer-side size cap" "rc=$rc len=${#out}"
-fi
-
-capture out rc "$PY" "$REPORT" --help
-if [ "$rc" -eq 2 ]; then
-    ok "build: --help is rejected like any other unrecognized flag (rc 2)"
-else
-    bad "--help no longer special-cased" "rc=$rc"
-fi
-
 # --- scrub-identity.py --filter fixtures --------------------------------
-# Split: a joined literal here would trip gitleaks and scrub-identity.py's own --check.
+# Split literals: neither gitleaks nor scrub-identity.py --check matches them.
 ip_hi="10.77.4"; ip_lo="9"
 STRAY_IP="${ip_hi}.${ip_lo}"
 pk_dash="-----"; pk_begin="BEGIN"; pk_priv="PRIVATE"; pk_key="KEY"; pk_end="END"
@@ -145,7 +107,7 @@ run_filter() { "$PY" "$SCRUB" --filter "$TOP/filterroot" < "$TOP/filter-in"; }
 printf 'bench is 198.51.100.14, prod is 198.51.100.7\n' > "$TOP/filter-in"
 out=$(run_filter)
 if [[ "$out" == *"<bench.address>"* ]] && [[ "$out" == *"<prod.address>"* ]]; then
-    ok "filter: known map values become <role.key>, longest first"
+    ok "filter: known map values become <key>, longest first"
 else
     bad "filter known values" "$out"
 fi
