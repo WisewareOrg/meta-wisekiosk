@@ -1,0 +1,16 @@
+# Colon-joined onto the image config by `just testimage`.
+header:
+  version: 20
+
+env:
+  TEST_TARGET_IP: ""
+  OEQA_JSON_RESULT_DIR: ""
+
+local_conf_header:
+  testimage: |
+    IMAGE_CLASSES += "testimage"
+    TEST_TARGET = "simpleremote"
+    TEST_SUITES = "wisekiosk"
+
+    # required non-empty by testimage_sanity; unused
+    TEST_SERVER_IP = "127.0.0.1"
