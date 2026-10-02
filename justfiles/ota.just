@@ -141,10 +141,7 @@ casync-stats store:
 [group('ota')]
 [doc("Build the RAUC update bundle")]
 kiosk-bundle kconfig="kiosk-zero-w.yaml":
-    tools/write-build-rev.sh
-    {{py}} tools/go-mods.py
-    {{py}} tools/app-lockfile.py
-    kas-container shell {{kconfig}} -c "bitbake update-bundle"
+    tools/kas-run.sh shell {{kconfig}} -c "bitbake update-bundle"
 
 # Every check here catches a failure that otherwise surfaces only after the
 # transfer completes, or does not surface at all.
@@ -265,7 +262,7 @@ kiosk-install host=kiosk-host:
 # Reboot and wait for the kiosk to answer again.
 [group('ota')]
 [script('bash')]
-kiosk-reboot host=kiosk-host:
+kiosk-reboot host=kiosk-host timeout="300":
     SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10"
     BEFORE=$($SSH {{host}} 'cat /proc/sys/kernel/random/boot_id' 2>/dev/null)
     $SSH {{host}} 'systemctl reboot' >/dev/null 2>&1 || true
@@ -273,7 +270,7 @@ kiosk-reboot host=kiosk-host:
     while :; do
         NOW=$($SSH {{host}} 'cat /proc/sys/kernel/random/boot_id' 2>/dev/null || true)
         [ -n "$NOW" ] && [ "$NOW" != "$BEFORE" ] && break
-        [ $(( $(date +%s) - T0 )) -gt 300 ] && { echo "did not come back in 300s"; exit 1; }
+        [ $(( $(date +%s) - T0 )) -gt {{timeout}} ] && { echo "did not come back in {{timeout}}s"; exit 1; }
         sleep 5
     done
     echo "back after $(( $(date +%s) - T0 ))s, boot_id $NOW"

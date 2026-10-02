@@ -1,0 +1,51 @@
+# Pipeline provisioning and control: docs/testing.md §"Running it".
+# Requires py from the root Justfile.
+
+[group('pipeline')]
+[doc("Provision the pipeline's checkouts, env file and units; install its ssh key on the target")]
+pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
+                 dl_dir=env('DL_DIR', (justfile_directory() / 'build/downloads')) \
+                 sstate_dir=env('SSTATE_DIR', (justfile_directory() / 'build/sstate-cache')) \
+                 target=env('PIPELINE_TARGET', ''):
+    PIPELINE_DRIVER_REF={{driver_ref}} DL_DIR={{dl_dir}} SSTATE_DIR={{sstate_dir}} PIPELINE_TARGET={{target}} tools/pipeline/install.sh
+
+[group('pipeline')]
+[script('bash')]
+[doc("Print and clear any DISABLED reason, then enable the pipeline timer")]
+pipeline-on:
+    set -euo pipefail
+    DISABLED="$HOME/wisekiosk-pipeline/driver/local/pipeline/DISABLED"
+    if [ -f "$DISABLED" ]; then
+        echo "clearing DISABLED:"
+        cat "$DISABLED"
+        rm -- "$DISABLED"
+    fi
+    systemctl --user enable --now wisekiosk-pipeline.timer
+
+[group('pipeline')]
+[doc("Disable the pipeline timer")]
+pipeline-off:
+    systemctl --user disable --now wisekiosk-pipeline.timer
+
+[group('pipeline')]
+[script('bash')]
+[doc("Report the timer's state and any DISABLED reason")]
+pipeline-status:
+    systemctl --user status wisekiosk-pipeline.timer --no-pager || true
+    echo
+    DISABLED="$HOME/wisekiosk-pipeline/driver/local/pipeline/DISABLED"
+    if [ -f "$DISABLED" ]; then
+        echo "DISABLED:"
+        cat "$DISABLED"
+    else
+        echo "no DISABLED file"
+    fi
+
+[group('pipeline')]
+[script('bash')]
+[doc("Run one pipeline job by hand: the queue head, or a missing baseline")]
+pipeline-run *args:
+    set -a
+    . "$HOME/.config/wisekiosk/pipeline.env"
+    set +a
+    "$HOME/wisekiosk-pipeline/driver/tools/pipeline/run.sh" {{args}}

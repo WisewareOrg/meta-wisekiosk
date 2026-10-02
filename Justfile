@@ -16,7 +16,7 @@ set dotenv-load := true
 # so a bare `python3` resolves to a host one without it and the YAML guard
 # fails on a tree that parses fine. Preferred, not required -- CI has no .venv
 # and installs PyYAML into its own python3, which is the fallback.
-py := if path_exists(justfile_directory() / ".venv/bin/python3") == "true" { justfile_directory() / ".venv/bin/python3" } else { "python3" }
+export py := if path_exists(justfile_directory() / ".venv/bin/python3") == "true" { justfile_directory() / ".venv/bin/python3" } else { "python3" }
 
 # Default machine target
 machine := env('MACHINE', 'raspberrypi0-wifi')
@@ -62,6 +62,7 @@ import 'justfiles/ota.just'
 import 'justfiles/deploy.just'
 import 'justfiles/device.just'
 import 'justfiles/rotate.just'
+import 'justfiles/pipeline.just'
 
 default: help
 
@@ -74,18 +75,12 @@ help:
 # Build the kiosk image using kas-container
 [group('build')]
 build:
-    tools/write-build-rev.sh
-    {{py}} tools/go-mods.py
-    {{py}} tools/app-lockfile.py
-    kas-container build {{config}}
+    tools/kas-run.sh build {{config}}
 
 # Open a shell in the build environment
 [group('build')]
 shell:
-    tools/write-build-rev.sh
-    {{py}} tools/go-mods.py
-    {{py}} tools/app-lockfile.py
-    kas-container shell {{config}}
+    tools/kas-run.sh shell {{config}}
 
 # === Clean ===
 
@@ -198,11 +193,23 @@ gap repo *args:
 [group('audit')]
 [doc("Build with cve-check inherited: CVE manifest beside the image, snapshot in ~/.cache/wisekiosk")]
 cve-build:
-    tools/write-build-rev.sh
-    {{py}} tools/go-mods.py
-    {{py}} tools/app-lockfile.py
-    kas-container build {{config}}:includes/cve-audit.yaml
+    tools/kas-run.sh build {{config}}:includes/cve-audit.yaml
     {{py}} tools/cve-delta.py snapshot
+
+[group('audit')]
+[doc("Diff buildhistory's image files between two buildhistory refs")]
+artifact-diff base head *args:
+    {{py}} tools/artifact-diff.py {{args}} {{base}} {{head}}
+
+[group('audit')]
+[script('bash')]
+[doc("Build with testimage inherited; run the wisekiosk oeqa suite over ssh")]
+testimage ssh_dir=env('PIPELINE_SSH_DIR', ''):
+    if [ -z "{{ssh_dir}}" ] || [ -z "${TEST_TARGET_IP:-}" ]; then
+        echo "testimage needs ssh_dir (or PIPELINE_SSH_DIR) and TEST_TARGET_IP set -- refusing" >&2
+        exit 2
+    fi
+    KAS_RUN_ENV="TEST_TARGET_IP OEQA_JSON_RESULT_DIR" tools/kas-run.sh --ssh-dir {{ssh_dir}} build {{config}}:includes/testimage.yaml -c testimage
 
 # Write per-site config to a device's /data. The image carries none of it.
 [group('provision')]

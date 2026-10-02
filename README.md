@@ -73,7 +73,7 @@ meta-wisekiosk/                    <- the repository (project scaffolding)
 │   └── platforms/
 │       ├── raspberrypi.yaml
 │       └── raspberrypi-zero-w.yaml
-├── patches/meta-autonomos/        two patches kas applies to the upstream checkout
+├── patches/<repo>/                patches kas applies to upstream checkouts
 ├── meta-wisekiosk/                <- THE LAYER: recipes, bbappends, classes
 │   ├── conf/layer.conf
 │   ├── classes/
@@ -89,7 +89,7 @@ meta-wisekiosk/                    <- the repository (project scaffolding)
 
 Nothing outside `meta-wisekiosk/` is read by BitBake. Nothing inside it is read by anything else.
 If you are new to Yocto, read **[docs/layers-and-kas.md](docs/layers-and-kas.md)** — it explains what
-a layer is, what kas does with these files, and why the two patches cannot be bbappends.
+a layer is, what kas does with these files, and why meta-autonomos's patches cannot be bbappends.
 
 Every change that was acted on is documented at the recipe carrying it; the per-issue investigations
 behind those changes are indexed in **[docs/README.md](docs/README.md)**.
