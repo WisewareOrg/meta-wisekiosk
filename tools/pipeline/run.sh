@@ -354,10 +354,13 @@ mkdir -p "$RUN_DIR"
 
 ssh "${SSH_OPTS[@]}" "$SSH_HOST" true || abort "bench ($SSH_HOST) unreachable"
 
-OBSERVED_HOSTNAME=$(ssh "${SSH_OPTS[@]}" "$SSH_HOST" hostname 2>/dev/null || true)
-if [ -z "${PIPELINE_TARGET_HOSTNAME:-}" ] || [ "$OBSERVED_HOSTNAME" != "$PIPELINE_TARGET_HOSTNAME" ]; then
-    echo "run.sh: observed hostname does not match PIPELINE_TARGET_HOSTNAME" >&2
+if [ -z "${PIPELINE_TARGET_HOSTNAME:-}" ]; then
+    echo "run.sh: PIPELINE_TARGET_HOSTNAME not set" >&2
     exit 2
+fi
+OBSERVED_HOSTNAME=$(ssh "${SSH_OPTS[@]}" "$SSH_HOST" hostname 2>/dev/null || true)
+if [ "$OBSERVED_HOSTNAME" != "$PIPELINE_TARGET_HOSTNAME" ]; then
+    abort "PIPELINE_TARGET's live hostname does not match the recorded PIPELINE_TARGET_HOSTNAME"
 fi
 
 if [ -f "$PIPELINE_BUILD_DIR/bitbake.lock" ] \

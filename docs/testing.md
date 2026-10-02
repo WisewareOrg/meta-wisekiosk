@@ -89,16 +89,18 @@ stops there — no bundle, OTA, `testimage` or rollback runs for it.
 every stage's log, each stage's `testresults.json`, and the assembled (redacted, capped) report body.
 The newest 20 run directories are kept; older ones are pruned automatically.
 
-**An infrastructure failure** — the device unreachable, the build directory locked, a kas container
-already running, the baseline ref or its buildhistory tag not resolvable, the device not resting on a
-tagged baseline image, a reboot that never comes back, or the process exiting for any other reason
-while the device sits mid-OTA — writes `local/pipeline/DISABLED` under the driver with the reason and
-disables the timer. Nothing loops silently. Fix the cause, then `just pipeline-on` -- it prints the
-DISABLED reason and clears the file itself, as an explicit acknowledgement, before re-enabling.
+**An infrastructure failure** — the device unreachable, the device's live hostname not matching the
+recorded `PIPELINE_TARGET_HOSTNAME` (the address now reaches a different device), the build directory
+locked, a kas container already running, the baseline ref or its buildhistory tag not resolvable, the
+device not resting on a tagged baseline image, a reboot that never comes back, or the process exiting
+for any other reason while the device sits mid-OTA — writes `local/pipeline/DISABLED` under the
+driver with the reason and disables the timer. Nothing loops silently. Fix the cause, then `just
+pipeline-on` -- it prints the DISABLED reason and clears the file itself, as an explicit
+acknowledgement, before re-enabling.
 
-`PIPELINE_TARGET` unset, or the device's live hostname not matching the recorded
-`PIPELINE_TARGET_HOSTNAME`, refuses the run outright (rc 2) without touching the timer — a
-`pipeline.env` configuration problem, not an infrastructure failure.
+`PIPELINE_TARGET` or `PIPELINE_TARGET_HOSTNAME` unset refuses the run outright (rc 2) without
+touching the timer — a `pipeline.env` configuration problem, like any other required variable
+missing, not an infrastructure failure.
 
 A new host needs a clone, the dev tree's `local/device-identity.md`, `gh auth login`, and
 `just pipeline-install`.
