@@ -80,7 +80,7 @@ def driver_sha(driver):
         out = subprocess.run(["git", "-C", driver, "rev-parse", "--short", "HEAD"],
                               capture_output=True, text=True, timeout=5)
         return out.stdout.strip() if out.returncode == 0 else "unknown"
-    except OSError:
+    except (OSError, subprocess.SubprocessError):
         return "unknown"
 
 
@@ -93,7 +93,7 @@ def service_active():
         out = subprocess.run(["systemctl", "--user", "is-active", "wisekiosk-pipeline.service"],
                               capture_output=True, text=True, timeout=5)
         return out.stdout.strip() in ("active", "activating")
-    except OSError:
+    except (OSError, subprocess.SubprocessError):
         return False
 
 
@@ -110,7 +110,7 @@ def fetch_queue():
     try:
         out = subprocess.run(["gh", "api", "graphql", "-f", f"query={GRAPHQL_QUERY}"],
                               capture_output=True, text=True, timeout=15)
-    except OSError as exc:
+    except (OSError, subprocess.SubprocessError) as exc:
         return None, str(exc).splitlines()[0]
     if out.returncode != 0:
         return None, (out.stderr or "gh failed").splitlines()[0]
@@ -196,21 +196,29 @@ def running_tasks(lines, limit=RUNNING_TASKS_LIMIT):
     return [f"{recipe}:{task}" for recipe, task in started if (recipe, task) not in done][-limit:]
 
 
-def build_status(log_path, now, idx, run_dir):
+def build_status(log_path, now, idx, run_dir, prev_file):
+    """Elapsed shown and fed to the history term is since the previous phase's
+    file (or the run dir's ctime), like every other phase. The rate term is
+    separate: bitbake's task counter is already deep into the build by the
+    first logged line (most early tasks are instant cache hits with no NOTE),
+    so the rate is tasks done SINCE that line over time since that line, not
+    the absolute count over the same window."""
+    elapsed = now - (prev_file.stat().st_mtime if prev_file else run_dir.stat().st_ctime)
+    elapsed_mins = int(elapsed / 60)
     try:
         lines = log_path.read_text(errors="replace").splitlines()
     except OSError:
-        return "elapsed 0m, no task count yet  ETA unknown"
+        return f"elapsed {elapsed_mins}m, no task count yet  ETA unknown"
     running = running_tasks(lines)
     running_str = f"  running: {', '.join(running)}" if running else ""
     task_lines = [m for m in (TASK_LINE_RE.match(line) for line in lines) if m]
     if not task_lines:
-        mins = int((now - log_path.stat().st_mtime) / 60) if log_path.exists() else 0
-        return f"elapsed {mins}m, no task count yet{running_str}  ETA unknown"
+        return f"elapsed {elapsed_mins}m, no task count yet{running_str}  ETA unknown"
     first_ts = time.mktime(time.strptime(task_lines[0].group(1), "%Y-%m-%d %H:%M:%S"))
+    first_done = int(task_lines[0].group(2))
     done, total = int(task_lines[-1].group(2)), int(task_lines[-1].group(3))
-    elapsed = now - first_ts
-    rate = done / elapsed if elapsed > 0 else 0
+    rate_elapsed = now - first_ts
+    rate = (done - first_done) / rate_elapsed if rate_elapsed > 0 else 0
     remaining_by_rate = (total - done) / rate if rate > 0 else None
 
     history = median_durations(idx, run_dir)
@@ -218,7 +226,7 @@ def build_status(log_path, now, idx, run_dir):
 
     bases = [b for b in (remaining_by_rate, remaining_by_history) if b is not None]
     eta = f"ETA ~{int(max(bases) / 60)}m (rough)" if bases else "ETA unknown"
-    return f"{done}/{total} tasks, elapsed {int(elapsed / 60)}m{running_str}  {eta}"
+    return f"{done}/{total} tasks, elapsed {elapsed_mins}m{running_str}  {eta}"
 
 
 def other_eta(idx, phase_file, prev_file, run_dir, now):
@@ -244,10 +252,12 @@ def verdict_text(run_dir):
 def phase_line(run_dir, now, live):
     """"PHASE: ..." text for run_dir's current phase, and its log Path (or
     None). When the pipeline service is not active, nothing ticks: the run
-    reads as posted (if verdict.txt exists) or ended with none."""
+    reads as posted only if verdict.txt or body.md is itself the newest
+    phase file (not merely present -- run.sh reuses runs/<sha> for a later
+    baseline of the same sha, which leaves a stale verdict.txt behind)."""
     idx, phase_file, prev_file = current_phase(run_dir)
     if not live:
-        if (run_dir / "verdict.txt").exists():
+        if idx is not None and PHASES[idx][0] == "posted":
             return f"PHASE: posted {verdict_text(run_dir)}", phase_file
         return "PHASE: ended: no verdict (baseline build, or aborted; see DISABLED)", phase_file
     if idx is None:
@@ -256,7 +266,7 @@ def phase_line(run_dir, now, live):
     if name == "posted":
         return f"PHASE: posted {verdict_text(run_dir)}", phase_file
     if name == "build":
-        return f"PHASE: build  {build_status(phase_file, now, idx, run_dir)}", phase_file
+        return f"PHASE: build  {build_status(phase_file, now, idx, run_dir, prev_file)}", phase_file
     return f"PHASE: {name}  {other_eta(idx, phase_file, prev_file, run_dir, now)}", phase_file
 
 
@@ -280,16 +290,16 @@ def draw(stdscr, state):
     max_y, max_x = stdscr.getmaxyx()
     top = [f"pipeline-watch  driver {state['sha']}"
            + (f"  DISABLED: {state['disabled']}" if state["disabled"] is not None else "")
-           + f"  refreshed {time.strftime('%H:%M:%S', time.localtime(state['refreshed']))}",
-           "queue:"]
+           + f"  refreshed {time.strftime('%H:%M:%S', time.localtime(state['refreshed']))}"]
     if state["queue_error"]:
         top.append(f"queue: unavailable ({state['queue_error']})")
     elif not state["queue"]:
         top.append("queue: empty")
     else:
+        top.append("queue:")
         top.extend(state["queue"])
     top.append("")
-    top.append(f"run {state['run_dir'].name}" if state["run_dir"] else "no runs yet")
+    top.append(f"run {state['run_dir'].name[:7]}" if state["run_dir"] else "no runs yet")
     if state["run_dir"]:
         top.append(state["phase_line"])
     top.append("")
@@ -303,6 +313,7 @@ def draw(stdscr, state):
 
     lines = state["log_lines"] or []
     visible = max_y - row
+    state["log_visible"] = visible
     if visible > 0 and lines:
         offset = state["scroll"]
         end = len(lines) - offset if offset else len(lines)
@@ -314,27 +325,20 @@ def draw(stdscr, state):
     curses.doupdate()
 
 
-def main(stdscr):
-    env_path = os.path.expanduser(os.environ.get("PIPELINE_ENV",
-                                                   "~/.config/wisekiosk/pipeline.env"))
-    driver = load_driver(env_path)
-    if not driver:
-        curses.endwin()
-        print(f"watch.py: PIPELINE_DRIVER not found via {env_path}", file=sys.stderr)
-        return 2
+def main(stdscr, driver):
+    """None on a clean quit, else an error line for the caller to print after
+    curses has torn down -- curses.wrapper() already calls endwin() once
+    func returns, so this never calls it itself."""
     max_y, max_x = stdscr.getmaxyx()
     if max_x < MIN_COLS or max_y < MIN_LINES:
-        curses.endwin()
-        print(f"watch.py: terminal must be at least {MIN_COLS}x{MIN_LINES}", file=sys.stderr)
-        return 2
+        return f"watch.py: terminal must be at least {MIN_COLS}x{MIN_LINES}"
 
     curses.curs_set(0)
-    stdscr.nodelay(True)
     stdscr.timeout(200)
 
-    state = {"sha": driver_sha(driver), "disabled": disabled_reason(driver),
+    state = {"sha": "unknown", "disabled": None,
               "queue": [], "queue_error": None, "run_dir": None, "phase_line": "",
-              "log_lines": None, "scroll": 0, "refreshed": time.time()}
+              "log_lines": None, "scroll": 0, "log_visible": 0, "refreshed": time.time()}
     last_queue = last_run = 0
     paused = False
 
@@ -346,6 +350,8 @@ def main(stdscr):
             last_queue = now
 
         if not paused and now - last_run >= RUN_REFRESH_S:
+            state["sha"] = driver_sha(driver)
+            state["disabled"] = disabled_reason(driver)
             run_dir = newest_run_dir(driver)
             state["run_dir"] = run_dir
             if run_dir is None:
@@ -358,18 +364,16 @@ def main(stdscr):
 
         draw(stdscr, state)
 
-        try:
-            key = stdscr.getch()
-        except curses.error:
-            key = -1
+        key = stdscr.getch()
         if key == ord("q"):
-            return 0
+            return None
         if key == curses.KEY_RESIZE:
             curses.update_lines_cols()
         elif key in (ord("j"), curses.KEY_DOWN):
             state["scroll"] = max(0, state["scroll"] - 1)
         elif key in (ord("k"), curses.KEY_UP) and state["log_lines"]:
-            state["scroll"] = min(len(state["log_lines"]), state["scroll"] + 1)
+            max_scroll = max(0, len(state["log_lines"]) - state["log_visible"])
+            state["scroll"] = min(max_scroll, state["scroll"] + 1)
         elif key in (ord("G"), curses.KEY_END):
             state["scroll"] = 0
         elif key == ord("p"):
@@ -380,4 +384,13 @@ if __name__ == "__main__":
     if "--help" in sys.argv or "-h" in sys.argv:
         print(__doc__)
         sys.exit(0)
-    sys.exit(curses.wrapper(main))
+    main_env_path = os.path.expanduser(os.environ.get("PIPELINE_ENV",
+                                                        "~/.config/wisekiosk/pipeline.env"))
+    main_driver = load_driver(main_env_path)
+    if not main_driver:
+        print(f"watch.py: PIPELINE_DRIVER not found via {main_env_path}", file=sys.stderr)
+        sys.exit(2)
+    main_error = curses.wrapper(main, main_driver)
+    if main_error:
+        print(main_error, file=sys.stderr)
+        sys.exit(2)
