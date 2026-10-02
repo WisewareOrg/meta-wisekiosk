@@ -7,16 +7,20 @@
     report.py check --map <path>
         -- read a candidate report body on stdin
     report.py post --sha <sha> --state {pending,success,failure,error}
-                    --description <text> [--pr <n> --body <file>]
+                    --map <path> --description <text> [--pr <n> --body <file>]
         -- post a commit status; with --pr, also --body as a PR comment
 
 build: rc 1 if the body cannot fit --limit; rc 2 on a bad argument, a missing
-input or invalid --results JSON; nothing on stdout unless rc 0.
+input, invalid --results JSON, a results file not shaped like oeqa's output,
+or private key material anywhere in the raw (uncapped) inputs; nothing on
+stdout unless rc 0.
 check: rc 0 clean; rc 1 identity found or PARTIAL; rc 2 private-key header or a tool/git failure.
-post: rc 1 if gh fails; rc 2 on a bad argument.
+post: redacts and checks --description and --body against --map the same way
+`check` does, refusing rc 2 on a hit or a PARTIAL before anything is sent;
+rc 1 if gh fails; rc 2 on a bad argument.
 """
-import importlib.util
 import json
+import os
 import re
 import subprocess
 import sys
@@ -25,27 +29,43 @@ from pathlib import Path
 
 TOOLS = Path(__file__).resolve().parent.parent
 
+# git's per-invocation scope -- exported to a hook and to anything it runs,
+# and these outrank `git -C <path>`, so a command meant for a different
+# checkout would silently read this one instead. Hand list, not derived from
+# git itself: `check` must survive a missing or broken git with rc 2, not a
+# crash at report.py's own import time from a subprocess call to compute it.
+GIT_SCOPE = frozenset((
+    "GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE", "GIT_OBJECT_DIRECTORY",
+    "GIT_COMMON_DIR", "GIT_CONFIG", "GIT_PREFIX"))
 
-def _load_by_path(name, filename):
-    spec = importlib.util.spec_from_file_location(name, TOOLS / filename)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+
+def git_env(**overrides):
+    """The ambient environment with git's per-invocation scope removed."""
+    env = {k: v for k, v in os.environ.items() if k not in GIT_SCOPE}
+    env.update(overrides)
+    return env
 
 
-_scrub_identity = _load_by_path("scrub_identity", "scrub-identity.py")
-_layer_currency = _load_by_path("layer_currency", "layer-currency.py")
-PATTERNS = _scrub_identity.PATTERNS
-git_env = _layer_currency.git_env
+# scrub-identity.py is loaded lazily, on first use, and only by the code
+# paths that need it (build's redaction; never check's, which only shells
+# out to it as a separate process) -- so a load failure there cannot break
+# check's "only its four constants" guarantee either.
+_scrub_identity_module = None
 
-FENCE_OPEN = re.compile(r'^```identity\s*$')
-FENCE_CLOSE = re.compile(r'^```\s*$')
-MAP_ROW = re.compile(r'^\s*([A-Za-z0-9_.]+)\s*=\s*(\S.*?)\s*$')
+
+def _scrub_identity():
+    global _scrub_identity_module
+    if _scrub_identity_module is None:
+        spec_name, filename = "scrub_identity", "scrub-identity.py"
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(spec_name, TOOLS / filename)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _scrub_identity_module = module
+    return _scrub_identity_module
+
 
 PRIVATE_KEY = re.compile(r'-----BEGIN [A-Z ]*PRIVATE KEY-----')
-
-# Format owner: local/device-identity.md §"Format".
-PUBLIC_NS = "public."
 
 STATES = ("pending", "success", "failure", "error")
 STATUS_CONTEXT = "bench-pipeline"
@@ -61,42 +81,63 @@ def refuse(reason):
 
 def load_map_rows(map_path):
     """[(key, value)] for every non-empty, non-public.* row in map_path's
-    ```identity fence."""
+    ```identity fence. Format owner: local/device-identity.md §"Format"."""
+    sid = _scrub_identity()
     text = map_path.read_text(encoding="utf-8")
     rows, inside = [], False
     for line in text.splitlines():
         if not inside:
-            if FENCE_OPEN.match(line):
+            if sid.FENCE_OPEN.match(line):
                 inside = True
             continue
-        if FENCE_CLOSE.match(line):
+        if sid.FENCE_CLOSE.match(line):
             break
-        m = MAP_ROW.match(line)
+        m = sid.MAP_ROW.match(line)
         if not m:
             continue
         key, value = m.group(1), m.group(2)
-        if key.startswith(PUBLIC_NS) or not value:
+        if key.startswith(sid.PUBLIC_NS) or not value:
             continue
         rows.append((key, value))
     return rows
 
 
+def _redact_known(text, rows):
+    """Every map value replaced by <key>, longest value first, case-
+    insensitive, in one pass -- so an earlier replacement's own <key> token
+    is never itself rescanned and matched against a shorter value."""
+    if not rows:
+        return text
+    ordered = sorted(rows, key=lambda row: -len(row[1]))
+    value_to_key = {}
+    for key, value in ordered:
+        value_to_key.setdefault(value.lower(), key)
+    pattern = re.compile(
+        "|".join(re.escape(value) for _key, value in ordered), re.IGNORECASE)
+    return pattern.sub(lambda m: f"<{value_to_key[m.group(0).lower()]}>", text)
+
+
 def redact(text, rows):
-    for key, value in sorted(rows, key=lambda row: -len(row[1])):
-        text = text.replace(value, f"<{key}>")
-    for _label, pattern, _remedy in PATTERNS:
+    text = _redact_known(text, rows)
+    for _label, pattern, _remedy in _scrub_identity().PATTERNS:
         text = pattern.sub("<redacted>", text)
     return text
 
 
 def result_dict(data):
     """The case->status dict from oeqa's `{<result-id>: {configuration, result}}`
-    shape or a bare `{configuration, result}`."""
-    if isinstance(data.get("result"), dict):
-        return data["result"]
+    shape or a bare `{configuration, result}`, or {} if data is not shaped
+    like either."""
+    if not isinstance(data, dict):
+        return {}
+    result = data.get("result")
+    if isinstance(result, dict):
+        return result
     for value in data.values():
-        if isinstance(value, dict) and isinstance(value.get("result"), dict):
-            return value["result"]
+        if isinstance(value, dict):
+            inner = value.get("result")
+            if isinstance(inner, dict):
+                return inner
     return {}
 
 
@@ -147,6 +188,10 @@ def parse_build_args(argv):
             results_specs, log_specs), None
 
 
+LOG_TRUNCATED_NOTE = "  (log truncated; full log in the run dir)"
+RESULTS_LOG_STRIPPED_NOTE = "  (log stripped; see the run dir)"
+
+
 def render_results(entries):
     if not entries:
         return ""
@@ -166,6 +211,8 @@ def render_results(entries):
                 for logline in log.splitlines():
                     lines.append("  " + logline)
                 lines.append("  ```")
+            elif info.get("_log_stripped"):
+                lines.append(RESULTS_LOG_STRIPPED_NOTE)
         lines.append("")
     return "\n".join(lines)
 
@@ -177,11 +224,27 @@ DIFF_PLUS = re.compile(r'^\+(?!\+\+)', re.MULTILINE)
 DIFF_MINUS = re.compile(r'^-(?!--)', re.MULTILINE)
 
 
-def delta_summary(text):
+def delta_summary_fallback(text):
+    """A one-line stand-in for `git apply --stat`, used only when the delta
+    text does not parse as a patch (git absent, or not a real diff)."""
     files = len(DIFF_HEADER.findall(text))
     plus = len(DIFF_PLUS.findall(text))
     minus = len(DIFF_MINUS.findall(text))
     return f"{files} files changed, +{plus}/−{minus}"
+
+
+def delta_stat(text):
+    """git's own --stat summary for a unified diff's text, read from stdin
+    so no working tree or repository is needed; the hand-rolled one-line
+    fallback if git cannot parse it."""
+    try:
+        result = subprocess.run(["git", "apply", "--stat"], input=text,
+                                capture_output=True, text=True, env=git_env())
+    except OSError:
+        return delta_summary_fallback(text)
+    if result.returncode == 0 and result.stdout.strip():
+        return result.stdout.rstrip("\n")
+    return delta_summary_fallback(text)
 
 
 def build_body(verdict_text, delta, results_entries, log_entries):
@@ -192,17 +255,21 @@ def build_body(verdict_text, delta, results_entries, log_entries):
     ]
     for entry in log_entries:
         parts += [f"## Log — {entry['label']}", "", "```",
-                 *entry["lines"], "```", ""]
+                 *entry["lines"], "```"]
+        if len(entry["lines"]) < entry["total_lines"]:
+            parts.append(LOG_TRUNCATED_NOTE)
+        parts.append("")
     return "\n".join(parts)
 
 
-def cap(verdict_text, delta, results_entries, log_entries, limit):
-    """The assembled body within `limit`, or None if it cannot fit.
-
-    Truncates log_entries, results_entries' log fields and delta["text"]
-    in place."""
+def cap(verdict_text, delta, results_entries, log_entries, limit, rows):
+    """The assembled, redacted body within `limit`, or None if it cannot
+    fit. Redaction runs on the whole assembled body, every pass, so no
+    field (a case id, a status, a log label) can be forgotten. Truncates
+    log_entries, results_entries' log fields and delta["text"] in place."""
     while True:
-        body = build_body(verdict_text, delta, results_entries, log_entries)
+        body = redact(build_body(verdict_text, delta, results_entries,
+                                 log_entries), rows)
         if len(body) <= limit:
             return body
 
@@ -219,6 +286,7 @@ def cap(verdict_text, delta, results_entries, log_entries, limit):
             for info in result_dict(entry["data"]).values():
                 if "log" in info:
                     del info["log"]
+                    info["_log_stripped"] = True
                     progressed = True
                     break
             if progressed:
@@ -227,9 +295,9 @@ def cap(verdict_text, delta, results_entries, log_entries, limit):
             continue
 
         if not delta.get("truncated"):
-            summary = delta_summary(delta["text"])
+            stat = delta_stat(delta["text"])
             truncated_lines = delta["text"].splitlines()[:DELTA_TRUNCATED_LINES]
-            delta["text"] = (summary + "\n\n" + "\n".join(truncated_lines)
+            delta["text"] = (stat + "\n\n" + "\n".join(truncated_lines)
                             + DELTA_TRUNCATED_NOTE)
             delta["truncated"] = True
             continue
@@ -246,13 +314,13 @@ def cmd_build(argv):
 
     try:
         rows = load_map_rows(Path(map_arg))
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
         return refuse(str(exc))
 
     try:
-        verdict_text = redact(Path(verdict_path).read_text(encoding="utf-8"), rows)
-        delta_text = redact(Path(delta_path).read_text(encoding="utf-8"), rows)
-    except OSError as exc:
+        verdict_text = Path(verdict_path).read_text(encoding="utf-8")
+        delta_text = Path(delta_path).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
         return refuse(str(exc))
     delta = {"text": delta_text}
 
@@ -260,28 +328,34 @@ def cmd_build(argv):
     for label, path in results_specs:
         try:
             raw = Path(path).read_text(encoding="utf-8")
-        except OSError as exc:
+        except (OSError, UnicodeDecodeError) as exc:
             return refuse(str(exc))
         try:
             data = json.loads(raw)
         except json.JSONDecodeError as exc:
             return refuse(f"{path}: not valid JSON ({exc})")
-        for info in result_dict(data).values():
-            if info.get("log"):
-                info["log"] = redact(info["log"], rows)
+        if not isinstance(data, dict):
+            return refuse(f"{path}: not a JSON object")
+        for case_id, info in result_dict(data).items():
+            if not isinstance(info, dict):
+                return refuse(f"{path}: {case_id!r}'s value is not a JSON object")
         results_entries.append({"label": label, "data": data})
 
     log_entries = []
     for label, path in log_specs:
         try:
             text = Path(path).read_text(encoding="utf-8")
-        except OSError as exc:
+        except (OSError, UnicodeDecodeError) as exc:
             return refuse(str(exc))
-        text = redact(text, rows)
+        lines = text.splitlines()
         log_entries.append({"label": label or Path(path).name,
-                            "lines": text.splitlines()})
+                            "lines": lines, "total_lines": len(lines)})
 
-    body = cap(verdict_text, delta, results_entries, log_entries, limit)
+    raw_body = build_body(verdict_text, delta, results_entries, log_entries)
+    if PRIVATE_KEY.search(raw_body):
+        return refuse("private key material in the raw input")
+
+    body = cap(verdict_text, delta, results_entries, log_entries, limit, rows)
     if body is None:
         print("cannot fit within --limit even after truncating log sections, "
               "stripping results log fields, and truncating the delta",
@@ -300,10 +374,52 @@ REASON_IDENTITY_FOUND = "identity found"
 REASON_IDENTITY_PARTIAL = "identity check PARTIAL"
 REASON_TOOL_FAILURE = "tool failure"
 
+IDENTITY_FOUND_MARKER = "IDENTITY IN A TRACKED FILE"
+
 
 def _tool_failure():
     print(REASON_TOOL_FAILURE, file=sys.stderr)
     return 2
+
+
+def _check_body(body, map_arg):
+    """(rc, reason) -- (0, None) clean; (1, REASON_IDENTITY_FOUND or
+    REASON_IDENTITY_PARTIAL); (2, REASON_PRIVATE_KEY or REASON_TOOL_FAILURE)."""
+    if PRIVATE_KEY.search(body):
+        return 2, REASON_PRIVATE_KEY
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        init = subprocess.run(["git", "init", "-q", str(tmp_path)],
+                              env=git_env(), capture_output=True, text=True)
+        if init.returncode != 0:
+            return 2, REASON_TOOL_FAILURE
+
+        (tmp_path / "report-body.md").write_text(body, encoding="utf-8")
+        add = subprocess.run(["git", "-C", str(tmp_path), "add", "report-body.md"],
+                             env=git_env(), capture_output=True, text=True)
+        if add.returncode != 0:
+            return 2, REASON_TOOL_FAILURE
+
+        local_dir = tmp_path / "local"
+        local_dir.mkdir()
+        (local_dir / "device-identity.md").symlink_to(Path(map_arg).resolve())
+
+        scan = subprocess.run(
+            [sys.executable, str(TOOLS / "scrub-identity.py"), "--check", str(tmp_path)],
+            env=git_env(), capture_output=True, text=True)
+
+    if scan.returncode == 0:
+        return 0, None
+    if scan.returncode == 1:
+        if "PARTIAL" in scan.stdout:
+            return 1, REASON_IDENTITY_PARTIAL
+        if IDENTITY_FOUND_MARKER in scan.stdout:
+            return 1, REASON_IDENTITY_FOUND
+        # Some other rc-1 exit (an uncaught exception in scrub-identity.py,
+        # e.g. --map pointing at a directory) is a tool fault, not a finding.
+        return 2, REASON_TOOL_FAILURE
+    return 2, REASON_TOOL_FAILURE
 
 
 def cmd_check(argv):
@@ -328,46 +444,17 @@ def _cmd_check(argv):
         return _tool_failure()
 
     body = sys.stdin.read()
-
-    if PRIVATE_KEY.search(body):
-        print(REASON_PRIVATE_KEY, file=sys.stderr)
-        return 2
-
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp_path = Path(tmp)
-        init = subprocess.run(["git", "init", "-q", str(tmp_path)],
-                              env=git_env(), capture_output=True, text=True)
-        if init.returncode != 0:
-            return _tool_failure()
-
-        (tmp_path / "report-body.md").write_text(body, encoding="utf-8")
-        add = subprocess.run(["git", "-C", str(tmp_path), "add", "report-body.md"],
-                             env=git_env(), capture_output=True, text=True)
-        if add.returncode != 0:
-            return _tool_failure()
-
-        local_dir = tmp_path / "local"
-        local_dir.mkdir()
-        (local_dir / "device-identity.md").symlink_to(Path(map_arg).resolve())
-
-        scan = subprocess.run(
-            [sys.executable, str(TOOLS / "scrub-identity.py"), "--check", str(tmp_path)],
-            env=git_env(), capture_output=True, text=True)
-
-    if scan.returncode == 0:
-        return 0
-    if scan.returncode == 1:
-        print(REASON_IDENTITY_PARTIAL if "PARTIAL" in scan.stdout else REASON_IDENTITY_FOUND,
-              file=sys.stderr)
-        return 1
-    return _tool_failure()
+    rc, reason = _check_body(body, map_arg)
+    if reason is not None:
+        print(reason, file=sys.stderr)
+    return rc
 
 
 # --- post -------------------------------------------------------------
 
 def cmd_post(argv):
     flags = {"--sha": "sha", "--state": "state", "--description": "description",
-            "--pr": "pr", "--body": "body"}
+            "--pr": "pr", "--body": "body", "--map": "map"}
     opts = {v: None for v in flags.values()}
     rest = list(argv)
     while rest:
@@ -379,7 +466,7 @@ def cmd_post(argv):
             return refuse(f"{flag} takes a value")
         opts[key] = rest.pop(0)
 
-    missing = [k for k in ("sha", "state", "description") if opts[k] is None]
+    missing = [k for k in ("sha", "state", "description", "map") if opts[k] is None]
     if missing:
         return refuse("missing required: " + " ".join(f"--{m}" for m in missing))
     if opts["state"] not in STATES:
@@ -387,30 +474,68 @@ def cmd_post(argv):
     if bool(opts["pr"]) != bool(opts["body"]):
         return refuse("--pr and --body must be given together")
 
-    description = opts["description"][:DESCRIPTION_MAX]
+    try:
+        rows = load_map_rows(Path(opts["map"]))
+    except (OSError, UnicodeDecodeError) as exc:
+        return refuse(str(exc))
 
-    target_url = None
-    if opts["pr"]:
-        comment = subprocess.run(
-            ["gh", "pr", "comment", opts["pr"], "--body-file", opts["body"]],
-            capture_output=True, text=True)
-        if comment.returncode != 0:
-            print(f"gh pr comment failed: {comment.stderr.strip()}", file=sys.stderr)
+    try:
+        description = redact(opts["description"], rows)
+        _, reason = _check_body(description, opts["map"])
+    except Exception:
+        reason = REASON_TOOL_FAILURE
+    if reason is not None:
+        return refuse(f"description: {reason}")
+    description = description[:DESCRIPTION_MAX]
+
+    body_path = None
+    if opts["body"]:
+        try:
+            body_text = Path(opts["body"]).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            return refuse(str(exc))
+        try:
+            body_text = redact(body_text, rows)
+            _, reason = _check_body(body_text, opts["map"])
+        except Exception:
+            reason = REASON_TOOL_FAILURE
+        if reason is not None:
+            return refuse(f"body: {reason}")
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".md", delete=False, encoding="utf-8")
+        tmp.write(body_text)
+        tmp.close()
+        body_path = tmp.name
+
+    try:
+        target_url = None
+        if opts["pr"]:
+            comment = subprocess.run(
+                ["gh", "pr", "comment", opts["pr"], "--body-file", body_path],
+                capture_output=True, text=True)
+            if comment.returncode != 0:
+                print(f"gh pr comment failed: {comment.stderr.strip()}", file=sys.stderr)
+                return 1
+            out = comment.stdout.strip().splitlines()
+            target_url = out[-1] if out else None
+
+        api_args = ["gh", "api", "-X", "POST", f"repos/:owner/:repo/statuses/{opts['sha']}",
+                   "-f", f"state={opts['state']}", "-f", f"context={STATUS_CONTEXT}",
+                   "-f", f"description={description}"]
+        if target_url:
+            api_args += ["-f", f"target_url={target_url}"]
+
+        status = subprocess.run(api_args, capture_output=True, text=True)
+        if status.returncode != 0:
+            print(f"gh api statuses failed: {status.stderr.strip()}", file=sys.stderr)
             return 1
-        out = comment.stdout.strip().splitlines()
-        target_url = out[-1] if out else None
-
-    api_args = ["gh", "api", "-X", "POST", f"repos/:owner/:repo/statuses/{opts['sha']}",
-               "-f", f"state={opts['state']}", "-f", f"context={STATUS_CONTEXT}",
-               "-f", f"description={description}"]
-    if target_url:
-        api_args += ["-f", f"target_url={target_url}"]
-
-    status = subprocess.run(api_args, capture_output=True, text=True)
-    if status.returncode != 0:
-        print(f"gh api statuses failed: {status.stderr.strip()}", file=sys.stderr)
-        return 1
-    return 0
+        return 0
+    finally:
+        if body_path is not None:
+            try:
+                os.unlink(body_path)
+            except OSError:
+                pass
 
 
 def main():

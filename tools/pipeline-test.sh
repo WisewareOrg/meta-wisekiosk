@@ -51,6 +51,30 @@ utf8_len() {
         'import sys; sys.stdout.write(str(len(sys.stdin.buffer.read().decode("utf-8"))))'
 }
 
+# file_len PATH -- a file's length read back as text ($(...) itself strips
+# trailing newlines, which a raw byte count would not).
+file_len() {
+    "$PY" -c 'import sys; sys.stdout.write(str(len(open(sys.argv[1], encoding="utf-8").read())))' "$1"
+}
+
+# find_boundary PATTERN LO HI PROBE_FN -- binary search in [LO,HI] for the
+# largest limit whose PROBE_FN output still matches PATTERN. Assumes
+# monotonic: PATTERN present for every limit >= the boundary, absent below
+# it (an empty/failed probe counts as absent). Prints the boundary.
+find_boundary() {
+    local pattern=$1 lo=$2 hi=$3 probe=$4
+    while [ $((hi - lo)) -gt 1 ]; do
+        local mid=$(( (lo + hi) / 2 )) out
+        out=$("$probe" "$mid" 2>/dev/null)
+        if printf '%s' "$out" | grep -q "$pattern"; then
+            hi=$mid
+        else
+            lo=$mid
+        fi
+    done
+    printf '%s' "$hi"
+}
+
 # --- fixture identity maps ---------------------------------------------
 # Map format: local/device-identity.md §"Format".
 
@@ -74,6 +98,8 @@ STRAY_IP="${ip_hi}.${ip_lo}"
 pk_dash="-----"; pk_begin="BEGIN"; pk_priv="PRIVATE"; pk_key="KEY"
 PK_HEADER="${pk_dash}${pk_begin} ${pk_priv} ${pk_key}${pk_dash}"
 PK_HEADER_RSA="${pk_dash}${pk_begin} RSA ${pk_priv} ${pk_key}${pk_dash}"
+PK_HEADER_OPENSSH="${pk_dash}${pk_begin} OPENSSH ${pk_priv} ${pk_key}${pk_dash}"
+PK_FOOTER_OPENSSH="${pk_dash}END OPENSSH ${pk_priv} ${pk_key}${pk_dash}"
 
 # =========================================================================
 # A. tools/pipeline/report.py build
@@ -228,6 +254,23 @@ EOF
         *) ok "report build: no fragment of the shorter value's token appears" ;;
     esac
 
+    # --- map-value redaction is case-insensitive (the fixture SSID has
+    # letters; the address does not, so it cannot exercise this) ---
+    mkdir -p "$TOP/b2d"
+    printf 'VERDICT pr-run -> success\n' > "$TOP/b2d/verdict.txt"
+    printf 'diff --git a/x b/x\nseen on %s\n' "$(printf '%s' 'placeholder-net-01' | tr '[:lower:]' '[:upper:]')" \
+        > "$TOP/b2d/delta.txt"
+    printf '{"configuration": {}, "result": {}}\n' > "$TOP/b2d/results.json"
+
+    capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit 100000 \
+        --verdict "$TOP/b2d/verdict.txt" --delta "$TOP/b2d/delta.txt" \
+        --results "$TOP/b2d/results.json"
+    case "$out" in
+        *"<wifi.ssid>"*)
+            ok "report build: an uppercase map value is still redacted (case-insensitive)" ;;
+        *) bad "report build: an uppercase map value is still redacted (case-insensitive)" "out=$out" ;;
+    esac
+
     # --- a missing required file ---
     capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit 100000 \
         --verdict "$TOP/b1/does-not-exist.txt" --delta "$TOP/b1/delta.txt" \
@@ -239,7 +282,92 @@ EOF
             "rc=$rc out=$out err=$err"
     fi
 
-    # --- cap step 1: --log truncated from its head ---
+    # --- invalid UTF-8 in a raw input refuses rc 2, not a traceback ---
+    mkdir -p "$TOP/b3"
+    printf 'VERDICT pr-run -> success\n' > "$TOP/b3/verdict.txt"
+    printf 'diff --git a/x b/x\n+ok\n' > "$TOP/b3/delta.txt"
+    printf '{"configuration": {}, "result": {}}\n' > "$TOP/b3/results.json"
+    printf 'VERDICT pr-run -> success\xff\xfe\n' > "$TOP/b3/bad-verdict.txt"
+
+    capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit 100000 \
+        --verdict "$TOP/b3/bad-verdict.txt" --delta "$TOP/b3/delta.txt" \
+        --results "$TOP/b3/results.json"
+    if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
+        ok "report build, invalid UTF-8 in --verdict: rc 2, nothing on stdout"
+    else
+        bad "report build, invalid UTF-8 in --verdict: rc 2, nothing on stdout" \
+            "rc=$rc out=$out err=$err"
+    fi
+
+    # --- a results file that is not a JSON object refuses rc 2 ---
+    printf '[]' > "$TOP/b3/list-results.json"
+    capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit 100000 \
+        --verdict "$TOP/b3/verdict.txt" --delta "$TOP/b3/delta.txt" \
+        --results "$TOP/b3/list-results.json"
+    if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
+        ok "report build, --results is a JSON array: rc 2, nothing on stdout"
+    else
+        bad "report build, --results is a JSON array: rc 2, nothing on stdout" \
+            "rc=$rc out=$out err=$err"
+    fi
+
+    # --- a results case whose value is not a JSON object refuses rc 2 ---
+    printf '{"configuration": {}, "result": {"case1": "FAILED"}}' > "$TOP/b3/string-case.json"
+    capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit 100000 \
+        --verdict "$TOP/b3/verdict.txt" --delta "$TOP/b3/delta.txt" \
+        --results "$TOP/b3/string-case.json"
+    if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
+        ok "report build, a results case value is a string: rc 2, nothing on stdout"
+    else
+        bad "report build, a results case value is a string: rc 2, nothing on stdout" \
+            "rc=$rc out=$out err=$err"
+    fi
+
+    # --- private key material in the raw input is refused, uncapped ---
+    mkdir -p "$TOP/b6"
+    printf 'VERDICT pr-run -> success\n' > "$TOP/b6/verdict.txt"
+    printf 'diff --git a/x b/x\n+ok\n' > "$TOP/b6/delta.txt"
+    printf '{"configuration": {}, "result": {}}\n' > "$TOP/b6/results.json"
+    {
+        i=1
+        while [ "$i" -le 5 ]; do
+            printf 'preamble line %d, padded so a truncation has real bytes to cut xxxxxxxxxxx\n' "$i"
+            i=$((i + 1))
+        done
+        printf -- '%s\n' "$PK_HEADER_OPENSSH"
+        i=1
+        while [ "$i" -le 20 ]; do
+            printf 'QmFzZTY0bGluZSBvZiBmYWtlIG9wZW5zc2gga2V5IGRhdGEsIHBhZGRlZCBzbyBpdCBsb29rcyBy\n'
+            i=$((i + 1))
+        done
+        printf -- '%s\n' "$PK_FOOTER_OPENSSH"
+    } > "$TOP/b6/log.txt"
+
+    capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit 100000 \
+        --verdict "$TOP/b6/verdict.txt" --delta "$TOP/b6/delta.txt" \
+        --results "$TOP/b6/results.json" --log "$TOP/b6/log.txt"
+    if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
+        ok "report build, private key in the raw log: refused rc 2, nothing on stdout"
+    else
+        bad "report build, private key in the raw log: refused rc 2, nothing on stdout" \
+            "rc=$rc out=$out err=$err"
+    fi
+
+    # A --limit tight enough that head-truncation alone would have dropped
+    # the preamble and the BEGIN line (the pre-fix defect: check ran only on
+    # the already-capped body, so the key's body+END line passed as clean).
+    # The uncapped scan in build must still catch it before any capping.
+    capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit 400 \
+        --verdict "$TOP/b6/verdict.txt" --delta "$TOP/b6/delta.txt" \
+        --results "$TOP/b6/results.json" --log "$TOP/b6/log.txt"
+    if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
+        ok "report build, private key survives head-truncation: still refused rc 2 at a tight --limit"
+    else
+        bad "report build, private key survives head-truncation: still refused rc 2 at a tight --limit" \
+            "rc=$rc out=$out err=$err"
+    fi
+
+    # --- cap step 1: --log truncated from its head, with a truncation note ---
     mkdir -p "$TOP/b4"
     printf 'VERDICT pr-run -> success\n' > "$TOP/b4/verdict.txt"
     printf 'diff --git a/x b/x\n+ok\n' > "$TOP/b4/delta.txt"
@@ -282,13 +410,18 @@ EOF
         *"LINE 0400"*) ok "report build, capped log: the tail of the log survives" ;;
         *) bad "report build, capped log: the tail of the log survives" "out=$out" ;;
     esac
+    case "$out" in
+        *"(log truncated; full log in the run dir)"*)
+            ok "report build, capped log: the truncation note is present" ;;
+        *) bad "report build, capped log: the truncation note is present" "out=$out" ;;
+    esac
     if [ "$(utf8_len "$out")" -le 4000 ]; then
         ok "report build, capped log: body is within --limit"
     else
         bad "report build, capped log: body is within --limit" "len=$(utf8_len "$out")"
     fi
 
-    # --- cap step 2: --results log fields stripped ---
+    # --- cap step 2: --results log fields stripped, with a note ---
     mkdir -p "$TOP/b5"
     printf 'VERDICT pr-run -> success\n' > "$TOP/b5/verdict.txt"
     printf 'diff --git a/x b/x\n+ok\n' > "$TOP/b5/delta.txt"
@@ -326,6 +459,11 @@ PYEOF
             bad "report build, log-stripped: the case's log field is gone, not raw" "out=$out" ;;
         *) ok "report build, log-stripped: the case's log field is gone, not raw" ;;
     esac
+    case "$out" in
+        *"(log stripped; see the run dir)"*)
+            ok "report build, log-stripped: the stripped-log note is present" ;;
+        *) bad "report build, log-stripped: the stripped-log note is present" "out=$out" ;;
+    esac
     if [ "$(utf8_len "$out")" -le 1000 ]; then
         ok "report build, log-stripped: body is within --limit"
     else
@@ -333,7 +471,6 @@ PYEOF
     fi
 
     # --- cap order: --log exhausts before results logs are stripped ---
-    # mid_len: body size with --log empty and the results log intact.
     mkdir -p "$TOP/b5b"
     printf 'VERDICT pr-run -> success\n' > "$TOP/b5b/verdict.txt"
     printf 'diff --git a/x b/x\n+ok\n' > "$TOP/b5b/delta.txt"
@@ -353,21 +490,20 @@ PYEOF
             "$i" >> "$TOP/b5b/log.txt"
         i=$((i + 1))
     done
-    : > "$TOP/b5b/log-empty.txt"
 
-    # Measured from a file: $(...) strips trailing newlines.
-    local mid_len
+    probe_b5b() {
+        "$PY" "$REPORT" build --map "$GOODMAP" --limit "$1" \
+            --verdict "$TOP/b5b/verdict.txt" --delta "$TOP/b5b/delta.txt" \
+            --results "$TOP/b5b/results.json" --log "combolog=$TOP/b5b/log.txt"
+    }
     "$PY" "$REPORT" build --map "$GOODMAP" --limit 1000000 \
         --verdict "$TOP/b5b/verdict.txt" --delta "$TOP/b5b/delta.txt" \
-        --results "$TOP/b5b/results.json" --log "combolog=$TOP/b5b/log-empty.txt" \
-        > "$TOP/b5b/mid.out"
-    mid_len=$("$PY" -c \
-        'import sys; sys.stdout.write(str(len(open(sys.argv[1], encoding="utf-8").read())))' \
-        "$TOP/b5b/mid.out")
+        --results "$TOP/b5b/results.json" --log "combolog=$TOP/b5b/log.txt" \
+        > "$TOP/b5b/full.out"
+    full_len=$(file_len "$TOP/b5b/full.out")
+    boundary=$(find_boundary 'COMBOLOGDETAIL-B5B-PAYLOAD' 1 "$full_len" probe_b5b)
 
-    capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit "$mid_len" \
-        --verdict "$TOP/b5b/verdict.txt" --delta "$TOP/b5b/delta.txt" \
-        --results "$TOP/b5b/results.json" --log "combolog=$TOP/b5b/log.txt"
+    capture out err rc probe_b5b "$boundary"
     if [ "$rc" -eq 0 ]; then
         ok "report build, cap order at the log-exhausted size: exits 0"
     else
@@ -379,14 +515,17 @@ PYEOF
         *) ok "report build, cap order at the log-exhausted size: the log is fully truncated" ;;
     esac
     case "$out" in
+        *"(log truncated; full log in the run dir)"*)
+            ok "report build, cap order at the log-exhausted size: the log-truncated note is present" ;;
+        *) bad "report build, cap order at the log-exhausted size: the log-truncated note is present" "out=$out" ;;
+    esac
+    case "$out" in
         *"COMBOLOGDETAIL-B5B-PAYLOAD"*)
             ok "report build, cap order at the log-exhausted size: the results log field survives" ;;
         *) bad "report build, cap order at the log-exhausted size: the results log field survives" "out=$out" ;;
     esac
 
-    capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit "$((mid_len - 1))" \
-        --verdict "$TOP/b5b/verdict.txt" --delta "$TOP/b5b/delta.txt" \
-        --results "$TOP/b5b/results.json" --log "combolog=$TOP/b5b/log.txt"
+    capture out err rc probe_b5b "$((boundary - 1))"
     if [ "$rc" -eq 0 ]; then
         ok "report build, cap order one byte tighter: exits 0"
     else
@@ -403,22 +542,26 @@ PYEOF
         *) ok "report build, cap order one byte tighter: the results log field is stripped" ;;
     esac
     case "$out" in
+        *"(log stripped; see the run dir)"*)
+            ok "report build, cap order one byte tighter: the stripped-log note is present" ;;
+        *) bad "report build, cap order one byte tighter: the stripped-log note is present" "out=$out" ;;
+    esac
+    case "$out" in
         *"test_render_large_log"*)
             ok "report build, cap order one byte tighter: the case's own identity survives" ;;
         *) bad "report build, cap order one byte tighter: the case's own identity survives" "out=$out" ;;
     esac
-    if [ "$(utf8_len "$out")" -le "$((mid_len - 1))" ]; then
+    if [ "$(utf8_len "$out")" -le "$((boundary - 1))" ]; then
         ok "report build, cap order one byte tighter: body is within --limit"
     else
         bad "report build, cap order one byte tighter: body is within --limit" "len=$(utf8_len "$out")"
     fi
 
-    # --- cap step 3: delta becomes summary + head + note ---
-    # floor_len: body size with log and results minimal, delta whole.
+    # --- cap step 3: delta becomes `git apply --stat` + head + note ---
     mkdir -p "$TOP/b5c"
     printf 'VERDICT pr-run -> success\n' > "$TOP/b5c/verdict.txt"
     "$PY" -c '
-for i in range(2000):
+for i in range(30):
     print(f"diff --git a/file{i:04d}.yaml b/file{i:04d}.yaml")
     print("index 1111111..2222222 100644")
     print(f"--- a/file{i:04d}.yaml")
@@ -429,21 +572,13 @@ for i in range(2000):
     for j in range(5):
         print(f"+new line {j} of file {i:04d}, padded so truncation has bytes to cut")
 ' > "$TOP/b5c/delta.txt"
-    DELTA_SUMMARY="2000 files changed, +10000/$(printf '\xe2\x88\x92')10000"
+    EXPECTED_STAT=$(git apply --stat "$TOP/b5c/delta.txt")
     "$PY" - <<PYEOF > "$TOP/b5c/results.json"
 import json
 biglog = "DELTAORDER-B5C-PAYLOAD " * 100
 data = {"configuration": {}, "result": {
     "wisekiosk.WiseKioskTest.test_backend_unit_active": {"status": "PASSED"},
     "wisekiosk.WiseKioskTest.test_render_large_log": {"status": "FAILED", "log": biglog},
-}}
-print(json.dumps(data))
-PYEOF
-    "$PY" - <<PYEOF > "$TOP/b5c/results-stripped.json"
-import json
-data = {"configuration": {}, "result": {
-    "wisekiosk.WiseKioskTest.test_backend_unit_active": {"status": "PASSED"},
-    "wisekiosk.WiseKioskTest.test_render_large_log": {"status": "FAILED"},
 }}
 print(json.dumps(data))
 PYEOF
@@ -454,22 +589,20 @@ PYEOF
             "$i" >> "$TOP/b5c/log.txt"
         i=$((i + 1))
     done
-    : > "$TOP/b5c/log-empty.txt"
 
-    # --limit must exceed the ~1.5 MB delta.
-    local floor_len
-    "$PY" "$REPORT" build --map "$GOODMAP" --limit 10000000 \
+    probe_b5c() {
+        "$PY" "$REPORT" build --map "$GOODMAP" --limit "$1" \
+            --verdict "$TOP/b5c/verdict.txt" --delta "$TOP/b5c/delta.txt" \
+            --results "$TOP/b5c/results.json" --log "deltaorderlog=$TOP/b5c/log.txt"
+    }
+    "$PY" "$REPORT" build --map "$GOODMAP" --limit 1000000 \
         --verdict "$TOP/b5c/verdict.txt" --delta "$TOP/b5c/delta.txt" \
-        --results "$TOP/b5c/results-stripped.json" \
-        --log "deltaorderlog=$TOP/b5c/log-empty.txt" \
-        > "$TOP/b5c/floor.out"
-    floor_len=$("$PY" -c \
-        'import sys; sys.stdout.write(str(len(open(sys.argv[1], encoding="utf-8").read())))' \
-        "$TOP/b5c/floor.out")
+        --results "$TOP/b5c/results.json" --log "deltaorderlog=$TOP/b5c/log.txt" \
+        > "$TOP/b5c/full.out"
+    full_len_c=$(file_len "$TOP/b5c/full.out")
+    boundary_c=$(find_boundary 'new line 4 of file 0029' 1 "$full_len_c" probe_b5c)
 
-    capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit "$floor_len" \
-        --verdict "$TOP/b5c/verdict.txt" --delta "$TOP/b5c/delta.txt" \
-        --results "$TOP/b5c/results.json" --log "deltaorderlog=$TOP/b5c/log.txt"
+    capture out err rc probe_b5c "$boundary_c"
     if [ "$rc" -eq 0 ]; then
         ok "report build, cap order at the delta-untouched size: exits 0"
     else
@@ -486,7 +619,7 @@ PYEOF
         *) ok "report build, cap order at the delta-untouched size: the results log field is stripped" ;;
     esac
     case "$out" in
-        *"file1999"*)
+        *"new line 4 of file 0029"*)
             ok "report build, cap order at the delta-untouched size: the delta is still whole" ;;
         *) bad "report build, cap order at the delta-untouched size: the delta is still whole" "out=$out" ;;
     esac
@@ -496,9 +629,7 @@ PYEOF
         *) ok "report build, cap order at the delta-untouched size: no truncation note yet" ;;
     esac
 
-    capture out err rc "$PY" "$REPORT" build --map "$GOODMAP" --limit "$((floor_len - 1))" \
-        --verdict "$TOP/b5c/verdict.txt" --delta "$TOP/b5c/delta.txt" \
-        --results "$TOP/b5c/results.json" --log "deltaorderlog=$TOP/b5c/log.txt"
+    capture out err rc probe_b5c "$((boundary_c - 1))"
     if [ "$rc" -eq 0 ]; then
         ok "report build, cap order one byte tighter than the delta: exits 0"
     else
@@ -516,22 +647,22 @@ PYEOF
             "out=$out" ;;
     esac
     case "$out" in
-        *"$DELTA_SUMMARY"*)
-            ok "report build, cap order one byte tighter than the delta: the derived summary line is present" ;;
-        *) bad "report build, cap order one byte tighter than the delta: the derived summary line is present" \
+        *"$EXPECTED_STAT"*)
+            ok "report build, cap order one byte tighter than the delta: the real git-apply --stat output is present" ;;
+        *) bad "report build, cap order one byte tighter than the delta: the real git-apply --stat output is present" \
             "out=$out" ;;
     esac
     case "$out" in
-        *"file1999"*)
+        *"new line 4 of file 0029"*)
             bad "report build, cap order one byte tighter than the delta: the delta's tail is gone" "out=$out" ;;
         *) ok "report build, cap order one byte tighter than the delta: the delta's tail is gone" ;;
     esac
     case "$out" in
-        *"file0000"*)
+        *"new line 4 of file 0000"*)
             ok "report build, cap order one byte tighter than the delta: the delta's head survives" ;;
         *) bad "report build, cap order one byte tighter than the delta: the delta's head survives" "out=$out" ;;
     esac
-    if [ "$(utf8_len "$out")" -le "$((floor_len - 1))" ]; then
+    if [ "$(utf8_len "$out")" -le "$((boundary_c - 1))" ]; then
         ok "report build, cap order one byte tighter than the delta: body is within --limit"
     else
         bad "report build, cap order one byte tighter than the delta: body is within --limit" \
@@ -617,6 +748,16 @@ EOF
             "rc=$rc out=$out err=$err"
     fi
 
+    capture_stdin out err rc \
+        $'VERDICT: pr-run -> success\nclean body, no identity, no private key\n' \
+        "$PY" "$REPORT" check --map "$TOP/does-not-exist.md"
+    if [ "$rc" -eq 1 ] && [ "$err" = "identity check PARTIAL" ]; then
+        ok "report check, a missing map file: rc 1, reason is the PARTIAL constant"
+    else
+        bad "report check, a missing map file: rc 1, reason is the PARTIAL constant" \
+            "rc=$rc out=$out err=$err"
+    fi
+
     pk_body1=$(printf 'VERDICT: pr-run -> success\n%s\nfixture, not a real key\n' "$PK_HEADER")
     capture_stdin out err rc "$pk_body1" "$PY" "$REPORT" check --map "$GOODMAP"
     if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ "$err" = "private key material" ]; then
@@ -655,6 +796,18 @@ EOF
             "rc=$rc out=$out err=$err"
     fi
 
+    # A directory as --map: scrub-identity.py's own subprocess crashes
+    # reading it (IsADirectoryError) -- a tool fault, not a finding.
+    capture_stdin out err rc \
+        $'VERDICT: pr-run -> success\nclean body, no identity, no private key\n' \
+        "$PY" "$REPORT" check --map "$TOP"
+    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ "$err" = "tool failure" ]; then
+        ok "report check, --map is a directory: rc 2, reason is the tool-failure constant, not identity found"
+    else
+        bad "report check, --map is a directory: rc 2, reason is the tool-failure constant, not identity found" \
+            "rc=$rc out=$out err=$err"
+    fi
+
     # git shim first on PATH: only `git init` fails.
     FAKEGIT="$TOP/fakegit"
     mkdir -p "$FAKEGIT"
@@ -677,6 +830,39 @@ EOF
         ok "report check, git unusable: posted reason is the fixed constant"
     else
         bad "report check, git unusable: posted reason is the fixed constant" "err=$err"
+    fi
+
+    # git shim that fails EVERY subcommand, including `rev-parse` -- proves
+    # report.py's own module load (not just _cmd_check's git calls) cannot
+    # crash check outside its guarded path.
+    FAKEGIT_ALL="$TOP/fakegit-all"
+    mkdir -p "$FAKEGIT_ALL"
+    cat > "$FAKEGIT_ALL/git" <<'EOF'
+#!/bin/sh
+exit 1
+EOF
+    chmod +x "$FAKEGIT_ALL/git"
+    capture_stdin out err rc \
+        $'VERDICT: pr-run -> success\nclean body, no identity, no private key\n' \
+        env PATH="$FAKEGIT_ALL" "$PY" "$REPORT" check --map "$GOODMAP"
+    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ "$err" = "tool failure" ]; then
+        ok "report check, every git subcommand fails: refused rc 2, reason is the fixed constant"
+    else
+        bad "report check, every git subcommand fails: refused rc 2, reason is the fixed constant" \
+            "rc=$rc out=$out err=$err"
+    fi
+
+    # git entirely absent from PATH.
+    EMPTYBIN="$TOP/emptybin"
+    mkdir -p "$EMPTYBIN"
+    capture_stdin out err rc \
+        $'VERDICT: pr-run -> success\nclean body, no identity, no private key\n' \
+        env PATH="$EMPTYBIN" "$PY" "$REPORT" check --map "$GOODMAP"
+    if [ "$rc" -eq 2 ] && [ -z "$out" ] && [ "$err" = "tool failure" ]; then
+        ok "report check, git absent from PATH: refused rc 2, reason is the fixed constant"
+    else
+        bad "report check, git absent from PATH: refused rc 2, reason is the fixed constant" \
+            "rc=$rc out=$out err=$err"
     fi
 
     BADUTF8=$(printf '\xff\xfeVERDICT: pr-run -> success')
@@ -705,25 +891,32 @@ test_report_post() {
         return
     fi
 
-    capture out err rc "$PY" "$REPORT" post --state success --description "ok"
+    capture out err rc "$PY" "$REPORT" post --state success --description "ok" --map "$GOODMAP"
     if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
         ok "report post, missing --sha: rc 2, nothing on stdout"
     else
         bad "report post, missing --sha: rc 2, nothing on stdout" "rc=$rc out=$out err=$err"
     fi
 
-    capture out err rc "$PY" "$REPORT" post --sha deadbeef01 --description "ok"
+    capture out err rc "$PY" "$REPORT" post --sha deadbeef01 --description "ok" --map "$GOODMAP"
     if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
         ok "report post, missing --state: rc 2, nothing on stdout"
     else
         bad "report post, missing --state: rc 2, nothing on stdout" "rc=$rc out=$out err=$err"
     fi
 
-    capture out err rc "$PY" "$REPORT" post --sha deadbeef01 --state success
+    capture out err rc "$PY" "$REPORT" post --sha deadbeef01 --state success --map "$GOODMAP"
     if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
         ok "report post, missing --description: rc 2, nothing on stdout"
     else
         bad "report post, missing --description: rc 2, nothing on stdout" "rc=$rc out=$out err=$err"
+    fi
+
+    capture out err rc "$PY" "$REPORT" post --sha deadbeef01 --state success --description "ok"
+    if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
+        ok "report post, missing --map: rc 2, nothing on stdout"
+    else
+        bad "report post, missing --map: rc 2, nothing on stdout" "rc=$rc out=$out err=$err"
     fi
 
     capture out err rc "$PY" "$REPORT" post
@@ -733,7 +926,8 @@ test_report_post() {
         bad "report post, no arguments at all: rc 2, nothing on stdout" "rc=$rc out=$out err=$err"
     fi
 
-    capture out err rc "$PY" "$REPORT" post --sha deadbeef01 --state sideways --description "ok"
+    capture out err rc "$PY" "$REPORT" post --sha deadbeef01 --state sideways \
+        --description "ok" --map "$GOODMAP"
     if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
         ok "report post, invalid --state value: rc 2, nothing on stdout"
     else
@@ -741,7 +935,7 @@ test_report_post() {
     fi
 
     capture out err rc "$PY" "$REPORT" post --sha deadbeef01 --state success \
-        --description "ok" --pr 1
+        --description "ok" --map "$GOODMAP" --pr 1
     if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
         ok "report post, --pr without --body: rc 2, nothing on stdout"
     else
@@ -749,21 +943,51 @@ test_report_post() {
     fi
 
     capture out err rc "$PY" "$REPORT" post --sha deadbeef01 --state success \
-        --description "ok" --body "$TOP/does-not-matter.md"
+        --description "ok" --map "$GOODMAP" --body "$TOP/does-not-matter.md"
     if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
         ok "report post, --body without --pr: rc 2, nothing on stdout"
     else
         bad "report post, --body without --pr: rc 2, nothing on stdout" "rc=$rc out=$out err=$err"
     fi
 
-    # Fake gh shim: records its own argv, one token per line, and always
-    # succeeds -- proves what report.py sends without a real gh/network.
+    # --- private key material in --description or --body refuses before
+    # anything posts -- redact() has no logic to mask key material, so this
+    # exercises the check half of post's guard, not the redaction half
+    # (an ordinary map value would simply be redacted away before the check
+    # ever saw it).
+    capture out err rc "$PY" "$REPORT" post --sha deadbeef01 --state success \
+        --map "$GOODMAP" --description "key: $PK_HEADER"
+    if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
+        ok "report post, private key in --description: refused rc 2, nothing on stdout"
+    else
+        bad "report post, private key in --description: refused rc 2, nothing on stdout" \
+            "rc=$rc out=$out err=$err"
+    fi
+
+    printf 'leaked key %s\n' "$PK_HEADER" > "$TOP/post-body-dirty.md"
+    capture out err rc "$PY" "$REPORT" post --sha deadbeef01 --state success \
+        --map "$GOODMAP" --description "ok" --pr 1 --body "$TOP/post-body-dirty.md"
+    if [ "$rc" -eq 2 ] && [ -z "$out" ]; then
+        ok "report post, private key in --body: refused rc 2, nothing on stdout"
+    else
+        bad "report post, private key in --body: refused rc 2, nothing on stdout" \
+            "rc=$rc out=$out err=$err"
+    fi
+
+    # Fake gh shim: records every invocation's argv, one call per line
+    # (tab-separated args), and answers `gh pr comment` with a fake comment
+    # URL on its last stdout line -- the exact shape cmd_post reads for
+    # target_url.
     FAKEGH="$TOP/fakegh"
     mkdir -p "$FAKEGH"
     FAKEGH_LOG="$TOP/fakegh.log"
+    : > "$FAKEGH_LOG"
     cat > "$FAKEGH/gh" <<EOF
 #!/bin/sh
-printf '%s\n' "\$@" > "$FAKEGH_LOG"
+{ printf '%s\t' "\$@"; printf '\n'; } >> "$FAKEGH_LOG"
+if [ "\$1" = "pr" ] && [ "\$2" = "comment" ]; then
+    echo "https://github.com/WisewareOrg/meta-wisekiosk/pull/1#issuecomment-1"
+fi
 exit 0
 EOF
     chmod +x "$FAKEGH/gh"
@@ -771,19 +995,53 @@ EOF
     LONGDESC=$(printf 'x%.0s' $(seq 1 200))
     EXPECTED_DESC="${LONGDESC:0:140}"
     capture out err rc env PATH="$FAKEGH:$PATH" \
-        "$PY" "$REPORT" post --sha deadbeef01 --state success --description "$LONGDESC"
+        "$PY" "$REPORT" post --sha deadbeef01 --state success --map "$GOODMAP" \
+        --description "$LONGDESC"
     if [ "$rc" -eq 0 ]; then
         ok "report post, description over 140 chars: posts via the gh shim"
     else
         bad "report post, description over 140 chars: posts via the gh shim" \
             "rc=$rc out=$out err=$err"
     fi
-    SENT_DESC=$(grep '^description=' "$FAKEGH_LOG" || true)
-    if [ "$SENT_DESC" = "description=$EXPECTED_DESC" ]; then
+    SENT_DESC=$(grep -o "description=$EXPECTED_DESC"$'\t' "$FAKEGH_LOG" || true)
+    if [ -n "$SENT_DESC" ]; then
         ok "report post, description over 140 chars: truncated to DESCRIPTION_MAX before reaching gh"
     else
         bad "report post, description over 140 chars: truncated to DESCRIPTION_MAX before reaching gh" \
-            "sent=$SENT_DESC expected=description=$EXPECTED_DESC"
+            "log=$(cat "$FAKEGH_LOG")"
+    fi
+    if grep -q "context=bench-pipeline"$'\t' "$FAKEGH_LOG"; then
+        ok "report post: the status context is bench-pipeline"
+    else
+        bad "report post: the status context is bench-pipeline" "log=$(cat "$FAKEGH_LOG")"
+    fi
+
+    # --- full call shape: --pr/--body posts a comment, then a status with target_url ---
+    : > "$FAKEGH_LOG"
+    printf 'clean body, no identity, no private key\n' > "$TOP/post-body-clean.md"
+    capture out err rc env PATH="$FAKEGH:$PATH" \
+        "$PY" "$REPORT" post --sha deadbeef02 --state failure --map "$GOODMAP" \
+        --description "pipeline run failed" --pr 42 --body "$TOP/post-body-clean.md"
+    if [ "$rc" -eq 0 ]; then
+        ok "report post, --pr/--body: posts via the gh shim"
+    else
+        bad "report post, --pr/--body: posts via the gh shim" "rc=$rc out=$out err=$err"
+    fi
+    if grep -q '^pr'$'\t''comment'$'\t''42'$'\t' "$FAKEGH_LOG"; then
+        ok "report post, --pr/--body: the pr-comment call names the right PR"
+    else
+        bad "report post, --pr/--body: the pr-comment call names the right PR" "log=$(cat "$FAKEGH_LOG")"
+    fi
+    if grep -q 'target_url=https://github.com/WisewareOrg/meta-wisekiosk/pull/1#issuecomment-1' "$FAKEGH_LOG"; then
+        ok "report post, --pr/--body: the comment URL is wired into the status as target_url"
+    else
+        bad "report post, --pr/--body: the comment URL is wired into the status as target_url" \
+            "log=$(cat "$FAKEGH_LOG")"
+    fi
+    if grep -q 'state=failure'$'\t' "$FAKEGH_LOG"; then
+        ok "report post, --pr/--body: the status call carries the given --state"
+    else
+        bad "report post, --pr/--body: the status call carries the given --state" "log=$(cat "$FAKEGH_LOG")"
     fi
 }
 
