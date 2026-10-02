@@ -80,9 +80,12 @@ with a hand build.
 **An empty artifact delta is a pass.** A queue run whose delta comes back empty posts success and
 stops there — no bundle, OTA, `testimage` or rollback runs for it.
 
-**A baseline run never touches the device.** It builds the missing commit, tags its buildhistory, and
-stops — no status is posted and no PR comment is written, because no job's own commit is under test.
-The next tick picks up the queue job against the now-tagged baseline.
+**The baseline tag advances on every successful queue job.** A queue job that posts `success` — on an
+empty delta, or on a device run whose smoke test passes — tags its own buildhistory commit
+`baseline/<sha>`; an existing tag is left as is. A baseline build runs only when the job's base commit
+has no such tag: it builds the missing commit, tags its buildhistory, and stops — no status is posted
+and no PR comment is written, because no job's own commit is under test. The next tick picks up the
+queue job against the tagged baseline.
 
 **Each queue job's buildhistory starts from the baseline tag.** Immediately before the job's own
 build, `build/buildhistory` is reset to the job's base commit's tag, so the build's own

@@ -106,6 +106,16 @@ if [ "$(git -C "$PIPELINE_DRIVER" rev-parse HEAD)" != "$(git -C "$PIPELINE_DRIVE
     exec "$PIPELINE_DRIVER/tools/pipeline/run.sh" "$@"
 fi
 
+# tag_job_baseline -- tags the job's buildhistory commit JOB_BH as
+# baseline/$SHA, so the next queue job's BASELINE finds it. Leaves an
+# existing tag untouched. Call only on a success outcome, before finish.
+tag_job_baseline() {
+    git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse --verify -q "refs/tags/baseline/$SHA" \
+            > /dev/null 2>&1 \
+        || git -C "$PIPELINE_BUILD_DIR/buildhistory" tag "baseline/$SHA" "$JOB_BH" \
+        || abort "could not tag baseline/$SHA"
+}
+
 git fetch origin || abort "git fetch origin failed in $PIPELINE_TREE"
 
 [ -z "${1:-}" ] || { echo "usage: run.sh" >&2; exit 2; }
@@ -185,7 +195,7 @@ DELTA_RC=0
     > "$RUN_DIR/delta.txt" 2> "$RUN_DIR/delta.err" || DELTA_RC=$?
 if [ "$DELTA_RC" -eq 1 ]; then
     grep -qx 'no change in image' "$RUN_DIR/delta.err" \
-        && finish success "no change in image; no device run"
+        && { tag_job_baseline; finish success "no change in image; no device run"; }
     stage_logargs delta "$RUN_DIR/delta.err"
     finish error "artifact diff failed" "${LOGARGS[@]}"
 fi
@@ -255,6 +265,8 @@ fi
     || abort "device did not come back after the rollback reboot"
 SLOT_NOW=$(booted_slot "$SSH_HOST") || abort "could not read the booted slot after the rollback"
 [ "$SLOT_NOW" = "$PREV_SLOT" ] || abort "device resting on the job's slot"
+
+[ "$SMOKE_STATE" = success ] && tag_job_baseline
 
 finish "$SMOKE_STATE" "pr #$PR_NUMBER $SHA: smoke $SMOKE_STATE" \
     "${RESULTSARG[@]}" "${LOGARGS[@]}"
