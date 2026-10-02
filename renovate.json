@@ -3,16 +3,6 @@
   "extends": ["github>WisewareOrg/wise-renovate#v1.5.0"],
   "packageRules": [
     {
-      "description": "A kas input -- a layer pin, or a recipe's SRCREV -- needs a human merge (owner, 2026-09-30); everything else keeps the preset's automerge.",
-      "matchFileNames": ["includes/**", "meta-wisekiosk/**"],
-      "automerge": false
-    },
-    {
-      "description": "So does kas itself.",
-      "matchPackageNames": ["siemens/kas", "ghcr.io/siemens/kas/kas"],
-      "automerge": false
-    },
-    {
       "description": "A git-refs commit carries no release timestamp, so the preset's release-age wait would hold these forever.",
       "matchDatasources": ["git-refs"],
       "minimumReleaseAge": null
