@@ -32,16 +32,16 @@ just pipeline-run baseline [sha]     # one job by hand: a baseline run
 The job is the head of the merge queue — the entry whose own base commit is `origin/main`'s current
 tip, since every later entry is built on an earlier one's still-speculative result, not on main — and
 a PR enters the queue after its static checks pass and merges only if `bench-pipeline` is green on its
-merge-group commit.
+merge-group commit. A lone queue ref whose own base is not that tip is stale — GitHub rebuilds it —
+and reads as no job, the same as an empty queue.
 
 `pipeline-install` is the whole reprovisioning procedure — nothing is done to a host by hand that it
 does not also do. It creates, all under `$HOME`:
 
 - `wisekiosk-pipeline/driver` — this repository, checked out at `driver_ref`; runs `run.sh`.
 - `wisekiosk-pipeline/tree` — a second, detached checkout of the same repository; the tree under test.
-- `wisekiosk-pipeline/{driver,tree}/local/device-identity.md` — symlinks to the dev tree's own copy;
-  `tools/scrub-identity.py --filter` is the only thing that reads it, when a run posts its report. One
-  source of truth: updating the dev tree's `local/device-identity.md` updates both.
+- `wisekiosk-pipeline/driver/local/device-identity.md` — a symlink to the dev tree's own copy;
+  `tools/scrub-identity.py --filter` is the only thing that reads it, when a run posts its report.
 - `wisekiosk-pipeline/tree/local/keys` — a real, empty directory. The fleet signing key is bind-mounted
   read-only into the build container from the dev tree's own `local/keys` (`PIPELINE_KEYS_DIR` below);
   it is never copied, and the driver checkout, which never runs bitbake, gets no keys dir at all. A
@@ -50,13 +50,13 @@ does not also do. It creates, all under `$HOME`:
 - `.config/wisekiosk/pipeline.env` — `PIPELINE_DRIVER`, `PIPELINE_TREE`, `PIPELINE_BASELINE_REF`
   (default `origin/main`), `PIPELINE_SSH_DIR`, `PIPELINE_KEYS_DIR` (the dev tree's own `local/keys`),
   `PIPELINE_TARGET` (the device's address; required, no default), `PIPELINE_TARGET_HOSTNAME` (recorded
-  once at install by running `hostname` on the device over the newly-installed pipeline key), the
-  installing shell's own `PATH`, and two caches, overridable at install time: `DL_DIR` and
-  `SSTATE_DIR` (default this repository's own `build/downloads` and `build/sstate-cache`, shared
-  read-write with the dev tree's ordinary builds to avoid refetching or recompiling what is already
-  there). The build dir itself is not recorded here: `run.sh` derives it as `$PIPELINE_TREE/build`
-  — kas's own default for that checkout — since it is never independently correct to set it to
-  anything else.
+  once at install by running `hostname` on the device over the newly-installed pipeline key),
+  `PIPELINE_LOCK` (the flock path `pipeline-install` and `run.sh` share), the installing shell's own
+  `PATH`, and two caches, overridable at install time: `DL_DIR` and `SSTATE_DIR` (default this
+  repository's own `build/downloads` and `build/sstate-cache`, shared read-write with the dev tree's
+  ordinary builds to avoid refetching or recompiling what is already there). The build dir itself is
+  not recorded here: `run.sh` derives it as `$PIPELINE_TREE/build` — kas's own default for that
+  checkout — since it is never independently correct to set it to anything else.
 
   The build dir is never set as `KAS_BUILD_DIR`, and `run.sh` unsets any ambient one before running.
   Doing so moves bitbake's own `TMPDIR` to a different container mount point (`/build` instead of
@@ -79,10 +79,9 @@ on.** A hand `just build` or a manual OTA while `pipeline-on` races the pipeline
 pipeline-off` first. The pipeline's own `build/` (TMPDIR) is not shared, so it alone never conflicts
 with a hand build.
 
-Install, `rauc status mark-good` and `mark-bad` write only RAUC's own boot-selection variables in
-`uboot.env`, exactly as every OTA does. No boot file -- kernel, DTB, `config.txt`, U-Boot itself -- is
-ever written; that is `/boot`'s own gap, stated in the device-smoke row above. The `/boot`-class header
-also applies when a candidate moves poky's own pin, since U-Boot's recipe is poky's.
+Install and `mark-bad` write only RAUC's own boot-selection variables in `uboot.env`, exactly as every
+OTA does. No boot file -- kernel, DTB, `config.txt`, U-Boot itself -- is ever written; that is
+`/boot`'s own gap, stated in the device-smoke row above.
 
 **An empty artifact delta is a pass.** A queue run whose delta comes back empty posts success and
 stops there — no bundle, OTA, `testimage` or rollback runs for it.
