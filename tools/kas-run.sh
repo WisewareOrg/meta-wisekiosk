@@ -1,21 +1,17 @@
 #!/usr/bin/env bash
-# The single kas entry point: runs the build-input writers, then execs
-# kas-container with the given args.
+# Runs the build-input writers, then execs kas-container with the given args.
 set -euo pipefail
 
 usage() {
     cat <<'EOF'
 Usage: tools/kas-run.sh [--help] <kas-container args...>
 
-Runs tools/write-build-rev.sh, tools/go-mods.py and tools/app-lockfile.py,
-then execs kas-container with the given args.
-
 Environment:
   PIPELINE_KEYS_DIR   mounted read-only at /work/local/keys
   KAS_RUN_ENV         space-separated variable NAMES passed through to
-                       kas-container as -e NAME=value, for each that is set
+                      kas-container as -e NAME=value, for each that is non-empty
 
-Exits with kas-container's status; 2 on bad usage.
+Exits with kas-container's status, a failing writer's status, or 2 on bad usage.
 EOF
 }
 

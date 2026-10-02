@@ -7,7 +7,7 @@ It assumes you know what a compiler and a package are, and nothing else.
 
 BitBake builds the image. It does not know where anything is; it reads a list of directories called
 *layers*, each holding build instructions. kas is a small program that assembles that list: it clones
-the repositories the layers come from, patches one of them, writes BitBake's config files, and
+the repositories the layers come from, patches some of them, writes BitBake's config files, and
 launches the build. `kiosk-zero-w.yaml` is the whole input.
 
 ## What a layer is
@@ -188,10 +188,9 @@ Upstream is dormant, and the pin is deliberate — a floating branch would make 
 unattributable. To move it:
 
 1. Edit `commit:` under `meta-autonomos` in `includes/base.yaml`.
-2. `kas-container checkout kiosk-zero-w.yaml`. kas re-clones and re-applies every patch in the tree —
-   meta-autonomos's two and meta-raspberrypi's one. **If any patch does not apply, kas fails here** —
-   that is the signal that upstream touched one of the patched files, and the patch needs
-   regenerating against the new tree.
+2. `kas-container checkout kiosk-zero-w.yaml`. kas re-clones and re-applies every patch in the tree.
+   **If any patch does not apply, kas fails here** — that is the signal that upstream touched one of
+   the patched files, and the patch needs regenerating against the new tree.
 3. Regenerate a patch by checking out the new upstream commit in a scratch worktree, making the
    change, and running `git format-patch` into `patches/<repo>/`. Keep the header's explanation of
    why it cannot be a bbappend and its upstream-submission status.
@@ -231,12 +230,14 @@ is fresh. `do_rootfs` is untouched and stays cached, which is where the hours ar
 
 The sha is resolved on the **host** by
 [`tools/write-build-rev.sh`](../tools/write-build-rev.sh), run by
-[`tools/kas-run.sh`](../tools/kas-run.sh) before every `kas-container build` or `shell` call, and
-read as a plain assignment from a gitignored `meta-wisekiosk/conf/build-rev.inc`. Nothing is computed
-at parse time — no python, no git, no subprocess — so every parse in every context reads the same
-bytes. A build with no injected sha fails loudly rather than quietly skipping the re-stamp.
+[`tools/kas-run.sh`](../tools/kas-run.sh) and by
+[`tools/rauc-rotate-build.sh`](../tools/rauc-rotate-build.sh) before each makes its own
+`kas-container` call, and read as a plain assignment from a gitignored
+`meta-wisekiosk/conf/build-rev.inc`. Nothing is computed at parse time — no python, no git, no
+subprocess — so every parse in every context reads the same bytes. A build with no injected sha fails
+loudly rather than quietly skipping the re-stamp.
 
-The same shape has two more instances, run alongside it by the same wrapper: `tools/go-mods.py`
+The same shape has two more instances, run alongside it at the same points: `tools/go-mods.py`
 and `tools/app-lockfile.py` write the WiseKiosk app pin's Go module closure and npm shrinkwrap, also
 gitignored, also never committed (owner, 2026-09-27). See
 [`recipes-wisekiosk/wisekiosk/README.md`](../meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md).

@@ -513,16 +513,9 @@ else
                 ok "every build entry point runs all three build-input writers"
             fi
 
-            # tools/kas-run.sh forwards an arbitrary kas-container subcommand via
-            # "$@" -- its call site never spells "build"/"shell" literally -- and,
-            # unlike a just recipe body, its top-level statements are unindented
-            # and its --help text mentions both the writers and kas-container by
-            # name. Neither fits the scanner above, so it is checked on its own:
-            # the heredoc is skipped entirely, and the one real invocation is
-            # whatever line outside it mentions kas-container.
             kasrun10="tools/kas-run.sh"
             if [ ! -f "$kasrun10" ]; then
-                bad "guard 10: $kasrun10 missing -- the wrapper's writer precedence cannot be checked"
+                bad "guard 10: $kasrun10 missing"
             else
                 kasrunmiss10=$(awk -v W1="${writers10[0]}" -v W2="${writers10[1]}" -v W3="${writers10[2]}" '
                     /<</ { heredoc = 1; next }
@@ -548,11 +541,6 @@ else
                 fi
             fi
 
-            # The other half: a justfile recipe that calls kas-container build or
-            # shell directly, bypassing tools/kas-run.sh, would run against an
-            # uninjected rev with no finding above -- the uninj10 scan only sees
-            # files already on its list. purge and checkout are not build entry
-            # points and stay direct.
             direct10=$(
                 for f in Justfile justfiles/*.just; do
                     [ -f "$f" ] || continue
