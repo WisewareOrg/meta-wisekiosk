@@ -16,8 +16,8 @@ Rotation replaces that keyring with a per-project key, CN `WiseKiosk Signing Key
 committed or pushed, and no clone of this repo contains it.** `kas-container` mounts the repository
 root into the container, and `kiosk-zero-w.yaml` reads the key at `${TOPDIR}/../local/keys`.
 **Not committing it is the whole protection**, not where it sits. The cost is that git cannot give it
-back — `git clean -xfd` deletes an untracked file and no
-checkout restores it — so keep a **backup**, encrypted archive or password manager, for that alone.
+back — `git clean -xfd` deletes an untracked file and no checkout restores it — so keep a **backup**,
+encrypted archive or password manager, for that alone.
 Losing every copy ends OTA for every fielded unit: a device accepts only bundles signed by the key its
 running slot trusts, leaving an SD card reflash as the only way back.
 

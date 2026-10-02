@@ -7,9 +7,11 @@ usage() {
 Usage: tools/kas-run.sh [--help] <kas-container args...>
 
 Environment:
-  PIPELINE_KEYS_DIR   mounted read-only at /work/local/keys
+  PIPELINE_KEYS_DIR   mounted read-only at /work/local/keys; no whitespace
   KAS_RUN_ENV         space-separated variable NAMES passed through to
-                      kas-container as -e NAME=value, for each that is non-empty
+                      kas-container as -e NAME, for each that is non-empty
+
+Refuses --runtime-args and --docker-args in <kas-container args...>.
 
 Exits with kas-container's status, a failing writer's status, or 2 on bad usage.
 EOF
@@ -22,6 +24,18 @@ fi
 
 if [ $# -eq 0 ]; then
     usage >&2
+    exit 2
+fi
+
+for arg in "$@"; do
+    if [ "$arg" = "--runtime-args" ] || [ "$arg" = "--docker-args" ]; then
+        echo "tools/kas-run.sh: $arg not allowed; set PIPELINE_KEYS_DIR or KAS_RUN_ENV instead" >&2
+        exit 2
+    fi
+done
+
+if [[ "${PIPELINE_KEYS_DIR:-}" == *[[:space:]]* ]]; then
+    echo "tools/kas-run.sh: PIPELINE_KEYS_DIR must not contain whitespace" >&2
     exit 2
 fi
 
@@ -39,7 +53,7 @@ fi
 if [ -n "${KAS_RUN_ENV:-}" ]; then
     for name in $KAS_RUN_ENV; do
         if [ -n "${!name:-}" ]; then
-            runtime="$runtime -e $name=${!name}"
+            runtime="$runtime -e $name"
         fi
     done
 fi

@@ -519,20 +519,23 @@ else
             else
                 kasrunmiss10=$(awk -v W1="${writers10[0]}" -v W2="${writers10[1]}" -v W3="${writers10[2]}" -v SQ="'" -v DQ='"' '
                     /<</ {
-                        heredoc = 1
-                        rest = substr($0, index($0, "<<") + 2)
-                        if (substr(rest, 1, 1) == "-") rest = substr(rest, 2)
-                        sub(/^[ \t]+/, "", rest)
-                        c = substr(rest, 1, 1)
-                        if (c == SQ || c == DQ) {
-                            rest = substr(rest, 2)
-                            e = index(rest, c)
-                            if (e > 0) rest = substr(rest, 1, e - 1)
-                        } else {
-                            sub(/[^A-Za-z0-9_].*$/, "", rest)
+                        p = index($0, "<<")
+                        if (substr($0, p, 3) != "<<<") {
+                            heredoc = 1
+                            rest = substr($0, p + 2)
+                            if (substr(rest, 1, 1) == "-") rest = substr(rest, 2)
+                            sub(/^[ \t]+/, "", rest)
+                            c = substr(rest, 1, 1)
+                            if (c == SQ || c == DQ) {
+                                rest = substr(rest, 2)
+                                e = index(rest, c)
+                                if (e > 0) rest = substr(rest, 1, e - 1)
+                            } else {
+                                sub(/[^A-Za-z0-9_].*$/, "", rest)
+                            }
+                            delim = rest
+                            next
                         }
-                        delim = rest
-                        next
                     }
                     heredoc && $0 == delim { heredoc = 0; delim = ""; next }
                     heredoc { next }
@@ -541,15 +544,19 @@ else
                     index($0, W2) { armed2 = 1 }
                     index($0, W3) { armed3 = 1 }
                     /kas-container/ {
+                        matches++
                         missing = ""
                         if (!armed1) missing = missing " " W1
                         if (!armed2) missing = missing " " W2
                         if (!armed3) missing = missing " " W3
                         if (missing != "") printf "%d: missing before kas-container:%s\n", NR, missing
                     }
+                    END {
+                        if (matches == 0) print "0: no kas-container invocation found outside the usage text"
+                    }
                 ' "$kasrun10")
                 if [ -n "$kasrunmiss10" ]; then
-                    bad "guard 10: $kasrun10 calls kas-container before running a writer:"
+                    bad "guard 10: $kasrun10 failed its writer-precedence check:"
                     printf '%s\n' "$kasrunmiss10" | sed "s|^|        $kasrun10:|"
                 else
                     ok "$kasrun10 runs all three build-input writers before kas-container"
