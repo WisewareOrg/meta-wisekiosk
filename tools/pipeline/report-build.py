@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
-"""Render one pipeline run's report body on stdout.
+"""Render one pipeline run's report body.
 
-    report-build.py --verdict <file> --delta <file> [--results <file>] [--log <path> ...]
+    report-build.py --verdict <file> --delta <file> [--results <file>]
+                     [--log <path> ...]
+        -- assemble the run's Markdown body on stdout
+
+Each --log is a path already tailed by the caller; its label is the file's
+own basename. Each test case's own log, embedded in --results, is tailed to
+the last TAIL_LINES lines. rc 0 always prints a body; rc 2 on a bad argument
+or a --verdict/--delta file that cannot be read.
 """
 import argparse
 import json
