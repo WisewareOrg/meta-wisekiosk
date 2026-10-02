@@ -1,8 +1,5 @@
-# Bench pipeline provisioning and control -- docs/testing.md covers what each
-# tier proves and how to run it.
-#
-# Required variables (set by importing Justfile):
-#   py - the python3 interpreter every python recipe runs
+# Pipeline provisioning and control -- docs/testing.md covers what each tier
+# proves and how to run it. Required variable: py, the python3 interpreter.
 
 [group('pipeline')]
 [script('bash')]
@@ -18,7 +15,6 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
         exit 1
     fi
     TARGET="{{target}}"
-    # Same lock file and fd as tools/pipeline/run.sh.
     PIPELINE_LOCK="$HOME/.config/wisekiosk/pipeline.lock"
     mkdir -p "$(dirname "$PIPELINE_LOCK")"
     exec 9>"$PIPELINE_LOCK"
@@ -47,23 +43,13 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
     else
         git clone "$ORIGIN_URL" "$TREE"
     fi
-    git -C "$TREE" checkout --detach "origin/{{driver_ref}}"
-    echo "driver and tree at origin/{{driver_ref}}"
-
-    for d in "$DRIVER" "$TREE"; do
-        if [ -L "$d/local" ]; then
-            echo "$d/local is a symlink -- refusing" >&2
-            exit 1
-        fi
-        mkdir -p "$d/local"
-        ln -sf "$MAP" "$d/local/device-identity.md"
-    done
+    if [ -L "$DRIVER/local" ]; then
+        echo "$DRIVER/local is a symlink -- refusing" >&2
+        exit 1
+    fi
+    mkdir -p "$DRIVER/local"
+    ln -sf "$MAP" "$DRIVER/local/device-identity.md"
     # local/keys: an empty bind-mount target -- docs/testing.md §"Running it".
-    # A non-empty keys dir fails rmdir and aborts the recipe.
-    for p in "$DRIVER/local/keys" "$TREE/local/keys"; do
-        [ -L "$p" ] && rm -- "$p"
-        [ -d "$p" ] && rmdir -- "$p"
-    done
     mkdir -p "$TREE/local/keys"
 
     # Seed hashserv.db once from the dev tree's -- docs/testing.md §"Running it".
@@ -76,7 +62,6 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
         {{py}} -c 'import sqlite3, sys; src = sqlite3.connect("file:" + sys.argv[1] + "?mode=ro", uri=True); dst = sqlite3.connect(sys.argv[2]); src.backup(dst); dst.close(); src.close()' \
             "$DEV_HASHSERV_DB" "$PIPELINE_HASHSERV_DB.tmp"
         mv -- "$PIPELINE_HASHSERV_DB.tmp" "$PIPELINE_HASHSERV_DB"
-        echo "seeded the pipeline's hash-equivalence DB from the dev tree (sqlite3 online backup)"
     fi
 
     CONF_DIR="$HOME/.config/wisekiosk"
@@ -93,16 +78,14 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
         printf 'PIPELINE_SSH_DIR="%s"\n' "$SSH_DIR"
         printf 'PIPELINE_KEYS_DIR="%s"\n' "$KEYS"
         printf 'PIPELINE_TARGET="%s"\n' "$TARGET"
+        printf 'PIPELINE_LOCK="%s"\n' "$PIPELINE_LOCK"
     } > "$CONF_DIR/pipeline.env"
-    echo "wrote $CONF_DIR/pipeline.env"
 
     mkdir -p "$SSH_DIR"
     chmod 700 "$SSH_DIR"
     if [ ! -f "$SSH_DIR/id_ed25519" ]; then
         ssh-keygen -t ed25519 -N "" -C "wisekiosk-pipeline" -f "$SSH_DIR/id_ed25519" -q
-        echo "generated $SSH_DIR/id_ed25519"
     fi
-    touch "$SSH_DIR/known_hosts"
 
     # Host *: the testimage container dials TEST_TARGET_IP, a bare address.
     {
@@ -112,31 +95,23 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
         printf '    StrictHostKeyChecking accept-new\n'
         printf '    UserKnownHostsFile ~/.ssh/known_hosts\n'
     } > "$SSH_DIR/config"
-    echo "wrote $SSH_DIR/config"
 
     PUBKEY=$(cat "$SSH_DIR/id_ed25519.pub")
     SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10"
     $SSH "root@$TARGET" "mkdir -p ~/.ssh && chmod 700 ~/.ssh && touch ~/.ssh/authorized_keys && grep -qxF '$PUBKEY' ~/.ssh/authorized_keys || echo '$PUBKEY' >> ~/.ssh/authorized_keys"
-    echo "installed the pipeline key on root@$TARGET"
 
     TARGET_HOSTNAME=$($SSH -i "$SSH_DIR/id_ed25519" "root@$TARGET" hostname)
     printf 'PIPELINE_TARGET_HOSTNAME="%s"\n' "$TARGET_HOSTNAME" >> "$CONF_DIR/pipeline.env"
-    echo "recorded the target's hostname in $CONF_DIR/pipeline.env"
 
     mkdir -p "$HOME/.config/systemd/user"
     ln -sf "$DRIVER/tools/pipeline/wisekiosk-pipeline.service" "$HOME/.config/systemd/user/wisekiosk-pipeline.service"
     ln -sf "$DRIVER/tools/pipeline/wisekiosk-pipeline.timer" "$HOME/.config/systemd/user/wisekiosk-pipeline.timer"
     systemctl --user daemon-reload
-    echo "symlinked the units into ~/.config/systemd/user/ and reloaded"
 
     if ! loginctl show-user "$(id -un)" -p Linger 2>/dev/null | grep -q '^Linger=yes$'; then
         loginctl enable-linger "$(id -un)"
-        echo "enabled linger for $(id -un)"
     fi
 
-    systemd-run --user --wait --pipe -p "EnvironmentFile=$CONF_DIR/pipeline.env" -- gh auth status
-    systemd-run --user --wait --pipe -p "EnvironmentFile=$CONF_DIR/pipeline.env" -- git -C "$DRIVER" ls-remote origin HEAD
-    echo "gh auth and git ls-remote both proved under systemd-run --user"
     echo "the timer is NOT enabled -- run 'just pipeline-on' when ready"
 
 [group('pipeline')]

@@ -1,5 +1,5 @@
 [Unit]
-Description=Bench pipeline: one build / OTA / testimage / rollback / status run
+Description=Pipeline: one build / OTA / testimage / rollback / status run
 
 [Service]
 Type=oneshot

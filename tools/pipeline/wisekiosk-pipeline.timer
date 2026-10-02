@@ -1,5 +1,5 @@
 [Unit]
-Description=Run the bench pipeline on a schedule
+Description=Run the pipeline on a schedule
 
 [Timer]
 OnBootSec=2min
