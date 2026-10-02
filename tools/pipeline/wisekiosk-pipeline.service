@@ -1,0 +1,8 @@
+[Unit]
+Description=Pipeline: one build / OTA / testimage / rollback / status run
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/wisekiosk-pipeline/driver
+EnvironmentFile=%h/.config/wisekiosk/pipeline.env
+ExecStart=%h/wisekiosk-pipeline/driver/tools/pipeline/run.sh

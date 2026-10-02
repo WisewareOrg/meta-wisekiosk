@@ -3,6 +3,8 @@
 
     scrub-identity.py --check [root]    exit 1 if any identifier is present
     scrub-identity.py --apply [root]    rewrite tracked files, print what changed
+    scrub-identity.py --filter [root]   stdin -> stdout, redacted; exit 2 if the map
+                                         is missing or a dangling symlink
 
 `--check --allow-partial` downgrades a missing map from a failure to a reported
 degradation. It is for the one caller that structurally cannot have the map --
@@ -124,6 +126,12 @@ PATTERNS = [
     ),
 ]
 
+# A full BEGIN..END block, non-greedy and multiline, so --filter drops the key
+# material itself rather than just flagging the header line.
+PRIVATE_KEY_BLOCK = re.compile(
+    r'-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----',
+    re.DOTALL)
+
 # This file necessarily contains every pattern it searches for, as source. A
 # scanner that fails on its own source is a scanner nobody can commit.
 SELF = 'tools/scrub-identity.py'
@@ -178,11 +186,8 @@ def map_path(root):
     return shared.parent / MAP_REL
 
 
-def load_map(root):
-    """[(key, real, placeholder)] for the scanned rows, or None if no map."""
-    path = map_path(root)
-    if not path.exists():
-        return None
+def _map_rows(path):
+    """[(key, real)] for path's scanned ```identity fence rows."""
     rows, inside = [], False
     for line in path.read_text(encoding='utf-8').splitlines():
         if not inside:
@@ -197,8 +202,46 @@ def load_map(root):
         key, real = m.group(1), m.group(2)
         if key.startswith(PUBLIC_NS) or not real:
             continue
-        rows.append((key, real, '<' + key.upper().replace('.', '_') + '>'))
+        rows.append((key, real))
     return rows
+
+
+def load_map(root):
+    """[(key, real, placeholder)] for the scanned rows, or None if no map."""
+    path = map_path(root)
+    if not path.exists():
+        return None
+    return [(key, real, '<' + key.upper().replace('.', '_') + '>')
+            for key, real in _map_rows(path)]
+
+
+def cmd_filter(root):
+    """Redact stdin to stdout: known map values, then PATTERNS, then any
+    private-key block. Fails closed: exits 2 if the map is missing or dangling."""
+    path = map_path(root)
+    if not path.exists():
+        print(f'{SELF}: no {MAP_REL} reachable from {root} -- refusing to filter',
+              file=sys.stderr)
+        return 2
+
+    text = sys.stdin.read()
+    rows = _map_rows(path)
+    if rows:
+        ordered = sorted(rows, key=lambda row: -len(row[1]))
+        value_to_key = {}
+        for key, real in ordered:
+            value_to_key.setdefault(real.lower(), key)
+        known = re.compile(
+            "|".join(re.escape(real) for _key, real in ordered), re.IGNORECASE)
+        text = known.sub(lambda m: f'<{value_to_key[m.group(0).lower()]}>', text)
+
+    for _label, pattern, _remedy in PATTERNS:
+        text = pattern.sub('<redacted>', text)
+
+    text = PRIVATE_KEY_BLOCK.sub('<redacted key>', text)
+
+    sys.stdout.write(text)
+    return 0
 
 
 def tracked(root):
@@ -220,11 +263,15 @@ def main():
     allow_partial = '--allow-partial' in sys.argv[1:]
 
     mode = argv[0] if argv else '--check'
-    if mode not in ('--check', '--apply'):
-        print(f'usage: {SELF} [--check|--apply] [--allow-partial] [root]', file=sys.stderr)
+    if mode not in ('--check', '--apply', '--filter'):
+        print(f'usage: {SELF} [--check|--apply|--filter] [--allow-partial] [root]', file=sys.stderr)
         return 2
 
     root = repo_root(argv[1] if len(argv) > 1 else None)
+
+    if mode == '--filter':
+        return cmd_filter(root)
+
     rows = load_map(root)
 
     # Degraded, but never silently. The stdout PARTIAL line below reaches the
