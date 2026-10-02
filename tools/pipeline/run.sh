@@ -333,9 +333,11 @@ if [ "$KIND" = pr ] \
     BOOT_CAVEAT="rootfs only -- /boot unproven: an OTA carries no boot files"
 fi
 
-BENCH_ADDR=$("$PY" "$TOOLS/pipeline/resolve-role.py" \
-    --map "$PIPELINE_DRIVER/local/device-identity.md" bench) \
-    || abort "resolve-role.py refused to resolve bench"
+if [ -z "${PIPELINE_TARGET:-}" ]; then
+    echo "run.sh: PIPELINE_TARGET not set" >&2
+    exit 2
+fi
+BENCH_ADDR="$PIPELINE_TARGET"
 SSH_HOST="root@$BENCH_ADDR"
 
 RUN_DIR="$PIPELINE_DRIVER/local/pipeline/runs/$SHA"
@@ -346,9 +348,10 @@ mkdir -p "$RUN_DIR"
 ssh "${SSH_OPTS[@]}" "$SSH_HOST" true || abort "bench ($SSH_HOST) unreachable"
 
 OBSERVED_HOSTNAME=$(ssh "${SSH_OPTS[@]}" "$SSH_HOST" hostname 2>/dev/null || true)
-"$PY" "$TOOLS/pipeline/resolve-role.py" --map "$PIPELINE_DRIVER/local/device-identity.md" \
-    --verify-hostname "$OBSERVED_HOSTNAME" \
-    || abort "bench's hostname does not uniquely match the map's bench.hostname row"
+if [ -z "${PIPELINE_TARGET_HOSTNAME:-}" ] || [ "$OBSERVED_HOSTNAME" != "$PIPELINE_TARGET_HOSTNAME" ]; then
+    echo "run.sh: observed hostname does not match PIPELINE_TARGET_HOSTNAME" >&2
+    exit 2
+fi
 
 if [ -f "$PIPELINE_BUILD_DIR/bitbake.lock" ] \
     && ! flock -n "$PIPELINE_BUILD_DIR/bitbake.lock" -c true 2>/dev/null; then

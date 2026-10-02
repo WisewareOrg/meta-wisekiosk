@@ -243,8 +243,14 @@ provision-card mountpoint:
 pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
                  pipeline_baseline_ref=env('PIPELINE_BASELINE_REF', 'origin/main') \
                  dl_dir=env('DL_DIR', (justfile_directory() / 'build/downloads')) \
-                 sstate_dir=env('SSTATE_DIR', (justfile_directory() / 'build/sstate-cache')):
+                 sstate_dir=env('SSTATE_DIR', (justfile_directory() / 'build/sstate-cache')) \
+                 target=env('PIPELINE_TARGET', ''):
     set -euo pipefail
+    if [ -z "{{target}}" ]; then
+        echo "pipeline-install: target not given -- pass target=<address> or set PIPELINE_TARGET" >&2
+        exit 1
+    fi
+    TARGET="{{target}}"
     # Same lock file and fd as tools/pipeline/run.sh.
     PIPELINE_LOCK="$HOME/.config/wisekiosk/pipeline.lock"
     mkdir -p "$(dirname "$PIPELINE_LOCK")"
@@ -319,6 +325,7 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
         printf 'PIPELINE_BASELINE_REF="{{pipeline_baseline_ref}}"\n'
         printf 'PIPELINE_SSH_DIR="%s"\n' "$SSH_DIR"
         printf 'PIPELINE_KEYS_DIR="%s"\n' "$KEYS"
+        printf 'PIPELINE_TARGET="%s"\n' "$TARGET"
     } > "$CONF_DIR/pipeline.env"
     echo "wrote $CONF_DIR/pipeline.env"
 
@@ -340,11 +347,14 @@ pipeline-install driver_ref=env('PIPELINE_DRIVER_REF', 'main') \
     } > "$SSH_DIR/config"
     echo "wrote $SSH_DIR/config"
 
-    BENCH=$({{py}} tools/pipeline/resolve-role.py --map "$MAP" bench)
     PUBKEY=$(cat "$SSH_DIR/id_ed25519.pub")
     SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10"
-    $SSH "root@$BENCH" "mkdir -p ~/.ssh && chmod 700 ~/.ssh && touch ~/.ssh/authorized_keys && grep -qxF '$PUBKEY' ~/.ssh/authorized_keys || echo '$PUBKEY' >> ~/.ssh/authorized_keys"
-    echo "installed the pipeline key on bench (root@$BENCH)"
+    $SSH "root@$TARGET" "mkdir -p ~/.ssh && chmod 700 ~/.ssh && touch ~/.ssh/authorized_keys && grep -qxF '$PUBKEY' ~/.ssh/authorized_keys || echo '$PUBKEY' >> ~/.ssh/authorized_keys"
+    echo "installed the pipeline key on root@$TARGET"
+
+    TARGET_HOSTNAME=$($SSH -i "$SSH_DIR/id_ed25519" "root@$TARGET" hostname)
+    printf 'PIPELINE_TARGET_HOSTNAME="%s"\n' "$TARGET_HOSTNAME" >> "$CONF_DIR/pipeline.env"
+    echo "recorded the target's hostname in $CONF_DIR/pipeline.env"
 
     mkdir -p "$HOME/.config/systemd/user"
     ln -sf "$DRIVER/tools/pipeline/wisekiosk-pipeline.service" "$HOME/.config/systemd/user/wisekiosk-pipeline.service"

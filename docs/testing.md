@@ -21,7 +21,7 @@ cold boot. The pipeline installs only over the air: it writes no boot file (kern
 
 ```sh
 just pipeline-install                # once per host, idempotent -- reads $PIPELINE_DRIVER_REF,
-                                      # $PIPELINE_BASELINE_REF, $DL_DIR, $SSTATE_DIR
+                                      # $PIPELINE_BASELINE_REF, $DL_DIR, $SSTATE_DIR, $PIPELINE_TARGET
 just pipeline-on                     # enable the timer
 just pipeline-off                    # disable it
 just pipeline-status                 # timer state + any DISABLED reason
@@ -35,8 +35,9 @@ does not also do. It creates, all under `$HOME`:
 
 - `wisekiosk-pipeline/driver` — this repository, checked out at `driver_ref`; runs `run.sh`.
 - `wisekiosk-pipeline/tree` — a second, detached checkout of the same repository; the tree under test.
-- `wisekiosk-pipeline/{driver,tree}/local/device-identity.md` — symlinks to the dev tree's own copy.
-  One source of truth: updating the dev tree's `local/device-identity.md` updates both.
+- `wisekiosk-pipeline/{driver,tree}/local/device-identity.md` — symlinks to the dev tree's own copy;
+  `report.py`'s redaction is the only thing that reads it. One source of truth: updating the dev
+  tree's `local/device-identity.md` updates both.
 - `wisekiosk-pipeline/tree/local/keys` — a real, empty directory. The fleet signing key is bind-mounted
   read-only into the build container from the dev tree's own `local/keys` (`PIPELINE_KEYS_DIR` below);
   it is never copied, and the driver checkout, which never runs bitbake, gets no keys dir at all. A
@@ -44,7 +45,9 @@ does not also do. It creates, all under `$HOME`:
   `/work`, so a symlink pointing outside it resolves to nothing inside the container.
 - `.config/wisekiosk/pipeline.env` — `PIPELINE_DRIVER`, `PIPELINE_TREE`, `PIPELINE_BASELINE_REF`
   (default `origin/main`), `PIPELINE_SSH_DIR`, `PIPELINE_KEYS_DIR` (the dev tree's own `local/keys`),
-  the installing shell's own `PATH`, and two caches, overridable at install time: `DL_DIR` and
+  `PIPELINE_TARGET` (the device's address; required, no default), `PIPELINE_TARGET_HOSTNAME` (recorded
+  once at install by running `hostname` on the device over the newly-installed pipeline key), the
+  installing shell's own `PATH`, and two caches, overridable at install time: `DL_DIR` and
   `SSTATE_DIR` (default this repository's own `build/downloads` and `build/sstate-cache`, shared
   read-write with the dev tree's ordinary builds to avoid refetching or recompiling what is already
   there). The build dir itself is not recorded here: `run.sh` and `candidates.py` both derive it as
@@ -86,11 +89,14 @@ The newest 20 run directories are kept; older ones are pruned automatically.
 
 **An infrastructure failure** — the device unreachable, the build directory locked, a kas container
 already running, the baseline ref or its buildhistory tag not resolvable, the device not resting on a
-tagged baseline image, the device's hostname not matching the map, a reboot that never comes back, or
-the process exiting for any other reason while the device sits mid-OTA — writes
-`local/pipeline/DISABLED` under the driver with the reason and disables the timer. Nothing loops
-silently. Fix the cause, then `just pipeline-on` -- it prints the DISABLED reason and clears the file
-itself, as an explicit acknowledgement, before re-enabling.
+tagged baseline image, a reboot that never comes back, or the process exiting for any other reason
+while the device sits mid-OTA — writes `local/pipeline/DISABLED` under the driver with the reason and
+disables the timer. Nothing loops silently. Fix the cause, then `just pipeline-on` -- it prints the
+DISABLED reason and clears the file itself, as an explicit acknowledgement, before re-enabling.
+
+`PIPELINE_TARGET` unset, or the device's live hostname not matching the recorded
+`PIPELINE_TARGET_HOSTNAME`, refuses the run outright (rc 2) without touching the timer — a
+`pipeline.env` configuration problem, not an infrastructure failure.
 
 A new host needs a clone, the dev tree's `local/device-identity.md`, `gh auth login`, and
 `just pipeline-install`.
