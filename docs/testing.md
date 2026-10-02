@@ -34,8 +34,9 @@ does not also do. It creates, all under `$HOME`:
 
 - `wisekiosk-pipeline/driver` — this repository at `origin/main`; runs `run.sh`. Every tick fetches
   it first and, if its HEAD is not `origin/main`, checks that out and restarts itself from the fresh
-  copy, so the driver is always `main`'s code and never the job's: a change to the driver is judged by
-  the driver before it and takes effect once merged.
+  copy, so the driver always runs at `origin/main`'s current commit: a change to the driver is judged
+  by the driver before it and takes effect once merged. The tick follows that commit; it does not
+  reset local edits to the driver checkout.
 - `wisekiosk-pipeline/tree` — a second, detached checkout of the same repository; the tree under test.
 - `wisekiosk-pipeline/driver/local/device-identity.md` — a symlink to the dev tree's own copy;
   `tools/scrub-identity.py --filter` is the only thing that reads it, when a run posts its report.
@@ -60,6 +61,10 @@ does not also do. It creates, all under `$HOME`:
 - `wisekiosk-pipeline/tree/build/cache/hashserv.db` — seeded from the dev tree's own hash-equivalence
   database (never overwritten once the pipeline has built its own), so a fresh build dir's unihash
   lookups hit the shared `SSTATE_DIR` instead of missing and rebuilding from scratch.
+
+Unlike the driver checkout above, `pipeline.env`, the installed units and the ssh directory are
+written once by `pipeline-install` and do not follow `origin/main`: a merged change that needs a new
+environment variable or unit needs `just pipeline-install` run again to pick it up.
 
 It does **not** touch the systemd units — `pipeline-on` enables them by path, the separate,
 deliberate step that also links them into the user unit search path.
