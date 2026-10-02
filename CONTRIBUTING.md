@@ -37,7 +37,7 @@ is already pinned is gitignored and written at build entry instead of checked in
 `tools/app-lockfile.py`. Bumping the WiseKiosk app pin is therefore a one-line `SRCREV` edit — see
 [`meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md`](meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md).
 A pin on the repository's *own* tooling is the opposite case: `pyproject.toml`/`uv.lock` fix the
-versions of kas, PyYAML and anything else `tools/*.py` imports, the same way `includes/base.yaml`
+versions of PyYAML and anything else `tools/*.py` imports, the same way `includes/base.yaml`
 fixes a layer commit, and a pin — unlike a build-derived file — is never autogenerable, so it belongs
 in the tree (#167 restore pinned Python tooling).
 
