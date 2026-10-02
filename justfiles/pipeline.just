@@ -50,3 +50,8 @@ pipeline-run *args:
     . "$HOME/.config/wisekiosk/pipeline.env"
     set +a
     "$HOME/wisekiosk-pipeline/driver/tools/pipeline/run.sh" {{args}}
+
+[group('pipeline')]
+[doc("Live view of the merge queue and the current run; q quits")]
+pipeline-watch:
+    {{py}} tools/pipeline/watch.py
