@@ -145,7 +145,7 @@ done < <(git ls-files -- '*.sh' "${scan3[@]}" ':!:docs/issue_investigation/**')
 if ! command -v "$PY" > /dev/null; then
     bad "guard 4 cannot check YAML: $PY not available"
 elif ! "$PY" -c 'import yaml' 2>/dev/null; then
-    bad "guard 4 cannot check YAML: $PY has no yaml module -- install PyYAML; see the README prerequisites for a PEP-668-safe route. A repo .venv/bin/python3 is preferred where it exists, and CI installs it automatically."
+    bad "guard 4 cannot check YAML: $PY has no yaml module -- run uv sync to install PyYAML into the repo .venv/bin/python3; see the README prerequisites. CI installs it automatically."
 else
     badyaml=0
     while IFS= read -r f; do
