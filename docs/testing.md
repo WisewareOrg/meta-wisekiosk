@@ -5,7 +5,7 @@ result at that tier does **not** let you conclude.
 
 | Tier | Guarantees | Runs | What green does not say |
 |---|---|---|---|
-| Static (`just guards`, CI) | Repository invariants hold: no secret or identity reaches a tracked file, shell and YAML parse, every wiring self-test passes. | Every commit (pre-commit hook), every PR (CI). | Anything about a Yocto build. This tier never invokes bitbake. |
+| Static (`just guards`, CI) | Repository invariants hold: no secret or identity reaches a tracked file, shell and YAML parse, every wiring self-test passes. | Every commit (pre-commit hook), every PR and merge-group commit (CI). | Anything about a Yocto build. This tier never invokes bitbake. |
 | Build (`just build`) | The kas config resolves and bitbake completes: an image artifact exists. | On demand, locally — never in CI, which does not build. | Whether the image differs from the last one, whether it boots, whether it serves anything. |
 | Artifact delta (`just artifact-diff`; content-blind) | Whether package versions, the file list, or file metadata (mode/owner/size/path) changed between two builds sharing one buildhistory-enabled build directory. An empty delta is itself a pass: the pipeline posts success and runs no OTA, `testimage` or rollback for it. | After two `just build` runs. | Content. Buildhistory records path/mode/owner/size, not bytes — a same-size content edit reads as "no change". The same three files never record the shared boot partition (`config.txt`, `cmdline.txt`, `boot.scr`, `uboot.env` apart from RAUC's own variables): a PR touching only those comes back empty and merges with no device run. |
 | Device smoke (`testimage` + stages) | The backend unit is active, `/healthz` answers, the page serves, WebKit still composites on the GPU, the page is still painting — on **one** physical device (`PIPELINE_TARGET`), **one** boot, after an OTA install (never a flash). | The pipeline, once per run. | The shared boot partition (`config.txt`, `cmdline.txt`, `boot.scr`, and `uboot.env` apart from RAUC's own boot-selection variables) — an OTA writes only the slot rootfs it boots, which does carry the kernel. The RAUC slot layout, which an OTA never touches, or a second boot. |
@@ -26,7 +26,8 @@ The job is the head of the merge queue — the entry whose own base commit is `o
 tip, since every later entry is built on an earlier one's still-speculative result, not on main — and
 a PR enters the queue after its static checks pass and merges only if `bench-pipeline` is green on its
 merge-group commit. A lone queue ref whose own base is not that tip is stale — GitHub rebuilds it —
-and reads as no job, the same as an empty queue.
+and reads as no job, the same as an empty queue. The host builds and tests whatever a writer enqueues,
+including a cross-repository PR: enqueueing is the trust decision, not where the PR came from.
 
 `pipeline-install` is the whole reprovisioning procedure — nothing is done to a host by hand that it
 does not also do. It creates, all under `$HOME`:
