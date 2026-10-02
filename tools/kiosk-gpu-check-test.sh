@@ -3,7 +3,7 @@
 set -uo pipefail
 
 HERE=$(dirname "$0")
-# shellcheck disable=SC1091
+# shellcheck source=tools/kiosk-gpu-check.sh
 KIOSK_GPU_CHECK_LIB=1 . "$HERE/kiosk-gpu-check.sh"
 
 pass=0

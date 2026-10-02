@@ -57,11 +57,7 @@ gpu_verdict() {
     return 0
 }
 
-if [ "${KIOSK_GPU_CHECK_LIB:-0}" = "1" ]; then
-    # shellcheck disable=SC2317
-    return 0 2>/dev/null || exit 0
-fi
-
+main() {
 if [ "${1:-}" = "" ]; then
     echo "usage: kiosk-gpu-check.sh <ssh-target> [--capture [out.png]]" >&2
     exit 2
@@ -78,7 +74,6 @@ if [ -n "$MODE" ] && [ "$MODE" != "--capture" ]; then
 fi
 
 if [ "$MODE" = "--capture" ]; then
-    # shellcheck disable=SC2317
     restore() {
         local out rc
         out=$("$HERE/kiosk-ssh.sh" "$HOST" 'sh -s' <<'RESTORE'
@@ -101,7 +96,7 @@ RESTORE
             echo "the panel is showing webkit://gpu, not the kiosk page." >&2
         fi
     }
-    trap restore EXIT INT TERM
+    trap restore INT TERM
 
     "$HERE/kiosk-ssh.sh" "$HOST" 'sh -s' <<'PREP' || {
 grep -q '^KIOSK_URL=' /data/config/kiosk.conf || exit 3
@@ -112,7 +107,7 @@ systemctl restart kiosk
 PREP
         echo "could not stage the probe URL on $HOST (exit 3 means kiosk.conf has" >&2
         echo "no KIOSK_URL line at all, so there is nothing to put back)." >&2
-        exit 2; }
+        restore; exit 2; }
 
     up=0
     pollrc=0
@@ -126,23 +121,23 @@ PREP
         echo "cannot tell: lost contact with $HOST while waiting for surf (ssh exited" >&2
         echo "$pollrc). Whether the browser came back is unknown. kiosk.conf is put" >&2
         echo "back on the way out -- verify it by hand if that restore also failed." >&2
-        exit 2
+        restore; exit 2
     fi
     if [ "${up:-0}" = "0" ]; then
         echo "surf did not come back up within 60s -- not capturing a screen that" >&2
         echo "has nothing on it yet. kiosk.conf is put back on the way out." >&2
-        exit 1
+        restore; exit 1
     fi
     sleep 5
 
-    "$HERE/kiosk-screenshot.sh" "$HOST" ${OUT:+"$OUT"} || { echo "capture failed" >&2; exit 1; }
+    "$HERE/kiosk-screenshot.sh" "$HOST" ${OUT:+"$OUT"} || { echo "capture failed" >&2; restore; exit 1; }
 
     echo
     echo "Read the 'Hardware Acceleration Information' table in the capture:"
     echo "  Renderer: DMABuf (Supported buffers: Hardware, Shared Memory)  -- GPU"
     echo "  Renderer row ABSENT                                           -- no mode at all"
     echo "This mode reports only that the capture came back, not what it shows."
-    exit 0
+    restore; exit 0
 fi
 
 # Heredoc runs under busybox sh on the device.
@@ -183,3 +178,8 @@ printf '%s\n' "$PROBE" | sed 's/^/  /'
 
 gpu_verdict "$PROBE"
 exit $?
+}
+
+if [ "${KIOSK_GPU_CHECK_LIB:-0}" != "1" ]; then
+    main "$@"
+fi
