@@ -1,0 +1,11 @@
+[Unit]
+Description=BitBake hash equivalence server shared by every build on this host
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 %h/.local/share/bitbake-hashserv/poky/bitbake/bin/bitbake-hashserv --bind unix://%h/.local/share/bitbake-hashserv/hashserv.sock --database %h/.local/share/bitbake-hashserv/hashserv.db
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

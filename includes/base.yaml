@@ -89,3 +89,13 @@ repos:
     branch: scarthgap/go
     commit: 12112daf97ec982cf0ae4afe32d9066420c7d523
     path: "sources/meta-lts-mixins-go"
+
+#######################
+# BUILD CONFIGURATION #
+#######################
+local_conf_header:
+  # The hash-equivalence server every build on this host shares -- one database,
+  # not one per build dir. tools/kas-run.sh mounts it at /hashserv; README.md
+  # §"Quick start" has the one-time host setup.
+  bitbake-hashserv: |
+    BB_HASHSERVE = "unix:///hashserv/hashserv.sock"
