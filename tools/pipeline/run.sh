@@ -46,6 +46,25 @@ booted_slot() {
         | sed -n "s/^RAUC_SYSTEM_BOOTED_BOOTNAME='\(.*\)'/\1/p"
 }
 
+# wait_installer_idle HOST -- polls rauc's Installer.Operation over ssh,
+# sleeping 10s between tries, until it reports idle or 10 minutes of
+# wall-clock time have passed -- ssh's own connection timeout counts against
+# that budget, so an unreachable device/busctl consumes it via repeated
+# timeouts rather than failing fast. Returns once idle; returns non-zero once
+# the budget is exhausted either way.
+wait_installer_idle() {
+    local host=$1 deadline state
+    deadline=$(( $(date +%s) + 600 ))
+    while [ "$(date +%s)" -lt "$deadline" ]; do
+        state=$(ssh "${SSH_OPTS[@]}" "$host" \
+            'busctl get-property de.pengutronix.rauc / de.pengutronix.rauc.Installer Operation' \
+            2>/dev/null) || true
+        case "$state" in *idle*) return 0 ;; esac
+        sleep 10
+    done
+    return 1
+}
+
 # stage_logargs NAME LOGFILE -- fills LOGARGS with a 200-line tail of LOGFILE
 # and of each bitbake failure-task log LOGFILE references.
 stage_logargs() {
@@ -157,11 +176,11 @@ mkdir -p "$RUN_DIR"
 if [ "$KIND" = baseline ]; then
     git checkout --detach "$SHA" > "$RUN_DIR/checkout.log" 2>&1 \
         || abort "could not check out $SHA in $PIPELINE_TREE"
-    LATEST_BASELINE=$(git -C "$PIPELINE_BUILD_DIR/buildhistory" for-each-ref --sort=-creatordate \
-        --format='%(refname)' refs/tags/baseline 2>/dev/null | head -1)
-    if [ -n "$LATEST_BASELINE" ]; then
-        git -C "$PIPELINE_BUILD_DIR/buildhistory" reset --hard "$LATEST_BASELINE" \
-            || abort "could not reset buildhistory to $LATEST_BASELINE"
+    PREV_TIP=$(git rev-parse "$SHA^1") || abort "could not resolve $SHA^1"
+    if git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse --verify -q \
+            "refs/tags/baseline/$PREV_TIP" > /dev/null 2>&1; then
+        git -C "$PIPELINE_BUILD_DIR/buildhistory" reset --hard "refs/tags/baseline/$PREV_TIP" \
+            || abort "could not reset buildhistory to baseline/$PREV_TIP"
         git -C "$PIPELINE_BUILD_DIR/buildhistory" clean -fdq \
             || abort "could not clean buildhistory before the baseline build"
     fi
@@ -206,6 +225,8 @@ run_or_fail preflight "$RUN_DIR/preflight.log" "${TREE_JUST[@]}" kiosk-preflight
 run_or_fail send "$RUN_DIR/send.log" "${TREE_JUST[@]}" kiosk-send-direct
 MUTATED=1
 if ! "${TREE_JUST[@]}" kiosk-install > "$RUN_DIR/install.log" 2>&1; then
+    wait_installer_idle "$SSH_HOST" \
+        || echo "installer never reported idle (or the device was unreachable); marking the other slot bad anyway" >> "$RUN_DIR/install.log"
     ssh "${SSH_OPTS[@]}" "$SSH_HOST" 'rauc status mark-bad other' >> "$RUN_DIR/install.log" 2>&1 \
         || echo "could not mark the other slot bad after the failed install" >> "$RUN_DIR/install.log"
     stage_logargs install "$RUN_DIR/install.log"

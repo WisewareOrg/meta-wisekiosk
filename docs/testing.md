@@ -80,12 +80,15 @@ with a hand build.
 **An empty artifact delta is a pass.** A queue run whose delta comes back empty posts success and
 stops there — no bundle, OTA, `testimage` or rollback runs for it.
 
-**The baseline tag advances on every successful queue job.** A queue job that posts `success` — on an
-empty delta, or on a device run whose smoke test passes — tags its own buildhistory commit
-`baseline/<sha>`; an existing tag is left as is. A baseline build runs only when the job's base commit
-has no such tag: it builds the missing commit, tags its buildhistory, and stops — no status is posted
-and no PR comment is written, because no job's own commit is under test. The next tick picks up the
-queue job against the tagged baseline.
+**The baseline tag advances on every successful queue job** (owner, 2026-10-02: "in a merge queue
+that should literally be the last successful build so you lost the tip because you didn't move it").
+A queue job that posts `success` — on an empty delta, or on a device run whose smoke test passes —
+tags its own buildhistory commit `baseline/<sha>`; an existing tag is left as is. A baseline build
+runs only when the job's base commit has no such tag: it resets `build/buildhistory` to
+`refs/tags/baseline/<sha^1>` (main's previous tip) when that tag exists, left alone otherwise —
+an ejected candidate's own job tag is never picked up this way — builds the missing commit, tags its
+own buildhistory, and stops — no status is posted and no PR comment is written, because no job's own
+commit is under test. The next tick picks up the queue job against the tagged baseline.
 
 **Each queue job's buildhistory starts from the baseline tag.** Immediately before the job's own
 build, `build/buildhistory` is reset to the job's base commit's tag, so the build's own
@@ -107,8 +110,9 @@ A job's own build, bundle, preflight, send or install failing, the device not bo
 `artifact-diff` exiting 1 without really meaning "no change" are not infrastructure failures: each
 posts its own status (`failure`, or `error` for artifact-diff) on the job's commit with a PR comment
 carrying the failing logs, and the timer stays on for the next job. An install failure additionally
-runs `rauc status mark-bad other` over ssh before posting, best effort, so an install that finishes in
-the background after the ssh session dropped can never be booted. `artifact-diff` genuinely unable to
+waits for the installer to go idle, then marks the other slot bad, over ssh before posting, best
+effort: polled every 10 s for up to 10 min, and if it never goes idle or the device is unreachable, the
+attempt is logged and the run still finishes. `artifact-diff` genuinely unable to
 tell also posts `error` and leaves the timer on, but with no log attached — the reason is in its own
 stderr only. A missing buildhistory tag for the baseline commit is not a failure either: it selects a
 baseline build for that commit instead of a job run.

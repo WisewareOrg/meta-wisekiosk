@@ -510,6 +510,25 @@ else
         else
             ok "the generated build-rev fragment is gitignored"
         fi
+
+        # kiosk-install's gate call lives in tools/kiosk-install.sh, not in
+        # the justfile recipe body the spec loop below scans. The script
+        # resolves the gate from its own path, not a bare relative literal,
+        # so this checks for the gate's path and its mode separately rather
+        # than one contiguous string.
+        kioskinstall10="tools/kiosk-install.sh"
+        if [ ! -x "$kioskinstall10" ]; then
+            bad "guard 10: $kioskinstall10 missing or not executable"
+        else
+            kibody10=$(grep -vE '^[[:space:]]*#' "$kioskinstall10")
+            kigatepath10=$(grep -cF -- "$gate10" <<< "$kibody10")
+            kigatetree10=$(grep -cF -- '--tree' <<< "$kibody10")
+            if [ "$kigatepath10" -eq 0 ] || [ "$kigatetree10" -eq 0 ]; then
+                bad "guard 10: $kioskinstall10 does not call $gate10 --tree"
+            else
+                ok "$kioskinstall10 calls the reproducibility gate (--tree)"
+            fi
+        fi
     fi
 
     # Body of one just recipe: from its `name ...:` header to the next
@@ -528,7 +547,6 @@ else
         "justfiles/deploy.just:flash:--image" \
         "justfiles/ota.just:kiosk-preflight:--image" \
         "justfiles/ota.just:kiosk-send-direct:--tree" \
-        "justfiles/ota.just:kiosk-install:--tree" \
         "justfiles/device.just:rauc-install:--tree"
     do
         jf10=${spec%%:*}
@@ -548,6 +566,20 @@ else
         for u in $unwired10; do printf '        %s\n' "$u"; done
     else
         ok "every image-to-board recipe calls the reproducibility gate"
+    fi
+
+    # kiosk-install's recipe body is a one-line delegate to the script whose
+    # own gate call is checked above; this asserts the body invokes that
+    # script and nothing else, so a bypass cannot hide beside it.
+    kirecipe10=$(recipe_body10 justfiles/ota.just kiosk-install)
+    kilines10=$(grep -c . <<< "$kirecipe10" || true)
+    kitrim10=$(sed 's/^[[:space:]]*//;s/[[:space:]]*$//' <<< "$kirecipe10")
+    if [ -z "$kirecipe10" ]; then
+        bad "guard 10: justfiles/ota.just:kiosk-install(recipe-gone)"
+    elif [ "$kilines10" -ne 1 ] || [ "$kitrim10" != "$kioskinstall10 {{host}}" ]; then
+        bad "guard 10: justfiles/ota.just:kiosk-install does not invoke only $kioskinstall10"
+    else
+        ok "justfiles/ota.just:kiosk-install invokes only $kioskinstall10"
     fi
 
     # The rotation path reaches a device WITHOUT calling the gate itself: it goes
