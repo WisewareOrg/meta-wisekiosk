@@ -4,12 +4,15 @@
     watch.py [--help]
 
 Reads the file at $PIPELINE_ENV (default ~/.config/wisekiosk/pipeline.env)
-for a PIPELINE_DRIVER=<path> line; that path is the pipeline driver checkout
-this reads from. Never writes under it, never touches the device. The only
+for PIPELINE_DRIVER=<path> and PIPELINE_TREE=<path> lines; PIPELINE_DRIVER
+is the pipeline driver checkout this reads from, PIPELINE_TREE the working
+tree whose build/buildhistory it checks for a completed baseline build's
+tag. Never writes under either, never touches the device. The only
 subprocesses besides `git -C <driver> rev-parse` (the header's driver sha)
 and `gh api graphql` (the merge queue) are read-only
 `systemctl --user is-active` polls on wisekiosk-pipeline.timer and
-wisekiosk-pipeline.service.
+wisekiosk-pipeline.service, and a read-only
+`git -C <tree>/build/buildhistory tag -l` poll for a baseline build's tag.
 
 Screen, top to bottom:
   1. Header: "pipeline-watch", the driver's short HEAD sha, "timer on/off",
@@ -26,12 +29,13 @@ Screen, top to bottom:
      line>)", shown beside the last successful queue and its age once one
      has ever loaded, in place of the queue before that.
   3. Current run, refreshed every RUN_REFRESH_S = 5s: a stage strip (one
-     node per pipeline phase, wrapping onto a second row rather than
+     node per pipeline phase, wrapping onto further rows rather than
      truncating) and a detail line below it -- elapsed time and an ETA for
-     an in-progress phase, or "posted: <verdict>" / "ended: no verdict" for
-     a finished one. A live `build` phase also shows up to 3 running
-     recipe:task names on their own row underneath, so they can't push the
-     ETA off the line.
+     an in-progress phase, "posted: <verdict>" for a finished one, "ended:
+     no verdict" for one that stopped without posting, or "baseline <sha>
+     built" for a completed baseline build. A live `build` phase also
+     shows up to 3 running recipe:task names on their own row underneath,
+     so they can't push the ETA off the line.
   4. Log pane, the rest of the screen: the tail of the active phase's own
      log file, titled with the file name and following/paused/scrolled,
      following the end by default.
@@ -57,34 +61,38 @@ from pathlib import Path
 MIN_COLS, MIN_LINES = 70, 20
 QUEUE_REFRESH_S, RUN_REFRESH_S = 30, 5
 QUEUE_ROWS_MAX = 10
+BASELINE_TAG_CACHE_S = 30
 
-# STAGES: (internal name, log file, display name), one row per phase in
-# tools/pipeline/run.sh's order.
-#   internal name  the phase as run.sh names it; "posted" for both rows
-#                  after a run ends (verdict.txt, body.md)
-#   log file       the file run.sh writes for that phase, inside a run
-#                  directory (<driver>/local/pipeline/runs/<sha>/)
-#   display name   the stage-strip label; the two rollback rows and the
-#                  two posted rows each share one display name, collapsing
-#                  to a single stage-strip node
+# STAGES: (internal name, log file, display name, failure substrings), one
+# row per phase in tools/pipeline/run.sh's order.
+#   internal name       the phase as run.sh names it; "posted" for both
+#                       rows after a run ends (verdict.txt, body.md)
+#   log file            the file run.sh writes for that phase, inside a
+#                       run directory (<driver>/local/pipeline/runs/<sha>/)
+#   display name        the stage-strip label; the two rollback rows and
+#                       the two posted rows each share one display name,
+#                       collapsing to a single stage-strip node
+#   failure substrings  text run.sh's finish() can write to verdict.txt
+#                       when this stage is the reason a run failed; () if
+#                       none is known
 STAGES = (
-    ("checkout", "checkout.log", "checkout"),
-    ("build", "build.log", "build"),
-    ("delta", "delta.txt", "delta"),
-    ("bundle", "bundle.log", "bundle"),
-    ("preflight", "preflight.log", "preflight"),
-    ("send", "send.log", "send"),
-    ("install", "install.log", "install"),
-    ("reboot", "reboot.log", "reboot"),
-    ("testimage", "testimage.log", "smoke"),
-    ("render", "render.log", "render"),
-    ("gpu", "gpu.log", "gpu"),
-    ("rollback", "rollback.log", "rollback"),
-    ("rollback-reboot", "rollback-reboot.log", "rollback"),
-    ("posted", "verdict.txt", "posted"),
-    ("posted", "body.md", "posted"),
+    ("checkout", "checkout.log", "checkout", ()),
+    ("build", "build.log", "build", ("build failed",)),
+    ("delta", "delta.txt", "delta", ()),
+    ("bundle", "bundle.log", "bundle", ("bundle",)),
+    ("preflight", "preflight.log", "preflight", ("preflight",)),
+    ("send", "send.log", "send", ("send",)),
+    ("install", "install.log", "install", ("install failed",)),
+    ("reboot", "reboot.log", "reboot", ("did not boot",)),
+    ("testimage", "testimage.log", "smoke", ("testimage",)),
+    ("render", "render.log", "render", ("render",)),
+    ("gpu", "gpu.log", "gpu", ("gpu",)),
+    ("rollback", "rollback.log", "rollback", ("rollback", "previous slot")),
+    ("rollback-reboot", "rollback-reboot.log", "rollback", ()),
+    ("posted", "verdict.txt", "posted", ()),
+    ("posted", "body.md", "posted", ()),
 )
-INTERNAL_TO_DISPLAY = {name: display for name, _file, display in STAGES}
+INTERNAL_TO_DISPLAY = {name: display for name, _file, display, _subs in STAGES}
 
 
 def _stage_display():
@@ -92,24 +100,44 @@ def _stage_display():
 
     Returns [(display name, (file, ...)), ...], one entry per distinct
     display name, in the order each first appears in STAGES."""
-    files_by_display = {}
-    order = []
-    for _name, file, display in STAGES:
-        if display not in files_by_display:
-            files_by_display[display] = []
-            order.append(display)
-        files_by_display[display].append(file)
-    return [(display, tuple(files_by_display[display])) for display in order]
+    by_display = {}
+    for _name, file, display, _subs in STAGES:
+        by_display.setdefault(display, []).append(file)
+    return [(display, tuple(files)) for display, files in by_display.items()]
 
 
 STAGE_DISPLAY = _stage_display()
 
+
+def _failure_patterns():
+    """Group STAGES' failure substrings by display name.
+
+    Returns {display name: (substring, ...), ...} for every display name
+    that has at least one non-empty STAGES row, substrings deduplicated
+    and in first-seen order."""
+    patterns = {}
+    for _name, _file, display, substrings in STAGES:
+        if not substrings:
+            continue
+        bucket = patterns.setdefault(display, [])
+        for s in substrings:
+            if s not in bucket:
+                bucket.append(s)
+    return {display: tuple(subs) for display, subs in patterns.items()}
+
+
+FAILURE_PATTERNS = _failure_patterns()
+
+# "<timestamp> ... Running task N of M (...)", a bitbake progress line.
 TASK_LINE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*Running task (\d+) of (\d+)")
+# "NOTE: recipe R: task T: Started"
 STARTED_RE = re.compile(r"NOTE: recipe (\S+): task (do_\S+): Started")
+# "NOTE: recipe R: task T: Succeeded" or "...Failed"
 DONE_RE = re.compile(r"NOTE: recipe (\S+): task (do_\S+): (?:Succeeded|Failed)")
+# "ERROR: R T: ..." -- a bitbake setscene failure logs no Succeeded/Failed line
 ERROR_TASK_RE = re.compile(r"ERROR: (\S+) (do_\S+): ")
+# The "VERDICT: <text>" line run.sh's finish() writes to verdict.txt
 VERDICT_RE = re.compile(r"^VERDICT: (.*)$", re.MULTILINE)
-FAILED_STAGE_RE = re.compile(r"^(\w+) failed$")
 # Position, state, ETA, head/base commit oid and PR number/title for each
 # entry in this repo's main-branch merge queue.
 GRAPHQL_QUERY = (
@@ -121,60 +149,63 @@ GRAPHQL_QUERY = (
 )
 
 
-def load_driver(env_path):
-    """Parse env_path's KEY=value lines for PIPELINE_DRIVER.
+def load_env_value(env_path, key):
+    """`key`'s value from env_path's KEY=value lines (surrounding quotes
+    stripped).
 
-    Returns its value (surrounding quotes stripped), or None if env_path
-    can't be read or has no such line."""
+    Returns None if env_path can't be read or has no such line."""
     try:
         lines = Path(env_path).read_text().splitlines()
     except OSError:
         return None
+    prefix = f"{key}="
     for line in lines:
-        if line.startswith("PIPELINE_DRIVER="):
-            return line.split("=", 1)[1].strip().strip('"')
+        if line.startswith(prefix):
+            return line[len(prefix):].strip().strip('"')
     return None
+
+
+def load_driver(env_path):
+    """PIPELINE_DRIVER's value from env_path. See load_env_value()."""
+    return load_env_value(env_path, "PIPELINE_DRIVER")
+
+
+def _run_or_none(cmd, timeout):
+    """Run `cmd`.
+
+    Returns its stripped stdout regardless of exit code (`systemctl
+    is-active` exits non-zero for "activating" and every other state but
+    "active", printing the state to stdout either way), or None if it
+    raises (a missing executable, or a timeout past `timeout` seconds)."""
+    try:
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return out.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return None
 
 
 def driver_sha(driver):
     """Run `git -C driver rev-parse --short HEAD`.
 
-    Returns its stripped stdout, or "unknown" on a non-zero exit, a
-    missing git, or a timeout past 5s."""
-    try:
-        out = subprocess.run(["git", "-C", driver, "rev-parse", "--short", "HEAD"],
-                              capture_output=True, text=True, timeout=5)
-        return out.stdout.strip() if out.returncode == 0 else "unknown"
-    except (OSError, subprocess.SubprocessError):
-        return "unknown"
+    Returns its stripped stdout, or "unknown" on failure."""
+    return _run_or_none(["git", "-C", driver, "rev-parse", "--short", "HEAD"], 5) or "unknown"
 
 
 def timer_active():
-    """Run `systemctl --user is-active wisekiosk-pipeline.timer`.
-
-    Returns True only when its stdout is exactly "active"; False on any
-    other value, a missing systemctl, or a timeout past 5s."""
-    try:
-        out = subprocess.run(["systemctl", "--user", "is-active", "wisekiosk-pipeline.timer"],
-                              capture_output=True, text=True, timeout=5)
-        return out.stdout.strip() == "active"
-    except (OSError, subprocess.SubprocessError):
-        return False
+    """True while `systemctl --user is-active wisekiosk-pipeline.timer`
+    reads exactly "active"; False on any other value or failure."""
+    return _run_or_none(["systemctl", "--user", "is-active", "wisekiosk-pipeline.timer"], 5) \
+        == "active"
 
 
 def service_active():
     """True while run.sh is executing (is-active reads "activating" or "active").
 
-    Runs `systemctl --user is-active wisekiosk-pipeline.service`. The unit
-    is Type=oneshot, so a live run reads "activating" for its whole
-    duration and never the bare "active". Returns False on any other
-    stdout, a missing systemctl, or a timeout past 5s."""
-    try:
-        out = subprocess.run(["systemctl", "--user", "is-active", "wisekiosk-pipeline.service"],
-                              capture_output=True, text=True, timeout=5)
-        return out.stdout.strip() in ("active", "activating")
-    except (OSError, subprocess.SubprocessError):
-        return False
+    `systemctl --user is-active wisekiosk-pipeline.service`: the unit is
+    Type=oneshot, so a live run reads "activating" for its whole duration
+    and never the bare "active". False on any other value or failure."""
+    return _run_or_none(["systemctl", "--user", "is-active", "wisekiosk-pipeline.service"], 5) \
+        in ("active", "activating")
 
 
 def disabled_reason(driver):
@@ -187,6 +218,29 @@ def disabled_reason(driver):
     except OSError:
         return None
     return lines[1] if len(lines) > 1 else ""
+
+
+_baseline_tag_cache = {}
+
+
+def baseline_tag_exists(tree, sha, now):
+    """Whether `git -C <tree>/build/buildhistory tag -l baseline/<sha>`
+    lists that tag -- run.sh's own marker for a completed baseline build
+    of `sha`. Cached per sha for BASELINE_TAG_CACHE_S seconds; a missing
+    `tree`, a missing buildhistory directory, or a git failure all read
+    as no tag.
+
+    Returns a bool."""
+    cached = _baseline_tag_cache.get(sha)
+    if cached is not None and now - cached[1] < BASELINE_TAG_CACHE_S:
+        return cached[0]
+    exists = False
+    if tree:
+        out = _run_or_none(
+            ["git", "-C", f"{tree}/build/buildhistory", "tag", "-l", f"baseline/{sha}"], 5)
+        exists = bool(out)
+    _baseline_tag_cache[sha] = (exists, now)
+    return exists
 
 
 def fetch_queue():
@@ -256,13 +310,14 @@ class QueueWorker:
     def _run(self):
         """Loop: fetch_queue(), store the result under self.lock, sleep
         QUEUE_REFRESH_S. Any exception fetch_queue() doesn't itself catch
-        is caught here and stored as self.error rather than killing the
-        thread."""
+        is caught here and stored as self.error (falling back to the
+        exception's class name if it has no message) rather than killing
+        the thread."""
         while True:
             try:
                 queue, err = fetch_queue()
             except Exception as exc:
-                queue, err = None, str(exc)
+                queue, err = None, str(exc) or type(exc).__name__
             with self.lock:
                 if queue is not None:
                     self.queue = queue
@@ -301,7 +356,7 @@ def current_phase(run_dir):
                  (always None when idx == 0)
     Returns (None, None, None) if no STAGES file exists in run_dir."""
     best = None
-    for idx, (_name, fname, _display) in enumerate(STAGES):
+    for idx, (_name, fname, _display, _subs) in enumerate(STAGES):
         path = run_dir / fname
         try:
             mtime = path.stat().st_mtime
@@ -353,12 +408,10 @@ def median_durations(idx, run_dir, limit=5):
 def running_tasks(lines, limit=3):
     """Which bitbake tasks in `lines` look still in progress.
 
-    Matches three line shapes: STARTED_RE ("NOTE: recipe R: task T:
-    Started"), DONE_RE ("NOTE: recipe R: task T: Succeeded" or
-    "...Failed"), and ERROR_TASK_RE ("ERROR: R T: ..."). A (recipe, task)
-    pair counts as done once a DONE_RE or ERROR_TASK_RE line names it; the
-    remaining started pairs, in the order their Started line appeared, are
-    formatted "recipe:task".
+    Matches three line shapes: STARTED_RE, DONE_RE, and ERROR_TASK_RE. A
+    (recipe, task) pair counts as done once a DONE_RE or ERROR_TASK_RE
+    line names it; the remaining started pairs, in the order their
+    Started line appeared, are formatted "recipe:task".
 
     Returns the last `limit` such strings (closest to the end of
     `lines`)."""
@@ -379,18 +432,23 @@ def running_tasks(lines, limit=3):
     return [f"{recipe}:{task}" for recipe, task in started if (recipe, task) not in done][-limit:]
 
 
+def _phase_start(prev_file, run_dir):
+    """The previous phase file's mtime, or run_dir's ctime if there is no
+    previous phase."""
+    return prev_file.stat().st_mtime if prev_file else run_dir.stat().st_ctime
+
+
 def build_status(log_path, now, idx, run_dir, prev_file):
     """Elapsed time, task progress and ETA for a live `build` phase.
 
-    Elapsed is `now` minus prev_file's mtime (run_dir's ctime if prev_file
-    is None). Reads log_path (build.log) for TASK_LINE_RE's
-    "<timestamp> ... Running task N of M" lines and for running_tasks()'s
-    input. The rate is (tasks done - tasks done at the first such line)
-    over the time since that first line's own timestamp; "remaining by
-    rate" is (total - done) / rate. "remaining by history" is
-    max(median(median_durations(idx, run_dir)) - elapsed, 0). The ETA
-    shown is whichever of the two is larger, labelled "(rough)"; "ETA
-    unknown" if neither is available.
+    Elapsed is `now` minus _phase_start(prev_file, run_dir). Reads
+    log_path (build.log) for TASK_LINE_RE's "Running task N of M" lines
+    and for running_tasks()'s input. The rate is (tasks done - tasks done
+    at the first such line) over the time since that first line's own
+    timestamp; "remaining by rate" is (total - done) / rate. "remaining
+    by history" is max(median(median_durations(idx, run_dir)) - elapsed,
+    0). The ETA shown is whichever of the two is larger, labelled
+    "(rough)"; "ETA unknown" if neither is available.
 
     Returns (line, running_line):
       line          "elapsed Xm, no task count yet  ETA unknown" before
@@ -400,7 +458,7 @@ def build_status(log_path, now, idx, run_dir, prev_file):
       running_line  "running: r1:t1, r2:t2, ..." from running_tasks(), or
                     None if none are in progress or log_path can't be read
     """
-    elapsed = now - (prev_file.stat().st_mtime if prev_file else run_dir.stat().st_ctime)
+    elapsed = now - _phase_start(prev_file, run_dir)
     elapsed_mins = int(elapsed / 60)
     try:
         lines = log_path.read_text(errors="replace").splitlines()
@@ -429,14 +487,13 @@ def build_status(log_path, now, idx, run_dir, prev_file):
 def other_eta(idx, prev_file, run_dir, now):
     """Elapsed time and a typical duration for any non-build phase.
 
-    Elapsed is `now` minus prev_file's mtime (run_dir's ctime if prev_file
-    is None). The typical duration is the median of
-    median_durations(idx, run_dir), when it returns any samples.
+    Elapsed is `now` minus _phase_start(prev_file, run_dir). The typical
+    duration is the median of median_durations(idx, run_dir), when it
+    returns any samples.
 
     Returns "elapsed Xm, no history" with no samples, else
     "elapsed Xm, typical ~Ym"."""
-    start = prev_file.stat().st_mtime if prev_file else run_dir.stat().st_ctime
-    elapsed_mins = int((now - start) / 60)
+    elapsed_mins = int((now - _phase_start(prev_file, run_dir)) / 60)
     durations = median_durations(idx, run_dir)
     if not durations:
         return f"elapsed {elapsed_mins}m, no history"
@@ -456,46 +513,72 @@ def verdict_text(run_dir):
     return match.group(1) if match else ""
 
 
-def phase_detail(run_dir, now, live):
+def failed_stage_from_verdict(run_dir, text):
+    """Which display stage a posted run's verdict text names as failed.
+
+    Matches `text` against FAILURE_PATTERNS (per-display-name substrings
+    derived from STAGES' failure-substrings column) first; then whether
+    any STAGES row's own "<internal name>.tail.log" exists in run_dir
+    (run.sh's stage_logargs() writes one per stage whose own failure it
+    logged).
+
+    Returns a STAGES display name, or None if neither signal fires."""
+    for display, substrings in FAILURE_PATTERNS.items():
+        if any(s in text for s in substrings):
+            return display
+    for name, _file, display, _subs in STAGES:
+        if name != "posted" and (run_dir / f"{name}.tail.log").exists():
+            return display
+    return None
+
+
+def phase_detail(run_dir, now, live, tree, disabled):
     """The run pane's detail line(s) for run_dir's current phase.
 
-    `live` is service_active()'s result. When not live, the run has
-    ended: a `posted` phase (verdict.txt or body.md is the newest file)
-    reads the verdict text and, if it matches FAILED_STAGE_RE
-    ("<stage> failed"), names that stage's display name as failed; any
-    other phase being newest with the service idle means the run ended
-    there with no verdict (an aborted run, or a baseline build, which
-    writes no verdict.txt). When live, an in-progress `build` phase is
+    `live` is service_active()'s result; `tree` is PIPELINE_TREE's path
+    (for baseline_tag_exists()); `disabled` is disabled_reason()'s result
+    (None, "", or a reason string).
+
+    A `posted` phase (verdict.txt or body.md is the newest file) is
+    reported the same whether or not the service is live: its verdict
+    text is matched via failed_stage_from_verdict(). Otherwise, with the
+    service idle: a `build`-newest run with no DISABLED and a matching
+    baseline_tag_exists() reads as a completed baseline build; any other
+    idle, unposted run reads as ended with no verdict, the newest phase
+    marked failed. With the service live: an in-progress `build` phase is
     delegated to build_status(); any other in-progress phase to
     other_eta(); no phase file yet gives "no phase yet".
 
-    Returns (detail, running_line, log_path, internal_name,
-    failed_display):
+    Returns (detail, running_line, log_path, internal_name, marked_display,
+    marked_state):
       detail          the phase-detail row's text (see above)
       running_line    build_status()'s running-tasks line, or None
       log_path        current_phase()'s matched file Path, or None with
                       no phase yet
       internal_name   the current phase's STAGES[*][0] name, or None
-      failed_display  the STAGES display name of the failed phase, or
-                      None"""
+      marked_display  the STAGES display name stage_strip() should mark
+                      `marked_state` on, or None for no override
+      marked_state    "failed" or "done" when marked_display is not None,
+                      else None"""
     idx, phase_file, prev_file = current_phase(run_dir)
     name = STAGES[idx][0] if idx is not None else None
-    if not live:
-        if name == "posted":
-            text = verdict_text(run_dir)
-            match = FAILED_STAGE_RE.match(text)
-            failed = INTERNAL_TO_DISPLAY.get(match.group(1)) if match else None
-            return f"posted: {text}", None, phase_file, name, failed
-        return ("ended: no verdict (baseline build, or aborted; see DISABLED)", None, phase_file,
-                name, INTERNAL_TO_DISPLAY.get(name))
-    if idx is None:
-        return "no phase yet", None, None, None, None
     if name == "posted":
-        return f"posted: {verdict_text(run_dir)}", None, phase_file, name, None
+        text = verdict_text(run_dir)
+        failed = failed_stage_from_verdict(run_dir, text)
+        return (f"posted: {text}", None, phase_file, name, failed,
+                "failed" if failed is not None else None)
+    if not live:
+        if name == "build" and disabled is None and baseline_tag_exists(tree, run_dir.name, now):
+            return f"baseline {run_dir.name[:7]} built", None, phase_file, None, "build", "done"
+        marked = INTERNAL_TO_DISPLAY.get(name)
+        return ("ended: no verdict (baseline build, or aborted; see DISABLED)", None, phase_file,
+                name, marked, "failed" if marked is not None else None)
+    if idx is None:
+        return "no phase yet", None, None, None, None, None
     if name == "build":
         detail, running_line = build_status(phase_file, now, idx, run_dir, prev_file)
-        return detail, running_line, phase_file, name, None
-    return other_eta(idx, prev_file, run_dir, now), None, phase_file, name, None
+        return detail, running_line, phase_file, name, None, None
+    return other_eta(idx, prev_file, run_dir, now), None, phase_file, name, None, None
 
 
 def _stage_reached(run_dir, files, checkout_mtime):
@@ -524,15 +607,17 @@ def _stage_reached(run_dir, files, checkout_mtime):
     return False
 
 
-def stage_strip(run_dir, current_internal_name, failed_display):
+def stage_strip(run_dir, current_internal_name, marked_display, marked_state):
     """One row per STAGE_DISPLAY node, for the run pane's stage strip.
 
     checkout_mtime is checkout.log's own mtime (None if it doesn't
     exist), passed to _stage_reached() for every node. A node's state is
-    "failed" if its display name equals failed_display, else "current" if
-    it equals current_internal_name's display name, else "done" if
-    _stage_reached() holds for its own files and for any later node's
-    files, else "pending".
+    `marked_state` if its display name equals `marked_display`
+    (phase_detail()'s override: "failed" for a verdict-named or
+    DISABLED-ended failure, "done" for a completed baseline build's
+    `build` node), else "current" if it equals current_internal_name's
+    display name, else "done" if _stage_reached() holds for its own files
+    and for any later node's files, else "pending".
 
     Returns [(label, state), ...] in STAGE_DISPLAY order, where label is
     "<display name> <marker>" (✗ failed, ● current, ✓ done, · pending)
@@ -543,17 +628,18 @@ def stage_strip(run_dir, current_internal_name, failed_display):
         checkout_mtime = None
     reached = [_stage_reached(run_dir, files, checkout_mtime) for _n, files in STAGE_DISPLAY]
     current_display = INTERNAL_TO_DISPLAY.get(current_internal_name)
+    markers = {"failed": "✗", "current": "●", "done": "✓", "pending": "·"}
     parts = []
     for i, (name, _files) in enumerate(STAGE_DISPLAY):
-        if name == failed_display:
-            marker, state = "✗", "failed"
+        if name == marked_display:
+            state = marked_state
         elif name == current_display:
-            marker, state = "●", "current"
+            state = "current"
         elif reached[i] and any(reached[i + 1:]):
-            marker, state = "✓", "done"
+            state = "done"
         else:
-            marker, state = "·", "pending"
-        parts.append((f"{name} {marker}", state))
+            state = "pending"
+        parts.append((f"{name} {markers[state]}", state))
     return parts
 
 
@@ -619,15 +705,16 @@ def draw_segments(win, y, x, segments, width):
 
 def wrap_segments(parts, width):
     """Pack `parts` (a list of (label, state) pairs, e.g. stage_strip()'s
-    result) greedily onto lines no wider than `width` columns, counting
-    each label as len(label) + 1 columns (the blank column drawn after
-    it).
+    result) greedily onto lines no wider than `width` columns. Each
+    segment is drawn as "label " (one trailing space) and then followed
+    by one further blank column (see draw_segments()), so each is counted
+    as len(label) + 2 columns.
 
     Returns [[(label, state), ...], ...], one inner list per output
     line."""
     lines, current, current_w = [], [], 0
     for label, state in parts:
-        seg_w = len(label) + 1
+        seg_w = len(label) + 2
         if current and current_w + seg_w > width:
             lines.append(current)
             current, current_w = [], 0
@@ -663,10 +750,10 @@ def draw(stdscr, state):
     Reads from `state`:
       sha, timer_on, service_running, refreshed, disabled  the header line
                  and its optional DISABLED second line
-      queue, queue_age, queue_error, marker_pr, marker_live  the merge
-                 queue pane: queue is fetch_queue()'s entry-dict list;
-                 marker_pr is the PR number to mark (or None); marker_live
-                 is whether to draw it as "▶" (True) or "next" (False)
+      queue, queue_age, queue_error, marker_pr  the merge queue pane:
+                 queue is fetch_queue()'s entry-dict list; marker_pr is
+                 the PR number to mark (or None), drawn as "▶" while
+                 service_running is True, else "next"
       run_dir, run_title, stage_parts, phase_detail, running_line,
       failed_attr  the current-run pane: stage_parts is stage_strip()'s
                  result, failed_attr the curses attribute for a "failed"
@@ -696,7 +783,7 @@ def draw(stdscr, state):
         header_h = 2
     stdscr.noutrefresh()
 
-    queue = state["queue"] or []
+    queue = state["queue"]
     shown = queue[:QUEUE_ROWS_MAX]
     age = state["queue_age"]
     error = state["queue_error"]
@@ -722,9 +809,8 @@ def draw(stdscr, state):
             safe_addnstr(queue_win, 1, 2, "queue: empty", content_w)
         else:
             for i, entry in enumerate(shown):
-                matched = (entry["number"] is not None
-                           and entry["number"] == state["marker_pr"])
-                live_match = matched and state["marker_live"]
+                matched = entry["number"] == state["marker_pr"]
+                live_match = matched and state["service_running"]
                 marker = "▶" if live_match else ("next" if matched else "")
                 eta = f"~{int(entry['eta_s'] / 60)}m" if entry.get("eta_s") else ""
                 left = (f"{marker:<5}{entry['position']:<4}#{entry['number']:<6}"
@@ -775,8 +861,9 @@ def draw(stdscr, state):
     curses.doupdate()
 
 
-def main(stdscr, driver):
-    """Run the TUI's event loop against `driver` (PIPELINE_DRIVER's path).
+def main(stdscr, driver, tree):
+    """Run the TUI's event loop against `driver` (PIPELINE_DRIVER's path)
+    and `tree` (PIPELINE_TREE's path, or None if unset).
 
     Returns immediately, without entering the loop, with a one-line
     "terminal must be at least ..." string if stdscr is smaller than
@@ -815,7 +902,7 @@ def main(stdscr, driver):
     worker = QueueWorker()
     state = {"sha": "unknown", "disabled": None, "timer_on": False, "service_running": False,
               "queue": [], "queue_error": None, "queue_age": None,
-              "marker_pr": None, "marker_live": False, "failed_attr": failed_attr,
+              "marker_pr": None, "failed_attr": failed_attr,
               "run_dir": None, "run_title": "no runs yet", "stage_parts": [],
               "phase_detail": "", "running_line": None, "log_path": None,
               "log_lines": None, "scroll": 0, "log_visible": 0, "paused": False,
@@ -834,7 +921,6 @@ def main(stdscr, driver):
             state["timer_on"] = timer_active()
             live = service_active()
             state["service_running"] = live
-            state["marker_live"] = live
             run_dir = newest_run_dir(driver)
             state["run_dir"] = run_dir
             if run_dir is None:
@@ -842,15 +928,18 @@ def main(stdscr, driver):
                 state["stage_parts"], state["phase_detail"], state["running_line"] = [], "", None
                 state["log_path"], state["log_lines"], state["marker_pr"] = None, None, None
             else:
-                state["run_title"] = run_title(run_dir, state["queue"])
                 state["marker_pr"] = next((e["number"] for e in state["queue"]
                                             if e.get("head_sha") == run_dir.name), None)
-                detail, running_line, log_path, internal_name, failed = phase_detail(
-                    run_dir, now, live)
+                detail, running_line, log_path, internal_name, marked_display, marked_state = \
+                    phase_detail(run_dir, now, live, tree, state["disabled"])
+                state["run_title"] = (f"Current run: baseline {run_dir.name[:7]} built"
+                                       if marked_state == "done"
+                                       else run_title(run_dir, state["queue"]))
                 state["phase_detail"] = detail
                 state["running_line"] = running_line
                 state["log_path"] = log_path
-                state["stage_parts"] = stage_strip(run_dir, internal_name, failed)
+                state["stage_parts"] = stage_strip(run_dir, internal_name, marked_display,
+                                                    marked_state)
                 state["log_lines"] = tail_lines(log_path) if log_path else None
             state["refreshed"] = now
             last_run = now
@@ -881,7 +970,8 @@ if __name__ == "__main__":
     if not main_driver:
         print(f"watch.py: PIPELINE_DRIVER not found via {main_env_path}", file=sys.stderr)
         sys.exit(2)
-    main_error = curses.wrapper(main, main_driver)
+    main_tree = load_env_value(main_env_path, "PIPELINE_TREE")
+    main_error = curses.wrapper(main, main_driver, main_tree)
     if main_error:
         print(main_error, file=sys.stderr)
         sys.exit(2)
