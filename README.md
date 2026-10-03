@@ -115,12 +115,10 @@ chmod +x ~/bin/kas-container
 
 mkdir -p ~/.config/wisekiosk
 cp secrets.yaml.tmpl ~/.config/wisekiosk/secrets.yaml   # fill in; lives OUTSIDE this public repo
-
-just build          # kas fetches sources/, applies the patches, builds core-image-base
 ```
 
 **One-time host setup: the shared hash-equivalence server.** Every `tools/kas-run.sh` build,
-including the fresh-clone `just build` above, refuses to start without it — one
+including the fresh-clone `just build` below, refuses to start without it — one
 `bitbake-hashserv` on the host, not one database per build directory, Yocto's own documented
 deployment (the dev manual's "Setting up a Hash Equivalence Server"). Read the `poky` `url:`
 and `commit:` from [`includes/base.yaml`](includes/base.yaml), then:
@@ -137,6 +135,10 @@ systemctl --user enable --now bitbake-hashserv.service
 The server listens on `~/.local/share/bitbake-hashserv/hashserv.sock`;
 `tools/kas-run.sh` mounts `~/.local/share/bitbake-hashserv` read-only at `/hashserv` inside
 the build container.
+
+```sh
+just build          # kas fetches sources/, applies the patches, builds core-image-base
+```
 
 **The version in that `curl` URL is the kas version the build uses, and it changes nothing on its
 own.** `just build` runs whatever `kas-container` sits in `~/bin`; nothing downloads it but that
