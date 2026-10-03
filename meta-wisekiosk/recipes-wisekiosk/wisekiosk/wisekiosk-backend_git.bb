@@ -29,7 +29,7 @@ SRC_URI += "file://wisekiosk.service"
 # from a previous SRCREV never lingers to be read by mistake.
 do_unpack[cleandirs] += "${WORKDIR}/goproxy"
 
-GO_IMPORT = "github.com/tjwise99/WiseKiosk"
+GO_IMPORT = "github.com/WisewareOrg/WiseKiosk"
 
 LIC_FILES_CHKSUM = "file://src/${GO_IMPORT}/LICENSE;md5=ff8f37ef1b2dd140232b20d67501377f"
 
