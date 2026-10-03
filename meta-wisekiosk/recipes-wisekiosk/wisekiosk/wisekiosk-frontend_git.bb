@@ -8,7 +8,7 @@ pinned and the output is a directory of files."
 
 require wisekiosk-src.inc
 
-LIC_FILES_CHKSUM = "file://LICENSE;md5=4af5bdd6287d36bddd2161cdad4e1eb5"
+LIC_FILES_CHKSUM = "file://LICENSE;md5=ff8f37ef1b2dd140232b20d67501377f"
 
 # `;dev=1`: every package in the shrinkwrap is a devDependency, vite included,
 # and the closure resolves empty without it. The npmsw path is literal, not

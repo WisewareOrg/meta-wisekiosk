@@ -31,7 +31,7 @@ do_unpack[cleandirs] += "${WORKDIR}/goproxy"
 
 GO_IMPORT = "github.com/tjwise99/WiseKiosk"
 
-LIC_FILES_CHKSUM = "file://src/${GO_IMPORT}/LICENSE;md5=4af5bdd6287d36bddd2161cdad4e1eb5"
+LIC_FILES_CHKSUM = "file://src/${GO_IMPORT}/LICENSE;md5=ff8f37ef1b2dd140232b20d67501377f"
 
 # The go module is the backend/ subtree, one level below the import path the
 # checkout lands at.
