@@ -74,12 +74,14 @@ does not also do. It creates, all under `$HOME`:
   once both sides agree; on a conflicting unihash for the same `(method, taskhash)`, the dev tree's row
   wins, since a dev row exists only because this tree reported that task, which means its sstate object
   is already in the shared `SSTATE_DIR`. Both the merge and the service's first start refuse while this
-  tree's own `bitbake` is running (`build/bitbake.lock` held, opened read-only so a live holder's lock
-  is never truncated) — the same lockfile a direct `just build` would hold, checked with `flock -n`
-  before either runs. The service's `ExecStartPre` refuses to start at all against a missing database,
-  rather than silently serving a fresh empty one and losing every equivalence either tree had learned;
-  `pipeline-install` itself waits up to 10s for the socket to appear after enabling the service and
-  exits 1 if it does not, rather than reporting success over a dead socket.
+  tree's own `bitbake` is running (`build/bitbake.lock` held) — the same lockfile a direct `just build`
+  would hold, opened the same way bitbake itself opens it (append, so a live holder's lock is never
+  truncated, and the file need not already exist: it usually does not, since bitbake unlinks it on a
+  clean exit) and checked with `flock -n` before either runs. The service's `ExecStartPre` refuses to
+  start at all against a missing database, rather than silently serving a fresh empty one and losing
+  every equivalence either tree had learned; `pipeline-install` itself waits up to 10s for the socket to
+  both exist and the service to report active after enabling it, and exits 1 if either never happens,
+  rather than reporting success over a dead socket.
   **This tree's own builds** share the cache from the next `just build` on: `pipeline-install` appends
   `PIPELINE_HASHSERV` to this tree's own `.env` (idempotently, like `KIOSK_HOST`'s own local-`.env`
   convention) so `tools/kas-run.sh` picks it up with no further step. A clone that never runs

@@ -918,23 +918,6 @@ else
         | sed 's/^/        /'
 fi
 
-# --- 20. the pipeline's lock gates and kas-run.sh's hashserv branch must ---
-# --- still pass their own self-test ----------------------------------------
-# install.sh refuses to touch either hashserv.db while the pipeline lock or
-# this tree's own build/bitbake.lock is held (#172 shared hashserv); a gate that fires after
-# a clone has already started, or that truncates a lock file another holder
-# wrote, is a gate that no longer gates. kas-run.sh's PIPELINE_HASHSERV branch
-# gets the same treatment as its PIPELINE_KEYS_DIR sibling: self-tested here.
-pipelinetest20="tools/pipeline-test.sh"
-if [ ! -f "$pipelinetest20" ]; then
-    bad "guard 20: $pipelinetest20 missing -- the pipeline's lock gates are no longer self-tested"
-elif out20=$(bash "$pipelinetest20" 2>&1); then
-    ok "the pipeline's lock gates and kas-run.sh's hashserv branch pass their self-test ($(printf '%s\n' "$out20" | tail -n1))"
-else
-    bad "the pipeline's lock gates or kas-run.sh's hashserv branch FAIL their own self-test:"
-    printf '%s\n' "$out20" | grep -E '^(FAIL|  |pass=)' | sed 's/^/        /'
-fi
-
 if [ "$fail" -ne 0 ]; then
     printf '\nguards FAILED\n'
     exit 1

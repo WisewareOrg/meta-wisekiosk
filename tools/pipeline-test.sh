@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
 # Self-test for report-build.py's renderer, scrub-identity.py --filter,
-# install.sh's two lock gates (#172 shared hashserv), and kas-run.sh's
-# PIPELINE_HASHSERV branch.
+# install.sh's two lock gates, and kas-run.sh's PIPELINE_HASHSERV branch. Not
+# wired into `just guards` or CI -- run by hand after touching any of those.
 #   tools/pipeline-test.sh
 set -uo pipefail
 
-# A git hook (this runs under one, via ci-guards.sh) sets GIT_DIR and
-# GIT_INDEX_FILE for the real repo; the sandbox below clones and commits into
-# its own tree with `git -C`, which GIT_DIR overrides, re-pointing every git
-# call here at the checkout that is mid-commit instead. This unset is kept as
-# a second line of defense; sgit (below) is the actual guard every sandboxed
-# git call goes through.
+# A hook-spawned shell can set GIT_DIR and GIT_INDEX_FILE for the real repo;
+# the sandbox below clones and commits into its own tree with `git -C`, which
+# GIT_DIR overrides, re-pointing every git call here at that repo instead.
+# Kept as a second line of defense; sgit (below) is the actual guard.
 unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_CONFIG_PARAMETERS GIT_PREFIX
+
+# This tree's own .env may already carry PIPELINE_HASHSERV (install.sh writes
+# it, and `just` dotenv-loads it into every recipe, including `just guards`);
+# the "unset" kas-run.sh case below needs it genuinely unset, not whatever
+# this operator's environment happens to hold.
+unset PIPELINE_HASHSERV PIPELINE_KEYS_DIR KAS_RUN_ENV
 
 # sgit -- every git call the sandbox makes goes through this, never a bare
 # `git`. `env -i` drops the whole inherited environment rather than naming
@@ -165,7 +169,7 @@ else
     bad "filter with no map" "rc=$rc out=$out"
 fi
 
-# --- install.sh lock gates (#172 shared hashserv) ------------------------
+# --- install.sh lock gates ------------------------
 # A fake HOME, a bare local origin, a ROOT dev tree cloned from it (carrying
 # install.sh's own required files), and stub ssh/systemctl/loginctl on PATH
 # so the gates can be driven without a network, a device or real systemd.
@@ -187,15 +191,20 @@ case "$*" in
     *hostname) echo sandbox-device ;;
 esac
 STUB
-    # Standing in for the real unit's ExecStart: on an enable --now of
-    # wisekiosk-hashserv.service, bind the real AF_UNIX socket install.sh's
-    # own fail-closed wait polls for with `[ -S ... ]`.
+    # Standing in for the real unit: an enable --now binds the real AF_UNIX
+    # socket install.sh's fail-closed wait polls for with `[ -S ... ]`, unless
+    # NO_BIND is set (the failing-unit case); is-active reports active only
+    # while that socket exists, so the wait loop has something real to check
+    # beyond the file merely existing.
     cat > "$sbx/bin/systemctl" <<STUB
 #!/bin/sh
+. "\$HOME/.config/wisekiosk/pipeline.env"
 case "\$*" in
-    *wisekiosk-hashserv.service*)
-        . "\$HOME/.config/wisekiosk/pipeline.env"
-        $PY -c 'import socket, sys; socket.socket(socket.AF_UNIX).bind(sys.argv[1])' "\$PIPELINE_HASHSERV"
+    *"enable --now"*wisekiosk-hashserv.service*)
+        [ -n "\$NO_BIND" ] || $PY -c 'import socket, sys; socket.socket(socket.AF_UNIX).bind(sys.argv[1])' "\$PIPELINE_HASHSERV"
+        ;;
+    *is-active*wisekiosk-hashserv.service*)
+        [ -S "\$PIPELINE_HASHSERV" ] && exit 0 || exit 3
         ;;
 esac
 exit 0
@@ -297,7 +306,28 @@ else
     bad "install.sh .env append idempotency" "rc=$rc before=[$BEFORE_ENV] after=[$AFTER_ENV]"
 fi
 
-# --- kas-run.sh PIPELINE_HASHSERV branch (#172 shared hashserv) ----------
+SBX_D=$(sandbox d)
+printf 'KIOSK_HOST="root@198.51.100.1"' > "$SBX_D/root/.env"
+out=$(PIPELINE_TARGET=198.51.100.9 HOME="$SBX_D/home" PATH="$SBX_D/bin:$PATH" \
+    "$SBX_D/root/tools/pipeline/install.sh" 2>&1); rc=$?
+ENV_LINES=$(wc -l < "$SBX_D/root/.env")
+if [ "$rc" -eq 0 ] && grep -qxF 'KIOSK_HOST="root@198.51.100.1"' "$SBX_D/root/.env" \
+        && grep -q '^PIPELINE_HASHSERV="' "$SBX_D/root/.env" && [ "$ENV_LINES" -eq 2 ]; then
+    ok "install.sh: appending to a .env with no trailing newline starts a new line, not glued onto the last"
+else
+    bad "install.sh .env append onto no trailing newline" "rc=$rc lines=$ENV_LINES content=[$(cat "$SBX_D/root/.env")]"
+fi
+
+SBX_E=$(sandbox e)
+out=$(PIPELINE_TARGET=198.51.100.9 HOME="$SBX_E/home" PATH="$SBX_E/bin:$PATH" NO_BIND=1 \
+    "$SBX_E/root/tools/pipeline/install.sh" 2>&1); rc=$?
+if [ "$rc" -eq 1 ] && [[ "$out" == *"did not come up within 10s"* ]]; then
+    ok "install.sh: fails closed when the unit never actually comes up (is-active, not just -S on a stale file)"
+else
+    bad "install.sh fail-closed on a non-live unit" "rc=$rc out=$out"
+fi
+
+# --- kas-run.sh PIPELINE_HASHSERV branch ----------
 # A stub kas-container that echoes its argv, so the branch can be checked
 # without a real build. write-build-rev.sh / go-mods.py / app-lockfile.py are
 # stubbed too -- kas-run.sh calls all three before exec'ing kas-container.

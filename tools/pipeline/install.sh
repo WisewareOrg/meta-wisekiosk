@@ -24,21 +24,17 @@ if ! flock -n 9; then
     exit 1
 fi
 
-# This tree's own bitbake writes build/cache/hashserv.db directly whenever it
-# runs with BB_HASHSERVE unset (bitbake.lock is the same fcntl.flock bitbake
-# itself takes on that TOPDIR). The merge and the service enable below both
-# touch that file, so this gate sits beside the pipeline-lock gate above,
-# before anything else is touched. Opened read-only -- never for writing --
-# so a live holder's lock file (bitbake records its server pid in it) is
-# never truncated; if it does not exist, this tree has never built here, so
-# nothing can be mid-build and there is nothing to open.
+# bb.utils.lockfile() opens build/bitbake.lock the same way (`open(name,
+# 'a+')`) and unlinks it on a clean exit -- so it is usually ABSENT between
+# builds, and skipping this gate whenever the file happens not to exist would
+# gate nothing in the common case. >> matches bitbake's own open: creates the
+# file without truncating a live holder's.
+mkdir -p "$ROOT/build"
 DEV_BUILD_LOCK="$ROOT/build/bitbake.lock"
-if [ -f "$DEV_BUILD_LOCK" ]; then
-    exec 8<"$DEV_BUILD_LOCK"
-    if ! flock -n 8; then
-        echo "pipeline-install: this tree's own build is in progress ($DEV_BUILD_LOCK is locked) -- refusing to touch its hashserv.db or wisekiosk-hashserv.service" >&2
-        exit 1
-    fi
+exec 8>>"$DEV_BUILD_LOCK"
+if ! flock -n 8; then
+    echo "pipeline-install: this tree's own build is in progress ($DEV_BUILD_LOCK is locked) -- refusing to touch its hashserv.db or wisekiosk-hashserv.service" >&2
+    exit 1
 fi
 
 mkdir -p "$DL_DIR" "$SSTATE_DIR"
@@ -71,17 +67,10 @@ ln -sf "$MAP" "$DRIVER/local/device-identity.md"
 # local/keys: an empty bind-mount target -- docs/testing.md §"Running it".
 mkdir -p "$TREE/local/keys"
 
-# wisekiosk-hashserv.service (#172 shared hashserv) is the one
-# hash-equivalence server both trees use, bound to this tree's own
-# build/cache/hashserv.db. Fold in whatever the pipeline's own copy already
-# learned on its own before pointing it at the shared server: INSERT OR
-# IGNORE on each table's real unique key (method+taskhash[+outhash]), never
-# the surrogate id, so re-running this is a no-op once both sides agree. On a
-# conflicting unihash for the same (method, taskhash), the dev tree's row
-# wins (INSERT OR IGNORE never overwrites): a dev row exists only because
-# this tree reported that task, so its sstate object is already in the
-# shared SSTATE_DIR, which the pipeline's alternative chain for the same key
-# is not guaranteed to be.
+# Fold the pipeline's hashserv.db into this tree's before pointing it at the
+# shared server: INSERT OR IGNORE on each table's real unique key, never the
+# surrogate id -- idempotent, and the dev row wins a conflict. See
+# docs/testing.md "Running it" for why.
 DEV_HASHSERV_DB="$ROOT/build/cache/hashserv.db"
 PIPELINE_HASHSERV_DB="$TREE/build/cache/hashserv.db"
 if [ -f "$PIPELINE_HASHSERV_DB" ]; then
@@ -123,11 +112,8 @@ fi
 CONF_DIR="$HOME/.config/wisekiosk"
 mkdir -p "$CONF_DIR"
 SSH_DIR="$CONF_DIR/pipeline-ssh"
-# wisekiosk-hashserv.service's socket (#172 shared hashserv) -- shared by
-# this tree and the pipeline's, so a unihash either build learns is visible
-# to the other. Its own directory, holding nothing else: kas-run.sh bind-
-# mounts this directory whole into every build container, so anything else
-# kept here would be readable and writable from inside one too.
+# Its own directory, holding nothing else: kas-run.sh bind-mounts this whole
+# into every build container.
 HASHSERV_DIR="$CONF_DIR/hashserv"
 mkdir -p "$HASHSERV_DIR"
 HASHSERV_SOCK="$HASHSERV_DIR/hashserv.sock"
@@ -172,12 +158,15 @@ if ! loginctl show-user "$(id -un)" -p Linger 2>/dev/null | grep -q '^Linger=yes
     loginctl enable-linger "$(id -un)"
 fi
 
-# There is no opt-in: this tree's own builds share the cache from the next
-# `just build` on, the same as the pipeline's. Appended only if absent, so a
-# line the operator edited (or a KIOSK_HOST already there) is left alone, and
-# running this twice does not duplicate it.
+# No opt-in: appended only if absent, so a line the operator edited is left
+# alone and running this twice does not duplicate it. A newline first if the
+# file has content with none of its own, so the append cannot glue onto an
+# existing line instead of starting a new one.
 ENV_FILE="$ROOT/.env"
 if ! grep -q '^PIPELINE_HASHSERV=' "$ENV_FILE" 2>/dev/null; then
+    if [ -s "$ENV_FILE" ] && [ "$(tail -c1 "$ENV_FILE" | wc -l)" -eq 0 ]; then
+        printf '\n' >> "$ENV_FILE"
+    fi
     printf 'PIPELINE_HASHSERV="%s"\n' "$HASHSERV_SOCK" >> "$ENV_FILE"
 fi
 
@@ -185,15 +174,18 @@ fi
 # this service is wanted immediately: nothing shares the cache until it is up.
 systemctl --user enable --now "$DRIVER/tools/pipeline/wisekiosk-hashserv.service"
 
-# Fail closed rather than report success over a dead socket: a missing unit
-# file (this PR not yet on origin/main), an absent sources/poky, or a down
-# device would otherwise all look identical to a working install.
+# Fail closed rather than report success over a dead socket: `-S` alone
+# passes on a stale leftover file, so both the socket's type and the unit's
+# own state must agree.
+hashserv_ready() {
+    [ -S "$HASHSERV_SOCK" ] && systemctl --user is-active --quiet wisekiosk-hashserv.service
+}
 for _ in $(seq 1 100); do
-    [ -S "$HASHSERV_SOCK" ] && break
+    hashserv_ready && break
     sleep 0.1
 done
-if [ ! -S "$HASHSERV_SOCK" ]; then
-    echo "pipeline-install: wisekiosk-hashserv.service did not open its socket within 10s -- check 'systemctl --user status wisekiosk-hashserv.service'" >&2
+if ! hashserv_ready; then
+    echo "pipeline-install: wisekiosk-hashserv.service did not come up within 10s -- check 'systemctl --user status wisekiosk-hashserv.service'" >&2
     exit 1
 fi
 
