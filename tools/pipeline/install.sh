@@ -53,17 +53,6 @@ ln -sf "$MAP" "$DRIVER/local/device-identity.md"
 # local/keys: an empty bind-mount target -- docs/testing.md §"Running it".
 mkdir -p "$TREE/local/keys"
 
-# sqlite3 online backup: copies the live WAL contents too.
-DEV_HASHSERV_DB="$ROOT/build/cache/hashserv.db"
-PIPELINE_HASHSERV_DB="$TREE/build/cache/hashserv.db"
-if [ -f "$DEV_HASHSERV_DB" ] && [ ! -f "$PIPELINE_HASHSERV_DB" ]; then
-    mkdir -p "$TREE/build/cache"
-    rm -f "$PIPELINE_HASHSERV_DB.tmp"
-    "${py:-python3}" -c 'import sqlite3, sys; src = sqlite3.connect("file:" + sys.argv[1] + "?mode=ro", uri=True); dst = sqlite3.connect(sys.argv[2]); src.backup(dst); dst.close(); src.close()' \
-        "$DEV_HASHSERV_DB" "$PIPELINE_HASHSERV_DB.tmp"
-    mv -- "$PIPELINE_HASHSERV_DB.tmp" "$PIPELINE_HASHSERV_DB"
-fi
-
 CONF_DIR="$HOME/.config/wisekiosk"
 mkdir -p "$CONF_DIR"
 SSH_DIR="$CONF_DIR/pipeline-ssh"
