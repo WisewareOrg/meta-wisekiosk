@@ -8,6 +8,10 @@ Usage: tools/kas-run.sh [--help] <kas-container args...>
 
 Environment:
   PIPELINE_KEYS_DIR   mounted read-only at /work/local/keys; no whitespace
+  PIPELINE_HASHSERV   path to the shared hashserv unix socket; its directory
+                      (which holds only the socket) is bind-mounted at
+                      /run/wisekiosk-hashserv and BB_HASHSERVE is set to the
+                      socket's path there; no whitespace
   KAS_RUN_ENV         space-separated variable NAMES passed through to
                       kas-container as -e NAME, for each that is non-empty
 
@@ -39,6 +43,11 @@ if [[ "${PIPELINE_KEYS_DIR:-}" == *[[:space:]]* ]]; then
     exit 2
 fi
 
+if [[ "${PIPELINE_HASHSERV:-}" == *[[:space:]]* ]]; then
+    echo "tools/kas-run.sh: PIPELINE_HASHSERV must not contain whitespace" >&2
+    exit 2
+fi
+
 cd "$(dirname "$0")/.."
 
 py="${py:-python3}"
@@ -49,6 +58,11 @@ tools/write-build-rev.sh
 runtime=""
 if [ -n "${PIPELINE_KEYS_DIR:-}" ]; then
     runtime="-v $PIPELINE_KEYS_DIR:/work/local/keys:ro"
+fi
+if [ -n "${PIPELINE_HASHSERV:-}" ]; then
+    hashserv_dir="$(dirname "$PIPELINE_HASHSERV")"
+    hashserv_sock="/run/wisekiosk-hashserv/$(basename "$PIPELINE_HASHSERV")"
+    runtime="$runtime -v $hashserv_dir:/run/wisekiosk-hashserv -e BB_HASHSERVE=unix://$hashserv_sock"
 fi
 if [ -n "${KAS_RUN_ENV:-}" ]; then
     for name in $KAS_RUN_ENV; do

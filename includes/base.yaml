@@ -13,6 +13,20 @@ defaults:
   repos:
     branch: scarthgap
 
+###############
+# ENVIRONMENT #
+###############
+# null, not "": a string default would set BB_HASHSERVE even when unset on the
+# host, which beats poky.conf's own `BB_HASHSERVE ??= "auto"` weak default and
+# makes OEEquivHash's init_rundepcheck see an empty string instead of nothing --
+# `data.getVar('BB_HASHSERVE')` falsy either way, but "" is a real assignment,
+# so the weak default never applies and bb.fatal's "requires BB_HASHSERVE to be
+# set" fires on every host without the shared hashserv socket. null passes the
+# variable through only when tools/kas-run.sh's PIPELINE_HASHSERV mount has set
+# it; otherwise every build keeps today's per-build-dir "auto" server.
+env:
+  BB_HASHSERVE: null
+
 ##################
 # REPOS & LAYERS #
 ##################

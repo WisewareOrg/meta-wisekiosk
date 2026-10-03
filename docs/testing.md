@@ -46,7 +46,9 @@ does not also do. It creates, all under `$HOME`:
   read-only into the build container from the dev tree's own `local/keys` (`PIPELINE_KEYS_DIR` below);
   it is never copied, and the driver checkout, which never runs bitbake, gets no keys dir at all.
 - `.config/wisekiosk/pipeline.env` — `PIPELINE_DRIVER`, `PIPELINE_TREE`,
-  `PIPELINE_SSH_DIR`, `PIPELINE_KEYS_DIR` (the dev tree's own `local/keys`),
+  `PIPELINE_SSH_DIR`, `PIPELINE_KEYS_DIR` (the dev tree's own `local/keys`), `PIPELINE_HASHSERV` (the
+  shared hash-equivalence socket, below), `PIPELINE_DEV_ROOT` (this tree's own root, which is what
+  `wisekiosk-hashserv.service` actually serves),
   `PIPELINE_TARGET` (the device's address; required, no default), `PIPELINE_TARGET_HOSTNAME` (recorded
   once at install by running `hostname` on the device over the newly-installed pipeline key),
   `PIPELINE_LOCK` (the flock path `pipeline-install` and `run.sh` share), the installing shell's own
@@ -60,17 +62,32 @@ does not also do. It creates, all under `$HOME`:
   also pushes to GitHub. Every other stage that reaches the device — the hostname check, `booted_slot`,
   send/install/reboot/rollback, and the render and GPU checks — uses the host user's own default ssh
   identity as root, which the device must already accept.
-- `wisekiosk-pipeline/tree/build/cache/hashserv.db` — seeded from the dev tree's own hash-equivalence
-  database (never overwritten once the pipeline has built its own), so a fresh build dir's unihash
-  lookups hit the shared `SSTATE_DIR` instead of missing and rebuilding from scratch.
+- `.config/wisekiosk/hashserv.sock` — `wisekiosk-hashserv.service`'s unix socket (#172), one
+  `bitbake-hashserv` bound to *this tree's* `build/cache/hashserv.db`. Before this, each build
+  directory ran its own "auto" server against its own copy of that file, so a unihash one tree learned
+  was invisible to the other — seen as sstate objects rebuilt that the other tree had already built.
+  `pipeline-install` folds the pipeline's existing hashserv.db into this tree's (by each table's real
+  unique key, so this is a no-op once both sides agree) and then points `PIPELINE_HASHSERV` at the
+  shared socket. Both refuse while this tree's own `bitbake` is running (`build/bitbake.lock` held) —
+  the same lockfile a direct `just build` would hold, checked with `flock -n` before either runs.
+  **This tree's own builds** only reach the shared socket once `tools/kas-run.sh` sees
+  `PIPELINE_HASHSERV` — set it from this tree's own `.env` (`pipeline-install` prints the line to add;
+  `KIOSK_HOST` follows the same local-`.env` convention), not exported by `pipeline-install` itself. A
+  clone that never adds it, or never runs `pipeline-install` at all, builds exactly as before: kas's
+  `env: BB_HASHSERVE: null` in `includes/base.yaml` passes the variable through only when
+  `PIPELINE_HASHSERV` has set it. To confirm it is in effect, check the Sstate summary at the end of a
+  build — an object the other tree already built should report `Missed 0` instead of a miss.
 
 Unlike the driver checkout above, `pipeline.env` and the ssh directory are written once by
 `pipeline-install` and do not follow `origin/main`. A merged change that needs a new environment
 variable needs `just pipeline-install` run again. The units are the driver checkout's own files,
 which systemd keeps loaded as they were until `just pipeline-on` re-links them.
 
-It does **not** touch the systemd units — `pipeline-on` enables them by path, the separate,
-deliberate step that also links them into the user unit search path.
+It does **not** touch the pipeline's own systemd units — `pipeline-on` enables those by path, the
+separate, deliberate step that also links them into the user unit search path. `pipeline-install`
+**does** install and enable `wisekiosk-hashserv.service` itself, the same `enable --now` on the driver
+checkout's own copy of the unit file; unlike the pipeline timer it is wanted immediately, since nothing
+shares the cache until it is up.
 
 **The device under test, and the shared `downloads/`/`sstate-cache/`, are reserved while the timer is
 on.** A hand `just build` or a manual OTA while `pipeline-on` races the pipeline's own run; `just
