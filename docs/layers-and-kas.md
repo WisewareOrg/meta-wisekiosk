@@ -201,8 +201,8 @@ unattributable. To move it:
    is a git repo under `build/buildhistory`, and the refs are its own commits (`git -C
    build/buildhistory log` names them).
 
-**Moving the poky pin additionally moves the hash-equivalence server's own clone.** Check it out at
-the new pin and restart `bitbake-hashserv.service` before building against it — see
+**Moving poky to a new release series also moves the hash-equivalence server's own clone.** Check it
+out at the new pin and restart `bitbake-hashserv.service` before building against it — see
 [`../README.md`](../README.md) §"Quick start" for the clone's location.
 
 The same steps apply to every other pinned repo. The pins live in three files: most repos in
