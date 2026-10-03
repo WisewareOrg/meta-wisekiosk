@@ -229,35 +229,9 @@ kiosk-send-direct bundle="build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0
 
 # Does NOT reboot -- inspect `rauc status` first, then `just kiosk-reboot`.
 [group('ota')]
-[script('bash')]
 [doc("Install a staged bundle and show slot state")]
 kiosk-install host=kiosk-host:
-    SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10"
-    # Directly invocable, so it cannot rely on kiosk-preflight having run.
-    # --tree: what installs is already on the device. `|| exit 1` -- no set -e here.
-    tools/reproducibility-gate.sh --tree || exit 1
-    echo "== before"
-    $SSH {{host}} 'fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT; rauc status 2>&1 | grep -E "Booted|Activated|boot status"'
-    # The board has no RTC or fake-hwclock, so a fresh slot's clock sits at the
-    # image's build-time floor until NTP; kiosk-timesync-persist keeps it across an
-    # OTA. Report the skew but do NOT set the clock: a cold clock here points at
-    # persistence, not a broken bundle -- the documented cause of the "certificate
-    # is not yet valid" refusal the signature check below raises (see #31).
-    DEV_EPOCH=$($SSH {{host}} 'date +%s')
-    HOST_EPOCH=$(date +%s)
-    SKEW=$(( HOST_EPOCH - DEV_EPOCH ))
-    echo "== clock: device epoch $DEV_EPOCH, host $HOST_EPOCH, skew ${SKEW}s"
-    if [ "$SKEW" -gt 3600 ] || [ "$SKEW" -lt -3600 ]; then
-        echo "   WARNING: device clock off by ${SKEW}s -- if rauc rejects the cert below,"
-        echo "            this is why: clock persistence may have failed (see #31)."
-    fi
-    echo "== verifying bundle signature against the device keyring"
-    $SSH {{host}} 'rauc info /data/update.raucb' || { echo "bundle did not verify -- refusing to install"; exit 1; }
-    echo "== installing"
-    $SSH {{host}} 'rauc install /data/update.raucb'
-    echo "== after"
-    $SSH {{host}} 'fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT; rauc status 2>&1 | grep -E "Booted|Activated|boot status"'
-    echo "Now: just kiosk-reboot   (fallback slot stays bootable if it fails)"
+    tools/kiosk-install.sh {{host}}
 
 # Reboot and wait for the kiosk to answer again.
 [group('ota')]

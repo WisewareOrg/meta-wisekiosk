@@ -46,6 +46,25 @@ booted_slot() {
         | sed -n "s/^RAUC_SYSTEM_BOOTED_BOOTNAME='\(.*\)'/\1/p"
 }
 
+# wait_installer_idle HOST -- polls rauc's Installer.Operation over ssh,
+# sleeping 10s between tries, until it reports idle or 10 minutes of
+# wall-clock time have passed -- ssh's own connection timeout counts against
+# that budget, so an unreachable device/busctl consumes it via repeated
+# timeouts rather than failing fast. Returns once idle; returns non-zero once
+# the budget is exhausted either way.
+wait_installer_idle() {
+    local host=$1 deadline state
+    deadline=$(( $(date +%s) + 600 ))
+    while [ "$(date +%s)" -lt "$deadline" ]; do
+        state=$(ssh "${SSH_OPTS[@]}" "$host" \
+            'busctl get-property de.pengutronix.rauc / de.pengutronix.rauc.Installer Operation' \
+            2>/dev/null) || true
+        case "$state" in *idle*) return 0 ;; esac
+        sleep 10
+    done
+    return 1
+}
+
 # stage_logargs NAME LOGFILE -- fills LOGARGS with a 200-line tail of LOGFILE
 # and of each bitbake failure-task log LOGFILE references.
 stage_logargs() {
@@ -106,6 +125,16 @@ if [ "$(git -C "$PIPELINE_DRIVER" rev-parse HEAD)" != "$(git -C "$PIPELINE_DRIVE
     exec "$PIPELINE_DRIVER/tools/pipeline/run.sh" "$@"
 fi
 
+# tag_job_baseline -- tags the job's buildhistory commit JOB_BH as
+# baseline/$SHA, so the next queue job's BASELINE finds it. Leaves an
+# existing tag untouched. Call only on a success outcome, before finish.
+tag_job_baseline() {
+    git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse --verify -q "refs/tags/baseline/$SHA" \
+            > /dev/null 2>&1 \
+        || git -C "$PIPELINE_BUILD_DIR/buildhistory" tag "baseline/$SHA" "$JOB_BH" \
+        || abort "could not tag baseline/$SHA"
+}
+
 git fetch origin || abort "git fetch origin failed in $PIPELINE_TREE"
 
 [ -z "${1:-}" ] || { echo "usage: run.sh" >&2; exit 2; }
@@ -147,6 +176,14 @@ mkdir -p "$RUN_DIR"
 if [ "$KIND" = baseline ]; then
     git checkout --detach "$SHA" > "$RUN_DIR/checkout.log" 2>&1 \
         || abort "could not check out $SHA in $PIPELINE_TREE"
+    PREV_TIP=$(git rev-parse "$SHA^1") || abort "could not resolve $SHA^1"
+    if git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse --verify -q \
+            "refs/tags/baseline/$PREV_TIP" > /dev/null 2>&1; then
+        git -C "$PIPELINE_BUILD_DIR/buildhistory" reset --hard "refs/tags/baseline/$PREV_TIP" \
+            || abort "could not reset buildhistory to baseline/$PREV_TIP"
+        git -C "$PIPELINE_BUILD_DIR/buildhistory" clean -fdq \
+            || abort "could not clean buildhistory before the baseline build"
+    fi
     "${TREE_JUST[@]}" build > "$RUN_DIR/build.log" 2>&1 || abort "baseline build failed"
     git -C "$PIPELINE_BUILD_DIR/buildhistory" tag -f "baseline/$SHA" \
         || abort "could not tag baseline/$SHA"
@@ -161,16 +198,23 @@ git checkout --detach "$SHA" > "$RUN_DIR/checkout.log" 2>&1 \
     || abort "could not check out $SHA in $PIPELINE_TREE"
 PREV_SLOT=$(booted_slot "$SSH_HOST") || abort "could not read the booted slot before install"
 
+git -C "$PIPELINE_BUILD_DIR/buildhistory" reset --hard "refs/tags/baseline/$BASELINE" \
+    || abort "could not reset buildhistory to baseline/$BASELINE"
+git -C "$PIPELINE_BUILD_DIR/buildhistory" clean -fdq \
+    || abort "could not clean buildhistory before the job build"
 run_or_fail build "$RUN_DIR/build.log" "${TREE_JUST[@]}" build
 
+BASELINE_BH=$(git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse "refs/tags/baseline/$BASELINE") \
+    || abort "could not read the baseline buildhistory commit"
 JOB_BH=$(git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse HEAD) \
     || abort "could not read the job's buildhistory commit"
+[ "$JOB_BH" != "$BASELINE_BH" ] || abort "buildhistory did not commit for $SHA"
 DELTA_RC=0
 "${TREE_JUST[@]}" artifact-diff "baseline/$BASELINE" "$JOB_BH" \
     > "$RUN_DIR/delta.txt" 2> "$RUN_DIR/delta.err" || DELTA_RC=$?
 if [ "$DELTA_RC" -eq 1 ]; then
     grep -qx 'no change in image' "$RUN_DIR/delta.err" \
-        && finish success "no change in image; no device run"
+        && { tag_job_baseline; finish success "no change in image; no device run"; }
     stage_logargs delta "$RUN_DIR/delta.err"
     finish error "artifact diff failed" "${LOGARGS[@]}"
 fi
@@ -180,7 +224,14 @@ run_or_fail bundle "$RUN_DIR/bundle.log" "${TREE_JUST[@]}" kiosk-bundle
 run_or_fail preflight "$RUN_DIR/preflight.log" "${TREE_JUST[@]}" kiosk-preflight
 run_or_fail send "$RUN_DIR/send.log" "${TREE_JUST[@]}" kiosk-send-direct
 MUTATED=1
-run_or_fail install "$RUN_DIR/install.log" "${TREE_JUST[@]}" kiosk-install
+if ! "${TREE_JUST[@]}" kiosk-install > "$RUN_DIR/install.log" 2>&1; then
+    wait_installer_idle "$SSH_HOST" \
+        || echo "installer never reported idle (or the device was unreachable); marking the other slot bad anyway" >> "$RUN_DIR/install.log"
+    ssh "${SSH_OPTS[@]}" "$SSH_HOST" 'rauc status mark-bad other' >> "$RUN_DIR/install.log" 2>&1 \
+        || echo "could not mark the other slot bad after the failed install" >> "$RUN_DIR/install.log"
+    stage_logargs install "$RUN_DIR/install.log"
+    finish failure "install failed" "${LOGARGS[@]}"
+fi
 
 DEVICE_BACK=1
 "${TREE_JUST[@]}" kiosk-reboot "$SSH_HOST" 180 > "$RUN_DIR/reboot.log" 2>&1 || DEVICE_BACK=0
@@ -235,6 +286,8 @@ fi
     || abort "device did not come back after the rollback reboot"
 SLOT_NOW=$(booted_slot "$SSH_HOST") || abort "could not read the booted slot after the rollback"
 [ "$SLOT_NOW" = "$PREV_SLOT" ] || abort "device resting on the job's slot"
+
+[ "$SMOKE_STATE" = success ] && tag_job_baseline
 
 finish "$SMOKE_STATE" "pr #$PR_NUMBER $SHA: smoke $SMOKE_STATE" \
     "${RESULTSARG[@]}" "${LOGARGS[@]}"
