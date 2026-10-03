@@ -62,21 +62,33 @@ does not also do. It creates, all under `$HOME`:
   also pushes to GitHub. Every other stage that reaches the device — the hostname check, `booted_slot`,
   send/install/reboot/rollback, and the render and GPU checks — uses the host user's own default ssh
   identity as root, which the device must already accept.
-- `.config/wisekiosk/hashserv.sock` — `wisekiosk-hashserv.service`'s unix socket (#172), one
-  `bitbake-hashserv` bound to *this tree's* `build/cache/hashserv.db`. Before this, each build
-  directory ran its own "auto" server against its own copy of that file, so a unihash one tree learned
-  was invisible to the other — seen as sstate objects rebuilt that the other tree had already built.
-  `pipeline-install` folds the pipeline's existing hashserv.db into this tree's (by each table's real
-  unique key, so this is a no-op once both sides agree) and then points `PIPELINE_HASHSERV` at the
-  shared socket. Both refuse while this tree's own `bitbake` is running (`build/bitbake.lock` held) —
-  the same lockfile a direct `just build` would hold, checked with `flock -n` before either runs.
-  **This tree's own builds** only reach the shared socket once `tools/kas-run.sh` sees
-  `PIPELINE_HASHSERV` — set it from this tree's own `.env` (`pipeline-install` prints the line to add;
-  `KIOSK_HOST` follows the same local-`.env` convention), not exported by `pipeline-install` itself. A
-  clone that never adds it, or never runs `pipeline-install` at all, builds exactly as before: kas's
-  `env: BB_HASHSERVE: null` in `includes/base.yaml` passes the variable through only when
-  `PIPELINE_HASHSERV` has set it. To confirm it is in effect, check the Sstate summary at the end of a
-  build — an object the other tree already built should report `Missed 0` instead of a miss.
+- `.config/wisekiosk/hashserv/hashserv.sock` — `wisekiosk-hashserv.service`'s unix socket (#172 shared
+  hashserv), one `bitbake-hashserv` bound to *this tree's* `build/cache/hashserv.db`, serving both
+  trees so a unihash either learns is visible to the other. The socket's directory holds nothing else:
+  `tools/kas-run.sh` bind-mounts it whole into every build container, so anything else kept there would
+  be readable and writable from inside one too. A build directory left on `BB_HASHSERVE`'s own `"auto"`
+  default against *this same database* instead runs its own server, independently of the shared one, and
+  is unsupported — `pipeline-install` closes that gap on both sides (below), and a hand-set
+  `BB_HASHSERVE=auto` against this database is the one way to reopen it. `pipeline-install` folds the
+  pipeline's existing hashserv.db into this tree's by each table's real unique key, so this is a no-op
+  once both sides agree; on a conflicting unihash for the same `(method, taskhash)`, the dev tree's row
+  wins, since a dev row exists only because this tree reported that task, which means its sstate object
+  is already in the shared `SSTATE_DIR`. Both the merge and the service's first start refuse while this
+  tree's own `bitbake` is running (`build/bitbake.lock` held, opened read-only so a live holder's lock
+  is never truncated) — the same lockfile a direct `just build` would hold, checked with `flock -n`
+  before either runs. The service's `ExecStartPre` refuses to start at all against a missing database,
+  rather than silently serving a fresh empty one and losing every equivalence either tree had learned;
+  `pipeline-install` itself waits up to 10s for the socket to appear after enabling the service and
+  exits 1 if it does not, rather than reporting success over a dead socket.
+  **This tree's own builds** share the cache from the next `just build` on: `pipeline-install` appends
+  `PIPELINE_HASHSERV` to this tree's own `.env` (idempotently, like `KIOSK_HOST`'s own local-`.env`
+  convention) so `tools/kas-run.sh` picks it up with no further step. A clone that never runs
+  `pipeline-install` builds unaffected: kas's `env: BB_HASHSERVE: null` in `includes/base.yaml` passes
+  the variable through only when `PIPELINE_HASHSERV` has set it -- a string default such as `""` would
+  be a real assignment, which beats poky.conf's own weak `BB_HASHSERVE ??= "auto"` default and makes
+  `OEEquivHash` raise `bb.fatal` on every host without the service. To confirm it is in effect, check
+  the Sstate summary at the end of a build — a build of a target the other tree already built at the
+  same commit reports `Missed 0`.
 
 Unlike the driver checkout above, `pipeline.env` and the ssh directory are written once by
 `pipeline-install` and do not follow `origin/main`. A merged change that needs a new environment

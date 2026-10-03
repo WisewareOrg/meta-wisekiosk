@@ -1,11 +1,21 @@
 #!/usr/bin/env bash
-# Self-test for report-build.py's renderer and scrub-identity.py --filter.
+# Self-test for report-build.py's renderer, scrub-identity.py --filter,
+# install.sh's two lock gates (#172 shared hashserv), and kas-run.sh's
+# PIPELINE_HASHSERV branch.
 #   tools/pipeline-test.sh
 set -uo pipefail
+
+# A git hook (this runs under one, via ci-guards.sh) sets GIT_DIR and
+# GIT_INDEX_FILE for the real repo; the sandbox below clones and commits into
+# its own tree with `git -C`, which GIT_DIR overrides, re-pointing every git
+# call here at the checkout that is mid-commit instead.
+unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_CONFIG_PARAMETERS GIT_PREFIX
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPORT="$HERE/pipeline/report-build.py"
 SCRUB="$HERE/scrub-identity.py"
+INSTALL="$HERE/pipeline/install.sh"
+KASRUN="$HERE/kas-run.sh"
 
 PY=python3
 
@@ -143,6 +153,186 @@ if [ "$rc" -eq 2 ] && [[ "$out" != *"$STRAY_IP"* ]]; then
     ok "filter: a missing map fails closed (rc 2), posting nothing"
 else
     bad "filter with no map" "rc=$rc out=$out"
+fi
+
+# --- install.sh lock gates (#172 shared hashserv) ------------------------
+# A fake HOME, a bare local origin, a ROOT dev tree cloned from it (carrying
+# install.sh's own required files), and stub ssh/systemctl/loginctl on PATH
+# so the gates can be driven without a network, a device or real systemd.
+
+sandbox() {
+    local sbx="$TOP/sbx-$1"
+    mkdir -p "$sbx/home" "$sbx/bin"
+    git init -q --bare "$sbx/origin.git"
+    git clone -q "$sbx/origin.git" "$sbx/root" 2> /dev/null
+    mkdir -p "$sbx/root/tools/pipeline" "$sbx/root/local/keys"
+    cp "$INSTALL" "$sbx/root/tools/pipeline/install.sh"
+    printf 'fixture\n' > "$sbx/root/local/device-identity.md"
+    git -C "$sbx/root" -c user.email=t@t -c user.name=t add -A
+    git -C "$sbx/root" -c user.email=t@t -c user.name=t commit -q -m init
+    git -C "$sbx/root" push -q origin HEAD:main
+    cat > "$sbx/bin/ssh" <<'STUB'
+#!/bin/sh
+case "$*" in
+    *hostname) echo sandbox-device ;;
+esac
+STUB
+    # Standing in for the real unit's ExecStart: on an enable --now of
+    # wisekiosk-hashserv.service, bind the real AF_UNIX socket install.sh's
+    # own fail-closed wait polls for with `[ -S ... ]`.
+    cat > "$sbx/bin/systemctl" <<STUB
+#!/bin/sh
+case "\$*" in
+    *wisekiosk-hashserv.service*)
+        . "\$HOME/.config/wisekiosk/pipeline.env"
+        $PY -c 'import socket, sys; socket.socket(socket.AF_UNIX).bind(sys.argv[1])' "\$PIPELINE_HASHSERV"
+        ;;
+esac
+exit 0
+STUB
+    cat > "$sbx/bin/loginctl" <<'STUB'
+#!/bin/sh
+[ "$1" = show-user ] && echo Linger=yes || exit 0
+STUB
+    chmod +x "$sbx/bin/"*
+    printf '%s' "$sbx"
+}
+
+# hold LOCKFILE READYFILE -- flock's LOCKFILE exclusively in a detached bash
+# (the same fcntl.flock bitbake and install.sh's own gates use), touches
+# READYFILE once the lock is actually held, and sets HOLDER_PID. Called
+# directly, never via $(...): a command-substitution subshell's own
+# background children do not survive it exiting, so the lock would already
+# be gone by the time the caller could use it. A readiness file, not a fixed
+# sleep, is what the caller waits on: this environment's fork/exec latency is
+# not constant enough to race against with a guess.
+hold() {
+    local lockfile="$1" readyfile="$2"
+    rm -f "$readyfile"
+    bash -c 'exec 7>>"$1"; flock -x 7; : > "$2"; sleep 30' _ "$lockfile" "$readyfile" &
+    HOLDER_PID=$!
+}
+
+# await_ready READYFILE -- polls up to 5s; fails the calling check's own
+# comparison (never true) if the holder did not actually acquire the lock.
+await_ready() {
+    for _ in $(seq 1 50); do
+        [ -f "$1" ] && return 0
+        sleep 0.1
+    done
+    return 1
+}
+
+SBX_A=$(sandbox a)
+mkdir -p "$(dirname "$SBX_A/home/.config/wisekiosk/pipeline.lock")"
+READY_A="$TOP/ready-a"
+hold "$SBX_A/home/.config/wisekiosk/pipeline.lock" "$READY_A"
+HOLDER=$HOLDER_PID
+await_ready "$READY_A"
+out=$(PIPELINE_TARGET=198.51.100.9 HOME="$SBX_A/home" PATH="$SBX_A/bin:$PATH" \
+    "$SBX_A/root/tools/pipeline/install.sh" 2>&1); rc=$?
+kill "$HOLDER" 2> /dev/null; wait "$HOLDER" 2> /dev/null
+if [ -f "$READY_A" ] && [ "$rc" -eq 1 ] && [[ "$out" == *"pipeline lock held"* ]] \
+        && [ ! -d "$SBX_A/home/wisekiosk-pipeline" ]; then
+    ok "install.sh: the pipeline lock gate refuses before anything is cloned"
+else
+    bad "pipeline lock gate" "rc=$rc out=$out"
+fi
+
+SBX_B=$(sandbox b)
+mkdir -p "$SBX_B/root/build"
+printf '4242\n' > "$SBX_B/root/build/bitbake.lock"
+READY_B="$TOP/ready-b"
+hold "$SBX_B/root/build/bitbake.lock" "$READY_B"
+HOLDER=$HOLDER_PID
+await_ready "$READY_B"
+out=$(PIPELINE_TARGET=198.51.100.9 HOME="$SBX_B/home" PATH="$SBX_B/bin:$PATH" \
+    "$SBX_B/root/tools/pipeline/install.sh" 2>&1); rc=$?
+kill "$HOLDER" 2> /dev/null; wait "$HOLDER" 2> /dev/null
+lockcontent=$(cat "$SBX_B/root/build/bitbake.lock")
+if [ -f "$READY_B" ] && [ "$rc" -eq 1 ] && [[ "$out" == *"this tree's own build is in progress"* ]] \
+        && [ ! -d "$SBX_B/home/wisekiosk-pipeline" ] && [ "$lockcontent" = "4242" ]; then
+    ok "install.sh: the dev build-lock gate refuses before anything is cloned, without truncating the lock"
+else
+    bad "dev build-lock gate" "rc=$rc out=$out lockcontent=$lockcontent"
+fi
+
+SBX_C=$(sandbox c)
+out=$(PIPELINE_TARGET=198.51.100.9 HOME="$SBX_C/home" PATH="$SBX_C/bin:$PATH" \
+    "$SBX_C/root/tools/pipeline/install.sh" 2>&1); rc=$?
+HASHSERV_DIR_LISTING=$(ls -A "$SBX_C/home/.config/wisekiosk/hashserv" 2>&1)
+if [ "$rc" -eq 0 ] && [ -d "$SBX_C/home/wisekiosk-pipeline/driver" ] \
+        && [ -d "$SBX_C/home/wisekiosk-pipeline/tree" ] \
+        && grep -q '^PIPELINE_HASHSERV=.*/hashserv/hashserv\.sock"$' "$SBX_C/home/.config/wisekiosk/pipeline.env" \
+        && grep -q '^PIPELINE_DEV_ROOT=' "$SBX_C/home/.config/wisekiosk/pipeline.env" \
+        && [ "$HASHSERV_DIR_LISTING" = "hashserv.sock" ]; then
+    ok "install.sh: with neither lock held, it clones both checkouts, writes the hashserv env vars, and the socket's directory holds only the socket"
+else
+    bad "install.sh clean run" "rc=$rc out=$out hashserv_dir=[$HASHSERV_DIR_LISTING]"
+fi
+
+if grep -qF 'PIPELINE_HASHSERV="' "$SBX_C/root/.env" 2>/dev/null; then
+    ok "install.sh: appends PIPELINE_HASHSERV to this tree's own .env with no opt-in"
+else
+    bad "install.sh .env append" "$(cat "$SBX_C/root/.env" 2>&1)"
+fi
+
+BEFORE_ENV=$(cat "$SBX_C/root/.env")
+out=$(PIPELINE_TARGET=198.51.100.9 HOME="$SBX_C/home" PATH="$SBX_C/bin:$PATH" \
+    "$SBX_C/root/tools/pipeline/install.sh" 2>&1); rc=$?
+AFTER_ENV=$(cat "$SBX_C/root/.env")
+if [ "$rc" -eq 0 ] && [ "$BEFORE_ENV" = "$AFTER_ENV" ]; then
+    ok "install.sh: the .env append is idempotent"
+else
+    bad "install.sh .env append idempotency" "rc=$rc before=[$BEFORE_ENV] after=[$AFTER_ENV]"
+fi
+
+# --- kas-run.sh PIPELINE_HASHSERV branch (#172 shared hashserv) ----------
+# A stub kas-container that echoes its argv, so the branch can be checked
+# without a real build. write-build-rev.sh / go-mods.py / app-lockfile.py are
+# stubbed too -- kas-run.sh calls all three before exec'ing kas-container.
+
+KASBX="$TOP/sbx-kas"
+mkdir -p "$KASBX/bin" "$KASBX/repo/tools"
+cp "$KASRUN" "$KASBX/repo/tools/kas-run.sh"
+printf '#!/bin/sh\nexit 0\n' > "$KASBX/repo/tools/write-build-rev.sh"
+printf 'import sys; sys.exit(0)\n' > "$KASBX/repo/tools/go-mods.py"
+printf 'import sys; sys.exit(0)\n' > "$KASBX/repo/tools/app-lockfile.py"
+printf '#!/bin/sh\nprintf %%s "$*"\n' > "$KASBX/bin/kas-container"
+chmod +x "$KASBX/repo/tools/kas-run.sh" "$KASBX/repo/tools/write-build-rev.sh" "$KASBX/bin/kas-container"
+
+out=$(PATH="$KASBX/bin:$PATH" "$KASBX/repo/tools/kas-run.sh" build kiosk-zero-w.yaml)
+if [ "$out" = "build kiosk-zero-w.yaml" ]; then
+    ok "kas-run.sh: PIPELINE_HASHSERV unset -- argv carries no --runtime-args"
+else
+    bad "kas-run.sh unset argv" "$out"
+fi
+
+out=$(PATH="$KASBX/bin:$PATH" PIPELINE_HASHSERV="$KASBX/hs/hashserv.sock" \
+    "$KASBX/repo/tools/kas-run.sh" build kiosk-zero-w.yaml)
+if [[ "$out" == *"--runtime-args"* ]] \
+        && [[ "$out" == *"-v $KASBX/hs:/run/wisekiosk-hashserv"* ]] \
+        && [[ "$out" == *"-e BB_HASHSERVE=unix:///run/wisekiosk-hashserv/hashserv.sock"* ]] \
+        && [[ "$out" == *"build kiosk-zero-w.yaml" ]]; then
+    ok "kas-run.sh: PIPELINE_HASHSERV set -- mounts its directory and sets BB_HASHSERVE to the in-container socket"
+else
+    bad "kas-run.sh set argv" "got: $out"
+fi
+
+out=$(PATH="$KASBX/bin:$PATH" PIPELINE_HASHSERV="relative/path" \
+    "$KASBX/repo/tools/kas-run.sh" build x.yaml 2>&1); rc=$?
+if [ "$rc" -eq 2 ] && [[ "$out" == *"absolute path"* ]]; then
+    ok "kas-run.sh: a relative PIPELINE_HASHSERV is refused"
+else
+    bad "relative PIPELINE_HASHSERV" "rc=$rc out=$out"
+fi
+
+out=$(PATH="$KASBX/bin:$PATH" PIPELINE_HASHSERV="/has space/hashserv.sock" \
+    "$KASBX/repo/tools/kas-run.sh" build x.yaml 2>&1); rc=$?
+if [ "$rc" -eq 2 ] && [[ "$out" == *"whitespace"* ]]; then
+    ok "kas-run.sh: a PIPELINE_HASHSERV with whitespace is refused"
+else
+    bad "whitespace PIPELINE_HASHSERV" "rc=$rc out=$out"
 fi
 
 echo

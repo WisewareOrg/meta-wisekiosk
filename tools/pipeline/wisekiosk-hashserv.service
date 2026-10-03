@@ -4,7 +4,10 @@ Description=Hash-equivalence server shared by this tree and the pipeline
 [Service]
 Type=simple
 EnvironmentFile=%h/.config/wisekiosk/pipeline.env
-ExecStart=/bin/sh -c 'mkdir -p "$(dirname "$PIPELINE_HASHSERV")" "$PIPELINE_DEV_ROOT/build/cache" && exec "$PIPELINE_DEV_ROOT/sources/poky/bitbake/bin/bitbake-hashserv" --bind "unix://$PIPELINE_HASHSERV" --database "$PIPELINE_DEV_ROOT/build/cache/hashserv.db"'
+# Fail closed: a missing database would otherwise be served as a silent new
+# empty one, losing every equivalence either tree had already learned.
+ExecStartPre=/bin/sh -c 'test -f "$PIPELINE_DEV_ROOT/build/cache/hashserv.db"'
+ExecStart=/bin/sh -c 'exec "$PIPELINE_DEV_ROOT/sources/poky/bitbake/bin/bitbake-hashserv" --bind "unix://$PIPELINE_HASHSERV" --database "$PIPELINE_DEV_ROOT/build/cache/hashserv.db"'
 Restart=on-failure
 
 [Install]

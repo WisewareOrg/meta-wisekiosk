@@ -8,10 +8,10 @@ Usage: tools/kas-run.sh [--help] <kas-container args...>
 
 Environment:
   PIPELINE_KEYS_DIR   mounted read-only at /work/local/keys; no whitespace
-  PIPELINE_HASHSERV   path to the shared hashserv unix socket; its directory
-                      (which holds only the socket) is bind-mounted at
-                      /run/wisekiosk-hashserv and BB_HASHSERVE is set to the
-                      socket's path there; no whitespace
+  PIPELINE_HASHSERV   absolute path to the shared hashserv unix socket; its
+                      directory (which holds only the socket) is bind-mounted
+                      at /run/wisekiosk-hashserv and BB_HASHSERVE is set to
+                      the socket's path there; no whitespace
   KAS_RUN_ENV         space-separated variable NAMES passed through to
                       kas-container as -e NAME, for each that is non-empty
 
@@ -45,6 +45,11 @@ fi
 
 if [[ "${PIPELINE_HASHSERV:-}" == *[[:space:]]* ]]; then
     echo "tools/kas-run.sh: PIPELINE_HASHSERV must not contain whitespace" >&2
+    exit 2
+fi
+
+if [ -n "${PIPELINE_HASHSERV:-}" ] && [[ "$PIPELINE_HASHSERV" != /* ]]; then
+    echo "tools/kas-run.sh: PIPELINE_HASHSERV must be an absolute path" >&2
     exit 2
 fi
 
