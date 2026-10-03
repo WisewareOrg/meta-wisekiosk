@@ -2,7 +2,7 @@
 # Requires py from the root Justfile.
 
 [group('pipeline')]
-[doc("Provision the pipeline's checkouts and env file; install its ssh key on the target, merge its hash-equivalence db into this tree's, and enable the shared hashserv service")]
+[doc("Provision the pipeline's checkouts and env file; install its ssh key on the target, enable the shared hashserv service, and merge the pipeline's hash-equivalence db into it")]
 pipeline-install dl_dir=env('DL_DIR', (justfile_directory() / 'build/downloads')) \
                  sstate_dir=env('SSTATE_DIR', (justfile_directory() / 'build/sstate-cache')) \
                  target=env('PIPELINE_TARGET', ''):

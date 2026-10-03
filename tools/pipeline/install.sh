@@ -24,11 +24,8 @@ if ! flock -n 9; then
     exit 1
 fi
 
-# bb.utils.lockfile() opens build/bitbake.lock the same way (`open(name,
-# 'a+')`) and unlinks it on a clean exit -- so it is usually ABSENT between
-# builds, and skipping this gate whenever the file happens not to exist would
-# gate nothing in the common case. >> matches bitbake's own open: creates the
-# file without truncating a live holder's.
+# >> matches bitbake's own bb.utils.lockfile() open: creates the file
+# without truncating a live holder's.
 mkdir -p "$ROOT/build"
 DEV_BUILD_LOCK="$ROOT/build/bitbake.lock"
 exec 8>>"$DEV_BUILD_LOCK"
@@ -77,11 +74,8 @@ mkdir -p "$HASHSERV_DIR"
 HASHSERV_SOCK="$HASHSERV_DIR/hashserv.sock"
 HASHSERV_DB="$HASHSERV_DIR/hashserv.db"
 
-# The shared database outlives either tree's build/ directory. Seed it from
-# this tree's own build/cache/hashserv.db if one exists, else create it
-# empty; then fold the pipeline's build/cache/hashserv.db into it by each
-# table's real unique key, never the surrogate id -- INSERT OR IGNORE, so an
-# existing row wins. See docs/testing.md "Running it" for why.
+# Seed the shared db from this tree's own build/cache/hashserv.db, then fold
+# in the pipeline's copy. docs/testing.md "Running it" has the why.
 DEV_HASHSERV_DB="$ROOT/build/cache/hashserv.db"
 PIPELINE_TREE_HASHSERV_DB="$TREE/build/cache/hashserv.db"
 if [ ! -f "$HASHSERV_DB" ]; then
@@ -162,10 +156,8 @@ if ! loginctl show-user "$(id -un)" -p Linger 2>/dev/null | grep -q '^Linger=yes
     loginctl enable-linger "$(id -un)"
 fi
 
-# No opt-in: an existing PIPELINE_HASHSERV= line is replaced in place,
-# otherwise it is appended, so running this twice does not duplicate it. A
-# newline first if the file has content with none of its own, so the append
-# cannot glue onto an existing line instead of starting a new one.
+# Replace an existing PIPELINE_HASHSERV= line in place, else append (with a
+# leading newline if the file has content and none of its own).
 ENV_FILE="$ROOT/.env"
 if grep -q '^PIPELINE_HASHSERV=' "$ENV_FILE" 2>/dev/null; then
     sed -i "s|^PIPELINE_HASHSERV=.*|PIPELINE_HASHSERV=\"$HASHSERV_SOCK\"|" "$ENV_FILE"
@@ -176,13 +168,12 @@ else
     printf 'PIPELINE_HASHSERV="%s"\n' "$HASHSERV_SOCK" >> "$ENV_FILE"
 fi
 
-# Unlike wisekiosk-pipeline.timer, which stays off until `just pipeline-on`,
-# this service is wanted immediately: nothing shares the cache until it is up.
+# Wanted immediately, unlike wisekiosk-pipeline.timer. docs/testing.md
+# "Running it" has the why.
 systemctl --user enable --now "$DRIVER/tools/pipeline/wisekiosk-hashserv.service"
 
-# Fail closed rather than report success over a dead socket: `-S` alone
-# passes on a stale leftover file, so both the socket's type and the unit's
-# own state must agree.
+# Checks both the socket's type and the unit's state. docs/testing.md
+# "Running it" has the why.
 hashserv_ready() {
     [ -S "$HASHSERV_SOCK" ] && systemctl --user is-active --quiet wisekiosk-hashserv.service
 }

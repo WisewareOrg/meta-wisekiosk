@@ -5,22 +5,16 @@
 #   tools/pipeline-test.sh
 set -uo pipefail
 
-# A hook-spawned shell can set GIT_DIR and GIT_INDEX_FILE for the real repo;
-# the sandbox below clones and commits into its own tree with `git -C`, which
-# GIT_DIR overrides, re-pointing every git call here at that repo instead.
-# Kept as a second line of defense; sgit (below) is the actual guard.
+# Unset so a hook-spawned shell's GIT_DIR/GIT_INDEX_FILE cannot redirect the
+# sandbox's `git -C` calls at the real repo.
 unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_CONFIG_PARAMETERS GIT_PREFIX
 
-# This tree's own .env may already carry PIPELINE_HASHSERV (install.sh writes
-# it, and `just` dotenv-loads it into every recipe, including `just guards`);
-# the "unset" kas-run.sh case below needs it genuinely unset, not whatever
-# this operator's environment happens to hold.
+# Unset so the "unset" kas-run.sh case below gets a genuinely unset
+# PIPELINE_HASHSERV, not whatever this operator's .env/environment holds.
 unset PIPELINE_HASHSERV PIPELINE_KEYS_DIR KAS_RUN_ENV
 
 # sgit -- every git call the sandbox makes goes through this, never a bare
-# `git`. `env -i` drops the whole inherited environment rather than naming
-# variables to unset, so a hook env var this file's author did not think of
-# cannot leak in the same way GIT_DIR and GIT_INDEX_FILE did.
+# `git`. `env -i` drops the whole inherited environment.
 sgit() {
     env -i PATH="$PATH" HOME="$HOME" git "$@"
 }
@@ -191,11 +185,9 @@ case "$*" in
     *hostname) echo sandbox-device ;;
 esac
 STUB
-    # Standing in for the real unit: an enable --now binds the real AF_UNIX
-    # socket install.sh's fail-closed wait polls for with `[ -S ... ]`, unless
-    # NO_BIND is set (the failing-unit case); is-active reports active only
-    # while that socket exists, so the wait loop has something real to check
-    # beyond the file merely existing.
+    # Stub unit: enable --now binds the real AF_UNIX socket install.sh's
+    # wait polls for with `[ -S ... ]`, unless NO_BIND is set; is-active
+    # reports active only while that socket exists.
     cat > "$sbx/bin/systemctl" <<STUB
 #!/bin/sh
 . "\$HOME/.config/wisekiosk/pipeline.env"
@@ -217,14 +209,9 @@ STUB
     printf '%s' "$sbx"
 }
 
-# hold LOCKFILE READYFILE -- flock's LOCKFILE exclusively in a detached bash
-# (the same fcntl.flock bitbake and install.sh's own gates use), touches
-# READYFILE once the lock is actually held, and sets HOLDER_PID. Called
-# directly, never via $(...): a command-substitution subshell's own
-# background children do not survive it exiting, so the lock would already
-# be gone by the time the caller could use it. A readiness file, not a fixed
-# sleep, is what the caller waits on: this environment's fork/exec latency is
-# not constant enough to race against with a guess.
+# hold LOCKFILE READYFILE -- flock's LOCKFILE exclusively in a detached bash,
+# touches READYFILE once the lock is actually held, and sets HOLDER_PID.
+# Call directly, never via $(...); wait on READYFILE, never a fixed sleep.
 hold() {
     local lockfile="$1" readyfile="$2"
     rm -f "$readyfile"

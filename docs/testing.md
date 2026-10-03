@@ -47,7 +47,8 @@ does not also do. It creates, all under `$HOME`:
   it is never copied, and the driver checkout, which never runs bitbake, gets no keys dir at all.
 - `.config/wisekiosk/pipeline.env` — `PIPELINE_DRIVER`, `PIPELINE_TREE`,
   `PIPELINE_SSH_DIR`, `PIPELINE_KEYS_DIR` (the dev tree's own `local/keys`), `PIPELINE_HASHSERV` (the
-  shared hash-equivalence socket, below), `PIPELINE_DEV_ROOT` (this tree's own root, which is what
+  shared hash-equivalence socket, below), `PIPELINE_HASHSERV_DB` (the shared hash-equivalence
+  database, below), `PIPELINE_DEV_ROOT` (this tree's own root, which is what
   `wisekiosk-hashserv.service` actually serves),
   `PIPELINE_TARGET` (the device's address; required, no default), `PIPELINE_TARGET_HOSTNAME` (recorded
   once at install by running `hostname` on the device over the newly-installed pipeline key),
