@@ -201,6 +201,10 @@ unattributable. To move it:
    is a git repo under `build/buildhistory`, and the refs are its own commits (`git -C
    build/buildhistory log` names them).
 
+**Moving poky to a new release series also moves the hash-equivalence server's own clone.** Check it
+out at the new pin and restart `bitbake-hashserv.service` before building against it — see
+[`../README.md`](../README.md) §"Quick start" for the clone's location.
+
 The same steps apply to every other pinned repo. The pins live in three files: most repos in
 `includes/base.yaml`, meta-rauc in `includes/rauc.yaml`, and the three Raspberry Pi repos
 (meta-raspberrypi, meta-lts-mixins, meta-rauc-community) in `includes/platforms/raspberrypi.yaml` —

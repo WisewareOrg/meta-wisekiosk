@@ -31,7 +31,8 @@ and reads as no job, the same as an empty queue. The host builds and tests whate
 including a cross-repository PR: enqueueing is the trust decision, not where the PR came from.
 
 `pipeline-install` is the whole reprovisioning procedure — nothing is done to a host by hand that it
-does not also do. It creates, all under `$HOME`:
+does not also do, except the one-time hash-server setup in [`../README.md`](../README.md) §"Quick start",
+which every host needs once regardless of the pipeline. `pipeline-install` creates, all under `$HOME`:
 
 - `wisekiosk-pipeline/driver` — this repository at `origin/main`; runs `run.sh`. Every tick fetches
   it first and, if its HEAD is not `origin/main`, checks that out and restarts itself from the fresh
@@ -61,9 +62,10 @@ does not also do. It creates, all under `$HOME`:
   also pushes to GitHub. Every other stage that reaches the device — the hostname check, `booted_slot`,
   send/install/reboot/rollback, and the render and GPU checks — uses the host user's own default ssh
   identity as root, which the device must already accept.
-- `wisekiosk-pipeline/tree/build/cache/hashserv.db` — seeded from the dev tree's own hash-equivalence
-  database (never overwritten once the pipeline has built its own), so a fresh build dir's unihash
-  lookups hit the shared `SSTATE_DIR` instead of missing and rebuilding from scratch.
+
+The pipeline shares `downloads/`, `sstate-cache/` and the host's one hash-equivalence server with the
+dev tree's ordinary builds — see [`../README.md`](../README.md) §"Quick start" for the server's
+one-time setup.
 
 Unlike the driver checkout above, `pipeline.env` and the ssh directory are written once by
 `pipeline-install` and do not follow `origin/main`. A merged change that needs a new environment
@@ -99,10 +101,11 @@ version-going-backwards check never compares against another candidate's leftove
 each OTA stage's log, `testresults.json`, and the assembled report body.
 
 **An infrastructure failure** — the device unreachable, the device's live hostname not matching the
-recorded `PIPELINE_TARGET_HOSTNAME` (the address now reaches a different device), the job's base
-commit not resolving, a baseline build failing, the rollback reboot never coming back, the rollback
-not landing back on the pre-install slot, a report or status failing to post, or the process exiting
-for any other reason while the device sits mid-OTA — writes `local/pipeline/DISABLED` under
+recorded `PIPELINE_TARGET_HOSTNAME` (the address now reaches a different device), the shared
+bitbake-hashserv not answering before a build, the job's base commit not resolving, a baseline build
+failing, the rollback reboot never coming back, the rollback not landing back on the pre-install slot,
+a report or status failing to post, or the process exiting for any other reason while the device sits
+mid-OTA — writes `local/pipeline/DISABLED` under
 the driver with the reason and disables the timer. Nothing loops silently. Fix the cause, then `just
 pipeline-on` -- it prints the DISABLED reason and clears the file itself, as an explicit
 acknowledgement, before re-enabling.

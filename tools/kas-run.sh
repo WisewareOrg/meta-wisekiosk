@@ -6,6 +6,9 @@ usage() {
     cat <<'EOF'
 Usage: tools/kas-run.sh [--help] <kas-container args...>
 
+Mounts $HOME/.local/share/bitbake-hashserv read-only at /hashserv; refuses to
+run if that directory is missing.
+
 Environment:
   PIPELINE_KEYS_DIR   mounted read-only at /work/local/keys; no whitespace
   KAS_RUN_ENV         space-separated variable NAMES passed through to
@@ -13,7 +16,8 @@ Environment:
 
 Refuses --runtime-args and --docker-args in <kas-container args...>.
 
-Exits with kas-container's status, a failing writer's status, or 2 on bad usage.
+Exits with kas-container's status, a failing writer's status, 1 if the
+bitbake-hashserv data directory is missing, or 2 on bad usage.
 EOF
 }
 
@@ -41,14 +45,20 @@ fi
 
 cd "$(dirname "$0")/.."
 
+HASHSERV_DIR="$HOME/.local/share/bitbake-hashserv"
+if [ ! -d "$HASHSERV_DIR" ]; then
+    echo 'tools/kas-run.sh: bitbake-hashserv data directory missing: see README.md §"Quick start"' >&2
+    exit 1
+fi
+
 py="${py:-python3}"
 tools/write-build-rev.sh
 "$py" tools/go-mods.py
 "$py" tools/app-lockfile.py
 
-runtime=""
+runtime="-v $HASHSERV_DIR:/hashserv:ro"
 if [ -n "${PIPELINE_KEYS_DIR:-}" ]; then
-    runtime="-v $PIPELINE_KEYS_DIR:/work/local/keys:ro"
+    runtime="$runtime -v $PIPELINE_KEYS_DIR:/work/local/keys:ro"
 fi
 if [ -n "${KAS_RUN_ENV:-}" ]; then
     for name in $KAS_RUN_ENV; do
