@@ -49,7 +49,7 @@ repos:
 
   poky:
     url: "https://git.yoctoproject.org/git/poky"
-    commit: 69ae79bf5a01a24491648e2fdea6faf51aeb3bf2
+    commit: 3a3d07f625aee7b87ea1026526b756447c357652
     path: "sources/poky"
     layers:
       meta:
@@ -60,7 +60,7 @@ repos:
   # Cloudflare, which refuses port 9418.
   meta-openembedded:
     url: "https://git.openembedded.org/meta-openembedded"
-    commit: bec755063a8b5da65df626f5749496aadaa4f4bb
+    commit: 0f00f8b9a21950640da8c5707343e5540133f86e
     path: "sources/meta-openembedded"
     layers:
       meta-oe:
