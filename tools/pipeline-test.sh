@@ -283,11 +283,19 @@ HASHSERV_DIR_LISTING=$(ls -A "$SBX_C/home/.config/wisekiosk/hashserv" 2>&1)
 if [ "$rc" -eq 0 ] && [ -d "$SBX_C/home/wisekiosk-pipeline/driver" ] \
         && [ -d "$SBX_C/home/wisekiosk-pipeline/tree" ] \
         && grep -q '^PIPELINE_HASHSERV=.*/hashserv/hashserv\.sock"$' "$SBX_C/home/.config/wisekiosk/pipeline.env" \
+        && grep -q '^PIPELINE_HASHSERV_DB=.*/hashserv/hashserv\.db"$' "$SBX_C/home/.config/wisekiosk/pipeline.env" \
         && grep -q '^PIPELINE_DEV_ROOT=' "$SBX_C/home/.config/wisekiosk/pipeline.env" \
-        && [ "$HASHSERV_DIR_LISTING" = "hashserv.sock" ]; then
-    ok "install.sh: with neither lock held, it clones both checkouts, writes the hashserv env vars, and the socket's directory holds only the socket"
+        && [ "$HASHSERV_DIR_LISTING" = "$(printf 'hashserv.db\nhashserv.sock')" ]; then
+    ok "install.sh: with neither lock held, it clones both checkouts, writes the hashserv env vars, and the socket's directory holds only the socket and database"
 else
     bad "install.sh clean run" "rc=$rc out=$out hashserv_dir=[$HASHSERV_DIR_LISTING]"
+fi
+
+if [ -f "$SBX_C/home/.config/wisekiosk/hashserv/hashserv.db" ] \
+        && [[ "$out" == *"created an empty shared hashserv.db"* ]]; then
+    ok "install.sh: with no dev db and no pipeline copy, the shared hashserv.db is created empty"
+else
+    bad "install.sh empty shared db" "out=$out"
 fi
 
 if grep -qF 'PIPELINE_HASHSERV="' "$SBX_C/root/.env" 2>/dev/null; then

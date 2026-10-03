@@ -67,16 +67,39 @@ ln -sf "$MAP" "$DRIVER/local/device-identity.md"
 # local/keys: an empty bind-mount target -- docs/testing.md §"Running it".
 mkdir -p "$TREE/local/keys"
 
-# Fold the pipeline's hashserv.db into this tree's before pointing it at the
-# shared server: INSERT OR IGNORE on each table's real unique key, never the
-# surrogate id -- idempotent, and the dev row wins a conflict. See
-# docs/testing.md "Running it" for why.
+CONF_DIR="$HOME/.config/wisekiosk"
+mkdir -p "$CONF_DIR"
+SSH_DIR="$CONF_DIR/pipeline-ssh"
+# Its own directory, holding nothing else: kas-run.sh bind-mounts this whole
+# into every build container.
+HASHSERV_DIR="$CONF_DIR/hashserv"
+mkdir -p "$HASHSERV_DIR"
+HASHSERV_SOCK="$HASHSERV_DIR/hashserv.sock"
+HASHSERV_DB="$HASHSERV_DIR/hashserv.db"
+
+# The shared database outlives either tree's build/ directory. Seed it from
+# this tree's own build/cache/hashserv.db if one exists, else create it
+# empty; then fold the pipeline's build/cache/hashserv.db into it by each
+# table's real unique key, never the surrogate id -- INSERT OR IGNORE, so an
+# existing row wins. See docs/testing.md "Running it" for why.
 DEV_HASHSERV_DB="$ROOT/build/cache/hashserv.db"
-PIPELINE_HASHSERV_DB="$TREE/build/cache/hashserv.db"
-if [ -f "$PIPELINE_HASHSERV_DB" ]; then
+PIPELINE_TREE_HASHSERV_DB="$TREE/build/cache/hashserv.db"
+if [ ! -f "$HASHSERV_DB" ]; then
     if [ -f "$DEV_HASHSERV_DB" ]; then
-        BEFORE=$("${py:-python3}" -c 'import sqlite3, sys; print(sqlite3.connect(sys.argv[1]).execute("select count(*) from unihashes_v3").fetchone()[0])' "$DEV_HASHSERV_DB")
-        "${py:-python3}" -c '
+        # An sqlite3 online backup, which also captures live WAL contents.
+        rm -f "$HASHSERV_DB.tmp"
+        "${py:-python3}" -c 'import sqlite3, sys; src = sqlite3.connect("file:" + sys.argv[1] + "?mode=ro", uri=True); dst = sqlite3.connect(sys.argv[2]); src.backup(dst); dst.close(); src.close()' \
+            "$DEV_HASHSERV_DB" "$HASHSERV_DB.tmp"
+        mv -- "$HASHSERV_DB.tmp" "$HASHSERV_DB"
+        echo "pipeline-install: seeded the shared hashserv.db from this tree's own copy"
+    else
+        "${py:-python3}" -c 'import sqlite3, sys; sqlite3.connect(sys.argv[1]).close()' "$HASHSERV_DB"
+        echo "pipeline-install: created an empty shared hashserv.db (neither tree has built yet)"
+    fi
+fi
+if [ -f "$PIPELINE_TREE_HASHSERV_DB" ]; then
+    BEFORE=$("${py:-python3}" -c 'import sqlite3, sys; print(sqlite3.connect(sys.argv[1]).execute("select count(*) from unihashes_v3").fetchone()[0])' "$HASHSERV_DB")
+    "${py:-python3}" -c '
 import sqlite3, sys
 dst = sqlite3.connect(sys.argv[1])
 dst.execute("ATTACH DATABASE ? AS src", (sys.argv[2],))
@@ -93,30 +116,10 @@ dst.execute("""
 dst.commit()
 dst.execute("DETACH DATABASE src")
 dst.close()
-' "$DEV_HASHSERV_DB" "$PIPELINE_HASHSERV_DB"
-        AFTER=$("${py:-python3}" -c 'import sqlite3, sys; print(sqlite3.connect(sys.argv[1]).execute("select count(*) from unihashes_v3").fetchone()[0])' "$DEV_HASHSERV_DB")
-        echo "pipeline-install: merged the pipeline's hashserv.db into this tree's -- unihashes_v3 rows $BEFORE -> $AFTER"
-    else
-        # This tree has never built; nothing to merge into, so the pipeline's
-        # copy -- an sqlite3 online backup, which also captures live WAL
-        # contents -- becomes the seed instead.
-        mkdir -p "$(dirname "$DEV_HASHSERV_DB")"
-        rm -f "$DEV_HASHSERV_DB.tmp"
-        "${py:-python3}" -c 'import sqlite3, sys; src = sqlite3.connect("file:" + sys.argv[1] + "?mode=ro", uri=True); dst = sqlite3.connect(sys.argv[2]); src.backup(dst); dst.close(); src.close()' \
-            "$PIPELINE_HASHSERV_DB" "$DEV_HASHSERV_DB.tmp"
-        mv -- "$DEV_HASHSERV_DB.tmp" "$DEV_HASHSERV_DB"
-        echo "pipeline-install: seeded this tree's hashserv.db from the pipeline's copy (this tree had none)"
-    fi
+' "$HASHSERV_DB" "$PIPELINE_TREE_HASHSERV_DB"
+    AFTER=$("${py:-python3}" -c 'import sqlite3, sys; print(sqlite3.connect(sys.argv[1]).execute("select count(*) from unihashes_v3").fetchone()[0])' "$HASHSERV_DB")
+    echo "pipeline-install: merged the pipeline's hashserv.db into the shared one -- unihashes_v3 rows $BEFORE -> $AFTER"
 fi
-
-CONF_DIR="$HOME/.config/wisekiosk"
-mkdir -p "$CONF_DIR"
-SSH_DIR="$CONF_DIR/pipeline-ssh"
-# Its own directory, holding nothing else: kas-run.sh bind-mounts this whole
-# into every build container.
-HASHSERV_DIR="$CONF_DIR/hashserv"
-mkdir -p "$HASHSERV_DIR"
-HASHSERV_SOCK="$HASHSERV_DIR/hashserv.sock"
 # Read by systemd EnvironmentFile= and by pipeline-run's `.`.
 {
     printf 'PATH="%s"\n' "$PATH"
@@ -127,6 +130,7 @@ HASHSERV_SOCK="$HASHSERV_DIR/hashserv.sock"
     printf 'PIPELINE_SSH_DIR="%s"\n' "$SSH_DIR"
     printf 'PIPELINE_KEYS_DIR="%s"\n' "$KEYS"
     printf 'PIPELINE_HASHSERV="%s"\n' "$HASHSERV_SOCK"
+    printf 'PIPELINE_HASHSERV_DB="%s"\n' "$HASHSERV_DB"
     printf 'PIPELINE_DEV_ROOT="%s"\n' "$ROOT"
     printf 'PIPELINE_TARGET="%s"\n' "$TARGET"
     printf 'PIPELINE_LOCK="%s"\n' "$PIPELINE_LOCK"
@@ -158,12 +162,14 @@ if ! loginctl show-user "$(id -un)" -p Linger 2>/dev/null | grep -q '^Linger=yes
     loginctl enable-linger "$(id -un)"
 fi
 
-# No opt-in: appended only if absent, so a line the operator edited is left
-# alone and running this twice does not duplicate it. A newline first if the
-# file has content with none of its own, so the append cannot glue onto an
-# existing line instead of starting a new one.
+# No opt-in: an existing PIPELINE_HASHSERV= line is replaced in place,
+# otherwise it is appended, so running this twice does not duplicate it. A
+# newline first if the file has content with none of its own, so the append
+# cannot glue onto an existing line instead of starting a new one.
 ENV_FILE="$ROOT/.env"
-if ! grep -q '^PIPELINE_HASHSERV=' "$ENV_FILE" 2>/dev/null; then
+if grep -q '^PIPELINE_HASHSERV=' "$ENV_FILE" 2>/dev/null; then
+    sed -i "s|^PIPELINE_HASHSERV=.*|PIPELINE_HASHSERV=\"$HASHSERV_SOCK\"|" "$ENV_FILE"
+else
     if [ -s "$ENV_FILE" ] && [ "$(tail -c1 "$ENV_FILE" | wc -l)" -eq 0 ]; then
         printf '\n' >> "$ENV_FILE"
     fi
