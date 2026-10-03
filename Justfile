@@ -197,11 +197,6 @@ cve-build:
     {{py}} tools/cve-delta.py snapshot
 
 [group('audit')]
-[doc("Diff buildhistory's image files between two buildhistory refs")]
-artifact-diff base head *args:
-    {{py}} tools/artifact-diff.py {{args}} {{base}} {{head}}
-
-[group('audit')]
 [script('bash')]
 [doc("Build with testimage inherited; run the wisekiosk oeqa suite over ssh")]
 testimage ssh_dir=env('PIPELINE_SSH_DIR', ''):
