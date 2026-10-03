@@ -8,8 +8,18 @@ set -uo pipefail
 # A git hook (this runs under one, via ci-guards.sh) sets GIT_DIR and
 # GIT_INDEX_FILE for the real repo; the sandbox below clones and commits into
 # its own tree with `git -C`, which GIT_DIR overrides, re-pointing every git
-# call here at the checkout that is mid-commit instead.
+# call here at the checkout that is mid-commit instead. This unset is kept as
+# a second line of defense; sgit (below) is the actual guard every sandboxed
+# git call goes through.
 unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_CONFIG_PARAMETERS GIT_PREFIX
+
+# sgit -- every git call the sandbox makes goes through this, never a bare
+# `git`. `env -i` drops the whole inherited environment rather than naming
+# variables to unset, so a hook env var this file's author did not think of
+# cannot leak in the same way GIT_DIR and GIT_INDEX_FILE did.
+sgit() {
+    env -i PATH="$PATH" HOME="$HOME" git "$@"
+}
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPORT="$HERE/pipeline/report-build.py"
@@ -163,14 +173,14 @@ fi
 sandbox() {
     local sbx="$TOP/sbx-$1"
     mkdir -p "$sbx/home" "$sbx/bin"
-    git init -q --bare "$sbx/origin.git"
-    git clone -q "$sbx/origin.git" "$sbx/root" 2> /dev/null
+    sgit init -q --bare "$sbx/origin.git"
+    sgit clone -q "$sbx/origin.git" "$sbx/root" 2> /dev/null
     mkdir -p "$sbx/root/tools/pipeline" "$sbx/root/local/keys"
     cp "$INSTALL" "$sbx/root/tools/pipeline/install.sh"
     printf 'fixture\n' > "$sbx/root/local/device-identity.md"
-    git -C "$sbx/root" -c user.email=t@t -c user.name=t add -A
-    git -C "$sbx/root" -c user.email=t@t -c user.name=t commit -q -m init
-    git -C "$sbx/root" push -q origin HEAD:main
+    sgit -C "$sbx/root" -c user.email=t@t -c user.name=t add -A
+    sgit -C "$sbx/root" -c user.email=t@t -c user.name=t commit -q -m init
+    sgit -C "$sbx/root" push -q origin HEAD:main
     cat > "$sbx/bin/ssh" <<'STUB'
 #!/bin/sh
 case "$*" in
