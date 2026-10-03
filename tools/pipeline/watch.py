@@ -494,21 +494,27 @@ def verdict_text(run_dir):
     return match.group(1) if match else ""
 
 
-def smoke_failed(run_dir):
+def smoke_failed(run_dir, checkout_mtime):
     """Whether run_dir's testresults.json (oeqa's JSON test report, copied
     in by run.sh when the device comes back) records any case with status
     "FAILED".
 
-    Returns False if the file is missing or doesn't parse as the expected
+    Returns False if the file is missing, has an mtime before
+    `checkout_mtime` (a None `checkout_mtime` skips this check; this
+    excludes one left over from an earlier run in a reused run
+    directory), or doesn't parse as the expected
     {session: {"result": {case: {"status": ...}}}} shape."""
+    path = run_dir / "testresults.json"
     try:
-        sessions = json.loads((run_dir / "testresults.json").read_text())
-    except (OSError, ValueError):
+        if checkout_mtime is not None and path.stat().st_mtime < checkout_mtime:
+            return False
+        sessions = json.loads(path.read_text())
+        for session in sessions.values():
+            for case in (session.get("result") or {}).values():
+                if case.get("status") == "FAILED":
+                    return True
+    except (OSError, ValueError, AttributeError, TypeError):
         return False
-    for session in sessions.values():
-        for case in (session.get("result") or {}).values():
-            if case.get("status") == "FAILED":
-                return True
     return False
 
 
@@ -521,11 +527,11 @@ def failed_stages_from_verdict(run_dir, text):
     set without looking any further. When it does, every signal that
     fires is collected (more than one display name can come back, since a
     smoke failure can coincide with a render or gpu failure reported
-    separately): smoke_failed() marks "smoke"; each STAGES row's own
-    "<internal name>.tail.log" existing in run_dir, with an mtime at or
-    after checkout.log's own (excluding one left over from an earlier run
-    in a reused run directory), marks its display name -- run.sh writes
-    these directly for render/gpu and via stage_logargs() for the
+    separately): smoke_failed() marks "smoke" (and, like every signal
+    below, only from a testresults.json no older than checkout.log's own
+    mtime); each STAGES row's own "<internal name>.tail.log" existing in
+    run_dir, with the same mtime floor, marks its display name -- run.sh
+    writes these directly for render/gpu and via stage_logargs() for the
     run_or_fail() stages, but never a reliable one for testimage itself
     (stage_logargs() runs there even on a pass, whenever testresults.json
     is missing), so "testimage" is excluded from this check; and
@@ -535,13 +541,13 @@ def failed_stages_from_verdict(run_dir, text):
     or no signal fires)."""
     if not FAILURE_WORD_RE.search(text):
         return frozenset()
-    failed = set()
-    if smoke_failed(run_dir):
-        failed.add("smoke")
     try:
         checkout_mtime = (run_dir / "checkout.log").stat().st_mtime
     except OSError:
         checkout_mtime = None
+    failed = set()
+    if smoke_failed(run_dir, checkout_mtime):
+        failed.add("smoke")
     for name, _file, display, _subs in STAGES:
         if name in ("posted", "testimage"):
             continue
