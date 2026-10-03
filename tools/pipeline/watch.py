@@ -138,6 +138,9 @@ DONE_RE = re.compile(r"NOTE: recipe (\S+): task (do_\S+): (?:Succeeded|Failed)")
 ERROR_TASK_RE = re.compile(r"ERROR: (\S+) (do_\S+): ")
 # The "VERDICT: <text>" line run.sh's finish() writes to verdict.txt
 VERDICT_RE = re.compile(r"^VERDICT: (.*)$", re.MULTILINE)
+# Gates failed_stage_from_verdict() so a verdict with none of these words
+# is never read as a failure.
+FAILURE_WORD_RE = re.compile(r"failed|failure|did not|could not|aborted")
 # Position, state, ETA, head/base commit oid and PR number/title for each
 # entry in this repo's main-branch merge queue.
 GRAPHQL_QUERY = (
@@ -150,8 +153,8 @@ GRAPHQL_QUERY = (
 
 
 def load_env_value(env_path, key):
-    """`key`'s value from env_path's KEY=value lines (surrounding quotes
-    stripped).
+    """`key`'s value from env_path's KEY=value lines (leading/trailing
+    whitespace and surrounding double quotes stripped).
 
     Returns None if env_path can't be read or has no such line."""
     try:
@@ -257,9 +260,9 @@ def fetch_queue():
       eta_s     int or None, estimatedTimeToMerge in seconds
       head_sha  str or None, the entry's headCommit oid
       base_sha  str or None, the entry's baseCommit oid
-    The error string is the first line of gh's stderr, of the raised
-    exception, or "unexpected response: <exc>" if the JSON shape doesn't
-    match."""
+    The error string is the first line of gh's stderr (the literal
+    "gh failed" if stderr is empty), of the raised exception, or
+    "unexpected response: <exc>" if the JSON shape doesn't match."""
     try:
         out = subprocess.run(["gh", "api", "graphql", "-f", f"query={GRAPHQL_QUERY}"],
                               capture_output=True, text=True, timeout=15)
@@ -310,14 +313,14 @@ class QueueWorker:
     def _run(self):
         """Loop: fetch_queue(), store the result under self.lock, sleep
         QUEUE_REFRESH_S. Any exception fetch_queue() doesn't itself catch
-        is caught here and stored as self.error (falling back to the
-        exception's class name if it has no message) rather than killing
-        the thread."""
+        is caught here and stored as self.error -- its first line (falling
+        back to the exception's class name if it has no message) -- rather
+        than killing the thread."""
         while True:
             try:
                 queue, err = fetch_queue()
             except Exception as exc:
-                queue, err = None, str(exc) or type(exc).__name__
+                queue, err = None, (str(exc) or type(exc).__name__).splitlines()[0]
             with self.lock:
                 if queue is not None:
                     self.queue = queue
@@ -374,11 +377,13 @@ def current_phase(run_dir):
 def median_durations(idx, run_dir, limit=5):
     """Sample how long the STAGES[idx] phase has taken in prior runs.
 
-    For up to `limit` sibling directories under run_dir's parent (newest
-    mtime first, run_dir itself excluded), a sample is taken when both
-    STAGES[idx]'s file and STAGES[idx - 1]'s file exist there:
-    (STAGES[idx] file's mtime - STAGES[idx - 1] file's mtime). A negative
-    sample is dropped (the dir was reused out of order).
+    Scans sibling directories under run_dir's parent, newest mtime first
+    (run_dir itself excluded), collecting up to `limit` samples: for each
+    sibling where both STAGES[idx]'s file and STAGES[idx - 1]'s file
+    exist, the sample is (STAGES[idx] file's mtime - STAGES[idx - 1]
+    file's mtime). A sibling missing either file, or giving a negative
+    sample (the dir was reused out of order), doesn't count toward the
+    limit, and the scan continues to the next sibling.
 
     Returns a list of up to `limit` floats (seconds), or [] when idx == 0
     (no previous phase to pair with) or no sibling has both files."""
@@ -516,13 +521,18 @@ def verdict_text(run_dir):
 def failed_stage_from_verdict(run_dir, text):
     """Which display stage a posted run's verdict text names as failed.
 
-    Matches `text` against FAILURE_PATTERNS (per-display-name substrings
-    derived from STAGES' failure-substrings column) first; then whether
-    any STAGES row's own "<internal name>.tail.log" exists in run_dir
-    (run.sh's stage_logargs() writes one per stage whose own failure it
-    logged).
+    Consulted only when `text` matches FAILURE_WORD_RE ("failed",
+    "failure", "did not", "could not", "aborted") -- a verdict with none
+    of those words is never read as a failure. When it does: matches
+    `text` against FAILURE_PATTERNS (per-display-name substrings derived
+    from STAGES' failure-substrings column) first; then whether any
+    STAGES row's own "<internal name>.tail.log" exists in run_dir (run.sh's
+    stage_logargs() writes one per stage whose own failure it logged).
 
-    Returns a STAGES display name, or None if neither signal fires."""
+    Returns a STAGES display name, or None if the failure-word gate
+    fails or neither signal fires."""
+    if not FAILURE_WORD_RE.search(text):
+        return None
     for display, substrings in FAILURE_PATTERNS.items():
         if any(s in text for s in substrings):
             return display
@@ -541,12 +551,15 @@ def phase_detail(run_dir, now, live, tree, disabled):
 
     A `posted` phase (verdict.txt or body.md is the newest file) is
     reported the same whether or not the service is live: its verdict
-    text is matched via failed_stage_from_verdict(). Otherwise, with the
-    service idle: a `build`-newest run with no DISABLED and a matching
-    baseline_tag_exists() reads as a completed baseline build; any other
-    idle, unposted run reads as ended with no verdict, the newest phase
-    marked failed. With the service live: an in-progress `build` phase is
-    delegated to build_status(); any other in-progress phase to
+    text is matched via failed_stage_from_verdict() (a STAGES display
+    name, or None when the text names no failure, in which case no stage
+    is marked). Otherwise, with the service idle: a `build`-newest run
+    with no DISABLED and a matching baseline_tag_exists() reads as a
+    completed baseline build (the `build` node marked done, not failed);
+    any other idle, unposted run reads as ended with no verdict, the
+    newest phase marked failed unconditionally (there is no verdict text
+    to gate this case on). With the service live: an in-progress `build`
+    phase is delegated to build_status(); any other in-progress phase to
     other_eta(); no phase file yet gives "no phase yet".
 
     Returns (detail, running_line, log_path, internal_name, marked_display,
