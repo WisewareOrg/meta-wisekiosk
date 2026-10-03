@@ -7,9 +7,8 @@ result at that tier does **not** let you conclude.
 |---|---|---|---|
 | Static (`just guards`, CI) | Repository invariants hold: no secret or identity reaches a tracked file, shell and YAML parse, every wiring self-test passes. | Every commit (pre-commit hook), every PR and merge-group commit (CI). | Anything about a Yocto build. This tier never invokes bitbake. |
 | Build (`just build`) | The kas config resolves and bitbake completes: an image artifact exists. | On demand, locally — never in CI, which does not build. | Whether the image differs from the last one, whether it boots, whether it serves anything. |
-| Artifact delta (`just artifact-diff`; content-blind) | Whether package versions, the file list, or file metadata (mode/owner/size/path) changed between two builds sharing one buildhistory-enabled build directory. An empty delta is itself a pass: the pipeline posts success and runs no OTA, `testimage` or rollback for it. | After two `just build` runs. | Content. Buildhistory records path/mode/owner/size, not bytes — a same-size content edit reads as "no change". The same three files never record the shared boot partition (`config.txt`, `cmdline.txt`, `boot.scr`, `uboot.env` apart from RAUC's own variables): a PR touching only those comes back empty and merges with no device run. |
 | Device smoke (`testimage` + stages) | The backend unit is active, `/healthz` answers, the page serves, WebKit still composites on the GPU, the page is still painting — on **one** physical device (`PIPELINE_TARGET`), **one** boot, after an OTA install (never a flash). | The pipeline, once per run. | The shared boot partition (`config.txt`, `cmdline.txt`, `boot.scr`, and `uboot.env` apart from RAUC's own boot-selection variables) — an OTA writes only the slot rootfs it boots, which does carry the kernel. The RAUC slot layout, which an OTA never touches, or a second boot. |
-| OTA/rollback (the queue run) | Install, reboot, and — for a queue run — mark-bad, reboot and land back on the baseline slot all completed, and the device answered again each time. | Every queue run whose artifact delta is non-empty. | Whether the slot rolled back *into* would itself survive a fresh install — it was booted back into, not reinstalled. There are only two slots. Whether this tier ran at all — a queue run with an empty delta posts success without it. |
+| OTA/rollback (the queue run) | Install, reboot, and — for a queue run — mark-bad, reboot and land back on the baseline slot all completed, and the device answered again each time. | Every queue job. | Whether the slot rolled back *into* would itself survive a fresh install — it was booted back into, not reinstalled. There are only two slots. |
 
 ## Running it
 
@@ -80,13 +79,13 @@ on.** A hand `just build` or a manual OTA while `pipeline-on` races the pipeline
 pipeline-off` first. The pipeline's own `build/` (TMPDIR) is not shared, so it alone never conflicts
 with a hand build.
 
-**An empty artifact delta is a pass.** A queue run whose delta comes back empty posts success and
-stops there — no bundle, OTA, `testimage` or rollback runs for it.
+**Every queue job runs the device tier.** Whatever a PR changes — a recipe, a document, nothing
+in the image — its queue job builds, installs on bench, reboots, runs the smoke test and rolls
+back.
 
-**The baseline tag advances on every successful queue job** (owner, 2026-10-02: "in a merge queue
-that should literally be the last successful build so you lost the tip because you didn't move it").
-A queue job that posts `success` — on an empty delta, or on a device run whose smoke test passes —
-tags its own buildhistory commit `baseline/<sha>`; an existing tag is left as is. A baseline build
+**The baseline tag advances on every successful queue job.** A queue job that posts `success` —
+on a device run whose smoke test passes — tags its own buildhistory commit `baseline/<sha>`; an
+existing tag is left as is. A baseline build
 runs only when the job's base commit has no such tag: it resets `build/buildhistory` to
 `refs/tags/baseline/<sha^1>` (main's previous tip) when that tag exists, left alone otherwise —
 an ejected candidate's own job tag is never picked up this way — builds the missing commit, tags its
@@ -97,8 +96,8 @@ commit is under test. The next tick picks up the queue job against the tagged ba
 build, `build/buildhistory` is reset to the job's base commit's tag, so the build's own
 version-going-backwards check never compares against another candidate's leftover packages.
 
-**Records** live at `local/pipeline/runs/<sha>/` under the driver: the build log, the artifact delta,
-each OTA stage's log, `testresults.json`, and the assembled report body.
+**Records** live at `local/pipeline/runs/<sha>/` under the driver: the build log, each OTA stage's
+log, `testresults.json`, and the assembled report body.
 
 **An infrastructure failure** — the device unreachable, the device's live hostname not matching the
 recorded `PIPELINE_TARGET_HOSTNAME` (the address now reaches a different device), the shared
@@ -110,16 +109,14 @@ the driver with the reason and disables the timer. Nothing loops silently. Fix t
 pipeline-on` -- it prints the DISABLED reason and clears the file itself, as an explicit
 acknowledgement, before re-enabling.
 
-A job's own build, bundle, preflight, send or install failing, the device not booting the new slot, or
-`artifact-diff` exiting 1 without really meaning "no change" are not infrastructure failures: each
-posts its own status (`failure`, or `error` for artifact-diff) on the job's commit with a PR comment
-carrying the failing logs, and the timer stays on for the next job. An install failure additionally
-waits for the installer to go idle, then marks the other slot bad, over ssh before posting, best
-effort: polled every 10 s for up to 10 min, and if it never goes idle or the device is unreachable, the
-attempt is logged and the run still finishes. `artifact-diff` genuinely unable to
-tell also posts `error` and leaves the timer on, but with no log attached — the reason is in its own
-stderr only. A missing buildhistory tag for the baseline commit is not a failure either: it selects a
-baseline build for that commit instead of a job run.
+A job's own build, bundle, preflight, send or install failing, or the device not booting the new slot,
+are not infrastructure failures: each posts its own status (`failure`) on the job's commit with a PR
+comment carrying the failing logs, and the timer stays on for the next job. An install failure
+additionally waits for the installer to go idle, then marks the other slot bad, over ssh before
+posting, best effort: polled every 10 s for up to 10 min, and if it never goes idle or the device is
+unreachable, the attempt is logged and the run still finishes. A missing buildhistory tag for the
+baseline commit is not a failure either: it selects a baseline build for that commit instead of a job
+run.
 
 `PIPELINE_TARGET` or `PIPELINE_TARGET_HOSTNAME` unset refuses the run outright (rc 2) without
 touching the timer — a `pipeline.env` configuration problem, like any other required variable
