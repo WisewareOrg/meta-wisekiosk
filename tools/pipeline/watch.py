@@ -61,7 +61,6 @@ from pathlib import Path
 MIN_COLS, MIN_LINES = 70, 20
 QUEUE_REFRESH_S, RUN_REFRESH_S = 30, 5
 QUEUE_ROWS_MAX = 10
-BASELINE_TAG_CACHE_S = 30
 
 # STAGES: (internal name, log file, display name, failure substrings), one
 # row per phase in tools/pipeline/run.sh's order.
@@ -72,22 +71,27 @@ BASELINE_TAG_CACHE_S = 30
 #   display name        the stage-strip label; the two rollback rows and
 #                       the two posted rows each share one display name,
 #                       collapsing to a single stage-strip node
-#   failure substrings  text run.sh's finish() can write to verdict.txt
-#                       when this stage is the reason a run failed; () if
-#                       none is known
+#   failure substrings  the literal text run.sh's finish() posts to
+#                       verdict.txt for this stage's own failure --
+#                       "bundle"/"preflight"/"send"/"install"/"build"
+#                       failed via run_or_fail()'s "<name> failed", and
+#                       "reboot" via "new slot did not boot"; () for a
+#                       stage whose failure is read a different way
+#                       (smoke via testresults.json, render/gpu via their
+#                       own tail log) or not attributed by text at all
 STAGES = (
     ("checkout", "checkout.log", "checkout", ()),
     ("build", "build.log", "build", ("build failed",)),
     ("delta", "delta.txt", "delta", ()),
-    ("bundle", "bundle.log", "bundle", ("bundle",)),
-    ("preflight", "preflight.log", "preflight", ("preflight",)),
-    ("send", "send.log", "send", ("send",)),
+    ("bundle", "bundle.log", "bundle", ("bundle failed",)),
+    ("preflight", "preflight.log", "preflight", ("preflight failed",)),
+    ("send", "send.log", "send", ("send failed",)),
     ("install", "install.log", "install", ("install failed",)),
     ("reboot", "reboot.log", "reboot", ("did not boot",)),
-    ("testimage", "testimage.log", "smoke", ("testimage",)),
-    ("render", "render.log", "render", ("render",)),
-    ("gpu", "gpu.log", "gpu", ("gpu",)),
-    ("rollback", "rollback.log", "rollback", ("rollback", "previous slot")),
+    ("testimage", "testimage.log", "smoke", ()),
+    ("render", "render.log", "render", ()),
+    ("gpu", "gpu.log", "gpu", ()),
+    ("rollback", "rollback.log", "rollback", ()),
     ("rollback-reboot", "rollback-reboot.log", "rollback", ()),
     ("posted", "verdict.txt", "posted", ()),
     ("posted", "body.md", "posted", ()),
@@ -109,24 +113,10 @@ def _stage_display():
 STAGE_DISPLAY = _stage_display()
 
 
-def _failure_patterns():
-    """Group STAGES' failure substrings by display name.
-
-    Returns {display name: (substring, ...), ...} for every display name
-    that has at least one non-empty STAGES row, substrings deduplicated
-    and in first-seen order."""
-    patterns = {}
-    for _name, _file, display, substrings in STAGES:
-        if not substrings:
-            continue
-        bucket = patterns.setdefault(display, [])
-        for s in substrings:
-            if s not in bucket:
-                bucket.append(s)
-    return {display: tuple(subs) for display, subs in patterns.items()}
-
-
-FAILURE_PATTERNS = _failure_patterns()
+# {display name: (substring, ...)}, from STAGES' failure-substrings
+# column, for every row that has one. No display name currently appears
+# on two non-empty rows, so this needs no deduplication.
+FAILURE_PATTERNS = {display: subs for _name, _file, display, subs in STAGES if subs}
 
 # "<timestamp> ... Running task N of M (...)", a bitbake progress line.
 TASK_LINE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*Running task (\d+) of (\d+)")
@@ -138,7 +128,7 @@ DONE_RE = re.compile(r"NOTE: recipe (\S+): task (do_\S+): (?:Succeeded|Failed)")
 ERROR_TASK_RE = re.compile(r"ERROR: (\S+) (do_\S+): ")
 # The "VERDICT: <text>" line run.sh's finish() writes to verdict.txt
 VERDICT_RE = re.compile(r"^VERDICT: (.*)$", re.MULTILINE)
-# Gates failed_stage_from_verdict() so a verdict with none of these words
+# Gates failed_stages_from_verdict() so a verdict with none of these words
 # is never read as a failure.
 FAILURE_WORD_RE = re.compile(r"failed|failure|did not|could not|aborted")
 # Position, state, ETA, head/base commit oid and PR number/title for each
@@ -166,11 +156,6 @@ def load_env_value(env_path, key):
         if line.startswith(prefix):
             return line[len(prefix):].strip().strip('"')
     return None
-
-
-def load_driver(env_path):
-    """PIPELINE_DRIVER's value from env_path. See load_env_value()."""
-    return load_env_value(env_path, "PIPELINE_DRIVER")
 
 
 def _run_or_none(cmd, timeout):
@@ -223,27 +208,18 @@ def disabled_reason(driver):
     return lines[1] if len(lines) > 1 else ""
 
 
-_baseline_tag_cache = {}
-
-
-def baseline_tag_exists(tree, sha, now):
+def baseline_tag_exists(tree, sha):
     """Whether `git -C <tree>/build/buildhistory tag -l baseline/<sha>`
     lists that tag -- run.sh's own marker for a completed baseline build
-    of `sha`. Cached per sha for BASELINE_TAG_CACHE_S seconds; a missing
-    `tree`, a missing buildhistory directory, or a git failure all read
-    as no tag.
+    of `sha`. A missing `tree`, a missing buildhistory directory, or a
+    git failure all read as no tag.
 
     Returns a bool."""
-    cached = _baseline_tag_cache.get(sha)
-    if cached is not None and now - cached[1] < BASELINE_TAG_CACHE_S:
-        return cached[0]
-    exists = False
-    if tree:
-        out = _run_or_none(
-            ["git", "-C", f"{tree}/build/buildhistory", "tag", "-l", f"baseline/{sha}"], 5)
-        exists = bool(out)
-    _baseline_tag_cache[sha] = (exists, now)
-    return exists
+    if not tree:
+        return False
+    out = _run_or_none(
+        ["git", "-C", f"{tree}/build/buildhistory", "tag", "-l", f"baseline/{sha}"], 5)
+    return bool(out)
 
 
 def fetch_queue():
@@ -518,28 +494,68 @@ def verdict_text(run_dir):
     return match.group(1) if match else ""
 
 
-def failed_stage_from_verdict(run_dir, text):
-    """Which display stage a posted run's verdict text names as failed.
+def smoke_failed(run_dir):
+    """Whether run_dir's testresults.json (oeqa's JSON test report, copied
+    in by run.sh when the device comes back) records any case with status
+    "FAILED".
+
+    Returns False if the file is missing or doesn't parse as the expected
+    {session: {"result": {case: {"status": ...}}}} shape."""
+    try:
+        sessions = json.loads((run_dir / "testresults.json").read_text())
+    except (OSError, ValueError):
+        return False
+    for session in sessions.values():
+        for case in (session.get("result") or {}).values():
+            if case.get("status") == "FAILED":
+                return True
+    return False
+
+
+def failed_stages_from_verdict(run_dir, text):
+    """Which display stages a posted run's verdict text names as failed.
 
     Consulted only when `text` matches FAILURE_WORD_RE ("failed",
     "failure", "did not", "could not", "aborted") -- a verdict with none
-    of those words is never read as a failure. When it does: matches
-    `text` against FAILURE_PATTERNS (per-display-name substrings derived
-    from STAGES' failure-substrings column) first; then whether any
-    STAGES row's own "<internal name>.tail.log" exists in run_dir (run.sh's
-    stage_logargs() writes one per stage whose own failure it logged).
+    of those words is never read as a failure, and this returns an empty
+    set without looking any further. When it does, every signal that
+    fires is collected (more than one display name can come back, since a
+    smoke failure can coincide with a render or gpu failure reported
+    separately): smoke_failed() marks "smoke"; each STAGES row's own
+    "<internal name>.tail.log" existing in run_dir, with an mtime at or
+    after checkout.log's own (excluding one left over from an earlier run
+    in a reused run directory), marks its display name -- run.sh writes
+    these directly for render/gpu and via stage_logargs() for the
+    run_or_fail() stages, but never a reliable one for testimage itself
+    (stage_logargs() runs there even on a pass, whenever testresults.json
+    is missing), so "testimage" is excluded from this check; and
+    FAILURE_PATTERNS' substrings matched against `text`.
 
-    Returns a STAGES display name, or None if the failure-word gate
-    fails or neither signal fires."""
+    Returns a frozenset of STAGES display names (empty if the gate fails
+    or no signal fires)."""
     if not FAILURE_WORD_RE.search(text):
-        return None
+        return frozenset()
+    failed = set()
+    if smoke_failed(run_dir):
+        failed.add("smoke")
+    try:
+        checkout_mtime = (run_dir / "checkout.log").stat().st_mtime
+    except OSError:
+        checkout_mtime = None
+    for name, _file, display, _subs in STAGES:
+        if name in ("posted", "testimage"):
+            continue
+        tail_log = run_dir / f"{name}.tail.log"
+        try:
+            fresh = checkout_mtime is None or tail_log.stat().st_mtime >= checkout_mtime
+        except OSError:
+            continue
+        if fresh:
+            failed.add(display)
     for display, substrings in FAILURE_PATTERNS.items():
         if any(s in text for s in substrings):
-            return display
-    for name, _file, display, _subs in STAGES:
-        if name != "posted" and (run_dir / f"{name}.tail.log").exists():
-            return display
-    return None
+            failed.add(display)
+    return frozenset(failed)
 
 
 def phase_detail(run_dir, now, live, tree, disabled):
@@ -551,47 +567,50 @@ def phase_detail(run_dir, now, live, tree, disabled):
 
     A `posted` phase (verdict.txt or body.md is the newest file) is
     reported the same whether or not the service is live: its verdict
-    text is matched via failed_stage_from_verdict() (a STAGES display
-    name, or None when the text names no failure, in which case no stage
-    is marked). Otherwise, with the service idle: a `build`-newest run
-    with no DISABLED and a matching baseline_tag_exists() reads as a
-    completed baseline build (the `build` node marked done, not failed);
-    any other idle, unposted run reads as ended with no verdict, the
-    newest phase marked failed unconditionally (there is no verdict text
-    to gate this case on). With the service live: an in-progress `build`
-    phase is delegated to build_status(); any other in-progress phase to
-    other_eta(); no phase file yet gives "no phase yet".
+    text is matched via failed_stages_from_verdict() (a frozenset of
+    STAGES display names, empty when the text names no failure, in which
+    case no stage is marked). Otherwise, with the service idle: a
+    `build`-newest run with no DISABLED and a matching
+    baseline_tag_exists() reads as a completed baseline build (the
+    `build` node marked done, not failed); any other idle, unposted run
+    reads as ended with no verdict, the newest phase marked failed
+    unconditionally (there is no verdict text to gate this case on). With
+    the service live: an in-progress `build` phase is delegated to
+    build_status(); any other in-progress phase to other_eta(); no phase
+    file yet gives "no phase yet".
 
-    Returns (detail, running_line, log_path, internal_name, marked_display,
-    marked_state):
+    Returns (detail, running_line, log_path, internal_name, failed_stages,
+    done_display):
       detail          the phase-detail row's text (see above)
       running_line    build_status()'s running-tasks line, or None
       log_path        current_phase()'s matched file Path, or None with
                       no phase yet
       internal_name   the current phase's STAGES[*][0] name, or None
-      marked_display  the STAGES display name stage_strip() should mark
-                      `marked_state` on, or None for no override
-      marked_state    "failed" or "done" when marked_display is not None,
-                      else None"""
+      failed_stages   frozenset of STAGES display names stage_strip()
+                      should mark "failed" (possibly more than one, or
+                      empty for none)
+      done_display    the STAGES display name stage_strip() should mark
+                      "done" (a completed baseline build's `build` node),
+                      or None"""
     idx, phase_file, prev_file = current_phase(run_dir)
     name = STAGES[idx][0] if idx is not None else None
     if name == "posted":
         text = verdict_text(run_dir)
-        failed = failed_stage_from_verdict(run_dir, text)
-        return (f"posted: {text}", None, phase_file, name, failed,
-                "failed" if failed is not None else None)
+        return (f"posted: {text}", None, phase_file, name,
+                failed_stages_from_verdict(run_dir, text), None)
     if not live:
-        if name == "build" and disabled is None and baseline_tag_exists(tree, run_dir.name, now):
-            return f"baseline {run_dir.name[:7]} built", None, phase_file, None, "build", "done"
+        if name == "build" and disabled is None and baseline_tag_exists(tree, run_dir.name):
+            return f"baseline {run_dir.name[:7]} built", None, phase_file, None, frozenset(), "build"
         marked = INTERNAL_TO_DISPLAY.get(name)
+        failed_stages = frozenset({marked}) if marked is not None else frozenset()
         return ("ended: no verdict (baseline build, or aborted; see DISABLED)", None, phase_file,
-                name, marked, "failed" if marked is not None else None)
+                name, failed_stages, None)
     if idx is None:
-        return "no phase yet", None, None, None, None, None
+        return "no phase yet", None, None, None, frozenset(), None
     if name == "build":
         detail, running_line = build_status(phase_file, now, idx, run_dir, prev_file)
-        return detail, running_line, phase_file, name, None, None
-    return other_eta(idx, prev_file, run_dir, now), None, phase_file, name, None, None
+        return detail, running_line, phase_file, name, frozenset(), None
+    return other_eta(idx, prev_file, run_dir, now), None, phase_file, name, frozenset(), None
 
 
 def _stage_reached(run_dir, files, checkout_mtime):
@@ -620,17 +639,18 @@ def _stage_reached(run_dir, files, checkout_mtime):
     return False
 
 
-def stage_strip(run_dir, current_internal_name, marked_display, marked_state):
+def stage_strip(run_dir, current_internal_name, failed_stages, done_display):
     """One row per STAGE_DISPLAY node, for the run pane's stage strip.
 
     checkout_mtime is checkout.log's own mtime (None if it doesn't
     exist), passed to _stage_reached() for every node. A node's state is
-    `marked_state` if its display name equals `marked_display`
-    (phase_detail()'s override: "failed" for a verdict-named or
-    DISABLED-ended failure, "done" for a completed baseline build's
-    `build` node), else "current" if it equals current_internal_name's
-    display name, else "done" if _stage_reached() holds for its own files
-    and for any later node's files, else "pending".
+    "failed" if its display name is in `failed_stages` (phase_detail()'s
+    verdict-named or DISABLED-ended failures; more than one node can read
+    failed at once), else "done" if it equals `done_display` (a completed
+    baseline build's `build` node), else "current" if it equals
+    current_internal_name's display name, else "done" if _stage_reached()
+    holds for its own files and for any later node's files, else
+    "pending".
 
     Returns [(label, state), ...] in STAGE_DISPLAY order, where label is
     "<display name> <marker>" (✗ failed, ● current, ✓ done, · pending)
@@ -644,8 +664,10 @@ def stage_strip(run_dir, current_internal_name, marked_display, marked_state):
     markers = {"failed": "✗", "current": "●", "done": "✓", "pending": "·"}
     parts = []
     for i, (name, _files) in enumerate(STAGE_DISPLAY):
-        if name == marked_display:
-            state = marked_state
+        if name in failed_stages:
+            state = "failed"
+        elif name == done_display:
+            state = "done"
         elif name == current_display:
             state = "current"
         elif reached[i] and any(reached[i + 1:]):
@@ -943,16 +965,16 @@ def main(stdscr, driver, tree):
             else:
                 state["marker_pr"] = next((e["number"] for e in state["queue"]
                                             if e.get("head_sha") == run_dir.name), None)
-                detail, running_line, log_path, internal_name, marked_display, marked_state = \
+                detail, running_line, log_path, internal_name, failed_stages, done_display = \
                     phase_detail(run_dir, now, live, tree, state["disabled"])
                 state["run_title"] = (f"Current run: baseline {run_dir.name[:7]} built"
-                                       if marked_state == "done"
+                                       if done_display is not None
                                        else run_title(run_dir, state["queue"]))
                 state["phase_detail"] = detail
                 state["running_line"] = running_line
                 state["log_path"] = log_path
-                state["stage_parts"] = stage_strip(run_dir, internal_name, marked_display,
-                                                    marked_state)
+                state["stage_parts"] = stage_strip(run_dir, internal_name, failed_stages,
+                                                    done_display)
                 state["log_lines"] = tail_lines(log_path) if log_path else None
             state["refreshed"] = now
             last_run = now
@@ -979,7 +1001,7 @@ if __name__ == "__main__":
         sys.exit(0)
     main_env_path = os.path.expanduser(os.environ.get("PIPELINE_ENV",
                                                         "~/.config/wisekiosk/pipeline.env"))
-    main_driver = load_driver(main_env_path)
+    main_driver = load_env_value(main_env_path, "PIPELINE_DRIVER")
     if not main_driver:
         print(f"watch.py: PIPELINE_DRIVER not found via {main_env_path}", file=sys.stderr)
         sys.exit(2)
