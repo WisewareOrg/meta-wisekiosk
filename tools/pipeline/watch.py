@@ -496,8 +496,9 @@ def verdict_text(run_dir):
 
 def smoke_failed(run_dir, checkout_mtime):
     """Whether run_dir's testresults.json (oeqa's JSON test report, copied
-    in by run.sh when the device comes back) records any case with status
-    "FAILED".
+    in by run.sh when the device comes back) records any case whose
+    status is neither "PASSED" nor "SKIPPED" ("FAILED", "ERROR",
+    "UNKNOWN", or anything else all count).
 
     Returns False if the file is missing, has an mtime before
     `checkout_mtime` (a None `checkout_mtime` skips this check; this
@@ -511,7 +512,7 @@ def smoke_failed(run_dir, checkout_mtime):
         sessions = json.loads(path.read_text())
         for session in sessions.values():
             for case in (session.get("result") or {}).values():
-                if case.get("status") == "FAILED":
+                if case.get("status") not in ("PASSED", "SKIPPED"):
                     return True
     except (OSError, ValueError, AttributeError, TypeError):
         return False
