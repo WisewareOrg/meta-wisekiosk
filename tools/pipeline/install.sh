@@ -74,46 +74,6 @@ mkdir -p "$HASHSERV_DIR"
 HASHSERV_SOCK="$HASHSERV_DIR/hashserv.sock"
 HASHSERV_DB="$HASHSERV_DIR/hashserv.db"
 
-# Seed the shared db from this tree's own build/cache/hashserv.db, then fold
-# in the pipeline's copy. docs/testing.md "Running it" has the why.
-DEV_HASHSERV_DB="$ROOT/build/cache/hashserv.db"
-PIPELINE_TREE_HASHSERV_DB="$TREE/build/cache/hashserv.db"
-if [ ! -f "$HASHSERV_DB" ]; then
-    if [ -f "$DEV_HASHSERV_DB" ]; then
-        # An sqlite3 online backup, which also captures live WAL contents.
-        rm -f "$HASHSERV_DB.tmp"
-        "${py:-python3}" -c 'import sqlite3, sys; src = sqlite3.connect("file:" + sys.argv[1] + "?mode=ro", uri=True); dst = sqlite3.connect(sys.argv[2]); src.backup(dst); dst.close(); src.close()' \
-            "$DEV_HASHSERV_DB" "$HASHSERV_DB.tmp"
-        mv -- "$HASHSERV_DB.tmp" "$HASHSERV_DB"
-        echo "pipeline-install: seeded the shared hashserv.db from this tree's own copy"
-    else
-        "${py:-python3}" -c 'import sqlite3, sys; sqlite3.connect(sys.argv[1]).close()' "$HASHSERV_DB"
-        echo "pipeline-install: created an empty shared hashserv.db (neither tree has built yet)"
-    fi
-fi
-if [ -f "$PIPELINE_TREE_HASHSERV_DB" ]; then
-    BEFORE=$("${py:-python3}" -c 'import sqlite3, sys; print(sqlite3.connect(sys.argv[1]).execute("select count(*) from unihashes_v3").fetchone()[0])' "$HASHSERV_DB")
-    "${py:-python3}" -c '
-import sqlite3, sys
-dst = sqlite3.connect(sys.argv[1])
-dst.execute("ATTACH DATABASE ? AS src", (sys.argv[2],))
-dst.execute("""
-    INSERT OR IGNORE INTO main.unihashes_v3 (method, taskhash, unihash, gc_mark)
-    SELECT method, taskhash, unihash, gc_mark FROM src.unihashes_v3
-""")
-dst.execute("""
-    INSERT OR IGNORE INTO main.outhashes_v2
-        (method, taskhash, outhash, created, owner, PN, PV, PR, task, outhash_siginfo)
-    SELECT method, taskhash, outhash, created, owner, PN, PV, PR, task, outhash_siginfo
-    FROM src.outhashes_v2
-""")
-dst.commit()
-dst.execute("DETACH DATABASE src")
-dst.close()
-' "$HASHSERV_DB" "$PIPELINE_TREE_HASHSERV_DB"
-    AFTER=$("${py:-python3}" -c 'import sqlite3, sys; print(sqlite3.connect(sys.argv[1]).execute("select count(*) from unihashes_v3").fetchone()[0])' "$HASHSERV_DB")
-    echo "pipeline-install: merged the pipeline's hashserv.db into the shared one -- unihashes_v3 rows $BEFORE -> $AFTER"
-fi
 # Read by systemd EnvironmentFile= and by pipeline-run's `.`.
 {
     printf 'PATH="%s"\n' "$PATH"

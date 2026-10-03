@@ -71,18 +71,10 @@ does not also do. It creates, all under `$HOME`:
   directory left on `BB_HASHSERVE`'s own `"auto"` default against *this same database* instead runs its
   own server, independently of the shared one, and is unsupported — `pipeline-install` closes that gap
   on both sides (below), and a hand-set `BB_HASHSERVE=auto` against this database is the one way to
-  reopen it. `pipeline-install` creates the shared database from this tree's own
-  `build/cache/hashserv.db` if one exists, or empty otherwise, then folds the pipeline's
-  `build/cache/hashserv.db` into it by each table's real unique key, so this is a no-op once both sides
-  agree; on a conflicting unihash for the same `(method, taskhash)`, the dev tree's row wins, since a
-  dev row exists only because this tree reported that task, which means its sstate object is already in
-  the shared `SSTATE_DIR`. Both the merge and the service's first start refuse while this tree's own
-  `bitbake` is running (`build/bitbake.lock` held) — the same lockfile a direct `just build` would hold,
-  opened the same way bitbake itself opens it (append, so a live holder's lock is never truncated, and
-  the file need not already exist: it usually does not, since bitbake unlinks it on a clean exit) and
-  checked with `flock -n` before either runs. The service's `ExecStartPre` refuses to start at all
-  against a missing database or a missing `bitbake-hashserv`, rather than silently serving a fresh empty
-  one and losing every equivalence either tree had learned; `pipeline-install` itself waits up to 10s
+  reopen it. An existing hash-equivalence database is moved to this path by hand before the first
+  `pipeline-install` run; the commands are in issue #172 (shared hashserv). The service's
+  `ExecStartPre` refuses to start without a `bitbake-hashserv` binary; `bitbake-hashserv` creates its
+  own schema on an absent database, so a fresh host starts clean. `pipeline-install` itself waits up to 10s
   for the socket to both exist and the service to report active after enabling it, and exits 1 if either
   never happens, rather than reporting success over a dead socket. The database lives outside either
   tree's `build/` directory, so it is untouched by `just clean` or `just spotless`: the next `just build`
