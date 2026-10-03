@@ -128,9 +128,13 @@ mkdir -p ~/.local/share/bitbake-hashserv
 git clone --no-checkout <poky url> ~/.local/share/bitbake-hashserv/poky
 git -C ~/.local/share/bitbake-hashserv/poky checkout --detach <poky commit>
 
-systemctl --user link "$PWD/tools/hashserv/bitbake-hashserv.service"
+systemctl --user link <checkout that stays on main>/tools/hashserv/bitbake-hashserv.service
 systemctl --user enable --now bitbake-hashserv.service
 ```
+
+Link from a checkout that stays on `main` — on a pipeline host, `~/wisekiosk-pipeline/driver` — never
+a working checkout that changes branch: a branch without this file leaves the link dangling and every
+build then fails.
 
 The server listens on `~/.local/share/bitbake-hashserv/hashserv.sock`;
 `tools/kas-run.sh` mounts `~/.local/share/bitbake-hashserv` read-only at `/hashserv` inside
