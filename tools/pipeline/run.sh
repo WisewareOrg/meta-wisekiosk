@@ -184,6 +184,7 @@ if [ "$KIND" = baseline ]; then
         git -C "$PIPELINE_BUILD_DIR/buildhistory" clean -fdq \
             || abort "could not clean buildhistory before the baseline build"
     fi
+    "$TOOLS/pipeline/hashserv-check.sh" || abort "bitbake-hashserv check failed"
     "${TREE_JUST[@]}" build > "$RUN_DIR/build.log" 2>&1 || abort "baseline build failed"
     git -C "$PIPELINE_BUILD_DIR/buildhistory" tag -f "baseline/$SHA" \
         || abort "could not tag baseline/$SHA"
@@ -202,6 +203,7 @@ git -C "$PIPELINE_BUILD_DIR/buildhistory" reset --hard "refs/tags/baseline/$BASE
     || abort "could not reset buildhistory to baseline/$BASELINE"
 git -C "$PIPELINE_BUILD_DIR/buildhistory" clean -fdq \
     || abort "could not clean buildhistory before the job build"
+"$TOOLS/pipeline/hashserv-check.sh" || abort "bitbake-hashserv check failed"
 run_or_fail build "$RUN_DIR/build.log" "${TREE_JUST[@]}" build
 
 BASELINE_BH=$(git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse "refs/tags/baseline/$BASELINE") \
