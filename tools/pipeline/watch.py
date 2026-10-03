@@ -82,7 +82,6 @@ QUEUE_ROWS_MAX = 10
 STAGES = (
     ("checkout", "checkout.log", "checkout", ()),
     ("build", "build.log", "build", ("build failed",)),
-    ("delta", "delta.txt", "delta", ()),
     ("bundle", "bundle.log", "bundle", ("bundle failed",)),
     ("preflight", "preflight.log", "preflight", ("preflight failed",)),
     ("send", "send.log", "send", ("send failed",)),
@@ -626,10 +625,7 @@ def _stage_reached(run_dir, files, checkout_mtime):
 
     A file counts only if its mtime is >= checkout_mtime (a None
     checkout_mtime skips this check; this excludes a file left over from
-    a previous run in a reused run directory), and, specifically for
-    delta.txt, only if it is non-empty (run.sh truncates it to empty
-    before checkout starts, so an empty one hasn't been written this
-    run).
+    a previous run in a reused run directory).
 
     Returns True if any file in `files` counts, else False."""
     for fname in files:
@@ -639,8 +635,6 @@ def _stage_reached(run_dir, files, checkout_mtime):
         except OSError:
             continue
         if checkout_mtime is not None and st.st_mtime < checkout_mtime:
-            continue
-        if fname == "delta.txt" and st.st_size == 0:
             continue
         return True
     return False

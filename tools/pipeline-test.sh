@@ -29,8 +29,6 @@ capture() {
 
 VERDICT="$TOP/verdict.txt"
 printf 'pr #1  sha: abc123  baseline: def456\nVERDICT: failure\n' > "$VERDICT"
-DELTA="$TOP/delta.txt"
-printf '+package-a 1.0 -> 1.1\n' > "$DELTA"
 
 RESULTS="$TOP/testresults.json"
 cat > "$RESULTS" <<'EOF'
@@ -45,22 +43,21 @@ seq 1 250 > "$LONGLOG"
 
 # --- report-build.py assertions -----------------------------------------
 
-capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --delta "$DELTA" --log "$TOP/no-such-log"
+capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --log "$TOP/no-such-log"
 if [ "$rc" -eq 0 ] && [[ "$out" == *"could not read"* ]]; then
     ok "build: a --log path that does not exist still renders (rc 0, with a note)"
 else
     bad "--log missing path" "rc=$rc out=$out"
 fi
 
-capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --delta "$DELTA"
-if [ "$rc" -eq 0 ] && [[ "$out" == *"## Verdict"* ]] && [[ "$out" == *"VERDICT: failure"* ]] \
-        && [[ "$out" == *"## Artifact delta"* ]] && [[ "$out" == *"package-a"* ]]; then
-    ok "build: verdict + delta render with no results or logs"
+capture out rc "$PY" "$REPORT" --verdict "$VERDICT"
+if [ "$rc" -eq 0 ] && [[ "$out" == *"## Verdict"* ]] && [[ "$out" == *"VERDICT: failure"* ]]; then
+    ok "build: verdict renders with no results or logs"
 else
-    bad "verdict + delta render" "rc=$rc out=$out"
+    bad "verdict render" "rc=$rc out=$out"
 fi
 
-capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --delta "$DELTA" --results "$RESULTS"
+capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --results "$RESULTS"
 if [ "$rc" -eq 0 ] && [[ "$out" == *"| test_backend_unit_active | PASSED |"* ]] \
         && [[ "$out" == *"| test_healthz | FAILED |"* ]] \
         && [[ "$out" == *"### test_healthz"* ]] && [[ "$out" == *"connection refused"* ]]; then
@@ -74,7 +71,7 @@ else
     bad "passing case got a log section"
 fi
 
-capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --delta "$DELTA" --log "$LONGLOG"
+capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --log "$LONGLOG"
 if [ "$rc" -eq 0 ] && [[ "$out" == *"## Log — long.log"* ]] \
         && [[ "$out" == *$'\n1\n'* ]] && [[ "$out" == *$'\n250'* ]]; then
     ok "build: a --log's label is its basename, and the renderer does not re-tail it"

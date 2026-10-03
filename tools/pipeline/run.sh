@@ -93,7 +93,7 @@ finish() {
     printf 'pr #%s  sha: %s  baseline: %s\nVERDICT: %s\n' \
         "$PR_NUMBER" "$SHA" "$BASELINE" "$text" > "$RUN_DIR/verdict.txt"
     python3 "$TOOLS/pipeline/report-build.py" --verdict "$RUN_DIR/verdict.txt" \
-            --delta "$RUN_DIR/delta.txt" "$@" > "$RUN_DIR/body.raw" \
+            "$@" > "$RUN_DIR/body.raw" \
         || abort "could not assemble the report body for $SHA"
     "$TOOLS/scrub-identity.py" --filter "$PIPELINE_DRIVER" \
             < "$RUN_DIR/body.raw" > "$RUN_DIR/body.full" \
@@ -171,7 +171,6 @@ fi
 
 RUN_DIR="$PIPELINE_DRIVER/local/pipeline/runs/$SHA"
 mkdir -p "$RUN_DIR"
-: > "$RUN_DIR/delta.txt"
 
 if [ "$KIND" = baseline ]; then
     git checkout --detach "$SHA" > "$RUN_DIR/checkout.log" 2>&1 \
@@ -211,16 +210,6 @@ BASELINE_BH=$(git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse "refs/tags/bas
 JOB_BH=$(git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse HEAD) \
     || abort "could not read the job's buildhistory commit"
 [ "$JOB_BH" != "$BASELINE_BH" ] || abort "buildhistory did not commit for $SHA"
-DELTA_RC=0
-"${TREE_JUST[@]}" artifact-diff "baseline/$BASELINE" "$JOB_BH" \
-    > "$RUN_DIR/delta.txt" 2> "$RUN_DIR/delta.err" || DELTA_RC=$?
-if [ "$DELTA_RC" -eq 1 ]; then
-    grep -qx 'no change in image' "$RUN_DIR/delta.err" \
-        && { tag_job_baseline; finish success "no change in image; no device run"; }
-    stage_logargs delta "$RUN_DIR/delta.err"
-    finish error "artifact diff failed" "${LOGARGS[@]}"
-fi
-[ "$DELTA_RC" -eq 0 ] || finish error "artifact diff could not tell"
 
 run_or_fail bundle "$RUN_DIR/bundle.log" "${TREE_JUST[@]}" kiosk-bundle
 run_or_fail preflight "$RUN_DIR/preflight.log" "${TREE_JUST[@]}" kiosk-preflight
