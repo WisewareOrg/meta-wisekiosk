@@ -11,16 +11,22 @@
 # Full-frame AE per pair is printed, not judged. Needs ImageMagick on this host.
 set -u
 D=${1:?dir}; S=${2:?static-crop}; C=${3:?clock-crop}
+ERR=$(mktemp)
+trap 'rm -f "$ERR"' EXIT
 
+# compare prints the metric on stderr, after any warnings: read the last line's first field.
 ae() {
-	local out rc
+	local out rc v
 	out=$(compare -metric AE "$1" "$2" null: 2>&1); rc=$?
-	[ $rc -le 1 ] || { echo "cannot compare $1 $2: $out" >&2; exit 2; }
-	echo "${out%% *}"
+	v=${out##*$'\n'}; v=${v%% *}
+	if [ $rc -gt 1 ] || ! [[ $v =~ ^[0-9.]+$ ]]; then
+		echo "cannot compare $1 $2: $out" >&2; exit 2
+	fi
+	echo "$v"
 }
 
 for f in A.ppm A.png B.ppm B.png; do
-	dim=$(identify -format '%wx%h' "$D/$f" 2>&1) || { echo "$f unreadable: $dim"; exit 2; }
+	dim=$(identify -format '%wx%h' "$D/$f" 2> "$ERR") || { echo "$f unreadable: $(cat "$ERR")"; exit 2; }
 	echo "$f $dim"
 	[ "$dim" = 1280x720 ] || { echo "FAIL: $f is $dim, not 1280x720"; exit 1; }
 done
@@ -29,16 +35,16 @@ for g in "$S" "$C"; do
 	[[ $g =~ ^([0-9]+)x([0-9]+)\+([0-9]+)\+([0-9]+)$ ]] ||
 		{ echo "COULD NOT JUDGE: bad crop geometry '$g'"; exit 2; }
 	m=("${BASH_REMATCH[@]}")
-	if [ "${m[1]}" -eq 0 ] || [ "${m[2]}" -eq 0 ] ||
-		[ $((m[1] + m[3])) -gt 1280 ] || [ $((m[2] + m[4])) -gt 720 ]; then
+	if [ $((10#${m[1]})) -eq 0 ] || [ $((10#${m[2]})) -eq 0 ] ||
+		[ $((10#${m[1]} + 10#${m[3]})) -gt 1280 ] || [ $((10#${m[2]} + 10#${m[4]})) -gt 720 ]; then
 		echo "COULD NOT JUDGE: crop outside frame ($g)"; exit 2
 	fi
 done
 
-colours=$(identify -format '%k' "$D/A.ppm[$S]" 2>&1) ||
-	{ echo "COULD NOT JUDGE: identify failed on the static crop: $colours"; exit 2; }
-rb=$(magick "$D/A.ppm[$S]" -fx 'abs(r-b)>=32/255' -format '%[fx:mean]' info: 2>&1) ||
-	{ echo "COULD NOT JUDGE: magick failed on the static crop: $rb"; exit 2; }
+colours=$(identify -format '%k' "$D/A.ppm[$S]" 2> "$ERR") ||
+	{ echo "COULD NOT JUDGE: identify failed on the static crop: $(cat "$ERR")"; exit 2; }
+rb=$(magick "$D/A.ppm[$S]" -fx 'abs(r-b)>=32/255' -format '%[fx:mean]' info: 2> "$ERR") ||
+	{ echo "COULD NOT JUDGE: magick failed on the static crop: $(cat "$ERR")"; exit 2; }
 echo "static crop $S: $colours colours, |R-B|>=32 on fraction $rb"
 if [ "$colours" -lt 256 ] || awk -v f="$rb" 'BEGIN { exit !(f < 0.01) }'; then
 	echo "COULD NOT JUDGE: crop too flat"; exit 2
