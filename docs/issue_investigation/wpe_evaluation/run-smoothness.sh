@@ -3,8 +3,9 @@
 #
 # One smoothness capture under cog, the sequence of ../gpu_compositing/run-appliance.sh with the
 # WPE readback:
-#   pre-run  screenshot into local/ for the card state, retried every 10 s until not blank;
-#            blank or failing at 120 s is VOID, exit 3, before anything is deployed
+#   pre-run  screenshot into local/ for the card state, retried every 10 s until it is not blank
+#            and its mean luma (0-255) is at least 10, the rendered dashboard; short of that at
+#            120 s is VOID, exit 3, before anything is deployed
 #   deploy   p7_min.js to /home/root/kiosk-probe.js; kiosk.conf backed up, KIOSK_PROBE=1 appended
 #   capture  rm -rf /home/root/.cache/cog; systemctl restart kiosk; sleep 585; the kiosk journal's
 #            MP| lines since the restart (cog prints each title as "TITLE <title>"), loadavg,
@@ -47,8 +48,12 @@ live720() { printf '%s\n' "$1" | grep -c 'mode: "1280x720"'; }
 
 for wait in 0 10 20 30 40 50 60 70 80 90 100 110 120; do
 	[ "$wait" -gt 0 ] && { rm -f "$SHOT"; sleep 10; }
-	"$ROOT/tools/kiosk-screenshot.sh" "$T" "$SHOT" && break
-	[ "$wait" -eq 120 ] && { echo "VOID: pre-run screenshot blank or failing for 120 s -- $SHOT" >&2; exit 3; }
+	shot=$("$ROOT/tools/kiosk-screenshot.sh" "$T" "$SHOT")
+	rc=$?
+	printf '%s\n' "$shot"
+	mean=$(printf '%s\n' "$shot" | sed -n 's/^min=.* mean=\([0-9.]*\)$/\1/p')
+	[ $rc -eq 0 ] && awk -v m="${mean:-0}" 'BEGIN { exit !(m >= 10) }' && break
+	[ "$wait" -eq 120 ] && { echo "VOID: pre-run screenshot not a rendered dashboard after 120 s (last mean ${mean:-none}, rc $rc) -- $SHOT" >&2; exit 3; }
 done
 
 {

@@ -58,10 +58,16 @@ All one-off and committed beside this README (R2), except where a run names a sh
   on synthetic payloads.
 - `verdict.py` — the go/no-go over the parsed runs, proven by `verdict_test.py`.
 - `run-smoothness.sh` — one smoothness capture (`p7_min.js`, 585 s): pre-run screenshot into
-  `local/`, then the [`run-appliance.sh`](../gpu_compositing/run-appliance.sh) sequence with the
+  `local/`, retried until it shows the rendered dashboard (below), then the [`run-appliance.sh`](../gpu_compositing/run-appliance.sh) sequence with the
   WPE readback — the probe as `KIOSK_PROBE` user script, its `MP|` title lines read from the kiosk
   journal, the 1280x720 VOID rule read from DRM debugfs, `kiosk.conf` restored afterwards. The X
   baseline runs called `run-appliance.sh` itself, at the commit each run header names.
+  - **Settle threshold:** the pre-run screenshot must be not blank and have mean luma (0–255, as
+    `tools/kiosk-screenshot.sh` reports it) of at least 10, retried every 10 s for up to 120 s,
+    else the run is VOID. Calibrated on one frame per class from the X baseline at 1280x720 —
+    thin: rendered with cards open 16.06 and 16.35; rendered with three park sources failing
+    13.22; clock and date only, modules still loading, 5.24; near-black mid-load 0.008. Whether a
+    capture had cards open with data is the operator's call from the kept screenshot.
 - `run-soak.sh` — the 1 h soak: `mf-probe.js` as `KIOSK_PROBE` user script, its `MF|` samples read
   from the kiosk journal, then the `kiosk-soak` samples and summary, restarts, boot ids, swap
   counters, PSI and kernel OOM lines for the window. `mf-reader.sh` read the title over X for the
