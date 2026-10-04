@@ -1,4 +1,4 @@
-From 619855ecc867de635201820d5f0aab8cbd3f8fef Mon Sep 17 00:00:00 2001
+From 14f717cb1e49c0a4d4af84ad9764a556da19c29d Mon Sep 17 00:00:00 2001
 From: Wise <47094117+tjwise99@users.noreply.github.com>
 Date: Sun, 4 Oct 2026 15:54:50 -0400
 Subject: [PATCH] launcher: exit when a requested platform fails
@@ -20,7 +20,7 @@ Upstream-Status: Inappropriate [changes default fall-back behaviour; an opt-in f
  1 file changed, 17 insertions(+)
 
 diff --git a/launcher/cog-launcher.c b/launcher/cog-launcher.c
-index f7b21ab..2ad6b5f 100644
+index 0af049b..86508f7 100644
 --- a/launcher/cog-launcher.c
 +++ b/launcher/cog-launcher.c
 @@ -212,6 +212,16 @@ cog_launcher_open(GApplication *application, GFile **files, int n_files, const c
@@ -63,7 +63,7 @@ index f7b21ab..2ad6b5f 100644
          g_warning("Platform setup failed: %s", error->message);
          return NULL;
      }
-@@ -309,6 +324,8 @@ cog_launcher_create_view(CogLauncher *self, CogShell *shell)
+@@ -306,6 +321,8 @@ cog_launcher_create_view(CogLauncher *self, CogShell *shell)
          view_backend = cog_platform_get_view_backend(platform, NULL, &error);
          if (!view_backend) {
              g_assert(error);
