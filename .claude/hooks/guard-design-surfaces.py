@@ -93,7 +93,7 @@ def reminder(path: str):
                 "pin, a machine config, or a patch to upstream). Before proceeding, answer "
                 "honestly: does this edit match a DECIDED design intent and THIS ticket's scope? "
                 "Touching DISTRO_FEATURES, MACHINE_FEATURES or webkit's PACKAGECONFIG invalidates "
-                "WebKit and costs ~4.5 h of rebuild, so it is a decision, not a tweak; kas merges "
+                "WebKit and costs ~3 h of rebuild, so it is a decision, not a tweak; kas merges "
                 "local_conf_header by BLOCK NAME and the top-level file wins, so a duplicated name "
                 "is discarded in silence. If this invents a choice nobody made, or folds something "
                 "in to make a gate pass, STOP and bubble it up to the owner. "

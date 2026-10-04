@@ -33,7 +33,7 @@ is carried, with the run that paid for it, by
 | The first block after a restart | Discard it. Page load is not steady state. | A warm-up window averaged into the arm it happened to start. |
 
 Reach for the cheapest experiment that can *fail*. An injection costs minutes; a mirror rebuild
-costs a deploy cycle; an image rebuild costs ~4.5 h per
+costs a deploy cycle; a WebKit-invalidating rebuild costs ~3 h per
 [`../../../CONTRIBUTING.md`](../../../CONTRIBUTING.md) §"Before you change anything".
 
 ## Choosing the metric
