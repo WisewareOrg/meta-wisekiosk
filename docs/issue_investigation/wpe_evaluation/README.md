@@ -61,7 +61,12 @@ All one-off and committed beside this README (R2), except where a run names a sh
   [`run-appliance.sh`](../gpu_compositing/run-appliance.sh) unchanged (`p7_min.js`, 585 s).
 - `run-soak.sh`, `mf-reader.sh` — the 1 h soak: `mf-probe.js` deployed, its title read on the board
   every 30 s, then the `kiosk-soak` summary, restarts, boot ids and kernel OOM lines for the window.
-- `run-time-to-page.sh` — three cold boots, one connection each at 120 s, shipped `measure-surf.sh`.
+- `run-time-to-page.sh`, `time-to-page-x.sh` — X baseline time to page: the shipped
+  `time-to-page.js` beacon (`meta-wisekiosk/recipes-core/kiosk-bootprof/files/`) as surf's
+  `script.js`, three cold boots with one connection each at 120 s; the beacon's `T <epoch_ms>`
+  title minus the boot epoch read at READ_AT 115. A boot whose journal shows a clock step or
+  timesyncd sync after kiosk start is SUSPECT and re-run once. The shipped `measure-surf.sh` does
+  not apply: its beacon waits on `.module`/`.wi`, which the pinned frontend no longer renders.
 - `xval-capture.sh`, `xval-judge.sh` — `kiosk-drmgrab` cross-validated against
   `import -window root`: two capture pairs 61 s apart, judged on a static crop (AE = 0, crop rich
   enough to expose a de-tile or channel-order bug) and a clock crop (must change).
