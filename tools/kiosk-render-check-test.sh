@@ -66,7 +66,7 @@ check() {
     fi
 }
 
-CAP='cap import=1
+CAP='cap=1
 cap identify=1
 crop 520x140+240+30'
 
@@ -92,7 +92,7 @@ $NOTBLANK"
 # must not block the verdict. A `[ "$mn" = "$mx" ]` written without the -n guards
 # compares two empty strings, finds them equal, and turns every board without
 # identify into a permanent rc2.
-check "FROZEN with no blank line at all" 1 "cap import=1
+check "FROZEN with no blank line at all" 1 "cap=1
 cap identify=0
 frame 1 rc=0 at=10:43:10 bytes=1840 md5=$A
 frame 2 rc=0 at=10:43:14 bytes=1840 md5=$A"
@@ -103,7 +103,7 @@ frame 1 rc=0 at=10:43:10 bytes=1840 md5=$A
 frame 2 rc=0 at=10:43:14 bytes=1852 md5=$B
 $NOTBLANK"
 
-check "advancing with no blank line at all" 0 "cap import=1
+check "advancing with no blank line at all" 0 "cap=1
 cap identify=0
 frame 1 rc=0 at=10:43:10 bytes=1840 md5=$A
 frame 2 rc=0 at=10:43:14 bytes=1852 md5=$B"
@@ -179,8 +179,26 @@ frame 2 rc=0 at=10:43:14 bytes=1840 md5=$B
 $NOTBLANK"
 
 # --- the other could-not-tells --------------------------------------------
-check "no import on the device is rc2" 2 "cap import=0"
+# "cap=0" is tool-neutral (#185 W2 ruling 2026-10-04: the field used to be
+# "cap import=0", named for the one capture tool the X image carried; WPE's
+# capture goes through kiosk-drmgrab instead, and the wrapper emits this same
+# field for either tool being absent or the wrapper's own capture attempt
+# failing outright -- see the next case).
+check "no capture tool on the device is rc2" 2 "cap=0"
 check "empty probe is rc2" 2 ""
+
+# The wrapper's capture can fail before it ever produces a frame -- e.g.
+# kiosk-drmgrab exits non-zero on an unsupported framebuffer format (the 16 bpp
+# fbcon fallback is the named example). The wrapper then has nothing to put in
+# a "frame N rc=" line, so it reports "cap=0" the same as "tool absent". This
+# fixture pins that cap=0 wins even when two forged "frame" lines downstream
+# would otherwise read as a clean FROZEN verdict -- proving the guard fires on
+# the RENAMED field rather than silently falling through to the frame-count
+# check, which would also return 2 by coincidence and hide a missing guard.
+check "wrapper capture failure (cap=0) is rc2, not FROZEN, even with plausible frame lines" \
+    2 "cap=0
+frame 1 rc=0 at=10:43:10 bytes=1840 md5=$A
+frame 2 rc=0 at=10:43:14 bytes=1840 md5=$A"
 
 check "one frame only is rc2" 2 "$CAP
 frame 1 rc=0 at=10:43:10 bytes=1840 md5=$A
@@ -261,7 +279,7 @@ sentinel_pair() {
 # suite's variables instead of the tool's.
 # shellcheck disable=SC2016
 sentinel_pair "frame-line"  'echo "frame $n rc='  '\^frame '
-sentinel_pair "import-cap"  'cap import=0'        'cap import=0'
+sentinel_pair "cap-field"   'cap=0'               'cap=0'
 sentinel_pair "blank-line"  'blank min='          '\^blank '
 # shellcheck disable=SC2016
 sentinel_pair "md5-field"   'md5=$m'              'md5='

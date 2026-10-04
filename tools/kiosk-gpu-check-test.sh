@@ -92,6 +92,26 @@ sentinel_pair "unreadable-fd"   'dri="?"'       'drifd=[?\\]'
 sentinel_pair "unreadable-maps" 'drv="?"'       'drv=[?\\]'
 sentinel_pair "grep-o-capability" 'cap grep_o=' 'cap grep_o='
 
+# #185 W2 ruling 2026-10-04: the device-side process-family match (WebKit/surf's era) moves
+# to WPEWebProcess|WPENetworkProcess|cog, defined ONCE host-side as KIOSK_BROWSER_PROCS and
+# interpolated into the remote heredoc -- not hardcoded a second time there, which is
+# exactly the kind of two-sides-drift the sentinel_pair checks above exist to catch for
+# every other field this tool emits and reads.
+if [ "${KIOSK_BROWSER_PROCS:-}" = 'WPEWebProcess|WPENetworkProcess|cog' ]; then
+    pass=$((pass + 1))
+else
+    fail=$((fail + 1))
+    echo "FAIL  KIOSK_BROWSER_PROCS: want 'WPEWebProcess|WPENetworkProcess|cog', got '${KIOSK_BROWSER_PROCS:-}'" >&2
+fi
+
+if [ "$(printf '%s\n' "$emitter" | grep -cF '$KIOSK_BROWSER_PROCS')" -gt 0 ]; then
+    pass=$((pass + 1))
+else
+    fail=$((fail + 1))
+    echo 'FAIL  the remote heredoc does not reference $KIOSK_BROWSER_PROCS -- the pattern' >&2
+    echo "      is hardcoded a second time there instead of interpolated once" >&2
+fi
+
 "$HERE/kiosk-gpu-check.sh" > /dev/null 2>&1
 rc=$?
 if [ $rc -eq 2 ]; then pass=$((pass + 1)); else
