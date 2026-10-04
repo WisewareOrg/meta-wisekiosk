@@ -28,6 +28,21 @@ Rules encoded (#185 plan "Verdict" / "Range rule", owner rulings 2026-10-04):
     bound is NOT a regression (strict worse-than only); one tick past it IS.
   - time to page: recorded, not judged -- no verdict input reads it.
 
+  BOUNDED stall rate (orchestrator ruling 2026-10-04, for a run where p7_min.js's bigTotal >
+  len(big) -- parse_smoothness.steady_stall_bounds's "bounded" case): a candidate run's
+  "stall_rate" entry may be a float (exact) as above, OR a dict {"lower_rate": float,
+  "upper_rate": float} (bounded). baseline_runs are always exact floats -- only a candidate
+  run can be bounded. Let B = baseline's max exact stall_rate. For a bounded candidate run:
+    - lower_rate > B  -> a DEFINITE regression (even the floor exceeds baseline).
+    - upper_rate <= B -> definitely NOT a regression (even the ceiling is within baseline).
+    - otherwise (lower_rate <= B < upper_rate, "straddle") -> judge on upper_rate: a
+      regression, and its reason text must say "judged on upper bound" (the ruling's own
+      words) -- this is what distinguishes it from the definite-regression case above, which
+      must NOT carry that phrase.
+  These three fixtures each replicate one bounded value across all 3 candidate runs, so the
+  verdict's 3-way rule is exercised without also needing a rule for mixing bounded and exact
+  runs within one candidate set -- that combination is not specified and is not tested here.
+
 Run: python3 verdict_test.py
 """
 import verdict as v
@@ -163,6 +178,44 @@ def test_degenerate_range_one_tick_worse_is_a_regression():
           any("fps" in r.lower() for r in reasons), detail=str(reasons))
 
 
+def bounded_runs(lower_rate, upper_rate):
+    # Same bounded stall value on all 3 candidate runs -- see module docstring on why.
+    return [{"stall_rate": {"lower_rate": lower_rate, "upper_rate": upper_rate},
+             "pct_under_50": 99.0, "fps": 59.0} for _ in range(3)]
+
+
+def test_bounded_stall_rate_clear_regression_when_even_the_floor_exceeds_baseline():
+    # baseline max stall_rate is 0.02; lower=0.03 already exceeds it -> definite regression,
+    # NOT the "judged on upper bound" case (that phrase is reserved for the straddle case).
+    cand = bounded_runs(lower_rate=0.03, upper_rate=0.05)
+    reasons = v.regression_reasons(BASE_RUNS, cand, BASE_SOAK, BASE_SOAK)
+    check("bounded, lower > baseline max -> stall regression flagged",
+          any("stall" in r.lower() for r in reasons), detail=str(reasons))
+    check("bounded, lower > baseline max -> NOT flagged as judged-on-upper-bound",
+          not any("judged on upper bound" in r.lower() for r in reasons), detail=str(reasons))
+
+
+def test_bounded_stall_rate_clear_pass_when_even_the_ceiling_is_within_baseline():
+    # baseline max stall_rate is 0.02; upper=0.015 never reaches it -> definitely not a
+    # regression, regardless of what the true value within [0.005, 0.015] turns out to be.
+    cand = bounded_runs(lower_rate=0.005, upper_rate=0.015)
+    reasons = v.regression_reasons(BASE_RUNS, cand, BASE_SOAK, BASE_SOAK)
+    check("bounded, upper <= baseline max -> no stall regression",
+          not any("stall" in r.lower() for r in reasons), detail=str(reasons))
+
+
+def test_bounded_stall_rate_straddle_is_judged_on_upper_bound():
+    # baseline max stall_rate is 0.02; lower=0.015 <= 0.02 < upper=0.025 -- straddles the
+    # bound. The ruling: judge on the upper rate (so it IS a regression) and flag it as
+    # "judged on upper bound", distinguishing it from the definite-regression case.
+    cand = bounded_runs(lower_rate=0.015, upper_rate=0.025)
+    reasons = v.regression_reasons(BASE_RUNS, cand, BASE_SOAK, BASE_SOAK)
+    check("straddle -> flagged as a regression", any("stall" in r.lower() for r in reasons),
+          detail=str(reasons))
+    check("straddle -> flagged 'judged on upper bound'",
+          any("judged on upper bound" in r.lower() for r in reasons), detail=str(reasons))
+
+
 if __name__ == "__main__":
     test_identical_candidate_is_go()
     test_worse_stall_rate_is_a_regression()
@@ -178,6 +231,9 @@ if __name__ == "__main__":
     test_no_memory_problem_is_not_a_regression()
     test_degenerate_range_equal_is_not_a_regression()
     test_degenerate_range_one_tick_worse_is_a_regression()
+    test_bounded_stall_rate_clear_regression_when_even_the_floor_exceeds_baseline()
+    test_bounded_stall_rate_clear_pass_when_even_the_ceiling_is_within_baseline()
+    test_bounded_stall_rate_straddle_is_judged_on_upper_bound()
     print()
     if fails:
         raise SystemExit(f"{fails} check(s) FAILED")

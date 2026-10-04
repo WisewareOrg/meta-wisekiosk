@@ -17,11 +17,20 @@ Payload spec (unmodified gpu_compositing/p7_min.js, confirmed against its source
 Judged stats (#185 plan "Smoothness statistics"; owner rulings 2026-10-04):
   - pct_under_50ms, mean_fps: FULL capture, not windowed.
   - steady_stall_rate: count of big[] entries with t >= 15.0 s, divided by (sec - 15.0).
-    Exact ONLY when bt == len(big) -- nothing yet evicted. When bt > len(big) the pre-15s
-    count can no longer be recovered from big[] alone (the oldest entries -- usually the
-    startup ones -- are the ones evicted). UNRESOLVED, escalated to the orchestrator
-    2026-10-04 (awaiting answer): this suite deliberately covers bt == len(big) only and
-    asserts nothing about steady_stall_rate when they differ.
+    Exact ONLY when bt == len(big) -- nothing yet evicted.
+  - steady_stall_bounds: the bt > len(big) case (orchestrator ruling 2026-10-04). Returns
+    {"bounded": bool, "lower": int, "upper": int, "lower_rate": float, "upper_rate": float}.
+      bounded=False (bt == len(big)): lower == upper == the exact steady count; both rates
+        equal steady_stall_rate's value.
+      bounded=True (bt > len(big)): big[] has evicted its oldest entries, so the exact
+        steady count can't be recovered --
+          lower = count of RETAINED big[] entries with t >= 15.0 s (a floor: more
+                  qualifying events may have been evicted, since the oldest go first).
+          upper = bt - (count of RETAINED big[] entries with t < 15.0 s) (a ceiling: the
+                  most favourable case, assuming every evicted entry was pre-steady-state).
+        Both rates divide by (sec - 15.0). The verdict's 3-way rule on these bounds
+        (regression / pass / "judged on upper bound") is tested in verdict_test.py, not
+        here -- this file only proves the parser's bound computation.
   - clusters: recorded, not judged. Consecutive big[] entries (sorted by t, as emitted)
     merge into one cluster when the gap between them is <= 1.0 s (the ruling's "1000 ms").
 
@@ -47,6 +56,12 @@ CLEAN = "MP|500|f8000|av60|mx1200|BT3|H7000.500.300.150.30.15.5|B1.9:300,2.2:107
 # --- NO_STEADY_STALLS: both >250ms frames are before t=15; steady window has none.
 # Proves the rate reports an exact 0.0, not None/error, when the window is clean.
 NO_STEADY_STALLS = "MP|100|f6000|av50|mx500|BT2|H5000.600.300.80.15.4.1|B1.0:300,5:260"
+
+# --- BOUNDED: bt=20 > len(big)=14 -- big[] has evicted its 6 oldest entries. Of the 14
+# retained, 2 are pre-steady (t=1, t=3) and 12 are >=15s. lower=12, upper=20-2=18.
+BOUNDED = ("MP|600|f30000|av20|mx1500|BT20|H29000.600.300.70.20.8.2"
+           "|B1:300,3:300,20:300,25:300,30:300,100:300,150:300,200:300,250:300,300:300,"
+           "350:300,400:300,450:300,500:300")
 
 # --- MALFORMED: truncated payload, must not parse.
 MALFORMED = "MP|500|f8000"
@@ -131,6 +146,36 @@ def test_clusters_does_not_merge_everything():
           len(cl) == 2, detail=str(cl))
 
 
+def test_steady_stall_bounds_exact_matches_steady_stall_rate_when_nothing_evicted():
+    d = ps.parse(CLEAN)
+    assert d["bt"] == len(d["big"]), "fixture must satisfy bt == len(big)"
+    b = ps.steady_stall_bounds(d)
+    want_rate = ps.steady_stall_rate(d)
+    check("steady_stall_bounds(CLEAN).bounded is False", b["bounded"] is False, detail=str(b))
+    check("steady_stall_bounds(CLEAN).lower == upper == 1",
+          b["lower"] == 1 and b["upper"] == 1, detail=str(b))
+    check("steady_stall_bounds(CLEAN) rates equal steady_stall_rate's exact value",
+          b["lower_rate"] == b["upper_rate"] == want_rate, detail=str(b))
+
+
+def test_steady_stall_bounds_reports_bounded_when_big_is_truncated():
+    d = ps.parse(BOUNDED)
+    check("parse(BOUNDED).bt == 20", d["bt"] == 20)
+    check("parse(BOUNDED) big[] truncated to 14", len(d["big"]) == 14)
+    b = ps.steady_stall_bounds(d)
+    check("steady_stall_bounds(BOUNDED).bounded is True", b["bounded"] is True, detail=str(b))
+    check("steady_stall_bounds(BOUNDED).lower == 12 (retained entries with t>=15)",
+          b["lower"] == 12, detail=str(b))
+    check("steady_stall_bounds(BOUNDED).upper == 18 (bt=20 minus the 2 retained pre-15 entries)",
+          b["upper"] == 18, detail=str(b))
+    check("steady_stall_bounds(BOUNDED).lower_rate == 12/585",
+          abs(b["lower_rate"] - 12 / 585) < 1e-9, detail=str(b))
+    check("steady_stall_bounds(BOUNDED).upper_rate == 18/585",
+          abs(b["upper_rate"] - 18 / 585) < 1e-9, detail=str(b))
+    check("steady_stall_bounds(BOUNDED) lower < upper (a real bound, not a collapsed point)",
+          b["lower"] < b["upper"], detail=str(b))
+
+
 if __name__ == "__main__":
     test_parse_clean()
     test_parse_rejects_malformed()
@@ -140,6 +185,8 @@ if __name__ == "__main__":
     test_steady_stall_rate_reports_exact_zero_when_none_qualify()
     test_clusters_merges_within_1s_and_splits_beyond_it()
     test_clusters_does_not_merge_everything()
+    test_steady_stall_bounds_exact_matches_steady_stall_rate_when_nothing_evicted()
+    test_steady_stall_bounds_reports_bounded_when_big_is_truncated()
     print()
     if fails:
         raise SystemExit(f"{fails} check(s) FAILED")
