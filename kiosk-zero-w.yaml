@@ -247,6 +247,16 @@ local_conf_header:
     # bump cannot drop the SBOM (#69). See docs/cve-and-sbom.md.
     INHERIT += "create-spdx"
 
+  # Selects the WPE stack meta-webkit's scarthgap branch carries at 2.44 -- its
+  # wpe-2_44.conf preset; left unset, the branch builds wpewebkit 2.46.7.
+  # meta-webkit's layer.conf sets BB_DANGLINGAPPENDS_WARNONLY = "true" for
+  # every layer; this restores bitbake's default, so a bbappend whose recipe is
+  # gone fails the parse.
+  wpe: |
+    BB_DANGLINGAPPENDS_WARNONLY = "false"
+    PREFERRED_VERSION_wpewebkit = "2.44.%"
+    PREFERRED_PROVIDER_virtual/wpebackend = "wpebackend-fdo"
+
   # update-bundle.bb packages whichever image RAUC_SLOT_rootfs names, and its
   # default is autonomos-devel -- a different image, with no surf and no kiosk
   # unit. Installing that bundle would replace the slot and report success.
@@ -286,9 +296,9 @@ local_conf_header:
     AUTONOMOS_RAUC_CERT_FILE = "signing.cert.pem"
     AUTONOMOS_RAUC_KEYRING_FILE = "signing.cert.pem"
 
-  # Nothing here runs a Wayland compositor, VC4 has no Vulkan, and ptest builds
-  # test suites for a board that will never run them. Removing them is free
-  # before the first build and costs a rebuild after it.
+  # VC4 has no Vulkan, and ptest builds test suites for a board that will never
+  # run them. Removing them is free before the first build and costs a rebuild
+  # after it.
   trim: |
     # bluetooth is removed from DISTRO_FEATURES as well as MACHINE_FEATURES
     # because packagegroup-base.bb pulls packagegroup-base-bluetooth on
@@ -300,7 +310,7 @@ local_conf_header:
     # both are keyed on MACHINE_FEATURES/COMBINED_FEATURES, so the machine-side
     # removal is sufficient, and touching DISTRO_FEATURES risks re-hashing
     # gstreamer -> webkitgtk3 into a multi-hour rebuild for no extra benefit.
-    DISTRO_FEATURES:remove = " wayland vulkan ptest bluetooth"
+    DISTRO_FEATURES:remove = " vulkan ptest bluetooth"
 
     # Nothing on this kiosk pairs, scans or streams; the only link is WiFi
     # (owner, 2026-08-12). rpi-base.inc adds bluetooth to MACHINE_FEATURES, which
