@@ -104,8 +104,8 @@ render_verdict() {
     # first match, the producer dies of SIGPIPE at 141, and the condition reads
     # FALSE exactly when the pattern matched.
 
-    if [ "$(printf '%s\n' "$probe" | grep -c '^cap import=0')" -ne 0 ]; then
-        echo "cannot tell: no 'import' on the device, so no frame could be captured." >&2
+    if [ "$(printf '%s\n' "$probe" | grep -c '^cap=0')" -ne 0 ]; then
+        echo "cannot tell: no capture tool on the device, so no frame could be captured." >&2
         echo "imagemagick is the only capture path this image carries -- see" >&2
         echo "docs/issue_investigation/screenshot_capture_fbgrab/README.md." >&2
         return 2
@@ -247,9 +247,9 @@ HERE=$(dirname "$0")
 # shellcheck disable=SC2029
 PROBE=$("$HERE/kiosk-ssh.sh" "$HOST" "CROP='$CROP' sh -s" <<'REMOTE'
 if command -v import > /dev/null 2>&1; then
-    echo "cap import=1"
+    echo "cap=1"
 else
-    echo "cap import=0"
+    echo "cap=0"
     exit 0
 fi
 if command -v identify > /dev/null 2>&1; then echo "cap identify=1"; else echo "cap identify=0"; fi
