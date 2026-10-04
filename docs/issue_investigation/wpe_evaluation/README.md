@@ -57,16 +57,24 @@ All one-off and committed beside this README (R2), except where a run names a sh
 - `parse_smoothness.py`, `parse_module_fault.py` — payload parsers, each proven by its `_test.py`
   on synthetic payloads.
 - `verdict.py` — the go/no-go over the parsed runs, proven by `verdict_test.py`.
-- `run-smoothness.sh` — one smoothness capture: pre-run screenshot into `local/`, then
-  [`run-appliance.sh`](../gpu_compositing/run-appliance.sh) unchanged (`p7_min.js`, 585 s).
-- `run-soak.sh`, `mf-reader.sh` — the 1 h soak: `mf-probe.js` deployed, its title read on the board
-  every 30 s, then the `kiosk-soak` summary, restarts, boot ids and kernel OOM lines for the window.
-- `run-time-to-page.sh`, `time-to-page-x.sh` — X baseline time to page: the shipped
-  `time-to-page.js` beacon (`meta-wisekiosk/recipes-core/kiosk-bootprof/files/`) as surf's
-  `script.js`, three cold boots with one connection each at 120 s; the beacon's `T <epoch_ms>`
-  title minus the boot epoch read at READ_AT 115. A boot whose journal shows a clock step or
-  timesyncd sync after kiosk start is SUSPECT and re-run once. The shipped `measure-surf.sh` does
-  not apply: its beacon waits on `.module`/`.wi`, which the pinned frontend no longer renders.
+- `run-smoothness.sh` — one smoothness capture (`p7_min.js`, 585 s): pre-run screenshot into
+  `local/`, then the [`run-appliance.sh`](../gpu_compositing/run-appliance.sh) sequence with the
+  WPE readback — the probe as `KIOSK_PROBE` user script, its `MP|` title lines read from the kiosk
+  journal, the 1280x720 VOID rule read from DRM debugfs, `kiosk.conf` restored afterwards. The X
+  baseline runs called `run-appliance.sh` itself, at the commit each run header names.
+- `run-soak.sh` — the 1 h soak: `mf-probe.js` as `KIOSK_PROBE` user script, its `MF|` samples read
+  from the kiosk journal, then the `kiosk-soak` samples and summary, restarts, boot ids, swap
+  counters, PSI and kernel OOM lines for the window. `mf-reader.sh` read the title over X for the
+  baseline soak.
+- `run-time-to-page.sh` — time to page, three cold boots with one connection each at 120 s: the
+  shipped `time-to-page.js` beacon (`meta-wisekiosk/recipes-core/kiosk-bootprof/files/`) titles
+  the page `T <epoch_ms>` (`Date.now()`) once the weather glyph renders in its face; time to page
+  is that minus the boot epoch read at READ_AT 115. A boot whose journal shows a clock step or
+  timesyncd sync later than its time to page is SUSPECT and re-run once. On WPE the beacon runs
+  as the `KIOSK_PROBE` user script and the shipped `measure-page.sh` reads its `TITLE` line from
+  the journal; the X baseline ran it as surf's `script.js`, read by `time-to-page-x.sh` over X.
+  The X image's own `measure-surf.sh` does not apply: its beacon waits on `.module`/`.wi`, which
+  the pinned frontend no longer renders.
 - `xval-capture.sh`, `xval-judge.sh` — `kiosk-drmgrab` cross-validated against
   `import -window root`: two capture pairs 61 s apart, judged on a static crop (AE = 0, crop rich
   enough to expose a de-tile or channel-order bug) and a clock crop (must change).

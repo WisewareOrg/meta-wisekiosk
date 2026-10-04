@@ -1,11 +1,14 @@
 #!/bin/bash
 # run-soak.sh <ssh-target> <role> <out>
 #
-# The 1 h soak under X: mf-probe.js as surf's user script (cache cleared, kiosk restarted) and
-# mf-reader.sh detached on the board. After 3600 s + 60 s it appends the MF| log, kiosk-soak
-# --summary over the samples taken since the start and those samples themselves, kiosk NRestarts,
-# boot id and /proc/vmstat pswpin/pswpout at both ends, /proc/pressure/memory, and kernel OOM lines
-# since the start; then it empties script.js and restarts kiosk.
+# The 1 h soak under cog: mf-probe.js deployed to /home/root/kiosk-probe.js, kiosk.conf backed up
+# and KIOSK_PROBE=1 appended, cog's cache cleared, kiosk restarted. cog prints each title as
+# "TITLE <title>", so every 30 s MF| sample lands in the kiosk journal. After 3600 s + 60 s it
+# appends the journal's MF| lines since the start, kiosk-soak --summary over the samples taken since
+# the start and those samples themselves, kiosk NRestarts, boot id and /proc/vmstat
+# pswpin/pswpout at both ends, /proc/pressure/memory, and kernel OOM lines since the start; then
+# it restores kiosk.conf, removes the probe and restarts kiosk. A kiosk.conf backup already on the
+# board means an earlier run did not restore; the run refuses, exit 1.
 set -u
 T=${1:?ssh-target}; ROLE=${2:?role}; OUT=${3:?out}
 SECS=3600
@@ -18,18 +21,23 @@ echo "# run-soak.sh role=$ROLE secs=$SECS"
 echo "# started $(date -u +%FT%TZ)"
 echo "# probe sha256 local    $(sha256sum < "$HERE/mf-probe.js" | cut -d' ' -f1)"
 } > "$OUT"
-"$KSSH" "$T" 'cat > /data/mf-reader.sh' < "$HERE/mf-reader.sh" || exit 1
-"$KSSH" "$T" 'cat > /home/root/.surf/script.js' < "$HERE/mf-probe.js" || exit 1
-"$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1 <<EOF
-echo "# buildinfo \$(grep '^meta-wisekiosk ' /etc/buildinfo)"
-echo "# \$(rauc status 2>&1 | grep 'Booted from')"
-echo "# probe sha256 deployed \$(sha256sum < /home/root/.surf/script.js | cut -d' ' -f1)"
-echo "# boot-start \$(cat /proc/sys/kernel/random/boot_id)"
-rm -rf /home/root/.surf/cache /data/mf.log
+"$KSSH" "$T" 'cat > /home/root/kiosk-probe.js' < "$HERE/mf-probe.js" || exit 1
+"$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1 <<'EOF' || exit 1
+C=/data/config/kiosk.conf
+if [ -e $C.wpe-bak ] || [ -e $C.wpe-absent ]; then
+	echo "# REFUSED: a kiosk.conf backup exists -- an earlier run did not restore"; exit 1
+fi
+if [ -f $C ]; then cp -p $C $C.wpe-bak; else : > $C.wpe-absent; fi
+[ -s $C ] && [ -n "$(tail -c 1 $C)" ] && echo >> $C
+echo 'KIOSK_PROBE=1' >> $C
+echo "# buildinfo $(grep '^meta-wisekiosk ' /etc/buildinfo)"
+echo "# $(rauc status 2>&1 | grep 'Booted from')"
+echo "# probe sha256 deployed $(sha256sum < /home/root/kiosk-probe.js | cut -d' ' -f1)"
+echo "# boot-start $(cat /proc/sys/kernel/random/boot_id)"
+rm -rf /home/root/.cache/cog
 systemctl restart kiosk
-echo "# start-epoch \$(date +%s) \$(systemctl show -p NRestarts kiosk)"
-echo "# vmstat-start \$(grep -E '^(pswpin|pswpout) ' /proc/vmstat | tr '\n' ' ')"
-setsid nohup sh /data/mf-reader.sh /data/mf.log $SECS > /dev/null 2>&1 < /dev/null &
+echo "# start-epoch $(date +%s) $(systemctl show -p NRestarts kiosk)"
+echo "# vmstat-start $(grep -E '^(pswpin|pswpout) ' /proc/vmstat | tr '\n' ' ')"
 EOF
 START=$(sed -n 's/^# start-epoch \([0-9]*\).*/\1/p' "$OUT")
 [ -n "$START" ] || { echo "# START FAILED" >> "$OUT"; exit 1; }
@@ -37,8 +45,8 @@ START=$(sed -n 's/^# start-epoch \([0-9]*\).*/\1/p' "$OUT")
 sleep $((SECS + 60))
 
 "$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1 <<EOF
-echo "=== MF log ==="
-cat /data/mf.log
+echo "=== journal MF| since start-epoch ==="
+journalctl -u kiosk --since @$START -o cat --no-pager | grep 'MF|'
 echo "=== kiosk-soak samples since start-epoch ==="
 awk -v s=$START '{ split(\$1, a, "="); if (a[2] >= s) print }' /data/kiosk-soak.log
 N=\$(awk -v s=$START '{ split(\$1, a, "="); if (a[2] >= s) n++ } END { print n + 0 }' /data/kiosk-soak.log)
@@ -51,9 +59,12 @@ echo "=== /proc/pressure/memory ==="
 cat /proc/pressure/memory
 echo "=== kernel OOM lines since start-epoch ==="
 journalctl -k --since @$START --no-pager | grep -iE 'out of memory|oom-kill|oom_reaper'
-: > /home/root/.surf/script.js
-rm -rf /home/root/.surf/cache
+C=/data/config/kiosk.conf
+if [ -f \$C.wpe-bak ]; then mv \$C.wpe-bak \$C; else rm -f \$C \$C.wpe-absent; fi
+rm -f /home/root/kiosk-probe.js
+rm -rf /home/root/.cache/cog
 systemctl restart kiosk
-echo "# restored: script.js \$(wc -c < /home/root/.surf/script.js) bytes, kiosk restarted"
+n=\$(grep -c '^KIOSK_PROBE' \$C 2>/dev/null)
+echo "# restored: kiosk.conf KIOSK_PROBE lines \${n:-none, file absent}, kiosk restarted"
 EOF
 echo "# complete $(date -u +%FT%TZ)" >> "$OUT"
