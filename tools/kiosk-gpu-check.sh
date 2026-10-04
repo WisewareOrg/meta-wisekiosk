@@ -10,7 +10,7 @@ set -uo pipefail
 
 # The browser family by process name. The device matches /proc comm, which holds
 # at most 15 characters, so each name is compared truncated to 15.
-KIOSK_BROWSER_PROCS='WPEWebProcess|WPENetworkProcess|cog'
+KIOSK_BROWSER_PROCS='WPEWebProcess|WPENetworkProcess|WPEGPUProcess|cog'
 
 gpu_verdict() {
     local probe=$1 procs gpu hw
