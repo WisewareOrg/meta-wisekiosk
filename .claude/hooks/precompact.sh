@@ -45,9 +45,9 @@ else
     add "NOT A GIT CHECKOUT: $REPO -- nothing here can report what is uncommitted."
 fi
 
-# A build the summary should not silently drop -- up to a cold full build,
-# ~6 h -- and which also means the build tree must not be edited (guard.sh
-# rule 8).
+# A multi-hour build (README.md §"Quick start") the summary should not
+# silently drop, and which also means the build tree must not be edited
+# (guard.sh rule 8).
 builds=$(timeout 5 docker ps --format '{{.Names}} {{.Status}} {{.Image}}' 2>/dev/null | grep -i kas)
 [ -n "$builds" ] && { add ""; add "BUILD RUNNING (do not edit the build tree):"; add "    $builds"; }
 
