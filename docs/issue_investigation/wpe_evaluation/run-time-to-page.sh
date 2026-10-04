@@ -3,10 +3,10 @@
 #
 # Three cold boots under cog. Before them, kiosk.conf is backed up and KIOSK_PROBE=1 plus
 # KIOSK_PROBE_SCRIPT=/usr/share/kiosk-bootprof/time-to-page.js appended, so each boot runs the
-# shipped beacon. Each boot: systemctl reboot, 300 s on this host with no probing, then one
-# connection that records buildinfo and runs the shipped measure-page.sh with READ_AT 300. A boot
+# shipped beacon. Each boot: systemctl reboot, 120 s on this host with no probing, then one
+# connection that records buildinfo and runs the shipped measure-page.sh with READ_AT 115. A boot
 # it prints SUSPECT (a clock step after the beacon fired) is re-run once; a second SUSPECT is kept as
-# recorded. One connection per boot, none before 300 s: kiosk-bootprof's README on why ssh is an
+# recorded. One connection per boot, none before 120 s: kiosk-bootprof's README on why ssh is an
 # instrument. kiosk.conf is restored afterwards and kiosk restarted. A kiosk.conf backup already on
 # the board means an earlier run did not restore; the run refuses, exit 1, and leaves it alone.
 set -u
@@ -34,7 +34,7 @@ trap restore_conf EXIT
 trap 'exit 1' INT TERM HUP
 
 {
-echo "# run-time-to-page.sh role=$ROLE boots=3 wait=300 READ_AT=300"
+echo "# run-time-to-page.sh role=$ROLE boots=3 wait=120 READ_AT=115"
 echo "# harness $(git -C "$HERE" rev-parse HEAD)$(git -C "$HERE" diff --quiet HEAD -- . ../gpu_compositing ../../../tools || echo " DIRTY")"
 } > "$OUT"
 RESTORE_PENDING=1
@@ -56,11 +56,11 @@ boot() {
 	echo "=== boot $1: reboot at $(date -u +%FT%TZ) ===" >> "$OUT"
 	"$KSSH" "$T" 'systemctl reboot' >> "$OUT" 2>&1
 	"$KSSH" "$T" --close > /dev/null 2>&1
-	sleep 300
+	sleep 120
 	"$KSSH" "$T" 'sh -s' 2>&1 <<'REMOTE' | tee -a "$OUT"
 echo "# buildinfo $(grep '^meta-wisekiosk ' /etc/buildinfo)"
 echo "# $(rauc status 2>&1 | grep 'Booted from')"
-measure-page.sh 300
+measure-page.sh 115
 REMOTE
 	"$KSSH" "$T" --close > /dev/null 2>&1
 }

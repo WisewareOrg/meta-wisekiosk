@@ -1,7 +1,7 @@
 #!/bin/sh
 # Time to page under cog: from boot until the page is up.
 #
-#   measure-page.sh [READ_AT]    default READ_AT 300 (seconds of uptime)
+#   measure-page.sh [READ_AT]    default READ_AT 115 (seconds of uptime)
 #
 # The boot measured must run time-to-page.js as the page's user script --
 # KIOSK_PROBE=1 and KIOSK_PROBE_SCRIPT=/usr/share/kiosk-bootprof/time-to-page.js
@@ -20,7 +20,7 @@
 # Nothing is read before READ_AT: on one saturated core, polling during
 # startup inflates the number it is reading.
 
-READ_AT=${1:-300}
+READ_AT=${1:-115}
 
 NOW=$(cut -d. -f1 /proc/uptime)
 [ "$NOW" -lt "$READ_AT" ] && sleep $((READ_AT - NOW))
