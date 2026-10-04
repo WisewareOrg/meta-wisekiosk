@@ -37,8 +37,8 @@ One owner per fact. Read the owner; do not restate it here or anywhere else.
   and the reproducibility gate refuses the image at flash time.
 - **A webkit `PACKAGECONFIG` change or a WebKit recipe edit invalidates WebKit.**
   `DISTRO_FEATURES`, `MACHINE_FEATURES`, or a poky/meta-openembedded pin bump invalidate more than
-  WebKit. Either is a multi-hour rebuild — see `README.md` §"Quick start" for the measured costs —
-  so decide before starting.
+  WebKit. Either is a multi-hour rebuild — see [`README.md`](README.md) §"Quick start" for the
+  measured costs — so decide before starting.
 - **Never destructively test the prod board.** It is wall-mounted and carries the live soak run;
   bench is the OTA, reboot and rollback target. Roles and addresses are in
   `local/device-identity.md` — read them, do not remember them.
