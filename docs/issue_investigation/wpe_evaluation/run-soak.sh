@@ -3,8 +3,9 @@
 #
 # The 1 h soak under X: mf-probe.js as surf's user script (cache cleared, kiosk restarted) and
 # mf-reader.sh detached on the board. After 3600 s + 60 s it appends the MF| log, kiosk-soak
-# --summary over the samples taken since the start, kiosk NRestarts and boot id at both ends, and
-# kernel OOM lines since the start; then it empties script.js and restarts kiosk.
+# --summary over the samples taken since the start and those samples themselves, kiosk NRestarts,
+# boot id and /proc/vmstat pswpin/pswpout at both ends, /proc/pressure/memory, and kernel OOM lines
+# since the start; then it empties script.js and restarts kiosk.
 set -u
 T=${1:?ssh-target}; ROLE=${2:?role}; OUT=${3:?out}
 SECS=3600
@@ -27,6 +28,7 @@ echo "# boot-start \$(cat /proc/sys/kernel/random/boot_id)"
 rm -rf /home/root/.surf/cache /data/mf.log
 systemctl restart kiosk
 echo "# start-epoch \$(date +%s) \$(systemctl show -p NRestarts kiosk)"
+echo "# vmstat-start \$(grep -E '^(pswpin|pswpout) ' /proc/vmstat | tr '\n' ' ')"
 setsid nohup sh /data/mf-reader.sh /data/mf.log $SECS > /dev/null 2>&1 < /dev/null &
 EOF
 START=$(sed -n 's/^# start-epoch \([0-9]*\).*/\1/p' "$OUT")
@@ -37,11 +39,16 @@ sleep $((SECS + 60))
 "$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1 <<EOF
 echo "=== MF log ==="
 cat /data/mf.log
+echo "=== kiosk-soak samples since start-epoch ==="
+awk -v s=$START '{ split(\$1, a, "="); if (a[2] >= s) print }' /data/kiosk-soak.log
 N=\$(awk -v s=$START '{ split(\$1, a, "="); if (a[2] >= s) n++ } END { print n + 0 }' /data/kiosk-soak.log)
 echo "=== kiosk-soak --summary \$N (samples since start-epoch) ==="
 [ "\$N" -gt 0 ] && kiosk-soak.sh --summary "\$N"
 echo "# boot-end \$(cat /proc/sys/kernel/random/boot_id)"
 echo "# end \$(systemctl show -p NRestarts kiosk)"
+echo "# vmstat-end \$(grep -E '^(pswpin|pswpout) ' /proc/vmstat | tr '\n' ' ')"
+echo "=== /proc/pressure/memory ==="
+cat /proc/pressure/memory
 echo "=== kernel OOM lines since start-epoch ==="
 journalctl -k --since @$START --no-pager | grep -iE 'out of memory|oom-kill|oom_reaper'
 : > /home/root/.surf/script.js
