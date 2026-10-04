@@ -365,7 +365,7 @@ local_conf_header:
   # WebKit's link step wants several GB per linker process; the fixed caps are a
   # floor. BB_PRESSURE_MAX_MEMORY is the part that adapts -- bitbake stops
   # launching new tasks when the kernel reports memory stall above the threshold
-  # (microseconds of stall per second; 1000000 would never trigger). Host: 11 GB.
+  # (microseconds of stall per second; 1000000 would never trigger).
   parallel: |
     BB_NUMBER_THREADS = "6"
     PARALLEL_MAKE = "-j6"
