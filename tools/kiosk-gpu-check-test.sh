@@ -93,15 +93,15 @@ sentinel_pair "unreadable-maps" 'drv="?"'       'drv=[?\\]'
 sentinel_pair "grep-o-capability" 'cap grep_o=' 'cap grep_o='
 
 # #185 W2 ruling 2026-10-04: the device-side process-family match (WebKit/surf's era) moves
-# to WPEWebProcess|WPENetworkProcess|cog, defined ONCE host-side as KIOSK_BROWSER_PROCS and
-# interpolated into the remote heredoc -- not hardcoded a second time there, which is
-# exactly the kind of two-sides-drift the sentinel_pair checks above exist to catch for
-# every other field this tool emits and reads.
-if [ "${KIOSK_BROWSER_PROCS:-}" = 'WPEWebProcess|WPENetworkProcess|cog' ]; then
+# to WPEWebProcess|WPENetworkProcess|WPEGPUProcess|cog (WPEGPUProcess: 2.54 spawns it),
+# defined ONCE host-side as KIOSK_BROWSER_PROCS and interpolated into the remote heredoc --
+# not hardcoded a second time there, which is exactly the kind of two-sides-drift the
+# sentinel_pair checks above exist to catch for every other field this tool emits and reads.
+if [ "${KIOSK_BROWSER_PROCS:-}" = 'WPEWebProcess|WPENetworkProcess|WPEGPUProcess|cog' ]; then
     pass=$((pass + 1))
 else
     fail=$((fail + 1))
-    echo "FAIL  KIOSK_BROWSER_PROCS: want 'WPEWebProcess|WPENetworkProcess|cog', got '${KIOSK_BROWSER_PROCS:-}'" >&2
+    echo "FAIL  KIOSK_BROWSER_PROCS: want 'WPEWebProcess|WPENetworkProcess|WPEGPUProcess|cog', got '${KIOSK_BROWSER_PROCS:-}'" >&2
 fi
 
 if [ "$(printf '%s\n' "$emitter" | grep -cF '$KIOSK_BROWSER_PROCS')" -gt 0 ]; then
@@ -110,6 +110,45 @@ else
     fail=$((fail + 1))
     echo 'FAIL  the remote heredoc does not reference $KIOSK_BROWSER_PROCS -- the pattern' >&2
     echo "      is hardcoded a second time there instead of interpolated once" >&2
+fi
+
+# BEHAVIOURAL, not textual: a case statement cannot use a variable's "|"-joined value as
+# alternation (shell parses case's "|" syntactically, before any expansion -- confirmed by
+# hand: `case "$x" in $V) ...` with V="a|b" never matches "a" or "b", only the literal
+# string "a|b"), so a presence check alone cannot tell a correct wiring from a silently
+# broken one. This extracts the SHIPPED KIOSK_BROWSER_PROCS definition and the SHIPPED
+# PAT= construction line verbatim from the tool and runs them for real under `sh`
+# (busybox-compatible: tr/cut/sed/grep -E only, no bash-only syntax) against synthetic
+# /proc comm values -- reaching the real matching mechanism, not a reimplementation of it.
+PROCS_LINE=$(grep -m1 '^KIOSK_BROWSER_PROCS=' "$TOOL")
+PAT_LINE=$(sed -n '/^PAT=/p' "$TOOL" | head -1)
+if [ -z "$PROCS_LINE" ] || [ -z "$PAT_LINE" ]; then
+    fail=$((fail + 1))
+    echo "FAIL  could not extract KIOSK_BROWSER_PROCS / PAT= from $TOOL -- check anchors" >&2
+else
+    match_comm() {
+        sh -c "$PROCS_LINE; PROCS=\"\$KIOSK_BROWSER_PROCS\"; $PAT_LINE
+               printf '%s\n' \"\$1\" | grep -qxE \"\$PAT\"" -- "$1"
+    }
+    comm_check() {
+        local name=$1 want=$2 got
+        if match_comm "$name"; then got=0; else got=1; fi
+        if [ "$got" -eq "$want" ]; then
+            pass=$((pass + 1))
+        else
+            fail=$((fail + 1))
+            echo "FAIL  comm '$name': want match=$([ "$want" -eq 0 ] && echo yes || echo no), got $([ "$got" -eq 0 ] && echo yes || echo no)" >&2
+        fi
+    }
+    comm_check "WPEWebProcess"    0
+    comm_check "WPEGPUProcess"    0
+    comm_check "cog"              0
+    # /proc comm truncates at 15 visible characters; "WPENetworkProcess" (17) is never the
+    # literal value a real board reports -- "WPENetworkProce" is, and must match.
+    comm_check "WPENetworkProce"  0
+    comm_check "surf"             1
+    comm_check "cogctl"           1
+    comm_check "WebKitWebProcess" 1
 fi
 
 "$HERE/kiosk-gpu-check.sh" > /dev/null 2>&1
