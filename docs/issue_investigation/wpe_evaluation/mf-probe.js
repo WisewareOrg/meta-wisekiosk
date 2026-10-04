@@ -4,20 +4,20 @@
 
   // Module-fault probe: every 30 s, counts the framework's [data-module-faulted] marker and
   // the modules' own [data-module-unavailable], and writes the MF| payload to document.title.
-  // Payload and field meanings: parse_module_fault_test.py's header.
+  // Payload: parse_module_fault_test.py's header. fever = distinct faulted regions, keyed by the
+  // marker's [data-region]; it equals distinct faulted modules while each region holds one placement.
   var fmax = 0, fever = 0, umax = 0;
-  var seen = new WeakSet();
+  var seen = new Set();
 
   setInterval(function () {
     var faulted = document.querySelectorAll('[data-module-faulted]');
     var f = faulted.length;
     var u = document.querySelectorAll('[data-module-unavailable]').length;
     for (var i = 0; i < f; i++) {
-      if (!seen.has(faulted[i])) {
-        seen.add(faulted[i]);
-        fever++;
-      }
+      var region = faulted[i].closest('[data-region]');
+      seen.add(region && region.dataset.region);
     }
+    fever = seen.size;
     if (f > fmax) fmax = f;
     if (u > umax) umax = u;
     document.title =

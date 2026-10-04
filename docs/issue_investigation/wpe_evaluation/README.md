@@ -34,6 +34,8 @@ All one-off and committed beside this README (R2), except where a run names a sh
 - [`p7_min.js`](../gpu_compositing/p7_min.js) — smoothness probe, used unmodified from the
   gpu_compositing investigation.
 - `mf-probe.js` — module-fault probe: every 30 s it writes the `MF|` payload to `document.title`.
+  `fever` is distinct faulted regions (the marker's `data-region`); it equals distinct faulted
+  modules while each region holds one placement.
 - `parse_smoothness.py`, `parse_module_fault.py` — payload parsers, each proven by its `_test.py`
   on synthetic payloads.
 - `verdict.py` — the go/no-go over the parsed runs, proven by `verdict_test.py`.
