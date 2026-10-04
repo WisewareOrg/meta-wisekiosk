@@ -41,10 +41,11 @@ def steady_stall_rate(d, steady_from=15.0):
 
 
 def steady_stall_bounds(d, steady_from=15.0):
-    """Exact when nothing has left big[]; otherwise a floor and a ceiling on the steady count."""
+    """Exact unless big[] has evicted entries and every retained one is already steady-state;
+    big[] drops its oldest first, so a retained pre-steady entry means every evicted one was too."""
     lower = sum(1 for t, _ in d["big"] if t >= steady_from)
-    bounded = d["bt"] > len(d["big"])
-    upper = d["bt"] - (len(d["big"]) - lower) if bounded else lower
+    bounded = d["bt"] > len(d["big"]) and lower == len(d["big"])
+    upper = d["bt"] if bounded else lower
     span = d["sec"] - steady_from
     return {"bounded": bounded, "lower": lower, "upper": upper,
             "lower_rate": lower / span, "upper_rate": upper / span}
