@@ -21,6 +21,7 @@
 | [`issue_investigation/gpu_compositing/`](issue_investigation/gpu_compositing/README.md) | Can the kiosk browser composite its animation on the GPU instead of repainting it in software? |
 | [`issue_investigation/kernel_cve_triage/`](issue_investigation/kernel_cve_triage/README.md) | Are the stale layer pins this image's real CVE exposure, or is it the kernel? |
 | [`issue_investigation/app_from_source/`](issue_investigation/app_from_source/README.md) | Can this layer build the WiseKiosk application from source, and does it run on the board? |
+| [`issue_investigation/cold_build_time/`](issue_investigation/cold_build_time/README.md) | What does a cold-cache full build cost, and how far do the icon-theme, WebKit-debug and WebKit-parallelism levers cut it? |
 
 Each investigation is a directory whose `README.md` is the record of record, with any raw captures
 as siblings beside it. [`issue_investigation/TEMPLATE.md`](issue_investigation/TEMPLATE.md) is the
