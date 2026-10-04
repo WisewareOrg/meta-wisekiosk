@@ -2,12 +2,12 @@
 # time-to-page-x.sh [READ_AT] -- runs ON the board, X baseline image only.
 #
 # Reads the "T <epoch_ms>" title that time-to-page.js (deployed as surf's script.js) sets when the
-# page is up, at uptime READ_AT (default 115) with no polling before it, and prints time to page:
+# page is up, at uptime READ_AT (default 300) with no polling before it, and prints time to page:
 # epoch_ms - boot_epoch_ms. boot_epoch_ms is read at a wall-clock second boundary, because
 # busybox date has no %N: spin until `date +%s` rolls over, then read /proc/uptime. A clock
 # step or timesyncd sync logged after the beacon fired (monotonic stamp later than the time to
 # page) puts the two readings in different wall-clock frames, so that boot is printed SUSPECT.
-READ_AT=${1:-115}
+READ_AT=${1:-300}
 export DISPLAY=:0
 
 NOW=$(cut -d. -f1 /proc/uptime)

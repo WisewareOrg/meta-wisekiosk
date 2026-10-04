@@ -66,10 +66,10 @@ All one-off and committed beside this README (R2), except where a run names a sh
   from the kiosk journal, then the `kiosk-soak` samples and summary, restarts, boot ids, swap
   counters, PSI and kernel OOM lines for the window. `mf-reader.sh` read the title over X for the
   baseline soak.
-- `run-time-to-page.sh` — time to page, three cold boots with one connection each at 120 s: the
+- `run-time-to-page.sh` — time to page, three cold boots with one connection each at 300 s: the
   shipped `time-to-page.js` beacon (`meta-wisekiosk/recipes-core/kiosk-bootprof/files/`) titles
   the page `T <epoch_ms>` (`Date.now()`) once the weather glyph renders in its face; time to page
-  is that minus the boot epoch read at READ_AT 115. A boot whose journal shows a clock step or
+  is that minus the boot epoch read at READ_AT 300. A boot whose journal shows a clock step or
   timesyncd sync later than its time to page is SUSPECT and re-run once. On WPE the beacon runs
   as the `KIOSK_PROBE` user script and the shipped `measure-page.sh` reads its `TITLE` line from
   the journal; the X baseline ran it as surf's `script.js`, read by `time-to-page-x.sh` over X.
