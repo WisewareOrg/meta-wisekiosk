@@ -57,11 +57,10 @@ local_conf_header:
   # xf86-video-fbdev, and xserver-xorg-extension-glx in the X server. That is
   # what gives the X server glamor -- GPU-accelerated 2D for the display path,
   # confirmed enabled on the board with no software rasteriser mapped. It is
-  # load-bearing for the throughput the panel reaches, and it is the display
-  # path only: WebKit paints above it in software, because accelerated
-  # compositing measures worse on this SoC. See
-  # docs/issue_investigation/gpu_compositing/README.md under "Engine levers,
-  # measured and exhausted". The `graphics` block carries the overlay and the
+  # load-bearing for the throughput the panel reaches. WPE WebKit composites
+  # every frame on the GPU through mesa's GLES; what compositing costs on this
+  # SoC is in docs/issue_investigation/gpu_compositing/README.md under "Engine
+  # levers, measured and exhausted". The `graphics` block carries the overlay and the
   # mesa pin that go with it; kiosk-launch carries the renderer and the mode.
   display: |
     # console=tty1 ONLY. The kiosk panel is the console (owner, 2026-08-12) --
