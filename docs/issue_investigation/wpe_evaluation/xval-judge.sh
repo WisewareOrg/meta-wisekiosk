@@ -6,8 +6,9 @@
 #         both pairs, and helper A vs helper B AE > 0 on the clock crop
 #   rc 1  fail: a frame not 1280x720, a static-crop AE != 0, or the clock crop unchanged
 #   rc 2  could not judge: a frame missing or unreadable, a crop not wholly inside the frame, a
-#         tool failure, or the static crop too flat to expose a de-tile or channel-order bug
-#         (< 256 colours, or < 1% of pixels with |R-B| >= 32)
+#         tool failure, or the static crop too flat to expose a de-tile or channel-order bug:
+#         < 256 colours or < 1% of pixels with |R-B| >= 32; or, when frame A is grayscale
+#         (R=G=B everywhere, channel order then unverifiable), < 32 grey levels
 # Full-frame AE per pair is printed, not judged. Needs ImageMagick on this host.
 set -u
 D=${1:?dir}; S=${2:?static-crop}; C=${3:?clock-crop}
@@ -43,11 +44,18 @@ done
 
 colours=$(identify -format '%k' "$D/A.ppm[$S]" 2> "$ERR") ||
 	{ echo "COULD NOT JUDGE: identify failed on the static crop: $(cat "$ERR")"; exit 2; }
-rb=$(magick "$D/A.ppm[$S]" -fx 'abs(r-b)>=32/255' -format '%[fx:mean]' info: 2> "$ERR") ||
-	{ echo "COULD NOT JUDGE: magick failed on the static crop: $(cat "$ERR")"; exit 2; }
-echo "static crop $S: $colours colours, |R-B|>=32 on fraction $rb"
-if [ "$colours" -lt 256 ] || awk -v f="$rb" 'BEGIN { exit !(f < 0.01) }'; then
-	echo "COULD NOT JUDGE: crop too flat"; exit 2
+tint=$(magick "$D/A.ppm" -fx 'abs(r-g)+abs(g-b)' -format '%[fx:maxima]' info: 2> "$ERR") ||
+	{ echo "COULD NOT JUDGE: magick failed on frame A: $(cat "$ERR")"; exit 2; }
+if [ "$tint" = 0 ]; then
+	echo "static crop $S: $colours grey levels; channel order unverifiable (grayscale frame)"
+	[ "$colours" -ge 32 ] || { echo "COULD NOT JUDGE: crop too flat"; exit 2; }
+else
+	rb=$(magick "$D/A.ppm[$S]" -fx 'abs(r-b)>=32/255' -format '%[fx:mean]' info: 2> "$ERR") ||
+		{ echo "COULD NOT JUDGE: magick failed on the static crop: $(cat "$ERR")"; exit 2; }
+	echo "static crop $S: $colours colours, |R-B|>=32 on fraction $rb"
+	if [ "$colours" -lt 256 ] || awk -v f="$rb" 'BEGIN { exit !(f < 0.01) }'; then
+		echo "COULD NOT JUDGE: crop too flat"; exit 2
+	fi
 fi
 
 rc=0
