@@ -48,8 +48,3 @@ FILES:${PN} = " \
     ${datadir}/kiosk-bootprof/time-to-page.js \
     ${systemd_system_unitdir}/kiosk-bootprofile.service \
 "
-
-# xprop/xwininfo for measure-surf.sh; they are already in the image via
-# packagegroup-core-x11, named here so the dependency is explicit rather than
-# incidental.
-RDEPENDS:${PN} = "xprop xwininfo"
