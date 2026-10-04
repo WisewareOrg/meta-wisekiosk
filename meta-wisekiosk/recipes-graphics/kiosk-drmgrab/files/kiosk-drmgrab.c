@@ -16,8 +16,12 @@
  * Output: P6, 8-bit RGB, the X/alpha channel dropped; optionally cropped to
  * WxH+X+Y, which must lie inside the framebuffer.
  *
+ * Drops DRM master straight after opening the card, leaving master free for a
+ * display server that starts during a capture.
+ *
  * Exit 0 on a written frame. Any failure exits 1 with the reason on stderr and
- * leaves nothing at <out>.
+ * leaves nothing at <out>: <out> is removed first, the frame is written to
+ * <out>.tmp and renamed into place only once complete.
  */
 #define _GNU_SOURCE
 #include <errno.h>
@@ -39,7 +43,7 @@
 #define CARD "/dev/dri/card0"
 
 static const char *out_path;
-static int out_created;
+static char *tmp_path;
 
 static void fail(const char *fmt, ...) __attribute__((format(printf, 1, 2), noreturn));
 
@@ -52,8 +56,8 @@ static void fail(const char *fmt, ...)
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
 	fputc('\n', stderr);
-	if (out_created)
-		unlink(out_path);
+	if (tmp_path)
+		unlink(tmp_path);
 	exit(1);
 }
 
@@ -102,10 +106,13 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	out_path = argv[1];
+	if (unlink(out_path) && errno != ENOENT)
+		fail("remove %s: %s", out_path, strerror(errno));
 
 	fd = open(CARD, O_RDWR | O_CLOEXEC);
 	if (fd < 0)
 		fail("open %s: %s", CARD, strerror(errno));
+	drmDropMaster(fd);
 
 	res = drmModeGetResources(fd);
 	if (!res)
@@ -174,10 +181,13 @@ int main(int argc, char **argv)
 	if (!row)
 		fail("out of memory");
 
-	out = fopen(out_path, "wb");
+	if (asprintf(&tmp_path, "%s.tmp", out_path) < 0) {
+		tmp_path = NULL;
+		fail("out of memory");
+	}
+	out = fopen(tmp_path, "wb");
 	if (!out)
-		fail("open %s: %s", out_path, strerror(errno));
-	out_created = 1;
+		fail("open %s: %s", tmp_path, strerror(errno));
 	fprintf(out, "P6\n%u %u\n255\n", cw, ch);
 
 	sync.flags = DMA_BUF_SYNC_START | DMA_BUF_SYNC_READ;
@@ -199,14 +209,16 @@ int main(int argc, char **argv)
 			q[2] = v;
 		}
 		if (fwrite(row, 3, cw, out) != cw)
-			fail("write %s: %s", out_path, strerror(errno));
+			fail("write %s: %s", tmp_path, strerror(errno));
 	}
 	sync.flags = DMA_BUF_SYNC_END | DMA_BUF_SYNC_READ;
 	if (ioctl(pfd, DMA_BUF_IOCTL_SYNC, &sync))
 		fail("DMA_BUF_IOCTL_SYNC end: %s", strerror(errno));
 
 	if (fclose(out))
-		fail("close %s: %s", out_path, strerror(errno));
+		fail("close %s: %s", tmp_path, strerror(errno));
+	if (rename(tmp_path, out_path))
+		fail("rename %s to %s: %s", tmp_path, out_path, strerror(errno));
 
 	munmap(map, len);
 	close(pfd);
