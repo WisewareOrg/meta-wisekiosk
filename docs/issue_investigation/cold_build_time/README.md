@@ -221,9 +221,10 @@ either way -- `-j8` was never tried, per the plan.
 Two `.ninja_log`s happen to survive at the same `-j2`/`-g1` configuration this ticket changed:
 `20260929042915` (**not** one of the three canonical buildstats priors above -- a separately-dated
 build that happens to share the same webkitgtk3 work dir and configuration) and `20261002222637`
-(the third canonical prior, cited above). The three other runs' own `.ninja_log`s were already
-overwritten in place before this investigation began. All three `.ninja_log` inputs (this run's and
-both others') are committed compressed beside this README --
+(the third canonical prior, cited above). The other two canonical priors' own `.ninja_log`s --
+`20260828163401` and `20260930184746` -- were already overwritten in place before this
+investigation began. All three surviving `.ninja_log` inputs (this run's and both others') are
+committed compressed beside this README --
 `ninja_log-20261004023340.xz`, `ninja_log-20260929042915.xz`, `ninja_log-20261002222637.xz` -- since
 the re-enabled pipeline and the post-merge cleanup would otherwise overwrite the two survivors.
 `ninja-log-compare.py`, also committed, reads them (decompress first; its own usage comment gives
