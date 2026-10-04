@@ -128,7 +128,7 @@ Source: `parse-report-20261004023340.md`, `watch-20261004023340.log`, `webkit-co
 | `watch.log` minimum `MemAvailable` | 998428 KB (0.95 GiB), at 08:14:27Z, during final image packaging (after `do_compile`) |
 | `watch.log` minimum `MemAvailable` during `webkitgtk3:do_compile` itself | ~1119716 KB (1.07 GiB) |
 | `watch.log` maximum `/proc/pressure/memory` `full avg300` | 1.84 (restart threshold is 10 for 15 consecutive samples; never approached) |
-| tasks attempted / rerun-not-needed / succeeded | 7270 / 0 / 7270 (buildstats: 7245 real + setscene) |
+| tasks attempted / rerun-not-needed / succeeded | 7270 / 0 / 7270 (7245 task files in buildstats, 0 setscene; the other 25 are `noexec` meta-tasks like `do_build`, which write no buildstats file) |
 | PSI / OOM-kill triggers | neither fired (max PSI 1.84; 0 OOM lines in `dmesg`, 0 `Killed` in `run.log` and `log.do_compile`, checked independently of the watcher) |
 | elapsed-time trigger (withdrawn, not acted on) | fired once, 08:10:25Z, `do_compile` at 10837s (~3.01h) |
 
@@ -163,7 +163,8 @@ run is the first one with 0 restored: 7245 real tasks, all executed. The three p
 6h51m-9h44m49s despite that partial reuse, against this run's full cold 5h46m37s.
 
 **Hypothesis: "the three levers together cut the cold build well below the priors' range" --
-CONFIRMED, against a worse baseline than first stated.** Cold full build measured at 5h46m37s,
+CONFIRMED, and conservatively: the priors did less work than this run (sstate reuse) yet still took
+longer, so the comparison favors them, not this run.** Cold full build measured at 5h46m37s,
 against the three named priors' (`20260828163401`, `20260930184746`, `20261002222637`)
 partial-rebuild range of 6h51m-9h44m49s; `webkitgtk3:do_compile` alone fell to 11144s against those
 same three runs' do_compile range of 17318-21960s (`-j2`, debug info on, icon theme present, per
@@ -276,7 +277,9 @@ this data.
 - This measurement harness (`proofs.sh`, `write-overlay.sh`, `run-cold-build.sh`, `watch.sh`,
   `restart-webkit.sh`, `collect.sh`, `parse_buildstats.py`), frozen at merge like the rest of this
   directory.
-- The replaced figures (cold full build, WebKit-invalidating rebuild) are placed in README.md,
-  CONTRIBUTING.md, CLAUDE.md, `.claude/skills/measure-first/SKILL.md`,
-  `.claude/hooks/guard-design-surfaces.py`, `guard.sh` and `precompact.sh` wherever they meant the
-  prior ~4.5 h figure.
+- The replaced `~4.5 h` figure is split by meaning across README.md, CONTRIBUTING.md, CLAUDE.md,
+  `.claude/skills/measure-first/SKILL.md` and `.claude/hooks/guard-design-surfaces.py`: ~3 h for a
+  webkit-local change (`PACKAGECONFIG`, a WebKit recipe edit), up to the cold full build (~6 h) for
+  `DISTRO_FEATURES`, `MACHINE_FEATURES` or a poky/meta-openembedded pin bump. `guard.sh` and
+  `precompact.sh` say "up to ~6 h" for any running build, without a WebKit-specific label, since
+  they gate on a build being up rather than on what triggered it.
