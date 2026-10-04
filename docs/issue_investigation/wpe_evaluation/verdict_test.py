@@ -1,21 +1,40 @@
 #!/usr/bin/env python3
-"""Tests for verdict.regression_reasons, the #185 go/no-go function. code-monkey keeps this
-suite green without modifying it.
+"""Tests for verdict.regression_reasons and verdict.flags, the #185 go/no-go and its
+descriptive flags. code-monkey keeps this suite green without modifying it.
 
-Contract (function name/shape is this suite's own design, not a cross-process boundary --
+Contract (function names/shapes are this suite's own design, not a cross-process boundary --
 only verdict.py and this test need to agree on it):
 
     regression_reasons(baseline_runs, candidate_runs, baseline_soak, candidate_soak) -> list[str]
+    flags(baseline_runs, candidate_runs, baseline_soak, candidate_soak) -> list[str]
 
   baseline_runs, candidate_runs: each a list of 3 dicts {"stall_rate": {...}, "pct_under_50":
     float, "fps": float} -- one per smoothness run (#185 plan: 3 runs/image). EVERY run's
-    "stall_rate" is {"lower": float, "upper": float, "bounded": bool} -- an exact run has
-    lower == upper and bounded=False; a bounded run (parse_smoothness.steady_stall_bounds,
-    "E2") has lower < upper and bounded=True. Baseline runs may be bounded too ("E1" below) --
-    this is a uniform shape, not float-or-dict.
+    "stall_rate" is {"lower_rate": float, "upper_rate": float, "bounded": bool} -- an exact run
+    has lower_rate == upper_rate and bounded=False; a bounded run (parse_smoothness.
+    steady_stall_bounds, "E2") has lower_rate < upper_rate and bounded=True. Baseline runs may
+    be bounded too ("E1" below) -- this is a uniform shape, not float-or-dict.
+
+    "F2" (rev-content finding, orchestrator ruling 2026-10-04): these keys are named
+    lower_rate/upper_rate, DISTINCT from steady_stall_bounds' own lower/upper, which are raw
+    COUNTS, not rates -- the verdict must consume rates (count / (sec - 15)), never the bare
+    counts, because two runs can share a count while differing in rate (different window
+    lengths). test_rate_not_count_drives_the_verdict below is the case that would pass on
+    counts and fail on rates if the wiring used the wrong one.
+
   baseline_soak, candidate_soak: each a dict {"fmax": int, "fever": int, "restarts": int,
     "reboots": int, "memory_problem": bool} -- one 1h soak per image (#185 plan: 1h/config).
-  Returns a list of human-readable reason strings; [] means go (no regression).
+
+  regression_reasons returns a list of human-readable reason strings; [] means go (no
+  regression) -- UNCHANGED by this suite's revision.
+
+  flags (new, "F1", rev-content finding, orchestrator ruling 2026-10-04): a SEPARATE list of
+  descriptive strings, not go/no-go -- a straddle that resolves CLEAR still gets a flag (the
+  bound was genuinely ambiguous even though the call came out clean), containing both
+  "straddle" and "clear"; a straddle that resolves as a REGRESSION gets a flag containing
+  "judged on upper bound" (regression_reasons' own phrase for that case). A DEFINITE regression
+  (CL > BU) or a DEFINITE clear (CU <= BL) is not a straddle at all, so flags() carries no
+  "straddle" entry for either.
 
 Rules encoded (#185 plan "Verdict" / "Range rule", owner rulings 2026-10-04):
   - pct_under_50: regression iff min(candidate) < min(baseline)           [worse = lower]
@@ -32,10 +51,10 @@ Rules encoded (#185 plan "Verdict" / "Range rule", owner rulings 2026-10-04):
 
   STALL RATE -- "E1" (rev-content finding, orchestrator ruling 2026-10-04): a baseline run can
   be bounded too, so the comparison is bound-vs-bound, not bound-vs-a-single-baseline-float.
-    BL = max over baseline_runs of stall_rate.lower   (an exact run contributes its [x, x])
-    BU = max over baseline_runs of stall_rate.upper
-    CL = max over candidate_runs of stall_rate.lower  (the candidate's worst run's floor)
-    CU = max over candidate_runs of stall_rate.upper  (the candidate's worst run's ceiling)
+    BL = max over baseline_runs of stall_rate.lower_rate   (an exact run contributes its [x, x])
+    BU = max over baseline_runs of stall_rate.upper_rate
+    CL = max over candidate_runs of stall_rate.lower_rate  (the candidate's worst run's floor)
+    CU = max over candidate_runs of stall_rate.upper_rate  (the candidate's worst run's ceiling)
   Then:
     - CL > BU  -> a DEFINITE regression (even the candidate's floor exceeds the baseline's
       own ceiling). Must NOT carry the "judged on upper bound" phrase (reserved below).
@@ -47,7 +66,8 @@ Rules encoded (#185 plan "Verdict" / "Range rule", owner rulings 2026-10-04):
   CL > B definite, CU <= B clear, else straddle on CU > B -- i.e. CU > B either way, so it is
   simply "CU > B -> regression" once BL == BU, same outcome as the pre-E1 rule.
   A MIXED candidate set (some runs exact, some bounded) is exercised directly: an exact run's
-  [x, x] must feed both CL and CU like any other run's lower/upper (rev-content finding).
+  [x, x] must feed both CL and CU like any other run's lower_rate/upper_rate would (rev-content
+  finding).
 
 Run: python3 verdict_test.py
 """
@@ -64,11 +84,12 @@ def check(name, cond, detail=""):
     print(f"[{status}] {name}" + (f" -- {detail}" if detail and not cond else ""))
 
 
-def stall(lower, upper=None):
-    """A run's stall_rate entry. upper=None -> an exact run: lower==upper, bounded=False."""
-    if upper is None:
-        return {"lower": lower, "upper": lower, "bounded": False}
-    return {"lower": lower, "upper": upper, "bounded": True}
+def stall(lower_rate, upper_rate=None):
+    """A run's stall_rate entry. upper_rate=None -> an exact run: lower_rate==upper_rate,
+    bounded=False."""
+    if upper_rate is None:
+        return {"lower_rate": lower_rate, "upper_rate": lower_rate, "bounded": False}
+    return {"lower_rate": lower_rate, "upper_rate": upper_rate, "bounded": True}
 
 
 def runs(stall_rates, pcts, fpses):
@@ -195,28 +216,28 @@ def test_degenerate_range_one_tick_worse_is_a_regression():
 
 
 def test_bounded_stall_rate_clear_regression_when_even_the_floor_exceeds_baseline():
-    # baseline max stall_rate is 0.02; lower=0.03 already exceeds it -> definite regression,
-    # NOT the "judged on upper bound" case (that phrase is reserved for the straddle case).
+    # baseline max stall_rate is 0.02; lower_rate=0.03 already exceeds it -> definite
+    # regression, NOT the "judged on upper bound" case (reserved for the straddle case).
     cand = runs([stall(0.03, 0.05)] * 3, [99.0] * 3, [59.0] * 3)
     reasons = v.regression_reasons(BASE_RUNS, cand, BASE_SOAK, BASE_SOAK)
-    check("bounded, lower > baseline max -> stall regression flagged",
+    check("bounded, lower_rate > baseline max -> stall regression flagged",
           any("stall" in r.lower() for r in reasons), detail=str(reasons))
-    check("bounded, lower > baseline max -> NOT flagged as judged-on-upper-bound",
+    check("bounded, lower_rate > baseline max -> NOT flagged as judged-on-upper-bound",
           not any("judged on upper bound" in r.lower() for r in reasons), detail=str(reasons))
 
 
 def test_bounded_stall_rate_clear_pass_when_even_the_ceiling_is_within_baseline():
-    # baseline max stall_rate is 0.02; upper=0.015 never reaches it -> definitely not a
+    # baseline max stall_rate is 0.02; upper_rate=0.015 never reaches it -> definitely not a
     # regression, regardless of what the true value within [0.005, 0.015] turns out to be.
     cand = runs([stall(0.005, 0.015)] * 3, [99.0] * 3, [59.0] * 3)
     reasons = v.regression_reasons(BASE_RUNS, cand, BASE_SOAK, BASE_SOAK)
-    check("bounded, upper <= baseline max -> no stall regression",
+    check("bounded, upper_rate <= baseline max -> no stall regression",
           not any("stall" in r.lower() for r in reasons), detail=str(reasons))
 
 
 def test_bounded_stall_rate_straddle_is_judged_on_upper_bound():
-    # baseline max stall_rate is 0.02; lower=0.015 <= 0.02 < upper=0.025 -- straddles the
-    # bound. The ruling: judge on the upper rate (so it IS a regression) and flag it as
+    # baseline max stall_rate is 0.02; lower_rate=0.015 <= 0.02 < upper_rate=0.025 -- straddles
+    # the bound. The ruling: judge on the upper rate (so it IS a regression) and flag it as
     # "judged on upper bound", distinguishing it from the definite-regression case.
     cand = runs([stall(0.015, 0.025)] * 3, [99.0] * 3, [59.0] * 3)
     reasons = v.regression_reasons(BASE_RUNS, cand, BASE_SOAK, BASE_SOAK)
@@ -271,17 +292,70 @@ def test_bounded_baseline_straddle_clear_when_candidate_ceiling_within_baseline_
 
 def test_mixed_candidate_set_exact_run_feeds_both_lower_and_upper():
     # rev-content finding: a candidate set mixing an exact run ([x, x]) with others must have
-    # the exact run's x feed BOTH CL and CU, same as any bounded run's lower/upper would.
+    # the exact run's x feed BOTH CL and CU, same as any bounded run's bounds would.
     # Against the plain BASE_RUNS (BL=BU=0.02): CL = max(0.03, 0.01, 0.005) = 0.03,
     # CU = max(0.03, 0.02, 0.005) = 0.03. CL(0.03) > BU(0.02) -> definite regression, and it
-    # must come from the EXACT run (0.03), not from the bounded run's own upper (0.02, which
-    # alone would not exceed baseline).
+    # must come from the EXACT run (0.03), not from the bounded run's own upper_rate (0.02,
+    # which alone would not exceed baseline).
     cand = runs([0.03, stall(0.01, 0.02), 0.005], [99.0, 98.5, 99.2], [59.0, 58.5, 59.2])
     reasons = v.regression_reasons(BASE_RUNS, cand, BASE_SOAK, BASE_SOAK)
     check("mixed set: exact run's value drives a definite regression",
           any("stall" in r.lower() for r in reasons), detail=str(reasons))
     check("mixed set: NOT flagged as judged-on-upper-bound (the exact run alone decides it)",
           not any("judged on upper bound" in r.lower() for r in reasons), detail=str(reasons))
+
+
+def test_rate_not_count_drives_the_verdict():
+    # "F2": steady_stall_bounds reports COUNTS under "lower"/"upper"; the verdict must consume
+    # RATES under "lower_rate"/"upper_rate" (count / (sec - 15)) -- never the bare counts.
+    # Two runs with the SAME count (10 stalls each) but different window lengths have
+    # DIFFERENT rates: baseline's window is 200s (rate = 10/185 = 0.05405...), candidate's is
+    # 100s (rate = 10/85 = 0.11765...). By count they read identical (10 == 10, no
+    # regression); by rate the candidate is more than double the baseline's -- a regression.
+    # A verdict wired to the counts instead of the rates would pass this fixture; only the
+    # correct rate-based wiring flags it.
+    baseline_count, baseline_window = 10, 200
+    candidate_count, candidate_window = 10, 100
+    baseline_rate = baseline_count / (baseline_window - 15)
+    candidate_rate = candidate_count / (candidate_window - 15)
+    assert baseline_rate != candidate_rate, "fixture must have genuinely different rates"
+    base = runs([baseline_rate] * 3, [99.0] * 3, [59.0] * 3)
+    cand = runs([candidate_rate] * 3, [99.0] * 3, [59.0] * 3)
+    reasons = v.regression_reasons(base, cand, BASE_SOAK, BASE_SOAK)
+    check("same stall COUNT (10 == 10), different window length -> rate-based regression "
+          "flagged (0.1176 > 0.0541)",
+          any("stall" in r.lower() for r in reasons), detail=str(reasons))
+
+
+# --- "F1": verdict.flags, a separate, non-go/no-go, descriptive list -------
+
+def test_flags_straddle_clear_carries_both_straddle_and_clear():
+    cand = runs([stall(0.021, 0.023)] * 3, [99.0] * 3, [59.0] * 3)
+    flags = v.flags(E1_BASE, cand, BASE_SOAK, BASE_SOAK)
+    check("straddle-clear: a flag mentions both 'straddle' and 'clear'",
+          any("straddle" in f.lower() and "clear" in f.lower() for f in flags),
+          detail=str(flags))
+
+
+def test_flags_straddle_regression_carries_judged_on_upper_bound():
+    cand = runs([stall(0.022, 0.03)] * 3, [99.0] * 3, [59.0] * 3)
+    flags = v.flags(E1_BASE, cand, BASE_SOAK, BASE_SOAK)
+    check("straddle-regression: a flag contains 'judged on upper bound'",
+          any("judged on upper bound" in f.lower() for f in flags), detail=str(flags))
+
+
+def test_flags_definite_regression_has_no_straddle_flag():
+    cand = runs([0.03] * 3, [99.0] * 3, [59.0] * 3)  # CL=CU=0.03 > BU=0.025, definite
+    flags = v.flags(E1_BASE, cand, BASE_SOAK, BASE_SOAK)
+    check("definite regression: no flag mentions 'straddle'",
+          not any("straddle" in f.lower() for f in flags), detail=str(flags))
+
+
+def test_flags_definite_clear_has_no_straddle_flag():
+    cand = runs([0.015] * 3, [99.0] * 3, [59.0] * 3)  # CL=CU=0.015 <= BL=0.02, definite
+    flags = v.flags(E1_BASE, cand, BASE_SOAK, BASE_SOAK)
+    check("definite clear: no flag mentions 'straddle'",
+          not any("straddle" in f.lower() for f in flags), detail=str(flags))
 
 
 if __name__ == "__main__":
@@ -307,6 +381,11 @@ if __name__ == "__main__":
     test_bounded_baseline_straddle_regression_when_candidate_ceiling_exceeds_baseline_ceiling()
     test_bounded_baseline_straddle_clear_when_candidate_ceiling_within_baseline_ceiling()
     test_mixed_candidate_set_exact_run_feeds_both_lower_and_upper()
+    test_rate_not_count_drives_the_verdict()
+    test_flags_straddle_clear_carries_both_straddle_and_clear()
+    test_flags_straddle_regression_carries_judged_on_upper_bound()
+    test_flags_definite_regression_has_no_straddle_flag()
+    test_flags_definite_clear_has_no_straddle_flag()
     print()
     if fails:
         raise SystemExit(f"{fails} check(s) FAILED")
