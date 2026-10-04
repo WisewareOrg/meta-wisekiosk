@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""RED tests for parse_smoothness, the #185 smoothness-probe parser.
-
-parse_smoothness does not exist yet -- this file is the spec code-monkey makes green,
-proven both ways on synthetic payloads (measure-first; parse_motion_test.py precedent).
+"""Tests for parse_smoothness, the #185 smoothness-probe parser. code-monkey keeps this suite
+green without modifying it, proven both ways on synthetic payloads (measure-first;
+parse_motion_test.py precedent).
 
 Payload spec (unmodified gpu_compositing/p7_min.js, confirmed against its source,
 2026-10-04):
@@ -18,19 +17,28 @@ Judged stats (#185 plan "Smoothness statistics"; owner rulings 2026-10-04):
   - pct_under_50ms, mean_fps: FULL capture, not windowed.
   - steady_stall_rate: count of big[] entries with t >= 15.0 s, divided by (sec - 15.0).
     Exact ONLY when bt == len(big) -- nothing yet evicted.
-  - steady_stall_bounds: the bt > len(big) case (orchestrator ruling 2026-10-04). Returns
-    {"bounded": bool, "lower": int, "upper": int, "lower_rate": float, "upper_rate": float}.
-      bounded=False (bt == len(big)): lower == upper == the exact steady count; both rates
-        equal steady_stall_rate's value.
-      bounded=True (bt > len(big)): big[] has evicted its oldest entries, so the exact
-        steady count can't be recovered --
-          lower = count of RETAINED big[] entries with t >= 15.0 s (a floor: more
-                  qualifying events may have been evicted, since the oldest go first).
-          upper = bt - (count of RETAINED big[] entries with t < 15.0 s) (a ceiling: the
-                  most favourable case, assuming every evicted entry was pre-steady-state).
-        Both rates divide by (sec - 15.0). The verdict's 3-way rule on these bounds
-        (regression / pass / "judged on upper bound") is tested in verdict_test.py, not
-        here -- this file only proves the parser's bound computation.
+  - steady_stall_bounds: the bt > len(big) case (orchestrator ruling 2026-10-04; tightened
+    2026-10-04, "E2" below). Returns {"bounded": bool, "lower": int, "upper": int,
+    "lower_rate": float, "upper_rate": float}. Three cases:
+      bt == len(big): EXACT (nothing evicted). bounded=False, lower==upper==the exact count.
+      bt > len(big) but ANY retained big[] entry has t < 15.0 s: STILL EXACT, not bounded
+        ("E2"). big[] is chronological (oldest first) and evictions remove from the front,
+        so if the oldest retained entry is pre-steady (and since the list is sorted, "any
+        retained entry is pre-steady" means the OLDEST one is), every evicted entry -- all
+        strictly older -- was pre-steady too. None of them could have been a steady-state
+        stall, so the exact count is simply the retained entries with t >= 15.0 s.
+        bounded=False, lower==upper==that count.
+      bt > len(big) AND every retained entry has t >= 15.0 s: genuinely BOUNDED. Nothing in
+        the retained list says whether the evicted entries (all older than every retained
+        one, which already all qualify) were pre- or post-steady --
+          lower = the retained count (every retained entry already qualifies) -- a floor,
+                  since some evicted entries might ALSO have been steady-state stalls.
+          upper = bt (algebraically bt = lower + evicted, so this is the ceiling: the worst
+                  case, assuming every evicted entry was ALSO a steady-state stall).
+        Both rates divide by (sec - 15.0).
+    The verdict's 3-way rule on these bounds (regression / pass / "judged on upper bound") is
+    tested in verdict_test.py, not here -- this file only proves the parser's own bound
+    computation.
   - clusters: recorded, not judged. Consecutive big[] entries (sorted by t, as emitted)
     merge into one cluster when the gap between them is <= 1.0 s (the ruling's "1000 ms").
 
@@ -57,11 +65,21 @@ CLEAN = "MP|500|f8000|av60|mx1200|BT3|H7000.500.300.150.30.15.5|B1.9:300,2.2:107
 # Proves the rate reports an exact 0.0, not None/error, when the window is clean.
 NO_STEADY_STALLS = "MP|100|f6000|av50|mx500|BT2|H5000.600.300.80.15.4.1|B1.0:300,5:260"
 
-# --- BOUNDED: bt=20 > len(big)=14 -- big[] has evicted its 6 oldest entries. Of the 14
-# retained, 2 are pre-steady (t=1, t=3) and 12 are >=15s. lower=12, upper=20-2=18.
-BOUNDED = ("MP|600|f30000|av20|mx1500|BT20|H29000.600.300.70.20.8.2"
-           "|B1:300,3:300,20:300,25:300,30:300,100:300,150:300,200:300,250:300,300:300,"
-           "350:300,400:300,450:300,500:300")
+# --- EXACT_DESPITE_EVICTION: bt=20 > len(big)=14 -- big[] has evicted its 6 oldest entries.
+# But 2 of the 14 RETAINED entries are still pre-steady (t=1, t=3), so by "E2" every evicted
+# entry (older still) was pre-steady too -- the count is EXACT, 12, not a bound.
+EXACT_DESPITE_EVICTION = (
+    "MP|600|f30000|av20|mx1500|BT20|H29000.600.300.70.20.8.2"
+    "|B1:300,3:300,20:300,25:300,30:300,100:300,150:300,200:300,250:300,300:300,"
+    "350:300,400:300,450:300,500:300")
+
+# --- TRULY_BOUNDED: bt=20 > len(big)=14, and ALL 14 retained entries are already >= 15s --
+# no retained entry tells us whether the 6 evicted ones were pre- or post-steady. lower=14
+# (every retained entry qualifies), upper=bt=20 (the worst case, see "E2" above).
+TRULY_BOUNDED = (
+    "MP|600|f30000|av20|mx1500|BT20|H29000.600.300.70.20.8.2"
+    "|B20:300,25:300,30:300,35:300,40:300,45:300,50:300,55:300,60:300,65:300,"
+    "70:300,75:300,80:300,85:300")
 
 # --- MALFORMED: truncated payload, must not parse.
 MALFORMED = "MP|500|f8000"
@@ -158,21 +176,43 @@ def test_steady_stall_bounds_exact_matches_steady_stall_rate_when_nothing_evicte
           b["lower_rate"] == b["upper_rate"] == want_rate, detail=str(b))
 
 
-def test_steady_stall_bounds_reports_bounded_when_big_is_truncated():
-    d = ps.parse(BOUNDED)
-    check("parse(BOUNDED).bt == 20", d["bt"] == 20)
-    check("parse(BOUNDED) big[] truncated to 14", len(d["big"]) == 14)
+def test_steady_stall_bounds_is_exact_when_a_retained_entry_precedes_steady_state():
+    # "E2": bt=20 > len(big)=14, but 2 of the retained entries are already pre-steady
+    # (t=1, t=3). Since big[] is chronological and the oldest go first, every evicted entry
+    # was pre-steady too -- this is EXACT (12), not a bound, despite bt > len(big).
+    d = ps.parse(EXACT_DESPITE_EVICTION)
+    check("parse(EXACT_DESPITE_EVICTION).bt == 20", d["bt"] == 20)
+    check("parse(EXACT_DESPITE_EVICTION) big[] truncated to 14", len(d["big"]) == 14)
     b = ps.steady_stall_bounds(d)
-    check("steady_stall_bounds(BOUNDED).bounded is True", b["bounded"] is True, detail=str(b))
-    check("steady_stall_bounds(BOUNDED).lower == 12 (retained entries with t>=15)",
-          b["lower"] == 12, detail=str(b))
-    check("steady_stall_bounds(BOUNDED).upper == 18 (bt=20 minus the 2 retained pre-15 entries)",
-          b["upper"] == 18, detail=str(b))
-    check("steady_stall_bounds(BOUNDED).lower_rate == 12/585",
-          abs(b["lower_rate"] - 12 / 585) < 1e-9, detail=str(b))
-    check("steady_stall_bounds(BOUNDED).upper_rate == 18/585",
-          abs(b["upper_rate"] - 18 / 585) < 1e-9, detail=str(b))
-    check("steady_stall_bounds(BOUNDED) lower < upper (a real bound, not a collapsed point)",
+    check("steady_stall_bounds(EXACT_DESPITE_EVICTION).bounded is False",
+          b["bounded"] is False, detail=str(b))
+    check("steady_stall_bounds(EXACT_DESPITE_EVICTION).lower == upper == 12",
+          b["lower"] == 12 and b["upper"] == 12, detail=str(b))
+    check("steady_stall_bounds(EXACT_DESPITE_EVICTION) rates equal 12/585",
+          abs(b["lower_rate"] - 12 / 585) < 1e-9 and abs(b["upper_rate"] - 12 / 585) < 1e-9,
+          detail=str(b))
+
+
+def test_steady_stall_bounds_is_bounded_only_when_every_retained_entry_is_already_steady():
+    # "E2": bt=20 > len(big)=14, and ALL 14 retained entries are already >= 15s -- nothing
+    # tells us whether the 6 evicted entries were pre- or post-steady. Genuinely bounded:
+    # lower=14 (every retained entry qualifies), upper=bt=20.
+    d = ps.parse(TRULY_BOUNDED)
+    check("parse(TRULY_BOUNDED).bt == 20", d["bt"] == 20)
+    check("parse(TRULY_BOUNDED) big[] truncated to 14", len(d["big"]) == 14)
+    check("parse(TRULY_BOUNDED) no retained entry precedes steady state",
+          all(t >= 15.0 for t, _ in d["big"]))
+    b = ps.steady_stall_bounds(d)
+    check("steady_stall_bounds(TRULY_BOUNDED).bounded is True", b["bounded"] is True,
+          detail=str(b))
+    check("steady_stall_bounds(TRULY_BOUNDED).lower == 14", b["lower"] == 14, detail=str(b))
+    check("steady_stall_bounds(TRULY_BOUNDED).upper == 20 (== bt)", b["upper"] == 20,
+          detail=str(b))
+    check("steady_stall_bounds(TRULY_BOUNDED).lower_rate == 14/585",
+          abs(b["lower_rate"] - 14 / 585) < 1e-9, detail=str(b))
+    check("steady_stall_bounds(TRULY_BOUNDED).upper_rate == 20/585",
+          abs(b["upper_rate"] - 20 / 585) < 1e-9, detail=str(b))
+    check("steady_stall_bounds(TRULY_BOUNDED) lower < upper (a real bound, not collapsed)",
           b["lower"] < b["upper"], detail=str(b))
 
 
@@ -186,7 +226,8 @@ if __name__ == "__main__":
     test_clusters_merges_within_1s_and_splits_beyond_it()
     test_clusters_does_not_merge_everything()
     test_steady_stall_bounds_exact_matches_steady_stall_rate_when_nothing_evicted()
-    test_steady_stall_bounds_reports_bounded_when_big_is_truncated()
+    test_steady_stall_bounds_is_exact_when_a_retained_entry_precedes_steady_state()
+    test_steady_stall_bounds_is_bounded_only_when_every_retained_entry_is_already_steady()
     print()
     if fails:
         raise SystemExit(f"{fails} check(s) FAILED")

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-"""RED tests for parse_module_fault, the #185 module-fault probe parser.
-
-parse_module_fault does not exist yet -- this file is the spec code-monkey makes green.
+"""Tests for parse_module_fault, the #185 module-fault probe parser. code-monkey keeps this
+suite green without modifying it.
 
 Payload format (NEW probe; no in-tree precedent existed, so wpe-tests proposed it and the
 orchestrator ruled it binding on #185 2026-10-04 -- it binds the title-channel emitter on X
@@ -13,7 +12,11 @@ and the console-to-journal emitter on WPE equally, so this one parser reads both
   f      [data-module-faulted] elements present RIGHT NOW (this sample)
   fmax   max simultaneous [data-module-faulted] count ever seen this session (running max,
          maintained by the in-page probe itself, like p7_min.js's BT)
-  fever  count of DISTINCT [data-module-faulted] elements ever seen this session
+  fever  count of distinct faulted REGIONS ever seen this session (ruling 2026-10-04): a
+         [data-module-faulted] marker is keyed by its nearest [data-region] ancestor's value;
+         a marker with NO such ancestor is keyed by the element itself, so two region-less
+         markers are two distinct entries, and one that faults, resets and re-faults as a new
+         element counts again -- see mf-probe-test.js for the probe-level proof.
   u      [data-module-unavailable] elements present right now -- recorded, not judged
   umax   max simultaneous [data-module-unavailable] ever seen -- recorded, not judged
 
@@ -105,12 +108,27 @@ def test_soak_summary_skips_unparseable_lines():
           s["fmax"] == 1 and s["fever"] == 1 and s["umax"] == 0, detail=str(s))
 
 
+def test_soak_summary_raises_when_nothing_parses():
+    # A dead title readback (probe never ran, or every line is noise) must never read as
+    # fmax=0/fever=0 -- that is indistinguishable from "ran fine, zero faults ever". It must
+    # raise instead.
+    for name, lines in (("zero parseable lines", ["# only noise", MALFORMED, NOT_A_PAYLOAD]),
+                         ("an empty list", [])):
+        try:
+            pmf.soak_summary(lines)
+        except ValueError:
+            check(f"soak_summary({name}) raises ValueError", True)
+        else:
+            check(f"soak_summary({name}) raises ValueError", False)
+
+
 if __name__ == "__main__":
     test_parse_sample()
     test_parse_rejects_malformed()
     test_soak_summary_monotonic_run()
     test_soak_summary_survives_a_mid_run_restart()
     test_soak_summary_skips_unparseable_lines()
+    test_soak_summary_raises_when_nothing_parses()
     print()
     if fails:
         raise SystemExit(f"{fails} check(s) FAILED")
