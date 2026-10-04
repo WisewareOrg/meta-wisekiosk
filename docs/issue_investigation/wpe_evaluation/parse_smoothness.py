@@ -40,6 +40,16 @@ def steady_stall_rate(d, steady_from=15.0):
     return sum(1 for t, _ in d["big"] if t >= steady_from) / (d["sec"] - steady_from)
 
 
+def steady_stall_bounds(d, steady_from=15.0):
+    """Exact when nothing has left big[]; otherwise a floor and a ceiling on the steady count."""
+    lower = sum(1 for t, _ in d["big"] if t >= steady_from)
+    bounded = d["bt"] > len(d["big"])
+    upper = d["bt"] - (len(d["big"]) - lower) if bounded else lower
+    span = d["sec"] - steady_from
+    return {"bounded": bounded, "lower": lower, "upper": upper,
+            "lower_rate": lower / span, "upper_rate": upper / span}
+
+
 def clusters(d, gap=1.0):
     out = []
     for e in d["big"]:
@@ -58,7 +68,12 @@ def main(path):
     print(f"window {d['sec']} s  frames {d['frames']}  bt {d['bt']}  big[] {len(d['big'])}")
     print(f"mean fps          {mean_fps(d):.2f}")
     print(f"% frames <50 ms   {pct_under_50ms(d):.1f}")
-    print(f"stall rate t>=15  {steady_stall_rate(d):.4f}/s")
+    b = steady_stall_bounds(d)
+    if b["bounded"]:
+        print(f"stall rate t>=15  BOUNDED {b['lower_rate']:.4f}-{b['upper_rate']:.4f}/s "
+              f"({b['lower']}-{b['upper']} stalls)")
+    else:
+        print(f"stall rate t>=15  {b['lower_rate']:.4f}/s")
     print(f"clusters          {[len(c) for c in clusters(d)]}")
 
 
