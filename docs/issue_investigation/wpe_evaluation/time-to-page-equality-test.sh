@@ -101,7 +101,15 @@ EOF
 
     cat > "$dir/xprop" << 'EOF'
 #!/bin/sh
-printf 'WM_NAME(STRING) = "T %s"\n' "$TTP_EPOCH_MS"
+# surf prefixes every window title -- the real board shows
+# `WM_NAME(STRING) = "@cgDISMfxT:- | T 1791152777902"`, never a bare "T <epoch_ms>". The
+# equality cases below exercise that realistic, prefixed form; TTP_WM_NAME, when set,
+# overrides it entirely for the dedicated title-parsing cases further down.
+if [ -n "${TTP_WM_NAME:-}" ]; then
+    printf 'WM_NAME(STRING) = "%s"\n' "$TTP_WM_NAME"
+else
+    printf 'WM_NAME(STRING) = "@cgDISMfxT:- | T %s"\n' "$TTP_EPOCH_MS"
+fi
 EOF
 
     # journalctl's short-monotonic clock-step search runs unconditionally in BOTH scripts,
@@ -114,7 +122,7 @@ run() {
     local script=$1
     env -i PATH="$STUBBIN:$PATH" \
         TTP_S="$TTP_S" TTP_UP="$TTP_UP" TTP_EPOCH_MS="$TTP_EPOCH_MS" \
-        TTP_STEP_LINE="${TTP_STEP_LINE:-}" TTP_STATE="$STATE" \
+        TTP_STEP_LINE="${TTP_STEP_LINE:-}" TTP_STATE="$STATE" TTP_WM_NAME="${TTP_WM_NAME:-}" \
         sh "$script" 115
 }
 
@@ -158,12 +166,56 @@ check_case() {
     fi
 }
 
+# --- time-to-page-x.sh's own title-prefix parsing, X-only -------------------------------
+# #185 ruling 2026-10-04 (urgent, blocks S1): surf prefixes every window title; the real
+# board's xprop shows `WM_NAME(STRING) = "@cgDISMfxT:- | T 1791152777902"`, and
+# time-to-page-x.sh's `case "$t" in 'T '[0-9]*)` is anchored at the START of $t, so a
+# prefixed title never matches and every baseline boot times out. These two cases check the
+# fix behaviourally against the real script, not its mechanism.
+check_x_title_parses() {
+    local name=$1 wm_name=$2 want_title=$3
+    STATE=$(mktemp -d); rm -f "$STATE/date_calls"
+    local out
+    TTP_WM_NAME=$wm_name out=$(run "$TTP_X")
+    rm -rf "$STATE"
+    local got
+    got=$(field "$out" "title")
+    if [ "$got" = "$want_title" ]; then
+        pass=$((pass + 1))
+    else
+        fail=$((fail + 1))
+        echo "FAIL  $name: want title='$want_title', got '$got'" >&2
+        printf '%s\n' "$out" | sed 's/^/      /' >&2
+    fi
+}
+
+check_x_title_rejects() {
+    local name=$1 wm_name=$2
+    STATE=$(mktemp -d); rm -f "$STATE/date_calls"
+    local out rc
+    TTP_WM_NAME=$wm_name out=$(run "$TTP_X"); rc=$?
+    rm -rf "$STATE"
+    if [ "$rc" -eq 1 ] && [[ "$out" == *"TIMEOUT"* ]]; then
+        pass=$((pass + 1))
+    else
+        fail=$((fail + 1))
+        echo "FAIL  $name: want TIMEOUT (rc=1), got rc=$rc" >&2
+        printf '%s\n' "$out" | sed 's/^/      /' >&2
+    fi
+}
+
 STUBBIN=$(mktemp -d)
 make_stub_bin "$STUBBIN"
 trap 'rm -rf "$STUBBIN"' EXIT
 
 TTP_STEP_LINE="$LATE_STEP"  check_case "a clock step AFTER the beacon -> SUSPECT in both" yes
 TTP_STEP_LINE="$EARLY_STEP" check_case "a clock step BEFORE the beacon -> SUSPECT in neither" no
+
+TTP_STEP_LINE=''
+check_x_title_parses "surf-prefixed xprop title (the board's own example) parses" \
+    '@cgDISMfxT:- | T 1791152777902' 'T 1791152777902'
+check_x_title_rejects "a title ending in stray (non-digit) characters after T <n> is rejected" \
+    '@x | T 12a'
 
 echo "time-to-page-equality: pass=$pass fail=$fail"
 [ "$fail" -eq 0 ]
