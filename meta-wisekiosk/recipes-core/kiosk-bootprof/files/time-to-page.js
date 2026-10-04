@@ -8,7 +8,7 @@
   var t = setInterval(function () {
     var g = document.querySelector('[data-weather-glyph]');
     if (g && g.textContent.trim().length > 0 && document.fonts.check('1em "Weather Icons"')) {
-      document.title = 'T ' + Math.round(performance.timeOrigin + performance.now());
+      document.title = 'T ' + Date.now();
       clearInterval(t);
     }
   }, 200);

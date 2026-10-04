@@ -5,8 +5,8 @@
 # page is up, at uptime READ_AT (default 115) with no polling before it, and prints time to page:
 # epoch_ms - boot_epoch_ms. boot_epoch_ms is read at a wall-clock second boundary, because
 # busybox date has no %N: spin until `date +%s` rolls over, then read /proc/uptime. A clock
-# step or timesyncd sync logged after kiosk.service started puts the two readings in different
-# wall-clock frames, so that boot is printed SUSPECT.
+# step or timesyncd sync logged after the beacon fired (monotonic stamp later than the time to
+# page) puts the two readings in different wall-clock frames, so that boot is printed SUSPECT.
 READ_AT=${1:-115}
 export DISPLAY=:0
 
@@ -35,16 +35,14 @@ if [ -z "$TITLE" ]; then
 	exit 1
 fi
 echo "title:         $TITLE"
-KSTART=$(systemctl show -p ExecMainStartTimestampMonotonic --value kiosk)
+BOOT=$(awk -v s="$S" -v up="$UP" 'BEGIN { printf "%.0f", (s + 1) * 1000 - up * 1000 }')
+TTP=$(awk -v e="${TITLE#T }" -v b="$BOOT" 'BEGIN { printf "%.2f", (e - b) / 1000 }')
 STEPS=$(journalctl -b -o short-monotonic --no-pager |
 	grep -E 'Initial clock synchronization|Time has been changed|Contacted time server' |
-	awk -v k="$KSTART" '{ m = $0; sub(/^\[ */, "", m); sub(/\].*/, "", m); if (m * 1000000 > k) print }')
+	awk -v t="$TTP" '{ m = $0; sub(/^\[ */, "", m); sub(/\].*/, "", m); if (m + 0 > t + 0) print }')
 if [ -n "$STEPS" ]; then
 	printf '%s\n' "$STEPS" | sed 's/^/clock_step:    /'
-	echo "SUSPECT: the wall clock changed after kiosk.service started"
+	echo "SUSPECT: the wall clock changed after the beacon fired"
 fi
-awk -v e="${TITLE#T }" -v s="$S" -v up="$UP" 'BEGIN {
-	boot = (s + 1) * 1000 - up * 1000
-	printf "boot_epoch_ms: %.0f\n", boot
-	printf "RESULT_time_to_page_s: %.2f\n", (e - boot) / 1000
-}'
+echo "boot_epoch_ms: $BOOT"
+echo "RESULT_time_to_page_s: $TTP"
