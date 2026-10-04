@@ -678,7 +678,8 @@ Edit|Write|MultiEdit|NotebookEdit)
         # --- RULE 8 -- editing the build tree mid-build ---------------------
         # bitbake parses every recipe at start. Editing now either changes
         # nothing (you build stale content believing otherwise) or invalidates
-        # the run -- and a full run here is ~4.5 h. Done twice on 2026-08-13.
+        # the run -- a multi-hour build (README.md §"Quick start"). Done twice
+        # on 2026-08-13.
         # Environment-dependent by nature, and the self-test says so rather than
         # asserting a block that only holds while a build is up.
         if timeout 5 docker ps --format '{{.Image}}' 2>/dev/null | grep -qi 'kas'; then
@@ -686,7 +687,7 @@ Edit|Write|MultiEdit|NotebookEdit)
 BLOCKED: a kas/bitbake build container is running, and this edits the build tree.
 
 bitbake parsed these recipes at start -- editing now either changes nothing or
-invalidates a run that costs ~4.5 h.
+invalidates a multi-hour run (README.md §"Quick start").
 
 Instead: develop in a git worktree and merge after the build finishes.
   git -C $REPO worktree list

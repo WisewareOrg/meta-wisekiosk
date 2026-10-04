@@ -1,0 +1,32 @@
+# Raw output of (after decompressing each committed ninja_log-<id>.xz to a temp path):
+#   ninja-log-compare.py current_20261004023340=<decompressed ninja_log-20261004023340.xz>
+#       priorA_20260929042915=<decompressed ninja_log-20260929042915.xz>
+#       priorB_20261002222637=<decompressed ninja_log-20261002222637.xz>
+#
+# Each === block is that run's own numbers -- no table in this file holds more
+# than one run's figures (R3). Ratios between runs are computed in the README's
+# prose from these numbers, not tabled here.
+=== current_20261004023340 ===
+total ninja edges        : 6365
+core .o edges (this run)  : 1721
+mean core .o duration (ms): 33395
+total span over core .o edges (s): 11102.0
+core .o edges shared with priorA_20260929042915: 1721 of 1721
+core .o edges shared with priorB_20261002222637: 1721 of 1721
+
+=== priorA_20260929042915 ===
+total ninja edges        : 6365
+core .o edges (this run)  : 1721
+mean core .o duration (ms): 16221
+total span over core .o edges (s): 14767.7
+core .o edges shared with current_20261004023340: 1721 of 1721
+core .o edges shared with priorB_20261002222637: 1721 of 1721
+
+=== priorB_20261002222637 ===
+total ninja edges        : 6365
+core .o edges (this run)  : 1721
+mean core .o duration (ms): 23064
+total span over core .o edges (s): 21909.5
+core .o edges shared with current_20261004023340: 1721 of 1721
+core .o edges shared with priorA_20260929042915: 1721 of 1721
+

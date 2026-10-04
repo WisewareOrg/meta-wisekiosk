@@ -350,6 +350,10 @@ local_conf_header:
     # lever -- no bbappend, and therefore no systemd re-hash.
     BAD_RECOMMENDATIONS += "udev-hwdb"
 
+    # Drops adwaita-icon-theme-symbolic from gtk+3's RRECOMMENDS, which pulls
+    # adwaita-icon-theme -> librsvg -> rust-llvm-native out of the build graph.
+    RRECOMMENDS:gtk+3:remove = "adwaita-icon-theme-symbolic"
+
     # tzdata is a metapackage RDEPENDing on every region; tzdata-americas does
     # NOT pull tzdata-core, so both are named above. /usr/share/zoneinfo is 7.4MB
     # on the device for one fixed site that reads only America/New_York.
@@ -358,20 +362,16 @@ local_conf_header:
     # en-gb, for 2.9MB of /usr/lib/locale.
     IMAGE_LINGUAS = "en-us"
 
-  # WebKit's link step wants several GB per linker process. The host has ~7.7GB,
-  # so cpu_count() parallelism OOMs hours into the build. The fixed caps are a
-  # floor; BB_PRESSURE_MAX_MEMORY is the part that adapts -- bitbake stops
+  # WebKit's link step wants several GB per linker process; the fixed caps are a
+  # floor. BB_PRESSURE_MAX_MEMORY is the part that adapts -- bitbake stops
   # launching new tasks when the kernel reports memory stall above the threshold
   # (microseconds of stall per second; 1000000 would never trigger).
   parallel: |
     BB_NUMBER_THREADS = "6"
     PARALLEL_MAKE = "-j6"
-    # webkitgtk3 translation units peak at 1.0-1.3 GB of compiler RSS. At -j6 on a
-    # 12 GB host this swapped 22 million pages and ran the compilers at ~8% CPU
-    # efficiency -- one source file accumulated 3h45m of wall time for 19 min of
-    # CPU, and the build managed 64 ninja edges in 50 minutes. -j2 is not a
-    # throttle, it is the setting that finishes first.
-    PARALLEL_MAKE:pn-webkitgtk3 = "-j2"
+    PARALLEL_MAKE:pn-webkitgtk3 = "-j6"
+    # Strips -g and -g1 from webkitgtk3's DEBUG_FLAGS; DEBUG_PREFIX_MAP stays.
+    DEBUG_FLAGS:remove:pn-webkitgtk3 = "-g -g1"
     BB_PRESSURE_MAX_MEMORY = "20000"
 
   diskmonitoring: |
