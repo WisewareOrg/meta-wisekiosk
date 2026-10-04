@@ -69,17 +69,17 @@ cited above and in Findings by buildstats id only, never blended into this table
 
 The tree facts this run rests on:
 
-- **Icon theme dropped.** `kiosk-zero-w.yaml`'s `trim:` block adds
+- **Icon theme dropped.** `kiosk-zero-w.yaml:355`'s `trim:` block adds
   `RRECOMMENDS:gtk+3:remove = "adwaita-icon-theme-symbolic"`, which takes `adwaita-icon-theme`,
   `librsvg`, `librsvg-native`, `rust-native`, `rust-llvm-native` and `cargo-native` out of the build
   graph and the image (confirmed: Findings). WebKit's own broken-image and form-control icons are
   compiled into WebCore, so nothing in the running kiosk depends on the removed theme.
   `hicolor-icon-theme` does **not** drop out, contrary to the plan's prediction -- see Findings.
-- **WebKit built without debug info.** The `parallel:` block adds
+- **WebKit built without debug info.** `kiosk-zero-w.yaml:374`'s `parallel:` block adds
   `DEBUG_FLAGS:remove:pn-webkitgtk3 = "-g -g1"`, on top of the recipe's own `-g1` (already in place
   before this ticket). `DEBUG_PREFIX_MAP`'s tokens are untouched, so the webkit `-dbg` packages become
   near-empty rather than disappearing, and nothing in this tree uses them.
-- **WebKit's `PARALLEL_MAKE` raised to `-j6`.** Same `parallel:` block,
+- **WebKit's `PARALLEL_MAKE` raised to `-j6`.** Same `parallel:` block, `kiosk-zero-w.yaml:372`:
   `PARALLEL_MAKE:pn-webkitgtk3 = "-j6"`, matching the global `PARALLEL_MAKE` for the first time.
   `BB_NUMBER_THREADS`, the global `PARALLEL_MAKE`, `BB_PRESSURE_MAX_MEMORY` and every other recipe are
   untouched. `PARALLEL_MAKE` is in bitbake's own `BB_HASHEXCLUDE_COMMON` by default (poky's
@@ -89,7 +89,7 @@ The tree facts this run rests on:
   `tools/rauc-rotate-build.sh`'s `${TOPDIR}` overlay precedent). `DL_DIR` and the pipeline's shared
   `build/sstate-cache` are untouched -- a download is not a build cost, and this investigation never
   writes the pipeline's own sstate.
-- **GTK/WPE is out of scope here**, split to #185.
+- **GTK/WPE is out of scope here**, split to #185 WPE WebKit + cog evaluation.
 - **Restart rule: active thrash or an OOM-kill only.** `/proc/pressure/memory` `full avg300` above 10
   for 15 consecutive 60 s samples while `do_compile` runs, or an OOM-kill. Elapsed `do_compile` time
   alone never triggers a restart -- withdrawn after launch, before this run reached it; `watch.sh`'s

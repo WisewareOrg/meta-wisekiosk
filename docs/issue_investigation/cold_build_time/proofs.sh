@@ -1,6 +1,6 @@
 #!/bin/bash
-# Pre-run proofs for #176: config facts bitbake itself must confirm before the
-# cold build launches. Runs three bitbake calls in one container shell and
+# Pre-run proofs: config facts bitbake itself must confirm before the cold
+# build launches. Runs three bitbake calls in one container shell and
 # checks their output; exits nonzero if (a), (b) or (c) fails.
 #
 # Usage: proofs.sh

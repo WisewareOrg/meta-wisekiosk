@@ -3,14 +3,13 @@
 Parse a Yocto/bitbake buildstats run directory and report where build time went.
 
 Usage:
-    python3 parse_buildstats.py <buildstats_run_dir> [--buckets] [--chain N]
+    python3 parse_buildstats.py <buildstats_run_dir> [bucket_minutes] [chain_n]
 
 A "run dir" is e.g. .../buildstats/20261002222637/ containing one subdir per
 recipe (pn-pv-r0) each holding one file per task that actually executed
 (do_compile, do_fetch, ...). Tasks restored from sstate cache instead of
 executing are logged as <taskname>_setscene -- those are excluded from the
-"real work" accounting throughout, per the ticket's request to find the
-least-setscene (most "cold") runs.
+"real work" accounting throughout as restored, not executed, work.
 
 Each task file has lines like:
     Event: TaskStarted
@@ -123,7 +122,7 @@ def report(run_dir, bucket_minutes=10, chain_n=20):
     out.append(f"Unparsed/skipped files: {skipped}")
     out.append(f"Wall time (first task Started -> last task Ended): {fmt_hms(wall)} ({wall:.1f}s)")
 
-    # ---- #176's two reporting figures ----
+    # ---- the two reporting figures ----
     image_complete = next((t for t in tasks if t['task'] == 'do_image_complete'), None)
     webkit_configure = next(
         (t for t in tasks if t['recipe'].startswith('webkitgtk3-') and t['task'] == 'do_configure'),
