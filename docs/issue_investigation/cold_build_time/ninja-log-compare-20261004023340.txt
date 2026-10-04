@@ -1,0 +1,17 @@
+# Raw output of: ninja-log-compare.py <current .ninja_log> priorA_20260929042915=<...>
+# priorB_20261002222637=<...>
+#
+# Inputs: this run's webkitgtk3 .ninja_log (under build/coldbuild/tmp/work/), and the two
+# surviving prior .ninja_logs (one under this tree's own build/tmp-raspberrypi0-wifi/work/, one
+# under a sibling pipeline build tree on this host). None of the three .ninja_log inputs is
+# committed here -- each is ~2.7 MB of per-build ninja state, and two live outside this repo's
+# tree entirely. This file is the script's output on them, not a re-runnable fixture.
+current: 6365 edges, 1721 core .o edges, span 11102.0s
+
+--- vs priorA_20260929042915 (1721 core .o edges, 1721 matched) ---
+  per-unit mean: current=33395ms prior=16221ms (current/prior=2.06x)
+  throughput span over matched set: current=11102.0s prior=14767.7s (prior/current=1.33x)
+
+--- vs priorB_20261002222637 (1721 core .o edges, 1721 matched) ---
+  per-unit mean: current=33395ms prior=23064ms (current/prior=1.45x)
+  throughput span over matched set: current=11102.0s prior=21909.5s (prior/current=1.97x)

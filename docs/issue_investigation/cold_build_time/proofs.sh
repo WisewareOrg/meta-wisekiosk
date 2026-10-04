@@ -47,12 +47,22 @@ if printf '%s\n' "$debug_line" | grep -qw -e -g -e -g1; then
 fi
 printf '%s\n' "$debug_line" | grep -q 'prefix-map' \
     || { echo "FAIL (a): DEBUG_FLAGS carries no prefix-map token" >> "$PROOFS_DIR/a-webkitgtk3-env.txt"; fail=1; }
-# (b) none of the six removed recipes is in pn-buildlist.
+# (b) none of the six removed recipes is in pn-buildlist. A short buildlist_block
+# (empty capture, wrong cwd, awk markers not matching) would make the comm check
+# below pass vacuously, so the line count is asserted and recorded first.
 removed="adwaita-icon-theme librsvg librsvg-native rust-native rust-llvm-native cargo-native"
-found=$(comm -12 <(tr ' ' '\n' <<< "$removed" | sort) <(printf '%s\n' "$buildlist_block" | sort) || true)
-echo "removed recipes still in pn-buildlist: ${found:-none}" > "$PROOFS_DIR/b-pn-buildlist.txt"
-if [ -n "$found" ]; then
-    echo "FAIL (b): removed recipe(s) present: $found" >> "$PROOFS_DIR/b-pn-buildlist.txt"; fail=1
+buildlist_n=$(printf '%s\n' "$buildlist_block" | grep -c . || true)
+echo "pn-buildlist line count: $buildlist_n" > "$PROOFS_DIR/b-pn-buildlist.txt"
+if [ "$buildlist_n" -lt 50 ]; then
+    echo "FAIL (b): pn-buildlist capture has only $buildlist_n lines -- the capture itself is suspect" \
+        >> "$PROOFS_DIR/b-pn-buildlist.txt"
+    fail=1
+else
+    found=$(comm -12 <(tr ' ' '\n' <<< "$removed" | sort) <(printf '%s\n' "$buildlist_block" | sort) || true)
+    echo "removed recipes still in pn-buildlist: ${found:-none}" >> "$PROOFS_DIR/b-pn-buildlist.txt"
+    if [ -n "$found" ]; then
+        echo "FAIL (b): removed recipe(s) present: $found" >> "$PROOFS_DIR/b-pn-buildlist.txt"; fail=1
+    fi
 fi
 # (c) BB_HASHEXCLUDE_COMMON contains PARALLEL_MAKE.
 hashexclude_line=$(printf '%s\n' "$global_block" | grep -m1 '^BB_HASHEXCLUDE_COMMON=' || true)

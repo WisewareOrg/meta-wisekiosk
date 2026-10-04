@@ -45,9 +45,12 @@ cited above and in Findings by buildstats id only, never blended into this table
   - `collect.sh` -- packs the evidence below after the run.
   - `parse_buildstats.py` -- the two reporting figures, checked against the known prior run
     `20261002222637` (9h44m49s wall, 21960 s WebKit `do_compile`) -- reproduced exactly (see
-    Findings) before being trusted on this run.
+    [Findings](#findings), and the raw output at
+    `parse-report-20261002222637-validation.md`) before being trusted on this run.
   - `ninja-log-compare.py` -- matched-by-filename `.ninja_log` throughput/per-unit comparison
-    against the two surviving prior logs (see [Supporting evidence](#supporting-evidence-ninja_log-throughput-vs-the-two-priors)).
+    against the two surviving prior logs, output captured to
+    `ninja-log-compare-20261004023340.txt` (see
+    [Supporting evidence](#supporting-evidence-ninja_log-throughput-vs-the-two-priors)).
 - **Procedure:** pipeline confirmed idle (`wisekiosk-pipeline.service` inactive, lock free), then
   `just pipeline-off`; `proofs.sh` (all three checks passed); `run-cold-build.sh`, which refused
   once on a non-empty `build/coldbuild/tmp` left by `proofs.sh`'s own `bitbake -e`/`-g` calls (no
@@ -58,7 +61,9 @@ cited above and in Findings by buildstats id only, never blended into this table
   time. `collect.sh` afterward, then `just pipeline-on`.
 - **Raw capture:** `buildstats-20261004023340.tar.xz`, `parse-report-20261004023340.md`,
   `webkit-compile-line-20261004023340.txt`, `manifest-packages-20261004023340.txt`,
-  `local-conf-dirs-20261004023340.txt`, `proofs/{a,b,c}-*.txt`, and `watch-20261004023340.log`.
+  `local-conf-dirs-20261004023340.txt`, `proofs/{a,b,c}-*.txt`, `watch-20261004023340.log`,
+  `ninja-log-compare-20261004023340.txt`, and the prior-run validation
+  `parse-report-20261002222637-validation.md`.
 
 ## Configuration under test
 
@@ -124,6 +129,13 @@ Source: `parse-report-20261004023340.md`, `watch-20261004023340.log`, `webkit-co
   (2187 installed packages).
 
 ## Findings
+
+**`parse_buildstats.py` reproduces the known prior run exactly.** Run against buildstats
+`20261002222637` (a different build tree on this host, pre-existing from before this
+investigation), it reports wall time 9h44m49s (35089.3s) and `webkitgtk3:do_compile` 21960s --
+both match the figures established in discovery exactly. Raw output:
+`parse-report-20261002222637-validation.md`, committed beside this README. This check was run once,
+before Run 1's own output was trusted.
 
 **Hypothesis: "the three levers together cut the cold build from ~9h44m worst case to a few
 hours" -- CONFIRMED.** Cold full build measured at 5h46m37s, against priors of 6h51m-9h44m49s (all
@@ -195,8 +207,11 @@ against both priors, essentially the entire core compile graph):
 slower (CPU cache and memory bandwidth are shared six ways instead of two), but three times as many
 of them land per unit of wall time, and the net is the 1.33x-1.97x the headline cold-full and
 WebKit-rebuild figures above are made of. The script is `ninja-log-compare.py`, committed beside
-this README; its matched edge count (1721/1721 against both priors) confirms it is comparing the
-same real compile graph, not a filtered or lucky subset.
+this README; its raw output is `ninja-log-compare-20261004023340.txt`, also committed -- this
+table is transcribed from that file, not hand-computed. The three `.ninja_log` *inputs* are not
+committed (each ~2.7 MB, and two live on build trees outside this repo); its matched edge count
+(1721/1721 against both priors) is what confirms the comparison covers the real compile graph, not
+a filtered or lucky subset.
 
 ## Changes configured as a result
 
