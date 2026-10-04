@@ -276,8 +276,8 @@ this data.
   plan, was withdrawn after this run launched; it fired once at 08:10:25Z and nothing acted on it --
   see Findings).
 - This measurement harness (`proofs.sh`, `write-overlay.sh`, `run-cold-build.sh`, `watch.sh`,
-  `restart-webkit.sh`, `collect.sh`, `parse_buildstats.py`), frozen at merge like the rest of this
-  directory.
+  `restart-webkit.sh`, `collect.sh`, `parse_buildstats.py`, `ninja-log-compare.py`), frozen at
+  merge like the rest of this directory.
 - The replaced `~4.5 h` figure is split by meaning across README.md, CONTRIBUTING.md, CLAUDE.md,
   `.claude/skills/measure-first/SKILL.md` and `.claude/hooks/guard-design-surfaces.py`: ~3 h for a
   webkit-local change (`PACKAGECONFIG`, a WebKit recipe edit), up to the cold full build (~6 h) for

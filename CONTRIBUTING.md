@@ -159,9 +159,10 @@ silently to whatever occupies it after a renumber.
 
 **Build config & pins**
 
-4. **WebKit cost.** Does this touch webkit's `PACKAGECONFIG`, costing ~3 h? Or `DISTRO_FEATURES`,
-   `MACHINE_FEATURES`, or a poky/meta-openembedded pin bump, costing up to a cold full build,
-   ~6 h? Either is a decision to take before starting, not one to discover afterwards.
+4. **WebKit cost.** Does this touch webkit's `PACKAGECONFIG` or a WebKit recipe, costing ~3 h? Or
+   `DISTRO_FEATURES`, `MACHINE_FEATURES`, or a poky/meta-openembedded pin bump, costing up to a
+   cold full build, ~6 h? Either is a decision to take before starting, not one to discover
+   afterwards.
 5. **kas block collision.** Is every `local_conf_header` block name unique across the include chain?
    kas merges by block name and the top-level file wins, so a duplicate is discarded with no warning,
    no error, and variables that never reach bitbake.
