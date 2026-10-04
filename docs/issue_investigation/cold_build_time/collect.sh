@@ -15,13 +15,16 @@ fi
 RUNID=$(basename "${BSDIR%/}")
 tar -cJf "$HERE/buildstats-$RUNID.tar.xz" -C "$(dirname "${BSDIR%/}")" "$RUNID"
 python3 "$HERE/parse_buildstats.py" "$BSDIR" > "$HERE/parse-report-$RUNID.md"
-COMPILE_LOG=$(find build/coldbuild -path '*/webkitgtk3/*/temp/log.do_compile' -type f 2>/dev/null | head -1 || true)
+# No -type filter: bitbake's log.do_compile is a symlink to the timestamped
+# log, not a regular file.
+COMPILE_LOG=$(find build/coldbuild -path '*/webkitgtk3/*/temp/log.do_compile' 2>/dev/null | head -1 || true)
 {
     echo "# webkitgtk3 log.do_compile excerpt ($RUNID) -- source: ${COMPILE_LOG:-not found}"
     [ -n "$COMPILE_LOG" ] && grep -m1 -E '\-c ' "$COMPILE_LOG"
     [ -n "$COMPILE_LOG" ] && grep -m1 -E 'ninja -v -j' "$COMPILE_LOG"
 } > "$HERE/webkit-compile-line-$RUNID.txt" || true
-MANIFEST=$(find build/coldbuild -path '*/deploy/images/*/core-image-base-*.rootfs.manifest' -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2- || true)
+# No -type filter: the undated .manifest symlink points at the real, dated one.
+MANIFEST=$(find build/coldbuild -path '*/deploy/images/*/core-image-base-*.rootfs.manifest' -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2- || true)
 [ -n "$MANIFEST" ] && cp "$MANIFEST" "$HERE/manifest-packages-$RUNID.txt"
 grep -E '^(TMPDIR|SSTATE_DIR|BUILDHISTORY_DIR|DL_DIR)\b' build/conf/local.conf > "$HERE/local-conf-dirs-$RUNID.txt" || true
 echo "collect.sh: wrote evidence for run $RUNID into $HERE"

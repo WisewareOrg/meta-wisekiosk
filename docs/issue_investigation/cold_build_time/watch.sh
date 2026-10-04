@@ -1,6 +1,8 @@
 #!/bin/bash
-# Samples memory pressure and webkitgtk3's do_compile progress every 60s and
-# flags the owner's restart triggers in watch.log. Exits once run.done exists.
+# Samples memory pressure and webkitgtk3's do_compile progress every 60s into
+# watch.log, and flags a restart trigger: active thrash (PSI full avg300 > 10
+# for 15 consecutive samples) or an OOM-kill. Elapsed do_compile time is
+# logged but never triggers PROBLEM on its own. Exits once run.done exists.
 # Launched detached by run-cold-build.sh; not meant to be run by hand.
 set -euo pipefail
 
@@ -13,7 +15,6 @@ mkdir -p build/coldbuild
 psi_streak=0
 oom_flagged=0
 killed_flagged=0
-long_flagged=0
 
 newest_buildstats() {
     find build/coldbuild -mindepth 3 -maxdepth 3 -type d -path '*/buildstats/*' 2>/dev/null \
@@ -60,10 +61,6 @@ while :; do
         fi
         if [ "$psi_streak" -eq 15 ]; then
             echo "$ts PROBLEM psi full avg300 > 10 for 15 consecutive samples" >> "$LOG"
-        fi
-        if [ "$elapsed" != "-" ] && [ "$long_flagged" -eq 0 ] && [ "$elapsed" -gt 10800 ]; then
-            echo "$ts PROBLEM do_compile running longer than 3h (${elapsed}s)" >> "$LOG"
-            long_flagged=1
         fi
     else
         psi_streak=0
