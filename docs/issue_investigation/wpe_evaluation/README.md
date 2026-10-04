@@ -58,8 +58,9 @@ All one-off and committed beside this README (R2), except where a run names a sh
   on synthetic payloads.
 - `verdict.py` — the go/no-go over the parsed runs, proven by `verdict_test.py`.
 - `run-smoothness.sh` — one smoothness capture (`p7_min.js`, 585 s): pre-run screenshot into
-  `local/`, retried until it shows the rendered dashboard (below), then the [`run-appliance.sh`](../gpu_compositing/run-appliance.sh) sequence with the
-  WPE readback — the probe as `KIOSK_PROBE` user script, its `MP|` title lines read from the kiosk
+  `local/`, retried until it shows the rendered dashboard (below), then the
+  [`run-appliance.sh`](../gpu_compositing/run-appliance.sh) sequence with the WPE readback —
+  the probe as `KIOSK_PROBE` user script, its `MP|` title lines read from the kiosk
   journal, the 1280x720 VOID rule read from DRM debugfs, `kiosk.conf` restored afterwards. The X
   baseline runs called `run-appliance.sh` itself, at the commit each run header names.
   - **Settle threshold:** the pre-run screenshot must be not blank and have mean luma (0–255, as

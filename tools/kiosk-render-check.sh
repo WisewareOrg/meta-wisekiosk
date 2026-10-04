@@ -10,7 +10,8 @@
 # those reads the machinery around the render; none reads the render advancing.
 #
 # HOW IT DECIDES. Capture the scanout twice a few seconds apart with
-# kiosk-drmgrab and compare the bytes. Frames identical -> nothing repainted in that window -> FROZEN.
+# kiosk-drmgrab and compare the bytes. Frames identical -> nothing repainted in
+# that window -> FROZEN.
 #
 # THE ASSUMPTION THIS RESTS ON, stated because it is the whole load-bearing
 # claim: identical frames are ambiguous between "correctly static" and "frozen",
@@ -208,8 +209,9 @@ if [ "${1:-}" = "" ]; then
 fi
 HOST=$1
 
-# Covers the clock's seconds field at 1280x720 in both layouts the page takes: banner absent, and banner present with everything below it pushed down
-# ~95 px. Margin to the left carries the shift a one-digit hour causes. Verified
+# Covers the clock's seconds field at 1280x720 in both layouts the page takes:
+# banner absent, and banner present with everything below it pushed down ~95 px.
+# Margin to the left carries the shift a one-digit hour causes. Verified
 # by cropping a capture of each layout to this geometry and looking at it -- see
 # the header on why "there is something in the region" is not the test.
 CROP=${2:-560x300+220+20}
