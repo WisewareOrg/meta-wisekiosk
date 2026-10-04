@@ -1,9 +1,18 @@
 #!/usr/bin/env python3
 """The #185 go/no-go: every way a candidate image is worse than the X baseline.
 
-Rules and input shapes: verdict_test.py's header. An empty list is go. Every run's stall_rate is
-{"lower", "upper", "bounded"}; an exact run has lower == upper.
+Rules and input shapes: verdict_test.py's header. regression_reasons: an empty list is go.
+flags: descriptive only, never go/no-go. Every run's stall_rate is
+{"lower_rate", "upper_rate", "bounded"}; an exact run has lower_rate == upper_rate.
 """
+
+
+def _stall_bounds(baseline_runs, candidate_runs):
+    def worst(runs, end):
+        return max(x["stall_rate"][end] for x in runs)
+
+    return (worst(baseline_runs, "lower_rate"), worst(baseline_runs, "upper_rate"),
+            worst(candidate_runs, "lower_rate"), worst(candidate_runs, "upper_rate"))
 
 
 def regression_reasons(baseline_runs, candidate_runs, baseline_soak, candidate_soak):
@@ -12,11 +21,7 @@ def regression_reasons(baseline_runs, candidate_runs, baseline_soak, candidate_s
     def col(runs, k):
         return [x[k] for x in runs]
 
-    def worst(runs, end):
-        return max(x["stall_rate"][end] for x in runs)
-
-    bl, bu = worst(baseline_runs, "lower"), worst(baseline_runs, "upper")
-    cl, cu = worst(candidate_runs, "lower"), worst(candidate_runs, "upper")
+    bl, bu, cl, cu = _stall_bounds(baseline_runs, candidate_runs)
     if cl > bu:
         r.append(f"stall rate: candidate worst {cl}-{cu} > baseline max {bl}-{bu}")
     elif cu > bu:
@@ -36,3 +41,12 @@ def regression_reasons(baseline_runs, candidate_runs, baseline_soak, candidate_s
     if candidate_soak["memory_problem"]:
         r.append("memory problem signal in the candidate soak")
     return r
+
+
+def flags(baseline_runs, candidate_runs, baseline_soak, candidate_soak):
+    f = []
+    bl, bu, cl, cu = _stall_bounds(baseline_runs, candidate_runs)
+    if cl <= bu and cu > bl:
+        outcome = "judged on upper bound, regression" if cu > bu else "clear on upper bound"
+        f.append(f"stall rate straddle: candidate {cl}-{cu} vs baseline {bl}-{bu}, {outcome}")
+    return f
