@@ -15,13 +15,16 @@ HERE=$(dirname "$(readlink -f "$0")")
 KSSH=$(git -C "$HERE" rev-parse --show-toplevel)/tools/kiosk-ssh.sh
 [ -e "$OUT" ] && { echo "$OUT exists -- refusing to overwrite a capture" >&2; exit 2; }
 
-echo "# run-time-to-page.sh role=$ROLE boots=3 wait=120 READ_AT=115" > "$OUT"
+{
+echo "# run-time-to-page.sh role=$ROLE boots=3 wait=120 READ_AT=115"
+echo "# harness $(git -C "$HERE" rev-parse HEAD)$(git -C "$HERE" diff --quiet HEAD -- . || echo " DIRTY")"
+} > "$OUT"
 "$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1 <<'EOF' || exit 1
 C=/data/config/kiosk.conf
 if [ -e $C.wpe-bak ] || [ -e $C.wpe-absent ]; then
 	echo "# REFUSED: a kiosk.conf backup exists -- an earlier run did not restore"; exit 1
 fi
-if [ -f $C ]; then cp -p $C $C.wpe-bak; else : > $C.wpe-absent; fi
+if [ -f $C ]; then cp -p $C $C.wpe-bak || exit 1; else : > $C.wpe-absent; fi
 [ -s $C ] && [ -n "$(tail -c 1 $C)" ] && echo >> $C
 printf 'KIOSK_PROBE=1\nKIOSK_PROBE_SCRIPT=/usr/share/kiosk-bootprof/time-to-page.js\n' >> $C
 echo "# time-to-page.js sha256 $(sha256sum < /usr/share/kiosk-bootprof/time-to-page.js | cut -d' ' -f1)"
@@ -48,7 +51,7 @@ done
 
 "$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1 <<'EOF'
 C=/data/config/kiosk.conf
-if [ -f $C.wpe-bak ]; then mv $C.wpe-bak $C; else rm -f $C $C.wpe-absent; fi
+if [ -f $C.wpe-bak ]; then mv $C.wpe-bak $C; elif [ -e $C.wpe-absent ]; then rm -f $C $C.wpe-absent; else echo "# NO BACKUP -- kiosk.conf left as found"; fi
 systemctl restart kiosk
 n=$(grep -c '^KIOSK_PROBE' $C 2>/dev/null)
 echo "# restored: kiosk.conf KIOSK_PROBE lines ${n:-none, file absent}, kiosk restarted"

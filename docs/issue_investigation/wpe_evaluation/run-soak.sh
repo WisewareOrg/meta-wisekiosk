@@ -18,6 +18,7 @@ KSSH=$(git -C "$HERE" rev-parse --show-toplevel)/tools/kiosk-ssh.sh
 
 {
 echo "# run-soak.sh role=$ROLE secs=$SECS"
+echo "# harness $(git -C "$HERE" rev-parse HEAD)$(git -C "$HERE" diff --quiet HEAD -- . || echo " DIRTY")"
 echo "# started $(date -u +%FT%TZ)"
 echo "# probe sha256 local    $(sha256sum < "$HERE/mf-probe.js" | cut -d' ' -f1)"
 } > "$OUT"
@@ -27,7 +28,7 @@ C=/data/config/kiosk.conf
 if [ -e $C.wpe-bak ] || [ -e $C.wpe-absent ]; then
 	echo "# REFUSED: a kiosk.conf backup exists -- an earlier run did not restore"; exit 1
 fi
-if [ -f $C ]; then cp -p $C $C.wpe-bak; else : > $C.wpe-absent; fi
+if [ -f $C ]; then cp -p $C $C.wpe-bak || exit 1; else : > $C.wpe-absent; fi
 [ -s $C ] && [ -n "$(tail -c 1 $C)" ] && echo >> $C
 echo 'KIOSK_PROBE=1' >> $C
 echo "# buildinfo $(grep '^meta-wisekiosk ' /etc/buildinfo)"
@@ -60,7 +61,7 @@ cat /proc/pressure/memory
 echo "=== kernel OOM lines since start-epoch ==="
 journalctl -k --since @$START --no-pager | grep -iE 'out of memory|oom-kill|oom_reaper'
 C=/data/config/kiosk.conf
-if [ -f \$C.wpe-bak ]; then mv \$C.wpe-bak \$C; else rm -f \$C \$C.wpe-absent; fi
+if [ -f \$C.wpe-bak ]; then mv \$C.wpe-bak \$C; elif [ -e \$C.wpe-absent ]; then rm -f \$C \$C.wpe-absent; else echo "# NO BACKUP -- kiosk.conf left as found"; fi
 rm -f /home/root/kiosk-probe.js
 rm -rf /home/root/.cache/cog
 systemctl restart kiosk

@@ -35,6 +35,7 @@ done
 
 {
 echo "# run-smoothness.sh role=$ROLE probe=$(basename "$PROBE") sleep=$SLEEP"
+echo "# harness $(git -C "$HERE" rev-parse HEAD)$(git -C "$HERE" diff --quiet HEAD -- . || echo " DIRTY")"
 echo "# started $(date -u +%FT%TZ)"
 echo "# pre-run screenshot local/$(basename "$SHOT")"
 echo "# probe sha256 local    $(sha256sum < "$PROBE" | cut -d' ' -f1)"
@@ -55,7 +56,7 @@ C=/data/config/kiosk.conf
 if [ -e $C.wpe-bak ] || [ -e $C.wpe-absent ]; then
 	echo "# REFUSED: a kiosk.conf backup exists -- an earlier run did not restore"; exit 1
 fi
-if [ -f $C ]; then cp -p $C $C.wpe-bak; else : > $C.wpe-absent; fi
+if [ -f $C ]; then cp -p $C $C.wpe-bak || exit 1; else : > $C.wpe-absent; fi
 [ -s $C ] && [ -n "$(tail -c 1 $C)" ] && echo >> $C
 echo 'KIOSK_PROBE=1' >> $C
 echo "# probe sha256 deployed $(sha256sum < /home/root/kiosk-probe.js | cut -d' ' -f1)"
@@ -83,7 +84,7 @@ M1=$(mode); printf '%s\n' "$M1" | sed 's/^/# mode-after /' >> "$OUT"
 echo "# bundle $(grep -rhoE 'index-[A-Za-z0-9_]+\.js' /home/root/.cache/cog | sort -u | tr '\n' ' ')"
 echo "# kiosk $(systemctl show -p NRestarts -p ActiveEnterTimestamp kiosk | tr '\n' ' ')"
 C=/data/config/kiosk.conf
-if [ -f $C.wpe-bak ]; then mv $C.wpe-bak $C; else rm -f $C $C.wpe-absent; fi
+if [ -f $C.wpe-bak ]; then mv $C.wpe-bak $C; elif [ -e $C.wpe-absent ]; then rm -f $C $C.wpe-absent; else echo "# NO BACKUP -- kiosk.conf left as found"; fi
 rm -f /home/root/kiosk-probe.js
 rm -rf /home/root/.cache/cog
 systemctl restart kiosk
