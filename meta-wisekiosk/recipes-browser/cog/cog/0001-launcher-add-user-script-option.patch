@@ -1,0 +1,88 @@
+From 58018c8da67374e5c047458ab82c9dcedd6b452b Mon Sep 17 00:00:00 2001
+From: Wise <47094117+tjwise99@users.noreply.github.com>
+Date: Sun, 4 Oct 2026 15:34:36 -0400
+Subject: [PATCH] launcher: add --user-script option
+
+Injects the script at PATH into the top frame at document start through
+the web view's user content manager, and prints each title change to
+stdout as "TITLE <title>". A missing or unreadable file is a warning and
+the view starts without it.
+
+cog exposes no way to add a user script from the command line or a
+config file, and cog_launcher_create_view() is the only place the web
+view's user content manager is reachable, so this cannot be expressed
+from a bbappend. Suitable for upstream as an option; the title print is
+kiosk measurement plumbing and would likely be dropped there.
+
+Upstream-Status: Inappropriate [kiosk measurement channel; the option alone could be submitted]
+---
+ launcher/cog-launcher.c | 35 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
+
+diff --git a/launcher/cog-launcher.c b/launcher/cog-launcher.c
+index e431b55..f7b21ab 100644
+--- a/launcher/cog-launcher.c
++++ b/launcher/cog-launcher.c
+@@ -47,6 +47,7 @@ static struct {
+         char                    *filter_path;
+         WebKitUserContentFilter *filter;
+     };
++    char *user_script;
+     union {
+         char                       *action_name;
+         enum webprocess_fail_action action_id;
+@@ -263,6 +264,31 @@ on_web_view_create(WebKitWebView *web_view, WebKitNavigationAction *action)
+     return NULL;
+ }
+ 
++static void
++on_title_changed(WebKitWebView *web_view)
++{
++    g_print("TITLE %s\n", webkit_web_view_get_title(web_view) ?: "");
++    fflush(stdout);
++}
++
++static void
++add_user_script(WebKitWebView *web_view, const char *path)
++{
++    g_autofree char  *source = NULL;
++    g_autoptr(GError) error = NULL;
++
++    if (!g_file_get_contents(path, &source, NULL, &error)) {
++        g_warning("Cannot read user script %s: %s", path, error->message);
++        return;
++    }
++
++    WebKitUserScript *script = webkit_user_script_new(source, WEBKIT_USER_CONTENT_INJECT_TOP_FRAME,
++                                                      WEBKIT_USER_SCRIPT_INJECT_AT_DOCUMENT_START, NULL, NULL);
++    webkit_user_content_manager_add_script(webkit_web_view_get_user_content_manager(web_view), script);
++    webkit_user_script_unref(script);
++    g_signal_connect(web_view, "notify::title", G_CALLBACK(on_title_changed), NULL);
++}
++
+ static WebKitWebView *
+ cog_launcher_create_view(CogLauncher *self, CogShell *shell)
+ {
+@@ -312,6 +338,11 @@ cog_launcher_create_view(CogLauncher *self, CogShell *shell)
+         g_clear_pointer(&s_options.filter, webkit_user_content_filter_unref);
+     }
+ 
++    if (s_options.user_script) {
++        add_user_script(web_view, s_options.user_script);
++        g_clear_pointer(&s_options.user_script, g_free);
++    }
++
+     g_signal_connect(web_view, "create", G_CALLBACK(on_web_view_create), NULL);
+ 
+     if (platform) {
+@@ -1206,6 +1237,10 @@ static GOptionEntry s_cli_options[] = {
+      "Ignore TLS errors (default: disabled).", NULL},
+     {"content-filter", 'F', 0, G_OPTION_ARG_FILENAME, &s_options.filter_path,
+      "Path to content filter JSON rule set (default: none).", "PATH"},
++    {"user-script", '\0', 0, G_OPTION_ARG_FILENAME, &s_options.user_script,
++     "Inject the script at PATH into the top frame at document start, and print each title change to stdout "
++     "(default: none).",
++     "PATH"},
+ #if !COG_USE_WPE2
+     {"enable-sandbox", 's', 0, G_OPTION_ARG_NONE, &s_options.enable_sandbox,
+      "Enable WebProcess sandbox (default: disabled).", NULL},

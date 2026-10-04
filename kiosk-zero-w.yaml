@@ -1,8 +1,8 @@
 ##########
 # HEADER #
 ##########
-# Kiosk image for the Raspberry Pi Zero W: surf on WebKitGTK, no desktop, no
-# window manager. This is the only kas config in the repo; it pulls in the repo
+# Kiosk image for the Raspberry Pi Zero W: cog on WPE WebKit, straight to DRM,
+# no display server. This is the only kas config in the repo; it pulls in the repo
 # pins (includes/base.yaml, which fetches meta-autonomos and patches it) and the
 # machine, then adds everything specific to this image below.
 header:
@@ -119,23 +119,17 @@ local_conf_header:
     VC4DTBO = "vc4-fkms-v3d"
     PREFERRED_VERSION_mesa = "24.0.7"
     PREFERRED_VERSION_mesa-gl = "24.0.7"
-    # WebKit dlopens libGLESv2.so.2 on its accelerated path, and a runtime dlopen
-    # is invisible to build-time RDEPENDS, so mesa's GLESv2 package ships only if
-    # named here -- without it the web process segfaults the instant compositing
-    # is attempted. kiosk-launch defaults the renderer to software and
-    # /data/config/kiosk.conf can switch it back over the wire, so this package
-    # is what keeps that switch from crashing the browser instead of answering.
+    # WPE WebKit composites every frame on GLES. Named here so mesa's GLESv2
+    # package is in the image by name rather than only through wpewebkit's
+    # virtual libgles2 RDEPENDS.
     IMAGE_INSTALL:append = " libgles2-mesa"
 
   kiosk: |
     AUTONOMOS_FEATURES = "graphics"
-    # enchant is spellcheck. There is no text input on this kiosk -- no keyboard,
-    # no form, nothing focusable -- so it is a dictionary and two libraries
-    # (enchant2, aspell) for a feature that cannot be reached. It is a real
-    # PACKAGECONFIG, unlike gstreamer, which webkitgtk3 carries in its hard
-    # DEPENDS and which therefore needs a bbappend plus cmake video/audio flags:
-    # a different kind of change, deliberately not batched with this one.
-    PACKAGECONFIG:remove:pn-webkitgtk3 = "jit gtk4 enchant"
+    # speech-synthesis needs flite, which is in meta-multimedia, not carried
+    # here: the one wpewebkit default that cannot build in this layer set. jit
+    # is already off on armv6 (wpewebkit.inc) and the recipe strips -g.
+    PACKAGECONFIG:remove:pn-wpewebkit = "speech-synthesis"
 
     # kiosk-cpufreq: caps scaling_max_freq below this board's unstable top OPP.
     # THE fix for the crash diagnosed 2026-08-13 -- 1000 MHz corrupts memory
@@ -162,15 +156,16 @@ local_conf_header:
     # than the unit in the field.
     RPI_KERNEL_DEVICETREE_OVERLAYS:append = " overlays/ramoops.dtbo"
     RPI_EXTRA_CONFIG:append = "\ndtoverlay=ramoops,total-size=0x40000,record-size=0x8000,console-size=0x20000\n"
-    PACKAGECONFIG:append:pn-webkitgtk3 = " reduce-size"
+    PACKAGECONFIG:append:pn-wpewebkit = " reduce-size"
     # woff2: the app's bundled Inter and weather-icon faces are WOFF2-only, and
-    # webkitgtk3's default build cannot decode that format at all -- neither
-    # face ever loads without this. Recipe: meta-wisekiosk/recipes-graphics/woff2.
-    PACKAGECONFIG:append:pn-webkitgtk3 = " woff2"
+    # neither face loads without it. Named rather than left to the recipe's
+    # default list. Recipe: meta-wisekiosk/recipes-graphics/woff2, which
+    # shadows meta-webkit's copy at layer priority 10.
+    PACKAGECONFIG:append:pn-wpewebkit = " woff2"
     # imagemagick is here for `import -window root`, the only screenshot path
     # this image has: fbgrab was dropped on a misdiagnosis and never restored.
     # See docs/issue_investigation/screenshot_capture_fbgrab/README.md.
-    IMAGE_INSTALL:append = " surf kiosk-session kiosk-soak kiosk-journal kiosk-timesync-persist kiosk-hardware kiosk-netcheck kiosk-bootprof zram wpa-supplicant-service packagegroup-core-x11 xwininfo xprop ttf-roboto imagemagick tzdata-core tzdata-americas"
+    IMAGE_INSTALL:append = " kiosk-session kiosk-soak kiosk-journal kiosk-timesync-persist kiosk-hardware kiosk-netcheck kiosk-bootprof zram wpa-supplicant-service ttf-roboto imagemagick tzdata-core tzdata-americas"
 
     # kiosk-drmgrab: scanout capture straight from DRM, independent of the
     # display server. Recipe: meta-wisekiosk/recipes-graphics/kiosk-drmgrab.
@@ -383,9 +378,7 @@ local_conf_header:
   parallel: |
     BB_NUMBER_THREADS = "6"
     PARALLEL_MAKE = "-j6"
-    PARALLEL_MAKE:pn-webkitgtk3 = "-j6"
-    # Strips -g and -g1 from webkitgtk3's DEBUG_FLAGS; DEBUG_PREFIX_MAP stays.
-    DEBUG_FLAGS:remove:pn-webkitgtk3 = "-g -g1"
+    PARALLEL_MAKE:pn-wpewebkit = "-j6"
     BB_PRESSURE_MAX_MEMORY = "20000"
 
   diskmonitoring: |

@@ -25,7 +25,25 @@ role and the image commit from `/etc/buildinfo` (R1).
 - **Baseline (X):** the image built from `origin/main` plus the `#185 capture` commits, which add
   only `kiosk-drmgrab` (`meta-wisekiosk/recipes-graphics/kiosk-drmgrab/`). Session:
   `meta-wisekiosk/recipes-core/kiosk-session/` (bare Xorg, `surf` at 1280x720).
-- **Candidate (WPE):** the `#185 W1` commits on `185-wpe-evaluation`; recorded per run once built.
+- **Candidate (WPE):** the `#185 W1` commits on `185-wpe-evaluation`; the image commit is recorded
+  per run once built. `meta-webkit` `scarthgap` at `2d29669a3d78e462276044f3f8bde0e4dec33696`
+  (`includes/base.yaml`); `wpewebkit` 2.44.4 with `wpebackend-fdo` (the `wpe` block of
+  `kiosk-zero-w.yaml`); `cog -P drm` at 1280x720 (`meta-wisekiosk/recipes-core/kiosk-session/`)
+  with the `--user-script` patch (`meta-wisekiosk/recipes-browser/cog/`).
+  - **wpewebkit PACKAGECONFIG:** `speech-synthesis` off (flite is not carried), `reduce-size` and
+    `woff2` on, `jit` off by the recipe on armv6. Every other recipe default stays on —
+    `accessibility`, `avif`, `jpegxl`, `mediasource`, `mediastream`, `webaudio`, `gst_gl`,
+    `libbacktrace`, `lbse`, `openjpeg`, `service-worker`, `remote-inspector` among them; removing
+    any is the levers ticket's, not this investigation's.
+  - **Layer shadowing (`bitbake-layers show-overlayed`, W1 parse):** `meta-webkit` (priority 7)
+    wins over poky for `libwpe` (1.16.2 over 1.14.2) and `wpebackend-fdo` (1.14.4 over 1.14.2),
+    and over meta-oe at a *lower* version for `highway` (1.0.4 over 1.1.0), `libjxl` (0.8.1 over
+    0.10.5), `libvpx` (1.10.0 over 1.14.1), `xdg-dbus-proxy` (0.1.4 over 0.1.5) and `bubblewrap`
+    (0.8.0, equal). Of those, `highway`, `libjxl`, `libwpe` and `wpebackend-fdo` are in the image's
+    build graph. `meta-wisekiosk` (priority 10) wins `woff2` 1.0.2 over `meta-webkit`'s 1.0.2.
+    `meta-webkit` also turns on `icu` in `harfbuzz`'s PACKAGECONFIG for every build (its
+    `harfbuzz_%.bbappend`). With `BB_DANGLINGAPPENDS_WARNONLY = "false"` the parse reports no
+    dangling append.
 
 ## Harness
 
