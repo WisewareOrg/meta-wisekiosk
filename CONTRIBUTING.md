@@ -19,10 +19,12 @@ tree refers to them by role (`prod`, `bench`) and discovers an address at use ti
 built before you build against the *previous* run's commit — an image the reproducibility gate then
 refuses at flash. See [`README.md`](README.md) §"Quick start".
 
-**A WebKit-invalidating rebuild is ~3 h.** Anything touching `DISTRO_FEATURES`, `MACHINE_FEATURES`
-or webkit's `PACKAGECONFIG` — or a bump of the poky or meta-openembedded pin — invalidates WebKit
-and costs that, so it is a decision made before starting, not a tweak. `config.txt`-only knobs are
-free.
+**Webkit's `PACKAGECONFIG` costs ~3 h to invalidate; `DISTRO_FEATURES`, `MACHINE_FEATURES` or a pin
+bump cost up to a cold full build, ~6 h.** Touching webkit's `PACKAGECONFIG`, or a WebKit recipe,
+invalidates WebKit alone and costs ~3 h. Touching `DISTRO_FEATURES` or `MACHINE_FEATURES`, or
+bumping the poky or meta-openembedded pin, invalidates more than WebKit and costs up to the full
+cold build, ~6 h. Either is a decision made before starting, not a tweak. `config.txt`-only knobs
+are free.
 
 **Two boards, two roles.** `prod` is wall-mounted and carries the live soak run; `bench` is the
 board to OTA, reboot and abuse. Nothing destructive goes near prod, except under a time-boxed
@@ -157,9 +159,9 @@ silently to whatever occupies it after a renumber.
 
 **Build config & pins**
 
-4. **WebKit cost.** Does this touch `DISTRO_FEATURES`, `MACHINE_FEATURES` or webkit's
-   `PACKAGECONFIG`, or bump the poky or meta-openembedded pin? That invalidates WebKit and costs a
-   ~3 h rebuild, so it is a decision to take before starting, not one to discover afterwards.
+4. **WebKit cost.** Does this touch webkit's `PACKAGECONFIG`, costing ~3 h? Or `DISTRO_FEATURES`,
+   `MACHINE_FEATURES`, or a poky/meta-openembedded pin bump, costing up to a cold full build,
+   ~6 h? Either is a decision to take before starting, not one to discover afterwards.
 5. **kas block collision.** Is every `local_conf_header` block name unique across the include chain?
    kas merges by block name and the top-level file wins, so a duplicate is discarded with no warning,
    no error, and variables that never reach bitbake.

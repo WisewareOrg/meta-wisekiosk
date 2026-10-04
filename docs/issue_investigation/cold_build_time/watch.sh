@@ -66,7 +66,14 @@ while :; do
         psi_streak=0
     fi
 
-    if [ "$oom_flagged" -eq 0 ] && dmesg 2>/dev/null | grep -qi 'killed process\|out of memory'; then
+    # dmesg is captured to a variable and matched with bash's own [[ ... ]],
+    # never piped into grep -q: under `set -o pipefail`, dmesg (or anything
+    # upstream of a -q reader) can die of SIGPIPE when the reader exits early on
+    # a match deep in a large ring buffer, and pipefail then reports that
+    # SIGPIPE instead of a real match -- the condition reads false on exactly
+    # the samples where it should be true.
+    dmesg_out=$(dmesg 2>/dev/null || true)
+    if [ "$oom_flagged" -eq 0 ] && { [[ "$dmesg_out" == *[Kk]illed\ process* ]] || [[ "$dmesg_out" == *[Oo]ut\ of\ memory* ]]; }; then
         echo "$ts PROBLEM OOM kill seen in dmesg" >> "$LOG"
         oom_flagged=1
     fi

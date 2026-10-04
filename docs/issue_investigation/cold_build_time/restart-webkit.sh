@@ -1,7 +1,7 @@
 #!/bin/bash
-# Applies the owner's restart rule once a lower -j has been committed: stops
-# the kas container, cleansstates webkitgtk3 against the scratch sstate, rotates
-# the previous attempt's logs, and resumes.
+# Applies the restart rule once a lower -j has been committed: stops the kas
+# container, cleansstates webkitgtk3 against the scratch sstate, rotates the
+# previous attempt's logs, and resumes.
 #
 # Usage: restart-webkit.sh <j>
 set -euo pipefail

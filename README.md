@@ -162,12 +162,13 @@ every repo declared across the kas include chain — `includes/base.yaml`, `incl
 while before any compiling starts.
 
 A cold full build including WebKit takes **~6 h** on 8 cores / 11 GB
-([cold build time](docs/issue_investigation/cold_build_time/README.md)). Four things invalidate
-WebKit and cost a **~3 h** rebuild: a change to `DISTRO_FEATURES`, to `MACHINE_FEATURES`, to
-webkit's `PACKAGECONFIG`, or **a bump of the poky or meta-openembedded pin** — budget the rebuild
-for either, and the one time it was measured (both pins moved in one commit) it cost 4 h 52 m of
-`webkitgtk3` alone ([kernel_cve_triage](docs/issue_investigation/kernel_cve_triage/README.md)), a
-rebuild that bought 16 CVE closures. Make those decisions before starting, not after.
+([cold build time](docs/issue_investigation/cold_build_time/README.md)). A change to webkit's
+`PACKAGECONFIG`, or to a WebKit recipe, invalidates WebKit alone and costs a **~3 h** rebuild. A
+change to `DISTRO_FEATURES`, to `MACHINE_FEATURES`, or **a bump of the poky or meta-openembedded
+pin** invalidates more than WebKit and costs up to the full cold build, **~6 h** — the one time a
+pin bump was measured (both pins moved in one commit) it cost 4 h 52 m of `webkitgtk3` alone
+([kernel_cve_triage](docs/issue_investigation/kernel_cve_triage/README.md)), a rebuild that bought
+16 CVE closures. Make those decisions before starting, not after.
 `config.txt`-only knobs (`GPU_MEM`, HDMI, overscan, UART) are free to change, and so is the kernel's
 `PREFERRED_VERSION` — the kernel is outside webkit's dependency closure. Cheap to rebuild is not the
 same as reaching a board: the `config.txt` knobs are on the shared FAT partition RAUC never writes —

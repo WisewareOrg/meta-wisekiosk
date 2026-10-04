@@ -14,11 +14,12 @@ one, `webkitgtk3:do_compile` ran alone for 260 min with 6 of 8 threads idle, and
 build spent ~3.5 h on 6 bitbake slots with `rust-llvm-native:do_compile` (11471 s) as its longest
 chain -- present only because `gtk+3` RRECOMMENDS `adwaita-icon-theme-symbolic`, which pulls in
 `librsvg` and a Rust toolchain build nothing else in this image needs. This investigation measured
-one cold build with the three agreed levers applied together (owner rulings, 2026-10-03): the icon
-theme dropped, WebKit built without debug info, and WebKit's `PARALLEL_MAKE` raised to `-j6` on the
+one cold build with the three agreed levers applied together: the icon theme dropped, WebKit built
+without debug info, and WebKit's `PARALLEL_MAKE` raised to `-j6` on the
 strength of a prior `-j6` build that completed on this host. **Result: cold full build ~6 h, WebKit
-rebuild ~3 h.** The PSI and OOM-kill triggers never fired; the watcher's now-withdrawn elapsed-time
-trigger did flag `do_compile` running past 3 h once, logged but not acted on -- see Findings.
+rebuild ~3 h.** The PSI and OOM-kill triggers never fired. The restart rule was reduced mid-run to
+thrash-or-OOM only; its elapsed-time trigger fired once (`08:10:25Z`, `do_compile` past 3 h) and was
+not acted on, because by then it was no longer a trigger anyone needed to act on -- see Findings.
 
 ## Test runs
 
@@ -39,16 +40,26 @@ are cited above and in Findings by buildstats id only, never blended into this t
   `KIOSK_BUILDINFO_REV` (`tools/kas-run.sh` runs it before every build).
 - **Scripts deployed, each ONE-OFF, committed beside this README:**
   - `write-overlay.sh` -- writes the `TMPDIR`/`SSTATE_DIR`/`BUILDHISTORY_DIR` overlay.
-  - `proofs.sh` -- the three pre-run proofs (a)-(c), output under `proofs/`.
+  - `proofs.sh` -- the three pre-run proofs (a)-(c), output under `proofs/`. **The committed script
+    is the post-review version** (a line-count assertion was added after review); it was re-run
+    against the same config commit (`cd1e85a`) after the build and gave byte-identical output to
+    the pre-launch run, so the committed `proofs/` evidence is this script's own output.
   - `run-cold-build.sh` -- launches the build and `watch.sh`, detached.
-  - `watch.sh` -- 60 s memory/progress samples and the restart trigger, in `watch.log`.
-  - `restart-webkit.sh` -- the restart rule's stop/cleansstate/resume; not exercised this run, and
-    unproven (its `docker ps` filter and the lack of a `watch.sh` stop are untested paths).
+  - `watch.sh` -- 60 s memory/progress samples and the restart trigger, in `watch.log`. **The
+    committed script differs from the one that ran:** the withdrawn elapsed-time `PROBLEM` line was
+    removed, and the OOM `dmesg` check's `pipefail` hazard (below) was fixed. Neither change alters
+    what this run's own `watch-20261004023340.log` already recorded.
+  - `restart-webkit.sh` -- the restart rule's stop/cleansstate/resume; not exercised this run, left
+    unchanged and unproven. Known, untested paths: its `docker ps` filter has no image tag (the
+    image is pinned `:5.4`) and may not match; it never stops the old `watch.sh`; and there is a
+    race between the prior run's `run.done` write and `restart-webkit.sh`'s log-rotation `mv`.
   - `collect.sh` -- packs the evidence below after the run.
-  - `parse_buildstats.py` -- the two reporting figures, checked against the known prior run
-    `20261002222637` (9h44m49s wall, 21960 s WebKit `do_compile`) -- reproduced exactly (see
-    [Findings](#findings), and the raw output at
-    `parse-report-20261002222637-validation.md`) before being trusted on this run.
+  - `parse_buildstats.py` -- the two reporting figures, checked against each of the three named
+    prior runs (see Findings) -- reproduced `20261002222637` exactly (9h44m49s wall, 21960 s WebKit
+    `do_compile`) before being trusted on this run.
+  - `ninja-log-compare.py` -- per-run `.ninja_log` stats for the real long-pole compile work,
+    against two other runs at the prior `-j2`/`-g1` configuration (see
+    [Supporting evidence](#supporting-evidence-per-compile-unit-cost-vs-two-other-ninja_logs)).
 - **Procedure:** pipeline confirmed idle (`wisekiosk-pipeline.service` inactive, lock free), then
   `just pipeline-off`; `proofs.sh` (all three checks passed); `run-cold-build.sh`, which refused
   once on a non-empty `build/coldbuild/tmp` left by `proofs.sh`'s own `bitbake -e`/`-g` calls (no
@@ -59,9 +70,11 @@ are cited above and in Findings by buildstats id only, never blended into this t
   time. `collect.sh` afterward, then `just pipeline-on`.
 - **Raw capture:** `buildstats-20261004023340.tar.xz`, `parse-report-20261004023340.md`,
   `webkit-compile-line-20261004023340.txt`, `manifest-packages-20261004023340.txt`,
-  `local-conf-dirs-20261004023340.txt`, `proofs/{a,b,c}-*.txt`, `watch-20261004023340.log`, and the
+  `local-conf-dirs-20261004023340.txt`, `proofs/{a,b,c}-*.txt`, `watch-20261004023340.log`, the
   three prior-run validations `parse-report-20260828163401-validation.md`,
-  `parse-report-20260930184746-validation.md` and `parse-report-20261002222637-validation.md`.
+  `parse-report-20260930184746-validation.md` and `parse-report-20261002222637-validation.md`, the
+  three compressed `.ninja_log`s `ninja_log-20261004023340.xz`, `ninja_log-20260929042915.xz` and
+  `ninja_log-20261002222637.xz`, and `ninja-log-compare-20261004023340.txt`.
 
 ## Configuration under test
 
@@ -151,9 +164,10 @@ run is the first one with 0 restored: 7245 real tasks, all executed. The three p
 
 **Hypothesis: "the three levers together cut the cold build well below the priors' range" --
 CONFIRMED, against a worse baseline than first stated.** Cold full build measured at 5h46m37s,
-against the priors' partial-rebuild range of 6h51m-9h44m49s; `webkitgtk3:do_compile` alone fell to
-11144s against the priors' full range of 14815-21960s (all three, `-j2`, with debug info, with the
-icon theme).
+against the three named priors' (`20260828163401`, `20260930184746`, `20261002222637`)
+partial-rebuild range of 6h51m-9h44m49s; `webkitgtk3:do_compile` alone fell to 11144s against those
+same three runs' do_compile range of 17318-21960s (`-j2`, debug info on, icon theme present, per
+their own buildstats -- see the three validation reports above).
 
 **Hypothesis: "`hicolor-icon-theme` also drops out" -- DROPPED.** The plan predicted it would,
 reasoning it rode in only via `adwaita-icon-theme`. The manifest shows `hicolor-icon-theme 0.17-r0`
@@ -200,6 +214,54 @@ packaging-phase dip had played out. `-j6` is already consuming most of this host
 `do_compile`, not comfortably under it; the data does **not** support "a higher `-j` may fit"
 without more memory or accepting the PSI-thrash risk the restart rule exists to catch. Untested
 either way -- `-j8` was never tried, per the plan.
+
+## Supporting evidence: per-compile-unit cost vs. two other `.ninja_log`s
+
+Two `.ninja_log`s happen to survive at the same `-j2`/`-g1` configuration this ticket changed:
+`20260929042915` (**not** one of the three canonical buildstats priors above -- a separately-dated
+build that happens to share the same webkitgtk3 work dir and configuration) and `20261002222637`
+(the third canonical prior, cited above). The three other runs' own `.ninja_log`s were already
+overwritten in place before this investigation began. All three `.ninja_log` inputs (this run's and
+both others') are committed compressed beside this README --
+`ninja_log-20261004023340.xz`, `ninja_log-20260929042915.xz`, `ninja_log-20261002222637.xz` -- since
+the re-enabled pipeline and the post-merge cleanup would otherwise overwrite the two survivors.
+`ninja-log-compare.py`, also committed, reads them (decompress first; its own usage comment gives
+the exact command) and reports each run's own numbers, restricted to the real long-pole compile
+work: single-output `.o` edges under `Source/{WebCore,JavaScriptCore,WebKit,WTF,bmalloc,WebKitLegacy}/`,
+excluding `WebDriver/`, `po/*.gmo` and `MiniBrowser` (`WebKitWebDriver` links only against WTF and
+system libraries, not `libwebkit2gtk`, so matching by raw output set or edge index makes it a false
+"straggler" that distorts any comparison). Raw output: `ninja-log-compare-20261004023340.txt`.
+
+Each run gets its own table (R3 -- these are never merged):
+
+| this run (`20261004023340`, `-j6`, no `-g`) | |
+|---|---|
+| core `.o` edges | 1721 |
+| mean duration | 33395 ms |
+| total span | 11102.0 s |
+
+| `20260929042915` (`-j2`, `-g1`; not a canonical prior) | |
+|---|---|
+| core `.o` edges | 1721 (1721 shared with this run) |
+| mean duration | 16221 ms |
+| total span | 14767.7 s |
+
+| `20261002222637` (`-j2`, `-g1`; the third canonical prior) | |
+|---|---|
+| core `.o` edges | 1721 (1721 shared with this run) |
+| mean duration | 23064 ms |
+| total span | 21909.5 s |
+
+In prose, from those three independent numbers: against `20260929042915`, this run's per-unit mean
+is 2.06x higher (33395 / 16221 ms) while its total span is 1.33x shorter (14767.7 / 11102.0 s);
+against `20261002222637`, per-unit mean is 1.45x higher (33395 / 23064 ms) and span 1.97x shorter
+(21909.5 / 11102.0 s). Read together: **per individual compile unit, `-j6` runs slower than `-j2`
+at both comparison points, while the whole matched set finishes faster** -- six concurrent jobs
+each take longer, but enough more of them run at once to shorten the total. Why each job is slower
+is not measured here; CPU-cache/memory-bandwidth contention among six concurrent compiles and
+differing host load between these builds (recorded cold-full wall times already span 6h51m-9h44m
+across the three canonical priors alone) are both plausible, unmeasured, and not distinguished by
+this data.
 
 ## Changes configured as a result
 
