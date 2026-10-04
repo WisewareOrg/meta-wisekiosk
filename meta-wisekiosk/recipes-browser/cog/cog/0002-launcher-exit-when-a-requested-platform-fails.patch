@@ -1,0 +1,74 @@
+From 619855ecc867de635201820d5f0aab8cbd3f8fef Mon Sep 17 00:00:00 2001
+From: Wise <47094117+tjwise99@users.noreply.github.com>
+Date: Sun, 4 Oct 2026 15:54:50 -0400
+Subject: [PATCH] launcher: exit when a requested platform fails
+
+When the platform is named (-P or COG_PLATFORM_NAME) and creating it,
+setting it up or getting its view backend fails, print the error and
+exit with EXIT_FAILURE instead of falling back to the default WPE
+backend. A service manager then sees the failure and restarts the
+launcher; the fall-back view otherwise keeps a process running with
+nothing driving the display. An unnamed platform keeps the fall-back.
+
+The fall-back lives inside cog_launcher_create_view() and
+platform_setup_once(), so this cannot be expressed from a bbappend.
+Plausibly suitable for upstream behind an option; carried here as is.
+
+Upstream-Status: Inappropriate [changes default fall-back behaviour; an opt-in form could be submitted]
+---
+ launcher/cog-launcher.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
+
+diff --git a/launcher/cog-launcher.c b/launcher/cog-launcher.c
+index f7b21ab..2ad6b5f 100644
+--- a/launcher/cog-launcher.c
++++ b/launcher/cog-launcher.c
+@@ -212,6 +212,16 @@ cog_launcher_open(GApplication *application, GFile **files, int n_files, const c
+     webkit_web_view_load_uri(cog_shell_get_web_view(COG_LAUNCHER(application)->shell), uri);
+ }
+ 
++/* Set when the platform was named with -P or COG_PLATFORM_NAME. */
++static gboolean s_platform_requested;
++
++static void
++requested_platform_failed(const char *what, const GError *error)
++{
++    g_printerr("%s: %s\n", what, error->message);
++    exit(EXIT_FAILURE);
++}
++
+ static CogPlatform *
+ platform_setup_once(CogLauncher *self)
+ {
+@@ -228,10 +238,13 @@ platform_setup_once(CogLauncher *self)
+     g_autofree const char *platform_name = g_strdup(s_options.platform_name ?: g_getenv("COG_PLATFORM_NAME"));
+     g_clear_pointer(&s_options.platform_name, g_free);
+     g_debug("%s: Platform name: %s", __func__, platform_name);
++    s_platform_requested = platform_name != NULL;
+ 
+     g_autoptr(GError) error = NULL;
+     CogPlatform      *platform = cog_platform_new(platform_name, &error);
+     if (!platform) {
++        if (s_platform_requested)
++            requested_platform_failed("Cannot create platform", error);
+         g_warning("Cannot create platform: %s", error->message);
+         return NULL;
+     }
+@@ -241,6 +254,8 @@ platform_setup_once(CogLauncher *self)
+     g_debug("%s: Platform params: %s", __func__, platform_params);
+ 
+     if (!cog_platform_setup(platform, self->shell, platform_params ?: "", &error)) {
++        if (s_platform_requested)
++            requested_platform_failed("Platform setup failed", error);
+         g_warning("Platform setup failed: %s", error->message);
+         return NULL;
+     }
+@@ -309,6 +324,8 @@ cog_launcher_create_view(CogLauncher *self, CogShell *shell)
+         view_backend = cog_platform_get_view_backend(platform, NULL, &error);
+         if (!view_backend) {
+             g_assert(error);
++            if (s_platform_requested)
++                requested_platform_failed("Failed to get platform's view backend", error);
+             g_warning("Failed to get platform's view backend: %s", error->message);
+         }
+     }

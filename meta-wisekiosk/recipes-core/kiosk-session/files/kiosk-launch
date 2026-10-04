@@ -6,8 +6,11 @@
 # 1280x720 on a panel the firmware brings up at 1080p. Pixel area is what the
 # during-motion framerate is bound by -- see
 # docs/issue_investigation/gpu_compositing/README.md under "Engine levers,
-# measured and exhausted". The value must be a mode the connector lists.
-export COG_PLATFORM_DRM_VIDEO_MODE=1280x720
+# measured and exhausted". The value must be a mode the connector lists; cog
+# exits on one it does not, and systemd restarts it. A default, so
+# /data/config/kiosk.conf can set another mode with no rebuild.
+: "${COG_PLATFORM_DRM_VIDEO_MODE:=1280x720}"
+export COG_PLATFORM_DRM_VIDEO_MODE
 
 # Remote Web Inspector. OFF by default: it must not perturb a measurement, and
 # it should not listen unless asked. Turn it on over SSH with no rebuild:
