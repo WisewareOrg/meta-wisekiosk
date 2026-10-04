@@ -286,16 +286,25 @@ sentinel_pair "md5-field"   'md5=$m'              'md5='
 # shellcheck disable=SC2016
 sentinel_pair "bytes-field" 'bytes=$b'            'bytes='
 
-# The capture path is trap (b). `import -window root` is the only surface the
-# kiosk actually draws to; /dev/fb0 holds the console login buffer under fkms and
+# The capture path is trap (b). #185 ruling 2026-10-04: WPE has no X, so `import
+# -window root` is gone -- the emitter captures through kiosk-drmgrab (the
+# GETFB2/dma-buf helper, validated against `import` on the X image in S1)
+# instead. /dev/fb0 holds the console login buffer under fkms either way, and
 # would hand back a stable hash from a surface the browser never touches -- a
 # FROZEN verdict that is true of the framebuffer and says nothing about the
 # render. Asserted as a property of the shipped file, because the day someone
 # "optimises" the capture is the day it silently starts lying.
-if [ "$(printf '%s\n' "$emitter" | grep -cF 'import -window root')" -gt 0 ]; then
+if [ "$(printf '%s\n' "$emitter" | grep -cF 'kiosk-drmgrab')" -gt 0 ]; then
     pass=$((pass + 1))
 else
-    fail=$((fail + 1)); echo "FAIL  emitter no longer captures with import -window root" >&2; fi
+    fail=$((fail + 1)); echo "FAIL  emitter does not capture through kiosk-drmgrab" >&2; fi
+
+if [ "$(printf '%s\n' "$emitter" | grep -cF 'import -window root')" -eq 0 ]; then
+    pass=$((pass + 1))
+else
+    fail=$((fail + 1))
+    echo "FAIL  emitter still calls 'import -window root' -- there is no X on WPE" >&2
+fi
 
 if [ "$(printf '%s\n' "$emitter" | grep -cF '/dev/fb0')" -eq 0 ]; then
     pass=$((pass + 1))
