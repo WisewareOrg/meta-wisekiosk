@@ -8,6 +8,8 @@ Payload, statistics and their definitions: parse_smoothness_test.py's header.
 import re
 import sys
 
+import journal_extract
+
 PAT = re.compile(r"MP\|(\d+)\|f(\d+)\|av(\d+)\|mx(\d+)\|BT(\d+)\|H(\d+(?:\.\d+){6})\|B([\d.:,]*)")
 BIG = re.compile(r"^(\d+(?:\.\d+)?):(\d+)$")
 
@@ -62,8 +64,7 @@ def clusters(d, gap=1.0):
 
 
 def main(path):
-    lines = [l for l in open(path).read().replace('"', "").splitlines() if "MP|" in l]
-    d = parse(lines[-1]) if lines else None
+    d = journal_extract.last_parseable(open(path).read().splitlines(), parse)
     if d is None:
         sys.exit(f"no complete MP| payload in {path}")
     print(f"window {d['sec']} s  frames {d['frames']}  bt {d['bt']}  big[] {len(d['big'])}")
