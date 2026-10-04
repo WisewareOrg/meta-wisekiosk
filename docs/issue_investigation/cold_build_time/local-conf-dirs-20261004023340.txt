@@ -1,0 +1,4 @@
+TMPDIR = "${TOPDIR}/tmp-${MACHINE}"
+TMPDIR = "${TOPDIR}/coldbuild/tmp"
+SSTATE_DIR = "${TOPDIR}/coldbuild/sstate-cache"
+BUILDHISTORY_DIR = "${TOPDIR}/coldbuild/buildhistory"
