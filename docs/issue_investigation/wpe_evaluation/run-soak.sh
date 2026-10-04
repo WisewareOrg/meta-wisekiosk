@@ -8,7 +8,7 @@
 # the start and those samples themselves, kiosk NRestarts, boot id and /proc/vmstat
 # pswpin/pswpout at both ends, /proc/pressure/memory, and kernel OOM lines since the start; then
 # it restores kiosk.conf, removes the probe and restarts kiosk. A kiosk.conf backup already on the
-# board means an earlier run did not restore; the run refuses, exit 1.
+# board means an earlier run did not restore; the run refuses, exit 1, and leaves it alone.
 set -u
 T=${1:?ssh-target}; ROLE=${2:?role}; OUT=${3:?out}
 SECS=3600
@@ -16,17 +16,36 @@ HERE=$(dirname "$(readlink -f "$0")")
 KSSH=$(git -C "$HERE" rev-parse --show-toplevel)/tools/kiosk-ssh.sh
 [ -e "$OUT" ] && { echo "$OUT exists -- refusing to overwrite a capture" >&2; exit 2; }
 
+# kiosk.conf is restored on any exit once this run has backed it up, interrupts included.
+RESTORE_PENDING=0
+restore_conf() {
+	[ "$RESTORE_PENDING" = 1 ] || return 0
+	RESTORE_PENDING=0
+	"$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1 <<'RESTORE'
+C=/data/config/kiosk.conf
+if [ -f $C.wpe-bak ]; then mv $C.wpe-bak $C; elif [ -e $C.wpe-absent ]; then rm -f $C $C.wpe-absent; else echo "# NO BACKUP -- kiosk.conf left as found"; fi
+rm -f /home/root/kiosk-probe.js
+rm -rf /home/root/.cache/cog
+systemctl restart kiosk
+n=$(grep -c '^KIOSK_PROBE' $C 2>/dev/null)
+echo "# restored: kiosk.conf KIOSK_PROBE lines ${n:-none, file absent}, kiosk restarted"
+RESTORE
+}
+trap restore_conf EXIT
+trap 'exit 1' INT TERM HUP
+
 {
 echo "# run-soak.sh role=$ROLE secs=$SECS"
-echo "# harness $(git -C "$HERE" rev-parse HEAD)$(git -C "$HERE" diff --quiet HEAD -- . || echo " DIRTY")"
+echo "# harness $(git -C "$HERE" rev-parse HEAD)$(git -C "$HERE" diff --quiet HEAD -- . ../gpu_compositing ../../../tools || echo " DIRTY")"
 echo "# started $(date -u +%FT%TZ)"
 echo "# probe sha256 local    $(sha256sum < "$HERE/mf-probe.js" | cut -d' ' -f1)"
 } > "$OUT"
 "$KSSH" "$T" 'cat > /home/root/kiosk-probe.js' < "$HERE/mf-probe.js" || exit 1
-"$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1 <<'EOF' || exit 1
+RESTORE_PENDING=1
+"$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1 <<'EOF'
 C=/data/config/kiosk.conf
 if [ -e $C.wpe-bak ] || [ -e $C.wpe-absent ]; then
-	echo "# REFUSED: a kiosk.conf backup exists -- an earlier run did not restore"; exit 1
+	echo "# REFUSED: a kiosk.conf backup exists -- an earlier run did not restore"; exit 3
 fi
 if [ -f $C ]; then cp -p $C $C.wpe-bak || exit 1; else : > $C.wpe-absent; fi
 [ -s $C ] && [ -n "$(tail -c 1 $C)" ] && echo >> $C
@@ -40,6 +59,9 @@ systemctl restart kiosk
 echo "# start-epoch $(date +%s) $(systemctl show -p NRestarts kiosk)"
 echo "# vmstat-start $(grep -E '^(pswpin|pswpout) ' /proc/vmstat | tr '\n' ' ')"
 EOF
+rc=$?
+[ $rc -eq 3 ] && RESTORE_PENDING=0
+[ $rc -eq 0 ] || exit 1
 START=$(sed -n 's/^# start-epoch \([0-9]*\).*/\1/p' "$OUT")
 [ -n "$START" ] || { echo "# START FAILED" >> "$OUT"; exit 1; }
 
@@ -60,12 +82,6 @@ echo "=== /proc/pressure/memory ==="
 cat /proc/pressure/memory
 echo "=== kernel OOM lines since start-epoch ==="
 journalctl -k --since @$START --no-pager | grep -iE 'out of memory|oom-kill|oom_reaper'
-C=/data/config/kiosk.conf
-if [ -f \$C.wpe-bak ]; then mv \$C.wpe-bak \$C; elif [ -e \$C.wpe-absent ]; then rm -f \$C \$C.wpe-absent; else echo "# NO BACKUP -- kiosk.conf left as found"; fi
-rm -f /home/root/kiosk-probe.js
-rm -rf /home/root/.cache/cog
-systemctl restart kiosk
-n=\$(grep -c '^KIOSK_PROBE' \$C 2>/dev/null)
-echo "# restored: kiosk.conf KIOSK_PROBE lines \${n:-none, file absent}, kiosk restarted"
 EOF
+restore_conf
 echo "# complete $(date -u +%FT%TZ)" >> "$OUT"

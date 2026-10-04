@@ -13,7 +13,7 @@
 # Around it: the R1 header run-appliance.sh records, the active CRTC mode read from DRM debugfs
 # before deploy and after readback (anything but 1280x720 on either read is VOID, exit 3), the
 # served bundle name from cog's cache, and kiosk NRestarts. A kiosk.conf backup already on the
-# board means an earlier run did not restore; the run refuses, exit 1.
+# board means an earlier run did not restore; the run refuses, exit 1, and leaves it alone.
 set -u
 T=${1:?ssh-target}; ROLE=${2:?role}; OUT=${3:?out}
 SLEEP=585
@@ -23,6 +23,24 @@ KSSH=$ROOT/tools/kiosk-ssh.sh
 PROBE=$HERE/../gpu_compositing/p7_min.js
 SHOT=$ROOT/local/wpe-pre-$(basename "$OUT" .txt).png
 [ -e "$OUT" ] && { echo "$OUT exists -- refusing to overwrite a capture" >&2; exit 2; }
+
+# kiosk.conf is restored on any exit once this run has backed it up, interrupts included.
+RESTORE_PENDING=0
+restore_conf() {
+	[ "$RESTORE_PENDING" = 1 ] || return 0
+	RESTORE_PENDING=0
+	"$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1 <<'RESTORE'
+C=/data/config/kiosk.conf
+if [ -f $C.wpe-bak ]; then mv $C.wpe-bak $C; elif [ -e $C.wpe-absent ]; then rm -f $C $C.wpe-absent; else echo "# NO BACKUP -- kiosk.conf left as found"; fi
+rm -f /home/root/kiosk-probe.js
+rm -rf /home/root/.cache/cog
+systemctl restart kiosk
+n=$(grep -c '^KIOSK_PROBE' $C 2>/dev/null)
+echo "# restored: kiosk.conf KIOSK_PROBE lines ${n:-none, file absent}, kiosk restarted"
+RESTORE
+}
+trap restore_conf EXIT
+trap 'exit 1' INT TERM HUP
 
 mode() { "$KSSH" "$T" 'grep "mode:" /sys/kernel/debug/dri/0/state' 2>&1; }
 live720() { printf '%s\n' "$1" | grep -c 'mode: "1280x720"'; }
@@ -35,7 +53,7 @@ done
 
 {
 echo "# run-smoothness.sh role=$ROLE probe=$(basename "$PROBE") sleep=$SLEEP"
-echo "# harness $(git -C "$HERE" rev-parse HEAD)$(git -C "$HERE" diff --quiet HEAD -- . || echo " DIRTY")"
+echo "# harness $(git -C "$HERE" rev-parse HEAD)$(git -C "$HERE" diff --quiet HEAD -- . ../gpu_compositing ../../../tools || echo " DIRTY")"
 echo "# started $(date -u +%FT%TZ)"
 echo "# pre-run screenshot local/$(basename "$SHOT")"
 echo "# probe sha256 local    $(sha256sum < "$PROBE" | cut -d' ' -f1)"
@@ -51,16 +69,20 @@ PRE
 M0=$(mode); printf '%s\n' "$M0" | sed 's/^/# mode-before /' >> "$OUT"
 
 "$KSSH" "$T" 'cat > /home/root/kiosk-probe.js' < "$PROBE" || { echo "# DEPLOY FAILED" >> "$OUT"; exit 1; }
-"$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1 <<'DEPLOY' || exit 1
+RESTORE_PENDING=1
+"$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1 <<'DEPLOY'
 C=/data/config/kiosk.conf
 if [ -e $C.wpe-bak ] || [ -e $C.wpe-absent ]; then
-	echo "# REFUSED: a kiosk.conf backup exists -- an earlier run did not restore"; exit 1
+	echo "# REFUSED: a kiosk.conf backup exists -- an earlier run did not restore"; exit 3
 fi
 if [ -f $C ]; then cp -p $C $C.wpe-bak || exit 1; else : > $C.wpe-absent; fi
 [ -s $C ] && [ -n "$(tail -c 1 $C)" ] && echo >> $C
 echo 'KIOSK_PROBE=1' >> $C
 echo "# probe sha256 deployed $(sha256sum < /home/root/kiosk-probe.js | cut -d' ' -f1)"
 DEPLOY
+rc=$?
+[ $rc -eq 3 ] && RESTORE_PENDING=0
+[ $rc -eq 0 ] || exit 1
 
 {
 echo "# capture start $(date -u +%FT%TZ)"
@@ -83,14 +105,8 @@ M1=$(mode); printf '%s\n' "$M1" | sed 's/^/# mode-after /' >> "$OUT"
 "$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1 <<'POST'
 echo "# bundle $(grep -rhoE 'index-[A-Za-z0-9_]+\.js' /home/root/.cache/cog | sort -u | tr '\n' ' ')"
 echo "# kiosk $(systemctl show -p NRestarts -p ActiveEnterTimestamp kiosk | tr '\n' ' ')"
-C=/data/config/kiosk.conf
-if [ -f $C.wpe-bak ]; then mv $C.wpe-bak $C; elif [ -e $C.wpe-absent ]; then rm -f $C $C.wpe-absent; else echo "# NO BACKUP -- kiosk.conf left as found"; fi
-rm -f /home/root/kiosk-probe.js
-rm -rf /home/root/.cache/cog
-systemctl restart kiosk
-n=$(grep -c '^KIOSK_PROBE' $C 2>/dev/null)
-echo "# restored: kiosk.conf KIOSK_PROBE lines ${n:-none, file absent}, kiosk restarted"
 POST
+restore_conf
 
 n=$(grep -c 'MP|' "$OUT")
 if [ "$(live720 "$M0")" -ne 1 ] || [ "$(live720 "$M1")" -ne 1 ]; then
