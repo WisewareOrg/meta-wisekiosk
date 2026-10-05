@@ -1,4 +1,4 @@
-From 0e0aed2f8d91e621ae792c568390abdf8bbf8b6c Mon Sep 17 00:00:00 2001
+From 83d74575bf2ba517a913775b49d801c7be31bdcf Mon Sep 17 00:00:00 2001
 From: Wise <47094117+tjwise99@users.noreply.github.com>
 Date: Sun, 4 Oct 2026 18:24:03 -0400
 Subject: [PATCH] launcher: add --user-script option
@@ -16,14 +16,22 @@ measurement plumbing and would likely be dropped there.
 
 Upstream-Status: Inappropriate [kiosk measurement channel; the option alone could be submitted]
 ---
- launcher/cog-launcher.c | 33 +++++++++++++++++++++++++++++++++
- 1 file changed, 33 insertions(+)
+ launcher/cog-launcher.c | 34 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 34 insertions(+)
 
 diff --git a/launcher/cog-launcher.c b/launcher/cog-launcher.c
-index e431b55..0af049b 100644
+index e431b55..2c2559f 100644
 --- a/launcher/cog-launcher.c
 +++ b/launcher/cog-launcher.c
-@@ -47,6 +47,7 @@ static struct {
+@@ -9,6 +9,7 @@
+ #include "cog-launcher.h"
+ #include <glib-unix.h>
+ #include <math.h>
++#include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+ 
+@@ -47,6 +48,7 @@ static struct {
          char                    *filter_path;
          WebKitUserContentFilter *filter;
      };
@@ -31,7 +39,7 @@ index e431b55..0af049b 100644
      union {
          char                       *action_name;
          enum webprocess_fail_action action_id;
-@@ -263,6 +264,28 @@ on_web_view_create(WebKitWebView *web_view, WebKitNavigationAction *action)
+@@ -263,6 +265,28 @@ on_web_view_create(WebKitWebView *web_view, WebKitNavigationAction *action)
      return NULL;
  }
  
@@ -60,7 +68,7 @@ index e431b55..0af049b 100644
  static WebKitWebView *
  cog_launcher_create_view(CogLauncher *self, CogShell *shell)
  {
-@@ -312,6 +335,12 @@ cog_launcher_create_view(CogLauncher *self, CogShell *shell)
+@@ -312,6 +336,12 @@ cog_launcher_create_view(CogLauncher *self, CogShell *shell)
          g_clear_pointer(&s_options.filter, webkit_user_content_filter_unref);
      }
  
@@ -73,7 +81,7 @@ index e431b55..0af049b 100644
      g_signal_connect(web_view, "create", G_CALLBACK(on_web_view_create), NULL);
  
      if (platform) {
-@@ -1206,6 +1235,10 @@ static GOptionEntry s_cli_options[] = {
+@@ -1206,6 +1236,10 @@ static GOptionEntry s_cli_options[] = {
       "Ignore TLS errors (default: disabled).", NULL},
      {"content-filter", 'F', 0, G_OPTION_ARG_FILENAME, &s_options.filter_path,
       "Path to content filter JSON rule set (default: none).", "PATH"},

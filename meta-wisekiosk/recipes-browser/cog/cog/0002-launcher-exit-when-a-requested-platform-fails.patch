@@ -1,4 +1,4 @@
-From 14f717cb1e49c0a4d4af84ad9764a556da19c29d Mon Sep 17 00:00:00 2001
+From 36cd461d2af97c0c256c379f65a78a44ff11c4c4 Mon Sep 17 00:00:00 2001
 From: Wise <47094117+tjwise99@users.noreply.github.com>
 Date: Sun, 4 Oct 2026 15:54:50 -0400
 Subject: [PATCH] launcher: exit when a requested platform fails
@@ -20,10 +20,10 @@ Upstream-Status: Inappropriate [changes default fall-back behaviour; an opt-in f
  1 file changed, 17 insertions(+)
 
 diff --git a/launcher/cog-launcher.c b/launcher/cog-launcher.c
-index 0af049b..86508f7 100644
+index 2c2559f..25673dc 100644
 --- a/launcher/cog-launcher.c
 +++ b/launcher/cog-launcher.c
-@@ -212,6 +212,16 @@ cog_launcher_open(GApplication *application, GFile **files, int n_files, const c
+@@ -213,6 +213,16 @@ cog_launcher_open(GApplication *application, GFile **files, int n_files, const c
      webkit_web_view_load_uri(cog_shell_get_web_view(COG_LAUNCHER(application)->shell), uri);
  }
  
@@ -40,7 +40,7 @@ index 0af049b..86508f7 100644
  static CogPlatform *
  platform_setup_once(CogLauncher *self)
  {
-@@ -228,10 +238,13 @@ platform_setup_once(CogLauncher *self)
+@@ -229,10 +239,13 @@ platform_setup_once(CogLauncher *self)
      g_autofree const char *platform_name = g_strdup(s_options.platform_name ?: g_getenv("COG_PLATFORM_NAME"));
      g_clear_pointer(&s_options.platform_name, g_free);
      g_debug("%s: Platform name: %s", __func__, platform_name);
@@ -54,7 +54,7 @@ index 0af049b..86508f7 100644
          g_warning("Cannot create platform: %s", error->message);
          return NULL;
      }
-@@ -241,6 +254,8 @@ platform_setup_once(CogLauncher *self)
+@@ -242,6 +255,8 @@ platform_setup_once(CogLauncher *self)
      g_debug("%s: Platform params: %s", __func__, platform_params);
  
      if (!cog_platform_setup(platform, self->shell, platform_params ?: "", &error)) {
@@ -63,7 +63,7 @@ index 0af049b..86508f7 100644
          g_warning("Platform setup failed: %s", error->message);
          return NULL;
      }
-@@ -306,6 +321,8 @@ cog_launcher_create_view(CogLauncher *self, CogShell *shell)
+@@ -307,6 +322,8 @@ cog_launcher_create_view(CogLauncher *self, CogShell *shell)
          view_backend = cog_platform_get_view_backend(platform, NULL, &error);
          if (!view_backend) {
              g_assert(error);
