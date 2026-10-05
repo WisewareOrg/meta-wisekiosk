@@ -166,5 +166,105 @@ rc=$?
 if [ $rc -eq 2 ]; then pass=$((pass + 1)); else
     fail=$((fail + 1)); echo "FAIL  bad flag: expected rc=2, got rc=$rc" >&2; fi
 
+# --- --capture's kiosk.conf handling against a stubbed board (#185 ruling 2026-10-04) -----
+# --capture has no sourceable library mode for this logic (it is inline in main(), gated by
+# MODE, not behind the KIOSK_GPU_CHECK_LIB guard), and it finds kiosk-ssh.sh/
+# kiosk-screenshot.sh relative to its OWN argv[0] ($HERE=$(dirname "$0")), not on PATH -- so
+# the only way to stub those two siblings without touching the real tools/ directory is to
+# run a byte-for-byte COPY of the real kiosk-gpu-check.sh from a scratch directory that also
+# holds the stubs. diff-checked against the real file on every run, so this is never a stale
+# or drifted copy standing in for the shipped logic.
+#
+# The stub kiosk-ssh.sh runs the SAME heredoc text locally under `sh -c`, with the one
+# hardcoded device path (/data/config/kiosk.conf) rewritten to a scratch file via $TTP_CONF
+# -- nothing else about PREP/RESTORE's own logic changes. systemctl is stubbed too (PREP's
+# last command is `systemctl restart kiosk`, whose exit code becomes the whole heredoc's,
+# and this host has no "kiosk" unit).
+make_capture_stub_bin() {
+    local dir=$1
+    cat > "$dir/kiosk-ssh.sh" << 'EOF'
+#!/bin/sh
+case "$2" in
+    *"sh -s")
+        script=$(cat)
+        script=$(printf '%s\n' "$script" | sed "s#/data/config/kiosk\\.conf#$TTP_CONF#g")
+        sh -c "$script"
+        ;;
+    "pgrep -x cog | wc -l")
+        echo 1
+        ;;
+    *)
+        sh -c "$2"
+        ;;
+esac
+EOF
+    cat > "$dir/kiosk-screenshot.sh" << 'EOF'
+#!/bin/sh
+exit 0
+EOF
+    cat > "$dir/systemctl" << 'EOF'
+#!/bin/sh
+exit 0
+EOF
+    chmod +x "$dir/kiosk-ssh.sh" "$dir/kiosk-screenshot.sh" "$dir/systemctl"
+}
+
+capture_scratch_setup() {
+    # capture_scratch_setup -> prints the scratch dir path. Caller rm -rf's it.
+    local scratch
+    scratch=$(mktemp -d)
+    cp "$HERE/kiosk-gpu-check.sh" "$scratch/kiosk-gpu-check.sh"
+    if ! diff -q "$HERE/kiosk-gpu-check.sh" "$scratch/kiosk-gpu-check.sh" > /dev/null 2>&1; then
+        echo "capture_scratch_setup: copy does not match the shipped file" >&2
+        exit 1
+    fi
+    make_capture_stub_bin "$scratch"
+    echo "$scratch"
+}
+
+check_capture_no_kiosk_url_proceeds_and_restores() {
+    local scratch conf orig got_rc final
+    scratch=$(capture_scratch_setup)
+    conf="$scratch/kiosk.conf"
+    printf 'FOO=bar\nBAZ=qux\n' > "$conf"
+    orig=$(cat "$conf")
+
+    TTP_CONF=$conf PATH="$scratch:$PATH" bash "$scratch/kiosk-gpu-check.sh" fakehost --capture \
+        > /dev/null 2>&1
+    got_rc=$?
+    final=$(cat "$conf" 2>/dev/null || echo '<missing>')
+
+    if [ "$got_rc" -eq 0 ] && [ "$final" = "$orig" ]; then
+        pass=$((pass + 1))
+    else
+        fail=$((fail + 1))
+        echo "FAIL  --capture with no KIOSK_URL= line: should proceed (rc=0) and restore" >&2
+        echo "      kiosk.conf byte-identical -- got rc=$got_rc, restored=$([ "$final" = "$orig" ] && echo yes || echo no)" >&2
+    fi
+    rm -rf "$scratch"
+}
+
+check_capture_missing_conf_refuses_without_creating() {
+    local scratch conf got_rc
+    scratch=$(capture_scratch_setup)
+    conf="$scratch/kiosk.conf"  # deliberately never created
+
+    TTP_CONF=$conf PATH="$scratch:$PATH" bash "$scratch/kiosk-gpu-check.sh" fakehost --capture \
+        > /dev/null 2>&1
+    got_rc=$?
+
+    if [ "$got_rc" -eq 2 ] && [ ! -e "$conf" ]; then
+        pass=$((pass + 1))
+    else
+        fail=$((fail + 1))
+        echo "FAIL  --capture with no kiosk.conf at all: should refuse (rc=2) without" >&2
+        echo "      creating it -- got rc=$got_rc, now exists=$([ -e "$conf" ] && echo yes || echo no)" >&2
+    fi
+    rm -rf "$scratch"
+}
+
+check_capture_no_kiosk_url_proceeds_and_restores
+check_capture_missing_conf_refuses_without_creating
+
 echo "kiosk-gpu-check: pass=$pass fail=$fail"
 [ "$fail" -eq 0 ]
