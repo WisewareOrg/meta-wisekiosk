@@ -166,7 +166,13 @@ rc=$?
 if [ $rc -eq 2 ]; then pass=$((pass + 1)); else
     fail=$((fail + 1)); echo "FAIL  bad flag: expected rc=2, got rc=$rc" >&2; fi
 
-# --- --capture's kiosk.conf handling against a stubbed board (#185 ruling 2026-10-04) -----
+# --- --capture is unavailable on WPE, and must touch nothing (#185 ruling 2026-10-04) -----
+# Supersedes an earlier ruling (make --capture proceed when kiosk.conf lacks KIOSK_URL=):
+# webkit://gpu aborts cog on WPE, so --capture can no longer stage that URL and recover --
+# it must refuse unconditionally, rc 2, a message containing "unavailable", and kiosk.conf
+# must never be touched at all: no backup written, no byte of it changed, regardless of
+# what it contains.
+#
 # --capture has no sourceable library mode for this logic (it is inline in main(), gated by
 # MODE, not behind the KIOSK_GPU_CHECK_LIB guard), and it finds kiosk-ssh.sh/
 # kiosk-screenshot.sh relative to its OWN argv[0] ($HERE=$(dirname "$0")), not on PATH -- so
@@ -222,49 +228,40 @@ capture_scratch_setup() {
     echo "$scratch"
 }
 
-check_capture_no_kiosk_url_proceeds_and_restores() {
-    local scratch conf orig got_rc final
+check_capture_unavailable_leaves_kiosk_conf_untouched() {
+    local scratch conf orig out got_rc final backup_exists
     scratch=$(capture_scratch_setup)
     conf="$scratch/kiosk.conf"
-    printf 'FOO=bar\nBAZ=qux\n' > "$conf"
+    # Bench's real kiosk.conf today (wpe-impl, #185): just KIOSK_INSPECTOR=0. Content is
+    # otherwise irrelevant -- the point is that NOTHING about it is read for a URL swap.
+    printf 'KIOSK_INSPECTOR=0\n' > "$conf"
     orig=$(cat "$conf")
 
-    TTP_CONF=$conf PATH="$scratch:$PATH" bash "$scratch/kiosk-gpu-check.sh" fakehost --capture \
-        > /dev/null 2>&1
+    out=$(TTP_CONF=$conf PATH="$scratch:$PATH" bash "$scratch/kiosk-gpu-check.sh" \
+        fakehost --capture 2>&1)
     got_rc=$?
     final=$(cat "$conf" 2>/dev/null || echo '<missing>')
+    [ -e "$conf.gpucheck-bak" ] && backup_exists=yes || backup_exists=no
 
-    if [ "$got_rc" -eq 0 ] && [ "$final" = "$orig" ]; then
+    local ok=1
+    [ "$got_rc" -eq 2 ] || ok=0
+    [[ "$out" == *"unavailable"* ]] || ok=0
+    [ "$final" = "$orig" ] || ok=0
+    [ "$backup_exists" = no ] || ok=0
+
+    if [ "$ok" -eq 1 ]; then
         pass=$((pass + 1))
     else
         fail=$((fail + 1))
-        echo "FAIL  --capture with no KIOSK_URL= line: should proceed (rc=0) and restore" >&2
-        echo "      kiosk.conf byte-identical -- got rc=$got_rc, restored=$([ "$final" = "$orig" ] && echo yes || echo no)" >&2
+        echo "FAIL  --capture on WPE: want rc=2, output containing 'unavailable', kiosk.conf" >&2
+        echo "      byte-identical, no backup written -- got rc=$got_rc, backup=$backup_exists," >&2
+        echo "      conf unchanged=$([ "$final" = "$orig" ] && echo yes || echo no)" >&2
+        echo "      output: $out" >&2
     fi
     rm -rf "$scratch"
 }
 
-check_capture_missing_conf_refuses_without_creating() {
-    local scratch conf got_rc
-    scratch=$(capture_scratch_setup)
-    conf="$scratch/kiosk.conf"  # deliberately never created
-
-    TTP_CONF=$conf PATH="$scratch:$PATH" bash "$scratch/kiosk-gpu-check.sh" fakehost --capture \
-        > /dev/null 2>&1
-    got_rc=$?
-
-    if [ "$got_rc" -eq 2 ] && [ ! -e "$conf" ]; then
-        pass=$((pass + 1))
-    else
-        fail=$((fail + 1))
-        echo "FAIL  --capture with no kiosk.conf at all: should refuse (rc=2) without" >&2
-        echo "      creating it -- got rc=$got_rc, now exists=$([ -e "$conf" ] && echo yes || echo no)" >&2
-    fi
-    rm -rf "$scratch"
-}
-
-check_capture_no_kiosk_url_proceeds_and_restores
-check_capture_missing_conf_refuses_without_creating
+check_capture_unavailable_leaves_kiosk_conf_untouched
 
 echo "kiosk-gpu-check: pass=$pass fail=$fail"
 [ "$fail" -eq 0 ]
