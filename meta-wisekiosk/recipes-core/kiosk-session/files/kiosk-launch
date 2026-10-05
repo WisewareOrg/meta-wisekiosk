@@ -23,7 +23,7 @@ export COG_PLATFORM_DRM_VIDEO_MODE
 INSPECT=""
 if [ "${KIOSK_INSPECTOR:-0}" = "1" ]; then
 	export WEBKIT_INSPECTOR_HTTP_SERVER="${KIOSK_INSPECTOR_BIND:-127.0.0.1:2999}"
-	INSPECT="--enable-developer-extras"
+	INSPECT="--enable-developer-extras=true"
 fi
 
 # Measurement probe. OFF by default. KIOSK_PROBE=1 injects the script at
@@ -31,7 +31,7 @@ fi
 # each title change to stdout, which is the journal.
 PROBE=""
 if [ "${KIOSK_PROBE:-0}" = "1" ]; then
-	PROBE="--enable-write-console-messages-to-stdout --user-script=${KIOSK_PROBE_SCRIPT:-/home/root/kiosk-probe.js}"
+	PROBE="--enable-write-console-messages-to-stdout=true --user-script=${KIOSK_PROBE_SCRIPT:-/home/root/kiosk-probe.js}"
 fi
 
 # shellcheck disable=SC2086  # INSPECT and PROBE are option lists, split on purpose
