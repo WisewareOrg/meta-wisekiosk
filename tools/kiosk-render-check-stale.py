@@ -13,8 +13,9 @@ byte difference over a tile's RGB bytes. A tile is stale when, for two fbs that
 each have at least two stable captures, every capture of each fb matches that
 fb's first (MAD <= 1) and the two fbs' first captures differ (MAD > 1). Two fb
 ids in a single chronological split are a one-time repaint and pass. One fb id
-passes. Fewer than two fbs with two stable captures, or any PPM that is
-malformed, truncated or of another size, is could-not-tell.
+passes. Fewer than two stable captures, two or more fb ids but fewer than two
+fbs with two stable captures each, or any PPM that is malformed, truncated or
+of another size, is could-not-tell.
 """
 import re
 import sys
@@ -69,6 +70,8 @@ def stale_verdict(captures):
     stable = [(c["fb_before"], f[2]) for c, f in zip(captures, frames)
               if c["fb_before"] == c["fb_after"]]
     ids = [fb for fb, _ in stable]
+    if len(stable) < 2:
+        return cant_tell
     if len(set(ids)) <= 1:
         return {"rc": 0, "stale_tiles": 0}
 
