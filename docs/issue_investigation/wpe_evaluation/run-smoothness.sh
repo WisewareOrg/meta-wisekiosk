@@ -7,10 +7,11 @@
 #            and its mean luma (0-255) is at least 10, the rendered dashboard; short of that at
 #            120 s is VOID, exit 3, before anything is deployed
 #   deploy   p7_min.js to /home/root/kiosk-probe.js; kiosk.conf backed up, KIOSK_PROBE=1 appended
-#   capture  rm -rf /home/root/.cache/cog; systemctl restart kiosk; sleep 585; the kiosk journal's
-#            MP| lines since the restart (cog prints each title as "TITLE <title>"), loadavg,
-#            MemAvailable
-#   restore  kiosk.conf from its backup, probe removed, cache cleared, kiosk restarted
+#   capture  cog's cache cleared; systemctl restart kiosk; sleep 585; the kiosk journal's MP| lines
+#            since the restart (cog prints each title as "TITLE <title>"), loadavg, MemAvailable
+#   restore  kiosk.conf from its backup, probe removed, cog's cache cleared, kiosk restarted
+# cog's cache is <XDG_CACHE_HOME, else HOME/.cache, of the running cog, else uid 0's passwd
+# home/.cache>/cog; each clear records "cleared <dir> (<n> entries)" or "no cache dir found".
 # Around it: the R1 header run-appliance.sh records, the active CRTC mode read from DRM debugfs
 # before deploy and after readback (anything but 1280x720 on either read is VOID, exit 3), the
 # served bundle name from cog's cache, and kiosk NRestarts. A kiosk.conf backup already on the
@@ -22,6 +23,26 @@ HERE=$(dirname "$(readlink -f "$0")")
 ROOT=$(git -C "$HERE" rev-parse --show-toplevel)
 KSSH=$ROOT/tools/kiosk-ssh.sh
 PROBE=$HERE/../gpu_compositing/p7_min.js
+# shellcheck disable=SC2016  # remote shell source, expanded on the board
+COG_CACHE_FN='cog_cache_dir() {
+	p=$(pidof cog | cut -d" " -f1)
+	e=""
+	[ -n "$p" ] && e=$(tr "\0" "\n" < /proc/$p/environ)
+	x=$(printf "%s\n" "$e" | sed -n "s/^XDG_CACHE_HOME=//p")
+	h=$(printf "%s\n" "$e" | sed -n "s/^HOME=//p")
+	[ -n "$h" ] || h=$(awk -F: "\$3 == 0 { print \$6; exit }" /etc/passwd)
+	echo "${x:-$h/.cache}/cog"
+}
+clear_cog_cache() {
+	c=$(cog_cache_dir)
+	if [ -d "$c" ]; then
+		n=$(find "$c" | wc -l)
+		rm -rf "$c"
+		echo "# cleared $c ($((n - 1)) entries)"
+	else
+		echo "# no cache dir found ($c)"
+	fi
+}'
 SHOT=$ROOT/local/wpe-pre-$(basename "$OUT" .txt).png
 [ -e "$OUT" ] && { echo "$OUT exists -- refusing to overwrite a capture" >&2; exit 2; }
 
@@ -30,11 +51,11 @@ RESTORE_PENDING=0
 restore_conf() {
 	[ "$RESTORE_PENDING" = 1 ] || return 0
 	RESTORE_PENDING=0
-	"$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1 <<'RESTORE'
+	{ printf '%s\n' "$COG_CACHE_FN"; cat <<'RESTORE'; } | "$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1
 C=/data/config/kiosk.conf
 if [ -f $C.wpe-bak ]; then mv $C.wpe-bak $C; elif [ -e $C.wpe-absent ]; then rm -f $C $C.wpe-absent; else echo "# NO BACKUP -- kiosk.conf left as found"; fi
 rm -f /home/root/kiosk-probe.js
-rm -rf /home/root/.cache/cog
+clear_cog_cache
 systemctl restart kiosk
 n=$(grep -c '^KIOSK_PROBE' $C 2>/dev/null)
 echo "# restored: kiosk.conf KIOSK_PROBE lines ${n:-none, file absent}, kiosk restarted"
@@ -92,7 +113,8 @@ rc=$?
 {
 echo "# capture start $(date -u +%FT%TZ)"
 "$KSSH" "$T" 'sh -s' 2>&1 <<EOF
-rm -rf /home/root/.cache/cog
+$COG_CACHE_FN
+clear_cog_cache
 systemctl restart kiosk
 S=\$(date +%s)
 echo "restarted, sleeping $SLEEP"
@@ -107,8 +129,8 @@ echo "# capture end $(date -u +%FT%TZ)"
 } >> "$OUT"
 
 M1=$(mode); printf '%s\n' "$M1" | sed 's/^/# mode-after /' >> "$OUT"
-"$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1 <<'POST'
-echo "# bundle $(grep -rhoE 'index-[A-Za-z0-9_]+\.js' /home/root/.cache/cog | sort -u | tr '\n' ' ')"
+{ printf '%s\n' "$COG_CACHE_FN"; cat <<'POST'; } | "$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1
+echo "# bundle $(grep -rhoE 'index-[A-Za-z0-9_]+\.js' "$(cog_cache_dir)" | sort -u | tr '\n' ' ')"
 echo "# kiosk $(systemctl show -p NRestarts -p ActiveEnterTimestamp kiosk | tr '\n' ' ')"
 POST
 restore_conf
