@@ -14,15 +14,17 @@ and this test is what fixes its shape:
   bytes of a binary PPM (P6) capture of the checked region.
 
   Rule: use stable captures only (fb_before == fb_after). Group them by fb id.
-  Grid: a fixed 40x40 tiles over the frame. A tile DISAGREES when (a) within
-  each fb's own stable captures the tile is identical (MAD <= 1 over the
-  R/G/B bytes), and (b) between the two fbs it differs (MAD > 1) -- unless
-  the fb-id sequence among the stable captures is a single chronological
-  split (every capture of one id before every capture of the other), which is
-  a legitimate one-time repaint, not staleness. rc=3 iff >=1 tile disagrees.
-  One fb id seen: no alternation is possible, rc=0. Two fb ids but either has
-  fewer than 2 stable captures, or any capture's PPM is truncated: rc=2,
-  never a pass.
+  Grid: fixed 40x40-PIXEL tiles over the frame, not 40 divisions per axis --
+  a 1280x720 region is 32x18 tiles. A dimension not divisible by 40 leaves a
+  partial edge tile, whose MAD is computed over its own actual pixels, not a
+  full 40x40. A tile DISAGREES when (a) within each fb's own stable captures
+  the tile is identical (MAD <= 1 over the R/G/B bytes), and (b) between the
+  two fbs it differs (MAD > 1) -- unless the fb-id sequence among the stable
+  captures is a single chronological split (every capture of one id before
+  every capture of the other), which is a legitimate one-time repaint, not
+  staleness. rc=3 iff >=1 tile disagrees. One fb id seen: no alternation is
+  possible, rc=0. Two fb ids but either has fewer than 2 stable captures, or
+  any capture's PPM is truncated: rc=2, never a pass.
 
   CLI: `kiosk-render-check-stale.py <manifest>`, where <manifest> is a text
   file, one line per capture in chronological order:
@@ -45,8 +47,8 @@ from pathlib import Path
 TOOLS = Path(__file__).resolve().parent
 sys.dont_write_bytecode = True
 
-W, H = 80, 80          # divisible by the fixed 40x40 grid: tile = 2x2 px
-TILE_PX = W // 40
+TILE = 40              # pixels, fixed -- not a divisions-per-axis count
+W, H = 80, 80          # 2x2 whole tiles at the fixed 40px size
 BG = (100, 100, 100)
 C0 = (0, 0, 0)
 C128 = (128, 128, 128)
@@ -76,23 +78,28 @@ stale = load("kiosk-render-check-stale")
 
 # --------------------------------------------------------------- fixtures
 #
-# One 80x80 synthetic frame per capture, a uniform background with tile
-# (0, 0) overridden where a case needs it to differ. Every fixture is
-# checked against a scratch reference oracle before being trusted here --
-# not shipped, not re-run by this file.
+# A synthetic frame per capture, a uniform background with one tile
+# overridden where a case needs it to differ. Most cases use an 80x80 frame
+# (an exact 2x2 grid of real 40x40 tiles) and tile (0, 0); the partial-edge
+# case below uses a frame whose dimensions are not multiples of 40. Every
+# fixture is checked against a scratch reference oracle before being
+# trusted here -- not shipped, not re-run by this file.
 
-def ppm(tile_rgb=None, base=BG):
-    buf = bytearray(bytes(base) * (W * H))
+def ppm(w=W, h=H, ti=0, tj=0, tile_rgb=None, base=BG):
+    buf = bytearray(bytes(base) * (w * h))
     if tile_rgb is not None:
-        for yy in range(TILE_PX):
-            off = (yy * W) * 3
-            buf[off:off + TILE_PX * 3] = bytes(tile_rgb) * TILE_PX
-    header = f"P6\n{W} {H}\n255\n".encode()
+        x0, y0 = ti * TILE, tj * TILE
+        x1, y1 = min(x0 + TILE, w), min(y0 + TILE, h)
+        for y in range(y0, y1):
+            off = (y * w + x0) * 3
+            buf[off:off + (x1 - x0) * 3] = bytes(tile_rgb) * (x1 - x0)
+    header = f"P6\n{w} {h}\n255\n".encode()
     return header + bytes(buf)
 
 
-def cap(fb_before, fb_after, tile_rgb=None):
-    return {"fb_before": fb_before, "fb_after": fb_after, "ppm": ppm(tile_rgb)}
+def cap(fb_before, fb_after, tile_rgb=None, w=W, h=H, ti=0, tj=0):
+    return {"fb_before": fb_before, "fb_after": fb_after,
+            "ppm": ppm(w, h, ti, tj, tile_rgb)}
 
 
 def verdict_cases():
@@ -128,7 +135,7 @@ def verdict_cases():
 
     # A truncated capture forces could-not-tell, never a pass -- even though
     # the other three captures alone would read as a clean late-change.
-    truncated = ppm(C0)[:-500]
+    truncated = ppm(tile_rgb=C0)[:-500]
     case("truncated capture -> could not tell, never a pass",
          stale.stale_verdict([
              cap(1, 1, C0), cap(1, 1, C0),
@@ -147,8 +154,24 @@ def verdict_cases():
     case("unstable capture ignored, disagreement still found -> STALE",
          stale.stale_verdict([
              cap(1, 1, C0), cap(2, 2, C255),
-             {"fb_before": 1, "fb_after": 2, "ppm": ppm(C128)},
+             {"fb_before": 1, "fb_after": 2, "ppm": ppm(tile_rgb=C128)},
              cap(1, 1, C0), cap(2, 2, C255),
+         ]),
+         {"rc": 3, "stale_tiles": 1})
+
+    # A 100x60 frame is not a multiple of the fixed 40px tile: tiles_x =
+    # ceil(100/40) = 3 (0-39, 40-79, 80-99 -- 20px wide), tiles_y =
+    # ceil(60/40) = 2 (0-39, 40-59 -- 20px tall). Tile (2, 1), the
+    # bottom-right corner, is doubly partial: 20x20 actual pixels. The
+    # disagreement is painted ONLY there, interleaved so no exclusion
+    # applies -- proving an edge tile is included and its MAD is computed
+    # over its real (smaller) pixel count, not a full 40x40.
+    case("partial edge tile (20x20 px) disagrees -> STALE",
+         stale.stale_verdict([
+             cap(1, 1, C0, w=100, h=60, ti=2, tj=1),
+             cap(2, 2, C255, w=100, h=60, ti=2, tj=1),
+             cap(1, 1, C0, w=100, h=60, ti=2, tj=1),
+             cap(2, 2, C255, w=100, h=60, ti=2, tj=1),
          ]),
          {"rc": 3, "stale_tiles": 1})
 
