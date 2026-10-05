@@ -8,7 +8,8 @@
 # the start and those samples themselves, kiosk NRestarts, boot id and /proc/vmstat
 # pswpin/pswpout at both ends, /proc/pressure/memory, and kernel OOM lines since the start; then
 # it restores kiosk.conf, removes the probe and restarts kiosk. A kiosk.conf backup already on the
-# board means an earlier run did not restore; the run refuses, exit 1, and leaves it alone.
+# board means an earlier run did not restore; the run refuses, exit 1, and leaves it alone. cog's
+# cache dir absent or empty before deploy is VOID, exit 3 (cog-cache.sh's require_cog_cache).
 set -u
 T=${1:?ssh-target}; ROLE=${2:?role}; OUT=${3:?out}
 SECS=3600
@@ -35,6 +36,8 @@ RESTORE
 }
 trap restore_conf EXIT
 trap 'exit 1' INT TERM HUP
+
+require_cog_cache "$KSSH" "$T"
 
 {
 echo "# run-soak.sh role=$ROLE secs=$SECS"

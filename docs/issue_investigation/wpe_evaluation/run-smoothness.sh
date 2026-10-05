@@ -5,7 +5,8 @@
 # WPE readback:
 #   pre-run  screenshot into local/ for the card state, retried every 10 s until it is not blank
 #            and its mean luma (0-255) is at least 10, the rendered dashboard; short of that at
-#            120 s is VOID, exit 3, before anything is deployed
+#            120 s is VOID, exit 3, before anything is deployed; so is cog's cache dir absent or
+#            empty (cog-cache.sh's require_cog_cache)
 #   deploy   p7_min.js to /home/root/kiosk-probe.js; kiosk.conf backed up, KIOSK_PROBE=1 appended
 #   capture  cog's cache cleared; systemctl restart kiosk; sleep 585; the kiosk journal's MP| lines
 #            since the restart (cog prints each title as "TITLE <title>"), loadavg, MemAvailable
@@ -58,6 +59,8 @@ for wait in 0 10 20 30 40 50 60 70 80 90 100 110 120; do
 	[ $rc -eq 0 ] && awk -v m="${mean:-0}" 'BEGIN { exit !(m >= 10) }' && break
 	[ "$wait" -eq 120 ] && { echo "VOID: pre-run screenshot not a rendered dashboard after 120 s (last mean ${mean:-none}, rc $rc) -- $SHOT" >&2; exit 3; }
 done
+
+require_cog_cache "$KSSH" "$T"
 
 {
 echo "# run-smoothness.sh role=$ROLE probe=$(basename "$PROBE") sleep=$SLEEP"

@@ -324,9 +324,10 @@ All one-off and committed beside this README (R2), except where a run names a sh
 - `cog-cache.sh` — sourced by the three drivers: resolves cog's cache on the board as WebKit's
   network-session default, `<XDG_CACHE_HOME, else HOME/.cache, of the running cog, else uid 0's
   passwd home/.cache>/wpe` (`/home/root/.cache/wpe` on bench), and clears it, each clear logging
-  `# cleared <dir> (<n> entries)` or `# no cache dir found (<dir>)`. A capture whose clear before
-  its first restart logs no cache dir or 0 entries is VOID. `check-cog-cache-resolver.sh` prints
-  the resolved dir and its entry count and deletes nothing.
+  `# cleared <dir> (<n> entries)` or `# no cache dir found (<dir>)`. Before deploying anything,
+  `run-smoothness.sh` and `run-soak.sh` check that dir and exit 3, VOID, if it is absent or holds
+  no entries, so every capture's first clear empties a populated cache.
+  `check-cog-cache-resolver.sh` prints the resolved dir and its entry count and deletes nothing.
 
 **Aborting a driver:** kill its process group, `kill -TERM -- -<pgid>`. Bench runs launch
 drivers with `setsid nohup …`, so each has its own group; `ps -o pgid= -p <driver pid>` prints

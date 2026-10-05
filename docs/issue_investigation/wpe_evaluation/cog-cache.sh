@@ -3,6 +3,8 @@
 # script: cog_cache_dir prints WebKit's network-session cache dir, <XDG_CACHE_HOME, else
 # HOME/.cache, of the running cog, else uid 0's passwd home/.cache>/wpe; clear_cog_cache removes
 # it and prints "# cleared <dir> (<n> entries)" or "# no cache dir found (<dir>)".
+# require_cog_cache <kiosk-ssh> <target>, run on the host before anything is deployed: VOID,
+# exit 3, unless that dir exists on the board and holds at least one entry.
 # shellcheck disable=SC2016,SC2034  # remote shell source, expanded on the board
 COG_CACHE_FN='cog_cache_dir() {
 	p=$(pidof cog | cut -d" " -f1)
@@ -23,3 +25,15 @@ clear_cog_cache() {
 		echo "# no cache dir found ($c)"
 	fi
 }'
+
+require_cog_cache() {
+	local r
+	# shellcheck disable=SC2016  # remote shell source, expanded on the board
+	r=$( { printf '%s\n' "$COG_CACHE_FN"
+		echo 'c=$(cog_cache_dir); n=0; [ -d "$c" ] && n=$(($(find "$c" | wc -l) - 1)); echo "$n $c"'
+	} | "$1" "$2" 'sh -s' | tail -n 1)
+	case "$r" in
+	"") echo "VOID: no answer from $2 to the cog cache check" >&2; exit 3 ;;
+	"0 "*) echo "VOID: cog cache ${r#* } absent or empty before the first restart" >&2; exit 3 ;;
+	esac
+}
