@@ -1,0 +1,166 @@
+# run-soak.sh role=S3-32b670c secs=3600
+# harness cd916b041fb3a71e6c80495dc278e8baba4918f4
+# started 2026-10-05T14:13:43Z
+# probe sha256 local    c3f20aa9fa8fca8264f99279128c54cbc1ec6c2625526595d815412b783166fd
+# buildinfo meta-wisekiosk    = HEAD:32b670c5a4379443aef5ddab9ca0e43cac1c5e96
+# Booted from: rootfs.1 (B)
+# probe sha256 deployed c3f20aa9fa8fca8264f99279128c54cbc1ec6c2625526595d815412b783166fd
+# boot-start 40cb351b-ba78-41a0-9107-e162f5a36706
+# no cache dir found (/home/root/.cache/wpe)
+# start-epoch 1791209625 NRestarts=0
+# vmstat-start pswpin 0 pswpout 0 
+=== journal MF| since start-epoch ===
+TITLE MF|t=30|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=60|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=90|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=120|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=150|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=180|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=210|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=240|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=270|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=300|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=330|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=360|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=390|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=420|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=450|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=480|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=510|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=540|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=570|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=600|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=630|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=661|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=691|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=721|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=751|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=781|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=811|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=841|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=871|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=901|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=931|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=961|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=991|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1021|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1051|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1081|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1111|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1141|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1171|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1201|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1231|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1261|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1291|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1321|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1351|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1381|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1411|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1441|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1471|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1501|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1531|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1561|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1591|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1621|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1651|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1681|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1711|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1741|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1771|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1801|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1831|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1861|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1891|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1921|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1951|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=1981|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2011|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2041|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2071|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2101|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2131|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2161|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2191|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2221|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2251|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2281|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2311|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2341|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2371|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2401|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2431|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2461|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2491|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2521|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2551|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2581|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2612|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2642|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2672|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2702|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2732|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2762|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2792|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2822|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2852|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2882|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2912|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2942|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=2972|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3002|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3032|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3062|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3092|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3122|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3152|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3182|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3212|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3242|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3272|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3302|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3332|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3362|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3392|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3422|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3452|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3482|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3512|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3542|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3572|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3602|f=0|fmax=0|fever=0|u=0|umax=0
+TITLE MF|t=3632|f=0|fmax=0|fever=0|u=0|umax=0
+=== kiosk-soak samples since start-epoch ===
+ts=1791209885 iso=2026-10-05T10:18:05-0400 boot=40cb351b up=38522 load1=2.71 load5=2.68 load15=2.68 temp=51.9 thr=unknown memused=107 memavail=289 ent=256 disk=17 browser=cog pid=17685 nproc=3 rss_main=36832 rss_total=166596
+ts=1791210186 iso=2026-10-05T10:23:06-0400 boot=40cb351b up=38823 load1=2.81 load5=2.65 load15=2.65 temp=53.0 thr=unknown memused=124 memavail=272 ent=256 disk=17 browser=cog pid=17685 nproc=3 rss_main=36832 rss_total=183876
+ts=1791210487 iso=2026-10-05T10:28:07-0400 boot=40cb351b up=39124 load1=2.59 load5=2.60 load15=2.63 temp=54.1 thr=unknown memused=140 memavail=256 ent=256 disk=17 browser=cog pid=17685 nproc=3 rss_main=36836 rss_total=201040
+ts=1791210788 iso=2026-10-05T10:33:08-0400 boot=40cb351b up=39425 load1=3.19 load5=2.78 load15=2.69 temp=53.5 thr=unknown memused=153 memavail=243 ent=256 disk=17 browser=cog pid=17685 nproc=3 rss_main=36836 rss_total=202244
+ts=1791211089 iso=2026-10-05T10:38:09-0400 boot=40cb351b up=39726 load1=2.89 load5=2.71 load15=2.68 temp=54.1 thr=unknown memused=153 memavail=243 ent=256 disk=17 browser=cog pid=17685 nproc=3 rss_main=36836 rss_total=206308
+ts=1791211390 iso=2026-10-05T10:43:10-0400 boot=40cb351b up=40027 load1=2.36 load5=2.58 load15=2.63 temp=43.9 thr=unknown memused=153 memavail=243 ent=256 disk=17 browser=cog pid=17685 nproc=3 rss_main=36836 rss_total=210728
+ts=1791211691 iso=2026-10-05T10:48:11-0400 boot=40cb351b up=40328 load1=2.75 load5=2.79 load15=2.72 temp=48.7 thr=unknown memused=155 memavail=241 ent=256 disk=17 browser=cog pid=17685 nproc=3 rss_main=36836 rss_total=216900
+ts=1791211992 iso=2026-10-05T10:53:12-0400 boot=40cb351b up=40629 load1=2.64 load5=2.68 load15=2.70 temp=51.9 thr=unknown memused=157 memavail=240 ent=256 disk=17 browser=cog pid=17685 nproc=3 rss_main=36836 rss_total=209168
+ts=1791212293 iso=2026-10-05T10:58:13-0400 boot=40cb351b up=40930 load1=2.88 load5=2.77 load15=2.73 temp=52.5 thr=unknown memused=157 memavail=240 ent=256 disk=17 browser=cog pid=17685 nproc=3 rss_main=36840 rss_total=213104
+ts=1791212593 iso=2026-10-05T11:03:13-0400 boot=40cb351b up=41230 load1=2.42 load5=2.61 load15=2.68 temp=53.0 thr=unknown memused=156 memavail=240 ent=256 disk=17 browser=cog pid=17685 nproc=3 rss_main=36840 rss_total=217100
+ts=1791212894 iso=2026-10-05T11:08:14-0400 boot=40cb351b up=41531 load1=2.68 load5=2.71 load15=2.71 temp=46.5 thr=unknown memused=159 memavail=237 ent=256 disk=17 browser=cog pid=17685 nproc=3 rss_main=36840 rss_total=207896
+ts=1791213195 iso=2026-10-05T11:13:15-0400 boot=40cb351b up=41832 load1=2.60 load5=2.72 load15=2.72 temp=43.9 thr=unknown memused=159 memavail=238 ent=256 disk=17 browser=cog pid=17685 nproc=3 rss_main=36840 rss_total=212696
+=== kiosk-soak --summary 12 (samples since start-epoch) ===
+  samples          12 over 0.9 h
+  reboots          0
+  browser restarts 0
+  samples w/o browser  0 
+  rss_total range  166596 .. 217100 kB
+  rss_total ends   166596 -> 212696 kB (endpoint delta +46100 -- NOT a rate)
+  slope            +50139.0 kB/h  (n=12)
+  peak temp        54.1 C
+  peak load1       3.19  (includes the sampler wake-up itself)
+  throttled        12 sample(s) with thr != 0x0
+# boot-end 40cb351b-ba78-41a0-9107-e162f5a36706
+# end NRestarts=0
+# vmstat-end pswpin 0 pswpout 0 
+=== /proc/pressure/memory ===
+cat: can't open '/proc/pressure/memory': No such file or directory
+=== kernel OOM lines since start-epoch ===
+# cleared /home/root/.cache/wpe (24 entries)
+# restored: kiosk.conf KIOSK_PROBE lines 0, kiosk restarted
+# complete 2026-10-05T15:14:51Z

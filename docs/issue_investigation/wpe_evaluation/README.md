@@ -49,6 +49,14 @@ from slot B. The S1 harness ran from a checkout pinned at `ea79e18`, clean, exce
 | 24 | bench · Pi Zero W | `32b670c` | `run-s3-smoothness-soak.sh` → `run-smoothness.sh` @ `786f405`, `p7_min.js` | 52.95 fps, 99.0 % <50 ms, stall 0.0248/s (14 from 13 s); not in the verdict: cog's cache not cleared |
 | 25 | bench · Pi Zero W | `32b670c` | as Run 24 | 50.07 fps, 98.3 % <50 ms, stall 0.0654/s (37 from 14 s); not in the verdict, as Run 24 |
 | 26 | bench · Pi Zero W | `32b670c` | as Run 24 | 50.10 fps, 98.5 % <50 ms, stall 0.0758/s (43 from 14 s); not in the verdict, as Run 24 |
+| 27 | bench · Pi Zero W | `32b670c` | `run-s3-smoothness-soak.sh` → `run-soak.sh` @ `786f405`, `mf-probe.js` | VOID: stopped early, cog's cache not cleared |
+| 28 | bench · Pi Zero W | `32b670c` | `check-stall-correlation.sh` | Runs 24–26's first 90 s: no backend line, no periodic cog or WPE line |
+| 29 | bench · Pi Zero W | `32b670c` | `check-cog-cache-path.sh` | cog's cache is `/home/root/.cache/wpe`; no `.cache/cog`; no HOME or XDG_* in cog's environment |
+| 30 | bench · Pi Zero W | `32b670c` | `check-cog-cache-resolver.sh` @ `cd916b0` | resolves `/home/root/.cache/wpe`, 24 entries |
+| 31 | bench · Pi Zero W | `32b670c` | `run-s3-smoothness-soak.sh` → `run-smoothness.sh` @ `cd916b0`, `p7_min.js` | 50.72 fps, 98.8 % <50 ms, stall 0.0795/s (45 from 13 s) |
+| 32 | bench · Pi Zero W | `32b670c` | as Run 31 | 52.83 fps, 99.1 % <50 ms, stall 0.0673/s (38 from 14 s) |
+| 33 | bench · Pi Zero W | `32b670c` | as Run 31 | 55.89 fps, 99.5 % <50 ms, stall 0.0035/s (2 from 14 s) |
+| 34 | bench · Pi Zero W | `32b670c` | `run-s3-smoothness-soak.sh` → `run-soak.sh` @ `cd916b0`, `mf-probe.js` | 1 h: fmax 0, fever 0, 0 restarts, 0 reboots, no OOM |
 
 ### Run 1 — capture cross-validation, bench, commit `20a1f34`
 
@@ -242,7 +250,51 @@ so the PNGs carry the PPMs exactly.
   run, so the procedures differ. The captures stand as recorded and are re-run after the driver
   fix.
 - **Raw capture:** `s3-smoothness-run1.txt` (Run 24), `s3-smoothness-run2.txt` (Run 25),
-  `s3-smoothness-run3.txt` (Run 26).
+  `s3-smoothness-run3.txt` (Run 26). The operator's scratch copies were later renamed
+  `*-VOID-cache.txt` and given an appended VOID note; the files here are the bytes as captured.
+
+### Runs 27–34 — S3 with cog's cache cleared, bench, commit `32b670c`
+
+- **Board:** bench, Pi Zero W. **Image commit:** `32b670c5a4379443aef5ddab9ca0e43cac1c5e96`,
+  slot B, from `/etc/buildinfo` in each capture.
+- **Scripts deployed:** `run-soak.sh` @ `786f405` (Run 27) and `run-smoothness.sh`, `run-soak.sh`
+  and `cog-cache.sh` @ `cd916b0` (Runs 31–34), run unmodified, as each capture's harness line
+  records; `check-cog-cache-resolver.sh` @ `cd916b0` (Run 30). `check-stall-correlation.sh`
+  (Run 28) and `check-cog-cache-path.sh` (Run 29) are read-only and committed here.
+  Runs 27 and 31–34 ran from `run-s3-smoothness-soak.sh`, unchanged, launched as for Runs 24–26
+  (an inline command, an R2 gap); for Runs 31–34 the operator first moved the host checkout to
+  `cd916b0`. Run 30's header lines came from an inline wrapper around the committed script, not
+  saved as a script — an R2 gap. As the operator reports it:
+
+  ```sh
+  {
+    echo "# check-cog-cache-resolver.sh root@<BENCH_ADDRESS>, harness cd916b0, board role: bench"
+    tools/kiosk-ssh.sh root@<BENCH_ADDRESS> 'grep "^meta-wisekiosk " /etc/buildinfo; rauc status 2>&1 | grep "Booted from"'
+    docs/issue_investigation/wpe_evaluation/check-cog-cache-resolver.sh root@<BENCH_ADDRESS>
+  } > s3-cache-resolver-check.txt
+  ```
+
+- **Procedure:**
+  - Run 27: the 1 h soak that followed Runs 24–26 in their chain, with the same no-op cache clear;
+    stopped early by killing its process group once the defect was confirmed. Its EXIT trap
+    restored `kiosk.conf`, which the operator then compared byte-identical to the pre-run copy. It
+    holds no `MF|` data.
+  - Run 28: for each of Runs 24–26, 90 s of the `kiosk` and `wisekiosk` journals from the
+    capture's restart, short-monotonic. The restart times are hard-coded in the script.
+  - Run 29: where cog's cache is, read on the board: root's passwd entry, the unit's environment,
+    the running cog's HOME and XDG_*, `/root/.cache` and `/home/root/.cache`, and every `cog`
+    directory. `getent` is absent on this image, so its section is empty.
+  - Run 30: the resolver's answer on the board before the re-run, deleting nothing.
+  - Runs 31–33: three captures as Runs 24–26, with each capture's first clear emptying
+    `/home/root/.cache/wpe` (24, 24 and 21 entries) and the bundle recorded
+    (`index-CDN2Arem.js`). 1280x720 was live before and after each, and NRestarts stayed 0.
+  - Run 34: the soak. Its clear before the restart found no cache dir: the cache was cold, cleared
+    by Run 33's restore at 14:13:43Z, and the dir was not yet recreated. The soak deployed the
+    same second.
+- **Raw capture:** `s3-soak-VOID-cache.txt` (Run 27, with the operator's appended notes),
+  `s3-stall-correlation-run1.txt` … `-run3.txt` (Run 28), `s2-cog-cache-path.txt` (Run 29, named
+  before the S3 numbering), `s3-cache-resolver-check.txt` (Run 30),
+  `s3-rerun-smoothness-run1.txt` … `-run3.txt` (Runs 31–33), `s3-rerun-soak.txt` (Run 34).
 
 ## Configuration under test
 
@@ -408,6 +460,30 @@ probe's own (570 s of the 585 s capture).
 |---|---|---|---|---|---|---|---|
 | 582 | 29157 | 50.10 | 98.5 | 2453 | 51 | 0.0758/s (43 from ref_t 14 s) | 12 |
 
+**Run 31** (`s3-rerun-smoothness-run1.txt`)
+
+| sec | frames | mean fps | % <50 ms | max ms | bt | stall rate t ≥ 15 s | clusters |
+|---|---|---|---|---|---|---|---|
+| 581 | 29469 | 50.72 | 98.8 | 1638 | 53 | 0.0795/s (45 from ref_t 13 s) | 11 |
+
+**Run 32** (`s3-rerun-smoothness-run2.txt`)
+
+| sec | frames | mean fps | % <50 ms | max ms | bt | stall rate t ≥ 15 s | clusters |
+|---|---|---|---|---|---|---|---|
+| 580 | 30643 | 52.83 | 99.1 | 1548 | 47 | 0.0673/s (38 from ref_t 14 s) | 8 |
+
+**Run 33** (`s3-rerun-smoothness-run3.txt`)
+
+| sec | frames | mean fps | % <50 ms | max ms | bt | stall rate t ≥ 15 s | clusters |
+|---|---|---|---|---|---|---|---|
+| 581 | 32473 | 55.89 | 99.5 | 1547 | 8 | 0.0035/s (2 from ref_t 14 s) | 5 |
+
+**Run 34** (`s3-rerun-soak.txt`; MF| from `parse_module_fault.py`, 121 samples)
+
+| fmax | fever | umax | restarts | reboots | OOM lines | min MemAvailable | rss_total | swap in/out | PSI |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 0 | 0 | 0 | 0 | 237 MB | 166596 → 212696 kB, slope +50139 kB/h (n=12) | 0 / 0 | unavailable |
+
 **Run 14** (`s2-paintgate.txt`)
 
 | render-check | screenshot mean | gpu-check | processes on `/dev/dri` |
@@ -485,6 +561,17 @@ probe's own (570 s of the 585 s capture).
   `/home/root/.cache/cog`, which does not exist on this image, so each capture ran with cog's cache
   in whatever state the previous run left, and no bundle was recorded. Those runs are kept as
   recorded and do not count toward the verdict.
+- **With a populated cache cleared before every run (Runs 31–33), the stall trains still come and
+  go.** Run 31 carries the ~40 s train of ~360 ms stalls from 42 s to the end and a sparse 8 s
+  train; Run 32 carries both trains from the start, with bursts near 250 s and 305 s, then almost
+  none; Run 33 carries neither (2 steady stalls). The full timelines are the union of each
+  capture's `MP|` big[] lists, which holds every stall (its size equals bt).
+- **No log line coincides with the stall trains** (Run 28): in the first 90 s after each of Runs
+  24–26's restarts the backend logged nothing, and the kiosk journal holds the start-up lines and
+  the probe's titles only.
+- **The WPE soak (Run 34) is clean:** no module fault in 121 samples, no restart, no reboot, no OOM
+  line, no swap. Memory is recorded, not judged: rss_total 166596 → 212696 kB, slope
+  +50139 kB/h (n=12), min MemAvailable 237 MB.
 - **Time to page on WPE: 43.36, 40.78, 43.28 s** (Run 22), recorded, not judged, against the X
   baseline's 48.00, 59.63, 50.80 s (Run 13). Every boot's timesyncd sync (55.6–66.3 s monotonic)
   came after the beacon, so all three are in the beacon's pre-step frame.
