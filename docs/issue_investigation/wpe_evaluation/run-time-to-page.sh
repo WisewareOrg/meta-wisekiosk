@@ -5,7 +5,7 @@
 # KIOSK_PROBE_SCRIPT=/usr/share/kiosk-bootprof/time-to-page.js appended, so each boot runs the
 # shipped beacon. Each boot: systemctl reboot, 120 s on this host with no probing, then one
 # connection that records buildinfo and runs the shipped measure-page.sh with READ_AT 115. A boot
-# it prints SUSPECT (a clock step after the beacon fired) is re-run once; a second SUSPECT is kept as
+# it prints SUSPECT (an unrecoverable clock frame) is re-run once; a second SUSPECT is kept as
 # recorded. One connection per boot, none before 120 s: kiosk-bootprof's README on why ssh is an
 # instrument. kiosk.conf is restored afterwards and kiosk restarted. A kiosk.conf backup already on
 # the board means an earlier run did not restore; the run refuses, exit 1, and leaves it alone.

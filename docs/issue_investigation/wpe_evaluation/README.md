@@ -76,8 +76,11 @@ All one-off and committed beside this README (R2), except where a run names a sh
 - `run-time-to-page.sh` — time to page, three cold boots with one connection each at 120 s: the
   shipped `time-to-page.js` beacon (`meta-wisekiosk/recipes-core/kiosk-bootprof/files/`) titles
   the page `T <epoch_ms>` (`Date.now()`) once the weather glyph renders in its face; time to page
-  is that minus the boot epoch read at READ_AT 115. A boot whose journal shows a clock step or
-  timesyncd sync later than its time to page is SUSPECT and re-run once. On WPE the beacon runs
+  is that minus the boot epoch read at READ_AT 115 (`frame=post-step`). When the journal shows a
+  clock step or timesyncd sync later than the time to page, the beacon stamped the earlier
+  frame, and the boot epoch comes from the last journal entry before the step
+  (`frame=pre-step`). A boot is SUSPECT only with no entry before the step, or with no step and
+  the two frames more than 1 s apart; a SUSPECT boot is re-run once. On WPE the beacon runs
   as the `KIOSK_PROBE` user script and the shipped `measure-page.sh` reads its `TITLE` line from
   the journal; the X baseline ran it as surf's `script.js`, read by `time-to-page-x.sh` over X.
   The X image's own `measure-surf.sh` does not apply: its beacon waits on `.module`/`.wi`, which
