@@ -102,7 +102,16 @@ The operator's in-file notes name some captures by their working names: "run3b" 
 "ttp-baseline-20a1f34-fixed2.txt" is `s1-ttp-suspect.txt`. Where those notes cite an owner ruling,
 they mean the plan's page-state rule (cards open with data, a wrong-state capture VOID) and its
 fallback (record the best attempt with the state annotated). The helper's two PPM frames from Run 1
-are committed as lossless PNG re-encodings (`magick`, AE 0 against the PPMs) for size.
+are committed as lossless PNG re-encodings for size, made with ImageMagick 7.1.2-31 as
+`magick A.ppm s1-xval-A-drmgrab.png` (B likewise). The original PPMs' sha256:
+
+| frame | sha256 of the original PPM |
+|---|---|
+| A | `1a0ff937951e54cc55d39ed97fbd464ccba0ee917623d51cea496f935728640f` |
+| B | `8c39136210def51e3a4a603cf891eb3db6fc6eeea5fb4f4588d37a9e9193b6e4` |
+
+`magick s1-xval-A-drmgrab.png ppm:- | sha256sum` reproduces A's hash byte for byte (B likewise),
+so the PNGs carry the PPMs exactly.
 
 ## Configuration under test
 
