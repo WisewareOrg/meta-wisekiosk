@@ -174,8 +174,8 @@ so the PNGs carry the PPMs exactly.
   `44ce604290894ada92bf1734a363a6c0` (image `20a1f34`), read on this image.
 - **Scripts deployed:** the drivers committed here, run unmodified from a host checkout at
   `32b670c`. `run-s3.sh` (Run 21) chained three smoothness runs, the soak and time to page; it
-  is committed here with the bench address redacted. Run 22's driver was launched on its own, as
-  the operator reports it:
+  is committed here with the bench address redacted. Run 22's driver was launched on its own by
+  an inline command, not saved as a script — an R2 gap. As the operator reports it:
 
   ```sh
   cd /home/tjwise/meta-wisekiosk-185-s2
