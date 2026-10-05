@@ -43,6 +43,9 @@ from slot B. The S1 harness ran from a checkout pinned at `ea79e18`, clean, exce
 | 18 | bench · Pi Zero W | `32b670c` | render-check, screenshot @ `782d4d9`; inline inspector check | paints; `KIOSK_INSPECTOR=1` loads the dashboard |
 | 19 | bench · Pi Zero W | `32b670c` | `run-webgl-query.sh` | WebGL renderer string spoofed ("Apple GPU"): inconclusive |
 | 20 | bench · Pi Zero W | `32b670c` | inline (debugfs + `/proc/PID/maps`) | V3D buffers live, `vc4_dri.so` and `renderD128` mapped in WPEWebProcess |
+| 21 | bench · Pi Zero W | `32b670c` | `run-s3.sh` → `run-smoothness.sh` @ `32b670c`, `p7_min.js` | VOID: night page state (1 of 4 cards live); stopped mid-capture |
+| 22 | bench · Pi Zero W | `32b670c` | `run-time-to-page.sh` @ `32b670c` | 43.36, 40.78, 43.28 s; all pre-step, no SUSPECT, no re-run |
+| 23 | bench · Pi Zero W | `32b670c` | `check-coredump.sh`, `check-core-pattern.sh`, `check-baseline-stop-journal.sh` | cores discarded (`core_pattern` `\|/bin/false`); the X baseline boot's 9 stops never dumped |
 
 ### Run 1 — capture cross-validation, bench, commit `20a1f34`
 
@@ -164,6 +167,50 @@ so the PNGs carry the PPMs exactly.
   `0b872997534ce30e6bdc23b27b34107ddb3452f8bd8a5b73ea655a2a2dd9e445`, reproduced by
   `magick s2-paint-drmgrab.png ppm:- | sha256sum`).
 
+### Runs 21–23 — S3, the WPE image measured, bench, commit `32b670c`
+
+- **Board:** bench, Pi Zero W. **Image commit:** `32b670c5a4379443aef5ddab9ca0e43cac1c5e96`,
+  slot B, from `/etc/buildinfo` in each capture. Run 23's baseline journal is from the S1 boot
+  `44ce604290894ada92bf1734a363a6c0` (image `20a1f34`), read on this image.
+- **Scripts deployed:** the drivers committed here, run unmodified from a host checkout at
+  `32b670c`. `run-s3.sh` (Run 21) chained three smoothness runs, the soak and time to page; it
+  is committed here with the bench address redacted. Run 22's driver was launched on its own, as
+  the operator reports it:
+
+  ```sh
+  cd /home/tjwise/meta-wisekiosk-185-s2
+  setsid nohup bash -c '
+    flock -n "<bench.lock path>" bash -c "
+      cd /home/tjwise/meta-wisekiosk-185-s2
+      docs/issue_investigation/wpe_evaluation/run-time-to-page.sh root@<BENCH_ADDRESS> S3-32b670c <outpath>
+      echo S3_TTP_EXIT=\$?
+    " || echo LOCK_HELD_REFUSED
+  ' > <logpath> 2>&1 < /dev/null &
+  ```
+
+  `check-coredump.sh`, `check-core-pattern.sh` and `check-baseline-stop-journal.sh` (Run 23)
+  are read-only and committed here; `poll-cards-open.sh`, a one-shot `kiosk-screenshot.sh` call
+  for the page-state wait, likewise. The check after Run 21's stop ran inline, not saved as a
+  script — an R2 gap. As the operator reports it: `cat /data/config/kiosk.conf` and `cmp`
+  against the pre-run copy.
+- **Procedure:**
+  - Run 21: the pre-run screenshot passed the settle threshold at 23:28 local, with one of four
+    cards live and three parks closed for the night; the operator voided it for page state, as the
+    capture's own note says. A TERM to the driver did not stop it while it waited on the capture
+    ssh (the Harness section's note on aborting a driver); a TERM to that ssh did, and the EXIT
+    trap restored `kiosk.conf`. `run-s3.sh` then started smoothness run 2, which was stopped in its
+    pre-run screenshot loop (after one `kiosk-drmgrab` refusal of an RG16 framebuffer) before it
+    wrote a capture: one TERM each to that driver, `run-s3.sh`, and its `flock` and `setsid`
+    wrappers. Run 3, the soak and the chain's time to page never started. `kiosk.conf` held only
+    `KIOSK_INSPECTOR=0` afterwards, byte-identical to the pre-run copy.
+  - Run 22: three cold boots, one connection each at 120 s, READ_AT 115; driver exit 0.
+  - Run 23: where cores land and how much they take (`check-coredump.sh`), the kernel's core
+    handler (`check-core-pattern.sh`), and every kiosk stop in the S1 baseline boot's persistent
+    journal (`check-baseline-stop-journal.sh <ssh-target> 44ce604290894ada92bf1734a363a6c0`).
+- **Raw capture:** `s3-smoothness-run1-VOID.txt` (Run 21), `s3-ttp.txt` (Run 22),
+  `s2-coredump-check.txt`, `s2-core-pattern.txt`, `s2-baseline-stop-journal.txt` (Run 23, named
+  by the operator before the S3 numbering). The pre-run screenshots stay in `local/`.
+
 ## Configuration under test
 
 - **Baseline (X):** the image built from `origin/main` plus the `#185 capture` commits, which add
@@ -241,12 +288,13 @@ All one-off and committed beside this README (R2), except where a run names a sh
   `import -window root`: two capture pairs 61 s apart, judged on a static crop (AE = 0, crop rich
   enough to expose a de-tile or channel-order bug) and a clock crop (must change).
 
-**Aborting a driver:** kill its process group, `kill -TERM -- -<pgid>`. That also ends the
-foreground ssh or sleep, so the EXIT trap restores `kiosk.conf` at once. A TERM to the driver
-alone is held until that child returns. In `run-time-to-page.sh`, an abort while the board is
-rebooting runs the restore against a board that is down. The restore fails, and the
-`kiosk.conf.wpe-bak` or `kiosk.conf.wpe-absent` backup stays in `/data/config/`. The next run
-then refuses until that backup is restored by hand.
+**Aborting a driver:** kill its process group, `kill -TERM -- -<pgid>`. Bench runs launch
+drivers with `setsid nohup …`, so each has its own group; `ps -o pgid= -p <driver pid>` prints
+it. Killing the group also ends the foreground ssh or sleep, so the EXIT trap restores
+`kiosk.conf` at once. A TERM to the driver alone is held until that child returns. In
+`run-time-to-page.sh`, an abort while the board is rebooting runs the restore against a board
+that is down. The restore fails, and the `kiosk.conf.wpe-bak` or `kiosk.conf.wpe-absent` backup
+stays in `/data/config/`. The next run then refuses until that backup is restored by hand.
 
 ## Metrics
 
@@ -291,6 +339,14 @@ probe's own (570 s of the 585 s capture).
 |---|---|---|---|---|---|---|
 | time to page, s | 23.34 | 21.36 | 20.32 | 20.63 | 22.84 | 20.89 |
 | timesyncd sync, s monotonic | 57.92 | 55.83 | 55.34 | 65.86 | 57.74 | 56.05 |
+
+**Run 22** (`s3-ttp.txt`)
+
+| boot | 1 | 2 | 3 |
+|---|---|---|---|
+| time to page, s | 43.36 | 40.78 | 43.28 |
+| frame | pre-step | pre-step | pre-step |
+| timesyncd sync, s monotonic | 55.71 | 55.64 | 66.29 |
 
 **Run 14** (`s2-paintgate.txt`)
 
@@ -349,10 +405,13 @@ probe's own (570 s of the 585 s capture).
   when its shared display in the UI process fails to initialise, and the page renders afterwards.
   The same starts log "XDG_RUNTIME_DIR is invalid or not set" (up to three times), "Could not
   determine the accessibility bus address" and "Renderer 'modeset' does not support rotation 0".
-- **cog dumps core on stop.** Each `systemctl restart kiosk` in Runs 15 and 17 logs the outgoing
-  cog exiting with SIGSEGV ("code=dumped, status=11/SEGV") before the new one starts. systemd's
-  NRestarts does not count these manual restarts, so the verdict's restart count does not see
-  them; recorded, not judged.
+- **cog crashes on stop; surf did not.** Each `systemctl restart kiosk` in Runs 15 and 17 logs
+  the outgoing cog exiting with SIGSEGV ("code=dumped, status=11/SEGV") before the new one
+  starts. In the X baseline's boot all nine kiosk stops exit with status 1 and none dumps (Run
+  23), so the defect is WPE's. It costs no disk: `core_pattern` is `|/bin/false`, which discards
+  every core, and `/var/lib/systemd/coredump/` is empty. systemd's NRestarts does not count these
+  manual restarts, so the verdict's restart count does not see them; the defect is outside the
+  verdict rules and is recorded, not judged.
 - **Time to page on the X baseline: 48.00, 59.63, 50.80 s** (Run 13), recorded, not judged. Runs 9
   and 10 measured nothing: surf prefixes the page title (`@cgDISMfxT:- | T <epoch>`) and
   `time-to-page-x.sh` matched only at the start, fixed in `072ea3e`. Run 12 parsed, but timesyncd's
@@ -361,6 +420,9 @@ probe's own (570 s of the 585 s capture).
   sync moved the clock forward by about 27 s. `70b03c7` recovers the beacon's frame from the last
   journal entry before the sync (Run 13, boots 1 and 3). Boot 2 logged no sync, and its journal
   frame agreed with the wall clock within 1 s, so its post-step value stands.
+- **Time to page on WPE: 43.36, 40.78, 43.28 s** (Run 22), recorded, not judged, against the X
+  baseline's 48.00, 59.63, 50.80 s (Run 13). Every boot's timesyncd sync (55.6–66.3 s monotonic)
+  came after the beacon, so all three are in the beacon's pre-step frame.
 
 ## Changes configured as a result
 

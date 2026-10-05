@@ -1,0 +1,18 @@
+# check-coredump.sh root@<BENCH_ADDRESS>, board role: bench
+meta-wisekiosk    = HEAD:32b670c5a4379443aef5ddab9ca0e43cac1c5e96
+Booted from: rootfs.1 (B)
+=== coredumpctl list ===
+sh: coredumpctl: not found
+=== /var/lib/systemd/coredump ===
+drwxr-xr-x    2 root     root          4096 Jun 26  2025 .
+drwxr-xr-x    7 root     root          4096 Oct  4 23:11 ..
+4.0K	/var/lib/systemd/coredump/
+=== which filesystem ===
+Filesystem                Size      Used Available Use% Mounted on
+/dev/root                 1.8G    295.1M      1.4G  17% /
+/dev/mmcblk0p3 on / type ext4 (rw,relatime)
+/dev/mmcblk0p4 on /data type ext4 (rw,noatime)
+/dev/mmcblk0p4 on /data type ext4 (rw,noatime)
+=== systemd-coredump config ===
+cat: can't open '/etc/systemd/coredump.conf': No such file or directory
+cat: can't open '/etc/systemd/coredump.conf.d/*.conf': No such file or directory
