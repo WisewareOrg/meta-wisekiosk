@@ -170,6 +170,10 @@ local_conf_header:
     # display server. Recipe: meta-wisekiosk/recipes-graphics/kiosk-drmgrab.
     IMAGE_INSTALL:append = " kiosk-drmgrab"
 
+    # kiosk-fwgrab: the firmware's composited output of display 0, through
+    # DispmanX over vchiq. Recipe: meta-wisekiosk/recipes-graphics/kiosk-fwgrab.
+    IMAGE_INSTALL:append = " kiosk-fwgrab"
+
     # kiosk-provision: applies /data/config over the image defaults at boot --
     # sets the hostname into the kernel (nothing reads a hostname file) and
     # seeds /data/etc/machine-id when /data lacks one. Without it a device keeps
