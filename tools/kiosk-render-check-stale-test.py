@@ -20,17 +20,22 @@ and this test is what fixes its shape:
   and counts as consistent. Grid: fixed 40x40-PIXEL tiles over the frame,
   not 40 divisions per axis -- a 1280x720 region is 32x18 tiles. A
   dimension not divisible by 40 leaves a partial edge tile, whose MAD is
-  computed over its own actual pixels, not a full 40x40. A tile DISAGREES
-  when (a) both fbs are self-consistent on it, and (b) between the two fbs
-  it differs (MAD > 1) -- unless the fb-id sequence among the stable
-  captures is a single chronological split (every capture of one id before
-  every capture of the other), which is a legitimate one-time repaint, not
-  staleness. rc=3 iff >=1 tile disagrees. rc=2 iff NO fb reaches >=2 stable
-  captures -- covers zero stable captures in total (every capture unstable)
-  and two fbs with exactly 1 stable capture each: nothing is left to
-  self-check, so a series that cannot be tested must not pass. One fb id
-  seen with >=2 stable captures: no alternation is possible, rc=0. Any
-  capture's PPM failing to parse (truncated): rc=2, never a pass.
+  computed over its own actual pixels, not a full 40x40. With more than 2
+  fb ids, every PAIR is considered separately on each tile: a pair is
+  compared at all only if at least one side has >=2 stable captures that
+  are self-consistent on that tile -- two fbs with exactly 1 stable capture
+  each are NEVER compared against each other, even when a third fb
+  qualifies. An eligible pair's tile DISAGREES when (a) both sides are
+  self-consistent on it, and (b) between them it differs (MAD > 1) --
+  unless that pair's own fb-id sub-sequence (ignoring any other fb's
+  captures) is a single chronological split, which is a legitimate
+  one-time repaint, not staleness. rc=3 iff >=1 tile has >=1 disagreeing
+  pair. rc=2 iff NO fb reaches >=2 stable captures at all -- covers zero
+  stable captures in total (every capture unstable) and two fbs with
+  exactly 1 stable capture each: nothing is left to self-check, so a
+  series that cannot be tested must not pass. One fb id seen with >=2
+  stable captures: no alternation is possible, rc=0. Any capture's PPM
+  failing to parse (truncated): rc=2, never a pass.
 
   CLI: `kiosk-render-check-stale.py <manifest>`, where <manifest> is a text
   file, one line per capture in chronological order:
@@ -161,6 +166,22 @@ def verdict_cases():
     case("two singleton fbs -> could not tell",
          stale.stale_verdict([cap(1, 1, C0), cap(2, 2, C255)]),
          {"rc": 2, "stale_tiles": 0})
+
+    # Three fb ids: A has 3 self-consistent captures; B and C each have 1,
+    # differing from EACH OTHER but both within MAD<=1 of A. Byte values are
+    # chosen at the exact boundary that makes this possible under one fixed
+    # threshold: A=150, B=149, C=151 gives MAD(A,B)=1 (matches, <=1),
+    # MAD(A,C)=1 (matches, <=1), MAD(B,C)=2 (differs, >1). The A-B and A-C
+    # pairs are eligible (A has >=2) and agree; the B-C pair is NEVER
+    # compared (neither side reaches >=2), so their mutual difference does
+    # not count -- a pass, not a disagreement.
+    A_RGB, B_RGB, C_RGB = (150, 150, 150), (149, 149, 149), (151, 151, 151)
+    case("two singletons disagreeing with each other, both matching a third -> pass",
+         stale.stale_verdict([
+             cap(1, 1, A_RGB), cap(2, 2, B_RGB), cap(1, 1, A_RGB),
+             cap(3, 3, C_RGB), cap(1, 1, A_RGB),
+         ]),
+         {"rc": 0, "stale_tiles": 0})
 
     # Every capture is unstable (fb_before != fb_after): zero stable
     # captures in total. A series that cannot be tested must not pass, so
