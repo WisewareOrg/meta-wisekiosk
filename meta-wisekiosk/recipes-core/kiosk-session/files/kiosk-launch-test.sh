@@ -227,7 +227,7 @@ check_combo "KIOSK_INSPECTOR=1 and KIOSK_PROBE=1 together" 1 1
 # cog trims only TRAILING whitespace per item, so a comma-SPACE value ("-A, -B") itself
 # makes cog exit on the leading space in " -B". This is the realistic value, used for the
 # round-trip and ordering checks below.
-FEATURES_TEST='-AcceleratedCompositingEnabled,-ThreadedScrollingEnabled'
+FEATURES_TEST='-AcceleratedCompositing,-ThreadedScrolling'
 check_combo "KIOSK_COG_FEATURES unset -- no --features argument" 0 0 ''
 check_combo "KIOSK_COG_FEATURES set (comma-separated, the real syntax) -- one argument" \
     0 0 "$FEATURES_TEST"
