@@ -11,6 +11,17 @@
 # PATH that, instead of starting a browser, dumps its argv and the env vars kiosk-launch is
 # supposed to set, and exits. kiosk-launch's own `#!/bin/sh` + exec means this stub really
 # does replace the process image, so what the stub sees is exactly what a real cog would.
+#
+# #185 ruling 2026-10-04: the stub must MODEL cog 0.18.5 + GLib 2.78.6's GOptionEntry
+# parsing of the boolean --enable-* flags, not just dump raw argv -- every one of them is
+# OPTIONAL_ARG: "--enable-X=VAL" sets VAL, but a BARE "--enable-X" consumes the very NEXT
+# argv token as its value whenever that token does not itself start with '-' (it is
+# consumed, not left positional). kiosk-launch passes these bare (no "="), so
+# KIOSK_INSPECTOR=1 alone gives cog argv "... --enable-developer-extras <KIOSK_URL>", and
+# the URL -- not starting with '-' -- is SWALLOWED as the flag's value: cog never receives
+# a positional URL at all. A stub that only checks "is the flag's name present in argv"
+# (this file's previous version) cannot see that bug, because the flag's name IS present
+# either way -- it is the CONSEQUENCE, not the flag's presence, that differs.
 set -uo pipefail
 
 HERE=$(dirname "$0")
@@ -20,27 +31,91 @@ trap 'rm -rf "$STUB"' EXIT
 
 cat > "$STUB/cog" << 'EOF'
 #!/bin/sh
-printf 'ARGV:'
-for a in "$@"; do printf ' [%s]' "$a"; done
-printf '\n'
-printf 'ENV COG_PLATFORM_DRM_VIDEO_MODE=%s\n' "${COG_PLATFORM_DRM_VIDEO_MODE:-}"
-printf 'ENV WEBKIT_INSPECTOR_HTTP_SERVER=%s\n' "${WEBKIT_INSPECTOR_HTTP_SERVER:-}"
+# Models GLib's OPTIONAL_ARG parsing for the two boolean --enable-* flags and the
+# MANDATORY-arg -P/--user-script, faithfully enough to reproduce the real bug above.
+# Boolean-from-string (GLib): true for no value, "true" (case-insensitive) or "1";
+# everything else, including a swallowed positional, is false.
+dev_extras_seen=0; dev_extras_val=
+console_seen=0; console_val=
+user_script=
+mode=
+positional=
+npos=0
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -P)
+            mode=$2; shift 2 ;;
+        --enable-developer-extras=*)
+            dev_extras_seen=1; dev_extras_val=${1#*=}; shift ;;
+        --enable-developer-extras)
+            dev_extras_seen=1; shift
+            if [ $# -gt 0 ]; then
+                case "$1" in
+                    -*) dev_extras_val= ;;
+                    *)  dev_extras_val=$1; shift ;;
+                esac
+            fi
+            ;;
+        --enable-write-console-messages-to-stdout=*)
+            console_seen=1; console_val=${1#*=}; shift ;;
+        --enable-write-console-messages-to-stdout)
+            console_seen=1; shift
+            if [ $# -gt 0 ]; then
+                case "$1" in
+                    -*) console_val= ;;
+                    *)  console_val=$1; shift ;;
+                esac
+            fi
+            ;;
+        --user-script=*)
+            user_script=${1#*=}; shift ;;
+        -*)
+            shift ;;
+        *)
+            positional="$positional$1 "; npos=$((npos + 1)); shift ;;
+    esac
+done
+
+norm_bool() {
+    case "$1" in
+        ""|[Tt][Rr][Uu][Ee]|1) echo true ;;
+        *) echo false ;;
+    esac
+}
+
+if [ "$dev_extras_seen" = 1 ]; then dev_extras=$(norm_bool "$dev_extras_val"); else dev_extras=false; fi
+if [ "$console_seen" = 1 ]; then console=$(norm_bool "$console_val"); else console=false; fi
+
+printf 'POSITIONAL:%s\n' "$positional"
+printf 'NPOS:%s\n' "$npos"
+printf 'DEV_EXTRAS:%s\n' "$dev_extras"
+printf 'CONSOLE_STDOUT:%s\n' "$console"
+printf 'USER_SCRIPT:%s\n' "$user_script"
+printf 'MODE:%s\n' "$mode"
+printf 'ENV_COG_PLATFORM_DRM_VIDEO_MODE:%s\n' "${COG_PLATFORM_DRM_VIDEO_MODE:-}"
+printf 'ENV_WEBKIT_INSPECTOR_HTTP_SERVER:%s\n' "${WEBKIT_INSPECTOR_HTTP_SERVER:-}"
 EOF
 chmod +x "$STUB/cog"
 
 pass=0
 fail=0
+KIOSK_URL_TEST='http://kiosk-launch-test.invalid/'
 
-# run <extra-env-assignment>... -- prints the stub's captured ARGV/ENV lines to stdout.
+# run <extra-env-assignment>... -- prints the stub's captured, PARSED fields.
 run() {
-    env -i PATH="$STUB:$PATH" KIOSK_URL=http://kiosk-launch-test.invalid/ "$@" sh "$TOOL"
+    env -i PATH="$STUB:$PATH" KIOSK_URL="${KIOSK_URL_TEST}" "$@" sh "$TOOL"
 }
 
 # contains <haystack> <needle> -- bash substring test, not grep -q (set -o pipefail + grep -q
 # inverts on a match via SIGPIPE), and not "${1/$2/}" (bash parameter-substitution patterns
-# are GLOBS, so a needle containing "[" or "]" -- every ARGV line here -- matches wrong). A
-# quoted needle inside [[ == *...* ]] is matched literally; only the bare *s are wildcards.
+# are GLOBS, so a needle containing "[" or "]" would match wrong). A quoted needle inside
+# [[ == *...* ]] is matched literally; only the bare *s are wildcards.
 contains() { [[ "$1" == *"$2"* ]]; }
+
+# field <output> <LABEL> -- the value after "LABEL:", trimmed of nothing (POSITIONAL can
+# legitimately hold trailing whitespace from the stub's own "$1 " accumulator).
+field() { printf '%s\n' "$1" | sed -n "s/^$2://p"; }
 
 check() {
     local name=$1 out=$2 want_present=$3 want_absent=${4:-}
@@ -57,45 +132,71 @@ check() {
     fi
 }
 
-# --- default: no probe, no inspector --------------------------------------
+# check_combo <name> <KIOSK_INSPECTOR 0|1> <KIOSK_PROBE 0|1> -- the three properties
+# wpe-impl's fix must hold in EVERY combination, read from the stub's PARSED fields, not
+# from raw argv text: (1) cog's positional argument is EXACTLY $KIOSK_URL and there is
+# exactly one of it, (2) developer-extras is true iff KIOSK_INSPECTOR=1, (3)
+# write-console-messages-to-stdout is true iff KIOSK_PROBE=1.
+check_combo() {
+    local name=$1 inspector=$2 probe=$3 out pos npos dev console want_dev want_console ok=1
+    local -a env_args=()
+    [ "$inspector" = 1 ] && env_args+=("KIOSK_INSPECTOR=1")
+    [ "$probe" = 1 ] && env_args+=("KIOSK_PROBE=1")
+    out=$(run "${env_args[@]}")
+
+    pos=$(field "$out" POSITIONAL)
+    npos=$(field "$out" NPOS)
+    dev=$(field "$out" DEV_EXTRAS)
+    console=$(field "$out" CONSOLE_STDOUT)
+    want_dev=false; [ "$inspector" = 1 ] && want_dev=true
+    want_console=false; [ "$probe" = 1 ] && want_console=true
+
+    [ "$npos" = 1 ] || ok=0
+    contains "$pos" "$KIOSK_URL_TEST" || ok=0
+    [ "$dev" = "$want_dev" ] || ok=0
+    [ "$console" = "$want_console" ] || ok=0
+
+    if [ "$ok" -eq 1 ]; then
+        pass=$((pass + 1))
+    else
+        fail=$((fail + 1))
+        echo "FAIL  $name" >&2
+        echo "      npos=$npos (want 1)  positional='$pos' (want to contain the URL)" >&2
+        echo "      dev_extras=$dev (want $want_dev)  console_stdout=$console (want $want_console)" >&2
+        echo "      full output: $out" >&2
+    fi
+}
+
+check_combo "neither KIOSK_INSPECTOR nor KIOSK_PROBE" 0 0
+check_combo "KIOSK_INSPECTOR=1 alone -- the bug: a bare flag would swallow the URL" 1 0
+check_combo "KIOSK_PROBE=1 alone" 0 1
+check_combo "KIOSK_INSPECTOR=1 and KIOSK_PROBE=1 together" 1 1
+
+# --- default: mode and env unaffected by the argv-parsing fix --------------
 OUT=$(run)
-check "default: no --enable-developer-extras" "$OUT" "" "--enable-developer-extras"
-check "default: no --enable-write-console-messages-to-stdout" "$OUT" "" \
-    "--enable-write-console-messages-to-stdout"
-check "default: no --user-script" "$OUT" "" "--user-script"
 check "default: COG_PLATFORM_DRM_VIDEO_MODE defaults to 1280x720" "$OUT" \
-    "ENV COG_PLATFORM_DRM_VIDEO_MODE=1280x720"
-check "default: -P drm and the URL reach argv" "$OUT" \
-    "ARGV: [-P] [drm] [http://kiosk-launch-test.invalid/]"
+    "ENV_COG_PLATFORM_DRM_VIDEO_MODE:1280x720"
 
-# --- KIOSK_PROBE=1, default script path ------------------------------------
+# --- KIOSK_PROBE=1, default and custom script path -------------------------
 OUT=$(run KIOSK_PROBE=1)
-check "KIOSK_PROBE=1: console-to-stdout flag present" "$OUT" \
-    "--enable-write-console-messages-to-stdout"
 check "KIOSK_PROBE=1: default probe script path" "$OUT" \
-    "--user-script=/home/root/kiosk-probe.js"
-check "KIOSK_PROBE=1: inspector flag still absent" "$OUT" "" "--enable-developer-extras"
+    "USER_SCRIPT:/home/root/kiosk-probe.js"
 
-# --- KIOSK_PROBE=1 with a custom KIOSK_PROBE_SCRIPT ------------------------
 OUT=$(run KIOSK_PROBE=1 KIOSK_PROBE_SCRIPT=/data/custom-probe.js)
 check "KIOSK_PROBE_SCRIPT: custom path used verbatim" "$OUT" \
-    "--user-script=/data/custom-probe.js"
+    "USER_SCRIPT:/data/custom-probe.js"
 check "KIOSK_PROBE_SCRIPT: the default path is NOT also present" "$OUT" "" \
     "/home/root/kiosk-probe.js"
 
-# --- KIOSK_INSPECTOR=1 -------------------------------------------------------
+# --- KIOSK_INSPECTOR=1: bind address ----------------------------------------
 OUT=$(run KIOSK_INSPECTOR=1)
-check "KIOSK_INSPECTOR=1: --enable-developer-extras present" "$OUT" \
-    "--enable-developer-extras"
 check "KIOSK_INSPECTOR=1: WEBKIT_INSPECTOR_HTTP_SERVER bound to loopback:2999" "$OUT" \
-    "ENV WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:2999"
-check "KIOSK_INSPECTOR=1: probe flags still absent" "$OUT" "" \
-    "--enable-write-console-messages-to-stdout"
+    "ENV_WEBKIT_INSPECTOR_HTTP_SERVER:127.0.0.1:2999"
 
 # A custom bind address, honoured instead of the loopback default.
 OUT=$(run KIOSK_INSPECTOR=1 KIOSK_INSPECTOR_BIND=0.0.0.0:3000)
 check "KIOSK_INSPECTOR_BIND: custom bind address honoured" "$OUT" \
-    "ENV WEBKIT_INSPECTOR_HTTP_SERVER=0.0.0.0:3000"
+    "ENV_WEBKIT_INSPECTOR_HTTP_SERVER:0.0.0.0:3000"
 
 # --- COG_PLATFORM_DRM_VIDEO_MODE overridable from kiosk.conf ---------------
 # kiosk.service's EnvironmentFile sets this BEFORE kiosk-launch runs, same as this test
@@ -103,7 +204,7 @@ check "KIOSK_INSPECTOR_BIND: custom bind address honoured" "$OUT" \
 # clobber an already-set value.
 OUT=$(run COG_PLATFORM_DRM_VIDEO_MODE=1920x1080)
 check "COG_PLATFORM_DRM_VIDEO_MODE: an already-set value is NOT overwritten" "$OUT" \
-    "ENV COG_PLATFORM_DRM_VIDEO_MODE=1920x1080"
+    "ENV_COG_PLATFORM_DRM_VIDEO_MODE:1920x1080"
 
 echo "kiosk-launch: pass=$pass fail=$fail"
 [ "$fail" -eq 0 ]
