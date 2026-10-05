@@ -13,21 +13,24 @@ and this test is what fixes its shape:
   order: {"fb_before": int, "fb_after": int, "ppm": bytes}. "ppm" is the raw
   bytes of a binary PPM (P6) capture of the checked region.
 
-  Rule: use stable captures only (fb_before == fb_after). Group them by fb id.
-  Grid: fixed 40x40-PIXEL tiles over the frame, not 40 divisions per axis --
-  a 1280x720 region is 32x18 tiles. A dimension not divisible by 40 leaves a
-  partial edge tile, whose MAD is computed over its own actual pixels, not a
-  full 40x40. A tile DISAGREES when (a) within each fb's own stable captures
-  the tile is identical (MAD <= 1 over the R/G/B bytes), and (b) between the
-  two fbs it differs (MAD > 1) -- unless the fb-id sequence among the stable
+  Rule: use stable captures only (fb_before == fb_after). Group them by fb
+  id. An fb with >=1 stable capture is COMPARABLE; self-consistency (MAD
+  <= 1 over the R/G/B bytes, against that fb's first stable capture) is
+  checked only for an fb with >=2 -- a singleton has nothing to self-check
+  and counts as consistent. Grid: fixed 40x40-PIXEL tiles over the frame,
+  not 40 divisions per axis -- a 1280x720 region is 32x18 tiles. A
+  dimension not divisible by 40 leaves a partial edge tile, whose MAD is
+  computed over its own actual pixels, not a full 40x40. A tile DISAGREES
+  when (a) both fbs are self-consistent on it, and (b) between the two fbs
+  it differs (MAD > 1) -- unless the fb-id sequence among the stable
   captures is a single chronological split (every capture of one id before
   every capture of the other), which is a legitimate one-time repaint, not
-  staleness. rc=3 iff >=1 tile disagrees. Fewer than 2 stable captures IN
-  TOTAL -- including zero, every capture unstable -- is rc=2, never a pass:
-  a series that cannot be tested must not pass, even with only one fb id.
-  One fb id seen with >=2 stable captures: no alternation is possible,
-  rc=0. Two fb ids but either has fewer than 2 stable captures, or any
-  capture's PPM is truncated: rc=2, never a pass.
+  staleness. rc=3 iff >=1 tile disagrees. rc=2 iff NO fb reaches >=2 stable
+  captures -- covers zero stable captures in total (every capture unstable)
+  and two fbs with exactly 1 stable capture each: nothing is left to
+  self-check, so a series that cannot be tested must not pass. One fb id
+  seen with >=2 stable captures: no alternation is possible, rc=0. Any
+  capture's PPM failing to parse (truncated): rc=2, never a pass.
 
   CLI: `kiosk-render-check-stale.py <manifest>`, where <manifest> is a text
   file, one line per capture in chronological order:
@@ -131,9 +134,32 @@ def verdict_cases():
          stale.stale_verdict([cap(1, 1, C0), cap(1, 1, C128), cap(1, 1, C255)]),
          {"rc": 0, "stale_tiles": 0})
 
-    # Two fb ids, but one has fewer than 2 stable captures.
-    case("insufficient stable captures -> could not tell",
+    # AMENDED (was "insufficient stable captures -> could not tell", fixed
+    # rc=2): under the comparable-singleton rule, fb 1's single stable
+    # capture is comparable against fb 2's self-consistent pair. But the
+    # fb-id sequence here ([1, 2, 2]) is a clean chronological split, so the
+    # tile's difference is the late-change exclusion, not a disagreement --
+    # a pass, not could-not-tell. This fixture no longer tests insufficient
+    # data (new cases below cover that); it now pins that a comparable
+    # singleton does not bypass the late-change exclusion.
+    case("singleton fb + clean split -> pass, not could-not-tell",
          stale.stale_verdict([cap(1, 1, C0), cap(2, 2, C255), cap(2, 2, C255)]),
+         {"rc": 0, "stale_tiles": 0})
+
+    # fb A has 1 stable capture that differs on a static tile; fb B has 3
+    # identical stable captures. Order is B, A, B, B -- not a clean split --
+    # so A's singleton capture is still comparable and the disagreement is
+    # not excluded as a late change.
+    case("singleton fb disagrees with a self-consistent fb -> STALE",
+         stale.stale_verdict([
+             cap(2, 2, C255), cap(1, 1, C0), cap(2, 2, C255), cap(2, 2, C255),
+         ]),
+         {"rc": 3, "stale_tiles": 1})
+
+    # Two fbs, each with exactly 1 stable capture: neither reaches the >=2
+    # self-consistency threshold, so nothing here can ever be verified.
+    case("two singleton fbs -> could not tell",
+         stale.stale_verdict([cap(1, 1, C0), cap(2, 2, C255)]),
          {"rc": 2, "stale_tiles": 0})
 
     # Every capture is unstable (fb_before != fb_after): zero stable
@@ -237,8 +263,13 @@ def cli_cases(tmp_path):
     case("CLI: pass exits 0", got.returncode, 0)
     case("CLI: pass evidence line", "stale tiles=0" in got.stdout.splitlines(), True)
 
+    # AMENDED: this used to be [cap(1,1,C0), cap(2,2,C255), cap(2,2,C255)]
+    # ("insufficient" under the old either-group-<2 rule). Under the
+    # comparable-singleton rule that fixture is a clean-split pass, not
+    # could-not-tell -- see the amended verdict_cases() comment. Two
+    # singleton fbs is the fixture that still forces rc=2 here.
     manifest = write_manifest(
-        short_dir, [cap(1, 1, C0), cap(2, 2, C255), cap(2, 2, C255)])
+        short_dir, [cap(1, 1, C0), cap(2, 2, C255)])
     got = run_cli(manifest)
     case("CLI: could-not-tell exits 2", got.returncode, 2)
     case("CLI: could-not-tell evidence line",
