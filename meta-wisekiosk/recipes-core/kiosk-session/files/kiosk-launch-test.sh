@@ -223,15 +223,38 @@ check_combo "KIOSK_PROBE=1 alone" 0 1
 check_combo "KIOSK_INSPECTOR=1 and KIOSK_PROBE=1 together" 1 1
 
 # #185 2026-10-05 (185-wpe-2.54): KIOSK_COG_FEATURES does not exist in kiosk-launch yet.
-# Two space-separated WebKit feature toggles is the real shape of a value -- the test that
-# a naive, unquoted `--features=$KIOSK_COG_FEATURES` in the exec line would word-split into
-# two argv tokens instead of staying one.
-FEATURES_TEST='-AcceleratedCompositingEnabled -ThreadedScrolling'
+# cog's real syntax (kiosk-launch's own comment, 3ee4a1e) is a COMMA list with NO spaces --
+# cog trims only TRAILING whitespace per item, so a comma-SPACE value ("-A, -B") itself
+# makes cog exit on the leading space in " -B". This is the realistic value, used for the
+# round-trip and ordering checks below.
+FEATURES_TEST='-AcceleratedCompositingEnabled,-ThreadedScrollingEnabled'
 check_combo "KIOSK_COG_FEATURES unset -- no --features argument" 0 0 ''
-check_combo "KIOSK_COG_FEATURES set, value has a space -- one argument, not word-split" \
+check_combo "KIOSK_COG_FEATURES set (comma-separated, the real syntax) -- one argument" \
     0 0 "$FEATURES_TEST"
 check_combo "KIOSK_COG_FEATURES set alongside KIOSK_INSPECTOR and KIOSK_PROBE" \
     1 1 "$FEATURES_TEST"
+
+# A SEPARATE, deliberately-not-realistic probe: kiosk-launch's own exec line must not
+# re-split the value on whitespace regardless of whether cog itself would accept it -- that
+# is a shell-quoting property of kiosk-launch, not a claim about what cog considers valid.
+# A naive, unquoted `--features=$KIOSK_COG_FEATURES` would split this into two argv tokens.
+check_features_value_with_a_space_is_not_word_split() {
+    local out feat_count feat_val unrecog_count value='plugh xyzzy'
+    out=$(run "KIOSK_COG_FEATURES=$value")
+    feat_count=$(field "$out" FEATURES_COUNT)
+    feat_val=$(field "$out" FEATURES_VAL)
+    unrecog_count=$(field "$out" UNRECOGNIZED_COUNT)
+    if [ "$feat_count" = 1 ] && [ "$feat_val" = "$value" ] && [ "$unrecog_count" = 0 ]; then
+        pass=$((pass + 1))
+    else
+        fail=$((fail + 1))
+        echo "FAIL  KIOSK_COG_FEATURES with an embedded space must reach cog as one argument" >&2
+        echo "      features_count=$feat_count (want 1)  features_val='$feat_val' (want '$value')" >&2
+        echo "      unrecognized_count=$unrecog_count (want 0)" >&2
+        echo "      full output: $out" >&2
+    fi
+}
+check_features_value_with_a_space_is_not_word_split
 
 # Set-but-empty (KIOSK_COG_FEATURES=, an empty value, not an absent variable) must pass
 # nothing to cog too -- a `[ -n "$KIOSK_COG_FEATURES" ]`-style guard treats both the same,
