@@ -41,6 +41,17 @@ Judged stats (#185 plan "Smoothness statistics"; owner rulings 2026-10-04):
     computation.
   - clusters: recorded, not judged. Consecutive big[] entries (sorted by t, as emitted)
     merge into one cluster when the gap between them is <= 1.0 s (the ruling's "1000 ms").
+  - steady_stall_from_series(lines) (orchestrator ruling 2026-10-05): on WPE, cog prints
+    every title update to the journal (the carried patch's "TITLE <title>" on every
+    notify::title), so a capture holds the WHOLE series of MP| payloads -- one per
+    p7_min.js's own 2 s setInterval -- not just the final line. That makes the steady count
+    EXACT by differencing two real cumulative bt readings, with no eviction/bounding at all:
+      count = bt(final line) - bt(the LAST line with t < 15, or the FIRST line with
+              t >= 15 if none precede it)
+      rate  = count / (final line's sec - 15)
+    Returns {"count": int, "rate": float, "exact": True} -- a different shape from
+    steady_stall_bounds, which this function falls back to UNCHANGED when `lines` holds
+    only one parseable payload (there is no series to difference against).
 
 Run: python3 parse_smoothness_test.py
 """
@@ -216,6 +227,64 @@ def test_steady_stall_bounds_is_bounded_only_when_every_retained_entry_is_alread
           b["lower"] < b["upper"], detail=str(b))
 
 
+def mp_line(sec, frames, bt):
+    """One MP| payload with cumulative (sec, frames, bt), empty big[] -- steady_stall_from_
+    series uses only sec and bt, so the rest is deliberately minimal and self-consistent."""
+    hist = [frames, 0, 0, 0, 0, 0, 0]
+    return f"MP|{sec}|f{frames}|av60|mx200|BT{bt}|H{'.'.join(map(str, hist))}|B"
+
+
+# --- steady_stall_from_series fixtures (orchestrator ruling 2026-10-05) ----------------
+# bt rose by 30 before t=15 (the series' first two readings) and by 15 after (the last
+# two). Each fixture has a DISTRACTOR line the correct reference must NOT pick: an earlier
+# pre-15 reading (prove "last pre-15", not "first" or "any"), and a non-final post-15
+# reading (prove "final line's bt", not an intermediate one).
+SERIES_30_BEFORE_15_AFTER = [
+    mp_line(5, 300, 5),     # distractor: an earlier pre-15 line
+    mp_line(10, 600, 30),   # the LAST pre-15 line (t=10 < 15) -- the reference
+    mp_line(20, 1200, 38),  # distractor: a post-15 line that is NOT the final one
+    mp_line(30, 1800, 45),  # the final line
+]
+
+# No line has t < 15 -- the reference must be the FIRST line (t=16, bt=12), not a missing
+# zero-point and not the second line's bt.
+SERIES_NO_PRE_15 = [
+    mp_line(16, 400, 12),   # the first line, already t >= 15 -- the reference
+    mp_line(25, 900, 20),   # distractor: a post-15 line that is NOT the final one
+    mp_line(40, 1500, 27),  # the final line
+]
+
+
+def test_steady_stall_from_series_exact_count_pre_and_post_15():
+    # count = 45 - 30 = 15, not 45 (total) and not 40 (45 - the distractor's 5).
+    d = ps.steady_stall_from_series(SERIES_30_BEFORE_15_AFTER)
+    check("steady_stall_from_series: count == 15 (45 - 30, the last-pre-15 reference)",
+          d["count"] == 15, detail=str(d))
+    check("steady_stall_from_series: rate == 15 / (30 - 15) == 1.0",
+          abs(d["rate"] - 1.0) < 1e-9, detail=str(d))
+    check("steady_stall_from_series: exact is True", d["exact"] is True, detail=str(d))
+
+
+def test_steady_stall_from_series_falls_back_to_first_line_when_none_precede_15():
+    d = ps.steady_stall_from_series(SERIES_NO_PRE_15)
+    check("steady_stall_from_series (no pre-15 line): count == 15 (27 - 12)",
+          d["count"] == 15, detail=str(d))
+    check("steady_stall_from_series (no pre-15 line): rate == 15 / (40 - 15) == 0.6",
+          abs(d["rate"] - 0.6) < 1e-9, detail=str(d))
+    check("steady_stall_from_series (no pre-15 line): exact is True",
+          d["exact"] is True, detail=str(d))
+
+
+def test_steady_stall_from_series_single_line_falls_back_to_bounds():
+    # A degenerate, one-payload "series" has nothing to difference against -- the contract
+    # is to fall back to steady_stall_bounds UNCHANGED, so the assertion is equality with
+    # that already-proven function's own output, not a hand-computed number.
+    d = ps.steady_stall_from_series([CLEAN])
+    want = ps.steady_stall_bounds(ps.parse(CLEAN))
+    check("steady_stall_from_series([one line]) == steady_stall_bounds(parse(that line))",
+          d == want, detail=f"got {d!r} want {want!r}")
+
+
 if __name__ == "__main__":
     test_parse_clean()
     test_parse_rejects_malformed()
@@ -228,6 +297,9 @@ if __name__ == "__main__":
     test_steady_stall_bounds_exact_matches_steady_stall_rate_when_nothing_evicted()
     test_steady_stall_bounds_is_exact_when_a_retained_entry_precedes_steady_state()
     test_steady_stall_bounds_is_bounded_only_when_every_retained_entry_is_already_steady()
+    test_steady_stall_from_series_exact_count_pre_and_post_15()
+    test_steady_stall_from_series_falls_back_to_first_line_when_none_precede_15()
+    test_steady_stall_from_series_single_line_falls_back_to_bounds()
     print()
     if fails:
         raise SystemExit(f"{fails} check(s) FAILED")
