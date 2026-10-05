@@ -1,0 +1,27 @@
+# run-ttp-readat300.sh (manual re-run of run-time-to-page.sh@09b36c2, READ_AT=300) role=bench boots=3 wait=120 READ_AT=300
+# time-to-page.js sha256 6ea390791ce0a001f4accec091ab1ed86cc1b175bd83b2e6834614ef6480d779
+=== boot 1: reboot at 2026-10-04T22:13:39Z ===
+Failed to set wall message, ignoring: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+# buildinfo meta-wisekiosk    = HEAD:20a1f342580a10a0b32f26f4bcb804223ca068b1
+# Booted from: rootfs.1 (B)
+boot_id:       2f50edd8-e175-4509-a378-ef644841cbed
+read_at_s:     352
+RESULT: TIMEOUT -- no "T <epoch_ms>" title found
+=== boot 2: reboot at 2026-10-04T22:19:42Z ===
+Failed to set wall message, ignoring: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+# buildinfo meta-wisekiosk    = HEAD:20a1f342580a10a0b32f26f4bcb804223ca068b1
+# Booted from: rootfs.1 (B)
+boot_id:       49d4281d-e8f0-4d03-af29-a438b48c1de9
+read_at_s:     352
+RESULT: TIMEOUT -- no "T <epoch_ms>" title found
+=== boot 3: reboot at 2026-10-04T22:25:46Z ===
+Failed to set wall message, ignoring: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+# buildinfo meta-wisekiosk    = HEAD:20a1f342580a10a0b32f26f4bcb804223ca068b1
+# Booted from: rootfs.1 (B)
+boot_id:       85122f7a-e13f-4123-b82f-8ffbba9a8116
+read_at_s:     353
+RESULT: TIMEOUT -- no "T <epoch_ms>" title found
+# complete 2026-10-04T22:31:52Z

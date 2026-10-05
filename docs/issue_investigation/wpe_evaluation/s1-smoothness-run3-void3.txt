@@ -1,0 +1,42 @@
+# run-appliance.sh role=S1-baseline-20a1f34 probe=p7_min.js prefix=MP sleep=585 len=20000
+# started 2026-10-04T22:41:58Z
+# probe sha256 local    3d0e0c23a7b4012630c9c1870ffe44b6dd1eaa05518fa371e1e08e18b46a1248
+# buildinfo meta-wisekiosk    = HEAD:20a1f342580a10a0b32f26f4bcb804223ca068b1
+# Booted from: rootfs.1 (B)
+# config.json sha256 767e3d1afa72b855ce16cd451782c8395e71e8e3f589f12c6e6edeb90eb8ec48
+# kiosk.conf KIOSK_INSPECTOR=0
+# park_wait_times.rotation_interval_seconds ABSENT (schema default)
+# xrandr-before Screen 0: minimum 320 x 200, current 1280 x 720, maximum 2048 x 2048
+# xrandr-before HDMI-1 connected primary 1280x720+0+0 (normal left inverted right x axis y axis) 521mm x 293mm
+# xrandr-before    1920x1080     60.00 +  59.94  
+# xrandr-before    1680x1050     59.88  
+# xrandr-before    1280x1024     75.02    60.02  
+# xrandr-before    1440x900      59.90  
+# xrandr-before    1280x960      60.00  
+# xrandr-before    1280x720      60.00*   59.94  
+# xrandr-before    1024x768      75.03    70.07    60.00  
+# xrandr-before    832x624       74.55  
+# xrandr-before    800x600       72.19    75.00    60.32    56.25  
+# xrandr-before    720x480       60.00    59.94  
+# xrandr-before    640x480       75.00    72.81    66.67    60.00    59.94  
+# xrandr-before    720x400       70.08  
+# probe sha256 deployed 3d0e0c23a7b4012630c9c1870ffe44b6dd1eaa05518fa371e1e08e18b46a1248
+# capture start 2026-10-04T22:41:59Z
+restarted, sleeping 585
+
+# VOID (bench-op, 2026-10-04): killed mid-capture (never completed) --
+# pre-run screenshot showed EPCOT "the source did not answer in time",
+# which is not the cards-open-with-data state the page-state rule asks for,
+# so I stopped the 585s probe early rather than let it run to a result
+# that would have been discarded anyway. Bench restored to clean state
+# (script.js emptied, cache cleared, kiosk restarted) before the next
+# attempt. pre-run screenshot: local/wpe-pre-s1-baseline-run3.png (will
+# be overwritten by the next attempt -- renamed below first).
+=== WM_NAME (MP) ===
+xprop: error: Invalid window id format: xwininfo:.
+xprop: error: Invalid window id format: Root.
+xprop: error: Invalid window id format: Parent.
+WM_NAME(STRING) = "@cgDISMfxT:- | MP|429|f22722|av19|mx1298|BT16|H22449.49.208.14.0.2.0|B2.8:296,6.6:279,38.6:415,78.6:408,118.6:397,158.6:408,198.6:395,238.6:387,278.7:384,298.8:445,301.6:493,318.8:455,358.7:445,398.8:266"
+LOAD 1.21 1.19 0.77 1/136 997
+MEM MemAvailable:     278748 kB
+=== DONE ===

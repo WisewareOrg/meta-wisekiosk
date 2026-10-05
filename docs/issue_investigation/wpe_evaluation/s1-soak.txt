@@ -1,0 +1,279 @@
+# run-soak.sh role=S1-baseline-20a1f34 secs=3600
+# started 2026-10-04T20:55:30Z
+# probe sha256 local    c3f20aa9fa8fca8264f99279128c54cbc1ec6c2625526595d815412b783166fd
+# buildinfo meta-wisekiosk    = HEAD:20a1f342580a10a0b32f26f4bcb804223ca068b1
+# Booted from: rootfs.1 (B)
+# probe sha256 deployed c3f20aa9fa8fca8264f99279128c54cbc1ec6c2625526595d815412b783166fd
+# boot-start 44ce6042-9089-4ada-92bf-1734a363a6c0
+# start-epoch 1791147332 NRestarts=0
+# vmstat-start pswpin 0 pswpout 0 
+=== MF log ===
+S 3463.69
+S 3495.33
+S 3525.81
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=36|f=0|fmax=0|fever=0|u=0|umax=0"
+S 3556.35
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=66|f=0|fmax=0|fever=0|u=0|umax=0"
+S 3586.63
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=96|f=0|fmax=0|fever=0|u=0|umax=0"
+S 3616.92
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=126|f=0|fmax=0|fever=0|u=0|umax=0"
+S 3647.25
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=156|f=0|fmax=0|fever=0|u=0|umax=0"
+S 3677.55
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=186|f=0|fmax=0|fever=0|u=0|umax=0"
+S 3707.96
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=216|f=0|fmax=0|fever=0|u=0|umax=0"
+S 3738.40
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=246|f=0|fmax=0|fever=0|u=0|umax=0"
+S 3768.72
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=276|f=0|fmax=0|fever=0|u=0|umax=0"
+S 3799.22
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=306|f=0|fmax=0|fever=0|u=0|umax=0"
+S 3829.73
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=336|f=0|fmax=0|fever=0|u=0|umax=0"
+S 3860.04
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=366|f=0|fmax=0|fever=0|u=0|umax=0"
+S 3890.45
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=396|f=0|fmax=0|fever=0|u=0|umax=0"
+S 3920.74
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=426|f=0|fmax=0|fever=0|u=0|umax=0"
+S 3951.06
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=456|f=0|fmax=0|fever=0|u=0|umax=0"
+S 3981.54
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=486|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4011.85
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=516|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4042.14
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=546|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4072.47
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=576|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4102.98
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=606|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4133.48
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=636|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4163.76
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=666|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4194.08
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=696|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4224.38
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=726|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4254.69
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=756|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4285.20
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=786|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4315.48
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=816|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4345.79
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=846|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4376.27
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=876|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4406.74
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=906|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4437.29
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=936|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4467.65
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=966|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4497.94
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=996|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4528.24
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1026|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4558.55
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1056|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4588.87
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1086|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4619.31
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1146|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4649.66
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1176|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4680.14
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1206|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4710.62
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1236|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4740.91
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1266|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4771.25
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1296|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4801.57
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1326|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4832.07
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1356|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4862.59
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1386|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4892.88
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1416|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4923.19
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1446|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4953.49
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1476|f=0|fmax=0|fever=0|u=0|umax=0"
+S 4983.83
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1506|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5014.33
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1536|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5044.61
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1567|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5074.97
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1597|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5105.28
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1627|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5135.79
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1657|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5166.30
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1687|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5196.59
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1717|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5227.04
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1747|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5257.46
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1777|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5287.78
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1807|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5318.24
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1838|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5348.59
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1868|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5378.89
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1898|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5409.41
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1928|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5439.95
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1958|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5470.24
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=1988|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5500.56
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2018|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5530.85
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2048|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5561.19
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2078|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5591.69
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2108|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5622.07
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2138|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5652.36
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2168|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5682.66
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2198|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5713.17
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2228|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5743.69
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2258|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5773.98
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2288|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5804.28
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2318|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5834.57
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2348|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5864.87
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2378|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5895.38
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2408|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5925.84
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2438|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5956.13
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2468|f=0|fmax=0|fever=0|u=0|umax=0"
+S 5986.44
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2498|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6016.84
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2528|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6047.15
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2558|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6077.55
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2588|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6107.86
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2618|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6138.32
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2648|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6168.89
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2678|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6199.19
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2708|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6229.50
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2738|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6259.81
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2768|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6290.11
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2798|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6320.62
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2828|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6351.16
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2858|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6381.45
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2888|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6411.73
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2918|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6442.26
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2948|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6472.75
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=2978|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6503.04
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=3008|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6533.35
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=3038|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6563.64
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=3068|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6593.96
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=3098|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6624.48
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=3128|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6654.78
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=3158|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6685.13
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=3188|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6715.44
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=3218|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6745.96
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=3248|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6776.48
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=3278|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6806.94
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=3308|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6837.23
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=3338|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6867.51
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=3368|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6897.84
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=3398|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6928.32
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=3428|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6958.63
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=3458|f=0|fmax=0|fever=0|u=0|umax=0"
+S 6989.04
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=3488|f=0|fmax=0|fever=0|u=0|umax=0"
+S 7019.60
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=3518|f=0|fmax=0|fever=0|u=0|umax=0"
+S 7050.11
+WM_NAME(STRING) = "@cgDISMfxT:- | MF|t=3548|f=0|fmax=0|fever=0|u=0|umax=0"
+DONE 7080.61
+=== kiosk-soak samples since start-epoch ===
+ts=1791147482 iso=2026-10-04T16:58:02-0400 boot=44ce6042 up=3612 load1=2.38 load5=1.96 load15=1.77 temp=44.4 thr=unknown memused=112 memavail=280 ent=256 disk=15 browser=surf pid=2651 nproc=3 rss_main=59224 rss_total=180168
+ts=1791147783 iso=2026-10-04T17:03:03-0400 boot=44ce6042 up=3914 load1=1.49 load5=1.57 load15=1.65 temp=49.8 thr=unknown memused=131 memavail=261 ent=256 disk=15 browser=surf pid=2651 nproc=3 rss_main=59224 rss_total=195732
+ts=1791148084 iso=2026-10-04T17:08:04-0400 boot=44ce6042 up=4214 load1=1.43 load5=1.50 load15=1.60 temp=49.8 thr=unknown memused=147 memavail=245 ent=256 disk=15 browser=surf pid=2651 nproc=3 rss_main=59224 rss_total=214716
+ts=1791148384 iso=2026-10-04T17:13:04-0400 boot=44ce6042 up=4515 load1=2.22 load5=1.77 load15=1.68 temp=49.8 thr=unknown memused=149 memavail=243 ent=256 disk=15 browser=surf pid=2651 nproc=3 rss_main=59224 rss_total=215076
+ts=1791148686 iso=2026-10-04T17:18:06-0400 boot=44ce6042 up=4817 load1=1.44 load5=1.55 load15=1.61 temp=50.8 thr=unknown memused=153 memavail=235 ent=256 disk=15 browser=surf pid=2651 nproc=3 rss_main=59224 rss_total=219800
+ts=1791148987 iso=2026-10-04T17:23:07-0400 boot=44ce6042 up=5117 load1=1.57 load5=1.57 load15=1.61 temp=46.5 thr=unknown memused=155 memavail=234 ent=256 disk=15 browser=surf pid=2651 nproc=3 rss_main=59224 rss_total=225236
+ts=1791149288 iso=2026-10-04T17:28:08-0400 boot=44ce6042 up=5419 load1=1.33 load5=1.40 load15=1.52 temp=43.3 thr=unknown memused=150 memavail=242 ent=256 disk=15 browser=surf pid=2651 nproc=3 rss_main=59224 rss_total=222152
+ts=1791149589 iso=2026-10-04T17:33:09-0400 boot=44ce6042 up=5720 load1=1.41 load5=1.58 load15=1.58 temp=48.2 thr=unknown memused=155 memavail=237 ent=256 disk=15 browser=surf pid=2651 nproc=3 rss_main=59224 rss_total=225088
+ts=1791149889 iso=2026-10-04T17:38:09-0400 boot=44ce6042 up=6020 load1=1.68 load5=1.53 load15=1.55 temp=49.8 thr=unknown memused=158 memavail=234 ent=256 disk=15 browser=surf pid=2651 nproc=3 rss_main=59224 rss_total=227448
+ts=1791150191 iso=2026-10-04T17:43:11-0400 boot=44ce6042 up=6321 load1=1.53 load5=1.47 load15=1.52 temp=50.3 thr=unknown memused=148 memavail=243 ent=256 disk=15 browser=surf pid=2651 nproc=3 rss_main=59224 rss_total=218532
+ts=1791150491 iso=2026-10-04T17:48:11-0400 boot=44ce6042 up=6622 load1=1.09 load5=1.42 load15=1.50 temp=50.3 thr=unknown memused=155 memavail=237 ent=256 disk=15 browser=surf pid=2651 nproc=3 rss_main=59224 rss_total=222748
+ts=1791150793 iso=2026-10-04T17:53:13-0400 boot=44ce6042 up=6924 load1=1.97 load5=1.50 load15=1.49 temp=50.3 thr=unknown memused=160 memavail=232 ent=256 disk=15 browser=surf pid=2651 nproc=3 rss_main=59224 rss_total=227332
+=== kiosk-soak --summary 12 (samples since start-epoch) ===
+  samples          12 over 0.9 h
+  reboots          0
+  browser restarts 0
+  samples w/o browser  0 
+  rss_total range  180168 .. 227448 kB
+  rss_total ends   180168 -> 227332 kB (endpoint delta +47164 -- NOT a rate)
+  slope            +51280.7 kB/h  (n=12)
+  peak temp        50.8 C
+  peak load1       2.38  (includes the sampler wake-up itself)
+  throttled        12 sample(s) with thr != 0x0
+# boot-end 44ce6042-9089-4ada-92bf-1734a363a6c0
+# end NRestarts=0
+# vmstat-end pswpin 0 pswpout 0 
+=== /proc/pressure/memory ===
+cat: can't open '/proc/pressure/memory': No such file or directory
+=== kernel OOM lines since start-epoch ===
+# restored: script.js 0 bytes, kiosk restarted
+# complete 2026-10-04T21:56:36Z

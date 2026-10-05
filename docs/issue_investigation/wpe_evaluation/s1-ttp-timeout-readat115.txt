@@ -1,0 +1,27 @@
+# run-time-to-page.sh role=bench boots=3 wait=120 READ_AT=115
+# time-to-page.js sha256 6ea390791ce0a001f4accec091ab1ed86cc1b175bd83b2e6834614ef6480d779
+=== boot 1: reboot at 2026-10-04T22:00:48Z ===
+Failed to set wall message, ignoring: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+# buildinfo meta-wisekiosk    = HEAD:20a1f342580a10a0b32f26f4bcb804223ca068b1
+# Booted from: rootfs.1 (B)
+boot_id:       0b870851-275c-41ff-a8e4-903e1d48acfe
+read_at_s:     168
+RESULT: TIMEOUT -- no "T <epoch_ms>" title found
+=== boot 2: reboot at 2026-10-04T22:03:48Z ===
+Failed to set wall message, ignoring: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+# buildinfo meta-wisekiosk    = HEAD:20a1f342580a10a0b32f26f4bcb804223ca068b1
+# Booted from: rootfs.1 (B)
+boot_id:       3b20a772-b55f-44d6-b68f-046baf728f1b
+read_at_s:     167
+RESULT: TIMEOUT -- no "T <epoch_ms>" title found
+=== boot 3: reboot at 2026-10-04T22:06:46Z ===
+Failed to set wall message, ignoring: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+# buildinfo meta-wisekiosk    = HEAD:20a1f342580a10a0b32f26f4bcb804223ca068b1
+# Booted from: rootfs.1 (B)
+boot_id:       789e80f6-6383-4394-b3de-20c3d61defdd
+read_at_s:     168
+RESULT: TIMEOUT -- no "T <epoch_ms>" title found
+# complete 2026-10-04T22:09:45Z

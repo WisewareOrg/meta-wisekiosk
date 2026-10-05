@@ -1,0 +1,11 @@
+A.ppm 1280x720
+A.png 1280x720
+B.ppm 1280x720
+B.png 1280x720
+static crop 600x200+300+100: 256 grey levels; channel order unverifiable (grayscale frame)
+pair A full-frame AE 2289.49 (recorded, not judged)
+pair A static-crop AE 0
+pair B full-frame AE 0 (recorded, not judged)
+pair B static-crop AE 0
+helper A vs B clock-crop AE 2212.41
+PASS
