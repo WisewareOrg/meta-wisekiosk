@@ -241,6 +241,13 @@ All one-off and committed beside this README (R2), except where a run names a sh
   `import -window root`: two capture pairs 61 s apart, judged on a static crop (AE = 0, crop rich
   enough to expose a de-tile or channel-order bug) and a clock crop (must change).
 
+**Aborting a driver:** kill its process group, `kill -TERM -- -<pgid>`. That also ends the
+foreground ssh or sleep, so the EXIT trap restores `kiosk.conf` at once. A TERM to the driver
+alone is held until that child returns. In `run-time-to-page.sh`, an abort while the board is
+rebooting runs the restore against a board that is down. The restore fails, and the
+`kiosk.conf.wpe-bak` or `kiosk.conf.wpe-absent` backup stays in `/data/config/`. The next run
+then refuses until that backup is restored by hand.
+
 ## Metrics
 
 Smoothness from `parse_smoothness.py` over each capture's last `MP|` line; time windows are the
