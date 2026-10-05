@@ -73,8 +73,8 @@ repos:
   # kiosk-zero-w.yaml's `wpe` block sets back to "false".
   meta-webkit:
     url: "https://github.com/Igalia/meta-webkit.git"
-    branch: scarthgap
-    commit: 2d29669a3d78e462276044f3f8bde0e4dec33696
+    branch: scarthgap-latest
+    commit: c9d5d52a8cb91d530557930e2e46e9c53576b7c8
     path: "sources/meta-webkit"
 
   meta-arm:

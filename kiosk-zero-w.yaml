@@ -248,7 +248,7 @@ local_conf_header:
   # gone fails the parse.
   wpe: |
     BB_DANGLINGAPPENDS_WARNONLY = "false"
-    PREFERRED_VERSION_wpewebkit = "2.44.%"
+    PREFERRED_VERSION_wpewebkit = "2.54.%"
     PREFERRED_PROVIDER_virtual/wpebackend = "wpebackend-fdo"
 
   # update-bundle.bb packages whichever image RAUC_SLOT_rootfs names, and its
