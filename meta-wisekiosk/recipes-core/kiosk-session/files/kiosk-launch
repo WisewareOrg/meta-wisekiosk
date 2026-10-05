@@ -35,8 +35,10 @@ if [ "${KIOSK_PROBE:-0}" = "1" ]; then
 fi
 
 # WebKit features, unset by default: KIOSK_COG_FEATURES is passed whole as cog's
-# --features=<value>, e.g. -AcceleratedCompositingEnabled. cog exits on a name it
-# does not know, so a typo restart-loops kiosk.service with no page.
+# --features=<value>, comma-separated with no spaces, e.g.
+# -AcceleratedCompositingEnabled,-ThreadedScrollingEnabled. cog exits on a name it
+# does not know, a leading space included, so a typo restart-loops kiosk.service
+# with no page.
 FEATURES=""
 if [ -n "${KIOSK_COG_FEATURES:-}" ]; then
 	FEATURES="--features=${KIOSK_COG_FEATURES}"
