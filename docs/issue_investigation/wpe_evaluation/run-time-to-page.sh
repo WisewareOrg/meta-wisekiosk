@@ -13,6 +13,8 @@ set -u
 T=${1:?ssh-target}; ROLE=${2:?role}; OUT=${3:?out}
 HERE=$(dirname "$(readlink -f "$0")")
 KSSH=$(git -C "$HERE" rev-parse --show-toplevel)/tools/kiosk-ssh.sh
+# shellcheck source-path=SCRIPTDIR source=cog-cache.sh
+. "$HERE/cog-cache.sh"
 [ -e "$OUT" ] && { echo "$OUT exists -- refusing to overwrite a capture" >&2; exit 2; }
 
 # kiosk.conf is restored on any exit once this run has backed it up, interrupts included.
@@ -20,11 +22,11 @@ RESTORE_PENDING=0
 restore_conf() {
 	[ "$RESTORE_PENDING" = 1 ] || return 0
 	RESTORE_PENDING=0
-	"$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1 <<'RESTORE'
+	{ printf '%s\n' "$COG_CACHE_FN"; cat <<'RESTORE'; } | "$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1
 C=/data/config/kiosk.conf
 if [ -f $C.wpe-bak ]; then mv $C.wpe-bak $C; elif [ -e $C.wpe-absent ]; then rm -f $C $C.wpe-absent; else echo "# NO BACKUP -- kiosk.conf left as found"; fi
 rm -f /home/root/kiosk-probe.js
-rm -rf /home/root/.cache/cog
+clear_cog_cache
 systemctl restart kiosk
 n=$(grep -c '^KIOSK_PROBE' $C 2>/dev/null)
 echo "# restored: kiosk.conf KIOSK_PROBE lines ${n:-none, file absent}, kiosk restarted"

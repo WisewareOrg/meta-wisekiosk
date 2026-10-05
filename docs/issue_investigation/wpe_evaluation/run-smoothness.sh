@@ -10,9 +10,8 @@
 #   capture  cog's cache cleared; systemctl restart kiosk; sleep 585; the kiosk journal's MP| lines
 #            since the restart (cog prints each title as "TITLE <title>"), loadavg, MemAvailable
 #   restore  kiosk.conf from its backup, probe removed, cog's cache cleared, kiosk restarted
-# cog's cache is WebKit's network-session default, <XDG_CACHE_HOME, else HOME/.cache, of the
-# running cog, else uid 0's passwd home/.cache>/wpe; each clear records "cleared <dir> (<n>
-# entries)" or "no cache dir found".
+# cog's cache: cog-cache.sh; each clear records "cleared <dir> (<n> entries)" or "no cache dir
+# found".
 # Around it: the R1 header run-appliance.sh records, the active CRTC mode read from DRM debugfs
 # before deploy and after readback (anything but 1280x720 on either read is VOID, exit 3), the
 # served bundle name from cog's cache, and kiosk NRestarts. A kiosk.conf backup already on the
@@ -24,26 +23,8 @@ HERE=$(dirname "$(readlink -f "$0")")
 ROOT=$(git -C "$HERE" rev-parse --show-toplevel)
 KSSH=$ROOT/tools/kiosk-ssh.sh
 PROBE=$HERE/../gpu_compositing/p7_min.js
-# shellcheck disable=SC2016  # remote shell source, expanded on the board
-COG_CACHE_FN='cog_cache_dir() {
-	p=$(pidof cog | cut -d" " -f1)
-	e=""
-	[ -n "$p" ] && e=$(tr "\0" "\n" < /proc/$p/environ)
-	x=$(printf "%s\n" "$e" | sed -n "s/^XDG_CACHE_HOME=//p")
-	h=$(printf "%s\n" "$e" | sed -n "s/^HOME=//p")
-	[ -n "$h" ] || h=$(awk -F: "\$3 == 0 { print \$6; exit }" /etc/passwd)
-	echo "${x:-$h/.cache}/wpe"
-}
-clear_cog_cache() {
-	c=$(cog_cache_dir)
-	if [ -d "$c" ]; then
-		n=$(find "$c" | wc -l)
-		rm -rf "$c"
-		echo "# cleared $c ($((n - 1)) entries)"
-	else
-		echo "# no cache dir found ($c)"
-	fi
-}'
+# shellcheck source-path=SCRIPTDIR source=cog-cache.sh
+. "$HERE/cog-cache.sh"
 SHOT=$ROOT/local/wpe-pre-$(basename "$OUT" .txt).png
 [ -e "$OUT" ] && { echo "$OUT exists -- refusing to overwrite a capture" >&2; exit 2; }
 

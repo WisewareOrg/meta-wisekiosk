@@ -14,6 +14,8 @@ T=${1:?ssh-target}; ROLE=${2:?role}; OUT=${3:?out}
 SECS=3600
 HERE=$(dirname "$(readlink -f "$0")")
 KSSH=$(git -C "$HERE" rev-parse --show-toplevel)/tools/kiosk-ssh.sh
+# shellcheck source-path=SCRIPTDIR source=cog-cache.sh
+. "$HERE/cog-cache.sh"
 [ -e "$OUT" ] && { echo "$OUT exists -- refusing to overwrite a capture" >&2; exit 2; }
 
 # kiosk.conf is restored on any exit once this run has backed it up, interrupts included.
@@ -21,11 +23,11 @@ RESTORE_PENDING=0
 restore_conf() {
 	[ "$RESTORE_PENDING" = 1 ] || return 0
 	RESTORE_PENDING=0
-	"$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1 <<'RESTORE'
+	{ printf '%s\n' "$COG_CACHE_FN"; cat <<'RESTORE'; } | "$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1
 C=/data/config/kiosk.conf
 if [ -f $C.wpe-bak ]; then mv $C.wpe-bak $C; elif [ -e $C.wpe-absent ]; then rm -f $C $C.wpe-absent; else echo "# NO BACKUP -- kiosk.conf left as found"; fi
 rm -f /home/root/kiosk-probe.js
-rm -rf /home/root/.cache/cog
+clear_cog_cache
 systemctl restart kiosk
 n=$(grep -c '^KIOSK_PROBE' $C 2>/dev/null)
 echo "# restored: kiosk.conf KIOSK_PROBE lines ${n:-none, file absent}, kiosk restarted"
@@ -42,7 +44,7 @@ echo "# probe sha256 local    $(sha256sum < "$HERE/mf-probe.js" | cut -d' ' -f1)
 } > "$OUT"
 "$KSSH" "$T" 'cat > /home/root/kiosk-probe.js' < "$HERE/mf-probe.js" || exit 1
 RESTORE_PENDING=1
-"$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1 <<'EOF'
+{ printf '%s\n' "$COG_CACHE_FN"; cat <<'EOF'; } | "$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1
 C=/data/config/kiosk.conf
 if [ -e $C.wpe-bak ] || [ -e $C.wpe-absent ]; then
 	echo "# REFUSED: a kiosk.conf backup exists -- an earlier run did not restore"; exit 3
@@ -54,7 +56,7 @@ echo "# buildinfo $(grep '^meta-wisekiosk ' /etc/buildinfo)"
 echo "# $(rauc status 2>&1 | grep 'Booted from')"
 echo "# probe sha256 deployed $(sha256sum < /home/root/kiosk-probe.js | cut -d' ' -f1)"
 echo "# boot-start $(cat /proc/sys/kernel/random/boot_id)"
-rm -rf /home/root/.cache/cog
+clear_cog_cache
 systemctl restart kiosk
 echo "# start-epoch $(date +%s) $(systemctl show -p NRestarts kiosk)"
 echo "# vmstat-start $(grep -E '^(pswpin|pswpout) ' /proc/vmstat | tr '\n' ' ')"
