@@ -26,7 +26,7 @@ restarted, sleeping 585
 
 # VOID (bench-op, 2026-10-04): killed mid-capture (never completed) --
 # pre-run screenshot showed EPCOT "the source did not answer in time",
-# which is not the cards-open-with-data state the page-state rule asks for,
+# which per owner ruling on #185 is not the cards-open-with-data state,
 # so I stopped the 585s probe early rather than let it run to a result
 # that would have been discarded anyway. Bench restored to clean state
 # (script.js emptied, cache cleared, kiosk restarted) before the next

@@ -52,10 +52,10 @@ MEM MemAvailable:     264780 kB
 # complete 2026-10-04T22:54:08Z: 1 payload line(s)
 # pre-run screenshot local/wpe-pre-s1-baseline-run3.png
 
-# PAGE STATE: pre-run screenshot mean luma 14.861
+# PAGE STATE (owner ruling on #185, 2026-10-04): pre-run screenshot mean luma 14.861
 # (>= 10 threshold), cards-open layout with 3 of 4 cards showing live data; card 2 of 4
 # (top row, right) showed "the source did not answer in time" on this run and the two
-# checks before it (~2 min apart, persistent, not transient) -- recorded as the best
-# attempt with the state annotated, rather than blocking further. Fourth capture attempt
-# overall for run 3 (see s1-smoothness-run3-void1/2/3.txt beside this file for the first
-# three).
+# checks before it (~2 min apart, persistent, not transient) -- recorded per owner's
+# fallback ("record the best attempt with the state annotated") rather than blocking
+# further. Fourth capture attempt overall for run 3 (see VOID, VOID-2, VOID-3 beside
+# this file for the first three).

@@ -18,8 +18,8 @@ verdict yet.
 Every run names its board role and the image commit from `/etc/buildinfo` (R1); every capture is
 committed beside this README (R2); no table mixes runs (R3). S1 is the X baseline: bench, image
 `20a1f342580a10a0b32f26f4bcb804223ca068b1` (`origin/main` plus the `#185 capture` commits), booted
-from slot B. The S1 harness ran from a checkout pinned at `ea79e18` (its reflog holds no other
-commit), except time to page (below).
+from slot B. The S1 harness ran from a checkout pinned at `ea79e18`, clean, except time to page
+(below).
 
 | Run | Board (role) | Image commit | Harness / scripts | Result (1 line) |
 |---|---|---|---|---|
@@ -32,10 +32,10 @@ commit), except time to page (below).
 | 7 | bench · Pi Zero W | `20a1f34` | as Run 2 | VOID: stopped early; a park source was failing |
 | 8 | bench · Pi Zero W | `20a1f34` | `run-soak.sh` + `mf-reader.sh` @ `ea79e18`, `mf-probe.js` | 1 h: fmax 0, fever 0, 0 restarts, 0 reboots, no OOM |
 | 9 | bench · Pi Zero W | `20a1f34` | `run-time-to-page.sh` + `time-to-page-x.sh` @ `09b36c2` | TIMEOUT ×3: the harness could not parse surf's prefixed title |
-| 10 | bench · Pi Zero W | `20a1f34` | as Run 9, READ_AT 300 (hand-modified driver) | TIMEOUT ×3: same parse bug; boot 1 perturbed |
+| 10 | bench · Pi Zero W | `20a1f34` | copy of the Run 9 driver with READ_AT 300, uncommitted | TIMEOUT ×3: same parse bug; boot 1 perturbed |
 | 11 | bench · Pi Zero W | `20a1f34` | driver `09b36c2`, `time-to-page-x.sh` `072ea3e` | VOID: killed after the first reboot (concurrent job) |
 | 12 | bench · Pi Zero W | `20a1f34` | driver `09b36c2`, `time-to-page-x.sh` `072ea3e` | 20.3–23.3 s, every boot SUSPECT (clock synced after the beacon; pre-fix frame) |
-| 13 | bench · Pi Zero W | `20a1f34` | driver `09b36c2`, `time-to-page-x.sh` `70b03c7` | pending: the pre-step-frame re-run |
+| 13 | bench · Pi Zero W | `20a1f34` | driver `09b36c2`, `time-to-page-x.sh` `70b03c7` | 48.00, 59.63, 50.80 s; no SUSPECT, no re-run |
 
 ### Run 1 — capture cross-validation, bench, commit `20a1f34`
 
@@ -83,15 +83,26 @@ commit), except time to page (below).
 
 - **Board:** bench, Pi Zero W. **Image commit:** `20a1f34…`, recorded per boot.
 - **Scripts deployed:** the X driver `run-time-to-page.sh` @ `09b36c2` with
-  `time-to-page.js` @ `09b36c2` (sha256 `6ea39079…`) as surf's `script.js`, and the harness
-  `time-to-page-x.sh` at the commit each row names. Run 10 ran a hand-modified copy of the driver
-  with READ_AT 300 that was not committed — an R2 gap, harmless only because every boot
-  TIMEOUT'd on the parse bug.
+  `time-to-page.js` @ `09b36c2` (sha256 `6ea39079…`) as surf's `script.js`, run from a checkout
+  pinned at `09b36c2` with only `time-to-page-x.sh` overlaid from the commit each row names. Run
+  10 ran a copy of that driver with READ_AT 300 that was not committed — an R2 gap, harmless only
+  because every boot TIMEOUT'd on the parse bug.
 - **Procedure:** three cold boots, one connection each at 120 s, READ_AT 115 (Run 10: 300); a
-  SUSPECT boot re-run once (Run 12: all three). Run 10's boot 1 was perturbed by the operator's own
-  screenshot checks (per the operator's handoff; not annotated in the capture).
+  SUSPECT boot re-run once (Run 12: all three). Run 10's boot 1 is perturbed: 28 s after its
+  reboot command (22:14:07Z), well before the driver's own connection, the operator ran
+  `tools/kiosk-screenshot.sh` against bench for an unrelated check (per the operator; not
+  annotated in the capture).
 - **Raw capture:** `s1-ttp-timeout-readat115.txt` (Run 9), `s1-ttp-timeout-readat300.txt`
-  (Run 10), `s1-ttp-void.txt` (Run 11), `s1-ttp-suspect.txt` (Run 12); Run 13 pending.
+  (Run 10), `s1-ttp-void.txt` (Run 11), `s1-ttp-suspect.txt` (Run 12), `s1-ttp-prestep.txt`
+  (Run 13).
+
+**Capture notes.** The captures are byte-for-byte as recorded, apart from identity redactions.
+The operator's in-file notes name some captures by their working names: "run3b" is
+`s1-smoothness-run3.txt`, "VOID-2" is `s1-smoothness-run3-void2.txt`, and
+"ttp-baseline-20a1f34-fixed2.txt" is `s1-ttp-suspect.txt`. Where those notes cite an owner ruling,
+they mean the plan's page-state rule (cards open with data, a wrong-state capture VOID) and its
+fallback (record the best attempt with the state annotated). The helper's two PPM frames from Run 1
+are committed as lossless PNG re-encodings (`magick`, AE 0 against the PPMs) for size.
 
 ## Configuration under test
 
@@ -199,6 +210,14 @@ probe's own (570 s of the 585 s capture).
 |---|---|---|---|---|---|---|---|---|---|
 | 0 | 0 | 0 | 0 | 0 | 0 | 232 MB | 180168 → 227332 kB, slope +51281 kB/h (n=12) | 0 / 0 | unavailable |
 
+**Run 13** (`s1-ttp-prestep.txt`)
+
+| boot | 1 | 2 | 3 |
+|---|---|---|---|
+| time to page, s | 48.00 | 59.63 | 50.80 |
+| frame | pre-step | post-step | pre-step |
+| timesyncd sync, s monotonic | 55.79 | none logged | 55.82 |
+
 **Run 12** (`s1-ttp-suspect.txt`; every value SUSPECT, post-step frame)
 
 | boot | 1 | 1-rerun | 2 | 2-rerun | 3 | 3-rerun |
@@ -229,11 +248,14 @@ probe's own (570 s of the 585 s capture).
 - **`systemctl reboot` prints an error and reboots anyway.** Every time-to-page boot logged "Call to
   Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly … File exists"
   (logind is masked), yet each boot has a new boot id and read at ~115 s.
-- **Time to page, so far.** Runs 9 and 10 measured nothing: surf prefixes the page title
-  (`@cgDISMfxT:- | T <epoch>`) and `time-to-page-x.sh` matched only at the start, fixed in
-  `072ea3e`. Run 12 parsed, but timesyncd's initial sync lands at 55–66 s monotonic, after the
-  beacon and before the read, so every value is in the wrong wall-clock frame; `70b03c7` recovers
-  the beacon's frame. The beacon fires ~20–23 s into the boot. Run 13 is the measurement.
+- **Time to page on the X baseline: 48.00, 59.63, 50.80 s** (Run 13), recorded, not judged. Runs 9
+  and 10 measured nothing: surf prefixes the page title (`@cgDISMfxT:- | T <epoch>`) and
+  `time-to-page-x.sh` matched only at the start, fixed in `072ea3e`. Run 12 parsed, but timesyncd's
+  initial sync lands at 55–66 s monotonic, after the beacon and before the read, so its values
+  (20–23 s) are in the corrected wall-clock frame, not the beacon's; against Run 13's 48–51 s, the
+  sync moved the clock forward by about 27 s. `70b03c7` recovers the beacon's frame from the last journal entry before
+  the sync (Run 13, boots 1 and 3). Boot 2 logged no sync, and its journal frame agreed with the
+  wall clock within 1 s, so its post-step value stands.
 
 ## Changes configured as a result
 

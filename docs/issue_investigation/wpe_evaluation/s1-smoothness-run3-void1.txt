@@ -52,8 +52,8 @@ MEM MemAvailable:     258980 kB
 # complete 2026-10-04T20:36:03Z: 1 payload line(s)
 # pre-run screenshot local/wpe-pre-s1-baseline-run3.png
 
-# VOID (page-state rule): pre-run screenshot
+# VOID (owner ruling on #185, 2026-10-04): pre-run screenshot
 # local/wpe-pre-s1-baseline-run3-VOID.png is not the cards-open dashboard
 # (near-black, one faint divider line, 718 bytes vs ~57KB for runs 1/2) --
 # page still mid-load when the screenshot was taken, not wrong-state per
-# the plan's Page state rule. Re-run recorded separately (s1-smoothness-run3.txt).
+# the plan's Page state rule. Re-run recorded separately as run3b.

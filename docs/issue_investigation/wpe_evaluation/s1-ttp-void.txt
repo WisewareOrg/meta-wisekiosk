@@ -6,6 +6,6 @@ Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load p
 
 # VOID (bench-op error, 2026-10-04): killed after boot 1's reboot command,
 # before any read -- launched while smoothness run 3's probe was still
-# active on bench, a serialization mistake (see s1-smoothness-run3-void2.txt for the
+# active on bench, a serialization mistake (see run3's VOID-2 for the
 # other half of this same incident). No data beyond the reboot command
-# was recorded. Superseded by s1-ttp-suspect.txt.
+# was recorded. Superseded by ttp-baseline-20a1f34-fixed2.txt.
