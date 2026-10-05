@@ -53,6 +53,20 @@ def steady_stall_bounds(d, steady_from=15.0):
             "lower_rate": lower / span, "upper_rate": upper / span}
 
 
+def steady_stall_from_series(lines, steady_from=15.0):
+    """Steady count from the whole MP| series: final bt minus bt at the last line before
+    steady_from (else the first line); one parseable line falls back to steady_stall_bounds."""
+    parsed = [d for d in map(parse, lines) if d is not None]
+    if len(parsed) == 1:
+        return steady_stall_bounds(parsed[0], steady_from)
+    pre = [d for d in parsed if d["sec"] < steady_from]
+    ref = pre[-1] if pre else parsed[0]
+    final = parsed[-1]
+    count = final["bt"] - ref["bt"]
+    rate = count / (final["sec"] - steady_from)
+    return {"count": count, "rate": rate, "exact": True}
+
+
 def clusters(d, gap=1.0):
     out = []
     for e in d["big"]:
