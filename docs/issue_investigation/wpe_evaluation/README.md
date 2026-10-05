@@ -298,10 +298,11 @@ All one-off and committed beside this README (R2), except where a run names a sh
     thin: rendered with cards open 16.06 and 16.35; rendered with three park sources failing
     13.22; clock and date only, modules still loading, 5.24; near-black mid-load 0.008. Whether a
     capture had cards open with data is the operator's call from the kept screenshot.
-- `run-soak.sh` — the 1 h soak: `mf-probe.js` as `KIOSK_PROBE` user script, its `MF|` samples read
-  from the kiosk journal, then the `kiosk-soak` samples and summary, restarts, boot ids, swap
-  counters, PSI and kernel OOM lines for the window. `mf-reader.sh` read the title over X for the
-  baseline soak.
+- `run-soak.sh` — the 1 h soak: the same pre-run screenshot settle as `run-smoothness.sh`, which
+  also gives cog time to recreate a cache that a preceding run's restore cleared, then
+  `mf-probe.js` as `KIOSK_PROBE` user script, its `MF|` samples read from the kiosk journal, then
+  the `kiosk-soak` samples and summary, restarts, boot ids, swap counters, PSI and kernel OOM lines
+  for the window. `mf-reader.sh` read the title over X for the baseline soak.
 - `run-time-to-page.sh` — time to page, three cold boots with one connection each at 120 s: the
   shipped `time-to-page.js` beacon (`meta-wisekiosk/recipes-core/kiosk-bootprof/files/`) titles
   the page `T <epoch_ms>` (`Date.now()`) once the weather glyph renders in its face; time to page

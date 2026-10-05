@@ -8,15 +8,19 @@
 # the start and those samples themselves, kiosk NRestarts, boot id and /proc/vmstat
 # pswpin/pswpout at both ends, /proc/pressure/memory, and kernel OOM lines since the start; then
 # it restores kiosk.conf, removes the probe and restarts kiosk. A kiosk.conf backup already on the
-# board means an earlier run did not restore; the run refuses, exit 1, and leaves it alone. cog's
-# cache dir absent or empty before deploy is VOID, exit 3 (cog-cache.sh's require_cog_cache).
+# board means an earlier run did not restore; the run refuses, exit 1, and leaves it alone. Before
+# deploy, the pre-run screenshot settle of run-smoothness.sh (mean luma >= 10 within 120 s, kept in
+# local/), then cog's cache dir absent or empty is VOID, exit 3 (cog-cache.sh's
+# require_cog_cache).
 set -u
 T=${1:?ssh-target}; ROLE=${2:?role}; OUT=${3:?out}
 SECS=3600
 HERE=$(dirname "$(readlink -f "$0")")
-KSSH=$(git -C "$HERE" rev-parse --show-toplevel)/tools/kiosk-ssh.sh
+ROOT=$(git -C "$HERE" rev-parse --show-toplevel)
+KSSH=$ROOT/tools/kiosk-ssh.sh
 # shellcheck source-path=SCRIPTDIR source=cog-cache.sh
 . "$HERE/cog-cache.sh"
+SHOT=$ROOT/local/wpe-pre-$(basename "$OUT" .txt).png
 [ -e "$OUT" ] && { echo "$OUT exists -- refusing to overwrite a capture" >&2; exit 2; }
 
 # kiosk.conf is restored on any exit once this run has backed it up, interrupts included.
@@ -37,12 +41,23 @@ RESTORE
 trap restore_conf EXIT
 trap 'exit 1' INT TERM HUP
 
+for wait in 0 10 20 30 40 50 60 70 80 90 100 110 120; do
+	[ "$wait" -gt 0 ] && { rm -f "$SHOT"; sleep 10; }
+	shot=$("$ROOT/tools/kiosk-screenshot.sh" "$T" "$SHOT")
+	rc=$?
+	printf '%s\n' "$shot"
+	mean=$(printf '%s\n' "$shot" | sed -n 's/^min=.* mean=\([0-9.]*\)$/\1/p')
+	[ $rc -eq 0 ] && awk -v m="${mean:-0}" 'BEGIN { exit !(m >= 10) }' && break
+	[ "$wait" -eq 120 ] && { echo "VOID: pre-run screenshot not a rendered dashboard after 120 s (last mean ${mean:-none}, rc $rc) -- $SHOT" >&2; exit 3; }
+done
+
 require_cog_cache "$KSSH" "$T"
 
 {
 echo "# run-soak.sh role=$ROLE secs=$SECS"
 echo "# harness $(git -C "$HERE" rev-parse HEAD)$(git -C "$HERE" diff --quiet HEAD -- . ../gpu_compositing ../../../tools || echo " DIRTY")"
 echo "# started $(date -u +%FT%TZ)"
+echo "# pre-run screenshot local/$(basename "$SHOT")"
 echo "# probe sha256 local    $(sha256sum < "$HERE/mf-probe.js" | cut -d' ' -f1)"
 } > "$OUT"
 "$KSSH" "$T" 'cat > /home/root/kiosk-probe.js' < "$HERE/mf-probe.js" || exit 1
