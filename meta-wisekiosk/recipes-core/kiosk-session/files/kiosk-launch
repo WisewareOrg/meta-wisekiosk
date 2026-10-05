@@ -34,5 +34,13 @@ if [ "${KIOSK_PROBE:-0}" = "1" ]; then
 	PROBE="--enable-write-console-messages-to-stdout=true --user-script=${KIOSK_PROBE_SCRIPT:-/home/root/kiosk-probe.js}"
 fi
 
+# WebKit features, unset by default: KIOSK_COG_FEATURES is passed whole as cog's
+# --features=<value>, e.g. -AcceleratedCompositingEnabled. cog exits on a name it
+# does not know, so a typo restart-loops kiosk.service with no page.
+FEATURES=""
+if [ -n "${KIOSK_COG_FEATURES:-}" ]; then
+	FEATURES="--features=${KIOSK_COG_FEATURES}"
+fi
+
 # shellcheck disable=SC2086  # INSPECT and PROBE are option lists, split on purpose
-exec cog -P drm $INSPECT $PROBE "$KIOSK_URL"
+exec cog -P drm $INSPECT $PROBE ${FEATURES:+"$FEATURES"} "$KIOSK_URL"
