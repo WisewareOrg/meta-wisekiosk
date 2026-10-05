@@ -60,19 +60,29 @@
 #       kiosk-drmgrab, which reads the framebuffer bound to the active CRTC, and
 #       must stay that way.
 #
-# THE EXIT CODE, three-valued like kiosk-gpu-check.sh:
+# STALE, checked only once the render is advancing: a region left over from an
+# older frame survives a repainting clock. It shows when the scanout alternates
+# buffers, each fb holding the region steady and the two disagreeing. 30
+# full-frame `kiosk-drmgrab --report` captures about 2 s apart, fetched in
+# batches of 5, go to tools/kiosk-render-check-stale.py on this host, which
+# holds the rule.
 #
-#   0  advancing -- the two frames differ
+# THE EXIT CODE:
+#
+#   0  advancing -- the two frames differ, and no region is stale
 #   1  FROZEN -- the two frames are byte-identical and both captures verified good
 #   2  could not tell -- capture failed, empty or short output, no capture tool,
-#      a uniform capture region, or a misinvocation
+#      a uniform capture region, a failed series capture or fetch, or a
+#      misinvocation
+#   3  STALE -- advancing, but at least one tile is steady in each of two
+#      scanout buffers and differs between them
 #
 # rc2 is never a quiet rc1. "I could not photograph the screen" and "the screen
 # has not changed in five seconds" send a person to two different places, and on
 # a wall-mounted panel one of those places is a ladder.
 #
 # Read-only on the device: two kiosk-drmgrab captures into tmpfs, hashed and
-# removed. It injects no input, forces no redraw, and does not perturb a frozen
+# removed, then the series, at most 5 full frames in tmpfs at a time. It injects no input, forces no redraw, and does not perturb a frozen
 # board -- a frozen kiosk stays frozen across a run, which is what makes this
 # safe to point at prod.
 #
@@ -297,4 +307,79 @@ rc=$?
 printf '%s\n' "$PROBE" | sed 's/^/  /'
 
 render_verdict "$PROBE"
-exit $?
+rc=$?
+[ $rc -eq 0 ] || exit $rc
+
+# ---------------------------------------------------------------- the series
+SERIES=30
+BATCH=5
+LOCAL=$(mktemp -d) || { echo "cannot tell: no local directory for the series" >&2; exit 2; }
+REMOTE=/tmp/render-check-series.$$
+# shellcheck disable=SC2317  # runs from the EXIT trap
+cleanup() {
+    rm -rf "$LOCAL"
+    # shellcheck disable=SC2029  # $REMOTE expands here, on the client
+    "$HERE/kiosk-ssh.sh" "$HOST" "rm -rf $REMOTE" > /dev/null 2>&1
+}
+trap cleanup EXIT
+
+: > "$LOCAL/manifest.txt"
+for ((first = 1; first <= SERIES; first += BATCH)); do
+    last=$((first + BATCH - 1))
+    # shellcheck disable=SC2029  # $REMOTE, $first and $last expand here, on the client
+    out=$("$HERE/kiosk-ssh.sh" "$HOST" "R=$REMOTE FIRST=$first LAST=$last sh -s" <<'SERIES'
+mkdir -p "$R" || exit 1
+i=$FIRST
+while [ "$i" -le "$LAST" ]; do
+    [ "$i" -gt 1 ] && sleep 2
+    rep=$(kiosk-drmgrab --report "$R/$i.ppm" 2>&1)
+    rc=$?
+    echo "series $i rc=$rc $(printf '%s' "$rep" | tr '\n' ' ')"
+    i=$((i + 1))
+done
+SERIES
+)
+    rc=$?
+    printf '%s\n' "$out" | sed 's/^/  /'
+    [ $rc -eq 0 ] || { echo "cannot tell: series batch $first-$last: ssh exited $rc" >&2; exit 2; }
+
+    names=()
+    for ((i = first; i <= last; i++)); do
+        line=$(printf '%s\n' "$out" | grep "^series $i rc=")
+        if ! [[ $line =~ ^series\ $i\ rc=0\ fb_before=([0-9]+)\ fb_after=([0-9]+)\ copy_ms=[0-9]+\ ?$ ]]; then
+            echo "cannot tell: series capture $i failed: ${line:-no line returned}" >&2
+            exit 2
+        fi
+        echo "fb_before=${BASH_REMATCH[1]} fb_after=${BASH_REMATCH[2]} ppm=$LOCAL/$i.ppm" >> "$LOCAL/manifest.txt"
+        names+=("$i.ppm")
+    done
+
+    # shellcheck disable=SC2029  # the batch's names expand here, on the client
+    "$HERE/kiosk-ssh.sh" "$HOST" "cd $REMOTE && tar cf - ${names[*]} && rm -f ${names[*]}" |
+        tar xf - -C "$LOCAL"
+    fetch=("${PIPESTATUS[@]}")
+    if [ "${fetch[0]}" -ne 0 ] || [ "${fetch[1]}" -ne 0 ]; then
+        echo "cannot tell: series batch $first-$last fetch failed (ssh ${fetch[0]}, tar ${fetch[1]})" >&2
+        exit 2
+    fi
+done
+
+stale=$(python3 "$HERE/kiosk-render-check-stale.py" "$LOCAL/manifest.txt")
+rc=$?
+printf '%s\n' "$stale" | sed 's/^/  /'
+case $rc in
+0)
+    echo "no stale region: no tile is steady in two scanout buffers yet different between them."
+    exit 0
+    ;;
+3)
+    echo "STALE: $stale -- steady within each of two scanout buffers and different" >&2
+    echo "between them. The render advances, but those regions alternate between an" >&2
+    echo "up-to-date frame and an older one at scanout." >&2
+    exit 3
+    ;;
+*)
+    echo "cannot tell: the stale check exited $rc, so no series verdict was reached." >&2
+    exit 2
+    ;;
+esac
