@@ -263,6 +263,11 @@ def test_steady_stall_from_series_exact_count_pre_and_post_15():
     check("steady_stall_from_series: rate == 15 / (30 - 15) == 1.0",
           abs(d["rate"] - 1.0) < 1e-9, detail=str(d))
     check("steady_stall_from_series: exact is True", d["exact"] is True, detail=str(d))
+    # ref_t (orchestrator ruling 2026-10-05): the reference line's OWN t, named, not left
+    # for a reader to re-derive from count/rate -- here the last-pre-15 line's t=10, not
+    # the distractor's t=5 or the final line's t=30.
+    check("steady_stall_from_series: ref_t == 10 (the last-pre-15 line's t)",
+          d["ref_t"] == 10, detail=str(d))
 
 
 def test_steady_stall_from_series_falls_back_to_first_line_when_none_precede_15():
@@ -273,16 +278,33 @@ def test_steady_stall_from_series_falls_back_to_first_line_when_none_precede_15(
           abs(d["rate"] - 0.6) < 1e-9, detail=str(d))
     check("steady_stall_from_series (no pre-15 line): exact is True",
           d["exact"] is True, detail=str(d))
+    check("steady_stall_from_series (no pre-15 line): ref_t == 16 (the first line's t)",
+          d["ref_t"] == 16, detail=str(d))
 
 
 def test_steady_stall_from_series_single_line_falls_back_to_bounds():
     # A degenerate, one-payload "series" has nothing to difference against -- the contract
     # is to fall back to steady_stall_bounds UNCHANGED, so the assertion is equality with
-    # that already-proven function's own output, not a hand-computed number.
+    # that already-proven function's own output, not a hand-computed number. steady_stall_
+    # bounds's own dict carries no ref_t key, and this fallback must not add one.
     d = ps.steady_stall_from_series([CLEAN])
     want = ps.steady_stall_bounds(ps.parse(CLEAN))
     check("steady_stall_from_series([one line]) == steady_stall_bounds(parse(that line))",
           d == want, detail=f"got {d!r} want {want!r}")
+
+
+def test_steady_stall_from_series_raises_when_nothing_parses():
+    # A dead title readback (probe never ran, or every line is journalctl/TITLE noise)
+    # must never read as count=0 -- that is indistinguishable from "ran fine, zero stalls
+    # ever". It must raise instead (parse_module_fault.soak_summary's own precedent).
+    for name, lines in (("zero parseable lines", ["# only noise", MALFORMED, NOT_A_PAYLOAD]),
+                        ("an empty list", [])):
+        try:
+            ps.steady_stall_from_series(lines)
+        except ValueError:
+            check(f"steady_stall_from_series({name}) raises ValueError", True)
+        else:
+            check(f"steady_stall_from_series({name}) raises ValueError", False)
 
 
 if __name__ == "__main__":
@@ -300,6 +322,7 @@ if __name__ == "__main__":
     test_steady_stall_from_series_exact_count_pre_and_post_15()
     test_steady_stall_from_series_falls_back_to_first_line_when_none_precede_15()
     test_steady_stall_from_series_single_line_falls_back_to_bounds()
+    test_steady_stall_from_series_raises_when_nothing_parses()
     print()
     if fails:
         raise SystemExit(f"{fails} check(s) FAILED")
