@@ -1,0 +1,30 @@
+--- render-check ---
+  cap=1
+  cap identify=1
+  crop 560x300+220+20
+  frame 1 rc=0 at=21:46:19 bytes=504015 md5=ee56771bba7feca24046ac3d07ff5584
+  frame 2 rc=0 at=21:46:22 bytes=504015 md5=48fb23ba6febe2b7cceac96f1e2e9412
+  blank min=0 max=255 mean=21.028
+advancing: the two frames differ (ee56771bba7feca24046ac3d07ff5584 / 48fb23ba6febe2b7cceac96f1e2e9412), so the
+render repainted within the interval.
+render-check rc=0
+--- screenshot ---
+device clock at capture: 21:46:26
+wrote /tmp/claude-1000/-home-tjwise-meta-wisekiosk/76635847-5247-4809-8402-e1fe41739c68/scratchpad/s2-shot-214619.png
+min=0 max=255 mean=13.7858
+not blank. Now read the rendered clock against the device clock above,
+and the fetched data against its live source -- a frozen render passes
+every other check there is.
+screenshot rc=0
+--- gpu-check (read-only) ---
+  cap grep_o=1
+  proc cog pid=284 drifd=4 drv=vc4_dri.so 
+  proc WPENetworkProce pid=330 drifd=0 drv=none
+  proc WPEWebProcess pid=358 drifd=7 drv=vc4_dri.so 
+  mem CmaTotal:         262144 kB
+  mem CmaFree:           81992 kB
+  drm card0 present
+GPU path present: a web process holds /dev/dri open with a vc4/v3d driver
+mapped. Confirm the mode itself by reading webkit://gpu's Renderer row --
+this cannot distinguish Hardware from Shared Memory.
+gpu-check rc=0

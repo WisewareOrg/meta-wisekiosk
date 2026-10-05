@@ -1,0 +1,27 @@
+# S2 hardware-compositing evidence, image 32b670c, board role: bench
+meta-wisekiosk    = HEAD:32b670c5a4379443aef5ddab9ca0e43cac1c5e96
+Booted from: rootfs.1 (B)
+=== /sys/kernel/debug/dri/0/bo_stats ===
+                           V3D:  14728kb BOs (11)
+                    V3D shader:     12kb BOs (3)
+                          dumb:   4052kb BOs (1)
+                        binner:  16384kb BOs (1)
+               kernel BO cache:      8kb BOs (2)
+            userspace BO cache:      4kb BOs (1)
+=== WPEWebProcess /proc/PID/maps, dri/vc4 lines ===
+a8815000-a8915000 rw-s 00000000 00:06 93         /dev/dri/renderD128
+a8915000-a8a15000 rw-s 00000000 00:06 93         /dev/dri/renderD128
+a8be9000-a8c69000 rw-s 00000000 00:06 93         /dev/dri/renderD128
+a948b000-a94fb000 rw-s 00000000 00:06 93         /dev/dri/renderD128
+a94fb000-a956b000 rw-s 00000000 00:06 93         /dev/dri/renderD128
+aca71000-ad592000 r-xp 00000000 b3:03 1207       /usr/lib/dri/vc4_dri.so
+ad592000-ad5ce000 r--p 00b20000 b3:03 1207       /usr/lib/dri/vc4_dri.so
+ad5ce000-ad5d0000 rw-p 00b5c000 b3:03 1207       /usr/lib/dri/vc4_dri.so
+ae70e000-ae746000 rw-s 00000000 00:06 93         /dev/dri/renderD128
+af110000-af111000 rw-s 00000000 00:06 93         /dev/dri/renderD128
+af9fa000-af9fd000 r-xp 00000000 b3:03 1877       /usr/lib/libxcb-dri3.so.0.1.0
+af9fd000-af9fe000 r--p 00002000 b3:03 1877       /usr/lib/libxcb-dri3.so.0.1.0
+af9fe000-af9ff000 rw-p 00003000 b3:03 1877       /usr/lib/libxcb-dri3.so.0.1.0
+afa07000-afa0a000 r-xp 00000000 b3:03 1875       /usr/lib/libxcb-dri2.so.0.0.0
+afa0a000-afa0b000 r--p 00002000 b3:03 1875       /usr/lib/libxcb-dri2.so.0.0.0
+afa0b000-afa0c000 rw-p 00003000 b3:03 1875       /usr/lib/libxcb-dri2.so.0.0.0

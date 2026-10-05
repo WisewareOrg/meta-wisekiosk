@@ -10,8 +10,8 @@ The kiosk renders one fullscreen page through bare Xorg, `surf` and `webkitgtk3`
 investigation swaps the base image in place to WPE WebKit 2.44.4 under `cog`, on the integration
 branch `185-wpe-evaluation`, and judges it against a baseline measured on the X image beforehand.
 Any regression in smoothness, module faults or soak stability is a no-go; slower startup alone is
-not. If 2.44.4 passes, one attempt is measured at 2.54. The X baseline (S1) is measured; no
-verdict yet.
+not. If 2.44.4 passes, one attempt is measured at 2.54. The X baseline (S1) is measured and the
+WPE image paints and composites on the GPU (S2); no verdict yet.
 
 ## Test runs
 
@@ -32,10 +32,17 @@ from slot B. The S1 harness ran from a checkout pinned at `ea79e18`, clean, exce
 | 7 | bench · Pi Zero W | `20a1f34` | as Run 2 | VOID: stopped early; a park source was failing |
 | 8 | bench · Pi Zero W | `20a1f34` | `run-soak.sh` + `mf-reader.sh` @ `ea79e18`, `mf-probe.js` | 1 h: fmax 0, fever 0, 0 restarts, 0 reboots, no OOM |
 | 9 | bench · Pi Zero W | `20a1f34` | `run-time-to-page.sh` + `time-to-page-x.sh` @ `09b36c2` | TIMEOUT ×3: the harness could not parse surf's prefixed title |
-| 10 | bench · Pi Zero W | `20a1f34` | copy of the Run 9 driver with READ_AT 300, uncommitted | TIMEOUT ×3: same parse bug; boot 1 perturbed |
+| 10 | bench · Pi Zero W | `20a1f34` | `run-ttp-readat300.sh` (the Run 9 driver with READ_AT 300) | TIMEOUT ×3: same parse bug; boot 1 perturbed |
 | 11 | bench · Pi Zero W | `20a1f34` | driver `09b36c2`, `time-to-page-x.sh` `072ea3e` | VOID: killed after the first reboot (concurrent job) |
 | 12 | bench · Pi Zero W | `20a1f34` | driver `09b36c2`, `time-to-page-x.sh` `072ea3e` | 20.3–23.3 s, every boot SUSPECT (clock synced after the beacon; pre-fix frame) |
 | 13 | bench · Pi Zero W | `20a1f34` | driver `09b36c2`, `time-to-page-x.sh` `70b03c7` | 48.00, 59.63, 50.80 s; no SUSPECT, no re-run |
+| 14 | bench · Pi Zero W | `1a8e100` | `kiosk-render-check.sh`, `kiosk-screenshot.sh`, `kiosk-gpu-check.sh` @ `782d4d9` | paint gate passes: advancing, not blank, cog + WPEWebProcess on vc4 |
+| 15 | bench · Pi Zero W | `1a8e100` | `kiosk-gpu-check.sh --capture` @ `782d4d9` | `webkit://gpu` aborts cog: no desktop GL |
+| 16 | bench · Pi Zero W | `1a8e100` | inline (kiosk.conf edit + journal) | `KIOSK_INSPECTOR=1` loads `file:///` instead of the dashboard |
+| 17 | bench · Pi Zero W | `1a8e100` | inline (kiosk.conf edit + journal), render-check @ `782d4d9` | unlisted DRM mode: cog exits 1, systemd restarts it, kiosk.conf restored |
+| 18 | bench · Pi Zero W | `32b670c` | render-check, screenshot @ `782d4d9`; inline inspector check | paints; `KIOSK_INSPECTOR=1` loads the dashboard |
+| 19 | bench · Pi Zero W | `32b670c` | `run-webgl-query.sh` | WebGL renderer string spoofed ("Apple GPU"): inconclusive |
+| 20 | bench · Pi Zero W | `32b670c` | inline (debugfs + `/proc/PID/maps`) | V3D buffers live, `vc4_dri.so` and `renderD128` mapped in WPEWebProcess |
 
 ### Run 1 — capture cross-validation, bench, commit `20a1f34`
 
@@ -85,8 +92,8 @@ from slot B. The S1 harness ran from a checkout pinned at `ea79e18`, clean, exce
 - **Scripts deployed:** the X driver `run-time-to-page.sh` @ `09b36c2` with
   `time-to-page.js` @ `09b36c2` (sha256 `6ea39079…`) as surf's `script.js`, run from a checkout
   pinned at `09b36c2` with only `time-to-page-x.sh` overlaid from the commit each row names. Run
-  10 ran a copy of that driver with READ_AT 300 that was not committed — an R2 gap, harmless only
-  because every boot TIMEOUT'd on the parse bug.
+  10 ran `run-ttp-readat300.sh`, that driver with READ_AT 300, committed here with the bench
+  address redacted.
 - **Procedure:** three cold boots, one connection each at 120 s, READ_AT 115 (Run 10: 300); a
   SUSPECT boot re-run once (Run 12: all three). Run 10's boot 1 is perturbed: 28 s after its
   reboot command (22:14:07Z), well before the driver's own connection, the operator ran
@@ -112,6 +119,41 @@ are committed as lossless PNG re-encodings for size, made with ImageMagick 7.1.2
 
 `magick s1-xval-A-drmgrab.png ppm:- | sha256sum` reproduces A's hash byte for byte (B likewise),
 so the PNGs carry the PPMs exactly.
+
+### Runs 14–20 — S2, the WPE image paints, bench
+
+- **Board:** bench, Pi Zero W.
+- **Image commit:** `1a8e100d31cadb6591a7a3bca01d1879dcec8bf5` (Runs 14–17, slot A) and
+  `32b670c5a4379443aef5ddab9ca0e43cac1c5e96` (Runs 18–20, slot B, after the `kiosk-launch` argv
+  fix), each from `/etc/buildinfo` in the capture or the run's own header.
+- **Scripts deployed:** the shipped `kiosk-render-check.sh`, `kiosk-screenshot.sh` and
+  `kiosk-gpu-check.sh` from a host checkout at `782d4d9`; `run-webgl-query.sh` (Run 19), committed
+  here with the bench address redacted. Runs 16, 17, 18's inspector check and 20 were inline
+  command sequences, not saved as scripts — an R2 gap; each capture's own step headers ("---
+  backup ---", "--- seed bogus mode, restart ---") are the procedure.
+- **Procedure:**
+  - Run 14: the ported render-check at the default crop `560x300+220+20`, a screenshot, and the
+    read-only gpu-check; `s2-paint-drmgrab.png` is the first `kiosk-drmgrab` frame taken by hand
+    before the tools ran.
+  - Run 15: two `--capture` attempts with the tool at `782d4d9` — refused without a `KIOSK_URL`
+    line, then, with one added, `kiosk-drmgrab` refused an RG16 framebuffer and the capture failed
+    (per the operator, the console's framebuffer while cog restarted after aborting) — then the
+    crash window's journal.
+  - Run 16: `KIOSK_INSPECTOR=1`, then also an explicit `KIOSK_URL`; kiosk restarted, journal read;
+    kiosk.conf restored byte-identical (`cmp`) after each.
+  - Run 17: `COG_PLATFORM_DRM_VIDEO_MODE=9999x9999` in kiosk.conf, kiosk restarted; NRestarts and
+    the journal read; kiosk.conf restored byte-identical; render-check after.
+  - Runs 18–20: render-check and screenshot; `KIOSK_INSPECTOR=1` with the journal read; the WebGL
+    renderer queried through the remote inspector; `bo_stats` and WPEWebProcess's mapped `dri`
+    lines read.
+- **Raw capture:** `s2-paintgate.txt`, `s2-paintgate-screenshot.png`, `s2-paint-drmgrab.png`
+  (Run 14); `s2-gpucapture-1.txt`, `s2-gpucapture-2.txt`, `s2-webkitgpu-crash.txt` (Run 15);
+  `s2-inspector-file-url.txt`, `s2-inspector-1.txt`, `s2-inspector-2.txt` (Run 16);
+  `s2-seeded-failure.txt` (Run 17); `s2-verify-32b670c.txt`, `s2-verify-32b670c-screenshot.png`,
+  `s2-inspector-fixed.txt` (Run 18); `s2-webgl-query.txt` (Run 19); `s2-vc4-hwevidence.txt`
+  (Run 20). `s2-paint-drmgrab.png` is a lossless PNG of the helper's PPM (sha256
+  `0b872997534ce30e6bdc23b27b34107ddb3452f8bd8a5b73ea655a2a2dd9e445`, reproduced by
+  `magick s2-paint-drmgrab.png ppm:- | sha256sum`).
 
 ## Configuration under test
 
@@ -234,6 +276,18 @@ probe's own (570 s of the 585 s capture).
 | time to page, s | 23.34 | 21.36 | 20.32 | 20.63 | 22.84 | 20.89 |
 | timesyncd sync, s monotonic | 57.92 | 55.83 | 55.34 | 65.86 | 57.74 | 56.05 |
 
+**Run 14** (`s2-paintgate.txt`)
+
+| render-check | screenshot mean | gpu-check | processes on `/dev/dri` |
+|---|---|---|---|
+| rc 0, advancing | 13.79 | rc 0 | cog (4 fds), WPEWebProcess (7 fds), both `vc4_dri.so`; WPENetworkProcess none |
+
+**Run 20** (`s2-vc4-hwevidence.txt`)
+
+| V3D BOs | V3D shader BOs | binner | dumb | WPEWebProcess maps |
+|---|---|---|---|---|
+| 14728 kB (11) | 12 kB (3) | 16384 kB (1) | 4052 kB (1) | `vc4_dri.so`; 7 `renderD128` mappings |
+
 ## Findings
 
 - **The capture helper reads what X shows.** Run 1: `kiosk-drmgrab` and `import -window root`
@@ -257,14 +311,40 @@ probe's own (570 s of the 585 s capture).
 - **`systemctl reboot` prints an error and reboots anyway.** Every time-to-page boot logged "Call to
   Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly … File exists"
   (logind is masked), yet each boot has a new boot id and read at ~115 s.
+- **The WPE image paints at 1280x720** (Run 14, again on `32b670c` in Run 18): the ported
+  render-check advances, the screenshot is the dashboard, cog drives DRM directly.
+- **WPE composites on the GPU.** Run 20: V3D buffer objects are live in `bo_stats`, and
+  WPEWebProcess has Mesa's `vc4_dri.so` loaded and seven mappings of `/dev/dri/renderD128`. Run 19's
+  WebGL renderer string ("Apple GPU / Apple Inc.") is WebKit's fingerprinting mask, not the
+  hardware, so that method is inconclusive.
+- **`webkit://gpu` aborts cog on this image** (Run 15): "Couldn't open libGL.so.1 or
+  libOpenGL.so.0", SIGABRT, and Restart=always brings the dashboard back. The page needs desktop
+  GL, which the image does not carry, so `kiosk-gpu-check.sh --capture` reports itself unavailable
+  on WPE (`b30574c`).
+- **`KIOSK_INSPECTOR=1` loaded `file:///`** (Run 16) because a bare `--enable-developer-extras`
+  takes the following URL as its value (cog's optional-argument settings flags under GLib); fixed
+  in `32b670c` by passing `=true`, and Run 18 loads the dashboard with the inspector on.
+- **A DRM setup failure restarts the session** (Run 17): an unlisted mode makes cog print
+  "Platform setup failed: Failed to initialize DRM" and exit 1 (the carried 0002 patch), and
+  systemd's Restart=always retries it (NRestarts 0 → 1); kiosk.conf restored, the render advances
+  again.
+- **Startup log lines that are not failures.** Every cog start these journals show logs
+  "EGLDisplay Initialization failed: EGL_NOT_INITIALIZED": WebCore's `PlatformDisplay` logs it
+  when its shared display in the UI process fails to initialise, and the page renders afterwards.
+  The same starts log "XDG_RUNTIME_DIR is invalid or not set" (up to three times), "Could not
+  determine the accessibility bus address" and "Renderer 'modeset' does not support rotation 0".
+- **cog dumps core on stop.** Each `systemctl restart kiosk` in Runs 15 and 17 logs the outgoing
+  cog exiting with SIGSEGV ("code=dumped, status=11/SEGV") before the new one starts. systemd's
+  NRestarts does not count these manual restarts, so the verdict's restart count does not see
+  them; recorded, not judged.
 - **Time to page on the X baseline: 48.00, 59.63, 50.80 s** (Run 13), recorded, not judged. Runs 9
   and 10 measured nothing: surf prefixes the page title (`@cgDISMfxT:- | T <epoch>`) and
   `time-to-page-x.sh` matched only at the start, fixed in `072ea3e`. Run 12 parsed, but timesyncd's
   initial sync lands at 55–66 s monotonic, after the beacon and before the read, so its values
   (20–23 s) are in the corrected wall-clock frame, not the beacon's; against Run 13's 48–51 s, the
-  sync moved the clock forward by about 27 s. `70b03c7` recovers the beacon's frame from the last journal entry before
-  the sync (Run 13, boots 1 and 3). Boot 2 logged no sync, and its journal frame agreed with the
-  wall clock within 1 s, so its post-step value stands.
+  sync moved the clock forward by about 27 s. `70b03c7` recovers the beacon's frame from the last
+  journal entry before the sync (Run 13, boots 1 and 3). Boot 2 logged no sync, and its journal
+  frame agreed with the wall clock within 1 s, so its post-step value stands.
 
 ## Changes configured as a result
 

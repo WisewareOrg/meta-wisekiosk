@@ -1,0 +1,7 @@
+# S2 finding, image 1a8e100: KIOSK_INSPECTOR=1 (--enable-developer-extras) makes cog load file:/// instead of $KIOSK_URL
+# board role: bench
+meta-wisekiosk    = HEAD:1a8e100d31cadb6591a7a3bca01d1879dcec8bf5
+Booted from: rootfs.0 (A)
+# attempt 1: kiosk.conf = KIOSK_INSPECTOR=1 only -> file:///
+# attempt 2: kiosk.conf = KIOSK_INSPECTOR=1 + explicit KIOSK_URL=http://localhost:8080 -> still file:///
+# both restored byte-identical (cmp) afterward, dashboard confirmed loading again each time

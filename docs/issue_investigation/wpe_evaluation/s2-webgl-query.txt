@@ -1,0 +1,12 @@
+--- opening tunnel ---
+--- querying WebGL renderer ---
+connected tid=page-9
+"UNMASKED_RENDERER=Apple GPU | UNMASKED_VENDOR=Apple Inc."
+eval_rc=0
+--- closing tunnel ---
+--- restoring kiosk.conf ---
+RESTORE_IDENTICAL
+Oct 04 23:25:22 <BENCH_HOSTNAME> kiosk-launch[743]: Could not determine the accessibility bus address
+Oct 04 23:25:24 <BENCH_HOSTNAME> cog[743]: <http://localhost:8080/> Load started.
+Oct 04 23:25:24 <BENCH_HOSTNAME> cog[743]: <http://localhost:8080/> Loading...
+Oct 04 23:25:24 <BENCH_HOSTNAME> cog[743]: <http://localhost:8080/> Loaded successfully.
