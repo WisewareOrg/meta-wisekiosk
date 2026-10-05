@@ -1,6 +1,6 @@
 /* Capture the scanout of the active CRTC as a binary PPM.
  *
- *   kiosk-drmgrab <out.ppm> [WxH+X+Y]
+ *   kiosk-drmgrab [--report] <out.ppm> [WxH+X+Y]
  *
  * Reads the framebuffer bound to the first CRTC on /dev/dri/card0 that has a
  * valid mode and a non-zero buffer_id (its primary plane), via DRM GETFB2. The
@@ -15,6 +15,11 @@
  *
  * Output: P6, 8-bit RGB, the X/alpha channel dropped; optionally cropped to
  * WxH+X+Y, which must lie inside the framebuffer.
+ *
+ * --report: on success, one line on stderr, "fb_before=<id> fb_after=<id>
+ * copy_ms=<int>": the buffer_id read, the same CRTC's buffer_id re-read after
+ * the copy (0 if that read fails), and the whole milliseconds from the start of
+ * the pixel read to the end of DMA_BUF_IOCTL_SYNC.
  *
  * Drops DRM master straight after opening the card, leaving master free for a
  * display server that starts during a capture.
@@ -33,6 +38,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <linux/dma-buf.h>
@@ -79,6 +85,14 @@ static size_t t_offset(uint32_t x, uint32_t y, uint32_t tiles_across)
 	       64 * utile + 4 * pixel;
 }
 
+static uint64_t now_ns(void)
+{
+	struct timespec ts;
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (uint64_t)ts.tv_sec * 1000000000u + (uint64_t)ts.tv_nsec;
+}
+
 static void parse_crop(const char *s, uint32_t *w, uint32_t *h, uint32_t *x, uint32_t *y)
 {
 	char tail;
@@ -90,7 +104,10 @@ static void parse_crop(const char *s, uint32_t *w, uint32_t *h, uint32_t *x, uin
 
 int main(int argc, char **argv)
 {
-	uint32_t cw, ch, cx, cy, tiles_across = 0;
+	uint32_t cw, ch, cx, cy, tiles_across = 0, crtc_id = 0, fb_before = 0, fb_after = 0;
+	uint64_t t0, t1;
+	drmModeCrtcPtr after;
+	int report = 0;
 	drmModeResPtr res;
 	drmModeFB2Ptr fb = NULL;
 	uint64_t modifier;
@@ -101,8 +118,13 @@ int main(int argc, char **argv)
 	FILE *out;
 	int fd, pfd, i;
 
+	if (argc > 1 && !strcmp(argv[1], "--report")) {
+		report = 1;
+		argv++;
+		argc--;
+	}
 	if (argc < 2 || argc > 3) {
-		fputs("usage: kiosk-drmgrab <out.ppm> [WxH+X+Y]\n", stderr);
+		fputs("usage: kiosk-drmgrab [--report] <out.ppm> [WxH+X+Y]\n", stderr);
 		return 1;
 	}
 	out_path = argv[1];
@@ -122,6 +144,8 @@ int main(int argc, char **argv)
 
 		if (crtc && crtc->mode_valid && crtc->buffer_id) {
 			fb = drmModeGetFB2(fd, crtc->buffer_id);
+			crtc_id = crtc->crtc_id;
+			fb_before = crtc->buffer_id;
 			if (!fb)
 				fail("drmModeGetFB2(fb %u on crtc %u): %s", crtc->buffer_id,
 				     crtc->crtc_id, strerror(errno));
@@ -193,6 +217,7 @@ int main(int argc, char **argv)
 	sync.flags = DMA_BUF_SYNC_START | DMA_BUF_SYNC_READ;
 	if (ioctl(pfd, DMA_BUF_IOCTL_SYNC, &sync))
 		fail("DMA_BUF_IOCTL_SYNC start: %s", strerror(errno));
+	t0 = now_ns();
 	for (uint32_t y = cy; y < cy + ch; y++) {
 		for (uint32_t x = cx; x < cx + cw; x++) {
 			const uint8_t *p = map + fb->offsets[0] +
@@ -214,6 +239,13 @@ int main(int argc, char **argv)
 	sync.flags = DMA_BUF_SYNC_END | DMA_BUF_SYNC_READ;
 	if (ioctl(pfd, DMA_BUF_IOCTL_SYNC, &sync))
 		fail("DMA_BUF_IOCTL_SYNC end: %s", strerror(errno));
+	t1 = now_ns();
+	if (report) {
+		after = drmModeGetCrtc(fd, crtc_id);
+		if (after)
+			fb_after = after->buffer_id;
+		drmModeFreeCrtc(after);
+	}
 
 	if (fclose(out))
 		fail("close %s: %s", tmp_path, strerror(errno));
@@ -226,5 +258,8 @@ int main(int argc, char **argv)
 	drmModeFreeFB2(fb);
 	close(fd);
 	free(row);
+	if (report)
+		fprintf(stderr, "fb_before=%u fb_after=%u copy_ms=%" PRIu64 "\n", fb_before, fb_after,
+			(t1 - t0) / 1000000u);
 	return 0;
 }
