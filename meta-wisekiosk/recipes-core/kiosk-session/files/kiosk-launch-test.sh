@@ -45,8 +45,12 @@ unrecog_count=0
 mode=
 positional=
 npos=0
+argi=0
+features_argi=
+positional_argi=
 
 while [ $# -gt 0 ]; do
+    argi=$((argi + 1))
     case "$1" in
         -P)
             mode=$2; shift 2 ;;
@@ -75,7 +79,9 @@ while [ $# -gt 0 ]; do
         --user-script=*)
             user_script=${1#*=}; shift ;;
         --features=*)
-            features_val=${1#*=}; features_count=$((features_count + 1)); shift ;;
+            features_val=${1#*=}; features_count=$((features_count + 1))
+            [ -z "$features_argi" ] && features_argi=$argi
+            shift ;;
         -*)
             # Any flag this stub does not otherwise recognise -- including the SECOND
             # half of a --features value that got word-split instead of staying one
@@ -83,7 +89,9 @@ while [ $# -gt 0 ]; do
             # up as a non-zero UNRECOGNIZED_COUNT rather than disappearing.
             unrecognized="$unrecognized$1 "; unrecog_count=$((unrecog_count + 1)); shift ;;
         *)
-            positional="$positional$1 "; npos=$((npos + 1)); shift ;;
+            positional="$positional$1 "; npos=$((npos + 1))
+            [ -z "$positional_argi" ] && positional_argi=$argi
+            shift ;;
     esac
 done
 
@@ -104,6 +112,8 @@ printf 'CONSOLE_STDOUT:%s\n' "$console"
 printf 'USER_SCRIPT:%s\n' "$user_script"
 printf 'FEATURES_VAL:%s\n' "$features_val"
 printf 'FEATURES_COUNT:%s\n' "$features_count"
+printf 'FEATURES_ARGI:%s\n' "$features_argi"
+printf 'POSITIONAL_ARGI:%s\n' "$positional_argi"
 printf 'UNRECOGNIZED_COUNT:%s\n' "$unrecog_count"
 printf 'MODE:%s\n' "$mode"
 printf 'ENV_COG_PLATFORM_DRM_VIDEO_MODE:%s\n' "${COG_PLATFORM_DRM_VIDEO_MODE:-}"
@@ -152,12 +162,14 @@ check() {
 # write-console-messages-to-stdout is true iff KIOSK_PROBE=1, (4) #185 2026-10-05
 # (185-wpe-2.54): with KIOSK_COG_FEATURES set, cog receives EXACTLY ONE
 # "--features=<value>" argument, value and all (never word-split, even when the value
-# itself holds a space); unset, no --features argument at all. (5) zero unrecognised
-# flags reach cog -- the check that catches a word-split value's second half landing as
-# a stray, silently-ignored token instead of showing up as a visible mismatch.
+# itself holds a space), and it appears BEFORE the positional URL in argv; unset, no
+# --features argument at all. (5) zero unrecognised flags reach cog -- the check that
+# catches a word-split value's second half landing as a stray, silently-ignored token
+# instead of showing up as a visible mismatch.
 check_combo() {
     local name=$1 inspector=$2 probe=$3 features=${4:-} \
-          out pos npos dev console feat_val feat_count unrecog_count want_dev want_console ok=1
+          out pos npos dev console feat_val feat_count feat_argi pos_argi unrecog_count \
+          want_dev want_console ok=1
     local -a env_args=()
     [ "$inspector" = 1 ] && env_args+=("KIOSK_INSPECTOR=1")
     [ "$probe" = 1 ] && env_args+=("KIOSK_PROBE=1")
@@ -170,6 +182,8 @@ check_combo() {
     console=$(field "$out" CONSOLE_STDOUT)
     feat_val=$(field "$out" FEATURES_VAL)
     feat_count=$(field "$out" FEATURES_COUNT)
+    feat_argi=$(field "$out" FEATURES_ARGI)
+    pos_argi=$(field "$out" POSITIONAL_ARGI)
     unrecog_count=$(field "$out" UNRECOGNIZED_COUNT)
     want_dev=false; [ "$inspector" = 1 ] && want_dev=true
     want_console=false; [ "$probe" = 1 ] && want_console=true
@@ -182,6 +196,9 @@ check_combo() {
     if [ -n "$features" ]; then
         [ "$feat_count" = 1 ] || ok=0
         [ "$feat_val" = "$features" ] || ok=0
+        # --features before the URL: the flag's argv position must precede the
+        # positional's. Both are set whenever feat_count=1 and npos=1 hold already.
+        [ -n "$feat_argi" ] && [ -n "$pos_argi" ] && [ "$feat_argi" -lt "$pos_argi" ] || ok=0
     else
         [ "$feat_count" = 0 ] || ok=0
     fi
@@ -194,6 +211,7 @@ check_combo() {
         echo "      npos=$npos (want 1)  positional='$pos' (want to contain the URL)" >&2
         echo "      dev_extras=$dev (want $want_dev)  console_stdout=$console (want $want_console)" >&2
         echo "      features_count=$feat_count (want $([ -n "$features" ] && echo 1 || echo 0))  features_val='$feat_val' (want '$features')" >&2
+        echo "      features_argi=$feat_argi  positional_argi=$pos_argi (want features before positional)" >&2
         echo "      unrecognized_count=$unrecog_count (want 0)" >&2
         echo "      full output: $out" >&2
     fi
@@ -214,6 +232,26 @@ check_combo "KIOSK_COG_FEATURES set, value has a space -- one argument, not word
     0 0 "$FEATURES_TEST"
 check_combo "KIOSK_COG_FEATURES set alongside KIOSK_INSPECTOR and KIOSK_PROBE" \
     1 1 "$FEATURES_TEST"
+
+# Set-but-empty (KIOSK_COG_FEATURES=, an empty value, not an absent variable) must pass
+# nothing to cog too -- a `[ -n "$KIOSK_COG_FEATURES" ]`-style guard treats both the same,
+# but a `${KIOSK_COG_FEATURES+...}` (no colon) guard would not, and only this fixture can
+# tell the two apart: check_combo's "unset" case never sets the variable at all.
+check_features_set_but_empty_passes_nothing() {
+    local out feat_count unrecog_count
+    out=$(run "KIOSK_COG_FEATURES=")
+    feat_count=$(field "$out" FEATURES_COUNT)
+    unrecog_count=$(field "$out" UNRECOGNIZED_COUNT)
+    if [ "$feat_count" = 0 ] && [ "$unrecog_count" = 0 ]; then
+        pass=$((pass + 1))
+    else
+        fail=$((fail + 1))
+        echo "FAIL  KIOSK_COG_FEATURES= (set but empty) should pass nothing to cog" >&2
+        echo "      features_count=$feat_count (want 0)  unrecognized_count=$unrecog_count (want 0)" >&2
+        echo "      full output: $out" >&2
+    fi
+}
+check_features_set_but_empty_passes_nothing
 
 # --- default: mode and env unaffected by the argv-parsing fix --------------
 OUT=$(run)
