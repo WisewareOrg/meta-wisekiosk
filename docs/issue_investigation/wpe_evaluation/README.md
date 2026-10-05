@@ -220,11 +220,12 @@ so the PNGs carry the PPMs exactly.
   module placement in each of three regions (`s1-placement-counts.txt`, counts only), so
   `fever` counts distinct faulted modules exactly. `park_wait_times.rotation_interval_seconds` is
   absent (schema default).
-- **Candidate (WPE):** the `#185 W1` commits on `185-wpe-evaluation`; the image commit is recorded
-  per run once built. `meta-webkit` `scarthgap` at `2d29669a3d78e462276044f3f8bde0e4dec33696`
-  (`includes/base.yaml`); `wpewebkit` 2.44.4 with `wpebackend-fdo` (the `wpe` block of
-  `kiosk-zero-w.yaml`); `cog -P drm` at 1280x720 (`meta-wisekiosk/recipes-core/kiosk-session/`)
-  with the `--user-script` patch (`meta-wisekiosk/recipes-browser/cog/`).
+- **Candidate (WPE):** the `#185 W1` commits on `185-wpe-evaluation`; built as `1a8e100` (Runs
+  14–17) and, after the `kiosk-launch` argv fix, `32b670c` (Runs 18–23). `meta-webkit` `scarthgap`
+  at `2d29669a3d78e462276044f3f8bde0e4dec33696` (`includes/base.yaml`); `wpewebkit` 2.44.4 with
+  `wpebackend-fdo` (the `wpe` block of `kiosk-zero-w.yaml`); `cog -P drm` at 1280x720
+  (`meta-wisekiosk/recipes-core/kiosk-session/`) with the `--user-script` patch
+  (`meta-wisekiosk/recipes-browser/cog/`).
   - **wpewebkit PACKAGECONFIG:** `speech-synthesis` off (flite is not carried), `reduce-size` and
     `woff2` on, `jit` off by the recipe on armv6. Every other recipe default stays on —
     `accessibility`, `avif`, `jpegxl`, `mediasource`, `mediastream`, `webaudio`, `gst_gl`,
