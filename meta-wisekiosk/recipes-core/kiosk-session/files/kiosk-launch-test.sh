@@ -160,16 +160,16 @@ check() {
 # fields, not from raw argv text: (1) cog's positional argument is EXACTLY $KIOSK_URL and
 # there is exactly one of it, (2) developer-extras is true iff KIOSK_INSPECTOR=1, (3)
 # write-console-messages-to-stdout is true iff KIOSK_PROBE=1, (4) #185 2026-10-05
-# (185-wpe-2.54): with KIOSK_COG_FEATURES set, cog receives EXACTLY ONE
-# "--features=<value>" argument, value and all (never word-split, even when the value
-# itself holds a space), and it appears BEFORE the positional URL in argv; unset, no
-# --features argument at all. (5) zero unrecognised flags reach cog -- the check that
+# (185-wpe-2.54): cog receives EXACTLY ONE "--features=<value>" argument, BEFORE the
+# positional URL in argv: the default -UseDamagingInformationForCompositing alone when
+# KIOSK_COG_FEATURES is unset, the default then a comma then the value, whole and never
+# word-split, when it is set. (5) zero unrecognised flags reach cog -- the check that
 # catches a word-split value's second half landing as a stray, silently-ignored token
 # instead of showing up as a visible mismatch.
 check_combo() {
     local name=$1 inspector=$2 probe=$3 features=${4:-} \
           out pos npos dev console feat_val feat_count feat_argi pos_argi unrecog_count \
-          want_dev want_console ok=1
+          want_dev want_console want_feat ok=1
     local -a env_args=()
     [ "$inspector" = 1 ] && env_args+=("KIOSK_INSPECTOR=1")
     [ "$probe" = 1 ] && env_args+=("KIOSK_PROBE=1")
@@ -193,15 +193,12 @@ check_combo() {
     [ "$dev" = "$want_dev" ] || ok=0
     [ "$console" = "$want_console" ] || ok=0
     [ "$unrecog_count" = 0 ] || ok=0
-    if [ -n "$features" ]; then
-        [ "$feat_count" = 1 ] || ok=0
-        [ "$feat_val" = "$features" ] || ok=0
-        # --features before the URL: the flag's argv position must precede the
-        # positional's. Both are set whenever feat_count=1 and npos=1 hold already.
-        [ -n "$feat_argi" ] && [ -n "$pos_argi" ] && [ "$feat_argi" -lt "$pos_argi" ] || ok=0
-    else
-        [ "$feat_count" = 0 ] || ok=0
-    fi
+    want_feat=$FEATURES_DEFAULT${features:+,$features}
+    [ "$feat_count" = 1 ] || ok=0
+    [ "$feat_val" = "$want_feat" ] || ok=0
+    # --features before the URL: the flag's argv position must precede the
+    # positional's. Both are set whenever feat_count=1 and npos=1 hold already.
+    [ -n "$feat_argi" ] && [ -n "$pos_argi" ] && [ "$feat_argi" -lt "$pos_argi" ] || ok=0
 
     if [ "$ok" -eq 1 ]; then
         pass=$((pass + 1))
@@ -210,13 +207,14 @@ check_combo() {
         echo "FAIL  $name" >&2
         echo "      npos=$npos (want 1)  positional='$pos' (want to contain the URL)" >&2
         echo "      dev_extras=$dev (want $want_dev)  console_stdout=$console (want $want_console)" >&2
-        echo "      features_count=$feat_count (want $([ -n "$features" ] && echo 1 || echo 0))  features_val='$feat_val' (want '$features')" >&2
+        echo "      features_count=$feat_count (want 1)  features_val='$feat_val' (want '$want_feat')" >&2
         echo "      features_argi=$feat_argi  positional_argi=$pos_argi (want features before positional)" >&2
         echo "      unrecognized_count=$unrecog_count (want 0)" >&2
         echo "      full output: $out" >&2
     fi
 }
 
+FEATURES_DEFAULT='-UseDamagingInformationForCompositing'
 check_combo "neither KIOSK_INSPECTOR nor KIOSK_PROBE" 0 0
 check_combo "KIOSK_INSPECTOR=1 alone -- the bug: a bare flag would swallow the URL" 1 0
 check_combo "KIOSK_PROBE=1 alone" 0 1
@@ -228,7 +226,7 @@ check_combo "KIOSK_INSPECTOR=1 and KIOSK_PROBE=1 together" 1 1
 # makes cog exit on the leading space in " -B". This is the realistic value, used for the
 # round-trip and ordering checks below.
 FEATURES_TEST='-AcceleratedCompositing,-ThreadedScrolling'
-check_combo "KIOSK_COG_FEATURES unset -- no --features argument" 0 0 ''
+check_combo "KIOSK_COG_FEATURES unset -- the default alone" 0 0 ''
 check_combo "KIOSK_COG_FEATURES set (comma-separated, the real syntax) -- one argument" \
     0 0 "$FEATURES_TEST"
 check_combo "KIOSK_COG_FEATURES set alongside KIOSK_INSPECTOR and KIOSK_PROBE" \
@@ -244,12 +242,12 @@ check_features_value_with_a_space_is_not_word_split() {
     feat_count=$(field "$out" FEATURES_COUNT)
     feat_val=$(field "$out" FEATURES_VAL)
     unrecog_count=$(field "$out" UNRECOGNIZED_COUNT)
-    if [ "$feat_count" = 1 ] && [ "$feat_val" = "$value" ] && [ "$unrecog_count" = 0 ]; then
+    if [ "$feat_count" = 1 ] && [ "$feat_val" = "$FEATURES_DEFAULT,$value" ] && [ "$unrecog_count" = 0 ]; then
         pass=$((pass + 1))
     else
         fail=$((fail + 1))
         echo "FAIL  KIOSK_COG_FEATURES with an embedded space must reach cog as one argument" >&2
-        echo "      features_count=$feat_count (want 1)  features_val='$feat_val' (want '$value')" >&2
+        echo "      features_count=$feat_count (want 1)  features_val='$feat_val' (want '$FEATURES_DEFAULT,$value')" >&2
         echo "      unrecognized_count=$unrecog_count (want 0)" >&2
         echo "      full output: $out" >&2
     fi
@@ -257,24 +255,25 @@ check_features_value_with_a_space_is_not_word_split() {
 check_features_value_with_a_space_is_not_word_split
 
 # Set-but-empty (KIOSK_COG_FEATURES=, an empty value, not an absent variable) must pass
-# nothing to cog too -- a `[ -n "$KIOSK_COG_FEATURES" ]`-style guard treats both the same,
+# the default alone too -- a `[ -n "$KIOSK_COG_FEATURES" ]`-style guard treats both the same,
 # but a `${KIOSK_COG_FEATURES+...}` (no colon) guard would not, and only this fixture can
 # tell the two apart: check_combo's "unset" case never sets the variable at all.
-check_features_set_but_empty_passes_nothing() {
-    local out feat_count unrecog_count
+check_features_set_but_empty_passes_the_default_alone() {
+    local out feat_count feat_val unrecog_count
     out=$(run "KIOSK_COG_FEATURES=")
     feat_count=$(field "$out" FEATURES_COUNT)
+    feat_val=$(field "$out" FEATURES_VAL)
     unrecog_count=$(field "$out" UNRECOGNIZED_COUNT)
-    if [ "$feat_count" = 0 ] && [ "$unrecog_count" = 0 ]; then
+    if [ "$feat_count" = 1 ] && [ "$feat_val" = "$FEATURES_DEFAULT" ] && [ "$unrecog_count" = 0 ]; then
         pass=$((pass + 1))
     else
         fail=$((fail + 1))
-        echo "FAIL  KIOSK_COG_FEATURES= (set but empty) should pass nothing to cog" >&2
-        echo "      features_count=$feat_count (want 0)  unrecognized_count=$unrecog_count (want 0)" >&2
+        echo "FAIL  KIOSK_COG_FEATURES= (set but empty) should pass the default alone" >&2
+        echo "      features_count=$feat_count (want 1)  features_val='$feat_val' (want '$FEATURES_DEFAULT')  unrecognized_count=$unrecog_count (want 0)" >&2
         echo "      full output: $out" >&2
     fi
 }
-check_features_set_but_empty_passes_nothing
+check_features_set_but_empty_passes_the_default_alone
 
 # --- default: mode and env unaffected by the argv-parsing fix --------------
 OUT=$(run)
