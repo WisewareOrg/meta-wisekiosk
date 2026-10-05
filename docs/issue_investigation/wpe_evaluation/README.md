@@ -128,9 +128,18 @@ so the PNGs carry the PPMs exactly.
   fix), each from `/etc/buildinfo` in the capture or the run's own header.
 - **Scripts deployed:** the shipped `kiosk-render-check.sh`, `kiosk-screenshot.sh` and
   `kiosk-gpu-check.sh` from a host checkout at `782d4d9`; `run-webgl-query.sh` (Run 19), committed
-  here with the bench address redacted. Runs 16, 17, 18's inspector check and 20 were inline
-  command sequences, not saved as scripts — an R2 gap; each capture's own step headers ("---
-  backup ---", "--- seed bogus mode, restart ---") are the procedure.
+  here with the bench address redacted. Everything else ran as inline commands, not saved as
+  scripts — an R2 gap. As the operator reports them:
+  - Runs 15, 16, 17 and 18's inspector check: back up kiosk.conf (`cat` over ssh), change it with
+    `printf` (append `KIOSK_URL`, set `KIOSK_INSPECTOR=1`, or set
+    `COG_PLATFORM_DRM_VIDEO_MODE=9999x9999`), `systemctl restart kiosk`, read the journal, write
+    the backup back and `cmp` it; each capture's own step headers ("--- backup ---", "--- seed
+    bogus mode, restart ---") are the sequence.
+  - Run 15's crash window: `journalctl -u kiosk -b --no-pager | sed -n '/Stopping Kiosk/,/Loaded
+    successfully/p'`.
+  - Run 18's build check: `grep /etc/buildinfo; rauc status`.
+  - Run 20: `cat /sys/kernel/debug/dri/0/bo_stats` and `grep dri /proc/$(pidof
+    WPEWebProcess)/maps`.
 - **Procedure:**
   - Run 14: the ported render-check at the default crop `560x300+220+20`, a screenshot, and the
     read-only gpu-check; `s2-paint-drmgrab.png` is the first `kiosk-drmgrab` frame taken by hand
