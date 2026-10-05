@@ -9,13 +9,13 @@
 
 Only stable captures count (fb_before == fb_after), grouped by fb id. The frame
 is cut into 40x40-pixel tiles, edge tiles partial; MAD is the mean absolute
-byte difference over a tile's RGB bytes. A tile is stale when, for two fbs that
-each have at least two stable captures, every capture of each fb matches that
-fb's first (MAD <= 1) and the two fbs' first captures differ (MAD > 1). Two fb
-ids in a single chronological split are a one-time repaint and pass. One fb id
-passes. Fewer than two stable captures, two or more fb ids but fewer than two
-fbs with two stable captures each, or any PPM that is malformed, truncated or
-of another size, is could-not-tell.
+byte difference over a tile's RGB bytes. A tile is stale when two fbs, at least
+one with two or more stable captures, each match their own first capture on it
+(MAD <= 1; trivially so for a single capture) and their first captures differ
+(MAD > 1). Two fb ids in a single chronological split are a one-time repaint and
+pass. One fb id passes. Fewer than two stable captures, no fb with two stable
+captures, or any PPM that is malformed, truncated or of another size, is
+could-not-tell.
 """
 import re
 import sys
@@ -78,8 +78,7 @@ def stale_verdict(captures):
     groups = {}
     for fb, rgb in stable:
         groups.setdefault(fb, []).append(rgb)
-    eligible = [fb for fb in groups if len(groups[fb]) >= 2]
-    if len(eligible) < 2:
+    if all(len(g) < 2 for g in groups.values()):
         return cant_tell
     if single_split(ids):
         return {"rc": 0, "stale_tiles": 0}
@@ -88,9 +87,11 @@ def stale_verdict(captures):
     grid = tiles(w, h)
     steady = {fb: {t for t in grid
                    if all(tile_mad(groups[fb][0], other, w, t) <= 1 for other in groups[fb][1:])}
-              for fb in eligible}
+              for fb in groups}
     stale = set()
-    for a, b in combinations(eligible, 2):
+    for a, b in combinations(groups, 2):
+        if len(groups[a]) < 2 and len(groups[b]) < 2:
+            continue
         for t in steady[a] & steady[b]:
             if t not in stale and tile_mad(groups[a][0], groups[b][0], w, t) > 1:
                 stale.add(t)
