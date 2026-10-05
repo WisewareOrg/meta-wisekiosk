@@ -22,9 +22,12 @@ and this test is what fixes its shape:
   two fbs it differs (MAD > 1) -- unless the fb-id sequence among the stable
   captures is a single chronological split (every capture of one id before
   every capture of the other), which is a legitimate one-time repaint, not
-  staleness. rc=3 iff >=1 tile disagrees. One fb id seen: no alternation is
-  possible, rc=0. Two fb ids but either has fewer than 2 stable captures, or
-  any capture's PPM is truncated: rc=2, never a pass.
+  staleness. rc=3 iff >=1 tile disagrees. Fewer than 2 stable captures IN
+  TOTAL -- including zero, every capture unstable -- is rc=2, never a pass:
+  a series that cannot be tested must not pass, even with only one fb id.
+  One fb id seen with >=2 stable captures: no alternation is possible,
+  rc=0. Two fb ids but either has fewer than 2 stable captures, or any
+  capture's PPM is truncated: rc=2, never a pass.
 
   CLI: `kiosk-render-check-stale.py <manifest>`, where <manifest> is a text
   file, one line per capture in chronological order:
@@ -132,6 +135,20 @@ def verdict_cases():
     case("insufficient stable captures -> could not tell",
          stale.stale_verdict([cap(1, 1, C0), cap(2, 2, C255), cap(2, 2, C255)]),
          {"rc": 2, "stale_tiles": 0})
+
+    # Every capture is unstable (fb_before != fb_after): zero stable
+    # captures in total. A series that cannot be tested must not pass, so
+    # this is could-not-tell, never the "nothing to compare" pass that a
+    # single-fb-id read might otherwise suggest.
+    case("every capture unstable -> could not tell, never a pass",
+         stale.stale_verdict([cap(1, 2, C0), cap(2, 1, C255)]),
+         {"rc": 2, "stale_tiles": 0})
+
+    # The boundary this contrasts with: exactly 2 stable captures (the
+    # minimum that counts), one fb id, differing content -> still a pass.
+    case("single fb id at the 2-capture boundary -> pass",
+         stale.stale_verdict([cap(1, 1, C0), cap(1, 1, C255)]),
+         {"rc": 0, "stale_tiles": 0})
 
     # A truncated capture forces could-not-tell, never a pass -- even though
     # the other three captures alone would read as a clean late-change.
