@@ -10,8 +10,9 @@
 #   capture  cog's cache cleared; systemctl restart kiosk; sleep 585; the kiosk journal's MP| lines
 #            since the restart (cog prints each title as "TITLE <title>"), loadavg, MemAvailable
 #   restore  kiosk.conf from its backup, probe removed, cog's cache cleared, kiosk restarted
-# cog's cache is <XDG_CACHE_HOME, else HOME/.cache, of the running cog, else uid 0's passwd
-# home/.cache>/cog; each clear records "cleared <dir> (<n> entries)" or "no cache dir found".
+# cog's cache is WebKit's network-session default, <XDG_CACHE_HOME, else HOME/.cache, of the
+# running cog, else uid 0's passwd home/.cache>/wpe; each clear records "cleared <dir> (<n>
+# entries)" or "no cache dir found".
 # Around it: the R1 header run-appliance.sh records, the active CRTC mode read from DRM debugfs
 # before deploy and after readback (anything but 1280x720 on either read is VOID, exit 3), the
 # served bundle name from cog's cache, and kiosk NRestarts. A kiosk.conf backup already on the
@@ -31,7 +32,7 @@ COG_CACHE_FN='cog_cache_dir() {
 	x=$(printf "%s\n" "$e" | sed -n "s/^XDG_CACHE_HOME=//p")
 	h=$(printf "%s\n" "$e" | sed -n "s/^HOME=//p")
 	[ -n "$h" ] || h=$(awk -F: "\$3 == 0 { print \$6; exit }" /etc/passwd)
-	echo "${x:-$h/.cache}/cog"
+	echo "${x:-$h/.cache}/wpe"
 }
 clear_cog_cache() {
 	c=$(cog_cache_dir)
