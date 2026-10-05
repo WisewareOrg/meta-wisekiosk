@@ -400,18 +400,19 @@ probe's own (570 s of the 585 s capture).
   "Platform setup failed: Failed to initialize DRM" and exit 1 (the carried 0002 patch), and
   systemd's Restart=always retries it (NRestarts 0 → 1); kiosk.conf restored, the render advances
   again.
-- **Startup log lines that are not failures.** Every cog start these journals show logs
+- **Startup log lines that do not stop the page.** Every cog start these journals show logs
   "EGLDisplay Initialization failed: EGL_NOT_INITIALIZED": WebCore's `PlatformDisplay` logs it
   when its shared display in the UI process fails to initialise, and the page renders afterwards.
   The same starts log "XDG_RUNTIME_DIR is invalid or not set" (up to three times), "Could not
   determine the accessibility bus address" and "Renderer 'modeset' does not support rotation 0".
-- **cog crashes on stop; surf did not.** Each `systemctl restart kiosk` in Runs 15 and 17 logs
-  the outgoing cog exiting with SIGSEGV ("code=dumped, status=11/SEGV") before the new one
-  starts. In the X baseline's boot all nine kiosk stops exit with status 1 and none dumps (Run
-  23), so the defect is WPE's. It costs no disk: `core_pattern` is `|/bin/false`, which discards
-  every core, and `/var/lib/systemd/coredump/` is empty. systemd's NRestarts does not count these
-  manual restarts, so the verdict's restart count does not see them; the defect is outside the
-  verdict rules and is recorded, not judged.
+- **cog crashes on stop; surf did not.** Each `systemctl restart kiosk` in Runs 15 and 17 logs the
+  outgoing cog exiting with SIGSEGV ("code=dumped, status=11/SEGV") before the new one starts. In
+  the X baseline's boot all nine kiosk stops exit with status 1 and none dumps (Run 23), so the
+  defect is specific to the cog + WPE session; the evidence does not isolate which of the two
+  crashes. It costs no disk: `core_pattern` is `|/bin/false`, which discards every core, and
+  `/var/lib/systemd/coredump/` is empty. systemd's NRestarts does not count these manual restarts,
+  so the verdict's restart count does not see them; the defect is outside the verdict rules and is
+  recorded, not judged.
 - **Time to page on the X baseline: 48.00, 59.63, 50.80 s** (Run 13), recorded, not judged. Runs 9
   and 10 measured nothing: surf prefixes the page title (`@cgDISMfxT:- | T <epoch>`) and
   `time-to-page-x.sh` matched only at the start, fixed in `072ea3e`. Run 12 parsed, but timesyncd's
