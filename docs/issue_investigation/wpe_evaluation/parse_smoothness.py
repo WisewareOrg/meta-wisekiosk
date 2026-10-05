@@ -55,8 +55,11 @@ def steady_stall_bounds(d, steady_from=15.0):
 
 def steady_stall_from_series(lines, steady_from=15.0):
     """Steady count from the whole MP| series: final bt minus bt at the last line before
-    steady_from (else the first line); one parseable line falls back to steady_stall_bounds."""
+    steady_from (else the first line), whose t is ref_t; one parseable line falls back to
+    steady_stall_bounds, none raises ValueError."""
     parsed = [d for d in map(parse, lines) if d is not None]
+    if not parsed:
+        raise ValueError("no MP| samples")
     if len(parsed) == 1:
         return steady_stall_bounds(parsed[0], steady_from)
     pre = [d for d in parsed if d["sec"] < steady_from]
@@ -64,7 +67,7 @@ def steady_stall_from_series(lines, steady_from=15.0):
     final = parsed[-1]
     count = final["bt"] - ref["bt"]
     rate = count / (final["sec"] - steady_from)
-    return {"count": count, "rate": rate, "exact": True}
+    return {"count": count, "rate": rate, "exact": True, "ref_t": ref["sec"]}
 
 
 def clusters(d, gap=1.0):
