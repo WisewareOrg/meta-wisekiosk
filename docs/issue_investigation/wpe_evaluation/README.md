@@ -46,6 +46,9 @@ from slot B. The S1 harness ran from a checkout pinned at `ea79e18`, clean, exce
 | 21 | bench · Pi Zero W | `32b670c` | `run-s3.sh` → `run-smoothness.sh` @ `32b670c`, `p7_min.js` | VOID: night page state (1 of 4 cards live); stopped mid-capture |
 | 22 | bench · Pi Zero W | `32b670c` | `run-time-to-page.sh` @ `32b670c` | 43.36, 40.78, 43.28 s; all pre-step, no SUSPECT, no re-run |
 | 23 | bench · Pi Zero W | `32b670c` | `check-coredump.sh`, `check-core-pattern.sh`, `check-baseline-stop-journal.sh` | cores discarded (`core_pattern` `\|/bin/false`); the X baseline boot's 9 stops never dumped |
+| 24 | bench · Pi Zero W | `32b670c` | `run-s3-smoothness-soak.sh` → `run-smoothness.sh` @ `786f405`, `p7_min.js` | 52.95 fps, 99.0 % <50 ms, stall 0.0248/s (14 from 13 s); not in the verdict: cog's cache not cleared |
+| 25 | bench · Pi Zero W | `32b670c` | as Run 24 | 50.07 fps, 98.3 % <50 ms, stall 0.0654/s (37 from 14 s); not in the verdict, as Run 24 |
+| 26 | bench · Pi Zero W | `32b670c` | as Run 24 | 50.10 fps, 98.5 % <50 ms, stall 0.0758/s (43 from 14 s); not in the verdict, as Run 24 |
 
 ### Run 1 — capture cross-validation, bench, commit `20a1f34`
 
@@ -211,6 +214,36 @@ so the PNGs carry the PPMs exactly.
   `s2-coredump-check.txt`, `s2-core-pattern.txt`, `s2-baseline-stop-journal.txt` (Run 23, named
   by the operator before the S3 numbering). The pre-run screenshots stay in `local/`.
 
+### Runs 24–26 — S3 smoothness, bench, commit `32b670c`
+
+- **Board:** bench, Pi Zero W. **Image commit:** `32b670c5a4379443aef5ddab9ca0e43cac1c5e96`,
+  slot B, from `/etc/buildinfo` in each capture.
+- **Scripts deployed:** `run-smoothness.sh` and `p7_min.js` unmodified from a host checkout at
+  `786f405`, as each capture's harness line records; the driver is byte-identical to `32b670c`'s.
+  `run-s3-smoothness-soak.sh`, committed here, chained the three captures and then the soak. It
+  was launched by an inline command, not saved as a script — an R2 gap. As the operator reports
+  it:
+
+  ```sh
+  setsid nohup bash -c '
+    flock -n "<bench.lock>" /tmp/.../scratchpad/run-s3-smoothness-soak.sh root@<BENCH_ADDRESS> || echo LOCK_HELD_REFUSED
+  ' > <logpath> 2>&1 < /dev/null &
+  ```
+
+- **Procedure:** three back-to-back captures, 585 s each, 12:45–13:15Z. Before launch the operator
+  checked by eye that all four park cards showed live data, as the chain script's header states;
+  each pre-run screenshot passed the settle threshold and is kept in `local/`. 1280x720 was live
+  before and after every capture, and NRestarts stayed 0. The stall rate is
+  `steady_stall_from_series` over each capture's full `MP|` series: the count runs from the last
+  line before 15 s (`ref_t`) to the final line, over the final `sec` − 15.
+- **Not in the verdict.** The driver's `rm -rf /home/root/.cache/cog` before each restart removed
+  nothing: every capture's readback reports that directory absent and records no bundle. cog's
+  cache state was therefore uncontrolled, where the X baseline cleared surf's cache before every
+  run, so the procedures differ. The captures stand as recorded and are re-run after the driver
+  fix.
+- **Raw capture:** `s3-smoothness-run1.txt` (Run 24), `s3-smoothness-run2.txt` (Run 25),
+  `s3-smoothness-run3.txt` (Run 26).
+
 ## Configuration under test
 
 - **Baseline (X):** the image built from `origin/main` plus the `#185 capture` commits, which add
@@ -349,6 +382,24 @@ probe's own (570 s of the 585 s capture).
 | frame | pre-step | pre-step | pre-step |
 | timesyncd sync, s monotonic | 55.71 | 55.64 | 66.29 |
 
+**Run 24** (`s3-smoothness-run1.txt`)
+
+| sec | frames | mean fps | % <50 ms | max ms | bt | stall rate t ≥ 15 s | clusters |
+|---|---|---|---|---|---|---|---|
+| 580 | 30712 | 52.95 | 99.0 | 2353 | 18 | 0.0248/s (14 from ref_t 13 s) | 10 |
+
+**Run 25** (`s3-smoothness-run2.txt`)
+
+| sec | frames | mean fps | % <50 ms | max ms | bt | stall rate t ≥ 15 s | clusters |
+|---|---|---|---|---|---|---|---|
+| 581 | 29091 | 50.07 | 98.3 | 1576 | 45 | 0.0654/s (37 from ref_t 14 s) | 11 |
+
+**Run 26** (`s3-smoothness-run3.txt`)
+
+| sec | frames | mean fps | % <50 ms | max ms | bt | stall rate t ≥ 15 s | clusters |
+|---|---|---|---|---|---|---|---|
+| 582 | 29157 | 50.10 | 98.5 | 2453 | 51 | 0.0758/s (43 from ref_t 14 s) | 12 |
+
 **Run 14** (`s2-paintgate.txt`)
 
 | render-check | screenshot mean | gpu-check | processes on `/dev/dri` |
@@ -422,6 +473,10 @@ probe's own (570 s of the 585 s capture).
   sync moved the clock forward by about 27 s. `70b03c7` recovers the beacon's frame from the last
   journal entry before the sync (Run 13, boots 1 and 3). Boot 2 logged no sync, and its journal
   frame agreed with the wall clock within 1 s, so its post-step value stands.
+- **cog's cache was not cleared in Runs 24–26.** The smoothness driver removes
+  `/home/root/.cache/cog`, which does not exist on this image, so each capture ran with cog's cache
+  in whatever state the previous run left, and no bundle was recorded. Those runs are kept as
+  recorded and do not count toward the verdict.
 - **Time to page on WPE: 43.36, 40.78, 43.28 s** (Run 22), recorded, not judged, against the X
   baseline's 48.00, 59.63, 50.80 s (Run 13). Every boot's timesyncd sync (55.6–66.3 s monotonic)
   came after the beacon, so all three are in the beacon's pre-step frame.
