@@ -9,7 +9,8 @@ docs/issue_investigation/wpe_evaluation/analyze_burst_v3.py's classifier --
 the instrument that actually found and proved the fault live -- not a
 separate set of rules:
 
-  stale_verdict(bursts) -> {"rc": 0|2|3, "persistent_tiles": int}
+  stale_verdict(bursts) -> {"rc": 0|2|3, "persistent_tiles": int,
+                             "persistent_tiles_excl_late_change": int}
 
   bursts: a list of bursts, each burst a list of capture dicts, in
   CHRONOLOGICAL order within the burst: {"fb_before": int, "fb_after": int,
@@ -30,18 +31,29 @@ separate set of rules:
     of stable captures (every fb group combined, not pairwise), the
     tile's content changes at MOST once, and that one change point
     exactly separates "all of one single fb id" from "all of one single
-    OTHER fb id". A disagreeing tile that is also a late-change artifact
-    is excluded from that burst's disagreeing set.
-  - PERSISTENT: a tile disagreeing (late-change excluded) in >=2
-    CONSECUTIVE bursts.
-  - rc=3 (STALE) iff >=1 persistent tile.
+    OTHER fb id".
+
+  PERSISTENCE AND rc ARE ON THE RAW DISAGREEMENT, LATE-CHANGE EXCLUSION
+  NOT APPLIED -- amended against real data (Runs 52-62, scratchpad
+  run): with the exclusion in the persistence rule, the faulty baseline
+  B0 (Run 52) read 0 persistent tiles, a miss on the real fault, exactly
+  the gap that made the old STALE detector miss it live. Without the
+  exclusion, every faulty run was flagged (B0 47, B2 47, T3 50, T5 36)
+  and every fixed run read 0 in every burst -- complete separation.
+
+  - PERSISTENT: a tile disagreeing (RAW, no late-change exclusion) in
+    >=2 CONSECUTIVE bursts.
+  - rc=3 (STALE) iff >=1 persistent tile (raw).
   - rc=2 (could not tell) iff the data cannot support a verdict in ANY
     burst: fewer than 2 distinct fb ids among that burst's stable
     captures, or zero testable tiles in that burst (Run 77's vacuous
     case). This takes priority over rc=3/rc=0 regardless of what any
     other burst shows.
   - rc=0 iff every burst is testable (passes neither rc=2 condition) and
-    no tile persists.
+    no tile persists (raw).
+  - The late-change-excluded persistence count is STILL COMPUTED
+    (persistent_tiles_excl_late_change) and printed, informational
+    only -- it never feeds rc.
 
   CLI: `kiosk-render-check-stale.py <manifest>`, where <manifest> is a
   text file, one line per capture, in chronological order, grouped into
@@ -49,16 +61,16 @@ separate set of rules:
 
       fb_before=<id> fb_after=<id> ppm=<path-to-ppm-file>
 
-  It prints exactly one evidence line to stdout, `persistent tiles=<n>`
-  (n is persistent_tiles from stale_verdict), and exits with that
-  result's rc.
+  It prints exactly two evidence lines to stdout, `persistent
+  tiles=<n>` (n is persistent_tiles, the one that drives rc) and
+  `persistent tiles (late-change excluded)=<m>` (informational), and
+  exits with persistent_tiles' rc.
 
-This CLI/manifest shape -- the blank-line burst separator, and renaming
-the evidence line from the old "stale tiles=" to "persistent tiles=" to
-match v3's own vocabulary -- is this test's own design: the spec fixes
-the pure-logic rule and the exit codes, not the on-disk format between
-this helper and kiosk-render-check.sh. Flag before matching it if a
-different shape is wanted.
+This CLI/manifest shape -- the blank-line burst separator, and the two
+`persistent tiles` evidence lines -- is this test's own design: the
+spec fixes the pure-logic rule and the exit codes, not the on-disk
+format between this helper and kiosk-render-check.sh. Flag before
+matching it if a different shape is wanted.
 
 Fixtures use an 80x80 frame (2x2 real 40x40 tiles): the tile under test is
 always (0, 0); a uniform, constant background fills everywhere else in
@@ -157,12 +169,12 @@ def verdict_cases():
     # series shape.
     case("persistent disagreement across every burst -> STALE",
          stale.stale_verdict([interleaved_burst(15) for _ in range(6)]),
-         {"rc": 3, "persistent_tiles": 1})
+         {"rc": 3, "persistent_tiles": 1, "persistent_tiles_excl_late_change": 1})
 
     # 2a. Pass: no disagreement anywhere, same 6x15 shape.
     case("no disagreement anywhere -> pass",
          stale.stale_verdict([matching_burst(15) for _ in range(6)]),
-         {"rc": 0, "persistent_tiles": 0})
+         {"rc": 0, "persistent_tiles": 0, "persistent_tiles_excl_late_change": 0})
 
     # 2b. Pass: disagreement in exactly one burst, isolated -- never 2
     # consecutive bursts, so never persistent. Sharper than 2a: proves the
@@ -172,7 +184,7 @@ def verdict_cases():
              matching_burst(15), matching_burst(15), interleaved_burst(15),
              matching_burst(15), matching_burst(15), matching_burst(15),
          ]),
-         {"rc": 0, "persistent_tiles": 0})
+         {"rc": 0, "persistent_tiles": 0, "persistent_tiles_excl_late_change": 0})
 
     # 3. Could not tell: burst 1 has only fb=1 (fewer than 2 distinct fb
     # ids among its stable captures) -- rc=2 regardless of burst 2's own
@@ -182,7 +194,7 @@ def verdict_cases():
              [cap(1, A) for _ in range(5)],
              interleaved_burst(15),
          ]),
-         {"rc": 2, "persistent_tiles": 0})
+         {"rc": 2, "persistent_tiles": 0, "persistent_tiles_excl_late_change": 0})
 
     # 4. Could not tell: 2 distinct fb ids are present, but fb=1's own
     # captures disagree with EACH OTHER over the WHOLE frame (not just one
@@ -195,14 +207,26 @@ def verdict_cases():
              {"fb_before": 1, "fb_after": 1, "ppm": whole_frame_ppm(B)},
              {"fb_before": 2, "fb_after": 2, "ppm": whole_frame_ppm((128, 128, 128))},
          ]]),
-         {"rc": 2, "persistent_tiles": 0})
+         {"rc": 2, "persistent_tiles": 0, "persistent_tiles_excl_late_change": 0})
 
-    # 5. Seeded-but-valid: the SAME clean-split content change, repeated in
-    # 2 consecutive bursts, never counts as persistent -- late-change
-    # exclusion applies independently in each burst, every time.
-    case("a tile changing once mid-burst is excluded as late-change, never persistent",
+    # 5. AMENDED (real-data finding): the SAME clean-split content change,
+    # repeated in 2 consecutive bursts, now DOES count as persistent and
+    # IS rc=3 -- persistence is on the raw disagreement, not the late-
+    # change-excluded one. The excluded count is still 0 (both bursts'
+    # late-change exclusion still applies individually), proving the two
+    # counts can genuinely differ.
+    case("a tile changing once mid-burst, repeated in 2 consecutive bursts -> STALE (raw)",
          stale.stale_verdict([clean_split_burst(15), clean_split_burst(15)]),
-         {"rc": 0, "persistent_tiles": 0})
+         {"rc": 3, "persistent_tiles": 1, "persistent_tiles_excl_late_change": 0})
+
+    # 6. B0-shaped (Run 52, the real faulty baseline the exclusion used to
+    # miss): no disagreement in burst 1, then the SAME late-change-shaped
+    # disagreement in bursts 2 and 3, overlapping -> raw-persistent across
+    # bursts 2-3 -> STALE, even though every instance individually looks
+    # like a legitimate one-time repaint.
+    case("B0-shaped: late-change-looking disagreement overlapping in bursts 2-3 -> STALE",
+         stale.stale_verdict([matching_burst(15), clean_split_burst(15), clean_split_burst(15)]),
+         {"rc": 3, "persistent_tiles": 1, "persistent_tiles_excl_late_change": 0})
 
 
 # ------------------------------------------------------------------- CLI
@@ -237,13 +261,16 @@ def cli_cases(tmp_path):
     stale_dir = P(tmp_path) / "stale-cli"
     pass_dir = P(tmp_path) / "pass-cli"
     cant_tell_dir = P(tmp_path) / "cant-tell-cli"
-    for d in (stale_dir, pass_dir, cant_tell_dir):
+    b0_dir = P(tmp_path) / "b0-cli"
+    for d in (stale_dir, pass_dir, cant_tell_dir, b0_dir):
         d.mkdir(parents=True)
 
     manifest = write_manifest(stale_dir, [interleaved_burst(15) for _ in range(6)])
     got = run_cli(manifest)
     case("CLI: STALE exits 3", got.returncode, 3)
     case("CLI: STALE evidence line", "persistent tiles=1" in got.stdout.splitlines(), True)
+    case("CLI: STALE excl-late-change evidence line",
+         "persistent tiles (late-change excluded)=1" in got.stdout.splitlines(), True)
 
     manifest = write_manifest(pass_dir, [matching_burst(15) for _ in range(6)])
     got = run_cli(manifest)
@@ -256,6 +283,18 @@ def cli_cases(tmp_path):
     case("CLI: could-not-tell exits 2", got.returncode, 2)
     case("CLI: could-not-tell evidence line",
          "persistent tiles=0" in got.stdout.splitlines(), True)
+
+    # The two evidence lines must be able to genuinely differ: raw
+    # persistence is judged (drives rc), the late-change-excluded count is
+    # informational only.
+    manifest = write_manifest(b0_dir, [clean_split_burst(15), clean_split_burst(15)])
+    got = run_cli(manifest)
+    case("CLI: B0-shaped exits 3 (raw persistence, not the excluded count)",
+         got.returncode, 3)
+    case("CLI: B0-shaped persistent tiles=1 (raw)",
+         "persistent tiles=1" in got.stdout.splitlines(), True)
+    case("CLI: B0-shaped excl-late-change=0 (differs from the raw count)",
+         "persistent tiles (late-change excluded)=0" in got.stdout.splitlines(), True)
 
 
 def main() -> int:
