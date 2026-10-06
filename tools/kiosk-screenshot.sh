@@ -77,7 +77,13 @@ echo "wrote $OUT"
 # Normalised to 0-255 so the numbers are comparable with the signature above:
 # %[min]/%[max]/%[mean] are reported in the build's quantum range, which is
 # 65535 here, and a mean of 1000 next to a documented "mean~4" reads as a fault.
-read -r MIN MAX MEAN <<< "$(magick identify -format '%[fx:minima*255] %[fx:maxima*255] %[fx:mean*255]' "$OUT")"
+STATS=$(magick identify -format '%[fx:minima*255] %[fx:maxima*255] %[fx:mean*255]' "$OUT") || {
+    echo "could not read capture statistics from $OUT" >&2; exit 1; }
+read -r MIN MAX MEAN <<< "$STATS"
+if [ -z "$MIN" ] || [ -z "$MAX" ] || [ -z "$MEAN" ]; then
+    echo "could not read capture statistics from $OUT" >&2
+    exit 1
+fi
 echo "min=$MIN max=$MAX mean=$MEAN"
 if [ "$MIN" = "$MAX" ]; then
     echo "BLANK: every pixel identical -- the screen is not rendering"
