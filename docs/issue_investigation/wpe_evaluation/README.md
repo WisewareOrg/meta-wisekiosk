@@ -57,6 +57,44 @@ from slot B. The S1 harness ran from a checkout pinned at `ea79e18`, clean, exce
 | 32 | bench · Pi Zero W | `32b670c` | as Run 31 | 52.83 fps, 99.1 % <50 ms, stall 0.0673/s (38 from 14 s) |
 | 33 | bench · Pi Zero W | `32b670c` | as Run 31 | 55.89 fps, 99.5 % <50 ms, stall 0.0035/s (2 from 14 s) |
 | 34 | bench · Pi Zero W | `32b670c` | `run-s3-smoothness-soak.sh` → `run-soak.sh` @ `cd916b0`, `mf-probe.js` | 1 h: fmax 0, fever 0, 0 restarts, 0 reboots, no OOM |
+| 35 | bench · Pi Zero W | `f4d4bb8` | `run-smoothness.sh` @ `635af22`, `p7_min.js` | 48.45 fps, 97.9 % <50 ms, stall 0.0246–0.0423/s (bounded); cards judged by eye |
+| 36 | bench · Pi Zero W | `f4d4bb8` | as Run 35 | 48.82 fps, 98.4 % <50 ms, stall 0.0248–0.0478/s (bounded); cards judged by eye |
+| 37 | bench · Pi Zero W | `f4d4bb8` | as Run 35 | 48.71 fps, 98.3 % <50 ms, stall 0.0248–0.0496/s (bounded); cards judged by eye |
+| 38 | bench · Pi Zero W | `f4d4bb8` | `run-soak.sh` @ `635af22`, `mf-probe.js` | VOID: stopped deliberately right after start, reordered ahead of Run 39 |
+| 39 | bench · Pi Zero W | `f4d4bb8` | inline (kiosk.conf edit + journal); driver not saved, an R2 gap | `KIOSK_COG_FEATURES=-AcceleratedCompositing` crash-loops the renderer (SIGSEGV); no capture ran |
+| 40 | bench · Pi Zero W | `f4d4bb8` | `run-smoothness.sh` @ `635af22`, `p7_min.js`, `WEBKIT_SKIA_ENABLE_CPU_RENDERING=1` | 45.61 fps, 96.7 % <50 ms, stall 0.0247–0.2703/s (bounded) |
+| 41 | bench · Pi Zero W | `f4d4bb8` | as Run 40 | VOID: owner saw the panel flashing, stopped by hand; the attribution to CPU rendering is RETRACTED (Runs 44–45) |
+| 42 | bench · Pi Zero W | `f4d4bb8` | `run-burst-capture.sh`; `analyze_burst.py`, `analyze_burst2.py`, `cross_match.py` | rc 0 both phases; zero reverts, zero cross-matches under any hash rule; image predates `kiosk-drmgrab --report` |
+| 43 | bench · Pi Zero W | `449e571` | `run-burst-capture-v2.sh`, `analyze_burst_v2.py` | rc 0 both phases; fb ids {96,98}, tear 14/60 control, 23/120 cpu; copy_ms median 173.5/173.0; zero reverts |
+| 44 | bench · Pi Zero W | `449e571` | `run-burst-capture-v3-control.sh`, `analyze_burst_v3.py` | 12 bursts, disagreeing tiles 1–64 (35,62,27,64,50,48,17,18,42,34,1,42), 52 persistent |
+| 45 | bench · Pi Zero W | `449e571` | `run-burst-capture-v3.sh` (cpu phase), `analyze_burst_v3.py` | 12 bursts, disagreeing tiles 0–75, 69 persistent (56 late-change-excluded) |
+| 46 | bench · Pi Zero W | `5ec7f0e` | `run-burst-capture-v3-control.sh`, `analyze_burst_v3.py` | 12 bursts, disagreeing tiles 0 throughout, 0 persistent |
+| 47 | bench · Pi Zero W | `138d914` | `diagnose-settle-138d914.sh` + the OTA verify's own settle poll | settle oscillated 5.47–7.73 for >3 min post-boot (ABORT at 3:54); 16.43 by +15:56, no faults |
+| 48 | bench · Pi Zero W | `138d914` | `sanity-fwgrab.sh` | `kiosk-fwgrab` and `kiosk-drmgrab --report` agree on content (mean 12.29 vs 12.26); ~130 ms |
+| 49 | bench · Pi Zero W | `138d914` | `run-fw-burst-capture.sh`, `analyze_fw_burst.py` | fw: 0 flips/90 frames (ms median 129); drmgrab same window: 44 flips, 0 tiles≥3 |
+| 50 | bench · Pi Zero W | `5ec7f0e` | `run-load-experiment.sh` | VOID: `kiosk-fwgrab` is absent on 2.44.4 (rc 127); 0 usable frames, all three phases |
+| 51 | bench · Pi Zero W | `138d914` | `run-load-experiment.sh` | idle 284 flips/64 tiles≥3; spinner 120/24; drmloop 6/0 |
+| 52 | bench · Pi Zero W | `138d914` | `run-feature-trial.sh` UNSET (B0), `analyze_burst_v3.py` + `analyze_fw_burst.py` | [33,77,50,0,24,16]; fw 631 |
+| 53 | bench · Pi Zero W | `138d914` | `run-feature-trial.sh` `-UseDamagingInformationForCompositing` (T1) | v3 all 0; fw CRASHED, no count (not P6) |
+| 54 | bench · Pi Zero W | `138d914` | `run-feature-trial.sh` `-PropagateDamagingInformation` (T2) | v3 all 0; fw VOID (tmpfs full mid-transfer; re-analyzed offline, 0/90 usable) |
+| 55 | bench · Pi Zero W | `138d914` | `run-feature-trial.sh` `-UnifyDamagedRegions` (T3) | VOID: 6/6 bursts corrupted (tmpfs full); fw VOID |
+| 56 | bench · Pi Zero W | `138d914` | `run-feature-trial.sh` UNSET (B1) | 4/6 bursts VOID (0 frames); [VOID,VOID,VOID,VOID,25,25]; fw 38 |
+| 57 | bench · Pi Zero W | `138d914` | `run-feature-trial.sh` all three combined (T4) | [0,1,0,0,0,0]; fw 1 |
+| 58 | bench · Pi Zero W | `138d914` | `run-feature-trial.sh` `-UseSkiaForComposition` (T5) | [46,0,25,15,43,60]; fw 182 |
+| 59 | bench · Pi Zero W | `138d914` | `run-feature-trial.sh` UNSET (B2) | [16,25,61,28,25,0]; fw 24 |
+| 60 | bench · Pi Zero W | `138d914` | `run-feature-trial.sh` `-UseDamagingInformationForCompositing` rerun (T1) | all 0; fw 0 |
+| 61 | bench · Pi Zero W | `138d914` | `run-feature-trial.sh` `-PropagateDamagingInformation` rerun (T2) | all 0; fw 1 |
+| 62 | bench · Pi Zero W | `138d914` | `run-feature-trial.sh` `-UnifyDamagedRegions` rerun (T3) | [29,15,72,35,6,27]; fw 104 |
+| 63 | bench · Pi Zero W | `138d914` | `kiosk-render-check.sh` (V1, default); driver bug | VOID: `label: unbound variable` aborted before any series ran |
+| 64 | bench · Pi Zero W | `138d914` + `KIOSK_COG_FEATURES=-UseDamagingInformationForCompositing` | `kiosk-render-check.sh` (V2); same driver bug | VOID: same crash, no data |
+| 65 | bench · Pi Zero W | `138d914` → `5ec7f0e` (OTA) | `ota-verify-5ec7f0e.sh` (V3) | FAILED: network reset at 72 % install, rc=255; rebooted, fell back to `138d914` (slot A), BOOT_B_LEFT=0 |
+| 66 | bench · Pi Zero W | `d97d6fe` | `ota-verify-d97d6fe.sh` | OTA confirmed; cog argv carries `--features=-UseDamagingInformationForCompositing` by default, no `KIOSK_COG_FEATURES` set |
+| 67 | bench (offline) | stored bursts (Runs 52–62) | `validate-render-check-stale.py`, pre-`646c513` | 0 false positives on clean data; 3 `rc=2` could-not-tell results, one a genuine stale miss |
+| 68 | bench (offline) | stored bursts (Runs 52–62) | `validate-render-check-stale.py`, post-`646c513` | 12/12 clean bursts rc 0; the miss now rc 3 (stale_tiles=24); the other two resolve to rc 0 |
+| 69 | bench · Pi Zero W | `d97d6fe` | `kiosk-render-check.sh` ×5 (V4, default) | 165/165 rc lines 0; no STALE verdict |
+| 70 | bench · Pi Zero W | `d97d6fe` + `KIOSK_COG_FEATURES=UseDamagingInformationForCompositing` | `kiosk-render-check.sh` ×5 (V1′) + `run-v3-short.sh` ×1 | 165/165 rc lines 0; independent burst: 10 disagreeing tiles (vs 16–77 on default) |
+| 71 | bench · Pi Zero W | `d97d6fe` (± override) | `kiosk-render-check.sh` ×5 each (V4b, V1b; re-sequenced repeat) | 165/165 rc lines 0 both conditions |
+| 72 | bench · Pi Zero W | `d97d6fe` → `5ec7f0e` (OTA, under lock) | live proof against the pre-fix image | not yet run as of this snapshot |
 
 ### Run 1 — capture cross-validation, bench, commit `20a1f34`
 
@@ -296,6 +334,218 @@ so the PNGs carry the PPMs exactly.
   before the S3 numbering), `s3-cache-resolver-check.txt` (Run 30),
   `s3-rerun-smoothness-run1.txt` … `-run3.txt` (Runs 31–33), `s3-rerun-soak.txt` (Run 34).
 
+### Runs 35–41 — S4, pre-fix exploration, bench, commit `f4d4bb8`
+
+- **Board:** bench, Pi Zero W. **Image commit:** `f4d4bb85a317ca6f693487fa042121ff15c24402`,
+  slot A, from each capture's own header; the morning's 2.54 image, before
+  `kiosk-drmgrab --report` (Run 42 onward) and before `kiosk-fwgrab` (Runs 47 onward) existed.
+- **Scripts deployed:** `run-smoothness.sh` and `run-soak.sh`, unmodified, pinned at
+  `635af22c3b97af1bd9c4080f24dd730cf6500198` (each capture's own `# harness` line) —
+  the same drivers S3 used, with `role=S4-…` and, for Runs 40–41, `kiosk.conf`'s
+  `WEBKIT_SKIA_ENABLE_CPU_RENDERING=1` added before deploy. Run 39's attempt
+  (`KIOSK_COG_FEATURES=-AcceleratedCompositing`) ran from a driver named in its own capture header,
+  `run-s4-nocompositing-smoothness.sh`, that was not saved — an R2 gap; as the operator reports it,
+  the sequence is backup kiosk.conf, append the feature, restart, read the journal, confirm the
+  page renders.
+- **Procedure:** Runs 35–37 are three back-to-back 585 s smoothness captures on the plain default
+  page, cache cleared and kiosk restarted before each, 1280x720 live before and after; card state
+  was read by eye from the pre-run screenshot (the mechanical cards-live gate did not exist yet —
+  see the S4 smoothness/soak note below). Run 38 started the 1 h soak, then was killed deliberately a few seconds in
+  (`kill -TERM -- -<pgid>`) to run Run 39 first, while park hours still held; its EXIT trap
+  restored `kiosk.conf`, independently confirmed byte-identical. Run 39's restart logs a renderer
+  crash-and-reload loop within 4 s (`WPEWebProcess::requestFrame(): A frame callback was already
+  installed.` on both the first and second load, each followed by `Crash!: The renderer process
+  crashed.`), ending `kiosk.service: Main process exited, code=dumped, status=11/SEGV`; the
+  automated page-render check then failed (`kiosk-drmgrab: unsupported format RG16`), and the
+  script aborted before any smoothness capture, restoring `kiosk.conf`. Run 40 is a complete
+  585 s capture under CPU rendering; Run 41, the next back-to-back capture under the same
+  condition, was stopped by hand on the owner's direct observation of visible flashing on the
+  physical panel — not caught by the automated render-check, which only checks non-blank, not
+  visual correctness. Its outer script was killed mid-loop, so its own final restore never ran;
+  `kiosk.conf` was restored by hand from the saved backup and `cmp`-verified identical to the
+  known-good baseline, with a post-restore screenshot confirming the dashboard back to normal.
+- **Raw capture:** retained off-tree (captures hold the bench address and absolute host paths;
+  see "Redacted harness scripts" below). Parsed with `parse_smoothness.py`; see Metrics.
+
+### Runs 42–43 — S4, the capture-revert instrument, bench
+
+- **Board:** bench, Pi Zero W. **Image commit:** `f4d4bb85a317ca6f693487fa042121ff15c24402`
+  (Run 42) then `449e571494ee5d2e393a54dba531b8ddd124c975` (Run 43, after an OTA that adds
+  `kiosk-drmgrab --report`), each from the capture's own header.
+- **Scripts deployed:** `run-burst-capture.sh` (Run 42) and `run-burst-capture-v2.sh` (Run 43),
+  run unmodified; `analyze_burst.py`, `analyze_burst2.py` and `cross_match.py` against Run 42's
+  data, `analyze_burst_v2.py` against Run 43's. No capture self-stamps a harness commit the way
+  `run-smoothness.sh` does — an R2-adjacent gap shared by every driver in Runs 42–72.
+- **Procedure:** each run takes a 60-frame control burst and, after switching
+  `WEBKIT_SKIA_ENABLE_CPU_RENDERING=1` on and restarting, one or more 60-frame CPU-rendering
+  bursts (Run 43 takes two, 120 frames combined), on a hand-picked crop and, for Run 43, the
+  render-check default crop (`560x300+220+20`). A "revert" is a strict A,B,A triplet in the
+  crop's content hash, anchored two frames back (`analyze_burst2.py`); `cross_match.py` adds,
+  for every revert frame, full within-run provenance and a cross-run exact-hash search against
+  the other phase's frames; `full_cross_match.py` repeats the search over every frame pair, not
+  only revert frames, on both the crop and the full 1280x720 PPM. None of the four found a match
+  anywhere, in either run: the whole-crop exact-hash revert rule does not separate the two
+  rendering conditions and does not fire on this page, whose content changes continuously. Run 43
+  adds `kiosk-drmgrab --report`'s own per-capture numbers (fb id before/after the copy, copy time):
+  two scanout framebuffers throughout (ids 96 and 98), copy time median 173.5 ms (control) /
+  173.0 ms (cpu), and the scanout fb changing between the before- and after-read 14/60 times in
+  the control phase and 23/120 in the cpu phase (23 % / 19 %, not a fixed fraction). Both
+  instruments are rejected as stale-content detectors; the `--report` numbers carry forward as
+  the mechanism Runs 44–72 build on.
+- **Raw capture:** retained off-tree.
+
+### Runs 44–46 — S4, the v3 tile analysis, bench
+
+- **Board:** bench, Pi Zero W. **Image commit:** `449e571494ee5d2e393a54dba531b8ddd124c975`
+  (Runs 44–45) and `5ec7f0e5bac8660bf407fd68bd1b96b7df6daba1` (Run 46, the 2.44.4 reference),
+  each from the capture's own header.
+- **Scripts deployed:** `run-burst-capture-v3-control.sh` (Runs 44, 46) and
+  `run-burst-capture-v3.sh` (Run 45's cpu-rendering phase), run unmodified; `analyze_burst_v3.py`
+  against each run's 12 x (15-frame) burst series. Every 1280x720 frame is tiled 40x40 px (32x18,
+  576 tiles); among a burst's STABLE captures (`fb_before == fb_after`) grouped by scanned-out fb id,
+  a tile "disagrees" when the two fb groups differ there (mean abs diff > 1); "persistent" is a
+  tile disagreeing in >= 2 consecutive bursts across the run. A first pass over Run 44's data,
+  `analysis-v3.log`, sorted burst directories lexically (`control-10` before `control-2`), so its
+  printed series and its 48-persistent-tile count are RETRACTED; the natural-order rerun,
+  `analysis-v3-fixed.log`, is the number this README reports.
+- **Procedure:** Run 44 (control, default rendering): 12 bursts, disagreeing-tile counts
+  `[35, 62, 27, 64, 50, 48, 17, 18, 42, 34, 1, 42]`, 52 tiles persistent (same with and without
+  late-change exclusion), in four bounding regions. Run 45 (the same 12-burst series' cpu-rendering
+  phase): `[0, 24, 29, 60, 75, 26, 38, 50, 19, 16, 25, 35]`, 69 persistent raw / 56 persistent with
+  one burst's late-content-change artifact excluded (that burst's count drops 75 -> 0). Run 46
+  (2.44.4, same instrument, same board): all 12 bursts disagreeing_tiles=0, 0 persistent; one
+  burst (8) has testable_tiles=0 (the two fb ids never co-occurred as stable captures in it, a
+  vacuous zero, not a tested-and-clean result). Runs 44 and 45 together retract Run 41's
+  CPU-rendering attribution (fact 1): the default-rendering control burst disagrees on as many
+  tiles, in the same regions, as the cpu-rendering phase — the stale content is present under
+  default rendering on this image, and Run 46 shows it is absent on 2.44.4 under the same
+  instrument, which is the first evidence pinning the defect to 2.54 rather than to any rendering
+  mode.
+- **Raw capture:** retained off-tree.
+
+### Runs 47–51 — S4, kiosk-fwgrab and the load experiment, bench, commit `138d914`
+
+- **Board:** bench, Pi Zero W. **Image commit:** `138d9142b2cff9c59cd0a755595bc3a82db7e3e3`
+  (Runs 47–49, 51) and `5ec7f0e5bac8660bf407fd68bd1b96b7df6daba1` (Run 50), each from the
+  capture's own header or OTA-verify log.
+- **Scripts deployed:** `diagnose-settle-138d914.sh` (Run 47), `sanity-fwgrab.sh` (Run 48),
+  `run-fw-burst-capture.sh` + `analyze_fw_burst.py` (Run 49), `run-load-experiment.sh` (Runs
+  50–51), run unmodified.
+- **Procedure:** Run 47 is the settle check after the OTA to `138d914`: the pre-run screenshot's
+  mean luma oscillated 5.47–7.73 across twelve ~14 s polls from +1:16 to +3:54 after boot, below
+  the settle threshold throughout, and the OTA-verify script's own gate aborted (`settle rc=1`) at
+  +3:54; a later check on the same boot, at roughly +15:56, read 16.43 (fwgrab and drmgrab agree,
+  16.32/16.33) and needed no recovery. The kiosk journal for this boot shows no error or crash
+  anywhere; the page simply fills slowly on this image. Run 48 cross-validates `kiosk-fwgrab`
+  (a VideoCore dispmanx snapshot, no fb id, timed externally) against `kiosk-drmgrab --report`
+  immediately after: fwgrab mean 12.29, drmgrab fb_before=fb_after=98 copy_ms=144 mean 12.26 —
+  matching content. Run 49 tiles a 90-frame fwgrab burst (the same 40x40 px grid) with the "flip"
+  rule — a tile A,B,A across three consecutive frames — and finds 0 flips (ms median 129), against
+  44 scanout-side flips (0 at >= 3 tiles) over the same window on drmgrab. Run 50 is the same
+  three-phase (idle / spinner / drmloop) load experiment attempted on 2.44.4: `kiosk-fwgrab` does
+  not exist on that image (every batch rc=127, "command not found"), so all three phases are VOID,
+  0 usable frames — the draft fact list's "load experiment" numbers do not come from this image.
+  Run 51 is the same three phases on `138d914`: idle 284 total flips, 64 tiles with >= 3 flips (6
+  of 88 frames comparable); spinner 120 flips, 24 tiles >= 3 (5 of 88); drmloop 6 flips, 0 tiles
+  >= 3 (1 of 88) — flips occur at rest as well as under load, which does not support a CPU-load
+  cause, though no script states that conclusion directly.
+- **Raw capture:** retained off-tree.
+
+### Runs 52–62 — S4, the `KIOSK_COG_FEATURES` trials, bench, commit `138d914`
+
+- **Board:** bench, Pi Zero W. **Image commit:** `138d9142b2cff9c59cd0a755595bc3a82db7e3e3`
+  throughout; no capture in this chain prints its own buildinfo line, so the commit is inferred
+  from the orchestration window, not read directly off the board on every row.
+- **Scripts deployed:** `run-feature-trial.sh`, run unmodified, one call per row: six 15-frame
+  `analyze_burst_v3.py` bursts plus one 90-frame `analyze_fw_burst.py` burst per trial, read
+  fail-closed (a burst that cannot be parsed VOIDs that burst, not the whole trial).
+- **Procedure:** B0, T1–T3, B1, T4, T5, B2 ran as one chain (`fix-trials.log`); a host `/tmp`
+  tmpfs filled mid-chain during T2's fw transfer and corrupted T3's capture outright. T1
+  (`-UseDamagingInformationForCompositing`) is the only single-flag trial that reads clean both
+  ways: v3 all zero, fw crashed in the original pass (`analyze_fw_burst.py`: "not P6", on the
+  tmpfs-corrupted frames) and reads 0 on the rerun. T2 and T3's original numbers are RETRACTED in
+  part: T2's "partial" fw count is a VOID-aware re-analysis of the same corrupted capture
+  (`T3-void-check.log`/`BT-void-check.log`), not a new one, and T3's original six-burst series
+  (printed in `fix-trials.log` as `[88,0,0,0,0,0]`) is an artifact of the pre-patch analyzer
+  mis-scoring 5 of 6 corrupted, zero-stable-capture bursts as "0 disagreeing" instead of VOID; the
+  VOID-aware re-analysis correctly reads all 6 VOID, 0 usable fw frames. T1, T2 and T3 were then
+  rerun from a clean on-device capture, writing straight to disk instead of tmpfs
+  (`orchestrate-trials-rerun.sh`, `fix-trials-rerun.log`): T1 all 0 / fw 0, T2 all 0 / fw 1, T3
+  (`-UnifyDamagedRegions`) `[29, 15, 72, 35, 6, 27]` / fw 104 — the T3 number this README reports.
+  B1 lost 4 of its 6 bursts to the same tmpfs exhaustion (`[VOID, VOID, VOID, VOID, 25, 25]`, fw
+  38) and was not rerun. B0, T4 (all three flags combined), T5 (`-UseSkiaForComposition`) and B2
+  came back complete: B0 `[33, 77, 50, 0, 24, 16]` fw 631; T4 `[0, 1, 0, 0, 0, 0]` fw 1; T5
+  `[46, 0, 25, 15, 43, 60]` fw 182; B2 `[16, 25, 61, 28, 25, 0]` fw 24. Across every baseline and
+  every trial but T1 (and T4, which combines T1's flag with the other two), both instruments show
+  the same stale-content signature at a similar order of magnitude; T1 alone drives both to zero
+  on every complete capture, isolating `-UseDamagingInformationForCompositing` as the trial that
+  removes the defect.
+- **Raw capture:** retained off-tree.
+
+### Runs 63–66 — S4, isolating and shipping the fix, bench
+
+- **Board:** bench, Pi Zero W. **Image commit:** `138d9142b2cff9c59cd0a755595bc3a82db7e3e3`
+  (Runs 63–65) and `d97d6fe9b892321f76b333d0e9ad79a31edbd142` (Run 66).
+- **Procedure:** Runs 63–64 were meant to run `kiosk-render-check.sh` live against `138d914`
+  default and against `138d914` with T1's flag forced on by hand, as a live rehearsal of the
+  render-check-stale detector built in Runs 67–68, ahead of the real fix; both aborted immediately
+  on `burst/orchestrate-render-check.sh: line 37: label: unbound variable` (a `local label=$1`
+  under `set -u` with no positional argument), before any series ran — no data either way. Run 65
+  then attempted the OTA to `5ec7f0e` that Run 50 also needed; the install reached 72 %
+  ("Copying image to rootfs.1") before the connection reset, `OTA_EXIT=255`; the device rebooted
+  itself, came back on the untouched active slot (`138d914`, rootfs.0/A) with its retry budget for
+  the inactive slot zeroed (`BOOT_B_LEFT=0`), and its buildinfo confirmed unmoved — a clean
+  fallback, no data lost beyond the attempt itself. Run 66 is the fix: `kiosk-launch` now always
+  passes `--features=-UseDamagingInformationForCompositing`, appending `KIOSK_COG_FEATURES` after
+  a comma in the same argument when set (last value wins), landed as commit
+  `d97d6fe9b892321f76b333d0e9ad79a31edbd142`; nothing in `kiosk-launch` scopes it to 2.54 by
+  WPE version — "2.54 only" describes where it was developed and verified, not a guard in the
+  code. The OTA to `d97d6fe` is confirmed by its own buildinfo match and by reading cog's argv
+  back over the journal: `cog -P drm --features=-UseDamagingInformationForCompositing
+  http://localhost:8080`, with no `KIOSK_COG_FEATURES` set.
+- **Raw capture:** retained off-tree.
+
+### Runs 67–72 — S4, the render-check STALE detector, bench
+
+- **Board:** bench, Pi Zero W (Runs 67–68 are offline, over stored bursts; no board access).
+  **Image commit:** `d97d6fe9b892321f76b333d0e9ad79a31edbd142` (Runs 69–71) and an attempted OTA
+  to `5ec7f0e5bac8660bf407fd68bd1b96b7df6daba1` (Run 72).
+- **Scripts deployed:** `tools/kiosk-render-check-stale.py` via `tools/kiosk-render-check.sh`
+  (rc 0 clean, rc 2 could-not-tell, rc 3 STALE), validated offline by `validate-render-check-stale.py`
+  against the bursts already captured in Runs 52–62; `kiosk-render-check-stale-test.py` (18/18)
+  covers the eligibility change itself. Commit `646c513e0ff619d5e22f171b4c47e9084105e45a` relaxes
+  eligibility from "both compared fbs need >= 2 stable captures" to "only one side needs 2, the
+  other may hold exactly 1"; `run-v3-short.sh` takes one independent v3-style burst.
+- **Procedure:** Run 67, offline, pre-fix: zero false positives on every known-clean burst; three
+  known-stale-or-ambiguous bursts read rc 2 (could-not-tell), of which one is a genuine miss — a
+  stale fb captured as a single stable frame, which the old eligibility rule could not compare at
+  all. Run 68, the same offline sweep after `646c513`: every known-clean burst now reads rc 0 (0
+  false positives), the genuine miss now reads rc 3 (stale_tiles=24, matching the v3 tile count
+  for that same burst), and the other two could-not-tell results resolve to rc 0; four bursts that
+  were already VOID for having 0 usable frames stay VOID, a data gap the classifier cannot fix.
+  Run 69 is five live `kiosk-render-check.sh` passes against the fixed image at default: 165 of
+  165 rc-bearing lines across the five runs (2 initial-frame + 30 series + 1 verdict, times 5) read
+  0, no STALE verdict. Run 70 repeats this with `KIOSK_COG_FEATURES=UseDamagingInformationForCompositing`
+  set — an attempt to re-enable, over the new default, the flag the fix just turned off — giving
+  cog's argv `--features=-UseDamagingInformationForCompositing,UseDamagingInformationForCompositing`;
+  five passes again all read 165/165 rc 0, and one independent v3-style burst taken under the same
+  override reads 10 disagreeing tiles, well below the 16–77 per-burst range the same instrument
+  reads on the `138d914` baseline trials (Runs 52, 56, 59; compare Run 44's 1–64 on `449e571`).
+  The gap between the expected mostly-STALE
+  result and the clean one actually seen is the entire basis for reading the override as having
+  most likely failed to re-enable the feature — an inference from the size and verdict mismatch,
+  not a direct confirmation; the comma-joined argv string was built exactly as intended. Run 71
+  repeats both conditions once more (labelled V4b and V1b in the capture, a re-sequenced
+  repeat ahead of the S4 smoothness/soak below, not a third condition): 165/165 rc 0 again, both
+  ways. Run 72, queued under the same lock as Run 71, is the OTA to `5ec7f0e` for a live
+  pre-fix-image comparison; its log ends after starting the install with no result line — not yet
+  run as of this snapshot, so fact 8's "live test against the pre-fix image" stays open.
+- **Raw capture:** retained off-tree.
+
+**S4 smoothness/soak, the fixed image, bench, commit `d97d6fe`.** `run-s4-smoothness.sh` and
+`run-s4-soak.sh` add the mechanical cards-live gate (below) to the S1–S3 smoothness/soak
+procedure. Still running as of this snapshot; results pending.
+
 ## Configuration under test
 
 - **Baseline (X):** the image built from `origin/main` plus the `#185 capture` commits, which add
@@ -381,6 +631,50 @@ All one-off and committed beside this README (R2), except where a run names a sh
   `run-smoothness.sh` and `run-soak.sh` check that dir and exit 3, VOID, if it is absent or holds
   no entries, so every capture's first clear empties a populated cache.
   `check-cog-cache-resolver.sh` prints the resolved dir and its entry count and deletes nothing.
+- `analyze_burst.py`, `analyze_burst2.py` — S4's first stale-content instrument: per named region
+  (hand-picked crop, or `analyze_burst2.py`'s fixed render-check crop), a content hash per frame
+  and a "revert" where a hash repeats at distance > 1 with no repeat at distance 1 (A,B,A, not
+  simple steadiness). `cross_match.py` and `full_cross_match.py` extend it to full provenance and
+  cross-run exact matching, on the crop and the whole 1280x720 frame. Rejected (Runs 42–43):
+  this page's content changes continuously, so a whole-crop exact hash never repeats regardless
+  of rendering mode.
+- `kiosk-drmgrab --report` / `analyze_burst_v2.py` — the DRM scanout fb id read before and after
+  each PPM copy, plus the copy's wall time; a capture is unstable when the two ids differ. The
+  mechanism Runs 44–72 build on.
+- `analyze_burst_v3.py` / `run-burst-capture-v3.sh`, `run-burst-capture-v3-control.sh`,
+  `run-v3-short.sh` — the per-tile instrument: a burst's STABLE captures only, grouped by scanned
+  fb id, tiled 40x40 px (32x18, 576 tiles); a tile "disagrees" where the two fb groups differ
+  (mean abs pixel diff > 1), is a "late-change artifact" where one legitimate mid-burst content
+  change fully explains it, and is "persistent" where it disagrees in >= 2 consecutive bursts.
+  `run-v3-short.sh` takes a parameterized number of bursts for a short, targeted check.
+- `kiosk-fwgrab` / `sanity-fwgrab.sh`, `run-fw-burst-capture.sh`, `analyze_fw_burst.py` — a
+  VideoCore dispmanx framebuffer snapshot, independent of the DRM scanout path and of
+  `kiosk-drmgrab`; no fb id, timed externally. The same 40x40 px tiling with a "flip" rule (a
+  tile A,B,A across three consecutive frames) in place of the fb-grouped disagreement test, since
+  dispmanx carries no fb id to group by.
+- `run-load-experiment.sh` — three fixed CPU-contention phases (idle, a CSS spinner, a tight DRM
+  read loop) run back to back, each captured and tiled as a `kiosk-fwgrab` burst, to test whether
+  flip rate tracks CPU load.
+- `run-feature-trial.sh` — one `KIOSK_COG_FEATURES` trial: deploys the value (or none, for a
+  baseline), six 15-frame `analyze_burst_v3.py` bursts and one 90-frame `analyze_fw_burst.py`
+  burst, each parsed fail-closed — a burst that cannot be parsed VOIDs that burst alone, never
+  silently reads as zero.
+- `tools/kiosk-render-check-stale.py`, via `tools/kiosk-render-check.sh` — the STALE verdict
+  (rc 3) added to render-check's existing clean/could-not-tell (rc 0/rc 2): a 30-frame series,
+  batched 5, scored by the same fb-grouped tile-disagreement rule. Eligibility (which fb pairs are
+  compared) was relaxed in `646c513e0ff619d5e22f171b4c47e9084105e45a` from requiring both
+  compared fbs to hold >= 2 stable captures to requiring only one side to; covered by
+  `kiosk-render-check-stale-test.py` (18/18). `validate-render-check-stale.py` reruns the
+  classifier offline over already-captured bursts, with no new device access.
+- `cards-probe.js` / `parse_cards_probe.py` — the mechanical page-state gate (committed
+  `48f3bfd68a1d429f5d5c438ed5fcc1c96c95cc2b`): every 30 s, and once on load, it logs
+  `CP|t=<sec>|c=<n>|l=<n>`, where `c` is the count of `[data-pwt-card]` elements and `l` the
+  subset of those that also contain `[data-pwt-leaderboard]` (live data, as opposed to a closed
+  or API-failed card, neither distinguished from the other by this probe). `all_live` requires
+  every parsed sample to read `c=4 l=4`; `live_fraction` reports the `l=4` fraction instead, for
+  a soak that may legitimately cross a park-hours boundary. Replaces judging "cards live" by eye
+  from the pre-run screenshot (Runs 2–41's limitation); first used operationally against image
+  `d97d6fe9b892321f76b333d0e9ad79a31edbd142`, in `run-s4-smoothness.sh` and `run-s4-soak.sh`.
 
 **Redacted harness scripts.** The S4 scripts are committed as run except one redaction: the bench
 ssh target is read from `$BENCH` (`${BENCH:?ssh target…}`) where the script held a literal
@@ -399,6 +693,22 @@ it. Killing the group also ends the foreground ssh or sleep, so the EXIT trap re
 `run-time-to-page.sh`, an abort while the board is rebooting runs the restore against a board
 that is down. The restore fails, and the `kiosk.conf.wpe-bak` or `kiosk.conf.wpe-absent` backup
 stays in `/data/config/`. The next run then refuses until that backup is restored by hand.
+
+**S4 process notes.** A host `/tmp` tmpfs filled during the trials chain (Runs 52–62), corrupting
+Run 55 (T3) outright and part of Run 54 (T2)'s fw transfer; the affected trials were rerun to
+disk instead (Runs 60–62). An unbound-variable bug (`local label=$1` under `set -u`, no
+positional argument) voided Runs 63–64 before any render-check series ran; two already-running
+orchestrator processes still held the pre-fix script in memory when the fix landed, so
+`compensate-v1p.sh` and `compensate-v3.sh` were run to check whether either had left `kiosk.conf`
+dirty — one found it clean, the other refused to compensate because the board's buildinfo did not
+yet match the image it was meant to check. Had the restore trap not fired on that `set -u` abort,
+`kiosk.conf` could have been left carrying a 2.54-only feature flag into an OTA to 2.44.4
+(Run 65); no capture confirms whether it actually happened, only that the trap exists to prevent
+it. Run 65's OTA itself failed cleanly: a network reset at 72 % install, a self-reboot, and a
+return to the untouched active slot with its retry budget zeroed. Every orchestrator is designed
+to write its own `.log.done` marker last, in an exit trap, so a waiter blocks on that file rather
+than an outer wrapper that may not exist; at least one completed orchestration (`orchestrate-v3.sh`,
+which launched Runs 44–45's capture) left no such marker despite printing its own completion line.
 
 ## Metrics
 
@@ -506,6 +816,30 @@ probe's own (570 s of the 585 s capture).
 |---|---|---|---|---|
 | 14728 kB (11) | 12 kB (3) | 16384 kB (1) | 4052 kB (1) | `vc4_dri.so`; 7 `renderD128` mappings |
 
+**Run 35** (`s4-smoothness-run1.txt`)
+
+| sec | frames | mean fps | % <50 ms | bt | stall rate t ≥ 15 s | clusters |
+|---|---|---|---|---|---|---|
+| 583 | 28248 | 48.45 | 97.9 | 24 | bounded 0.0246–0.0423/s (14–24) | 11 |
+
+**Run 36** (`s4-smoothness-run2.txt`)
+
+| sec | frames | mean fps | % <50 ms | bt | stall rate t ≥ 15 s | clusters |
+|---|---|---|---|---|---|---|
+| 580 | 28314 | 48.82 | 98.4 | 27 | bounded 0.0248–0.0478/s (14–27) | 11 |
+
+**Run 37** (`s4-smoothness-run3.txt`)
+
+| sec | frames | mean fps | % <50 ms | bt | stall rate t ≥ 15 s | clusters |
+|---|---|---|---|---|---|---|
+| 580 | 28251 | 48.71 | 98.3 | 28 | bounded 0.0248–0.0496/s (14–28) | 12 |
+
+**Run 40** (`s4-skia-cpu-run1.txt`)
+
+| sec | frames | mean fps | % <50 ms | bt | stall rate t ≥ 15 s | clusters |
+|---|---|---|---|---|---|---|
+| 581 | 26501 | 45.61 | 96.7 | 153 | bounded 0.0247–0.2703/s (14–153) | 13 |
+
 ## Findings
 
 - **The capture helper reads what X shows.** Run 1: `kiosk-drmgrab` and `import -window root`
@@ -585,6 +919,66 @@ probe's own (570 s of the 585 s capture).
 - **Time to page on WPE: 43.36, 40.78, 43.28 s** (Run 22), recorded, not judged, against the X
   baseline's 48.00, 59.63, 50.80 s (Run 13). Every boot's timesyncd sync (55.6–66.3 s monotonic)
   came after the beacon, so all three are in the beacon's pre-step frame.
+- **S4: the panel shows stale content under default 2.54 rendering, not only under
+  `WEBKIT_SKIA_ENABLE_CPU_RENDERING=1`.** Run 41's visible flashing was first attributed to CPU
+  rendering; Runs 44–45's v3 tile analysis RETRACTS that attribution — the default-rendering
+  control burst disagrees on as many tiles, in the same screen regions, as the CPU-rendering
+  phase, on the same image. Run 46 finds zero disagreement under the same instrument on 2.44.4,
+  which is the first evidence the defect is specific to 2.54, not to any rendering mode.
+  `-AcceleratedCompositing` (Run 39) is not a workaround: it crash-loops the renderer outright.
+- **Two whole-crop exact-hash revert instruments find nothing** (Runs 42–43): a continuously
+  changing page never repeats a crop's hash closely enough for an A,B,A revert rule, on this
+  image, in either rendering mode; rejected as a detector.
+- **`kiosk-drmgrab --report` shows the scanout alternating between two framebuffers** (Run 43):
+  ids 96 and 98 throughout, the before/after id differing in roughly a fifth of captures
+  (14/60 control, 23/120 cpu), copy time ~173 ms median — the mechanism the tile analysis and the
+  render-check STALE detector are built on.
+- **The stale content is a per-tile disagreement between the two scanout framebuffers, not a
+  uniform frozen frame.** Runs 44–46: 1–64 tiles disagree per burst on default 2.54, with a
+  persistent ~50-tile core in a few fixed screen regions across 12 bursts; the same instrument
+  reads 0 on 2.44.4.
+- **`kiosk-fwgrab` (dispmanx) cross-validates against `kiosk-drmgrab`** (Run 48: matching mean
+  luma and content) and finds the same flip behaviour independent of the DRM scanout path
+  (Run 49: 0 flips on one 90-frame burst; Run 51: 284/64, 120/24 and 6/0 flips/tiles≥3 across
+  idle, spinner and a tight DRM read loop) — flips occur at rest as well as under load, which
+  does not support a CPU-load cause. The CPU-contention experiment's 2.44.4 arm is VOID (Run 50):
+  `kiosk-fwgrab` does not exist on that image.
+- **2.54's page fill is slow but fault-free** (Run 47): the pre-run screenshot's mean luma
+  oscillated 5.47–7.73, below the settle threshold, for the first ~4 minutes after boot on image
+  `138d914`, reaching 16.43 by roughly 16 minutes; the kiosk journal for that boot logs no error
+  or crash.
+- **`-UseDamagingInformationForCompositing` isolates the defect** (Runs 52–62): across three
+  clean baselines (B0, B1's 2 complete bursts, B2) and four other single- or combined-flag
+  trials, both the tile and the fw-flip instrument read a similar stale-content signature;
+  turning this one flag off, alone or combined with the other two (T4), drives both instruments
+  to zero on every run with complete data. A host tmpfs filling mid-chain corrupted T2's fw
+  capture and T3's capture outright (RETRACTED: T3's original `[88,0,0,0,0,0]` series is a
+  pre-patch analyzer artifact on corrupted frames, not a real zero result); T1–T3 were rerun
+  clean to disk.
+- **The fix:** `kiosk-launch` passes `--features=-UseDamagingInformationForCompositing` by
+  default on every boot (`d97d6fe9b892321f76b333d0e9ad79a31edbd142`), `KIOSK_COG_FEATURES`
+  appended after a comma in the same argument when set. Nothing in the code scopes this to 2.54;
+  it is unconditional, developed and verified against this image.
+- **The render-check STALE detector (rc 3) is clean offline and live on the fixed image, with
+  one eligibility gap closed.** Offline, zero false positives on known-clean bursts both before
+  and after `646c513e0ff619d5e22f171b4c47e9084105e45a`; the one genuine miss it closes is a stale
+  framebuffer captured as a single stable frame, outside the old eligibility rule entirely. Live
+  on `d97d6fe`, five render-check passes at default and five with
+  `KIOSK_COG_FEATURES=UseDamagingInformationForCompositing` both read 165/165 rc lines 0 — the
+  override's one independent v3-style burst (10 disagreeing tiles, against 16–77 per burst on
+  default) suggests it most likely did not re-enable the feature, an inference from the size
+  mismatch rather than a direct confirmation. A live render-check pass against the pre-fix image
+  itself has not yet completed (two attempts at the OTA to 2.44.4 for the comparison point, one
+  failed on a network reset, one not yet run), so that comparison stays open.
+- **S4 process incidents, recorded as process notes, not findings about the defect:** a tmpfs
+  fill (above), two orchestrators crashing on an unbound variable before producing any
+  render-check data, at least one orchestrator completing without writing its own `.log.done`
+  marker, and one OTA (to 2.44.4) that failed cleanly on a network reset and fell back to the
+  active slot untouched.
+- **Page state was judged by eye through Run 41** (mean luma of the pre-run screenshot, same as
+  S1–S3); the mechanical `cards-probe.js` gate (`c=4 l=4` on every sample) was committed
+  (`48f3bfd68a1d429f5d5c438ed5fcc1c96c95cc2b`) afterward and is used operationally in
+  `run-s4-smoothness.sh`/`run-s4-soak.sh` on `d97d6fe` (the S4 smoothness/soak note above).
 
 ## Changes configured as a result
 
