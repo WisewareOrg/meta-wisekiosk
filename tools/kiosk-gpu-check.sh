@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # Checks that a cog/WPE process holds /dev/dri open with vc4 or v3d mapped.
 #
-#   tools/kiosk-gpu-check.sh root@<host>                       read-only
-#   tools/kiosk-gpu-check.sh root@<host> --capture [out.png]   unavailable on WPE: exits 2, touches nothing
+#   tools/kiosk-gpu-check.sh root@<host>    read-only
 #
-# Exit: 0 GPU path present; 1 not present; 2 could not tell (and every --capture).
+# Exit: 0 GPU path present; 1 not present; 2 could not tell.
 # Reasoning and measurements: docs/issue_investigation/gpu_compositing/README.md §"Configuration under test"
 set -uo pipefail
 
@@ -57,7 +56,7 @@ gpu_verdict() {
 
 main() {
 if [ "${1:-}" = "" ]; then
-    echo "usage: kiosk-gpu-check.sh <ssh-target> [--capture [out.png]]" >&2
+    echo "usage: kiosk-gpu-check.sh <ssh-target>" >&2
     exit 2
 fi
 HOST=$1
@@ -65,15 +64,8 @@ MODE=${2:-}
 
 HERE=$(dirname "$0")
 
-if [ -n "$MODE" ] && [ "$MODE" != "--capture" ]; then
-    echo "unknown argument '$MODE' -- expected --capture" >&2
-    exit 2
-fi
-
-if [ "$MODE" = "--capture" ]; then
-    # webkit://gpu needs desktop GL, which the WPE image does not carry: loading it
-    # aborts cog. Refuse before anything touches the device.
-    echo "--capture unavailable on WPE: webkit://gpu needs desktop GL (libGL), and loading it aborts cog" >&2
+if [ -n "$MODE" ]; then
+    echo "unknown argument '$MODE'" >&2
     exit 2
 fi
 
