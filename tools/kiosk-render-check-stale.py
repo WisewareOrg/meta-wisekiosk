@@ -8,14 +8,14 @@
 0 (no stale tile), 3 (STALE) or 2 (could not tell).
 
 Only stable captures count (fb_before == fb_after), grouped by fb id. The frame
-is cut into 40x40-pixel tiles, edge tiles partial; MAD is the mean absolute
-byte difference over a tile's RGB bytes. A tile is stale when two fbs, at least
-one with two or more stable captures, each match their own first capture on it
-(MAD <= 1; trivially so for a single capture) and their first captures differ
-(MAD > 1). Two fb ids in a single chronological split are a one-time repaint and
-pass. One fb id passes. Fewer than two stable captures, no fb with two stable
-captures, or any PPM that is malformed, truncated or of another size, is
-could-not-tell.
+is cut into 40x40-pixel tiles, edge tiles partial; MAD is the mean absolute byte
+difference over a tile's RGB bytes. A tile is stale when two fbs, at least one
+with two or more stable captures, each match their own first capture on it (MAD
+<= 1; trivially so for a single capture) and their first captures differ (MAD >
+1). A pair whose own captures form a single chronological split is a one-time
+repaint and is not compared. One fb id passes. Fewer than two stable captures,
+no fb with two stable captures, or any PPM that is malformed, truncated or of
+another size, is could-not-tell.
 """
 import re
 import sys
@@ -80,8 +80,6 @@ def stale_verdict(captures):
         groups.setdefault(fb, []).append(rgb)
     if all(len(g) < 2 for g in groups.values()):
         return cant_tell
-    if single_split(ids):
-        return {"rc": 0, "stale_tiles": 0}
 
     w, h = frames[0][:2]
     grid = tiles(w, h)
@@ -91,6 +89,8 @@ def stale_verdict(captures):
     stale = set()
     for a, b in combinations(groups, 2):
         if len(groups[a]) < 2 and len(groups[b]) < 2:
+            continue
+        if single_split([fb for fb in ids if fb in (a, b)]):
             continue
         for t in steady[a] & steady[b]:
             if t not in stale and tile_mad(groups[a][0], groups[b][0], w, t) > 1:
