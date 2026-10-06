@@ -110,8 +110,12 @@ record above. rc 2, additionally, in ANY of:
   this test's own design, not spec-fixed -- only rc and substantive content are
   checked below. The printed metrics are `M key=value` lines, one per metric; a
   record with that CLI's own M lines appended re-analyzes to the IDENTICAL
-  result (M lines are parsed and skipped), while any other unrecognised line
-  kind is not -- rc 2.
+  result (M lines are parsed and skipped). kiosk-smoothness-check.sh appends
+  this CLI's WHOLE stdout to the same record it analyzed (team-lead,
+  2026-10-06), so on rc 2 that is one or more `could not tell: <reason>`
+  lines, not M lines -- those must be parsed and skipped too, re-analyzing to
+  the IDENTICAL result, the same guarantee M lines already have. Any OTHER
+  unrecognised line kind is not skipped -- rc 2.
 
 Fixtures are synthetic device-tool records built from first principles (a sample
 list derived from a small (motion|hold) segment spec, see gen_raw_samples below),
@@ -625,9 +629,9 @@ def p_block_cases():
     case("engine ambiguous (both): reasons non-empty", len(got["reasons"]) > 0, True)
 
 
-# ------------------------------------------------------------------- M lines
+# ------------------------------------------------------ appended CLI output
 
-def m_line_cases():
+def appended_output_cases():
     # kiosk-framepace.py's own CLI appends one `M key=value` line per metric
     # to a complete record (its docstring: "a record with the metrics
     # appended reads the same"). Build those M lines exactly as that CLI
@@ -645,6 +649,22 @@ def m_line_cases():
     got = fp.analyze(lines + ["Q foo=bar"])
     case("an unrecognised line: rc 2", got["rc"], 2)
     case("an unrecognised line: reasons non-empty", len(got["reasons"]) > 0, True)
+
+    # kiosk-smoothness-check.sh appends this CLI's WHOLE stdout to the same
+    # record it just analyzed (team-lead, 2026-10-06) -- on rc 2 that is one
+    # `could not tell: <reason>` line per reason, not M lines. Build those
+    # lines exactly as that CLI does, append to an already-rc-2 record, and
+    # re-analyze: the result must come back identical, the same guarantee M
+    # lines already have. Before this fix, "could not tell: ..." parses as
+    # kind="could" (partition on the first space), an unrecognised line --
+    # an EXTRA reason, breaking the identical-result guarantee.
+    bad_mode_lines, _, _ = build_record(base_spec, mode="1920x1080@60")
+    cnt_result = fp.analyze(bad_mode_lines)
+    case("'could not tell:' re-analysis fixture is actually rc 2 (so there is "
+         "at least one reason line to append)", cnt_result["rc"], 2)
+    cnt_lines = [f"could not tell: {r}" for r in cnt_result["reasons"]]
+    case("'could not tell:' lines are skipped on re-analysis: identical result",
+         fp.analyze(bad_mode_lines + cnt_lines), cnt_result)
 
 
 # ------------------------------------------------------------------- CLI
@@ -676,7 +696,7 @@ def main() -> int:
     rc0_cases()
     rc2_cases()
     p_block_cases()
-    m_line_cases()
+    appended_output_cases()
     with tempfile.TemporaryDirectory() as tmp:
         cli_cases(tmp)
     print(f"\npass={len(PASS)} fail={len(FAIL)}")

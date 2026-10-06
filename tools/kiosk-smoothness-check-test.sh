@@ -44,7 +44,8 @@ mkdir -p "$tmp/home/.config/wisekiosk" "$dev"
 git init -q --bare "$tmp/remote.git"
 git clone -q "$tmp/remote.git" "$repo" 2> /dev/null
 mkdir -p "$repo/tools" "$repo/local"
-cp "$HERE/kiosk-smoothness-check.sh" "$HERE/kiosk-framepace.py" "$HERE/scrub-identity.py" "$repo/tools/"
+cp "$HERE/kiosk-smoothness-check.sh" "$HERE/kiosk-provenance.sh" "$HERE/kiosk-framepace.py" \
+    "$HERE/scrub-identity.py" "$repo/tools/"
 
 cat > "$repo/tools/kiosk-ssh.sh" << 'EOF'
 #!/usr/bin/env bash
