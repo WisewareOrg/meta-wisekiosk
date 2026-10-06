@@ -26,8 +26,7 @@ MILESTONES = [
     ("t_wlan", r"Found device /sys/subsystem/net/devices/wlan0\."),
     ("t_online", r"Reached target Network is Online\."),
     ("t_kiosk", r"Started Kiosk browser"),
-    ("t_exec", r"SURFMS uptime_at_exec"),
-    ("t_loaded", r"SURFMS load_finished"),
+    ("t_loaded", r"cog\[\d+\]: <[^>]+> Loaded successfully\."),
 ]
 
 PHASES = [
@@ -36,8 +35,7 @@ PHASES = [
     ("sysinit -> basic", "t_fs", "t_basic"),
     ("waiting for wlan0", "t_basic", "t_wlan"),
     ("assoc + DHCP", "t_wlan", "t_online"),
-    ("Xorg -> surf exec", "t_kiosk", "t_exec"),
-    ("surf -> load_finished", "t_exec", "t_loaded"),
+    ("kiosk start -> page loaded", "t_kiosk", "t_loaded"),
 ]
 
 DEFAULT_WINDOWS = [
@@ -48,9 +46,9 @@ DEFAULT_WINDOWS = [
     ("assoc + DHCP", 33.8, 36.9),
 ]
 
-# Written only by the surf image; a phase that needs a missing one prints as
-# unavailable rather than dropping out of the table.
-BROWSER_MILESTONES = ("t_exec", "t_loaded")
+# kiosk.service's start and cog's load-finished line (DOM load, not final
+# paint). A phase that needs a missing one prints as unavailable.
+BROWSER_MILESTONES = ("t_kiosk", "t_loaded")
 
 
 def journal_windows(sample_path):
@@ -76,10 +74,10 @@ def journal_windows(sample_path):
         if t0 is None or t1 is None or t1 <= t0:
             continue
         windows.append((label, t0, t1))
-    if not any(t0 is not None for _, t0, _ in windows):
-        return DEFAULT_WINDOWS, marks
     if missing:
         print(f"missing browser milestones: {', '.join(missing)}", file=sys.stderr)
+    if not any(t0 is not None for _, t0, _ in windows):
+        return DEFAULT_WINDOWS, marks
     return windows, marks
 
 

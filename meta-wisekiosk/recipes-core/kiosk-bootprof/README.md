@@ -28,7 +28,7 @@ reboot** — not a session left attached across the window.
 Which figures a contaminated run still supports is worth stating exactly, because it decides what
 can be salvaged: this board has no network at all before ~30s, so nothing done from a workstation
 can reach `mmc1`, `brcmfmac`, `wlan0` or `Reached target Network is Online`. Those survive on any
-boot. Everything from the browser's exec onward does not.
+boot. Everything from kiosk start onward does not.
 
 90s clears the latest browser exec observed on the X image (`surf`, 40.24s, on a deliberately
 misconfigured arm) with ~35s of margin; cog's exec has not been measured against it. Raise it to 120s when complete display is the endpoint. The wait is latency,
@@ -46,9 +46,10 @@ clock frame it used; its header has the frame rules.
 
 ## Limits of the data
 
-- **The analyzer's browser milestones are unported.** `analyze-boot-cpu-io.py` keys its browser
-  windows on the `SURFMS` journal lines the surf image wrote, which cog does not write (#197
-  kiosk-bootprof WPE port).
+- **The browser phase ends at the page's load, not its final paint.** `analyze-boot-cpu-io.py`
+  reports one browser phase, `kiosk start -> page loaded`, from kiosk.service's start to cog's
+  `<url> Loaded successfully.` journal line. A journal missing either line prints the phase as
+  unavailable and names the missing milestone on stderr.
 
 - **It does not cover the first ~8.6s.** systemd cannot run a unit before it starts, so the kernel
   and early-systemd window is outside the samples entirely.
