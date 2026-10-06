@@ -3,15 +3,16 @@
 | | |
 |---|---|
 | **Issue** | #185 WPE WebKit evaluation |
-| **Status** | open |
-| **Opened / concluded** | 2026-10-04 / — |
+| **Status** | concluded → code change |
+| **Opened / concluded** | 2026-10-04 / 2026-10-05 |
 
 The kiosk renders one fullscreen page through bare Xorg, `surf` and `webkitgtk3` 2.44.3. This
 investigation swaps the base image in place to WPE WebKit 2.44.4 under `cog`, on the integration
 branch `185-wpe-evaluation`, and judges it against a baseline measured on the X image beforehand.
 Any regression in smoothness, module faults or soak stability is a no-go; slower startup alone is
-not. If 2.44.4 passes, one attempt is measured at 2.54. The X baseline (S1) is measured and the
-WPE image paints and composites on the GPU (S2); no verdict yet.
+not. If 2.44.4 passes, one attempt is measured at 2.54. Concluded: the cutover is wpewebkit 2.54
++ cog, with `kiosk-launch` passing `--features=-UseDamagingInformationForCompositing` by default
+to close a stale-content defect found along the way; see §"Verdict".
 
 ## Test runs
 
