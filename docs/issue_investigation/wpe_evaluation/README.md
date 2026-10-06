@@ -382,6 +382,16 @@ All one-off and committed beside this README (R2), except where a run names a sh
   no entries, so every capture's first clear empties a populated cache.
   `check-cog-cache-resolver.sh` prints the resolved dir and its entry count and deletes nothing.
 
+**Redacted harness scripts.** The S4 scripts are committed as run except one redaction: the bench
+ssh target is read from `$BENCH` (`${BENCH:?ssh target…}`) where the script held a literal
+address, in `compensate-v1p.sh`, `compensate-v3.sh`, `orchestrate-244-load.sh`,
+`orchestrate-244.sh`, `orchestrate-254-load.sh`, `orchestrate-d97d6fe-v4.sh`, `orchestrate-fw.sh`,
+`orchestrate-live-proof.sh`, `orchestrate-load254-and-trials.sh`, `orchestrate-render-check.sh`,
+`orchestrate-s4-only.sh`, `orchestrate-s4-smoothness-soak.sh`, `orchestrate-trials-rerun.sh`,
+`orchestrate-trials.sh`, `orchestrate-v2.sh`, `orchestrate-v3-retry.sh`, `orchestrate-v3.sh`,
+`ota-verify-138d914.sh`, `ota-verify-449e571.sh`, `ota-verify-5ec7f0e.sh` and
+`ota-verify-d97d6fe.sh`.
+
 **Aborting a driver:** kill its process group, `kill -TERM -- -<pgid>`. Bench runs launch
 drivers with `setsid nohup …`, so each has its own group; `ps -o pgid= -p <driver pid>` prints
 it. Killing the group also ends the foreground ssh or sleep, so the EXIT trap restores
