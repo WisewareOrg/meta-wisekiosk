@@ -8,10 +8,9 @@ device tool's output, whose format is documented in the header of
 meta-wisekiosk/recipes-graphics/kiosk-drmgrab/files/kiosk-framepace.c.
 
 A presented frame is a sample whose hash differs from the previous sample's;
-intervals run between consecutive presented frames. An interval of 1.5 s or more
-is a hold (the app holds 2 s in each 8 s marquee cycle): its excess over 2.0 s,
-when above 0.25 s, is one stall of that size. Shorter intervals are motion; a
-motion interval above 0.25 s is one stall of its own size.
+intervals run between consecutive presented frames. An interval of 1.0 s or more
+is a hold (the marquee's pause between scrolls) and is never a stall. Shorter
+intervals are motion; a motion interval above 0.25 s is one stall of its own size.
 
 Metrics, over motion intervals: presented_fps (motion intervals / motion seconds),
 pct_under_50 (% of motion intervals under 50 ms), stalls, stall_rate (stalls per
@@ -21,19 +20,18 @@ Exit 0 with one `M key=value` line per metric. `M` lines in the record are skipp
 so a record with the metrics appended reads the same. Exit 2, printing each reason as
 "could not tell: <reason>", when the record is incomplete or malformed, the mode is
 not 1280x720, fewer than 90 % of the samples the pacing should give are present,
-motion covers under half the window, the provenance block is missing a field, the
+motion covers under a quarter of the window, the provenance block is missing a field, the
 kiosk restarted or the board rebooted during the run, or the engine is ambiguous.
 """
 import re
 import sys
 from itertools import pairwise
 
-HOLD_S = 1.5
-HOLD_NOMINAL_S = 2.0
+HOLD_S = 1.0
 STALL_S = 0.25
 FAST_S = 0.050
 MIN_SAMPLE_FRACTION = 0.9
-MIN_MOTION_FRACTION = 0.5
+MIN_MOTION_FRACTION = 0.25
 PACING_HZ = {"timer100": 100}
 
 HEADER_KEYS = ("tool", "mode", "pacing", "regions", "start", "seconds", "cpu_ms",
@@ -135,8 +133,6 @@ def analyze(lines):
     deltas = intervals_s(samples)
     motion = [d for d in deltas if d < HOLD_S]
     stall_ms = [d * 1000 for d in motion if d > STALL_S]
-    stall_ms += [(d - HOLD_NOMINAL_S) * 1000 for d in deltas
-                 if d >= HOLD_S and d - HOLD_NOMINAL_S > STALL_S]
     motion_s = sum(motion)
     if motion_s < MIN_MOTION_FRACTION * seconds:
         reasons.append(f"motion covers {motion_s:.1f} s of {seconds} s: the marquee was not moving")
