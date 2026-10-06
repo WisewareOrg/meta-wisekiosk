@@ -44,44 +44,18 @@ WORK=$(mktemp -d) || { echo "could not tell: no local work directory" >&2; exit 
 OUT=$WORK/capture.txt
 SHOT=$WORK/pre-run.png
 : > "$OUT"
+# shellcheck source=kiosk-probe-run.sh
+. "$HERE/kiosk-probe-run.sh"
 
 # kiosk.conf is restored on any exit once this run has backed it up, interrupts included;
 # the capture is then printed and the work directory removed.
-RESTORE_PENDING=0
-restore_conf() {
-	[ "$RESTORE_PENDING" = 1 ] || return 0
-	RESTORE_PENDING=0
-	{ printf '%s\n' "$KIOSK_CACHE_FN"; cat <<'RESTORE'; } | "$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1
-C=/data/config/kiosk.conf
-if [ -f $C.wpe-bak ]; then mv $C.wpe-bak $C; elif [ -e $C.wpe-absent ]; then rm -f $C $C.wpe-absent; else echo "# NO BACKUP -- kiosk.conf left as found"; fi
-rm -f /home/root/kiosk-probe.js
-clear_kiosk_cache
-systemctl restart kiosk
-n=$(grep -c '^KIOSK_PROBE' $C 2>/dev/null)
-echo "# restored: kiosk.conf KIOSK_PROBE lines ${n:-none, file absent}, kiosk restarted"
-RESTORE
-}
-# shellcheck disable=SC2317  # runs from the EXIT trap
-finish() {
-	restore_conf
-	cat "$OUT"
-	rm -rf "$WORK"
-}
 trap finish EXIT
 trap 'exit 2' INT TERM HUP
 
 mode() { "$KSSH" "$T" 'grep "mode:" /sys/kernel/debug/dri/0/state' 2>&1; }
 live720() { printf '%s\n' "$1" | grep -c 'mode: "1280x720"'; }
 
-for wait in 0 10 20 30 40 50 60 70 80 90 100 110 120; do
-	[ "$wait" -gt 0 ] && { rm -f "$SHOT"; sleep 10; }
-	shot=$("$HERE/kiosk-screenshot.sh" "$T" "$SHOT")
-	rc=$?
-	printf '%s\n' "$shot"
-	mean=$(printf '%s\n' "$shot" | sed -n 's/^min=.* mean=\([0-9.]*\)$/\1/p')
-	[ $rc -eq 0 ] && awk -v m="${mean:-0}" 'BEGIN { exit !(m >= 10) }' && break
-	[ "$wait" -eq 120 ] && { echo "could not tell: pre-run screenshot not a rendered dashboard after 120 s (last mean ${mean:-none}, rc $rc)" >&2; exit 2; }
-done
+settle_dashboard
 
 require_kiosk_cache "$KSSH" "$T"
 
@@ -103,14 +77,8 @@ M0=$(mode); printf '%s\n' "$M0" | sed 's/^/# mode-before /' >> "$OUT"
 
 "$KSSH" "$T" 'cat > /home/root/kiosk-probe.js' < "$PROBE" || { echo "# DEPLOY FAILED" >> "$OUT"; exit 2; }
 RESTORE_PENDING=1
-"$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1 <<'DEPLOY'
-C=/data/config/kiosk.conf
-if [ -e $C.wpe-bak ] || [ -e $C.wpe-absent ]; then
-	echo "# REFUSED: a kiosk.conf backup exists -- an earlier run did not restore"; exit 3
-fi
-if [ -f $C ]; then cp -p $C $C.wpe-bak || exit 1; else : > $C.wpe-absent; fi
-[ -s $C ] && [ -n "$(tail -c 1 $C)" ] && echo >> $C
-echo 'KIOSK_PROBE=1' >> $C
+{ printf '%s\n' "$KIOSK_PROBE_DEPLOY_FN"; cat <<'DEPLOY'; } | "$KSSH" "$T" 'sh -s' >> "$OUT" 2>&1
+deploy_probe_conf
 echo "# probe sha256 deployed $(sha256sum < /home/root/kiosk-probe.js | cut -d' ' -f1)"
 DEPLOY
 rc=$?
