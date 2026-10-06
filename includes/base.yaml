@@ -78,7 +78,7 @@ repos:
 
   meta-virtualization:
     url: "https://git.yoctoproject.org/meta-virtualization"
-    commit: ee1ec1ee542389a3fc3692fdd232f9dd86c849a5
+    commit: c141b3cd60ad3a1bbab22b4884742d4c082beda6
     path: "sources/meta-virtualization"
 
   # GOVERSION = "1.26%" for the backend; poky scarthgap ships Go 1.22.12.
