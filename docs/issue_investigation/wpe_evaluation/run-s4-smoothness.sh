@@ -146,20 +146,38 @@ if [ -z "$CP_LINES" ]; then
 	echo "# VOID: no CP| line read back -- cards-live state unknown" >> "$OUT"
 	echo "VOID (no cards-probe payload) -- $OUT"; exit 4
 fi
-if ! printf '%s\n' "$CP_LINES" | python3 -c '
-import sys
+# The gate is judged only inside p7_min's own measured window (t >= STEADY_FROM, the same
+# warm-up it excludes from its stall-rate numbers): cards-probe.js samples once right at the
+# load event, before the framework has painted any card, and that sample legitimately reads
+# l=0 -- not a card dropping, and not evidence this capture's actual window saw anything.
+STEADY_FROM=15.0
+JUDGE_RESULT=$(printf '%s\n' "$CP_LINES" | python3 -c '
+import sys, re
 sys.path.insert(0, "'"$HERE"'")
 import parse_cards_probe as pcp
+PAT = re.compile(r"CP\|t=(\d+)\|c=(\d+)\|l=(\d+)")
+lines = sys.stdin.read().splitlines()
+excluded = [l for l in lines if (m := PAT.search(l)) and int(m.group(1)) < '"$STEADY_FROM"']
+judged = [l for l in lines if (m := PAT.search(l)) and int(m.group(1)) >= '"$STEADY_FROM"']
+print("EXCLUDED:" + ("; ".join(excluded) if excluded else "none"))
+if not judged:
+	print("VOID: no CP| samples inside the measured window")
+	sys.exit(1)
 try:
-	live = pcp.all_at_least(sys.stdin.read().splitlines(), '"$MIN_LIVE"')
+	live = pcp.all_at_least(judged, '"$MIN_LIVE"')
 except ValueError as e:
-	print(f"# {e}"); sys.exit(1)
+	print(f"VOID: {e}")
+	sys.exit(1)
+print(f"JUDGED: {len(judged)} samples")
 sys.exit(0 if live else 1)
-'; then
-	echo "# VOID: cards dropped below l=$MIN_LIVE at some point in this capture" >> "$OUT"
-	echo "VOID (cards not live throughout) -- $OUT"; exit 4
+')
+JUDGE_RC=$?
+printf '%s\n' "$JUDGE_RESULT" | sed 's/^/# /' >> "$OUT"
+if [ $JUDGE_RC -ne 0 ]; then
+	echo "# VOID: cards dropped below l=$MIN_LIVE at some point inside the measured window (t>=${STEADY_FROM}s)" >> "$OUT"
+	echo "VOID (cards not live throughout the measured window) -- $OUT"; exit 4
 fi
-echo "# cards-live: l>=$MIN_LIVE throughout ($(printf '%s\n' "$CP_LINES" | wc -l) CP| samples)" >> "$OUT"
+echo "# cards-live: l>=$MIN_LIVE throughout the measured window (t>=${STEADY_FROM}s)" >> "$OUT"
 
 echo "# complete $(date -u +%FT%TZ): $n payload line(s)" >> "$OUT"
 echo "captured -> $OUT"

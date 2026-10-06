@@ -1,14 +1,14 @@
 #!/bin/bash
-# ota-verify-d97d6fe.sh -- OTA + reboot d97d6fe (WPE 2.54 with the damage-propagation fix as
-# default -- kiosk-launch now always passes --features=-UseDamagingInformationForCompositing) to
-# bench, verify buildinfo, confirm the boot counter was reset by rauc-mark-good, settle (up to
-# 20 min), confirm cog's argv carries the feature flag, sanity-check kiosk-drmgrab --report.
+# ota-verify-main-ab.sh -- OTA + reboot the X baseline image (built from origin/main as it
+# stood when the build started) to bench, verify buildinfo, confirm the boot counter was reset
+# by rauc-mark-good, settle (up to 20 min). No cog/WPE argv check -- this image runs bare Xorg
+# + surf, not cog.
 set -u
 T=${BENCH:?ssh target, e.g. root@<bench>}
 KSSH=/home/tjwise/meta-wisekiosk-185-s2/tools/kiosk-ssh.sh
-EXPECT=d97d6fe
+EXPECT=2cdd3b3
 
-cd /home/tjwise/meta-wisekiosk-185
+cd /home/tjwise/meta-wisekiosk-main-ab
 export DL_DIR=/home/tjwise/meta-wisekiosk/build/downloads
 export SSTATE_DIR=/home/tjwise/meta-wisekiosk/build/sstate-cache
 export PIPELINE_KEYS_DIR=/home/tjwise/meta-wisekiosk/local/keys
@@ -43,7 +43,7 @@ if ! printf '%s\n' "$COUNTERS" | grep -qE 'BOOT_[AB]_LEFT=3'; then
 fi
 
 echo "--- settle until screenshot mean >= 10 (up to 20 min) ---"
-SHOT=/tmp/claude-1000/-home-tjwise-meta-wisekiosk/76635847-5247-4809-8402-e1fe41739c68/scratchpad/burst/settle-d97d6fe.png
+SHOT=/tmp/claude-1000/-home-tjwise-meta-wisekiosk/76635847-5247-4809-8402-e1fe41739c68/scratchpad/burst/settle-main-ab.png
 rm -f "$SHOT"
 RC=1
 SETTLE_START=$(date +%s)
@@ -65,15 +65,4 @@ done
 echo "settle rc=$RC"
 [ $RC -eq 0 ] || { echo "ABORT: page did not settle within 20 min"; exit 1; }
 
-echo "--- confirm cog's argv carries the feature flag ---"
-ARGV=$("$KSSH" "$T" 'pid=$(pidof cog | cut -d" " -f1); [ -n "$pid" ] && tr "\0" " " < /proc/$pid/cmdline')
-echo "argv=[$ARGV]"
-case "$ARGV" in
-*"--features=-UseDamagingInformationForCompositing"*) echo "ARGV_MATCH" ;;
-*) echo "ABORT: cog argv does not carry the expected --features= flag"; exit 1 ;;
-esac
-
-echo "--- sanity: kiosk-drmgrab --report once ---"
-"$KSSH" "$T" 'kiosk-drmgrab --report /tmp/sanity.ppm; echo rc=$?; rm -f /tmp/sanity.ppm'
-
-echo OTA_VERIFY_D97D6FE_DONE
+echo OTA_VERIFY_MAIN_AB_DONE

@@ -4,9 +4,13 @@
 # accept one card legitimately closed for the night). Deploys cards-probe.js alone under
 # KIOSK_PROBE=1, polls the journal's latest CP| sample every 35s. No overall timeout: outside
 # park hours this can legitimately run for hours, and the rule is to wait for the next live
-# window, not to shorten it -- a heartbeat line every ~30 min makes a long wait visible rather
-# than a silent hang. kiosk.conf is backed up and restored (cmp-verified) on every exit,
-# interrupts included.
+# window, not to shorten it -- but it aborts (rather than waiting forever on a genuinely bad
+# board) if the kiosk service's NRestarts increases after the probe-deploy restart (a crash,
+# not a slow page) or if two kiosk-drmgrab frames 3s apart hash identical (FROZEN -- the same
+# two-frame check kiosk-render-check.sh uses, done directly here so a frequent poll doesn't
+# also pay for that tool's own 30-capture STALE series). A heartbeat line every 10 min makes a
+# long wait visible rather than a silent hang. kiosk.conf is backed up and restored
+# (cmp-verified) on every exit, interrupts included.
 set -u
 T=${1:?ssh-target}; MIN_LIVE=${2:-4}
 HERE=$(dirname "$(readlink -f "$0")")
@@ -44,12 +48,44 @@ printf '%s\n' "$DEPLOY_OUT"
 START=$(printf '%s\n' "$DEPLOY_OUT" | sed -n 's/^start-epoch \([0-9]*\)$/\1/p')
 [ -n "$START" ] || { echo "ABORT: no start-epoch read back"; exit 1; }
 
+BASELINE_RESTARTS=$("$KSSH" "$T" 'systemctl show -p NRestarts kiosk' | cut -d= -f2)
+echo "baseline NRestarts=$BASELINE_RESTARTS"
+
+frozen_check() {
+	# Two kiosk-drmgrab frames 3s apart, hashed. True (frozen) only if both captures
+	# succeeded -- a failed capture must never read as "frozen".
+	local out
+	out=$("$KSSH" "$T" 'sh -s' <<'REMOTE' 2>&1
+F=/tmp/poll-cards-frozen.$$
+kiosk-drmgrab "$F.1.ppm" > /dev/null 2>&1; rc1=$?
+sleep 3
+kiosk-drmgrab "$F.2.ppm" > /dev/null 2>&1; rc2=$?
+if [ $rc1 -eq 0 ] && [ $rc2 -eq 0 ] && [ -s "$F.1.ppm" ] && [ -s "$F.2.ppm" ]; then
+	h1=$(md5sum < "$F.1.ppm" | cut -d' ' -f1)
+	h2=$(md5sum < "$F.2.ppm" | cut -d' ' -f1)
+	[ "$h1" = "$h2" ] && echo FROZEN || echo ADVANCING
+else
+	echo CANNOT_TELL
+fi
+rm -f "$F.1.ppm" "$F.2.ppm"
+REMOTE
+)
+	printf '%s\n' "$out" | tail -1
+}
+
 echo "--- polling for c=4 l>=$MIN_LIVE (every 35s, no timeout) ---"
 elapsed=0
-heartbeat_at=1800
+heartbeat_at=600
 while :; do
 	sleep 35
 	elapsed=$((elapsed + 35))
+
+	RESTARTS=$("$KSSH" "$T" 'systemctl show -p NRestarts kiosk' | cut -d= -f2)
+	if [ "${RESTARTS:-0}" != "$BASELINE_RESTARTS" ]; then
+		echo "ABORT: kiosk NRestarts changed ($BASELINE_RESTARTS -> $RESTARTS) at t=${elapsed}s"
+		exit 1
+	fi
+
 	LAST=$("$KSSH" "$T" "journalctl -u kiosk --since @$START -o cat --no-pager | grep 'CP|' | tail -1")
 	if [ -z "$LAST" ]; then
 		echo "t=${elapsed}s: no CP| sample yet"
@@ -62,9 +98,15 @@ while :; do
 			break
 		fi
 	fi
+
 	if [ "$elapsed" -ge "$heartbeat_at" ]; then
-		echo "heartbeat: still waiting for cards to go live, elapsed ${elapsed}s"
-		heartbeat_at=$((heartbeat_at + 1800))
+		FROZEN=$(frozen_check)
+		echo "heartbeat t=${elapsed}s: still waiting for cards to go live, frozen_check=$FROZEN"
+		if [ "$FROZEN" = FROZEN ]; then
+			echo "ABORT: board reports FROZEN at t=${elapsed}s"
+			exit 1
+		fi
+		heartbeat_at=$((heartbeat_at + 600))
 	fi
 done
 

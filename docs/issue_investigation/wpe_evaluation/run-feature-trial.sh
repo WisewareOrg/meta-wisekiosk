@@ -70,14 +70,16 @@ fi
 
 echo "--- settle (mean>=10, up to 20 min) ---"
 RECOVERED=0
-for wait in 0 10 20 30 40 50 60 90 120 150 180 240 300 360 420 480 540 600 720 840 960 1080 1200; do
-	[ "$wait" -gt 0 ] && { rm -f "$SHOT"; sleep 10; }
+SETTLE_START=$(date +%s)
+for i in $(seq 1 120); do
+	if [ "$i" -gt 1 ]; then rm -f "$SHOT"; sleep 10; fi
 	SHOT_OUT=$(/home/tjwise/meta-wisekiosk-185-s2/tools/kiosk-screenshot.sh "$T" "$SHOT")
 	echo "$SHOT_OUT"
 	MEAN=$(printf '%s\n' "$SHOT_OUT" | sed -n 's/^min=.* mean=\([0-9.]*\)$/\1/p')
+	elapsed=$(( $(date +%s) - SETTLE_START ))
 	if awk -v m="${MEAN:-0}" 'BEGIN { exit !(m >= 10) }'; then
 		RECOVERED=1
-		echo "settled at t=${wait}s, mean=$MEAN"
+		echo "settled at t=${elapsed}s, mean=$MEAN"
 		break
 	fi
 done

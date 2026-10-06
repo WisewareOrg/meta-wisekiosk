@@ -47,19 +47,22 @@ echo "--- settle until screenshot mean >= 10 (up to 20 min) ---"
 SHOT=/tmp/claude-1000/-home-tjwise-meta-wisekiosk/76635847-5247-4809-8402-e1fe41739c68/scratchpad/burst/settle-5ec7f0e.png
 rm -f "$SHOT"
 RC=1
-for wait in 0 10 20 30 40 50 60 90 120 150 180 240 300 360 420 480 540 600 720 840 960 1080 1200; do
-	[ "$wait" -gt 0 ] && { rm -f "$SHOT"; sleep 10; }
+SETTLE_START=$(date +%s)
+for i in $(seq 1 120); do
+	if [ "$i" -gt 1 ]; then rm -f "$SHOT"; sleep 10; fi
 	shot=$(/home/tjwise/meta-wisekiosk-185-s2/tools/kiosk-screenshot.sh "$T" "$SHOT")
 	rc=$?
 	printf '%s\n' "$shot"
 	mean=$(printf '%s\n' "$shot" | sed -n 's/^min=.* mean=\([0-9.]*\)$/\1/p')
+	elapsed=$(( $(date +%s) - SETTLE_START ))
 	if [ $rc -eq 0 ] && awk -v m="${mean:-0}" 'BEGIN { exit !(m >= 10) }'; then
 		RC=0
-		echo "settled after ${wait}s, mean=$mean"
+		echo "settled after ${elapsed}s, mean=$mean"
 		break
 	fi
 	rm -f "$SHOT"
 done
+[ $RC -eq 0 ] || echo "did not settle within ${elapsed}s"
 echo "settle rc=$RC"
 [ $RC -eq 0 ] || { echo "ABORT: page did not settle within 20 min"; exit 1; }
 
