@@ -290,6 +290,27 @@ check "KIOSK_PROBE_SCRIPT: custom path used verbatim" "$OUT" \
 check "KIOSK_PROBE_SCRIPT: the default path is NOT also present" "$OUT" "" \
     "/home/root/kiosk-probe.js"
 
+# $PROBE is exec'd unquoted (deliberately, for the SAME reason $INSPECT is --
+# it holds two option tokens that must reach cog as two argv entries), but
+# that also re-splits KIOSK_PROBE_SCRIPT's own value on whitespace: a path
+# containing a space must still reach cog as ONE --user-script argument, not
+# be cut at the space with the remainder landing as a stray positional.
+check_probe_script_with_a_space_is_not_word_split() {
+    local out user_script npos value='/data/a b.js'
+    out=$(run KIOSK_PROBE=1 "KIOSK_PROBE_SCRIPT=$value")
+    user_script=$(field "$out" USER_SCRIPT)
+    npos=$(field "$out" NPOS)
+    if [ "$user_script" = "$value" ] && [ "$npos" = 1 ]; then
+        pass=$((pass + 1))
+    else
+        fail=$((fail + 1))
+        echo "FAIL  KIOSK_PROBE_SCRIPT with an embedded space must reach cog as one --user-script argument" >&2
+        echo "      user_script='$user_script' (want '$value')  npos=$npos (want 1)" >&2
+        echo "      full output: $out" >&2
+    fi
+}
+check_probe_script_with_a_space_is_not_word_split
+
 # --- KIOSK_INSPECTOR=1: bind address ----------------------------------------
 OUT=$(run KIOSK_INSPECTOR=1)
 check "KIOSK_INSPECTOR=1: WEBKIT_INSPECTOR_HTTP_SERVER bound to loopback:2999" "$OUT" \
