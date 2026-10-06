@@ -168,101 +168,21 @@ rc=$?
 if [ $rc -eq 2 ]; then pass=$((pass + 1)); else
     fail=$((fail + 1)); echo "FAIL  bad flag: expected rc=2, got rc=$rc" >&2; fi
 
-# --- --capture is unavailable on WPE, and must touch nothing ------------------------------
-# webkit://gpu aborts cog on WPE, so --capture cannot stage that URL and recover --
-# it must refuse unconditionally, rc 2, a message containing "unavailable", and kiosk.conf
-# must never be touched at all: no backup written, no byte of it changed, regardless of
-# what it contains.
-#
-# --capture has no sourceable library mode for this logic (it is inline in main(), gated by
-# MODE, not behind the KIOSK_GPU_CHECK_LIB guard), and it finds kiosk-ssh.sh/
-# kiosk-screenshot.sh relative to its OWN argv[0] ($HERE=$(dirname "$0")), not on PATH -- so
-# the only way to stub those two siblings without touching the real tools/ directory is to
-# run a byte-for-byte COPY of the real kiosk-gpu-check.sh from a scratch directory that also
-# holds the stubs. diff-checked against the real file on every run, so this is never a stale
-# or drifted copy standing in for the shipped logic.
-#
-# The stub kiosk-ssh.sh runs the SAME heredoc text locally under `sh -c`, with the one
-# hardcoded device path (/data/config/kiosk.conf) rewritten to a scratch file via $TTP_CONF
-# -- nothing else about PREP/RESTORE's own logic changes. systemctl is stubbed too (PREP's
-# last command is `systemctl restart kiosk`, whose exit code becomes the whole heredoc's,
-# and this host has no "kiosk" unit).
-make_capture_stub_bin() {
-    local dir=$1
-    cat > "$dir/kiosk-ssh.sh" << 'EOF'
-#!/bin/sh
-case "$2" in
-    *"sh -s")
-        script=$(cat)
-        script=$(printf '%s\n' "$script" | sed "s#/data/config/kiosk\\.conf#$TTP_CONF#g")
-        sh -c "$script"
-        ;;
-    "pgrep -x cog | wc -l")
-        echo 1
-        ;;
-    *)
-        sh -c "$2"
-        ;;
-esac
-EOF
-    cat > "$dir/kiosk-screenshot.sh" << 'EOF'
-#!/bin/sh
-exit 0
-EOF
-    cat > "$dir/systemctl" << 'EOF'
-#!/bin/sh
-exit 0
-EOF
-    chmod +x "$dir/kiosk-ssh.sh" "$dir/kiosk-screenshot.sh" "$dir/systemctl"
-}
-
-capture_scratch_setup() {
-    # capture_scratch_setup -> prints the scratch dir path. Caller rm -rf's it.
-    local scratch
-    scratch=$(mktemp -d)
-    cp "$HERE/kiosk-gpu-check.sh" "$scratch/kiosk-gpu-check.sh"
-    if ! diff -q "$HERE/kiosk-gpu-check.sh" "$scratch/kiosk-gpu-check.sh" > /dev/null 2>&1; then
-        echo "capture_scratch_setup: copy does not match the shipped file" >&2
-        exit 1
-    fi
-    make_capture_stub_bin "$scratch"
-    echo "$scratch"
-}
-
-check_capture_unavailable_leaves_kiosk_conf_untouched() {
-    local scratch conf orig out got_rc final backup_exists
-    scratch=$(capture_scratch_setup)
-    conf="$scratch/kiosk.conf"
-    # A representative kiosk.conf: just KIOSK_INSPECTOR=0. Content is otherwise
-    # irrelevant -- the point is that NOTHING about it is read for a URL swap.
-    printf 'KIOSK_INSPECTOR=0\n' > "$conf"
-    orig=$(cat "$conf")
-
-    out=$(TTP_CONF=$conf PATH="$scratch:$PATH" bash "$scratch/kiosk-gpu-check.sh" \
-        fakehost --capture 2>&1)
-    got_rc=$?
-    final=$(cat "$conf" 2>/dev/null || echo '<missing>')
-    [ -e "$conf.gpucheck-bak" ] && backup_exists=yes || backup_exists=no
-
-    local ok=1
-    [ "$got_rc" -eq 2 ] || ok=0
-    [[ "$out" == *"unavailable"* ]] || ok=0
-    [ "$final" = "$orig" ] || ok=0
-    [ "$backup_exists" = no ] || ok=0
-
-    if [ "$ok" -eq 1 ]; then
-        pass=$((pass + 1))
-    else
-        fail=$((fail + 1))
-        echo "FAIL  --capture on WPE: want rc=2, output containing 'unavailable', kiosk.conf" >&2
-        echo "      byte-identical, no backup written -- got rc=$got_rc, backup=$backup_exists," >&2
-        echo "      conf unchanged=$([ "$final" = "$orig" ] && echo yes || echo no)" >&2
-        echo "      output: $out" >&2
-    fi
-    rm -rf "$scratch"
-}
-
-check_capture_unavailable_leaves_kiosk_conf_untouched
+# --- --capture is removed, not just refused: a plain unknown-argument usage
+# error, exactly like --bogus above, naming --capture and carrying none of
+# the old WPE-specific "unavailable" wording. webkit://gpu needs desktop GL,
+# which the WPE image does not carry, and nothing else on the device exposes
+# that data -- there is no WPE path for --capture at all, so it is no longer
+# a recognised mode to refuse, just an argument main() does not know.
+out=$("$HERE/kiosk-gpu-check.sh" root@example --capture 2>&1)
+rc=$?
+if [ "$rc" -ne 0 ] && [[ "$out" == *"--capture"* ]] && [[ "$out" != *"unavailable"* ]]; then
+    pass=$((pass + 1))
+else
+    fail=$((fail + 1))
+    echo "FAIL  --capture: expected a non-zero usage error naming --capture, with no" >&2
+    echo "      WPE-unavailable wording -- got rc=$rc output: $out" >&2
+fi
 
 echo "kiosk-gpu-check: pass=$pass fail=$fail"
 [ "$fail" -eq 0 ]
