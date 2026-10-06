@@ -7,10 +7,12 @@ by hand -- not wired into just guards or ci-guards.sh.
 THE CONTRACT THIS PINS: a default WPE boot (no probe) emits two journal
 lines that bound ONE browser phase, "kiosk start -> page loaded" --
 systemd's "Started Kiosk browser..." (t_kiosk, unchanged from before) and
-cog's own "<URL> Loaded successfully." on WEBKIT_LOAD_FINISHED (t_loaded,
-replacing the old SURFMS-probe-specific source). The X/surf-era two-phase
-split ("Xorg -> surf exec", "surf -> load_finished") and its t_exec
-milestone are retired -- no label names X or surf.
+wpe-kiosk's own "WPP|loaded <uri>" on WEBKIT_LOAD_FINISHED (t_loaded,
+replacing cog's "<URL> Loaded successfully." now that wpe-kiosk is the
+shipped launcher -- meta-wisekiosk/recipes-browser/wpe-kiosk/files/
+wpe-kiosk.c). The X/surf-era two-phase split ("Xorg -> surf exec",
+"surf -> load_finished") and its t_exec milestone are retired -- no label
+names X or surf.
 
   (a) both lines present: the phase reports real wall/busy/idle figures
       spanning t_kiosk to t_loaded, not "unavailable".
@@ -26,10 +28,16 @@ milestone are retired -- no label names X or surf.
       browser entry at all); the five generic phases still report from
       DEFAULT_WINDOWS, unchanged.
 
-Journal line text for t_kiosk and t_loaded is copied verbatim from
-docs/issue_investigation/wpe_evaluation/s3-stall-correlation-run2.txt
-(lines 12 and 21); only the bracketed monotonic timestamp is changed, to
-land inside this fixture's small sample window.
+Journal line text for t_kiosk is copied verbatim from docs/issue_
+investigation/wpe_evaluation/s3-stall-correlation-run2.txt (line 12; only
+the bracketed monotonic timestamp is changed, to land inside this
+fixture's small sample window) -- that milestone's text and regex are
+unchanged by the cog -> wpe-kiosk switch. t_loaded's line cannot be
+verbatim from that capture: wpe-kiosk did not exist when it was taken, so
+it is reconstructed to match wpe-kiosk.c's own documented stderr format
+exactly (g_printerr("WPP|loaded %s\n", ...) on WEBKIT_LOAD_FINISHED),
+same journald process/pid shape and the same URL the retired cog fixture
+used.
 """
 import subprocess
 import sys
@@ -65,10 +73,13 @@ T_KIOSK_LINE = (
     "[    6.000000] <BENCH_HOSTNAME> systemd[1]: Started Kiosk browser: "
     "cog on WPE WebKit, straight to DRM, no display server.\n"
 )
-# Verbatim from s3-stall-correlation-run2.txt:21, timestamp changed to 7.0.
+# Reconstructed from wpe-kiosk.c's own "WPP|loaded <uri>" stderr format
+# (not a captured line -- wpe-kiosk did not exist when s3-stall-
+# correlation-run2.txt was taken), same pid and URL as the retired cog
+# fixture it replaces.
 T_LOADED_LINE = (
-    "[    7.000000] <BENCH_HOSTNAME> cog[14629]: "
-    "<http://localhost:8080/> Loaded successfully.\n"
+    "[    7.000000] <BENCH_HOSTNAME> wpe-kiosk[14629]: WPP|loaded "
+    "http://localhost:8080/\n"
 )
 
 
