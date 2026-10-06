@@ -950,6 +950,26 @@ else
         | sed 's/^/        /'
 fi
 
+# --- 20. the pipeline driver's device checks run from the tree under test -
+# tools/pipeline/run.sh orchestrates a merge-queue run and must exercise the
+# checked-out tree at $SHA, never the driver's own checkout -- the same
+# reason run.sh's own TREE_JUST runs `just` against $PIPELINE_TREE's
+# Justfile rather than the driver's. A kiosk-*-check invoked through $TOOLS
+# ($(dirname "$HERE"), the driver's own tools/) reads whatever check code
+# main happens to have, not the branch under test.
+runsh20="tools/pipeline/run.sh"
+if [ ! -f "$runsh20" ]; then
+    bad "guard 20: $runsh20 missing -- the pipeline driver's smoke-check wiring cannot be checked"
+else
+    bypass20=$(grep -nE '[$]\{?TOOLS\}?/kiosk-[a-z-]+check[a-z-]*\.sh' "$runsh20")
+    if [ -n "$bypass20" ]; then
+        bad "guard 20: $runsh20 invokes a kiosk-*-check through \$TOOLS (the driver's own checkout) instead of the tree under test:"
+        printf '%s\n' "$bypass20" | sed 's/^/        /'
+    else
+        ok "every kiosk-*-check in $runsh20 runs from the tree under test, not the driver's checkout"
+    fi
+fi
+
 if [ "$fail" -ne 0 ]; then
     printf '\nguards FAILED\n'
     exit 1

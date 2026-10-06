@@ -20,6 +20,7 @@ flock -n 9 || { echo "run.sh: pipeline lock held -- another run in progress" >&2
 unset KAS_BUILD_DIR
 PIPELINE_BUILD_DIR="$PIPELINE_TREE/build"
 TREE_JUST=(just --justfile "$PIPELINE_TREE/Justfile" --working-directory "$PIPELINE_TREE")
+CHECKS="$PIPELINE_TREE/tools"
 SSH_OPTS=(-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
 SSH_HOST="root@$PIPELINE_TARGET"
 export KIOSK_HOST="$SSH_HOST"
@@ -253,9 +254,9 @@ else
 fi
 
 RENDER_RC=0
-"$TOOLS/kiosk-render-check.sh" "$SSH_HOST" > "$RUN_DIR/render.log" 2>&1 || RENDER_RC=$?
+"$CHECKS/kiosk-render-check.sh" "$SSH_HOST" > "$RUN_DIR/render.log" 2>&1 || RENDER_RC=$?
 GPU_RC=0
-"$TOOLS/kiosk-gpu-check.sh" "$SSH_HOST" > "$RUN_DIR/gpu.log" 2>&1 || GPU_RC=$?
+"$CHECKS/kiosk-gpu-check.sh" "$SSH_HOST" > "$RUN_DIR/gpu.log" 2>&1 || GPU_RC=$?
 if [ "$RENDER_RC" -ne 0 ]; then
     tail -n 200 "$RUN_DIR/render.log" > "$RUN_DIR/render.tail.log"
     LOGARGS+=(--log "$RUN_DIR/render.tail.log")
