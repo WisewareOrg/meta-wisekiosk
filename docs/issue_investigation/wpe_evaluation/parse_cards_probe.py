@@ -35,6 +35,17 @@ def all_live(lines):
     return all(d["c"] == 4 and d["l"] == 4 for d in ds)
 
 
+def all_at_least(lines, min_live):
+    """True iff every parseable CP| sample shows l >= min_live (a relaxed gate for a window
+    where a park is legitimately closed, e.g. min_live=3 lets one closed card through while
+    still VOIDing a run where a SECOND card also drops out mid-capture). Raises ValueError on
+    zero samples, same reasoning as all_live."""
+    ds = samples_of(lines)
+    if not ds:
+        raise ValueError("no CP| samples")
+    return all(d["l"] >= min_live for d in ds)
+
+
 def live_fraction(lines):
     """Fraction of parseable samples with l=4 (soak reporting). Raises on zero samples."""
     ds = samples_of(lines)

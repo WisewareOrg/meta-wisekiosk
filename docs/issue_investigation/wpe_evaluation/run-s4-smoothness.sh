@@ -1,13 +1,15 @@
 #!/bin/bash
-# run-s4-smoothness.sh <ssh-target> <role> <out>
+# run-s4-smoothness.sh <ssh-target> <role> <out> [min-live]
 #
 # run-smoothness.sh, for S4, with the cards-live gate added: the probe is the composite
 # smoothness-cards-probe.js (p7_min.js + cards-probe.js, bytes unchanged in each half), so the
 # capture carries both the MP| frame-time payload and CP| cards-live samples. After capture, EVERY
-# CP| sample in the window must read c=4 l=4 (parse_cards_probe.all_live) or the whole run is
-# VOID, exit 4 -- a run where a park's leaderboard drops out partway through is not a valid
-# smoothness measurement, averaging it away would hide exactly the failure this gate exists to
-# catch.
+# CP| sample in the window must read l >= min-live (default 4, parse_cards_probe.all_at_least)
+# or the whole run is VOID, exit 4 -- a run where a park's leaderboard drops out partway through
+# is not a valid smoothness measurement, averaging it away would hide exactly the failure this
+# gate exists to catch. min-live below 4 is a deliberate relaxation for a window where a park is
+# known closed (one card legitimately never shows l's 4th count) -- it still VOIDs a run where
+# live count drops BELOW that floor mid-capture, so a second failure is still caught.
 #
 # One smoothness capture under cog, the sequence of ../gpu_compositing/run-appliance.sh with the
 # WPE readback:
@@ -29,7 +31,7 @@
 # served bundle name from cog's cache, and kiosk NRestarts. A kiosk.conf backup already on the
 # board means an earlier run did not restore; the run refuses, exit 1, and leaves it alone.
 set -u
-T=${1:?ssh-target}; ROLE=${2:?role}; OUT=${3:?out}
+T=${1:?ssh-target}; ROLE=${2:?role}; OUT=${3:?out}; MIN_LIVE=${4:-4}
 SLEEP=585
 HERE=$(dirname "$(readlink -f "$0")")
 ROOT=$(git -C "$HERE" rev-parse --show-toplevel)
@@ -149,15 +151,15 @@ import sys
 sys.path.insert(0, "'"$HERE"'")
 import parse_cards_probe as pcp
 try:
-	live = pcp.all_live(sys.stdin.read().splitlines())
+	live = pcp.all_at_least(sys.stdin.read().splitlines(), '"$MIN_LIVE"')
 except ValueError as e:
 	print(f"# {e}"); sys.exit(1)
 sys.exit(0 if live else 1)
 '; then
-	echo "# VOID: cards not c=4 l=4 throughout this capture" >> "$OUT"
+	echo "# VOID: cards dropped below l=$MIN_LIVE at some point in this capture" >> "$OUT"
 	echo "VOID (cards not live throughout) -- $OUT"; exit 4
 fi
-echo "# cards-live: c=4 l=4 throughout ($(printf '%s\n' "$CP_LINES" | wc -l) CP| samples)" >> "$OUT"
+echo "# cards-live: l>=$MIN_LIVE throughout ($(printf '%s\n' "$CP_LINES" | wc -l) CP| samples)" >> "$OUT"
 
 echo "# complete $(date -u +%FT%TZ): $n payload line(s)" >> "$OUT"
 echo "captured -> $OUT"

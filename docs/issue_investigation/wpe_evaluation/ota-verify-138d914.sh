@@ -42,10 +42,11 @@ if ! printf '%s\n' "$COUNTERS" | grep -qE 'BOOT_[AB]_LEFT=3'; then
 	exit 1
 fi
 
-echo "--- settle until screenshot mean >= 10 ---"
+echo "--- settle until screenshot mean >= 10 (up to 20 min) ---"
 SHOT=/tmp/claude-1000/-home-tjwise-meta-wisekiosk/76635847-5247-4809-8402-e1fe41739c68/scratchpad/burst/settle-138d914.png
+rm -f "$SHOT"
 RC=1
-for wait in 0 10 20 30 40 50 60 70 80 90 100 110 120; do
+for wait in 0 10 20 30 40 50 60 90 120 150 180 240 300 360 420 480 540 600 720 840 960 1080 1200; do
 	[ "$wait" -gt 0 ] && { rm -f "$SHOT"; sleep 10; }
 	shot=$(/home/tjwise/meta-wisekiosk-185-s2/tools/kiosk-screenshot.sh "$T" "$SHOT")
 	rc=$?

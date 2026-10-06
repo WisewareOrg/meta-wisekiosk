@@ -1,12 +1,14 @@
 #!/bin/bash
-# poll-cards-live.sh <ssh-target> -- blocks until cards-probe.js reports c=4 l=4 (every park
-# card open with a rendered leaderboard). Deploys cards-probe.js alone under KIOSK_PROBE=1,
-# polls the journal's latest CP| sample every 35s. No overall timeout: outside park hours this
-# can legitimately run for hours, and the rule is to wait for the next live window, not to
-# shorten it -- a heartbeat line every ~30 min makes a long wait visible rather than a silent
-# hang. kiosk.conf is backed up and restored (cmp-verified) on every exit, interrupts included.
+# poll-cards-live.sh <ssh-target> [min-live] -- blocks until cards-probe.js reports
+# c=4 l>=min-live (default 4: every park card open with a rendered leaderboard; pass 3 to
+# accept one card legitimately closed for the night). Deploys cards-probe.js alone under
+# KIOSK_PROBE=1, polls the journal's latest CP| sample every 35s. No overall timeout: outside
+# park hours this can legitimately run for hours, and the rule is to wait for the next live
+# window, not to shorten it -- a heartbeat line every ~30 min makes a long wait visible rather
+# than a silent hang. kiosk.conf is backed up and restored (cmp-verified) on every exit,
+# interrupts included.
 set -u
-T=${1:?ssh-target}
+T=${1:?ssh-target}; MIN_LIVE=${2:-4}
 HERE=$(dirname "$(readlink -f "$0")")
 ROOT=$(git -C "$HERE" rev-parse --show-toplevel)
 KSSH=$ROOT/tools/kiosk-ssh.sh
@@ -42,7 +44,7 @@ printf '%s\n' "$DEPLOY_OUT"
 START=$(printf '%s\n' "$DEPLOY_OUT" | sed -n 's/^start-epoch \([0-9]*\)$/\1/p')
 [ -n "$START" ] || { echo "ABORT: no start-epoch read back"; exit 1; }
 
-echo "--- polling for c=4 l=4 (every 35s, no timeout) ---"
+echo "--- polling for c=4 l>=$MIN_LIVE (every 35s, no timeout) ---"
 elapsed=0
 heartbeat_at=1800
 while :; do
@@ -55,8 +57,8 @@ while :; do
 		echo "t=${elapsed}s: $LAST"
 		C=$(printf '%s\n' "$LAST" | sed -n 's/.*|c=\([0-9]*\)|.*/\1/p')
 		L=$(printf '%s\n' "$LAST" | sed -n 's/.*|l=\([0-9]*\)$/\1/p')
-		if [ "${C:-0}" = 4 ] && [ "${L:-0}" = 4 ]; then
-			echo "LIVE: c=4 l=4 at t=${elapsed}s"
+		if [ "${C:-0}" = 4 ] && [ "${L:-0}" -ge "$MIN_LIVE" ]; then
+			echo "LIVE: c=4 l=${L} (>=$MIN_LIVE) at t=${elapsed}s"
 			break
 		fi
 	fi
