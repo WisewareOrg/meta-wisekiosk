@@ -17,7 +17,8 @@ Metrics, over motion intervals: presented_fps (motion intervals / motion seconds
 pct_under_50 (% of motion intervals under 50 ms), stalls, stall_rate (stalls per
 minute of the declared window) and max_stall_ms; plus engine, X or WPE.
 
-Exit 0 with one `M key=value` line per metric. Exit 2, printing each reason as
+Exit 0 with one `M key=value` line per metric. `M` lines in the record are skipped,
+so a record with the metrics appended reads the same. Exit 2, printing each reason as
 "could not tell: <reason>", when the record is incomplete or malformed, the mode is
 not 1280x720, fewer than 90 % of the samples the pacing should give are present,
 motion covers under half the window, the provenance block is missing a field, the
@@ -50,7 +51,7 @@ def parse(lines):
     header, prov, samples, reasons = {}, {}, [], []
     for n, line in enumerate(lines, 1):
         kind, _, rest = line.rstrip("\n").partition(" ")
-        if kind == "" and rest == "":
+        if (kind == "" and rest == "") or kind == "M":
             continue
         if kind == "S":
             m = SAMPLE.fullmatch(rest)
