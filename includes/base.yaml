@@ -68,13 +68,12 @@ repos:
       meta-networking:
       meta-python:
 
-  # wpewebkit, cog, libwpe and wpebackend-fdo; none is in poky or meta-oe at
-  # scarthgap. Its layer.conf sets BB_DANGLINGAPPENDS_WARNONLY globally, which
-  # kiosk-zero-w.yaml's `wpe` block sets back to "false".
+  # wpewebkit and cog, which neither poky nor meta-oe carries, and the libwpe
+  # and wpebackend-fdo versions they build against.
   meta-webkit:
     url: "https://github.com/Igalia/meta-webkit.git"
-    branch: scarthgap
-    commit: 2d29669a3d78e462276044f3f8bde0e4dec33696
+    branch: scarthgap-latest
+    commit: c9d5d52a8cb91d530557930e2e46e9c53576b7c8
     path: "sources/meta-webkit"
 
   meta-arm:
