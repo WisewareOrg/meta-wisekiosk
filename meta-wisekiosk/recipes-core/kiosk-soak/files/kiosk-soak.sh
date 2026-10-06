@@ -11,7 +11,7 @@
 #   * busybox has no `ps -eo`, no `df --output`, and its `free -m` reports KB
 #     regardless of the flag. Memory is divided to MB explicitly so the line
 #     format stays byte-comparable with the old log.
-#   * the launcher runs a bare `cog`, not an absolute path, so the browser is
+#   * the launcher runs a bare `wpe-kiosk`, not an absolute path, so the browser is
 #     resolved with command -v rather than by grepping for a path. The principle
 #     is unchanged: ask the launcher, never hardcode. A sampler that names one
 #     browser records zeros for the other and calls it data.
@@ -21,7 +21,7 @@
 #              samples either side are not one series
 #   pid        main browser pid. A change means the browser restarted; `none`
 #              means it was not running at that sample
-#   nproc      processes in the browser family (cog plus its WPE processes)
+#   nproc      processes in the browser family (wpe-kiosk plus its WPE processes)
 #   rss_total  RSS across that whole family, and the memory number that matters
 #              -- the renderer is a separate process and holds most of it
 #   thr        vcgencmd get_throttled. Anything but 0x0 means it throttled at
@@ -41,10 +41,10 @@
 set -u
 
 # A browser-family process, by its /proc comm (at most 15 characters, so a
-# prefix): cog and the WPE processes it spawns.
+# prefix): wpe-kiosk and the WPE processes it spawns.
 is_browser_proc() {
   case "$1" in
-    WPE*|cog) return 0 ;;
+    WPE*|wpe-kiosk) return 0 ;;
   esac
   return 1
 }
@@ -108,7 +108,7 @@ fi
 # resolve it on PATH rather than looking for an absolute path.
 CMD=$(grep -oE '^[[:space:]]*exec[[:space:]]+[A-Za-z0-9._-]+' "$LAUNCHER" 2>/dev/null \
       | head -n1 | awk '{print $2}')
-BIN=$(command -v "${CMD:-cog}" 2>/dev/null)
+BIN=$(command -v "${CMD:-wpe-kiosk}" 2>/dev/null)
 COMM=$(basename "${BIN:-unknown}" | cut -c1-15)
 
 PID=$(pgrep -x "$COMM" 2>/dev/null | head -n1)

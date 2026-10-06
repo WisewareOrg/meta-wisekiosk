@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Checks that a cog/WPE process holds /dev/dri open with vc4 or v3d mapped.
+# Checks that a wpe-kiosk/WPE process holds /dev/dri open with vc4 or v3d mapped.
 #
 #   tools/kiosk-gpu-check.sh root@<host>    read-only
 #
@@ -9,14 +9,14 @@ set -uo pipefail
 
 # The browser family by process name. The device matches /proc comm, which holds
 # at most 15 characters, so each name is compared truncated to 15.
-KIOSK_BROWSER_PROCS='WPEWebProcess|WPENetworkProcess|WPEGPUProcess|cog'
+KIOSK_BROWSER_PROCS='WPEWebProcess|WPENetworkProcess|WPEGPUProcess|wpe-kiosk'
 
 gpu_verdict() {
     local probe=$1 procs gpu hw
 
     procs=$(printf '%s\n' "$probe" | grep -c '^proc ')
     if [ "$procs" -eq 0 ]; then
-        echo "no cog or WPE process on the device -- nothing to measure, not a pass" >&2
+        echo "no wpe-kiosk or WPE process on the device -- nothing to measure, not a pass" >&2
         return 2
     fi
 
