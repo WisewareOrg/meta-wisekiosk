@@ -80,23 +80,30 @@ record above. rc 2, additionally, in ANY of:
         kiosk_conf, browser_procs, crtc_state, kiosk_nrestarts_start,
         kiosk_nrestarts_end, boot_id, boot_id_end, uptime_s, screenshot -- plus
         proc_cmdline_<launcher> and proc_environ_<launcher>, where <launcher> is
-        NOT a fixed name: it is "surf" when browser_procs names Xorg, or
+        NOT a fixed name: it is "surf" when browser_procs names the X server, or
         "wpe-kiosk" when browser_procs names wpe-kiosk (section "Driver" point 2:
         "for the browser launcher (surf or wpe-kiosk)");
       - kiosk_nrestarts_end != kiosk_nrestarts_start, or boot_id_end != boot_id
         (section "Driver" point 4: "A restart or reboot during the run -> rc 2");
-      - browser_procs names neither Xorg nor wpe-kiosk, or names BOTH -- the
-        engine cannot be derived either way.
-    Otherwise rc 0, reasons == [], the metrics above, AND "engine": "X" (Xorg) or
-    "WPE" (wpe-kiosk) are printed/returned. "engine" is this test's own addition
-    to analyze()'s output, proposed here for review along with the rest of the
+      - browser_procs names neither the X server nor wpe-kiosk, or names BOTH --
+        the engine cannot be derived either way.
+    Otherwise rc 0, reasons == [], the metrics above, AND "engine": "X" or "WPE"
+    (wpe-kiosk) are printed/returned. "engine" is this test's own addition to
+    analyze()'s output, proposed here for review along with the rest of the
     shape above, per section "Driver" point 6/Output ("Engine is derived (X if
-    Xorg is running, WPE if wpe-kiosk is)").
+    Xorg is running, WPE if wpe-kiosk is)" -- the spec's own wording, but amended
+    here per a bench measurement (team-lead, 2026-10-06): the X image's own
+    process is `xinit`/`X`/`surf`/`WebKitNetworkPr`/`WebKitWebProces` (comm
+    truncated to 15 chars) -- the X SERVER's comm is the literal string "X", not
+    "Xorg", so browser_procs is matched on exact comm "X", not a substring).
   CLI: `kiosk-framepace.py <record>`. Prints the metrics (rc 0) or, following this
   tool family's own kiosk-perf-verdict.py convention, each reason prefixed "could
   not tell: " (rc 2), then exits with rc. The exact stdout wording beyond that is
   this test's own design, not spec-fixed -- only rc and substantive content are
-  checked below.
+  checked below. The printed metrics are `M key=value` lines, one per metric; a
+  record with that CLI's own M lines appended re-analyzes to the IDENTICAL
+  result (M lines are parsed and skipped), while any other unrecognised line
+  kind is not -- rc 2.
 
 Fixtures are synthetic device-tool records built from first principles (a sample
 list derived from a small (motion|hold) segment spec, see gen_raw_samples below),
@@ -258,9 +265,10 @@ def p_lines(engine="X", omit=(), blank=(), nrestarts_end=None, boot_id_end=None,
     4 and 5): one `P key=value` line per field, read from the device around the
     framepace run.
 
-    engine picks which of Xorg/wpe-kiosk browser_procs names (and so which
-    launcher's proc_cmdline_/proc_environ_ keys this block carries -- "surf" for
-    X, "wpe-kiosk" for WPE itself); "neither"/"both" make browser_procs
+    engine picks which of the X server (exact comm "X", a bench measurement,
+    not "Xorg")/wpe-kiosk browser_procs names (and so which launcher's
+    proc_cmdline_/proc_environ_ keys this block carries -- "surf" for X,
+    "wpe-kiosk" for WPE itself); "neither"/"both" make browser_procs
     deliberately ambiguous and carry NO launcher keys at all, since nothing then
     names which one would even be required.
 
@@ -274,13 +282,16 @@ def p_lines(engine="X", omit=(), blank=(), nrestarts_end=None, boot_id_end=None,
     boot_id = "4c9e6b1a-boot"
     nrestarts_start = "3"
     if engine == "X":
-        browser_procs, launcher = "101:Xorg,102:surf,103:WebKitWebProcess", "surf"
+        # Bench measurement (team-lead, 2026-10-06): the X image's processes
+        # are xinit, X (the X server's comm -- "X", not "Xorg"), surf,
+        # WebKitNetworkPr, WebKitWebProces (comm truncated to 15 chars).
+        browser_procs, launcher = "100:xinit,101:X,102:surf,103:WebKitWebProces,104:WebKitNetworkPr", "surf"
     elif engine == "WPE":
         browser_procs, launcher = "150:wpe-kiosk,151:WebKitWebProcess", "wpe-kiosk"
     elif engine == "neither":
         browser_procs, launcher = "900:bash", None
     elif engine == "both":
-        browser_procs, launcher = "101:Xorg,150:wpe-kiosk", None
+        browser_procs, launcher = "101:X,150:wpe-kiosk", None
     else:
         raise ValueError(engine)
 
@@ -538,19 +549,43 @@ def p_block_cases():
     case("boot_id mismatch: rc 2", got["rc"], 2)
     case("boot_id mismatch: reasons non-empty", len(got["reasons"]) > 0, True)
 
-    # browser_procs names neither Xorg nor wpe-kiosk: engine cannot be derived.
+    # browser_procs names neither the X server (comm "X") nor wpe-kiosk:
+    # engine cannot be derived.
     lines, seconds, raw = build_record(base_spec, p_kwargs={"engine": "neither"})
     got = fp.analyze(lines)
     case("engine ambiguous (neither): rc 2", got["rc"], 2)
     case("engine ambiguous (neither): reasons non-empty", len(got["reasons"]) > 0, True)
 
-    # browser_procs names BOTH Xorg and wpe-kiosk: engine cannot be derived
-    # either -- a different failure mode than "neither" (a buggy "elif" chain
-    # that just checks Xorg first would read this as X, not ambiguous).
+    # browser_procs names BOTH the X server and wpe-kiosk: engine cannot be
+    # derived either -- a different failure mode than "neither" (a buggy
+    # "elif" chain that just checks X first would read this as X, not
+    # ambiguous).
     lines, seconds, raw = build_record(base_spec, p_kwargs={"engine": "both"})
     got = fp.analyze(lines)
     case("engine ambiguous (both): rc 2", got["rc"], 2)
     case("engine ambiguous (both): reasons non-empty", len(got["reasons"]) > 0, True)
+
+
+# ------------------------------------------------------------------- M lines
+
+def m_line_cases():
+    # kiosk-framepace.py's own CLI appends one `M key=value` line per metric
+    # to a complete record (its docstring: "a record with the metrics
+    # appended reads the same"). Build those M lines exactly as that CLI
+    # does, append them to an already-valid record, and re-analyze: the
+    # result must come back identical -- M lines are parsed and skipped.
+    base_spec = [("motion", 120, DT)]
+    lines, seconds, raw = build_record(base_spec)
+    result = fp.analyze(lines)
+    m_lines = [f"M {k}={v:.3f}" if isinstance(v, float) else f"M {k}={v}"
+               for k, v in result.items() if k not in ("rc", "reasons")]
+    case("M lines are skipped on re-analysis: identical result",
+         fp.analyze(lines + m_lines), result)
+
+    # Any OTHER unrecognised line is not silently skipped like M -- rc 2.
+    got = fp.analyze(lines + ["Q foo=bar"])
+    case("an unrecognised line: rc 2", got["rc"], 2)
+    case("an unrecognised line: reasons non-empty", len(got["reasons"]) > 0, True)
 
 
 # ------------------------------------------------------------------- CLI
@@ -582,6 +617,7 @@ def main() -> int:
     rc0_cases()
     rc2_cases()
     p_block_cases()
+    m_line_cases()
     with tempfile.TemporaryDirectory() as tmp:
         cli_cases(tmp)
     print(f"\npass={len(PASS)} fail={len(FAIL)}")
