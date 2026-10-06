@@ -107,8 +107,8 @@ patched there.
 Upstream's `autonomos.conf` had `DISTRO_FEATURES:remove = " x11 wayland"`. BitBake applies every
 `:remove` **after** every `:append`, no matter which file or layer they came from. So there is no
 downstream file — not a bbappend, not an image recipe, not `local.conf` — that can put `x11` back.
-A kiosk needs x11. The removal has to become conditional where it is written, which means changing
-upstream's file, which means a patch.
+x11 stays in `DISTRO_FEATURES` pending #196 WPE build-time levers. The removal has to become
+conditional where it is written, which means changing upstream's file, which means a patch.
 
 ### Why patch 0002 cannot be a bbappend
 
