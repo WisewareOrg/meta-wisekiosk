@@ -71,7 +71,27 @@ Processing, straight from the spec:
       - motion seconds (summed motion-interval duration) is under 50 % of the
         declared window;
       - the declared mode is not exactly 1280x720 (any refresh).
-    Otherwise rc 0, reasons == [], and the metrics above are printed/returned.
+
+A record is actually `P key=value` lines (the driver's provenance block,
+framepace-spec.md section "Driver", points 2/4/5) followed by the framepace
+record above. rc 2, additionally, in ANY of:
+      - a required `P` key is missing OR present with an empty value. Required:
+        tools_commit, host_role, buildinfo_wisekiosk, slot, kiosk_conf_sha256,
+        kiosk_conf, browser_procs, crtc_state, kiosk_nrestarts_start,
+        kiosk_nrestarts_end, boot_id, boot_id_end, uptime_s, screenshot -- plus
+        proc_cmdline_<launcher> and proc_environ_<launcher>, where <launcher> is
+        NOT a fixed name: it is "surf" when browser_procs names Xorg, or
+        "wpe-kiosk" when browser_procs names wpe-kiosk (section "Driver" point 2:
+        "for the browser launcher (surf or wpe-kiosk)");
+      - kiosk_nrestarts_end != kiosk_nrestarts_start, or boot_id_end != boot_id
+        (section "Driver" point 4: "A restart or reboot during the run -> rc 2");
+      - browser_procs names neither Xorg nor wpe-kiosk, or names BOTH -- the
+        engine cannot be derived either way.
+    Otherwise rc 0, reasons == [], the metrics above, AND "engine": "X" (Xorg) or
+    "WPE" (wpe-kiosk) are printed/returned. "engine" is this test's own addition
+    to analyze()'s output, proposed here for review along with the rest of the
+    shape above, per section "Driver" point 6/Output ("Engine is derived (X if
+    Xorg is running, WPE if wpe-kiosk is)").
   CLI: `kiosk-framepace.py <record>`. Prints the metrics (rc 0) or, following this
   tool family's own kiosk-perf-verdict.py convention, each reason prefixed "could
   not tell: " (rc 2), then exits with rc. The exact stdout wording beyond that is
@@ -230,12 +250,73 @@ def trailer_lines(n_samples, missed=0, end="2026-10-06T00:00:08Z", cpu_ms=40, om
             f"H samples={n_samples} missed={missed} end={end}"]
 
 
+def p_lines(engine="X", omit=(), blank=(), nrestarts_end=None, boot_id_end=None):
+    """The driver's provenance block (framepace-spec.md section "Driver", points 2,
+    4 and 5): one `P key=value` line per field, read from the device around the
+    framepace run.
+
+    engine picks which of Xorg/wpe-kiosk browser_procs names (and so which
+    launcher's proc_cmdline_/proc_environ_ keys this block carries -- "surf" for
+    X, "wpe-kiosk" for WPE itself); "neither"/"both" make browser_procs
+    deliberately ambiguous and carry NO launcher keys at all, since nothing then
+    names which one would even be required.
+
+    omit drops a key outright; blank keeps it present with an empty value --
+    both must read rc 2, "missing or empty". nrestarts_end/boot_id_end default to
+    matching their start value (no restart/reboot during the run); passing a
+    different value is how the mismatch cases below are built.
+    """
+    boot_id = "4c9e6b1a-boot"
+    nrestarts_start = "3"
+    if engine == "X":
+        browser_procs, launcher = "101:Xorg,102:surf,103:WebKitWebProcess", "surf"
+    elif engine == "WPE":
+        browser_procs, launcher = "150:wpe-kiosk,151:WebKitWebProcess", "wpe-kiosk"
+    elif engine == "neither":
+        browser_procs, launcher = "900:bash", None
+    elif engine == "both":
+        browser_procs, launcher = "101:Xorg,150:wpe-kiosk", None
+    else:
+        raise ValueError(engine)
+
+    fields = [
+        ("tools_commit", "a1b2c3d"),
+        ("host_role", "bench"),
+        ("buildinfo_wisekiosk", "meta-wisekiosk a1b2c3d 2026-10-06"),
+        ("slot", "A"),
+        ("kiosk_conf_sha256", "a" * 64),
+        ("kiosk_conf", "aGVsbG8="),
+        ("browser_procs", browser_procs),
+        ("crtc_state", "plane-0: fb=42  crtc-0: mode=1280x720"),
+        ("kiosk_nrestarts_start", nrestarts_start),
+        ("kiosk_nrestarts_end", nrestarts_end if nrestarts_end is not None else nrestarts_start),
+        ("boot_id", boot_id),
+        ("boot_id_end", boot_id_end if boot_id_end is not None else boot_id),
+        ("uptime_s", "12345"),
+        ("screenshot", "sha256:" + "f" * 64),
+    ]
+    if launcher is not None:
+        fields += [(f"proc_cmdline_{launcher}", "L3Vzci9iaW4v" + launcher),
+                   (f"proc_environ_{launcher}", "SE9NRT0vcm9vdA==")]
+
+    lines = []
+    for k, v in fields:
+        if k in omit:
+            continue
+        lines.append(f"P {k}={v if k not in blank else ''}")
+    return lines
+
+
 def build_record(spec, seconds=None, mode=MODE, pacing="vblank", omit_header=(),
-                  omit_end=False, sample_lines=None):
-    """Assembles a full record's lines. seconds defaults to the ROUNDED actual
-    elapsed span of the generated samples (declared window == observed window, so
-    a test is never accidentally exercising the "declared vs observed" question
-    this fixture is not about)."""
+                  omit_end=False, sample_lines=None, p_kwargs=None):
+    """Assembles a full record's lines: a provenance (P) block, then the
+    framepace record. seconds defaults to the ROUNDED actual elapsed span of the
+    generated samples (declared window == observed window, so a test is never
+    accidentally exercising the "declared vs observed" question this fixture is
+    not about). p_kwargs defaults to a fully valid X-engine P block, so every
+    case that is NOT about the P block itself still gets rc 0 (or rc 2 for its
+    own, isolated, framepace-side reason) through it unmolested; the provenance
+    cases below override p_kwargs to inject the one defect under test."""
     if sample_lines is None:
         sample_lines, raw = gen_raw_samples(spec)
     else:
@@ -243,7 +324,8 @@ def build_record(spec, seconds=None, mode=MODE, pacing="vblank", omit_header=(),
     if seconds is None:
         last_t = int(sample_lines[-1].split()[1])
         seconds = round(last_t / 1e9)
-    lines = (header_lines(seconds, mode=mode, pacing=pacing, omit=omit_header)
+    lines = (p_lines(**(p_kwargs if p_kwargs is not None else {"engine": "X"}))
+             + header_lines(seconds, mode=mode, pacing=pacing, omit=omit_header)
              + sample_lines
              + trailer_lines(len(sample_lines), omit_end=omit_end))
     return lines, seconds, raw
@@ -381,6 +463,78 @@ def rc2_cases():
     case("wrong mode: reasons non-empty", len(got["reasons"]) > 0, True)
 
 
+# ------------------------------------------------------------ provenance (P) block
+
+def p_block_cases():
+    base_spec = [("motion", 120, DT)]
+
+    # rc 0, engine == "X": a fully valid P block (surf launcher) plus the proven
+    # rc-0 framepace part.
+    lines, seconds, raw = build_record(base_spec, p_kwargs={"engine": "X"})
+    got = fp.analyze(lines)
+    case("valid P block (X engine): rc 0", got["rc"], 0)
+    case("valid P block (X engine): engine == 'X'", got.get("engine"), "X")
+
+    # rc 0, engine == "WPE": same framepace part, a WPE-shaped P block instead.
+    lines, seconds, raw = build_record(base_spec, p_kwargs={"engine": "WPE"})
+    got = fp.analyze(lines)
+    case("valid P block (WPE engine): rc 0", got["rc"], 0)
+    case("valid P block (WPE engine): engine == 'WPE'", got.get("engine"), "WPE")
+
+    # A required, engine-independent P key missing outright.
+    lines, seconds, raw = build_record(
+        base_spec, p_kwargs={"engine": "X", "omit": ("tools_commit",)})
+    got = fp.analyze(lines)
+    case("missing P key (tools_commit): rc 2", got["rc"], 2)
+    case("missing P key (tools_commit): reasons non-empty", len(got["reasons"]) > 0, True)
+    case("missing P key (tools_commit): no engine key on rc 2", "engine" in got, False)
+
+    # The same key present but empty -- a different failure mode than outright
+    # absence (a buggy "key in dict" check without a value check would miss this).
+    lines, seconds, raw = build_record(
+        base_spec, p_kwargs={"engine": "X", "blank": ("host_role",)})
+    got = fp.analyze(lines)
+    case("empty P key (host_role): rc 2", got["rc"], 2)
+    case("empty P key (host_role): reasons non-empty", len(got["reasons"]) > 0, True)
+
+    # The DYNAMIC key proc_cmdline_<launcher>: missing for the launcher the
+    # CURRENT engine (X -> surf) actually names, not a fixed literal key.
+    lines, seconds, raw = build_record(
+        base_spec, p_kwargs={"engine": "X", "omit": ("proc_cmdline_surf",)})
+    got = fp.analyze(lines)
+    case("missing dynamic P key (proc_cmdline_surf): rc 2", got["rc"], 2)
+    case("missing dynamic P key (proc_cmdline_surf): reasons non-empty",
+         len(got["reasons"]) > 0, True)
+
+    # kiosk_nrestarts_end != kiosk_nrestarts_start: a restart happened mid-run.
+    lines, seconds, raw = build_record(
+        base_spec, p_kwargs={"engine": "X", "nrestarts_end": "4"})
+    got = fp.analyze(lines)
+    case("nrestarts mismatch: rc 2", got["rc"], 2)
+    case("nrestarts mismatch: reasons non-empty", len(got["reasons"]) > 0, True)
+
+    # boot_id_end != boot_id: a reboot happened mid-run.
+    lines, seconds, raw = build_record(
+        base_spec, p_kwargs={"engine": "X", "boot_id_end": "a-different-boot"})
+    got = fp.analyze(lines)
+    case("boot_id mismatch: rc 2", got["rc"], 2)
+    case("boot_id mismatch: reasons non-empty", len(got["reasons"]) > 0, True)
+
+    # browser_procs names neither Xorg nor wpe-kiosk: engine cannot be derived.
+    lines, seconds, raw = build_record(base_spec, p_kwargs={"engine": "neither"})
+    got = fp.analyze(lines)
+    case("engine ambiguous (neither): rc 2", got["rc"], 2)
+    case("engine ambiguous (neither): reasons non-empty", len(got["reasons"]) > 0, True)
+
+    # browser_procs names BOTH Xorg and wpe-kiosk: engine cannot be derived
+    # either -- a different failure mode than "neither" (a buggy "elif" chain
+    # that just checks Xorg first would read this as X, not ambiguous).
+    lines, seconds, raw = build_record(base_spec, p_kwargs={"engine": "both"})
+    got = fp.analyze(lines)
+    case("engine ambiguous (both): rc 2", got["rc"], 2)
+    case("engine ambiguous (both): reasons non-empty", len(got["reasons"]) > 0, True)
+
+
 # ------------------------------------------------------------------- CLI
 
 def cli_cases(tmp_path):
@@ -407,6 +561,7 @@ def cli_cases(tmp_path):
 def main() -> int:
     rc0_cases()
     rc2_cases()
+    p_block_cases()
     with tempfile.TemporaryDirectory() as tmp:
         cli_cases(tmp)
     print(f"\npass={len(PASS)} fail={len(FAIL)}")
