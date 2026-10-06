@@ -1,6 +1,6 @@
 /* Load one URL fullscreen through WebKit's WPE Platform DRM backend.
  *
- *   wpe-kiosk-launcher URL
+ *   wpe-kiosk URL
  *
  * Connects the default DRM device and prints one stderr line,
  * "WPP|display=<type> mode=<w>x<h>@<mHz> scale=<scale>", from the view's
