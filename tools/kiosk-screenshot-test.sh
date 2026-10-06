@@ -135,5 +135,36 @@ check "stats step failing: never read as BLANK" "$GOT3" "" "BLANK"
 check "stats step failing: a message names the stats failure" "$GOT3" \
     "could not read capture statistics"
 
+# Case 4: the stats call exits 0 but prints nothing -- a successful run
+# that read no statistics at all. The exit-status check alone cannot see
+# this; the same empty MIN/MAX/MEAN, same false BLANK risk, is reachable
+# this way too.
+stats_empty_dir="$STUB/stats-empty"
+mkdir -p "$stats_empty_dir"
+ln -s "$STUB/ssh" "$stats_empty_dir/ssh"
+ln -s "$STUB/scp" "$stats_empty_dir/scp"
+cat > "$stats_empty_dir/magick" << 'EOF'
+#!/usr/bin/env bash
+for a in "$@"; do
+    [ "$a" = "-format" ] && exit 0
+done
+: > "${@: -1}"
+EOF
+chmod +x "$stats_empty_dir/magick"
+OUT4="$STUB/out4.png"
+GOT4=$(env -i PATH="$stats_empty_dir:/usr/bin:/bin" HOME="$STUB" \
+    bash "$TOOL" root@kiosk-screenshot-test.invalid "$OUT4" 2>&1)
+RC4=$?
+if [ "$RC4" -ne 0 ]; then
+    pass=$((pass + 1))
+else
+    fail=$((fail + 1))
+    echo "FAIL  stats step returning empty must not exit 0" >&2
+    echo "      got rc=$RC4" >&2
+fi
+check "stats step empty: never read as BLANK" "$GOT4" "" "BLANK"
+check "stats step empty: a message names the stats failure" "$GOT4" \
+    "could not read capture statistics"
+
 echo "kiosk-screenshot: pass=$pass fail=$fail"
 [ "$fail" -eq 0 ]
