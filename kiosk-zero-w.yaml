@@ -52,16 +52,12 @@ local_conf_header:
     PREFERRED_VERSION_linux-raspberrypi = "6.12.%"
 
   # vc4graphics is in MACHINE_FEATURES (rpi-base.inc gates it on
-  # DISABLE_VC4GRAPHICS, which this file does not set), so the image takes the
-  # vc4 path: mesa for virtual/egl, xf86-video-modesetting instead of
-  # xf86-video-fbdev, and xserver-xorg-extension-glx in the X server. That is
-  # what gives the X server glamor -- GPU-accelerated 2D for the display path,
-  # confirmed enabled on the board with no software rasteriser mapped. It is
-  # load-bearing for the throughput the panel reaches. WPE WebKit composites
-  # every frame on the GPU through mesa's GLES; what compositing costs on this
-  # SoC is in docs/issue_investigation/gpu_compositing/README.md under "Engine
-  # levers, measured and exhausted". The `graphics` block carries the overlay and the
-  # mesa pin that go with it; kiosk-launch carries the renderer and the mode.
+  # DISABLE_VC4GRAPHICS, which this file does not set), so mesa provides
+  # virtual/egl and virtual/libgles2 (rpi-default-providers.inc): the EGL and
+  # GLES WPE WebKit composites every frame through on the GPU. What compositing
+  # costs on this SoC is in docs/issue_investigation/gpu_compositing/README.md
+  # under "Engine levers, measured and exhausted". The `graphics` block carries
+  # the overlay and the mesa pin that go with it; kiosk-launch carries the mode.
   display: |
     # console=tty1 ONLY. The kiosk panel is the console (owner, 2026-08-12) --
     # this unit IS a display, so kernel output always has a screen, and there is
@@ -102,9 +98,9 @@ local_conf_header:
   # meta-wisekiosk/recipes-bsp/bootfiles/rpi-config_%.bbappend are the live
   # mechanism: hdmi_force_hotplug asserts a connector the panel behind the glass
   # is too slow to answer for, and hdmi_group/hdmi_mode name the mode. The kiosk
-  # then runs at 1280x720, set by xrandr in kiosk-launch -- 2.25x fewer pixels is
-  # the one display-stack lever that moves the during-motion framerate, per the
-  # same section.
+  # then runs at 1280x720, set by COG_PLATFORM_DRM_VIDEO_MODE in kiosk-launch --
+  # 2.25x fewer pixels is the one display-stack lever that moves the
+  # during-motion framerate, per the same section.
   #
   # mesa is pinned to poky's 24.0.7. meta-raspberrypi ships mesa 25.1.6, which
   # inherits the rust class -- a rust toolchain build on armv6 nothing else in
@@ -161,9 +157,8 @@ local_conf_header:
     # default list. Recipe: meta-wisekiosk/recipes-graphics/woff2, which
     # shadows meta-webkit's copy at layer priority 10.
     PACKAGECONFIG:append:pn-wpewebkit = " woff2"
-    # imagemagick is here for `import -window root`, the only screenshot path
-    # this image has: fbgrab was dropped on a misdiagnosis and never restored.
-    # See docs/issue_investigation/screenshot_capture_fbgrab/README.md.
+    # imagemagick: tools/kiosk-render-check.sh runs `identify` on the device
+    # for its uniform-region test.
     IMAGE_INSTALL:append = " kiosk-session kiosk-soak kiosk-journal kiosk-timesync-persist kiosk-hardware kiosk-netcheck kiosk-bootprof zram wpa-supplicant-service ttf-roboto imagemagick tzdata-core tzdata-americas"
 
     # kiosk-drmgrab: scanout capture straight from DRM, independent of the
@@ -200,7 +195,7 @@ local_conf_header:
     #
     # It is also cheap. systemd-serialgetty is its OWN recipe, not part of
     # systemd, and is PACKAGE_ARCH = MACHINE_ARCH -- so this re-hashes one small
-    # recipe rather than dragging webkitgtk3 into a rebuild.
+    # recipe rather than dragging wpewebkit into a rebuild.
     SERIAL_CONSOLES = ""
 
     # core-image-base ships no tzdata at all, so the first boot ran in UTC and
