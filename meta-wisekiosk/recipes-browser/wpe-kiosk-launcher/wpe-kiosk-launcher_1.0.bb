@@ -9,13 +9,13 @@ SRC_URI = "file://wpe-kiosk-launcher.c"
 # scarthgap unpacks file:// SRC_URI straight into WORKDIR.
 S = "${WORKDIR}"
 
-DEPENDS = "wpewebkit"
+DEPENDS = "wpewebkit libdrm"
 
 inherit pkgconfig
 
 do_compile() {
-    ${CC} ${CFLAGS} ${LDFLAGS} -O2 -Wall -Wextra $(pkg-config --cflags wpe-webkit-2.0) \
-        -o wpe-kiosk-launcher ${S}/wpe-kiosk-launcher.c $(pkg-config --libs wpe-webkit-2.0)
+    ${CC} ${CFLAGS} ${LDFLAGS} -O2 -Wall -Wextra $(pkg-config --cflags wpe-webkit-2.0 libdrm) \
+        -o wpe-kiosk-launcher ${S}/wpe-kiosk-launcher.c $(pkg-config --libs wpe-webkit-2.0 libdrm)
 }
 
 do_install() {

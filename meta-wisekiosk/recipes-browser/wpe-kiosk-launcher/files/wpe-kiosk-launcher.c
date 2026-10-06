@@ -15,13 +15,19 @@
  *                           as cog's --features: case-insensitive; '-' or '!'
  *                           disables, '+' or no prefix enables
  *   WPE_KIOSK_CONSOLE=1     write console messages to stdout
+ *   WPE_KIOSK_MODE=WxH      before connecting, SetCrtc the first connected
+ *                           connector's first WxH mode, print "WPP|preset=WxH
+ *                           crtc=<id> connector=<id>", drop master, keep fd open
  *
- * SIGTERM exits 0. A connect failure, a missing view or an unknown feature
- * exits 1 with the reason on stderr; a missing URL exits 2.
+ * SIGTERM exits 0. A connect failure, a missing view, an unknown feature or a
+ * failed mode preset exits 1 with the reason on stderr; a missing URL exits 2.
  */
+#include <fcntl.h>
 #include <glib-unix.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <xf86drm.h>
+#include <xf86drmMode.h>
 #include <wpe/drm/wpe-drm.h>
 #include <wpe/webkit.h>
 
@@ -77,6 +83,53 @@ static gboolean apply_features(WebKitSettings *settings, const char *list)
     return TRUE;
 }
 
+static gboolean preset_mode(const char *spec)
+{
+    unsigned w, h;
+    char end;
+    int fd = -1;
+    drmModeRes *res = NULL;
+    /* WPE's default device: the first card with CRTCs, connectors and encoders. */
+    for (int i = 0; fd < 0 && i < 16; i++) {
+        g_autofree char *path = g_strdup_printf("/dev/dri/card%d", i);
+        if ((fd = open(path, O_RDWR | O_CLOEXEC)) < 0)
+            continue;
+        res = drmModeGetResources(fd);
+        if (!res || !res->count_crtcs || !res->count_connectors || !res->count_encoders) {
+            drmModeFreeResources(res);
+            close(fd);
+            fd = -1;
+        }
+    }
+    if (sscanf(spec, "%ux%u%c", &w, &h, &end) != 2 || fd < 0) {
+        g_printerr("mode preset: WPE_KIOSK_MODE '%s' is not WxH, or no DRM card has KMS\n", spec);
+        return FALSE;
+    }
+    for (int i = 0; i < res->count_connectors; i++) {
+        drmModeConnector *conn = drmModeGetConnector(fd, res->connectors[i]);
+        if (!conn || conn->connection != DRM_MODE_CONNECTED || conn->connector_type == DRM_MODE_CONNECTOR_WRITEBACK)
+            continue;
+        drmModeEncoder *enc = drmModeGetEncoder(fd, conn->encoder_id);
+        drmModeModeInfo *mode = NULL;
+        for (int m = 0; !mode && m < conn->count_modes; m++)
+            if (conn->modes[m].hdisplay == w && conn->modes[m].vdisplay == h)
+                mode = &conn->modes[m];
+        uint32_t handle, pitch, fb;
+        uint64_t size;
+        if (!enc || !enc->crtc_id || !mode || drmModeCreateDumbBuffer(fd, w, h, 32, 0, &handle, &pitch, &size)
+            || drmModeAddFB(fd, w, h, 24, 32, pitch, handle, &fb)
+            || drmModeSetCrtc(fd, enc->crtc_id, fb, 0, 0, &conn->connector_id, 1, mode)) {
+            g_printerr("mode preset: no CRTC, no %ux%u mode, or SetCrtc failed\n", w, h);
+            return FALSE;
+        }
+        g_printerr("WPP|preset=%ux%u crtc=%u connector=%u\n", w, h, enc->crtc_id, conn->connector_id);
+        drmDropMaster(fd);
+        return TRUE;
+    }
+    g_printerr("mode preset: no connected connector\n");
+    return FALSE;
+}
+
 static gboolean on_sigterm(gpointer loop)
 {
     g_main_loop_quit(loop);
@@ -89,6 +142,10 @@ int main(int argc, char **argv)
         g_printerr("usage: %s URL\n", argv[0]);
         return 2;
     }
+
+    const char *mode = g_getenv("WPE_KIOSK_MODE");
+    if (mode && !preset_mode(mode))
+        return 1;
 
     g_autoptr(WPEDisplay) display = wpe_display_drm_new();
     g_autoptr(GError) error = NULL;
