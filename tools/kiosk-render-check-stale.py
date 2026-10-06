@@ -1,25 +1,26 @@
 #!/usr/bin/env python3
-"""STALE verdict over a series of kiosk-drmgrab --report captures.
+"""STALE verdict over bursts of kiosk-drmgrab --report captures.
 
     tools/kiosk-render-check-stale.py <manifest>
 
-<manifest>: one line per capture, in capture order,
-"fb_before=<id> fb_after=<id> ppm=<path>". Prints "stale tiles=<n>" and exits
-0 (no stale tile), 3 (STALE) or 2 (could not tell).
+<manifest>: one line per capture, "fb_before=<id> fb_after=<id> ppm=<path>", in
+capture order, bursts separated by blank lines. Prints "persistent tiles=<n>"
+and exits 0 (no persistent tile), 3 (STALE) or 2 (could not tell).
 
-Only stable captures count (fb_before == fb_after), grouped by fb id. The frame
-is cut into 40x40-pixel tiles, edge tiles partial; MAD is the mean absolute byte
-difference over a tile's RGB bytes. A tile is stale when two fbs, at least one
-with two or more stable captures, each match their own first capture on it (MAD
-<= 1; trivially so for a single capture) and their first captures differ (MAD >
-1). A pair whose own captures form a single chronological split is a one-time
-repaint and is not compared. One fb id passes. Fewer than two stable captures,
-no fb with two stable captures, or any PPM that is malformed, truncated or of
-another size, is could-not-tell.
+The classifier of docs/issue_investigation/wpe_evaluation/analyze_burst_v3.py.
+Per burst, over stable captures only (fb_before == fb_after) grouped by fb id in
+first-seen order, and over whole 40x40-pixel tiles: a tile is testable when two
+or more fb ids are present and each group's captures are byte-identical on it;
+a testable tile disagrees when the first group's value differs from another's
+by mean absolute byte difference > 1, unless it is a late-change artifact -- its
+content changes once across the burst's stable captures, at a point with one fb
+id wholly before and one other wholly after. A tile disagreeing in two
+consecutive bursts is persistent; any persistent tile is STALE. A burst with
+fewer than two fb ids or no testable tile, or any PPM that is malformed,
+truncated or of another size, is could-not-tell.
 """
 import re
 import sys
-from itertools import combinations
 
 TILE = 40
 HEADER = re.compile(rb"P6\s+(\d+)\s+(\d+)\s+(\d+)\s")
@@ -37,65 +38,82 @@ def parse_ppm(data):
     return w, h, rgb
 
 
-def tiles(w, h):
-    """(x0, y0, x1, y1) of every 40x40-pixel tile, edge tiles clipped to the frame."""
-    return [(x, y, min(x + TILE, w), min(y + TILE, h))
-            for y in range(0, h, TILE) for x in range(0, w, TILE)]
+def tile_bytes(w, data, tx, ty):
+    x0, y0 = tx * TILE, ty * TILE
+    out = bytearray()
+    for row in range(y0, y0 + TILE):
+        start = (row * w + x0) * 3
+        out += data[start:start + TILE * 3]
+    return bytes(out)
 
 
-def tile_mad(a, b, w, tile):
-    x0, y0, x1, y1 = tile
-    total = 0
-    for y in range(y0, y1):
-        lo, hi = (y * w + x0) * 3, (y * w + x1) * 3
-        ra, rb = a[lo:hi], b[lo:hi]
-        if ra != rb:
-            total += sum(abs(p - q) for p, q in zip(ra, rb))
-    return total / ((x1 - x0) * (y1 - y0) * 3)
+def mad(a, b):
+    return sum(abs(x - y) for x, y in zip(a, b)) / len(a)
 
 
-def single_split(ids):
-    """True when the id sequence holds exactly two ids, all of one before all of the other."""
-    changes = sum(1 for p, q in zip(ids, ids[1:]) if p != q)
-    return len(set(ids)) == 2 and changes == 1
+def is_late_change_artifact(ordered_fb_tiles):
+    """ordered_fb_tiles: [(fb, tile_bytes), ...] in chronological order. True iff content
+    changes at most once and that change point cleanly separates the two fb groups."""
+    change_indices = [i for i in range(1, len(ordered_fb_tiles))
+                      if ordered_fb_tiles[i][1] != ordered_fb_tiles[i - 1][1]]
+    if len(change_indices) != 1:
+        return False
+    c = change_indices[0]
+    fbs_before = {fb for fb, _ in ordered_fb_tiles[:c]}
+    fbs_after = {fb for fb, _ in ordered_fb_tiles[c:]}
+    return len(fbs_before) == 1 and len(fbs_after) == 1 and fbs_before != fbs_after
 
 
-def stale_verdict(captures):
-    """{"rc": 0|2|3, "stale_tiles": n} over captures in capture order."""
-    cant_tell = {"rc": 2, "stale_tiles": 0}
-    frames = [parse_ppm(c["ppm"]) for c in captures]
-    if any(f is None for f in frames) or len({f[:2] for f in frames}) > 1:
+def analyze_one_burst(stable_captures, w, h):
+    """Returns (testable_tile_count, disagreeing_tile_set, late_change_tile_set)."""
+    cols, rows = w // TILE, h // TILE
+    testable = 0
+    disagreeing = set()
+    late_change = set()
+    for ty in range(rows):
+        for tx in range(cols):
+            ordered = [(fb, tile_bytes(w, data, tx, ty)) for fb, data in stable_captures]
+            by_fb = {}
+            for fb, tb in ordered:
+                by_fb.setdefault(fb, []).append(tb)
+            if len(by_fb) < 2:
+                continue
+            consistent = all(all(t == tiles[0] for t in tiles[1:]) for tiles in by_fb.values())
+            if not consistent:
+                continue
+            testable += 1
+            vals = [tiles[0] for tiles in by_fb.values()]
+            if any(mad(vals[0], v) > 1 for v in vals[1:]):
+                disagreeing.add((tx, ty))
+                if is_late_change_artifact(ordered):
+                    late_change.add((tx, ty))
+    return testable, disagreeing, late_change
+
+
+def stale_verdict(bursts):
+    """{"rc": 0|2|3, "persistent_tiles": n} over bursts of captures, each in capture order."""
+    cant_tell = {"rc": 2, "persistent_tiles": 0}
+    frames = [[parse_ppm(c["ppm"]) for c in burst] for burst in bursts]
+    flat = [f for burst in frames for f in burst]
+    if not flat or any(f is None for f in flat) or len({f[:2] for f in flat}) > 1:
         return cant_tell
+    w, h = flat[0][:2]
 
-    stable = [(c["fb_before"], f[2]) for c, f in zip(captures, frames)
-              if c["fb_before"] == c["fb_after"]]
-    ids = [fb for fb, _ in stable]
-    if len(stable) < 2:
-        return cant_tell
-    if len(set(ids)) <= 1:
-        return {"rc": 0, "stale_tiles": 0}
+    per_burst = []
+    for burst, parsed in zip(bursts, frames):
+        stable = [(c["fb_before"], f[2]) for c, f in zip(burst, parsed)
+                  if c["fb_before"] == c["fb_after"]]
+        if len({fb for fb, _ in stable}) < 2:
+            return cant_tell
+        testable, disagreeing, late_change = analyze_one_burst(stable, w, h)
+        if testable == 0:
+            return cant_tell
+        per_burst.append(disagreeing - late_change)
 
-    groups = {}
-    for fb, rgb in stable:
-        groups.setdefault(fb, []).append(rgb)
-    if all(len(g) < 2 for g in groups.values()):
-        return cant_tell
-
-    w, h = frames[0][:2]
-    grid = tiles(w, h)
-    steady = {fb: {t for t in grid
-                   if all(tile_mad(groups[fb][0], other, w, t) <= 1 for other in groups[fb][1:])}
-              for fb in groups}
-    stale = set()
-    for a, b in combinations(groups, 2):
-        if len(groups[a]) < 2 and len(groups[b]) < 2:
-            continue
-        if single_split([fb for fb in ids if fb in (a, b)]):
-            continue
-        for t in steady[a] & steady[b]:
-            if t not in stale and tile_mad(groups[a][0], groups[b][0], w, t) > 1:
-                stale.add(t)
-    return {"rc": 3 if stale else 0, "stale_tiles": len(stale)}
+    persistent = set()
+    for i in range(1, len(per_burst)):
+        persistent |= per_burst[i] & per_burst[i - 1]
+    return {"rc": 3 if persistent else 0, "persistent_tiles": len(persistent)}
 
 
 LINE = re.compile(r"fb_before=(\d+) fb_after=(\d+) ppm=(\S+)$")
@@ -104,27 +122,29 @@ LINE = re.compile(r"fb_before=(\d+) fb_after=(\d+) ppm=(\S+)$")
 def main(argv):
     if len(argv) != 2:
         print("usage: kiosk-render-check-stale.py <manifest>", file=sys.stderr)
-        print("stale tiles=0")
+        print("persistent tiles=0")
         return 2
-    captures = []
+    bursts = [[]]
     try:
         with open(argv[1]) as manifest:
             for line in manifest:
                 line = line.strip()
                 if not line:
+                    if bursts[-1]:
+                        bursts.append([])
                     continue
                 m = LINE.match(line)
                 if not m:
                     raise ValueError(f"bad manifest line: {line!r}")
                 with open(m.group(3), "rb") as ppm:
-                    captures.append({"fb_before": int(m.group(1)),
-                                     "fb_after": int(m.group(2)), "ppm": ppm.read()})
+                    bursts[-1].append({"fb_before": int(m.group(1)),
+                                       "fb_after": int(m.group(2)), "ppm": ppm.read()})
     except (OSError, ValueError) as e:
         print(f"kiosk-render-check-stale: {e}", file=sys.stderr)
-        print("stale tiles=0")
+        print("persistent tiles=0")
         return 2
-    result = stale_verdict(captures)
-    print(f"stale tiles={result['stale_tiles']}")
+    result = stale_verdict([b for b in bursts if b])
+    print(f"persistent tiles={result['persistent_tiles']}")
     return result["rc"]
 
 
