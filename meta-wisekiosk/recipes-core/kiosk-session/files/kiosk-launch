@@ -29,9 +29,11 @@ fi
 # Measurement probe. OFF by default. KIOSK_PROBE=1 injects the script at
 # KIOSK_PROBE_SCRIPT into the page and sends the page's console messages and
 # each title change to stdout, which is the journal.
-PROBE=""
+PROBE_CONSOLE=""
+PROBE_SCRIPT=""
 if [ "${KIOSK_PROBE:-0}" = "1" ]; then
-	PROBE="--enable-write-console-messages-to-stdout=true --user-script=${KIOSK_PROBE_SCRIPT:-/home/root/kiosk-probe.js}"
+	PROBE_CONSOLE="--enable-write-console-messages-to-stdout=true"
+	PROBE_SCRIPT="--user-script=${KIOSK_PROBE_SCRIPT:-/home/root/kiosk-probe.js}"
 fi
 
 # WebKit features: cog always gets --features=-UseDamagingInformationForCompositing,
@@ -44,5 +46,6 @@ if [ -n "${KIOSK_COG_FEATURES:-}" ]; then
 	FEATURES="$FEATURES,${KIOSK_COG_FEATURES}"
 fi
 
-# shellcheck disable=SC2086  # INSPECT and PROBE are option lists, split on purpose
-exec cog -P drm $INSPECT $PROBE "$FEATURES" "$KIOSK_URL"
+# shellcheck disable=SC2086  # INSPECT is empty or one flag, split on purpose
+exec cog -P drm $INSPECT ${PROBE_CONSOLE:+"$PROBE_CONSOLE"} ${PROBE_SCRIPT:+"$PROBE_SCRIPT"} \
+	"$FEATURES" "$KIOSK_URL"
