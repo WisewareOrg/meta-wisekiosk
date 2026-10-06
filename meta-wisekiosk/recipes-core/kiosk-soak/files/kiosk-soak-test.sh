@@ -5,7 +5,8 @@
 #
 # A sourceable `is_browser_proc <comm>` predicate selects WPE's browser-family process
 # names: true for anything starting "WPE" (WPEWebProcess, WPENetworkProcess,
-# WPEGPUProcess) and for exactly "cog"; false for everything else.
+# WPEGPUProcess) and for exactly "wpe-kiosk" (the launcher, renamed from cog to fit
+# comm's 15-character limit); false for everything else.
 #
 # Reaches the SHIPPED predicate, not a copy: the tool is sourced with KIOSK_SOAK_LIB=1,
 # which must define `is_browser_proc` and return before any device access or sampling --
@@ -41,10 +42,13 @@ check "WPEGPUProcess matches"     0 "WPEGPUProcess"
 check "a comm truncated to 15 chars still matches (prefix survives truncation)" \
     0 "WPENetworkProce"
 
-# --- true: cog itself, exactly -----------------------------------------
-check "cog matches" 0 "cog"
+# --- true: wpe-kiosk itself, exactly ------------------------------------
+check "wpe-kiosk matches" 0 "wpe-kiosk"
 
-# --- false: the X/GTK-era names, and anything else -------------------------
+# --- false: cog (the launcher's old name), a look-alike, the X/GTK-era
+# names, and anything else --------------------------------------------------
+check "cog does not match (the launcher is renamed to wpe-kiosk)" 1 "cog"
+check "wpe-kiosk-x does not match (a look-alike, not the launcher)" 1 "wpe-kiosk-x"
 check "surf does not match"          1 "surf"
 check "WebKitWebProcess does not match" 1 "WebKitWebProcess"
 check "Xorg does not match"          1 "Xorg"

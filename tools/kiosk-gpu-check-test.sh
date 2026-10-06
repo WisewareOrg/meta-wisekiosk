@@ -92,16 +92,17 @@ sentinel_pair "unreadable-fd"   'dri="?"'       'drifd=[?\\]'
 sentinel_pair "unreadable-maps" 'drv="?"'       'drv=[?\\]'
 sentinel_pair "grep-o-capability" 'cap grep_o=' 'cap grep_o='
 
-# The device-side process-family match is WPEWebProcess|WPENetworkProcess|WPEGPUProcess|cog
-# (WPEGPUProcess: 2.54 spawns it), defined ONCE host-side as KIOSK_BROWSER_PROCS and
+# The device-side process-family match is WPEWebProcess|WPENetworkProcess|WPEGPUProcess|wpe-kiosk
+# (WPEGPUProcess: 2.54 spawns it; wpe-kiosk is the launcher, renamed from cog to fit
+# comm's 15-character limit), defined ONCE host-side as KIOSK_BROWSER_PROCS and
 # interpolated into the remote heredoc -- not hardcoded a second time there, which is
 # exactly the kind of two-sides-drift the sentinel_pair checks above exist to catch for
 # every other field this tool emits and reads.
-if [ "${KIOSK_BROWSER_PROCS:-}" = 'WPEWebProcess|WPENetworkProcess|WPEGPUProcess|cog' ]; then
+if [ "${KIOSK_BROWSER_PROCS:-}" = 'WPEWebProcess|WPENetworkProcess|WPEGPUProcess|wpe-kiosk' ]; then
     pass=$((pass + 1))
 else
     fail=$((fail + 1))
-    echo "FAIL  KIOSK_BROWSER_PROCS: want 'WPEWebProcess|WPENetworkProcess|WPEGPUProcess|cog', got '${KIOSK_BROWSER_PROCS:-}'" >&2
+    echo "FAIL  KIOSK_BROWSER_PROCS: want 'WPEWebProcess|WPENetworkProcess|WPEGPUProcess|wpe-kiosk', got '${KIOSK_BROWSER_PROCS:-}'" >&2
 fi
 
 # shellcheck disable=SC2016
@@ -144,7 +145,11 @@ else
     }
     comm_check "WPEWebProcess"    0
     comm_check "WPEGPUProcess"    0
-    comm_check "cog"              0
+    comm_check "wpe-kiosk"        0
+    # cog no longer matches: the launcher is renamed to wpe-kiosk.
+    comm_check "cog"              1
+    # A look-alike must not match: the pattern is anchored (grep -qxE), not a prefix test.
+    comm_check "wpe-kiosk-x"      1
     # /proc comm truncates at 15 visible characters; "WPENetworkProcess" (17) is never the
     # literal value a real board reports -- "WPENetworkProce" is, and must match.
     comm_check "WPENetworkProce"  0
