@@ -9,7 +9,7 @@ docs/issue_investigation/wpe_evaluation/analyze_burst_v3.py's classifier --
 the instrument that actually found and proved the fault live -- not a
 separate set of rules:
 
-  stale_verdict(bursts) -> {"rc": 0|2|3, "persistent_tiles": int}
+  stale_verdict(bursts, expected_bursts) -> {"rc": 0|2|3, "persistent_tiles": int}
 
   bursts: a list of bursts, each burst a list of capture dicts, in
   CHRONOLOGICAL order within the burst: {"fb_before": int, "fb_after": int,
@@ -40,25 +40,28 @@ separate set of rules:
 
   - PERSISTENT: a tile disagreeing (RAW) in >=2 CONSECUTIVE bursts.
   - rc=3 (STALE) iff >=1 persistent tile.
-  - rc=2 (could not tell) UNLESS the series has EXACTLY the configured 6
-    bursts (EXPECTED_BURSTS) AND every one of them is testable (fewer
-    than 2 distinct fb ids among a burst's stable captures, or zero
-    testable tiles in a burst -- Run 77's vacuous case). Review finding
-    B3: a series with the wrong burst count -- fewer, e.g. a single one,
-    or more -- must never read as a pass; it is could-not-tell
-    regardless of what its own bursts would otherwise show.
-  - rc=0 iff the burst count is exactly right, every burst is testable,
-    and no tile persists (raw).
+  - rc=2 (could not tell) if the burst count does not equal
+    expected_bursts, OR if there are fewer than 2 bursts regardless of
+    expected_bursts (a floor, not dependent on the caller's own
+    configuration), OR if any burst is untestable (fewer than 2 distinct
+    fb ids among its stable captures, or zero testable tiles -- Run 77's
+    vacuous case). Review finding B3: there is no constant burst count
+    inside this function at all -- the caller (kiosk-render-check.sh)
+    passes expected_bursts (6) in; a wrong count must never read as a
+    pass regardless of what its own bursts would otherwise show.
+  - rc=0 iff the burst count matches expected_bursts (and is >= 2), every
+    burst is testable, and no tile persists (raw).
 
-  CLI: `kiosk-render-check-stale.py <manifest>`, where <manifest> is a
-  text file, one line per capture, in chronological order, grouped into
-  bursts by BLANK LINES:
+  CLI: `kiosk-render-check-stale.py <manifest> <expected-bursts>`, where
+  <manifest> is a text file, one line per capture, in chronological
+  order, grouped into bursts by BLANK LINES:
 
       fb_before=<id> fb_after=<id> ppm=<path-to-ppm-file>
 
-  It prints exactly one evidence line to stdout, `persistent tiles=<n>`
-  (n is persistent_tiles from stale_verdict), and exits with that
-  result's rc.
+  <expected-bursts> is the caller's own configured burst count
+  (kiosk-render-check.sh passes 6). It prints exactly one evidence line
+  to stdout, `persistent tiles=<n>` (n is persistent_tiles from
+  stale_verdict), and exits with that result's rc.
 
 This CLI/manifest shape -- the blank-line burst separator -- is this
 test's own design: the spec fixes the pure-logic rule and the exit
@@ -69,15 +72,16 @@ wanted.
 Fixtures use an 80x80 frame (2x2 real 40x40 tiles): the tile under test
 is always (0, 0); a uniform, constant background fills everywhere else
 in every capture, so no other tile can register. Every verdict fixture
-now uses EXACTLY 6 bursts of 15 frames -- run-feature-trial.sh's real
-series shape, and now also the ONLY shape the burst-count gate accepts
--- with the condition under test placed in as few of the 6 bursts as
-needed and the rest filled with ordinary, non-disagreeing bursts. This
-padding matters for more than realism: without it, a fixture testing
-"a burst fails testability" or "a tile persists" would ALSO (and
-separately) satisfy "wrong burst count" if it used fewer than 6 bursts,
-and a regression that dropped the testability/persistence check but
-kept the burst-count check would pass the fixture for the wrong reason.
+passes CONFIGURED_BURSTS (6, this test's stand-in for what render-
+check.sh actually passes) as expected_bursts and uses EXACTLY that many
+bursts of 15 frames -- run-feature-trial.sh's real series shape -- with
+the condition under test placed in as few of the 6 bursts as needed and
+the rest filled with ordinary, non-disagreeing bursts. This padding
+matters for more than realism: without it, a fixture testing "a burst
+fails testability" or "a tile persists" would ALSO (and separately)
+satisfy "wrong burst count" if it used fewer than 6 bursts, and a
+regression that dropped the testability/persistence check but kept the
+burst-count check would pass the fixture for the wrong reason.
 """
 import importlib.util
 import subprocess
@@ -92,6 +96,7 @@ W, H = 80, 80
 BG = (100, 100, 100)
 A = (0, 0, 0)
 B = (255, 255, 255)
+CONFIGURED_BURSTS = 6  # this test's stand-in for what kiosk-render-check.sh passes
 
 PASS, FAIL = [], []
 
@@ -179,12 +184,12 @@ def verdict_cases():
     # every one of 6 bursts of 15 frames -- run-feature-trial.sh's real
     # series shape.
     case("persistent disagreement across every burst -> STALE",
-         stale.stale_verdict([interleaved_burst(15) for _ in range(6)]),
+         stale.stale_verdict([interleaved_burst(15) for _ in range(6)], CONFIGURED_BURSTS),
          {"rc": 3, "persistent_tiles": 1})
 
     # 2a. Pass: no disagreement anywhere, same 6x15 shape.
     case("no disagreement anywhere -> pass",
-         stale.stale_verdict([matching_burst(15) for _ in range(6)]),
+         stale.stale_verdict([matching_burst(15) for _ in range(6)], CONFIGURED_BURSTS),
          {"rc": 0, "persistent_tiles": 0})
 
     # 2b. Pass: disagreement in exactly one burst, isolated -- never 2
@@ -194,7 +199,7 @@ def verdict_cases():
          stale.stale_verdict([
              matching_burst(15), matching_burst(15), interleaved_burst(15),
              matching_burst(15), matching_burst(15), matching_burst(15),
-         ]),
+         ], CONFIGURED_BURSTS),
          {"rc": 0, "persistent_tiles": 0})
 
     # 3. Could not tell: burst 1 has only fb=1 (fewer than 2 distinct fb
@@ -204,7 +209,8 @@ def verdict_cases():
     # burst-count gate (see B3 fixtures below for that).
     case("a burst without both fb groups having a stable capture -> could not tell",
          stale.stale_verdict(
-             [[cap(1, A) for _ in range(5)], interleaved_burst(15)] + fillers(4)),
+             [[cap(1, A) for _ in range(5)], interleaved_burst(15)] + fillers(4),
+             CONFIGURED_BURSTS),
          {"rc": 2, "persistent_tiles": 0})
 
     # 4. Could not tell: 2 distinct fb ids are present, but fb=1's own
@@ -212,7 +218,7 @@ def verdict_cases():
     # tile), so no tile anywhere has both groups self-consistent --
     # zero testable tiles (Run 77's vacuous case). Padded to 6.
     case("zero testable tiles in a burst -> could not tell, never a pass",
-         stale.stale_verdict([ZERO_TESTABLE_BURST] + fillers(5)),
+         stale.stale_verdict([ZERO_TESTABLE_BURST] + fillers(5), CONFIGURED_BURSTS),
          {"rc": 2, "persistent_tiles": 0})
 
     # 5. AMENDED (real-data finding): the SAME clean-split content change,
@@ -220,7 +226,7 @@ def verdict_cases():
     # IS rc=3 -- persistence is on the raw disagreement. Padded to 6.
     case("a tile changing once mid-burst, repeated in 2 consecutive bursts -> STALE (raw)",
          stale.stale_verdict(
-             [clean_split_burst(15), clean_split_burst(15)] + fillers(4)),
+             [clean_split_burst(15), clean_split_burst(15)] + fillers(4), CONFIGURED_BURSTS),
          {"rc": 3, "persistent_tiles": 1})
 
     # 6. B0-shaped (Run 52, the real faulty baseline the exclusion used to
@@ -231,21 +237,30 @@ def verdict_cases():
     case("B0-shaped: late-change-looking disagreement overlapping in bursts 2-3 -> STALE",
          stale.stale_verdict(
              [matching_burst(15), clean_split_burst(15), clean_split_burst(15)]
-             + fillers(3)),
+             + fillers(3), CONFIGURED_BURSTS),
          {"rc": 3, "persistent_tiles": 1})
 
-    # B3 (review finding): the burst-count gate itself. Fewer bursts than
-    # the configured 6 -- down to a single one -- must read could-not-
-    # tell, never a pass, even when every burst present would otherwise
-    # read clean.
-    case("a single burst (fewer than the configured 6) -> could not tell, never a pass",
-         stale.stale_verdict([matching_burst(15)]),
+    # B3 (review finding): the burst-count gate itself, against the
+    # expected_bursts the CALLER passes (no constant inside the helper).
+    # Fewer bursts than configured -- down to a single one -- or more,
+    # must read could-not-tell, never a pass, even when every burst
+    # present would otherwise read clean.
+    case("a single burst vs configured 6 -> could not tell, never a pass",
+         stale.stale_verdict([matching_burst(15)], CONFIGURED_BURSTS),
          {"rc": 2, "persistent_tiles": 0})
-    case("5 bursts (one short of the configured 6), otherwise clean -> could not tell",
-         stale.stale_verdict(fillers(5)),
+    case("5 bursts vs configured 6, otherwise clean -> could not tell",
+         stale.stale_verdict(fillers(5), CONFIGURED_BURSTS),
          {"rc": 2, "persistent_tiles": 0})
-    case("7 bursts (one more than the configured 6), otherwise clean -> could not tell",
-         stale.stale_verdict(fillers(7)),
+    case("7 bursts vs configured 6, otherwise clean -> could not tell",
+         stale.stale_verdict(fillers(7), CONFIGURED_BURSTS),
+         {"rc": 2, "persistent_tiles": 0})
+
+    # B3: fewer than 2 bursts is could-not-tell regardless of what
+    # expected_bursts itself is configured to -- a floor, not derived from
+    # the caller's own count. Count matches expected_bursts (1 == 1) but
+    # still fails the floor.
+    case("1 burst, expected_bursts also 1 (matches) -> still could not tell (<2 floor)",
+         stale.stale_verdict([matching_burst(15)], 1),
          {"rc": 2, "persistent_tiles": 0})
 
 
@@ -270,9 +285,10 @@ def write_manifest(tmp, bursts):
     return manifest
 
 
-def run_cli(manifest):
+def run_cli(manifest, expected_bursts=CONFIGURED_BURSTS):
     return subprocess.run(
-        [sys.executable, str(TOOLS / "kiosk-render-check-stale.py"), str(manifest)],
+        [sys.executable, str(TOOLS / "kiosk-render-check-stale.py"), str(manifest),
+         str(expected_bursts)],
         capture_output=True, text=True)
 
 
@@ -282,7 +298,8 @@ def cli_cases(tmp_path):
     pass_dir = P(tmp_path) / "pass-cli"
     cant_tell_dir = P(tmp_path) / "cant-tell-cli"
     wrong_count_dir = P(tmp_path) / "wrong-count-cli"
-    for d in (stale_dir, pass_dir, cant_tell_dir, wrong_count_dir):
+    merged_dir = P(tmp_path) / "merged-cli"
+    for d in (stale_dir, pass_dir, cant_tell_dir, wrong_count_dir, merged_dir):
         d.mkdir(parents=True)
 
     manifest = write_manifest(stale_dir, [interleaved_burst(15) for _ in range(6)])
@@ -313,6 +330,24 @@ def cli_cases(tmp_path):
          "persistent tiles=0" in got.stdout.splitlines(), True)
     case("CLI: no second (late-change) evidence line printed anywhere",
          any("late-change" in line for line in got.stdout.splitlines()), False)
+
+    # B3: 90 frames (6 bursts' worth of 15) with NO blank-line separators at
+    # all -- a manifest-writing failure that merges every capture into ONE
+    # burst instead of 6. len(bursts) == 1 != expected_bursts == 6 ->
+    # could-not-tell, same as any other wrong burst count.
+    merged_lines = []
+    i = 0
+    for burst in [matching_burst(15) for _ in range(6)]:
+        for c in burst:
+            p = merged_dir / f"frame{i}.ppm"
+            p.write_bytes(c["ppm"])
+            merged_lines.append(f"fb_before={c['fb_before']} fb_after={c['fb_after']} ppm={p}")
+            i += 1
+    merged_manifest = merged_dir / "manifest.txt"
+    merged_manifest.write_text("\n".join(merged_lines) + "\n")  # no blank lines
+    got = run_cli(merged_manifest)
+    case("CLI: 90 frames merged into one burst (no blank-line separators) -> could not tell",
+         got.returncode, 2)
 
 
 def main() -> int:
