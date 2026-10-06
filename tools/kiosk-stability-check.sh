@@ -127,7 +127,7 @@ fi
 if [ "$b0" = "$b1" ]; then reboots=0; restarts=$((n1 - n0)); else reboots=1; restarts=$n1; fi
 oom=$(sed -n '/^=== kernel OOM lines since start-epoch ===$/,/^=== end of kernel OOM lines ===$/p' "$OUT" | grep -vc '^===')
 
-python3 "$HERE/kiosk-stability-verdict.py" "$OUT" "$restarts" "$reboots" "$oom" > "$WORK/verdict.txt" 2>&1
+python3 "$HERE/kiosk-stability-verdict.py" "$OUT" "$restarts" "$reboots" "$oom" "$SECS" > "$WORK/verdict.txt" 2>&1
 rc=$?
 { echo "# restarts=$restarts reboots=$reboots oom-lines=$oom"; echo "=== kiosk-stability-verdict.py ==="; cat "$WORK/verdict.txt"; } >> "$OUT"
 exit $rc
