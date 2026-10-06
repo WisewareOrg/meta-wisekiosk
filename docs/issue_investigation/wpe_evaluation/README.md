@@ -563,12 +563,18 @@ so the PNGs carry the PPMs exactly.
   outcome the version of `run-s4-smoothness.sh` committed at that pin, or (then) at `HEAD`, could
   print. The version that actually ran — a 4th positional argument (`MIN_LIVE`, default 4) that
   relaxes the gate from `all_live` (`c=4 l=4`) to `all_at_least(lines, MIN_LIVE)`, a function of
-  the same name added to `parse_cards_probe.py` — is now committed, replacing both files, in
-  `fe92bba` (`#185 investigation: S4 scripts that ran tonight`); the orchestrator
-  (`orchestrate-tonight.sh`, committed in the same pass, address-redacted) passed `MIN_LIVE=3`,
-  for tonight's known 3/4-card state.
-- **Procedure:** three back-to-back 585 s smoothness captures, cache cleared and kiosk restarted
-  before each. Each capture's own cards-live gate reads VOID: its first `CP|` sample, at t=4 s,
+  the same name added to `parse_cards_probe.py`, with `poll-cards-live.sh` taking the matching
+  `[min-live]` second argument — is committed in `fe92bba` (`#185 investigation: S4 scripts that
+  ran tonight`), replacing all three files at `HEAD`; the `all_live`-only versions `48f3bfd`
+  originally committed are superseded, not lost, in git history. The orchestrator
+  (`orchestrate-tonight.sh`, committed in the same pass, address-redacted) polled
+  `poll-cards-live.sh` for `l>=3` before deploying each capture, and passed `MIN_LIVE=3` to
+  `run-s4-smoothness.sh` itself, for tonight's known 3/4-card state.
+- **Procedure:** before each of the three captures and before the soak, `poll-cards-live.sh`
+  blocks until the page reads `c=4 l>=3`, so the capture itself only ever starts once the known
+  park-hours state holds; three back-to-back 585 s smoothness captures follow, cache cleared and
+  kiosk restarted before each. Each capture's own cards-live gate reads VOID: its first `CP|`
+  sample, at t=4 s,
   before the page has loaded (`c=0 l=0`), counts against the deployed "`l>=3` throughout" rule the
   same as a genuine drop would. A reclassification pass (`reclassify_cards_window.py`, run by
   `reclassify-watcher.sh`, both committed in `fe92bba`), recorded in each file as a separate,
@@ -749,7 +755,11 @@ All one-off and committed beside this README (R2), except where a run names a sh
   `d97d6fe9b892321f76b333d0e9ad79a31edbd142`, in `run-s4-smoothness.sh` and `run-s4-soak.sh`.
   `all_at_least(lines, min_live)` relaxes the same check to `l >= min_live`, for a window where
   a park is legitimately closed; `run-s4-smoothness.sh` takes `MIN_LIVE` as a 4th argument
-  (default 4). `reclassify_cards_window.py` re-judges a run's `CP|` samples restricted to
+  (default 4), and `poll-cards-live.sh` blocks until `c=4 l>=min-live` (its own 2nd argument,
+  default 4) before a driver deploys anything, rather than starting into a state the gate will
+  only VOID. The `all_live`-only versions of these three files, committed at `48f3bfd`, are
+  superseded — not removed — in git history; `HEAD`'s copies are the `MIN_LIVE`-capable ones that
+  actually ran. `reclassify_cards_window.py` re-judges a run's `CP|` samples restricted to
   `parse_smoothness.py`'s own `steady_from` window, appending a reclassified verdict without
   touching the original; `reclassify-watcher.sh` runs it against each of a chain's files as soon
   as that file's own completion marker appears, for Runs 73–76 (below). `analyze-s4-smoothness.sh`
