@@ -107,8 +107,10 @@ patched there.
 Upstream's `autonomos.conf` had `DISTRO_FEATURES:remove = " x11 wayland"`. BitBake applies every
 `:remove` **after** every `:append`, no matter which file or layer they came from. So there is no
 downstream file — not a bbappend, not an image recipe, not `local.conf` — that can put `x11` back.
-x11 stays in `DISTRO_FEATURES` pending #196 WPE build-time levers. The removal has to become
-conditional where it is written, which means changing upstream's file, which means a patch.
+The patch stays: libxcb, libpciaccess and consolekit in the build graph require `x11` (#196 WPE
+build-time levers), and `wayland` in `DISTRO_FEATURES` turns on mesa's wayland EGL platform and
+cog's `wl` platform. The removal has to become conditional where it is written, which means changing
+upstream's file, which means a patch.
 
 ### Why patch 0002 cannot be a bbappend
 
