@@ -1,0 +1,7 @@
+{
+  "runs": [
+    {"fps": 49.46, "pct_under_50": 98.6, "stall_rate": {"lower_rate": 0.0252, "upper_rate": 0.0541, "bounded": true}},
+    {"fps": 47.46, "pct_under_50": 98.0, "stall_rate": {"lower_rate": 0.0252, "upper_rate": 0.0541, "bounded": true}},
+    {"fps": 52.59, "pct_under_50": 98.7, "stall_rate": {"lower_rate": 0.0253, "upper_rate": 0.0343, "bounded": true}}
+  ]
+}
