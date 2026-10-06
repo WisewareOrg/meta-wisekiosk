@@ -378,7 +378,7 @@ case $rc in
     exit 0
     ;;
 3)
-    echo "STALE: $stale -- steady within each of two scanout buffers and different" >&2
+    echo "STALE: ${stale%%$'\n'*} -- steady within each of two scanout buffers and different" >&2
     echo "between them, in two consecutive bursts. The render advances, but those" >&2
     echo "regions alternate between an up-to-date frame and an older one at scanout." >&2
     exit 3

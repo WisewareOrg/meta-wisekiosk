@@ -5,17 +5,19 @@
 
 <manifest>: one line per capture, "fb_before=<id> fb_after=<id> ppm=<path>", in
 capture order, bursts separated by blank lines. Prints "persistent tiles=<n>"
-and exits 0 (no persistent tile), 3 (STALE) or 2 (could not tell).
+and "persistent tiles (late-change excluded)=<m>", and exits on n: 0 (no
+persistent tile), 3 (STALE) or 2 (could not tell).
 
 The classifier of docs/issue_investigation/wpe_evaluation/analyze_burst_v3.py.
 Per burst, over stable captures only (fb_before == fb_after) grouped by fb id in
 first-seen order, and over whole 40x40-pixel tiles: a tile is testable when two
 or more fb ids are present and each group's captures are byte-identical on it;
 a testable tile disagrees when the first group's value differs from another's
-by mean absolute byte difference > 1, unless it is a late-change artifact -- its
-content changes once across the burst's stable captures, at a point with one fb
-id wholly before and one other wholly after. A tile disagreeing in two
-consecutive bursts is persistent; any persistent tile is STALE. A burst with
+by mean absolute byte difference > 1. A tile disagreeing in two consecutive
+bursts is persistent; any persistent tile is STALE. The late-change count --
+persistence over disagreeing tiles whose content changes once across the
+burst's stable captures, at a point with one fb id wholly before and one other
+wholly after, removed -- is reported and never judged. A burst with
 fewer than two fb ids or no testable tile, or any PPM that is malformed,
 truncated or of another size, is could-not-tell.
 """
@@ -91,8 +93,9 @@ def analyze_one_burst(stable_captures, w, h):
 
 
 def stale_verdict(bursts):
-    """{"rc": 0|2|3, "persistent_tiles": n} over bursts of captures, each in capture order."""
-    cant_tell = {"rc": 2, "persistent_tiles": 0}
+    """{"rc": 0|2|3, "persistent_tiles": n, "persistent_tiles_excl_late_change": m}
+    over bursts of captures, each in capture order; rc follows n."""
+    cant_tell = {"rc": 2, "persistent_tiles": 0, "persistent_tiles_excl_late_change": 0}
     frames = [[parse_ppm(c["ppm"]) for c in burst] for burst in bursts]
     flat = [f for burst in frames for f in burst]
     if not flat or any(f is None for f in flat) or len({f[:2] for f in flat}) > 1:
@@ -100,6 +103,7 @@ def stale_verdict(bursts):
     w, h = flat[0][:2]
 
     per_burst = []
+    per_burst_excl = []
     for burst, parsed in zip(bursts, frames):
         stable = [(c["fb_before"], f[2]) for c, f in zip(burst, parsed)
                   if c["fb_before"] == c["fb_after"]]
@@ -108,12 +112,16 @@ def stale_verdict(bursts):
         testable, disagreeing, late_change = analyze_one_burst(stable, w, h)
         if testable == 0:
             return cant_tell
-        per_burst.append(disagreeing - late_change)
+        per_burst.append(disagreeing)
+        per_burst_excl.append(disagreeing - late_change)
 
     persistent = set()
+    persistent_excl = set()
     for i in range(1, len(per_burst)):
         persistent |= per_burst[i] & per_burst[i - 1]
-    return {"rc": 3 if persistent else 0, "persistent_tiles": len(persistent)}
+        persistent_excl |= per_burst_excl[i] & per_burst_excl[i - 1]
+    return {"rc": 3 if persistent else 0, "persistent_tiles": len(persistent),
+            "persistent_tiles_excl_late_change": len(persistent_excl)}
 
 
 LINE = re.compile(r"fb_before=(\d+) fb_after=(\d+) ppm=(\S+)$")
@@ -123,6 +131,7 @@ def main(argv):
     if len(argv) != 2:
         print("usage: kiosk-render-check-stale.py <manifest>", file=sys.stderr)
         print("persistent tiles=0")
+        print("persistent tiles (late-change excluded)=0")
         return 2
     bursts = [[]]
     try:
@@ -142,9 +151,11 @@ def main(argv):
     except (OSError, ValueError) as e:
         print(f"kiosk-render-check-stale: {e}", file=sys.stderr)
         print("persistent tiles=0")
+        print("persistent tiles (late-change excluded)=0")
         return 2
     result = stale_verdict([b for b in bursts if b])
     print(f"persistent tiles={result['persistent_tiles']}")
+    print(f"persistent tiles (late-change excluded)={result['persistent_tiles_excl_late_change']}")
     return result["rc"]
 
 
