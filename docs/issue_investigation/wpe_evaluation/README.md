@@ -712,13 +712,17 @@ the board's buildinfo did not yet match the image it was meant to check. Run 65'
 failed cleanly: a network reset at 72 % install, a self-reboot, and a return to the untouched
 active slot with its retry budget zeroed. Every orchestrator is designed to write its own
 `.log.done` marker last, in an exit trap, so a waiter blocks on that file rather than an outer
-wrapper that may not exist; `orchestrate-v3.sh` (which launched Runs 44–45's capture) left no
-such marker at all despite printing its own completion line, and three more ran late relative to
-their own completion rather than missing outright — `build-138d914.log` and `build-5ec7f0e.log`
-both read `BUILD_EXIT=0` well before their `.log.done` appeared (touched together, after a ~10
-minute stall in the orchestrator waiting on them), and `orchestrate-fw.log` printed
-`ORCHESTRATE_FW_DONE` with its own `.log.done` not following for another ~15 minutes, stalling
-the next orchestrator in the chain for that long.
+wrapper that may not exist; four instances of this stalling a waiter, or never resolving at all,
+are confirmed by the `.log`/`.log.done` timestamps: `build-138d914.log` completed
+(`BUILD_EXIT=0`) at 14:33:46, but `orchestrate-fw.sh` (`--- waiting for build-138d914.log.done
+---`) blocked until 14:43:48, a 10-minute stall; `build-5ec7f0e.log` completed at 14:37:21, and
+`orchestrate-244.sh` (`--- waiting for build-5ec7f0e.log.done ---`) blocked on the same marker
+until 14:43:48, a 6-minute stall; `orchestrate-fw.log` printed `ORCHESTRATE_FW_DONE` at 14:58:48,
+and the same `orchestrate-244.sh` (`--- waiting for orchestrate-fw.log.done (fw chain must
+release the lock first) ---`) blocked until 15:13:58, a 15-minute stall. `orchestrate-v3.sh`
+(which launched Runs 44–45's capture) printed its own completion line at 14:20:54 and never wrote
+a `.log.done` at all; no later orchestrator in these logs is seen naming it as a wait, so unlike
+the other three this one is not confirmed to have stalled anything downstream.
 
 ## Metrics
 
@@ -983,10 +987,10 @@ probe's own (570 s of the 585 s capture).
 - **S4 process incidents, recorded as process notes, not findings about the defect:** a tmpfs
   fill (above); two orchestrators crashing on an unbound variable before producing any
   render-check data, one of which left `kiosk.conf` dirty with a feature flag until an operator
-  check caught and restored it mid-OTA; one orchestrator completing without ever writing its own
-  `.log.done` marker and three more writing theirs 10–15 minutes late, each stalling a waiting
-  orchestrator for that long; and one OTA (to 2.44.4) that failed cleanly on a network reset and
-  fell back to the active slot untouched.
+  check caught and restored it mid-OTA; three `.log.done` markers written 6, 10 and 15 minutes
+  late, each stalling a named downstream orchestrator for that long, and one (`orchestrate-v3.sh`)
+  never written at all, with no confirmed downstream stall; and one OTA (to 2.44.4) that failed
+  cleanly on a network reset and fell back to the active slot untouched.
 - **Page state was judged by eye through Run 41** (mean luma of the pre-run screenshot, same as
   S1–S3); the mechanical `cards-probe.js` gate (`c=4 l=4` on every sample) was committed
   (`48f3bfd68a1d429f5d5c438ed5fcc1c96c95cc2b`) afterward and is used operationally in
