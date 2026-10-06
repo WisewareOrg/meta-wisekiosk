@@ -35,8 +35,10 @@ which every host needs once regardless of the pipeline. `pipeline-install` creat
 
 - `wisekiosk-pipeline/driver` — this repository at `origin/main`; runs `run.sh`. Every tick fetches
   it first and, if its HEAD is not `origin/main`, checks that out and restarts itself from the fresh
-  copy, so the driver always runs at `origin/main`'s current commit: a change to the driver is judged
-  by the driver before it and takes effect once merged. The tick follows that commit; it does not
+  copy, so the driver always runs at `origin/main`'s current commit: a change to the driver is
+  judged by the driver before it and takes effect once merged. The device checks it runs on the
+  board, `tools/kiosk-render-check.sh` and `tools/kiosk-gpu-check.sh`, come from the tree under
+  test, so a change to a check is judged by that check. The tick follows that commit; it does not
   reset local edits to the driver checkout. When a driver on `main` cannot judge its own fix, run
   `just pipeline-off`, merge the fix with an admin override of the merge queue, then run `just
   pipeline-on`.
