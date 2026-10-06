@@ -43,7 +43,10 @@ and this test is what fixes its shape:
       fb_before=<id> fb_after=<id> ppm=<path-to-ppm-file>
 
   It prints exactly one evidence line to stdout, `stale tiles=<n>` (n is
-  stale_tiles from stale_verdict), and exits with that result's rc.
+  stale_tiles from stale_verdict), and exits with that result's rc. A
+  manifest line that does not match the format, or a ppm= path that cannot
+  be opened, is could-not-tell (rc=2, `stale tiles=0`) -- the same "never a
+  pass" principle as a truncated PPM, applied to the manifest itself.
 
 This CLI/manifest shape is this test's own design -- #185's spec fixes the
 pure-logic rule and the exit codes, not the on-disk format between this
@@ -183,6 +186,34 @@ def verdict_cases():
          ]),
          {"rc": 0, "stale_tiles": 0})
 
+    # The late-change exclusion is PER PAIR: fb1 and fb2's OWN sub-sequence,
+    # ignoring fb3's captures, must be a single chronological split -- not
+    # the sequence of every stable capture across all fbs. Here fb1 (content
+    # A) runs fully before fb2 (content B): a clean split for the fb1/fb2
+    # pair. fb3 (content A, matching fb1) sits in the middle of the overall
+    # timeline, self-consistent with >=2 captures. A GLOBAL late-change
+    # check sees 3 distinct ids and never excludes anything, so fb1/fb2
+    # reads STALE; the correct per-pair check excludes it -> pass.
+    SPLIT_A, SPLIT_B = (150, 150, 150), (0, 0, 0)
+    case("3 fbs, fb1/fb2 a clean split despite a 3rd fb mid-timeline -> pass",
+         stale.stale_verdict([
+             cap(1, 1, SPLIT_A), cap(1, 1, SPLIT_A),
+             cap(3, 3, SPLIT_A), cap(3, 3, SPLIT_A),
+             cap(2, 2, SPLIT_B), cap(2, 2, SPLIT_B),
+         ]),
+         {"rc": 0, "stale_tiles": 0})
+
+    # The contrast: same 3 fbs, but fb1/fb2's own sub-sequence interleaves
+    # (1, 2, 1, 2) -- not a clean split -- so the disagreement is real and
+    # must still be caught with a 3rd fb present.
+    case("3 fbs, fb1/fb2 interleaved -> STALE",
+         stale.stale_verdict([
+             cap(1, 1, SPLIT_A), cap(2, 2, SPLIT_B),
+             cap(3, 3, SPLIT_A), cap(1, 1, SPLIT_A),
+             cap(3, 3, SPLIT_A), cap(2, 2, SPLIT_B),
+         ]),
+         {"rc": 3, "stale_tiles": 1})
+
     # Every capture is unstable (fb_before != fb_after): zero stable
     # captures in total. A series that cannot be tested must not pass, so
     # this is could-not-tell, never the "nothing to compare" pass that a
@@ -294,6 +325,30 @@ def cli_cases(tmp_path):
     got = run_cli(manifest)
     case("CLI: could-not-tell exits 2", got.returncode, 2)
     case("CLI: could-not-tell evidence line",
+         "stale tiles=0" in got.stdout.splitlines(), True)
+
+    # A manifest line that does not match "fb_before=<id> fb_after=<id>
+    # ppm=<path>" is could-not-tell, not a crash and not a pass -- the same
+    # "never a pass" principle applied to the manifest itself, not just the
+    # PPM bytes it points at.
+    malformed_dir = P(tmp_path) / "malformed-cli"
+    malformed_dir.mkdir(parents=True)
+    (malformed_dir / "manifest.txt").write_text("this is not a valid manifest line\n")
+    got = run_cli(malformed_dir / "manifest.txt")
+    case("CLI: malformed manifest line exits 2", got.returncode, 2)
+    case("CLI: malformed manifest line evidence line",
+         "stale tiles=0" in got.stdout.splitlines(), True)
+
+    # A well-formed line whose ppm= path does not exist: could-not-tell, not
+    # an unhandled traceback.
+    missing_dir = P(tmp_path) / "missing-ppm-cli"
+    missing_dir.mkdir(parents=True)
+    missing_ppm = missing_dir / "absent.ppm"
+    (missing_dir / "manifest.txt").write_text(
+        f"fb_before=1 fb_after=1 ppm={missing_ppm}\n")
+    got = run_cli(missing_dir / "manifest.txt")
+    case("CLI: missing ppm path exits 2", got.returncode, 2)
+    case("CLI: missing ppm path evidence line",
          "stale tiles=0" in got.stdout.splitlines(), True)
 
 
