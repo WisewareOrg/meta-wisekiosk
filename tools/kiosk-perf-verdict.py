@@ -12,8 +12,9 @@ verdict.regression_reasons judges it against the baseline runs with an identical
 on both sides, so only the stall-rate, % frames <50 ms and fps rules apply. Every CP|
 sample at t >= 15 s must show l >= min_live (parse_cards_probe.all_at_least). Prints
 each reason or why it could not tell, then "regression reasons=<n>", and exits 0 (no
-regression), 1 (regression) or 2 (could not tell: no MP| payload, no CP| sample in the
-judged window, or one under min_live).
+regression), 1 (regression) or 2 (could not tell: no MP| payload, an MP| payload
+covering under 90 % of the 585 s capture, no CP| sample in the judged window, one under
+min_live, or an error while judging).
 """
 import json
 import sys
@@ -28,14 +29,26 @@ import parse_smoothness  # noqa: E402
 import verdict  # noqa: E402
 
 STEADY_FROM = 15.0
+CAPTURE_LENGTH = 585.0
 NEUTRAL_SOAK = {"fmax": 0, "fever": 0, "restarts": 0, "reboots": 0, "memory_problem": False}
 
 
-def perf_verdict(lines, baseline_runs, min_live=4, steady_from=STEADY_FROM):
+def perf_verdict(lines, baseline_runs, min_live=4, steady_from=STEADY_FROM,
+                 capture_length=CAPTURE_LENGTH):
     """{"rc": 0|1|2, "reasons": [...]}; on rc 2 the reasons say why it could not tell."""
+    try:
+        return _judge(lines, baseline_runs, min_live, steady_from, capture_length)
+    except Exception as e:  # noqa: BLE001 -- an error is could-not-tell, never a verdict
+        return {"rc": 2, "reasons": [f"error while judging: {e!r}"]}
+
+
+def _judge(lines, baseline_runs, min_live, steady_from, capture_length):
     d = journal_extract.last_parseable(lines, parse_smoothness.parse)
     if d is None:
         return {"rc": 2, "reasons": ["no MP| payload in the capture"]}
+    if d["sec"] < 0.9 * capture_length:
+        return {"rc": 2, "reasons": [f"MP| payload covers {d['sec']} s, under 90 % of the "
+                                     f"{capture_length:g} s capture"]}
 
     judged = [line for line in lines
               if (s := parse_cards_probe.parse(line)) and s["t"] >= steady_from]
