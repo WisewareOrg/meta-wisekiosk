@@ -172,6 +172,10 @@ local_conf_header:
     # See docs/issue_investigation/screenshot_capture_fbgrab/README.md.
     IMAGE_INSTALL:append = " surf kiosk-session kiosk-soak kiosk-journal kiosk-timesync-persist kiosk-hardware kiosk-netcheck kiosk-bootprof zram wpa-supplicant-service packagegroup-core-x11 xwininfo xprop ttf-roboto imagemagick tzdata-core tzdata-americas"
 
+    # kiosk-drmgrab: scanout capture straight from DRM, independent of the
+    # display server. Recipe: meta-wisekiosk/recipes-graphics/kiosk-drmgrab.
+    IMAGE_INSTALL:append = " kiosk-drmgrab"
+
     # kiosk-provision: applies /data/config over the image defaults at boot --
     # sets the hostname into the kernel (nothing reads a hostname file) and
     # seeds /data/etc/machine-id when /data lacks one. Without it a device keeps
