@@ -48,13 +48,23 @@ what fixes its shape:
       signals a restart or truncation mid-capture, not a short-but-real run). Checked
       BEFORE computing stall bounds, so a payload ending at or before steady_from
       (sec <= 15) reads rc=2 cleanly, never raising or dividing by the zero/negative
-      (sec - steady_from) window that would otherwise follow.
-  CLI: `kiosk-perf-verdict.py <capture> [<baseline.json>] [<min_live>]`. baseline.json
-  defaults to the committed tools/kiosk-perf-baseline.json beside this script;
-  min_live defaults to 4 (parse_cards_probe's own stated default). Prints each reason
-  (rc=1) or why it could not tell (rc=2), then one evidence line `regression
-  reasons=<n>`, and exits with rc. This CLI shape is this test's own design, not
-  spec-fixed.
+      (sec - steady_from) window that would otherwise follow;
+    - ANY OTHER exception raised while judging (review finding B2, refined): the
+      length precheck above is this tool's own chosen way to avoid the sec<=15
+      ZeroDivisionError, but the actual CONTRACT is broader and implementation-
+      agnostic -- perf_verdict must never propagate an exception to its caller.
+      Whatever raises while computing the candidate run or the verdict reads
+      rc=2, could-not-tell, not a crash. Pinned using the same sec==steady_from
+      payload the length check already guards, so the contract holds regardless
+      of which internal mechanism (check ordering, a blanket try/except, or
+      both) the implementation uses to satisfy it.
+  CLI: `kiosk-perf-verdict.py <capture> [<baseline.json>] [<min_live>]
+  [<capture_length>]`. baseline.json defaults to the committed tools/kiosk-perf-
+  baseline.json beside this script; min_live defaults to 4 (parse_cards_probe's own
+  stated default); capture_length defaults to 585.0 (review finding B2, refined:
+  capture_length is a CLI argument, not fixed). Prints each reason (rc=1) or why it
+  could not tell (rc=2), then one evidence line `regression reasons=<n>`, and exits
+  with rc. This CLI shape is this test's own design, not spec-fixed.
 
 Fixtures for Runs 73-75 (the fixed 2.54 image, S4) reconstruct the real MP| line from
 the exact figures the README's "Metrics" tables report (sec, frames, bt, the bounded
@@ -136,6 +146,14 @@ RUN75_MP = ("MP|580|f29551|av20|mx1000|BT25|H29049.502.0.0.0.0.0|B20:300,40:300,
 # literal off-tree raw samples).
 REAL_NIGHT_CP = cp_lines([4], 0, 0) + cp_lines(range(30, 571, 30), 4, 3)
 
+# B2 fixtures, hoisted to module level so both verdict_cases and the CLI cases can
+# reuse them: a clean, fully-live CP| series, and an MP| payload whose sec (400) is
+# well under 0.9x the default 585s capture length (526.5) but would read a clean
+# pass against the baseline (pct_under_50=99.5, fps=50.0) if the length were not
+# checked at all.
+GOOD_CP = cp_lines([4], 4, 4) + cp_lines(range(30, 391, 30), 4, 4)
+SHORT_MP = "MP|400|f20000|av50|mx500|BT0|H19900.100.0.0.0.0.0|B"
+
 
 def verdict_cases():
     for name, mp_line in (("Run 73", RUN73_MP), ("Run 74", RUN74_MP), ("Run 75", RUN75_MP)):
@@ -182,22 +200,27 @@ def verdict_cases():
     # clean pass against the baseline if the length were not checked -- isolating
     # the length gate from any smoothness-rule finding. A clean, fully-live CP|
     # series over the same window does the same for the cards gate.
-    good_cp = cp_lines([4], 4, 4) + cp_lines(range(30, 391, 30), 4, 4)
-    short_mp = "MP|400|f20000|av50|mx500|BT0|H19900.100.0.0.0.0.0|B"
-    result = perfv.perf_verdict([short_mp] + good_cp, BASELINE, min_live=4)
+    result = perfv.perf_verdict([SHORT_MP] + GOOD_CP, BASELINE, min_live=4)
     case("MP| sec well under 0.9x the capture length -> could not tell (rc=2)",
          result["rc"], 2)
 
-    # B2 edge case: sec AT steady_from (15) -- span = sec - steady_from = 0, which
-    # a naive steady_stall_bounds call would divide by. A genuine judged CP|
-    # sample AT t=15 (c=4 l=4) isolates this from the "empty judged window" rule,
-    # so the only thing that can still produce rc=2 -- or, without the length
-    # gate, a ZeroDivisionError -- is the length check itself.
+    # B2 edge case, refined (review finding): sec AT steady_from (15) -- span =
+    # sec - steady_from = 0, which a naive steady_stall_bounds call would divide
+    # by. A genuine judged CP| sample AT t=15 (c=4 l=4) isolates this from the
+    # "empty judged window" rule. The CONTRACT under test is implementation-
+    # agnostic: perf_verdict must never propagate this (or any other) exception
+    # to its caller -- call it inside an explicit try/except here so a still-
+    # unfixed implementation that lets the ZeroDivisionError through fails this
+    # case on its own terms (got="EXCEPTION" != want=2) rather than crashing the
+    # whole test script before any later case runs.
     edge_cp = cp_lines([4, 15], 4, 4)
     edge_mp = "MP|15|f750|av50|mx500|BT0|H740.10.0.0.0.0.0|B"
-    result = perfv.perf_verdict([edge_mp] + edge_cp, BASELINE, min_live=4)
+    try:
+        got_rc = perfv.perf_verdict([edge_mp] + edge_cp, BASELINE, min_live=4)["rc"]
+    except Exception:
+        got_rc = "EXCEPTION"
     case("MP| sec == steady_from -> could not tell (rc=2), never an exception",
-         result["rc"], 2)
+         got_rc, 2)
 
     # S2 (review finding): tools/kiosk-perf-baseline.json must carry the EXACT
     # (unrounded) parse_smoothness figures for the real S1 captures, not the
@@ -224,16 +247,18 @@ def verdict_cases():
 
 # ------------------------------------------------------------------- CLI
 
-def run_cli(capture, baseline=None, min_live=None):
+def run_cli(capture, baseline=None, min_live=None, capture_length=None):
     argv = [sys.executable, str(TOOLS / "kiosk-perf-verdict.py"), str(capture)]
-    # min_live is positional AFTER baseline -- if it is wanted but baseline is not
-    # overridden, the committed default must still be passed explicitly, or min_live
-    # would land in baseline's own argv slot.
-    if baseline is not None or min_live is not None:
+    # Each later positional needs every earlier slot filled with the committed
+    # default when it is itself wanted but an earlier arg was not overridden, or
+    # it would land in the wrong argv slot.
+    if baseline is not None or min_live is not None or capture_length is not None:
         argv.append(str(baseline) if baseline is not None
                     else str(TOOLS / "kiosk-perf-baseline.json"))
-    if min_live is not None:
-        argv.append(str(min_live))
+    if min_live is not None or capture_length is not None:
+        argv.append(str(min_live) if min_live is not None else "4")
+    if capture_length is not None:
+        argv.append(str(capture_length))
     return subprocess.run(argv, capture_output=True, text=True)
 
 
@@ -250,6 +275,21 @@ def cli_cases(tmp_path):
     cant_tell_capture.write_text("\n".join(REAL_NIGHT_CP) + "\n")
     got = run_cli(cant_tell_capture, min_live=3)
     case("CLI: no MP| payload exits 2", got.returncode, 2)
+
+    # B2 (review finding, refined): capture_length is a CLI argument, not a
+    # fixed 585 -- the SAME SHORT_MP capture (sec=400) reads rc=2 under the
+    # default 585s capture length (400 is well under 0.9*585=526.5) and rc=0
+    # under an explicit 440s capture length (400 >= 0.9*440=396, and the
+    # payload is otherwise clean). Proves the CLI actually threads the
+    # argument through, not a hardcoded 585.
+    short_capture = tmp / "short-length.txt"
+    short_capture.write_text("\n".join([SHORT_MP] + GOOD_CP) + "\n")
+    got = run_cli(short_capture, min_live=4)
+    case("CLI: SHORT_MP under the default 585s capture length -> rc=2",
+         got.returncode, 2)
+    got = run_cli(short_capture, min_live=4, capture_length=440)
+    case("CLI: the SAME capture clears an explicit 440s capture length -> rc=0",
+         got.returncode, 0)
 
 
 def main() -> int:
