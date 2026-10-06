@@ -14,6 +14,13 @@
 # The board lock is the pipeline's PIPELINE_LOCK, read from
 # ~/.config/wisekiosk/pipeline.env and held for the whole run.
 #
+# kiosk.conf and the launcher's cmdline and environ are recorded as the sha256
+# of their raw bytes and a public-safe plaintext: every site URL (kiosk.conf's
+# KIOSK_URL, the launcher's scheme:// arguments, environ's KIOSK_URL) replaced
+# by <url sha256:...>, then tools/scrub-identity.py --filter, escaped to one
+# line. A field the filter refuses is left empty, which the analyzer reads as
+# could not tell.
+#
 # Read-only on the device apart from /tmp/fp.rec and /tmp/fp.ppm, both removed
 # once fetched.
 set -uo pipefail
@@ -71,18 +78,65 @@ trap 'rm -rf "$tmp"' EXIT
 P=()
 p() { P+=("P $1=$2"); }
 
+# P lines for kiosk.conf and the launcher's cmdline and environ, made public-safe.
+# Args: conf-file|- launcher cmdline-file environ-file.
+safe_fields() {
+    python3 - "$@" << 'EOF'
+import hashlib, re, subprocess, sys
+
+conf_path, launcher, cmdline_path, environ_path = sys.argv[1:5]
+read = lambda path: open(path, 'rb').read() if path != '-' else None
+conf, cmdline, environ = read(conf_path), read(cmdline_path), read(environ_path)
+
+urls = set()
+for line in (conf or b'').splitlines():
+    if line.startswith(b'KIOSK_URL='):
+        urls.add(line[len(b'KIOSK_URL='):].strip().strip(b'"\''))
+urls.update(a for a in (cmdline or b'').split(b'\0') if re.match(rb'[A-Za-z][A-Za-z0-9+.-]*://', a))
+urls.update(e[len(b'KIOSK_URL='):] for e in (environ or b'').split(b'\0') if e.startswith(b'KIOSK_URL='))
+urls.discard(b'')
+
+def safe(raw):
+    text = raw
+    for url in sorted(urls, key=len, reverse=True):
+        text = text.replace(url, b'<url sha256:' + hashlib.sha256(url).hexdigest().encode() + b'>')
+    f = subprocess.run(['tools/scrub-identity.py', '--filter'], input=text, capture_output=True)
+    if f.returncode:
+        return ''
+    out = []
+    for ch in f.stdout.decode('utf-8', 'backslashreplace'):
+        if ch == '\\':
+            out.append('\\\\')
+        elif ch == '\n':
+            out.append('\\n')
+        elif ch == '\0':
+            out.append('\\0')
+        elif ord(ch) < 0x20 or ord(ch) == 0x7f:
+            out.append('\\x%02x' % ord(ch))
+        else:
+            out.append(ch)
+    return 'sha256:%s %s' % (hashlib.sha256(raw).hexdigest(), ''.join(out))
+
+if conf is None:
+    print('P kiosk_conf_sha256=absent\nP kiosk_conf=absent')
+else:
+    print('P kiosk_conf_sha256=%s' % hashlib.sha256(conf).hexdigest())
+    print('P kiosk_conf=%s' % safe(conf))
+if launcher:
+    print('P proc_cmdline_%s=%s' % (launcher, safe(cmdline) if cmdline is not None else ''))
+    print('P proc_environ_%s=%s' % (launcher, safe(environ) if environ is not None else ''))
+EOF
+}
+
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 p tools_commit "$head"
 p host_role "$role"
 p buildinfo_wisekiosk "$(dev cat /etc/buildinfo | awk '$1 == "meta-wisekiosk" { print; exit }')"
 p slot "$(dev rauc status --output-format=shell | sed -n "s/^RAUC_SYSTEM_BOOTED_BOOTNAME='\(.*\)'/\1/p")"
+conf=-
 if [ "$(dev "test -f /data/config/kiosk.conf && echo present")" = present ]; then
     dev cat /data/config/kiosk.conf > "$tmp/kiosk.conf"
-    p kiosk_conf_sha256 "$(sha256sum < "$tmp/kiosk.conf" | cut -d' ' -f1)"
-    p kiosk_conf "$(base64 -w0 < "$tmp/kiosk.conf")"
-else
-    p kiosk_conf_sha256 absent
-    p kiosk_conf absent
+    conf="$tmp/kiosk.conf"
 fi
 
 # shellcheck disable=SC2016
@@ -99,13 +153,14 @@ if [ "$has_x" -gt 0 ] && [ "$has_wpe" -eq 0 ]; then
 elif [ "$has_wpe" -gt 0 ] && [ "$has_x" -eq 0 ]; then
     engine=WPE launcher=wpe-kiosk
 fi
+pid=$(awk -F: -v c="$launcher" '$2 == c { print $1; exit }' <<< "$procs")
+[ -n "$pid" ] || launcher=
+cmdline=- environ=-
 if [ -n "$launcher" ]; then
-    pid=$(awk -F: -v c="$launcher" '$2 == c { print $1; exit }' <<< "$procs")
-    if [ -n "$pid" ]; then
-        p "proc_cmdline_$launcher" "$(dev cat "/proc/$pid/cmdline" | base64 -w0)"
-        p "proc_environ_$launcher" "$(dev cat "/proc/$pid/environ" | base64 -w0)"
-    fi
+    dev cat "/proc/$pid/cmdline" > "$tmp/cmdline" && cmdline="$tmp/cmdline"
+    dev cat "/proc/$pid/environ" > "$tmp/environ" && environ="$tmp/environ"
 fi
+mapfile -t -O "${#P[@]}" P < <(safe_fields "$conf" "$launcher" "$cmdline" "$environ")
 
 p crtc_state "$(dev grep -E "'fb=|mode:'" /sys/kernel/debug/dri/0/state |
     awk 'NR > 1 { printf " | " } { printf "%s", $0 }')"
