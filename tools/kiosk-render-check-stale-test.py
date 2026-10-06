@@ -48,7 +48,7 @@ and this test is what fixes its shape:
   be opened, is could-not-tell (rc=2, `stale tiles=0`) -- the same "never a
   pass" principle as a truncated PPM, applied to the manifest itself.
 
-This CLI/manifest shape is this test's own design -- #185's spec fixes the
+This CLI/manifest shape is this test's own design -- the spec fixes the
 pure-logic rule and the exit codes, not the on-disk format between this
 helper and kiosk-render-check.sh. Flag before matching it if a different
 shape is wanted.
@@ -142,14 +142,10 @@ def verdict_cases():
          stale.stale_verdict([cap(1, 1, C0), cap(1, 1, C128), cap(1, 1, C255)]),
          {"rc": 0, "stale_tiles": 0})
 
-    # AMENDED (was "insufficient stable captures -> could not tell", fixed
-    # rc=2): under the comparable-singleton rule, fb 1's single stable
-    # capture is comparable against fb 2's self-consistent pair. But the
-    # fb-id sequence here ([1, 2, 2]) is a clean chronological split, so the
-    # tile's difference is the late-change exclusion, not a disagreement --
-    # a pass, not could-not-tell. This fixture no longer tests insufficient
-    # data (new cases below cover that); it now pins that a comparable
-    # singleton does not bypass the late-change exclusion.
+    # fb 1's single stable capture is comparable against fb 2's
+    # self-consistent pair. The fb-id sequence here ([1, 2, 2]) is a clean
+    # chronological split, so the tile's difference is the late-change
+    # exclusion, not a disagreement -- a pass.
     case("singleton fb + clean split -> pass, not could-not-tell",
          stale.stale_verdict([cap(1, 1, C0), cap(2, 2, C255), cap(2, 2, C255)]),
          {"rc": 0, "stale_tiles": 0})
@@ -315,11 +311,8 @@ def cli_cases(tmp_path):
     case("CLI: pass exits 0", got.returncode, 0)
     case("CLI: pass evidence line", "stale tiles=0" in got.stdout.splitlines(), True)
 
-    # AMENDED: this used to be [cap(1,1,C0), cap(2,2,C255), cap(2,2,C255)]
-    # ("insufficient" under the old either-group-<2 rule). Under the
-    # comparable-singleton rule that fixture is a clean-split pass, not
-    # could-not-tell -- see the amended verdict_cases() comment. Two
-    # singleton fbs is the fixture that still forces rc=2 here.
+    # Two singleton fbs is the fixture that forces rc=2 here: neither
+    # reaches the >=2 self-consistency threshold.
     manifest = write_manifest(
         short_dir, [cap(1, 1, C0), cap(2, 2, C255)])
     got = run_cli(manifest)

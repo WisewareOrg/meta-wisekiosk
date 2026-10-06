@@ -12,8 +12,8 @@
 # supposed to set, and exits. kiosk-launch's own `#!/bin/sh` + exec means this stub really
 # does replace the process image, so what the stub sees is exactly what a real cog would.
 #
-# #185 ruling 2026-10-04: the stub must MODEL cog 0.18.5 + GLib 2.78.6's GOptionEntry
-# parsing of the boolean --enable-* flags, not just dump raw argv -- every one of them is
+# The stub MODELS cog 0.18.5 + GLib 2.78.6's GOptionEntry parsing of the boolean
+# --enable-* flags, rather than just dumping raw argv -- every one of them is
 # OPTIONAL_ARG: "--enable-X=VAL" sets VAL, but a BARE "--enable-X" consumes the very NEXT
 # argv token as its value whenever that token does not itself start with '-' (it is
 # consumed, not left positional). kiosk-launch passes these bare (no "="), so
@@ -159,9 +159,9 @@ check() {
 # the properties the fix must hold in EVERY combination, read from the stub's PARSED
 # fields, not from raw argv text: (1) cog's positional argument is EXACTLY $KIOSK_URL and
 # there is exactly one of it, (2) developer-extras is true iff KIOSK_INSPECTOR=1, (3)
-# write-console-messages-to-stdout is true iff KIOSK_PROBE=1, (4) #185 2026-10-05
-# (185-wpe-2.54): cog receives EXACTLY ONE "--features=<value>" argument, BEFORE the
-# positional URL in argv: the default -UseDamagingInformationForCompositing alone when
+# write-console-messages-to-stdout is true iff KIOSK_PROBE=1, (4) cog receives EXACTLY
+# ONE "--features=<value>" argument, BEFORE the positional URL in argv: the default
+# -UseDamagingInformationForCompositing alone when
 # KIOSK_COG_FEATURES is unset, the default then a comma then the value, whole and never
 # word-split, when it is set. (5) zero unrecognised flags reach cog -- the check that
 # catches a word-split value's second half landing as a stray, silently-ignored token
@@ -220,7 +220,6 @@ check_combo "KIOSK_INSPECTOR=1 alone -- the bug: a bare flag would swallow the U
 check_combo "KIOSK_PROBE=1 alone" 0 1
 check_combo "KIOSK_INSPECTOR=1 and KIOSK_PROBE=1 together" 1 1
 
-# #185 2026-10-05 (185-wpe-2.54): KIOSK_COG_FEATURES does not exist in kiosk-launch yet.
 # cog's real syntax (kiosk-launch's own comment, 3ee4a1e) is a COMMA list with NO spaces --
 # cog trims only TRAILING whitespace per item, so a comma-SPACE value ("-A, -B") itself
 # makes cog exit on the leading space in " -B". This is the realistic value, used for the

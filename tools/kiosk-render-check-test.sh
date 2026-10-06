@@ -179,11 +179,9 @@ frame 2 rc=0 at=10:43:14 bytes=1840 md5=$B
 $NOTBLANK"
 
 # --- the other could-not-tells --------------------------------------------
-# "cap=0" is tool-neutral (#185 W2 ruling 2026-10-04: the field used to be
-# "cap import=0", named for the one capture tool the X image carried; WPE's
-# capture goes through kiosk-drmgrab instead, and the wrapper emits this same
-# field for either tool being absent or the wrapper's own capture attempt
-# failing outright -- see the next case).
+# "cap=0" is tool-neutral: the wrapper emits this field for either tool
+# being absent, or the wrapper's own capture attempt failing outright -- see
+# the next case.
 check "no capture tool on the device is rc2" 2 "cap=0"
 check "empty probe is rc2" 2 ""
 
@@ -286,14 +284,13 @@ sentinel_pair "md5-field"   'md5=$m'              'md5='
 # shellcheck disable=SC2016
 sentinel_pair "bytes-field" 'bytes=$b'            'bytes='
 
-# The capture path is trap (b). #185 ruling 2026-10-04: WPE has no X, so `import
-# -window root` is gone -- the emitter captures through kiosk-drmgrab (the
-# GETFB2/dma-buf helper, validated against `import` on the X image in S1)
-# instead. /dev/fb0 holds the console login buffer under fkms either way, and
-# would hand back a stable hash from a surface the browser never touches -- a
-# FROZEN verdict that is true of the framebuffer and says nothing about the
-# render. Asserted as a property of the shipped file, because the day someone
-# "optimises" the capture is the day it silently starts lying.
+# The capture path is trap (b). The emitter captures through kiosk-drmgrab
+# (the GETFB2/dma-buf helper). /dev/fb0 holds the console login buffer under
+# fkms, and would hand back a stable hash from a surface the browser never
+# touches -- a FROZEN verdict that is true of the framebuffer and says
+# nothing about the render. Asserted as a property of the shipped file,
+# because the day someone "optimises" the capture is the day it silently
+# starts lying.
 if [ "$(printf '%s\n' "$emitter" | grep -cF 'kiosk-drmgrab')" -gt 0 ]; then
     pass=$((pass + 1))
 else

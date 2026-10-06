@@ -3,12 +3,9 @@
 #
 #   meta-wisekiosk/recipes-core/kiosk-soak/files/kiosk-soak-test.sh
 #
-# #185 W2 ruling 2026-10-04: the inline `case "$c" in WebKit*|webkit*|"$COMM")` the sampler
-# used to pick out browser-family processes (X/GTK WebKit's own process names, always
-# prefixed WebKit/webkit) is replaced with a sourceable `is_browser_proc <comm>` predicate
-# for WPE's process names -- true for anything starting "WPE" (WPEWebProcess,
-# WPENetworkProcess, WPEGPUProcess) and for exactly "cog"; false for everything else,
-# including the X-era names, since no GTK/X process exists in the image any more.
+# A sourceable `is_browser_proc <comm>` predicate selects WPE's browser-family process
+# names: true for anything starting "WPE" (WPEWebProcess, WPENetworkProcess,
+# WPEGPUProcess) and for exactly "cog"; false for everything else.
 #
 # Reaches the SHIPPED predicate, not a copy: the tool is sourced with KIOSK_SOAK_LIB=1,
 # which must define `is_browser_proc` and return before any device access or sampling --

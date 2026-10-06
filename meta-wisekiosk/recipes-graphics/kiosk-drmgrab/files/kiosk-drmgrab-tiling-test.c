@@ -20,8 +20,8 @@
  *     i.e. a row-major 4x4 grid of 4 B pixels within the 64 B utile.
  *
  * Bench's X scanout is 1280x720, pitch 5120 B (tiles_across = 5120/128 = 40),
- * spanning 920 4k tiles = 3768320 B (#185 plan; kiosk-drmgrab.c's commit
- * message). Checked: every pixel of that buffer against ref_t_offset; seven
+ * spanning 920 4k tiles = 3768320 B (kiosk-drmgrab.c's commit message).
+ * Checked: every pixel of that buffer against ref_t_offset; seven
  * hand-computed cases (walked out by hand, independent of both
  * implementations) against both; and that the map is a bijection onto
  * distinct byte offsets, every one inside the span.

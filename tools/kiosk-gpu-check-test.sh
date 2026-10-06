@@ -92,11 +92,11 @@ sentinel_pair "unreadable-fd"   'dri="?"'       'drifd=[?\\]'
 sentinel_pair "unreadable-maps" 'drv="?"'       'drv=[?\\]'
 sentinel_pair "grep-o-capability" 'cap grep_o=' 'cap grep_o='
 
-# #185 W2 ruling 2026-10-04: the device-side process-family match (WebKit/surf's era) moves
-# to WPEWebProcess|WPENetworkProcess|WPEGPUProcess|cog (WPEGPUProcess: 2.54 spawns it),
-# defined ONCE host-side as KIOSK_BROWSER_PROCS and interpolated into the remote heredoc --
-# not hardcoded a second time there, which is exactly the kind of two-sides-drift the
-# sentinel_pair checks above exist to catch for every other field this tool emits and reads.
+# The device-side process-family match is WPEWebProcess|WPENetworkProcess|WPEGPUProcess|cog
+# (WPEGPUProcess: 2.54 spawns it), defined ONCE host-side as KIOSK_BROWSER_PROCS and
+# interpolated into the remote heredoc -- not hardcoded a second time there, which is
+# exactly the kind of two-sides-drift the sentinel_pair checks above exist to catch for
+# every other field this tool emits and reads.
 if [ "${KIOSK_BROWSER_PROCS:-}" = 'WPEWebProcess|WPENetworkProcess|WPEGPUProcess|cog' ]; then
     pass=$((pass + 1))
 else
@@ -168,9 +168,8 @@ rc=$?
 if [ $rc -eq 2 ]; then pass=$((pass + 1)); else
     fail=$((fail + 1)); echo "FAIL  bad flag: expected rc=2, got rc=$rc" >&2; fi
 
-# --- --capture is unavailable on WPE, and must touch nothing (#185 ruling 2026-10-04) -----
-# Supersedes an earlier ruling (make --capture proceed when kiosk.conf lacks KIOSK_URL=):
-# webkit://gpu aborts cog on WPE, so --capture can no longer stage that URL and recover --
+# --- --capture is unavailable on WPE, and must touch nothing ------------------------------
+# webkit://gpu aborts cog on WPE, so --capture cannot stage that URL and recover --
 # it must refuse unconditionally, rc 2, a message containing "unavailable", and kiosk.conf
 # must never be touched at all: no backup written, no byte of it changed, regardless of
 # what it contains.
@@ -234,8 +233,8 @@ check_capture_unavailable_leaves_kiosk_conf_untouched() {
     local scratch conf orig out got_rc final backup_exists
     scratch=$(capture_scratch_setup)
     conf="$scratch/kiosk.conf"
-    # Bench's real kiosk.conf today (wpe-impl, #185): just KIOSK_INSPECTOR=0. Content is
-    # otherwise irrelevant -- the point is that NOTHING about it is read for a URL swap.
+    # A representative kiosk.conf: just KIOSK_INSPECTOR=0. Content is otherwise
+    # irrelevant -- the point is that NOTHING about it is read for a URL swap.
     printf 'KIOSK_INSPECTOR=0\n' > "$conf"
     orig=$(cat "$conf")
 
