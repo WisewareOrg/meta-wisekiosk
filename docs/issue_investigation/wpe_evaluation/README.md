@@ -454,8 +454,10 @@ so the PNGs carry the PPMs exactly.
 ### Runs 52–62 — S4, the `KIOSK_COG_FEATURES` trials, bench, commit `138d914`
 
 - **Board:** bench, Pi Zero W. **Image commit:** `138d9142b2cff9c59cd0a755595bc3a82db7e3e3`
-  throughout; no capture in this chain prints its own buildinfo line, so the commit is inferred
-  from the orchestration window, not read directly off the board on every row.
+  throughout, confirmed by `ota-verify-138d914.log`/`ota-verify-138d914-2.log`: the OTA to
+  `138d914` lands at roughly 15:40 local, and `d97d6fe` does not build until roughly 18:06, well
+  after this chain (and its reruns) completes. No individual capture in this chain prints its own
+  buildinfo line, so this is read off the surrounding OTA/build logs rather than per row.
 - **Scripts deployed:** `run-feature-trial.sh`, run unmodified, one call per row: six 15-frame
   `analyze_burst_v3.py` bursts plus one 90-frame `analyze_fw_burst.py` burst per trial, read
   fail-closed (a burst that cannot be parsed VOIDs that burst, not the whole trial).
@@ -697,18 +699,26 @@ stays in `/data/config/`. The next run then refuses until that backup is restore
 **S4 process notes.** A host `/tmp` tmpfs filled during the trials chain (Runs 52–62), corrupting
 Run 55 (T3) outright and part of Run 54 (T2)'s fw transfer; the affected trials were rerun to
 disk instead (Runs 60–62). An unbound-variable bug (`local label=$1` under `set -u`, no
-positional argument) voided Runs 63–64 before any render-check series ran; two already-running
-orchestrator processes still held the pre-fix script in memory when the fix landed, so
-`compensate-v1p.sh` and `compensate-v3.sh` were run to check whether either had left `kiosk.conf`
-dirty — one found it clean, the other refused to compensate because the board's buildinfo did not
-yet match the image it was meant to check. Had the restore trap not fired on that `set -u` abort,
-`kiosk.conf` could have been left carrying a 2.54-only feature flag into an OTA to 2.44.4
-(Run 65); no capture confirms whether it actually happened, only that the trap exists to prevent
-it. Run 65's OTA itself failed cleanly: a network reset at 72 % install, a self-reboot, and a
-return to the untouched active slot with its retry budget zeroed. Every orchestrator is designed
-to write its own `.log.done` marker last, in an exit trap, so a waiter blocks on that file rather
-than an outer wrapper that may not exist; at least one completed orchestration (`orchestrate-v3.sh`,
-which launched Runs 44–45's capture) left no such marker despite printing its own completion line.
+positional argument) voided Runs 63–64 before any render-check series ran, and Run 64's abort did
+not fire its restore trap: an operator check found `KIOSK_COG_FEATURES=-UseDamagingInformationForCompositing`
+still in `/data/config/kiosk.conf` while Run 65's OTA to 2.44.4 was installing, before the
+reboot; it was restored from `kiosk.conf.v2-orig` and `cmp`-verified identical, so 2.44.4 never
+booted carrying a feature flag it may not recognize. Separately, two already-running orchestrator
+processes still held the pre-fix script in memory when the fix landed (one driving Run 65's OTA
+step, the other the live-proof chain in Runs 69–71), so `compensate-v1p.sh` and `compensate-v3.sh`
+were run to check each for a second, independent dirty-`kiosk.conf` risk from its own in-flight
+condition: `compensate-v1p.sh` found it clean, `compensate-v3.sh` refused to compensate because
+the board's buildinfo did not yet match the image it was meant to check. Run 65's OTA itself
+failed cleanly: a network reset at 72 % install, a self-reboot, and a return to the untouched
+active slot with its retry budget zeroed. Every orchestrator is designed to write its own
+`.log.done` marker last, in an exit trap, so a waiter blocks on that file rather than an outer
+wrapper that may not exist; `orchestrate-v3.sh` (which launched Runs 44–45's capture) left no
+such marker at all despite printing its own completion line, and three more ran late relative to
+their own completion rather than missing outright — `build-138d914.log` and `build-5ec7f0e.log`
+both read `BUILD_EXIT=0` well before their `.log.done` appeared (touched together, after a ~10
+minute stall in the orchestrator waiting on them), and `orchestrate-fw.log` printed
+`ORCHESTRATE_FW_DONE` with its own `.log.done` not following for another ~15 minutes, stalling
+the next orchestrator in the chain for that long.
 
 ## Metrics
 
@@ -971,10 +981,12 @@ probe's own (570 s of the 585 s capture).
   itself has not yet completed (two attempts at the OTA to 2.44.4 for the comparison point, one
   failed on a network reset, one not yet run), so that comparison stays open.
 - **S4 process incidents, recorded as process notes, not findings about the defect:** a tmpfs
-  fill (above), two orchestrators crashing on an unbound variable before producing any
-  render-check data, at least one orchestrator completing without writing its own `.log.done`
-  marker, and one OTA (to 2.44.4) that failed cleanly on a network reset and fell back to the
-  active slot untouched.
+  fill (above); two orchestrators crashing on an unbound variable before producing any
+  render-check data, one of which left `kiosk.conf` dirty with a feature flag until an operator
+  check caught and restored it mid-OTA; one orchestrator completing without ever writing its own
+  `.log.done` marker and three more writing theirs 10–15 minutes late, each stalling a waiting
+  orchestrator for that long; and one OTA (to 2.44.4) that failed cleanly on a network reset and
+  fell back to the active slot untouched.
 - **Page state was judged by eye through Run 41** (mean luma of the pre-run screenshot, same as
   S1–S3); the mechanical `cards-probe.js` gate (`c=4 l=4` on every sample) was committed
   (`48f3bfd68a1d429f5d5c438ed5fcc1c96c95cc2b`) afterward and is used operationally in
