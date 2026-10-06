@@ -1,9 +1,9 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 
 # --user-script=PATH: evaluate the script in the main frame each time a load
-# finishes, as surf runs its script.js, and print each title change to stdout
-# as "TITLE <title>". kiosk-launch passes it
-# when KIOSK_PROBE=1; without the option cog behaves as upstream.
+# finishes, and print each title change to stdout as "TITLE <title>".
+# kiosk-launch passes it when KIOSK_PROBE=1; without the option cog behaves as
+# upstream.
 #
 # A platform named with -P that fails to come up makes cog exit non-zero
 # instead of falling back to the default backend, so kiosk.service's

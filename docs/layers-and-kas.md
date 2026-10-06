@@ -21,7 +21,7 @@ everything else is convention. Inside it:
 - `recipes-<category>/<name>/<name>_%.bbappend` — a **bbappend**, a fragment that *adds to* a recipe
   someone else's layer defines. It does not replace the recipe; BitBake parses the `.bb` and then
   every `.bbappend` that matches its name, in layer-priority order. The `%` is a wildcard over the
-  version, so `surf_%.bbappend` applies to whatever version of `surf` is in play.
+  version, so `cog_%.bbappend` applies to whatever version of `cog` is in play.
 - `classes/*.bbclass` — reusable logic a recipe can `inherit`.
 - side directories such as `files/` holding the loose files a recipe installs.
 

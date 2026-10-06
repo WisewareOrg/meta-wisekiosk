@@ -25,7 +25,8 @@
 # WHY A CROP, NOT THE WHOLE SCREEN. kiosk-drmgrab reads the framebuffer through an
 # uncached mapping, on the 1 GHz ARM11 core the browser is also rendering on; a
 # crop reads and writes a fraction of the frame, so the probe is less load on the
-# thing it is measuring.
+# thing it is measuring. The STALE series below reads the full frame: a stale
+# region can sit anywhere on the panel.
 #
 # THE DEFAULT CROP IS LAYOUT-SENSITIVE, AND THAT IS ITS SHARPEST EDGE. The region
 # has to contain the moving element in EVERY layout the page can take, not just

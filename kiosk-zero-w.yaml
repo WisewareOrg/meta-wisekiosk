@@ -248,7 +248,7 @@ local_conf_header:
     PREFERRED_PROVIDER_virtual/wpebackend = "wpebackend-fdo"
 
   # update-bundle.bb packages whichever image RAUC_SLOT_rootfs names, and its
-  # default is autonomos-devel -- a different image, with no surf and no kiosk
+  # default is autonomos-devel -- a different image, with no cog and no kiosk
   # unit. Installing that bundle would replace the slot and report success.
   # The :pn- form is required, not stylistic: update-bundle.bb assigns both of
   # these with a plain "=", which beats a bare local.conf value, so the override
@@ -299,7 +299,7 @@ local_conf_header:
     # alsa and touchscreen are deliberately NOT removed from DISTRO_FEATURES:
     # both are keyed on MACHINE_FEATURES/COMBINED_FEATURES, so the machine-side
     # removal is sufficient, and touching DISTRO_FEATURES risks re-hashing
-    # gstreamer -> webkitgtk3 into a multi-hour rebuild for no extra benefit.
+    # gstreamer -> wpewebkit into a multi-hour rebuild for no extra benefit.
     DISTRO_FEATURES:remove = " vulkan ptest bluetooth"
 
     # Nothing on this kiosk pairs, scans or streams; the only link is WiFi
@@ -353,10 +353,6 @@ local_conf_header:
     # It arrives as an RRECOMMENDS of systemd, so BAD_RECOMMENDATIONS is the
     # lever -- no bbappend, and therefore no systemd re-hash.
     BAD_RECOMMENDATIONS += "udev-hwdb"
-
-    # Drops adwaita-icon-theme-symbolic from gtk+3's RRECOMMENDS, which pulls
-    # adwaita-icon-theme -> librsvg -> rust-llvm-native out of the build graph.
-    RRECOMMENDS:gtk+3:remove = "adwaita-icon-theme-symbolic"
 
     # tzdata is a metapackage RDEPENDing on every region; tzdata-americas does
     # NOT pull tzdata-core, so both are named above. /usr/share/zoneinfo is 7.4MB
