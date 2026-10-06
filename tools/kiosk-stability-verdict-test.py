@@ -7,7 +7,8 @@ and the pipeline both use. Run by hand -- not wired into just guards or ci-guard
 THE CONTRACT THIS PINS, since kiosk-stability-verdict.py does not exist yet and this
 test is what fixes its shape:
 
-  stability_verdict(mf_lines, restarts, reboots, oom_lines)
+  stability_verdict(mf_lines, restarts, reboots, oom_lines, window=3600.0,
+                    sample_interval=30.0)
       -> {"rc": 0|1|2, "reasons": [str, ...]}
 
   mf_lines: a soak capture's raw text lines, carrying mf-probe.js's MF| samples (one
@@ -38,22 +39,32 @@ test is what fixes its shape:
 
   rc=0: no regression (reasons == []).
   rc=1: regression (reasons is the printed list).
-  rc=2 (could not tell): soak_summary raises ValueError on zero parseable MF|
-  samples. This is the ONLY rc=2 trigger -- the previously-asked "sample gap" rule
-  does not exist in parse_module_fault.py (confirmed no rule there), and the owner
-  has confirmed it is not wanted: a single missing sample was recorded as a finding
-  in Run 8, never a VOID.
+  rc=2 (could not tell), in EITHER of these cases:
+    - soak_summary raises ValueError on zero parseable MF| samples;
+    - the count of parseable MF| samples < 0.9 * floor(window / sample_interval)
+      (review finding B1: for the default 3600s/30s window that is 108; the real
+      soaks had 117-121. A single sample reads rc=2, not a pass -- the probe
+      having run once is not the same as it having run through the soak).
+  The previously-asked "sample gap" rule still does not exist in parse_module_
+  fault.py, and the owner has confirmed it is not wanted on its own: a single
+  missing sample mid-soak was recorded as a finding in Run 8, never a VOID --
+  this count-floor check is a DIFFERENT, coarser rule (too few samples overall),
+  not a gap-between-consecutive-samples check.
 
   CLI: `kiosk-stability-verdict.py <capture> <restarts> <reboots> <oom-lines>`.
   Prints each reason (rc=1) or why it could not tell (rc=2), then one evidence line
   `regression reasons=<n>`, and exits with rc. This CLI shape is this test's own
   design, not spec-fixed.
 
-Run 76 (the fixed 2.54 soak) is reconstructed from the README's "Metrics" table
-(fmax=0, fever=0, umax=1, restarts=0, reboots=0, OOM lines=0) with a minimal 3-line
-MF| series proven against parse_module_fault.py's real soak_summary to reproduce
-those exact fmax/fever/umax figures -- not the literal 121 samples the real capture
-held. oom_lines=0 for this fixture, matching the README's own zero OOM-line count.
+Run 76 (the fixed 2.54 soak) and Run 8 (the X baseline soak) are reconstructed as
+full 121-sample series (t=0,30,...,3600 -- one every 30s through the 3600s window,
+matching the real soaks' own cadence and comfortably past the 108-sample floor),
+with fmax/fever/umax held at the README's reported peaks (Run 76: umax=1 at one
+sample; Run 8: all zero) and zero everywhere else -- not the literal raw captures,
+but enough samples to exercise the B1 floor honestly rather than sidestepping it.
+oom_lines=0 for both, matching the README's own zero OOM-line counts. The purely
+synthetic REGRESSED_MF fixture stays minimal with an explicitly smaller window,
+since it makes no claim to real-soak fidelity.
 """
 import importlib.util
 import subprocess
@@ -88,29 +99,41 @@ stabv = load("kiosk-stability-verdict")
 
 # --------------------------------------------------------------- fixtures
 
+def mf_series(window=3600, interval=30, peak_at=None, fmax=0, fever=0, umax=0):
+    """One MF| line every `interval` seconds through [0, window] -- 121 lines for
+    the default 3600/30 -- all zero except the single sample at `peak_at`, which
+    carries the given peak figures. Enough real samples to clear the B1 floor
+    honestly, not a token few."""
+    lines = []
+    t = 0
+    while t <= window:
+        if peak_at is not None and t == peak_at:
+            lines.append(f"MF|t={t}|f=0|fmax={fmax}|fever={fever}|u=0|umax={umax}")
+        else:
+            lines.append(f"MF|t={t}|f=0|fmax=0|fever=0|u=0|umax=0")
+        t += interval
+    return lines
+
+
 # Run 76 (fixed 2.54 soak): fmax=0, fever=0, umax=1, restarts=0, reboots=0, OOM
-# lines=0 -- a minimal 3-line series proven to reproduce these exact figures via
-# parse_module_fault.soak_summary, not the real capture's literal 121 samples.
-RUN76_MF = [
-    "MF|t=0|f=0|fmax=0|fever=0|u=0|umax=0",
-    "MF|t=1800|f=0|fmax=0|fever=0|u=1|umax=1",
-    "MF|t=3600|f=0|fmax=0|fever=0|u=0|umax=1",
-]
+# lines=0. 121 samples (t=0..3600 every 30s), proven against parse_module_fault's
+# real soak_summary to reproduce these exact figures.
+RUN76_MF = mf_series(peak_at=1800, umax=1)
 
-# Run 8 (the X baseline soak): fmax=0, fever=0, umax=0, restarts=0, reboots=0, OOM
-# lines=0 -- also reads rc=0 against the zero baseline, since its own figures ARE
+# Run 8 (the X baseline soak): fmax=0, fever=0, umax=0 -- also 121 samples, all
+# zero. Also reads rc=0 against the zero baseline, since its own figures ARE
 # zero; proves the zero baseline is not special-cased to only accept Run 76.
-RUN8_MF = [
-    "MF|t=0|f=0|fmax=0|fever=0|u=0|umax=0",
-    "MF|t=1800|f=0|fmax=0|fever=0|u=0|umax=0",
-    "MF|t=3600|f=0|fmax=0|fever=0|u=0|umax=0",
-]
+RUN8_MF = mf_series()
 
-# A clear regression: fmax and fever both exceed the zero baseline.
+# A clear regression: fmax and fever both exceed the zero baseline. Purely
+# synthetic (not a named real run), so it stays minimal with an explicitly
+# smaller window (60s/30s = 2 samples, floor*0.9 = 1.8) rather than padding to
+# 121 lines it makes no claim to.
 REGRESSED_MF = [
     "MF|t=0|f=0|fmax=0|fever=0|u=0|umax=0",
-    "MF|t=1800|f=2|fmax=2|fever=3|u=0|umax=0",
+    "MF|t=30|f=2|fmax=2|fever=3|u=0|umax=0",
 ]
+REGRESSED_WINDOW = 60
 
 
 def verdict_cases():
@@ -123,7 +146,8 @@ def verdict_cases():
          stabv.stability_verdict(RUN8_MF, restarts=0, reboots=0, oom_lines=0),
          {"rc": 0, "reasons": []})
 
-    result = stabv.stability_verdict(REGRESSED_MF, restarts=0, reboots=0, oom_lines=0)
+    result = stabv.stability_verdict(REGRESSED_MF, restarts=0, reboots=0, oom_lines=0,
+                                      window=REGRESSED_WINDOW)
     case("higher fmax/fever -> regression (rc=1)", result["rc"], 1)
     case("regression reasons mention fmax and fever",
          any("fmax" in r.lower() or "simultaneous" in r.lower() for r in result["reasons"])
@@ -153,6 +177,20 @@ def verdict_cases():
          stabv.stability_verdict(["no MF| payload here"], restarts=0, reboots=0,
                                   oom_lines=0)["rc"],
          2)
+
+    # B1 (review finding): a single sample over the default 3600s/30s window is
+    # nowhere near the 108-sample floor (0.9 * floor(3600/30)) -- the probe
+    # having run once is not the same as it having run through the soak. Not
+    # the "zero samples" ValueError path: soak_summary would happily compute
+    # fmax/fever from this one line.
+    case("a single sample over the full 3600s window -> could not tell, never a pass",
+         stabv.stability_verdict(["MF|t=0|f=0|fmax=0|fever=0|u=0|umax=0"],
+                                  restarts=0, reboots=0, oom_lines=0)["rc"],
+         2)
+
+    # The boundary this contrasts with: Run 76's own 121 samples, comfortably
+    # over the 108 floor, already reads rc=0 above -- proving the floor does
+    # not reject a genuinely complete soak.
 
 
 # ------------------------------------------------------------------- CLI
