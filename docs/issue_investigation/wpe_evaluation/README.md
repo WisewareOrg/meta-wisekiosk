@@ -95,7 +95,7 @@ from slot B. The S1 harness ran from a checkout pinned at `ea79e18`, clean, exce
 | 69 | bench · Pi Zero W | `d97d6fe` | `kiosk-render-check.sh` ×5 (V4, default) | 165/165 rc lines 0; no STALE verdict |
 | 70 | bench · Pi Zero W | `d97d6fe` + `KIOSK_COG_FEATURES=UseDamagingInformationForCompositing` | `kiosk-render-check.sh` ×5 (V1′) + `run-v3-short.sh` ×1 | 165/165 rc lines 0; independent burst: 10 disagreeing tiles (vs 16–77 on default) |
 | 71 | bench · Pi Zero W | `d97d6fe` (± override) | `kiosk-render-check.sh` ×5 each (V4b, V1b; re-sequenced repeat) | 165/165 rc lines 0 both conditions |
-| 72 | bench · Pi Zero W | `d97d6fe` → `5ec7f0e` (OTA, under lock) | live proof against the pre-fix image | not yet run as of this snapshot |
+| 72 | bench · Pi Zero W | `d97d6fe` → `5ec7f0e` (OTA, under lock) | live proof against the pre-fix image | install started, no result line; dropped by `orchestrate-tonight.sh`'s own decision, not rerun |
 | 73 | bench · Pi Zero W | `d97d6fe` | `run-s4-smoothness.sh` @ `635af22`, `smoothness-cards-probe.js` | 50.95 fps, 98.4 % <50 ms, stall 0.0248–0.0460/s (bounded); gate VOID / reclassified LIVE |
 | 74 | bench · Pi Zero W | `d97d6fe` | as Run 73 | 51.18 fps, 98.3 % <50 ms, stall 0.0247–0.0459/s (bounded); gate VOID / reclassified LIVE |
 | 75 | bench · Pi Zero W | `d97d6fe` | as Run 73 | 50.95 fps, 98.3 % <50 ms, stall 0.0248–0.0442/s (bounded); gate VOID / reclassified LIVE |
@@ -546,8 +546,12 @@ so the PNGs carry the PPMs exactly.
   repeats both conditions once more (labelled V4b and V1b in the capture, a re-sequenced
   repeat ahead of the S4 smoothness/soak below, not a third condition): 165/165 rc 0 again, both
   ways. Run 72, queued under the same lock as Run 71, is the OTA to `5ec7f0e` for a live
-  pre-fix-image comparison; its log ends after starting the install with no result line — not yet
-  run as of this snapshot, so fact 8's "live test against the pre-fix image" stays open.
+  pre-fix-image comparison; its log ends after starting the install with no result line. It was
+  not completed later either: `orchestrate-tonight.sh`'s own header records the decision to drop
+  it for that night's run — "V4/V4b (10/10 rc 0) already serves as the pass case, and 2.44's
+  offline-validated stored data serves as the other side" (Run 46) — so fact 8's "live test
+  against the pre-fix image" is deliberately closed on the offline/fixed-image evidence already
+  in hand, not left open pending a rerun.
 - **Raw capture:** retained off-tree.
 
 ### Runs 73–76 — S4 smoothness/soak, the fixed image, bench, commit `d97d6fe`
@@ -556,32 +560,37 @@ so the PNGs carry the PPMs exactly.
   slot B, from each capture's own header; tonight, 3/4 park cards live (one closed for the night).
 - **Scripts deployed:** each capture's own `# harness` line self-stamps
   `635af22c3b97af1bd9c4080f24dd730cf6500198`, but the files it produced do not match either
-  outcome the version of `run-s4-smoothness.sh` committed at that pin, or at `HEAD`, can print.
-  A locally edited, never-committed `run-s4-smoothness.sh`, found in a sibling worktree, takes a
-  4th positional argument (`MIN_LIVE`, default 4) and relaxes the gate from `all_live` (`c=4 l=4`)
-  to `all_at_least(lines, MIN_LIVE)` — a function of the same name added to that worktree's own,
-  likewise uncommitted, `parse_cards_probe.py`; the orchestrator passed 3, for tonight's known
-  3/4-card state. This README's own copies of both files (Harness, above) are the unmodified
-  `all_live` versions; the scripts that actually ran tonight are not beside this README — a
-  concrete instance of the R2 gap, not a one-off inline command this time but an edited,
-  never-committed pair of scripts.
+  outcome the version of `run-s4-smoothness.sh` committed at that pin, or (then) at `HEAD`, could
+  print. The version that actually ran — a 4th positional argument (`MIN_LIVE`, default 4) that
+  relaxes the gate from `all_live` (`c=4 l=4`) to `all_at_least(lines, MIN_LIVE)`, a function of
+  the same name added to `parse_cards_probe.py` — is now committed, replacing both files, in
+  `fe92bba` (`#185 investigation: S4 scripts that ran tonight`); the orchestrator
+  (`orchestrate-tonight.sh`, committed in the same pass, address-redacted) passed `MIN_LIVE=3`,
+  for tonight's known 3/4-card state.
 - **Procedure:** three back-to-back 585 s smoothness captures, cache cleared and kiosk restarted
   before each. Each capture's own cards-live gate reads VOID: its first `CP|` sample, at t=4 s,
   before the page has loaded (`c=0 l=0`), counts against the deployed "`l>=3` throughout" rule the
-  same as a genuine drop would. A reclassification pass (`reclassify_cards_window.py`, likewise
-  not committed here), recorded in each file as a separate, appended block, excludes samples
-  before the 15 s settle window (`parse_smoothness.py`'s own `steady_from`) and reclassifies all
-  three LIVE (`l>=3` throughout the judged window, 19 of 20 samples; `l` never reaches 4 — one
-  park stays closed the whole capture). Both labels are recorded here: VOID as the deployed gate's
-  own rule produced it, LIVE as the reclassification corrects for the load-time sample. Run 76 is
-  the 1 h soak that follows: `run-s4-soak.sh` records cards-live as a fraction, by design, and
-  never VOIDs a run on it (see the soak's own Harness entry above) — but the same reclassification
-  script was run against it anyway, found `l` drop to 2 after a second park closes partway through
-  (at t=330 s) and read VOID, which is a misapplication of the smoothness gate's rule to data it
-  was never meant to gate; Run 76's result stands un-voided for stability, which is what it was
-  designed to measure.
-- **Raw capture:** retained off-tree. Parsed with `parse_smoothness.py` (Runs 73–75) and
-  `parse_module_fault.py` (Run 76); see Metrics.
+  same as a genuine drop would. A reclassification pass (`reclassify_cards_window.py`, run by
+  `reclassify-watcher.sh`, both committed in `fe92bba`), recorded in each file as a separate,
+  appended block, excludes samples before the 15 s settle window (`parse_smoothness.py`'s own
+  `steady_from`) and reclassifies all three LIVE (`l>=3` throughout the judged window, 19 of 20
+  samples; `l` never reaches 4 — one park stays closed the whole capture). Both labels are
+  recorded here: VOID as the deployed gate's own rule produced it, LIVE as the reclassification
+  corrects for the load-time sample. Run 76 is the 1 h soak that follows: `run-s4-soak.sh` records
+  cards-live as a fraction, by design, and never VOIDs a run on it (see the soak's own Harness
+  entry above) — but the same reclassification script was run against it anyway, found `l` drop
+  to 2 after a second park closes partway through (at t=330 s) and read VOID, which is a
+  misapplication of the smoothness gate's rule to data it was never meant to gate; Run 76's result
+  stands un-voided for stability, which is what it was designed to measure. Tonight's
+  orchestration also started a repeat of the V1b override condition (Runs 70–71) after the soak,
+  using a stale copy of that step baked into the running `orchestrate-tonight.sh` process; it was
+  killed before reaching that step by `intercept-after-soak.sh` (committed in `fe92bba`), which
+  confirmed `kiosk.conf` was still known-good and launched Run 77 in its place — no V1b-tonight
+  data exists.
+- **Raw capture:** retained off-tree. Parsed by `analyze-s4-smoothness.sh` (committed in
+  `fe92bba`), which calls `parse_smoothness.py` (Runs 73–75) and `verdict.py`'s
+  `regression_reasons` against the S1, S3 and pre-fix-2.54 tables above to produce the E1 verdict
+  (§"Verdict"); Run 76 read separately with `parse_module_fault.py`. See Metrics.
 
 ### Run 77 — V1-real, the live render-check-stale proof against the pre-fix image, bench, commit `138d914`
 
@@ -589,11 +598,13 @@ so the PNGs carry the PPMs exactly.
   `d97d6fe` afterward (confirmed by the post-run buildinfo check); after park hours, 2/4 cards
   live. **Image commit:** `138d9142b2cff9c59cd0a755595bc3a82db7e3e3`.
 - **Scripts deployed:** `tools/kiosk-render-check.sh` ×5 and `run-v3-short.sh` ×1, as Runs 69–71;
-  the orchestration (`orchestrate-v1-real.sh`) was not saved — an R2 gap, as for the other
-  orchestrators in Runs 63–72.
+  `orchestrate-v1-real.sh`, committed in `fe92bba`.
 - **Procedure:** this is Runs 63–64's rehearsal, finally run against the real pre-fix condition —
   `138d914` at default, no flag override — rather than crashing on the unbound-variable bug.
-  Five render-check passes all read rc 0, stale tiles=0; the one independent v3-style burst also
+  Launched by `intercept-after-soak.sh` (Runs 73–76's note above) in place of
+  `orchestrate-tonight.sh`'s own stale V1b step, right after confirming `kiosk.conf` was still
+  known-good. Five render-check passes all read rc 0, stale tiles=0; the one independent v3-style
+  burst also
   reads 0 disagreeing tiles, though `testable_tiles=0` for that burst (the two fb ids never
   co-occurred as stable captures in it, the same vacuous-zero case as Run 46's burst 8, not a
   tested-and-clean result). The fault is absent here, not missed by the detector: Runs 67–68
@@ -736,15 +747,30 @@ All one-off and committed beside this README (R2), except where a run names a sh
   a soak that may legitimately cross a park-hours boundary. Replaces judging "cards live" by eye
   from the pre-run screenshot (Runs 2–41's limitation); first used operationally against image
   `d97d6fe9b892321f76b333d0e9ad79a31edbd142`, in `run-s4-smoothness.sh` and `run-s4-soak.sh`.
+  `all_at_least(lines, min_live)` relaxes the same check to `l >= min_live`, for a window where
+  a park is legitimately closed; `run-s4-smoothness.sh` takes `MIN_LIVE` as a 4th argument
+  (default 4). `reclassify_cards_window.py` re-judges a run's `CP|` samples restricted to
+  `parse_smoothness.py`'s own `steady_from` window, appending a reclassified verdict without
+  touching the original; `reclassify-watcher.sh` runs it against each of a chain's files as soon
+  as that file's own completion marker appears, for Runs 73–76 (below). `analyze-s4-smoothness.sh`
+  drives `parse_smoothness.py` and `verdict.py`'s `regression_reasons` over the fixed image's
+  three smoothness runs against the S1 and S3 tables above, producing the E1 verdict (Runs 73–75,
+  §"Verdict"). `orchestrate-v1-real.sh` is Run 77's driver — the OTA to `138d914`, the five
+  render-check passes and the one v3-style burst, then the OTA back. All five committed in
+  `fe92bba` (`#185 investigation: S4 scripts that ran tonight`), along with `orchestrate-tonight.sh`
+  (Runs 73–76's driver) and `intercept-after-soak.sh` (which hands off from it to
+  `orchestrate-v1-real.sh`, Run 77's note above) and `trigger-138d914-build.sh` (builds `138d914`
+  in a separate worktree, host-only, while the soak runs).
 
 **Redacted harness scripts.** The S4 scripts are committed as run except one redaction: the bench
 ssh target is read from `$BENCH` (`${BENCH:?ssh target…}`) where the script held a literal
-address, in `compensate-v1p.sh`, `compensate-v3.sh`, `orchestrate-244-load.sh`,
-`orchestrate-244.sh`, `orchestrate-254-load.sh`, `orchestrate-d97d6fe-v4.sh`, `orchestrate-fw.sh`,
-`orchestrate-live-proof.sh`, `orchestrate-load254-and-trials.sh`, `orchestrate-render-check.sh`,
-`orchestrate-s4-only.sh`, `orchestrate-s4-smoothness-soak.sh`, `orchestrate-trials-rerun.sh`,
-`orchestrate-trials.sh`, `orchestrate-v2.sh`, `orchestrate-v3-retry.sh`, `orchestrate-v3.sh`,
-`ota-verify-138d914.sh`, `ota-verify-449e571.sh`, `ota-verify-5ec7f0e.sh` and
+address, in `compensate-v1p.sh`, `compensate-v3.sh`, `intercept-after-soak.sh`,
+`orchestrate-244-load.sh`, `orchestrate-244.sh`, `orchestrate-254-load.sh`,
+`orchestrate-d97d6fe-v4.sh`, `orchestrate-fw.sh`, `orchestrate-live-proof.sh`,
+`orchestrate-load254-and-trials.sh`, `orchestrate-render-check.sh`, `orchestrate-s4-only.sh`,
+`orchestrate-s4-smoothness-soak.sh`, `orchestrate-tonight.sh`, `orchestrate-trials-rerun.sh`,
+`orchestrate-trials.sh`, `orchestrate-v1-real.sh`, `orchestrate-v2.sh`, `orchestrate-v3-retry.sh`,
+`orchestrate-v3.sh`, `ota-verify-138d914.sh`, `ota-verify-449e571.sh`, `ota-verify-5ec7f0e.sh` and
 `ota-verify-d97d6fe.sh`.
 
 **Aborting a driver:** kill its process group, `kill -TERM -- -<pgid>`. Bench runs launch
@@ -1065,8 +1091,10 @@ probe's own (570 s of the 585 s capture).
   override's one independent v3-style burst (10 disagreeing tiles, against 16–77 per burst on
   default) suggests it most likely did not re-enable the feature, an inference from the size
   mismatch rather than a direct confirmation. A live render-check pass against the pre-fix image
-  itself has not yet completed (two attempts at the OTA to 2.44.4 for the comparison point, one
-  failed on a network reset, one not yet run), so that comparison stays open.
+  on 2.44.4 was never completed — one OTA attempt failed on a network reset (Run 65), a second
+  started and stopped with no result line (Run 72) — and was then deliberately dropped for the
+  night's run rather than retried: the fixed image's own 10/10 rc 0 (Runs 69–71) and 2.44.4's
+  offline-validated stored data (Run 46) were judged sufficient without it.
 - **S4 process incidents, recorded as process notes, not findings about the defect:** a tmpfs
   fill (above); two orchestrators crashing on an unbound variable before producing any
   render-check data, one of which left `kiosk.conf` dirty with a feature flag until an operator
