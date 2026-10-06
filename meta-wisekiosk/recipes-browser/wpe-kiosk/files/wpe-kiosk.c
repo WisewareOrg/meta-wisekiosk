@@ -15,6 +15,8 @@
  *                           as cog's --features: case-insensitive; '-' or '!'
  *                           disables, '+' or no prefix enables
  *   WPE_KIOSK_CONSOLE=1     write console messages to stdout
+ *   WPE_KIOSK_INSPECTOR=1   enable developer extras; WebKit serves the remote
+ *                           inspector at WEBKIT_INSPECTOR_HTTP_SERVER when set
  *   WPE_KIOSK_MODE=WxH      before connecting, SetCrtc the first connected
  *                           connector's first WxH mode, print "WPP|preset=WxH
  *                           crtc=<id> connector=<id>", drop master, keep fd open
@@ -160,6 +162,8 @@ int main(int argc, char **argv)
         return 1;
     if (!g_strcmp0(g_getenv("WPE_KIOSK_CONSOLE"), "1"))
         webkit_settings_set_enable_write_console_messages_to_stdout(settings, TRUE);
+    if (!g_strcmp0(g_getenv("WPE_KIOSK_INSPECTOR"), "1"))
+        webkit_settings_set_enable_developer_extras(settings, TRUE);
 
     WebKitWebView *web_view = g_object_new(WEBKIT_TYPE_WEB_VIEW, "display", display, "settings", settings, NULL);
     WPEView *view = webkit_web_view_get_wpe_view(web_view);
