@@ -14,12 +14,13 @@ test is what fixes its shape:
   every 30 s through the soak).
   restarts, reboots: int counts over the soak (kiosk-soak.sh's own sampler already
   detects these).
-  oom_lines: int count of OOM lines in the journal. RECORDED, not judged -- the same
-  "recorded, not judged" shape verdict.py already documents for u/umax and time to
-  page: no rule in verdict.regression_reasons reads an OOM-line count, only the
-  memory_problem flag below, so this input is accepted and reported but never feeds
-  the rc. Flagging this reading rather than inventing an oom_lines>0 -> memory_problem
-  rule verdict.py itself does not state.
+  oom_lines: int count of OOM-killer lines in the journal. JUDGED (owner-approved
+  plan's memory rule: "a regression is an OOM-killer line or a memory-attributed
+  restart"): oom_lines > 0 is itself a regression, same ABSOLUTE treatment as
+  memory_problem -- not compared against a baseline count. Since verdict.
+  regression_reasons has no oom_lines parameter at all, this tool adds its own
+  reason string when oom_lines > 0, alongside whatever regression_reasons itself
+  returns.
   memory_problem: bool, already decided elsewhere (kiosk-soak.sh's own memory
   reporting) -- this tool consumes it, it does not derive it from MemAvailable/slope/
   swap/PSI.
@@ -31,20 +32,22 @@ test is what fixes its shape:
   - baseline_soak is the ZERO baseline (team-lead's own wording): {"fmax": 0,
     "fever": 0, "restarts": 0, "reboots": 0, "memory_problem": False} -- the ideal
     soak, not a measured X baseline file.
-  - verdict.regression_reasons(NEUTRAL_RUNS, NEUTRAL_RUNS, baseline_soak,
+  - reasons = verdict.regression_reasons(NEUTRAL_RUNS, NEUTRAL_RUNS, baseline_soak,
     candidate_soak) -- the SAME neutral smoothness runs on both sides so no
     smoothness-side reason can ever fire, leaving only the soak rules (fmax, fever,
     restarts, reboots, memory_problem) live. Reuses regression_reasons whole, mirror
     of kiosk-perf-verdict.py's own neutral-soak trick; the neutral-runs shape is this
     test's own design, not spec-fixed.
+  - if oom_lines > 0: reasons gets this tool's own extra reason string, naming the
+    count -- this test's own design for the exact wording, not spec-fixed.
 
   rc=0: no regression (reasons == []).
   rc=1: regression (reasons is the printed list).
   rc=2 (could not tell): soak_summary raises ValueError on zero parseable MF|
-  samples. (A second rc=2 trigger, "a sample gap breaks parse_module_fault's own
-  rule", is not yet determined by parse_module_fault.py's own code -- no gap/interval
-  check exists there at all -- and is deliberately NOT encoded here; halted and
-  asked separately.)
+  samples. This is the ONLY rc=2 trigger -- the previously-asked "sample gap" rule
+  does not exist in parse_module_fault.py (confirmed no rule there), and the owner
+  has confirmed it is not wanted: a single missing sample was recorded as a finding
+  in Run 8, never a VOID.
 
   CLI: `kiosk-stability-verdict.py <capture> <restarts> <reboots> <oom-lines>
   <memory-problem 0|1>`. Prints each reason (rc=1) or why it could not tell (rc=2),
@@ -145,14 +148,21 @@ def verdict_cases():
     case("memory_problem=True -> regression (rc=1), absolute, not baseline-relative",
          result["rc"], 1)
 
-    # oom_lines is recorded, not judged: a nonzero count with memory_problem=False
-    # and zero fmax/fever/restarts/reboots must NOT by itself cause a regression --
-    # the flag that reader verdict.py was asked about must be memory_problem, not
-    # this count.
+    # oom_lines is JUDGED (owner-approved plan's memory rule): a nonzero count is
+    # itself a regression, absolute, even with memory_problem=False and zero
+    # fmax/fever/restarts/reboots -- an OOM-killer line is its own reason, not
+    # gated behind the separate memory_problem flag.
     result = stabv.stability_verdict(RUN76_MF, restarts=0, reboots=0, oom_lines=5,
                                       memory_problem=False)
-    case("oom_lines alone (memory_problem still False) does not cause a regression",
-         result, {"rc": 0, "reasons": []})
+    case("oom_lines > 0 alone -> regression (rc=1), absolute", result["rc"], 1)
+    case("oom_lines regression reason names OOM",
+         any("oom" in r.lower() for r in result["reasons"]), True)
+
+    # Zero OOM lines must not themselves cause a regression (the boundary this
+    # contrasts with).
+    result = stabv.stability_verdict(RUN76_MF, restarts=0, reboots=0, oom_lines=0,
+                                      memory_problem=False)
+    case("oom_lines=0 -> no OOM-line reason", result, {"rc": 0, "reasons": []})
 
     # rc=2: no MF| samples parse at all.
     case("no MF| samples -> could not tell, never a pass (rc=2)",

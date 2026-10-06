@@ -41,9 +41,13 @@ what fixes its shape:
     - no MP| payload parses in the whole capture;
     - the judged CP| window (t >= steady_from) is empty, or any sample in it has
       l < min_live -- run-s4-smoothness.sh's own cards gate, read as could-not-tell,
-      never a pass. (A third rc=2 trigger, "capture too short", is not yet determined
-      by parse_smoothness.py's own code and is deliberately NOT encoded here --
-      halted and asked separately.)
+      never a pass.
+  These are the ONLY rc=2 triggers. A previously-asked "capture too short" rule does
+  not exist in parse_smoothness.py, and the owner has confirmed it is not wanted here:
+  a restart mid-capture (which would leave a short payload) is the tools/ driver's own
+  job -- it reads kiosk NRestarts before and after, as run-s4-smoothness.sh already
+  records, and returns rc=2 itself if it changed. That check belongs in the driver,
+  not in this pure verdict.
 
   CLI: `kiosk-perf-verdict.py <capture> [<baseline.json>] [<min_live>]`. baseline.json
   defaults to the committed tools/kiosk-perf-baseline.json beside this script;
