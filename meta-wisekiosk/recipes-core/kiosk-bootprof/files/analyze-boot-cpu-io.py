@@ -46,9 +46,11 @@ DEFAULT_WINDOWS = [
     ("sysinit -> basic", 20.3, 25.3),
     ("waiting for wlan0", 25.3, 33.8),
     ("assoc + DHCP", 33.8, 36.9),
-    ("Xorg -> surf exec", 36.9, 41.4),
-    ("surf -> load_finished", 41.4, 53.0),
 ]
+
+# Written only by the surf image; a phase that needs a missing one prints as
+# unavailable rather than dropping out of the table.
+BROWSER_MILESTONES = ("t_exec", "t_loaded")
 
 
 def journal_windows(sample_path):
@@ -63,14 +65,22 @@ def journal_windows(sample_path):
         m = re.search(r"^\[\s*([0-9.]+)\].*" + pat, text, re.M)
         if m:
             marks[name] = float(m.group(1))
+    missing = [n for n in BROWSER_MILESTONES if n not in marks]
     windows = []
     for label, a, b in PHASES:
+        if a in missing or b in missing:
+            windows.append((label, None, None))
+            continue
         t0 = 0.0 if a is None else marks.get(a)
         t1 = marks.get(b)
         if t0 is None or t1 is None or t1 <= t0:
             continue
         windows.append((label, t0, t1))
-    return (windows or DEFAULT_WINDOWS), marks
+    if not any(t0 is not None for _, t0, _ in windows):
+        return DEFAULT_WINDOWS, marks
+    if missing:
+        print(f"missing browser milestones: {', '.join(missing)}", file=sys.stderr)
+    return windows, marks
 
 
 def load_meta(path):
@@ -160,6 +170,9 @@ def report(path, rows):
     print(f"{'window':<22}{'wall':>7}{'busy%':>8}{'idle%':>8}{'iowait%':>9}"
           f"{'idle_s':>8}{'rd_ios':>8}{'rd_ms':>8}{'wr_ios':>8}")
     for name, t0, t1 in windows:
+        if t0 is None:
+            print(f"{name:<22}unavailable")
+            continue
         a, b = bracket(rows, t0, t1)
         if a is None:
             continue
