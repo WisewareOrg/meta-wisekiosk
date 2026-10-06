@@ -63,10 +63,10 @@
 #
 # STALE, checked only once the render is advancing: a region left over from an
 # older frame survives a repainting clock. It shows when the scanout alternates
-# buffers, each fb holding the region steady and the two disagreeing. 30
-# full-frame `kiosk-drmgrab --report` captures about 2 s apart, fetched in
-# batches of 5, go to tools/kiosk-render-check-stale.py on this host, which
-# holds the rule.
+# buffers, each fb holding the region steady and the two disagreeing. 6 bursts
+# of 15 back-to-back full-frame `kiosk-drmgrab --report` captures, 60 s apart,
+# each fetched and deleted before the next, go to
+# tools/kiosk-render-check-stale.py on this host, which holds the rule.
 #
 # THE EXIT CODE:
 #
@@ -76,16 +76,17 @@
 #      a uniform capture region, a failed series capture or fetch, or a
 #      misinvocation
 #   3  STALE -- advancing, but at least one tile is steady in each of two
-#      scanout buffers and differs between them
+#      scanout buffers and differs between them, in two consecutive bursts
 #
 # rc2 is never a quiet rc1. "I could not photograph the screen" and "the screen
 # has not changed in five seconds" send a person to two different places, and on
 # a wall-mounted panel one of those places is a ladder.
 #
-# Read-only on the device: two kiosk-drmgrab captures into tmpfs, hashed and
-# removed, then the series, at most 5 full frames in tmpfs at a time. It injects no input, forces no redraw, and does not perturb a frozen
-# board -- a frozen kiosk stays frozen across a run, which is what makes this
-# safe to point at prod.
+# On the device: two kiosk-drmgrab captures into tmpfs, hashed and removed,
+# then the series, one burst of 15 full frames (about 41 MB at 1280x720) at a
+# time on /data, removed once fetched. It injects no input, forces no redraw,
+# and does not perturb a frozen board -- a frozen kiosk stays frozen across a
+# run.
 #
 # Without a reachable kiosk, what still runs: argument handling, geometry
 # validation, the verdict over canned probe text (tools/kiosk-render-check-test.sh),
@@ -312,10 +313,11 @@ rc=$?
 [ $rc -eq 0 ] || exit $rc
 
 # ---------------------------------------------------------------- the series
-SERIES=30
-BATCH=5
+BURSTS=6
+FRAMES=15
+GAP=60
 LOCAL=$(mktemp -d) || { echo "cannot tell: no local directory for the series" >&2; exit 2; }
-REMOTE=/tmp/render-check-series.$$
+REMOTE=/data/render-check-series.$$
 # shellcheck disable=SC2317  # runs from the EXIT trap
 cleanup() {
     rm -rf "$LOCAL"
@@ -325,14 +327,15 @@ cleanup() {
 trap cleanup EXIT
 
 : > "$LOCAL/manifest.txt"
-for ((first = 1; first <= SERIES; first += BATCH)); do
-    last=$((first + BATCH - 1))
+for ((burst = 1; burst <= BURSTS; burst++)); do
+    [ "$burst" -gt 1 ] && sleep "$GAP"
+    first=$(((burst - 1) * FRAMES + 1))
+    last=$((burst * FRAMES))
     # shellcheck disable=SC2029  # $REMOTE, $first and $last expand here, on the client
     out=$("$HERE/kiosk-ssh.sh" "$HOST" "R=$REMOTE FIRST=$first LAST=$last sh -s" <<'SERIES'
 mkdir -p "$R" || exit 1
 i=$FIRST
 while [ "$i" -le "$LAST" ]; do
-    [ "$i" -gt 1 ] && sleep 2
     rep=$(kiosk-drmgrab --report "$R/$i.ppm" 2>&1)
     rc=$?
     echo "series $i rc=$rc $(printf '%s' "$rep" | tr '\n' ' ')"
@@ -342,7 +345,7 @@ SERIES
 )
     rc=$?
     printf '%s\n' "$out" | sed 's/^/  /'
-    [ $rc -eq 0 ] || { echo "cannot tell: series batch $first-$last: ssh exited $rc" >&2; exit 2; }
+    [ $rc -eq 0 ] || { echo "cannot tell: series burst $burst: ssh exited $rc" >&2; exit 2; }
 
     names=()
     for ((i = first; i <= last; i++)); do
@@ -354,13 +357,14 @@ SERIES
         echo "fb_before=${BASH_REMATCH[1]} fb_after=${BASH_REMATCH[2]} ppm=$LOCAL/$i.ppm" >> "$LOCAL/manifest.txt"
         names+=("$i.ppm")
     done
+    echo >> "$LOCAL/manifest.txt"
 
-    # shellcheck disable=SC2029  # the batch's names expand here, on the client
+    # shellcheck disable=SC2029  # the burst's names expand here, on the client
     "$HERE/kiosk-ssh.sh" "$HOST" "cd $REMOTE && tar cf - ${names[*]} && rm -f ${names[*]}" |
         tar xf - -C "$LOCAL"
     fetch=("${PIPESTATUS[@]}")
     if [ "${fetch[0]}" -ne 0 ] || [ "${fetch[1]}" -ne 0 ]; then
-        echo "cannot tell: series batch $first-$last fetch failed (ssh ${fetch[0]}, tar ${fetch[1]})" >&2
+        echo "cannot tell: series burst $burst fetch failed (ssh ${fetch[0]}, tar ${fetch[1]})" >&2
         exit 2
     fi
 done
@@ -370,13 +374,13 @@ rc=$?
 printf '%s\n' "$stale" | sed 's/^/  /'
 case $rc in
 0)
-    echo "no stale region: no tile is steady in two scanout buffers yet different between them."
+    echo "no stale region: no tile is steady in two scanout buffers yet different between them in two consecutive bursts."
     exit 0
     ;;
 3)
     echo "STALE: $stale -- steady within each of two scanout buffers and different" >&2
-    echo "between them. The render advances, but those regions alternate between an" >&2
-    echo "up-to-date frame and an older one at scanout." >&2
+    echo "between them, in two consecutive bursts. The render advances, but those" >&2
+    echo "regions alternate between an up-to-date frame and an older one at scanout." >&2
     exit 3
     ;;
 *)
