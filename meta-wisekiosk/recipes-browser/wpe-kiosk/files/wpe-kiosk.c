@@ -13,7 +13,9 @@
  *                           change to stdout as "TITLE <title>"
  *   WPE_KIOSK_FEATURES=LIST comma list of WebKit feature identifiers,
  *                           as cog's --features: case-insensitive; '-' or '!'
- *                           disables, '+' or no prefix enables
+ *                           disables, '+' or no prefix enables, applied in
+ *                           order; prints "WPP|feature <identifier>=<0|1>"
+ *                           per entry, the state after all are applied
  *   WPE_KIOSK_CONSOLE=1     write console messages to stdout
  *   WPE_KIOSK_INSPECTOR=1   enable developer extras; WebKit serves the remote
  *                           inspector at WEBKIT_INSPECTOR_HTTP_SERVER when set
@@ -57,6 +59,7 @@ static gboolean apply_features(WebKitSettings *settings, const char *list)
 {
     g_autoptr(WebKitFeatureList) features = webkit_settings_get_all_features();
     g_auto(GStrv) items = g_strsplit(list, ",", -1);
+    g_autoptr(GPtrArray) applied = g_ptr_array_new();
     for (gsize i = 0; items[i]; i++) {
         char *item = g_strchomp(items[i]);
         gboolean enabled = TRUE;
@@ -81,6 +84,11 @@ static gboolean apply_features(WebKitSettings *settings, const char *list)
             return FALSE;
         }
         webkit_settings_set_feature_enabled(settings, feature, enabled);
+        g_ptr_array_add(applied, feature);
+    }
+    for (guint i = 0; i < applied->len; i++) {
+        WebKitFeature *f = g_ptr_array_index(applied, i);
+        g_printerr("WPP|feature %s=%d\n", webkit_feature_get_identifier(f), webkit_settings_get_feature_enabled(settings, f));
     }
     return TRUE;
 }
