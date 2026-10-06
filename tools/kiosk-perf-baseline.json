@@ -1,7 +1,7 @@
 {
   "runs": [
-    {"fps": 49.46, "pct_under_50": 98.6, "stall_rate": {"lower_rate": 0.0252, "upper_rate": 0.0541, "bounded": true}},
-    {"fps": 47.46, "pct_under_50": 98.0, "stall_rate": {"lower_rate": 0.0252, "upper_rate": 0.0541, "bounded": true}},
-    {"fps": 52.59, "pct_under_50": 98.7, "stall_rate": {"lower_rate": 0.0253, "upper_rate": 0.0343, "bounded": true}}
+    {"fps": 49.45789473684211, "pct_under_50": 98.57756021425277, "stall_rate": {"lower_rate": 0.025225225225225224, "upper_rate": 0.05405405405405406, "bounded": true}},
+    {"fps": 47.459649122807015, "pct_under_50": 97.95578885110159, "stall_rate": {"lower_rate": 0.025225225225225224, "upper_rate": 0.05405405405405406, "bounded": true}},
+    {"fps": 52.58523725834798, "pct_under_50": 98.68988335951339, "stall_rate": {"lower_rate": 0.02527075812274368, "upper_rate": 0.03429602888086643, "bounded": true}}
   ]
 }

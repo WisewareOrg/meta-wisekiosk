@@ -7,7 +7,8 @@ and the pipeline both use. Run by hand -- not wired into just guards or ci-guard
 THE CONTRACT THIS PINS, since kiosk-perf-verdict.py does not exist yet and this test is
 what fixes its shape:
 
-  perf_verdict(lines, baseline_runs, min_live=4, steady_from=15.0)
+  perf_verdict(lines, baseline_runs, min_live=4, steady_from=15.0,
+               capture_length=585.0)
       -> {"rc": 0|1|2, "reasons": [str, ...]}
 
   lines: a capture's raw text lines, in chronological order, carrying both gpu_
@@ -37,18 +38,17 @@ what fixes its shape:
 
   rc=0: no regression (reasons == []).
   rc=1: regression (reasons is the printed list).
-  rc=2 (could not tell), in EITHER of these cases:
+  rc=2 (could not tell), in ANY of these cases:
     - no MP| payload parses in the whole capture;
     - the judged CP| window (t >= steady_from) is empty, or any sample in it has
       l < min_live -- run-s4-smoothness.sh's own cards gate, read as could-not-tell,
-      never a pass.
-  These are the ONLY rc=2 triggers. A previously-asked "capture too short" rule does
-  not exist in parse_smoothness.py, and the owner has confirmed it is not wanted here:
-  a restart mid-capture (which would leave a short payload) is the tools/ driver's own
-  job -- it reads kiosk NRestarts before and after, as run-s4-smoothness.sh already
-  records, and returns rc=2 itself if it changed. That check belongs in the driver,
-  not in this pure verdict.
-
+      never a pass;
+    - the MP| payload's own sec < 0.9 * capture_length (review finding B2: every real
+      smoothness capture was 569-583s of a nominal 585s capture -- sec < 526.5
+      signals a restart or truncation mid-capture, not a short-but-real run). Checked
+      BEFORE computing stall bounds, so a payload ending at or before steady_from
+      (sec <= 15) reads rc=2 cleanly, never raising or dividing by the zero/negative
+      (sec - steady_from) window that would otherwise follow.
   CLI: `kiosk-perf-verdict.py <capture> [<baseline.json>] [<min_live>]`. baseline.json
   defaults to the committed tools/kiosk-perf-baseline.json beside this script;
   min_live defaults to 4 (parse_cards_probe's own stated default). Prints each reason
@@ -68,6 +68,13 @@ night's actual run used MIN_LIVE=3 (3/4 cards live, one closed), not this tool's
 default of 4 -- passed explicitly for these three fixtures, flagged here because it is
 the reason they read rc=0: at the default min_live=4, l=3 throughout would never
 satisfy all_at_least and all three would read rc=2 instead.
+
+tools/kiosk-perf-baseline.json (review finding S2) carries the EXACT (unrounded)
+figures parse_smoothness.py produces from the committed real S1 captures
+(docs/issue_investigation/wpe_evaluation/s1-smoothness-run{1,2,3}.txt -- Runs 2-4),
+not the README's rounded Metrics-table figures (e.g. Run 3's pct_under_50 is
+97.95578885110159, not the README's rounded 98.0). A dedicated case recomputes them
+fresh from those capture files and compares against the committed JSON exactly.
 """
 import importlib.util
 import json
@@ -75,6 +82,8 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+import parse_smoothness as ps
 
 TOOLS = Path(__file__).resolve().parent
 sys.dont_write_bytecode = True
@@ -137,8 +146,10 @@ def verdict_cases():
              {"rc": 0, "reasons": []})
 
     # Synthetic regression: a candidate whose worst stall rate clearly exceeds the
-    # baseline's own max (BU = max(0.0541, 0.0541, 0.0343) = 0.0541).
-    worse_mp = ("MP|200|f8000|av60|mx2000|BT50|H6000.2000.0.0.0.0.0"
+    # baseline's own max (BU = max(0.0541, 0.0541, 0.0343) = 0.0541). sec=580 -- a
+    # realistic capture length, so this case is not ALSO caught by the B2
+    # capture-length gate below; only the stall rate is under test here.
+    worse_mp = ("MP|580|f8000|av60|mx2000|BT50|H6000.2000.0.0.0.0.0"
                 "|B20:300,30:300,40:300,50:300,60:300,70:300,80:300,90:300,100:300,"
                 "110:300,120:300,130:300,140:300,150:300")
     result = perfv.perf_verdict([worse_mp] + REAL_NIGHT_CP, BASELINE, min_live=3)
@@ -151,9 +162,9 @@ def verdict_cases():
 
     # rc=2: the judged window (t >= 15) has a sample under min_live (default 4) --
     # run-s4-smoothness.sh's own cards gate, read as could-not-tell, never a pass.
-    # Uses a clean MP| line (not one of the real-run fixtures) so only the cards gate
-    # is under test.
-    clean_mp = ("MP|100|f6000|av50|mx500|BT2|H5000.600.300.80.15.4.1|B20:300,25:300")
+    # Uses a clean, realistic-length MP| line (not one of the real-run fixtures) so
+    # only the cards gate is under test, not ALSO the B2 capture-length gate below.
+    clean_mp = ("MP|580|f6000|av50|mx500|BT2|H5000.600.300.80.15.4.1|B20:300,25:300")
     cards_drop = cp_lines([4], 0, 0) + cp_lines([20, 40, 60], 4, 4) + cp_lines([80], 4, 3)
     result = perfv.perf_verdict([clean_mp] + cards_drop, BASELINE, min_live=4)
     case("a judged sample under min_live -> could not tell, never a pass (rc=2)",
@@ -163,6 +174,52 @@ def verdict_cases():
     all_pre_steady_cp = cp_lines([1, 5, 10], 4, 4)
     result = perfv.perf_verdict([clean_mp] + all_pre_steady_cp, BASELINE, min_live=4)
     case("an empty judged window -> could not tell (rc=2)", result["rc"], 2)
+
+    # B2 (review finding): the MP| payload's own sec is well under 0.9 * the
+    # nominal 585s capture length (526.5s) -- a restart or truncation signature,
+    # not a short-but-real run (every real capture was 569-583s). hist and frame
+    # count are chosen so pct_under_50 (99.5) and fps (50.0) would ALREADY read a
+    # clean pass against the baseline if the length were not checked -- isolating
+    # the length gate from any smoothness-rule finding. A clean, fully-live CP|
+    # series over the same window does the same for the cards gate.
+    good_cp = cp_lines([4], 4, 4) + cp_lines(range(30, 391, 30), 4, 4)
+    short_mp = "MP|400|f20000|av50|mx500|BT0|H19900.100.0.0.0.0.0|B"
+    result = perfv.perf_verdict([short_mp] + good_cp, BASELINE, min_live=4)
+    case("MP| sec well under 0.9x the capture length -> could not tell (rc=2)",
+         result["rc"], 2)
+
+    # B2 edge case: sec AT steady_from (15) -- span = sec - steady_from = 0, which
+    # a naive steady_stall_bounds call would divide by. A genuine judged CP|
+    # sample AT t=15 (c=4 l=4) isolates this from the "empty judged window" rule,
+    # so the only thing that can still produce rc=2 -- or, without the length
+    # gate, a ZeroDivisionError -- is the length check itself.
+    edge_cp = cp_lines([4, 15], 4, 4)
+    edge_mp = "MP|15|f750|av50|mx500|BT0|H740.10.0.0.0.0.0|B"
+    result = perfv.perf_verdict([edge_mp] + edge_cp, BASELINE, min_live=4)
+    case("MP| sec == steady_from -> could not tell (rc=2), never an exception",
+         result["rc"], 2)
+
+    # S2 (review finding): tools/kiosk-perf-baseline.json must carry the EXACT
+    # (unrounded) parse_smoothness figures for the real S1 captures, not the
+    # README's rounded Metrics-table numbers. Recomputed fresh here from the
+    # committed capture files -- never hand-copied -- and compared exactly.
+    s1_dir = TOOLS.parent / "docs/issue_investigation/wpe_evaluation"
+    recomputed = []
+    for fname in ("s1-smoothness-run1.txt", "s1-smoothness-run2.txt",
+                  "s1-smoothness-run3.txt"):
+        text = (s1_dir / fname).read_text()
+        line = next(l for l in text.splitlines() if "MP|" in l)
+        d = ps.parse(line)
+        b = ps.steady_stall_bounds(d)
+        recomputed.append({
+            "fps": ps.mean_fps(d),
+            "pct_under_50": ps.pct_under_50ms(d),
+            "stall_rate": {"lower_rate": b["lower_rate"], "upper_rate": b["upper_rate"],
+                           "bounded": b["bounded"]},
+        })
+    case("kiosk-perf-baseline.json matches a fresh recompute from the real S1 "
+         "captures, exactly",
+         BASELINE, recomputed)
 
 
 # ------------------------------------------------------------------- CLI
