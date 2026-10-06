@@ -5,14 +5,30 @@ tool's record. Run by hand -- not yet wired into just guards or ci-guards.sh.
     kiosk-framepace-test.py    -- every case, both directions
 
 THE CONTRACT THIS PINS, since kiosk-framepace.py does not exist yet and this test is
-what fixes its shape (framepace-spec.md, section "Host analyzer", and the device
-record format in section "Device tool"):
+what fixes its shape (framepace-spec.md section "Host analyzer" for the analysis
+rules; section "Record format" -- agreed with impl 2026-10-06 -- for the record
+fixtures build below):
+
+    H tool=<12 hex>                (compiled-in sha256 prefix; opaque to the analyzer)
+    H mode=1280x720@<vrefresh>
+    H pacing=vblank | H pacing=timer100 <reason>
+    H regions=x70-325,434-688;y303,326,350,388,411,522,545,568,607,630;step1
+    H start=<YYYY-MM-DDTHH:MM:SSZ>
+    H seconds=<N>
+    S <t_ns> <fb_id> <hash16> <seq>     -- one per sample; seq decimal, or "-" under timer100
+    ...
+    H cpu_ms=<int>
+    H samples=<n> missed=<n> end=<YYYY-MM-DDTHH:MM:SSZ>   -- always the LAST line
+
+A run that exits early (any failure, signal) writes NEITHER footer line -- the two
+are atomic, both or neither, never just one.
+
+THIS ANALYZER'S OWN CONTRACT -- its output shape and the stall_rate window
+denominator are not fixed by the spec and are this test's proposal, for review:
 
     analyze(lines) -> dict
 
-lines: a device-tool record's raw text lines, in order -- `H ...` header lines, then
-one `S <t_ns> <fb_id> <hash16>` line per sample, then the trailing `H samples=<n>
-missed=<n> end=<iso>` and `H cpu_ms=<n>` lines (absent on an early exit).
+lines: a record's raw text lines in the format above.
 
 Returns {"rc": 0|2, "reasons": [str, ...]}; on rc 0 the dict also carries
 "presented_fps", "pct_under_50", "stalls", "stall_rate", "max_stall_ms".
@@ -37,14 +53,17 @@ Processing, straight from the spec:
   - stalls = count of motion-interval stalls + hold-edge stalls (as defined above).
     max_stall_ms = the largest stall size in ms (0.0 if there are none).
   - stall_rate = stalls / (DECLARED window minutes, from the record's own `H
-    seconds=<N>`) -- the spec's wording deliberately shifts from "motion seconds"
-    (fps's denominator) to "window minutes" for this one metric, so it is NOT
-    restricted to motion time.
+    seconds=<N>`) -- the spec's "Host analyzer" wording deliberately shifts from
+    "motion seconds" (fps's denominator) to "window minutes" for this one metric,
+    so it is NOT restricted to motion time. This denominator is this test's own
+    proposal (flagged above), not spec-fixed.
   - rc 2 (could not tell), reasons non-empty, NO other keys in the dict, in ANY of:
       - a required header field is missing (probed here with `seconds`, since it is
         unambiguously needed to compute anything -- distinct from the "wrong mode"
         case below, which is a PRESENT but wrong `mode` value);
-      - there is no `H samples=... end=...` trailer line at all (an early exit);
+      - there is no `H samples=... end=...` trailer line at all (an early exit --
+        per the record format, `cpu_ms` is then absent too, since the footer is
+        atomic);
       - the record's actual sample count (the number of `S` lines actually present,
         independent of any self-reported count) is under 90 % of the expected count
         for the declared window and pacing (seconds * refresh for pacing=vblank,
@@ -120,12 +139,16 @@ def gen_raw_samples(spec, fb_id=101):
     which must be a "motion" item -- lands exactly gap_ns after this hold's last real
     (motion) sample. That is the hold's one measured interval.
 
-    Returns (lines, raw) where raw is [(t_ns, hash_int), ...] in order and lines are
-    this record's "S <t_ns> <fb_id> <hash16>" lines.
+    seq increments by exactly 1 every sample (vblank pacing, no missed vblanks), so
+    every fixture's footer can truthfully declare missed=0.
+
+    Returns (lines, raw) where raw is [(t_ns, hash_int, seq), ...] in order and lines
+    are this record's "S <t_ns> <fb_id> <hash16> <seq>" lines.
     """
     t = 0
     hash_val = 0
-    raw = [(t, hash_val)]  # the record's first sample: never itself classified
+    seq = 0
+    raw = [(t, hash_val, seq)]  # the record's first sample: never itself classified
     for idx, item in enumerate(spec):
         kind = item[0]
         if kind == "motion":
@@ -133,7 +156,8 @@ def gen_raw_samples(spec, fb_id=101):
             for _ in range(n):
                 t += dt
                 hash_val ^= 1
-                raw.append((t, hash_val))
+                seq += 1
+                raw.append((t, hash_val, seq))
         elif kind == "hold":
             _, gap_ns, filler_dt = item
             hold_start = t
@@ -144,20 +168,21 @@ def gen_raw_samples(spec, fb_id=101):
             next_dt = nxt[2]
             while t + filler_dt < target - next_dt:
                 t += filler_dt
-                raw.append((t, hash_val))
+                seq += 1
+                raw.append((t, hash_val, seq))
             t = target - next_dt  # the next item's first "t += dt; append" lands on target
         else:
             raise ValueError(kind)
-    lines = [f"S {ts} {fb_id} {h:016x}" for ts, h in raw]
+    lines = [f"S {ts} {fb_id} {h:016x} {s}" for ts, h, s in raw]
     return lines, raw
 
 
 def presented_deltas_s(raw):
-    """framepace-spec.md: "Presented frame = a sample whose hash differs from the
-    previous sample's. Intervals = time between consecutive presented frames."
-    Computed directly from the raw (t, hash) series, independent of kiosk-
-    framepace.py."""
-    frame_times = [t for (pt, ph), (t, h) in zip(raw[:-1], raw[1:]) if h != ph]
+    """framepace-spec.md "Host analyzer": "Presented frame = a sample whose hash
+    differs from the previous sample's. Intervals = time between consecutive
+    presented frames." Computed directly from the raw (t, hash, seq) series,
+    independent of kiosk-framepace.py."""
+    frame_times = [t for (pt, ph, ps), (t, h, s) in zip(raw[:-1], raw[1:]) if h != ph]
     return [(b - a) / 1e9 for a, b in zip(frame_times, frame_times[1:])]
 
 
@@ -180,12 +205,15 @@ def expected_metrics(deltas_s, window_seconds):
     }
 
 
+REGIONS = "x70-325,434-688;y303,326,350,388,411,522,545,568,607,630;step1"
+
+
 def header_lines(seconds, mode=MODE, pacing="vblank", omit=()):
     fields = [
-        ("tool", "kiosk-framepace-0.1"),
+        ("tool", "a1b2c3d4e5f6"),  # 12 hex, as framepace-spec.md's record format requires
         ("mode", mode),
         ("pacing", pacing),
-        ("regions", "marquee"),
+        ("regions", REGIONS),
         ("start", "2026-10-06T00:00:00Z"),
         ("seconds", str(seconds)),
     ]
@@ -193,10 +221,13 @@ def header_lines(seconds, mode=MODE, pacing="vblank", omit=()):
 
 
 def trailer_lines(n_samples, missed=0, end="2026-10-06T00:00:08Z", cpu_ms=40, omit_end=False):
+    """cpu_ms before samples=/missed=/end=, which is always the record's last line --
+    framepace-spec.md's record format, agreed with impl 2026-10-06. The two lines are
+    atomic (an early exit writes neither), so omit_end drops both."""
     if omit_end:
         return []
-    return [f"H samples={n_samples} missed={missed} end={end}",
-            f"H cpu_ms={cpu_ms}"]
+    return [f"H cpu_ms={cpu_ms}",
+            f"H samples={n_samples} missed={missed} end={end}"]
 
 
 def build_record(spec, seconds=None, mode=MODE, pacing="vblank", omit_header=(),
