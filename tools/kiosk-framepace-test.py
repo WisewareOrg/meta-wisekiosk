@@ -139,7 +139,9 @@ def load(name):
     return module
 
 
-fp = load("kiosk-framepace")
+fp = None  # set by main() -- see the comment there; a module that only wants the
+           # fixture builders below (kiosk-framepace-verdict-test.py) can import
+           # this one without tripping over kiosk-framepace.py not existing.
 
 DT = 16_666_667          # ns/sample at ~60 Hz -- the pacing rate used by every fixture
 REFRESH = 60
@@ -250,7 +252,8 @@ def trailer_lines(n_samples, missed=0, end="2026-10-06T00:00:08Z", cpu_ms=40, om
             f"H samples={n_samples} missed={missed} end={end}"]
 
 
-def p_lines(engine="X", omit=(), blank=(), nrestarts_end=None, boot_id_end=None):
+def p_lines(engine="X", omit=(), blank=(), nrestarts_end=None, boot_id_end=None,
+            host_role="bench"):
     """The driver's provenance block (framepace-spec.md section "Driver", points 2,
     4 and 5): one `P key=value` line per field, read from the device around the
     framepace run.
@@ -264,7 +267,9 @@ def p_lines(engine="X", omit=(), blank=(), nrestarts_end=None, boot_id_end=None)
     omit drops a key outright; blank keeps it present with an empty value --
     both must read rc 2, "missing or empty". nrestarts_end/boot_id_end default to
     matching their start value (no restart/reboot during the run); passing a
-    different value is how the mismatch cases below are built.
+    different value is how the mismatch cases below are built. host_role
+    defaults to "bench"; overriding it is how kiosk-framepace-verdict-test.py
+    builds its "different host_role values" case.
     """
     boot_id = "4c9e6b1a-boot"
     nrestarts_start = "3"
@@ -281,7 +286,7 @@ def p_lines(engine="X", omit=(), blank=(), nrestarts_end=None, boot_id_end=None)
 
     fields = [
         ("tools_commit", "a1b2c3d"),
-        ("host_role", "bench"),
+        ("host_role", host_role),
         ("buildinfo_wisekiosk", "meta-wisekiosk a1b2c3d 2026-10-06"),
         ("slot", "A"),
         ("kiosk_conf_sha256", "a" * 64),
@@ -351,11 +356,17 @@ def rc0_cases():
 
     # Motion with mid-motion stalls: two isolated gaps (300 ms, 400 ms), both
     # still < 1.5 s so both are motion intervals, both > 250 ms so both are
-    # stalls -- a fencepost-free fixture (no holds) so "motion frames" is
-    # unambiguous here too.
-    spec = [("motion", 20, DT), ("motion", 1, 300_000_000),
-            ("motion", 20, DT), ("motion", 1, 400_000_000),
-            ("motion", 20, DT)]
+    # stalls. Built with the "hold" item kind -- which just means "same-hash
+    # filler samples, then a toggle exactly gap_ns later" and carries no 1.5 s
+    # assumption of its own -- so a real device's continuous vblank sampling
+    # through the gap is represented, not skipped (impl finding: the bare
+    # one-sample "motion" item this used before left the gap unsampled,
+    # failing the record's own 90%-of-expected-samples gate). 120-sample
+    # motion blocks keep the fixture dense and large enough that sample count
+    # and motion fraction both clear their gates with margin.
+    spec = [("motion", 120, DT), ("hold", 300_000_000, DT),
+            ("motion", 120, DT), ("hold", 400_000_000, DT),
+            ("motion", 120, DT)]
     lines, seconds, raw = build_record(spec)
     deltas = presented_deltas_s(raw)
     want = expected_metrics(deltas, seconds)
@@ -367,8 +378,12 @@ def rc0_cases():
     close("motion with mid-motion stalls: max_stall_ms == 400", got["max_stall_ms"], 400.0)
     close("motion with mid-motion stalls: stall_rate", got["stall_rate"], want["stall_rate"])
 
-    # A hold of exactly 2.0 s: excess == 0, not > 0.25 -- no stall.
-    spec = [("motion", 60, DT), ("hold", 2_000_000_000, DT), ("motion", 60, DT)]
+    # A hold of exactly 2.0 s: excess == 0, not > 0.25 -- no stall. 120-sample
+    # motion blocks (not 60) so motion_seconds (~3.97 s) clears the record's
+    # own 50%-of-window motion gate against this 2.0 s hold (impl finding: at
+    # 60 samples/block, motion was only ~1.97 s against a ~4 s window, under
+    # 50%).
+    spec = [("motion", 120, DT), ("hold", 2_000_000_000, DT), ("motion", 120, DT)]
     lines, seconds, raw = build_record(spec)
     deltas = presented_deltas_s(raw)
     hold_deltas = [d for d in deltas if d >= 1.5]
@@ -381,8 +396,9 @@ def rc0_cases():
     close("hold of exactly 2.0s: max_stall_ms == 0", got["max_stall_ms"], 0.0)
 
     # A hold of 2.6 s: excess == 0.6 s == 600 ms > 0.25 s -- one stall, sized
-    # by the excess, not by the hold's own 2.6 s length.
-    spec = [("motion", 60, DT), ("hold", 2_600_000_000, DT), ("motion", 60, DT)]
+    # by the excess, not by the hold's own 2.6 s length. 120-sample motion
+    # blocks for the same 50%-of-window reason as the 2.0 s case above.
+    spec = [("motion", 120, DT), ("hold", 2_600_000_000, DT), ("motion", 120, DT)]
     lines, seconds, raw = build_record(spec)
     deltas = presented_deltas_s(raw)
     hold_deltas = [d for d in deltas if d >= 1.5]
@@ -398,7 +414,9 @@ def rc0_cases():
     # whole 1400 ms counts as the stall size (no excess subtraction), and a
     # wrong-threshold implementation that misclassified it as a hold would see
     # excess = 1.4 - 2.0 = -0.6, not > 0.25, i.e. stalls == 0 instead of 1.
-    spec = [("motion", 60, DT), ("motion", 1, 1_400_000_000), ("motion", 60, DT)]
+    # Built with "hold" (continuously filler-sampled, same impl finding as
+    # above) and 120-sample motion blocks for sample-count margin.
+    spec = [("motion", 120, DT), ("hold", 1_400_000_000, DT), ("motion", 120, DT)]
     lines, seconds, raw = build_record(spec)
     deltas = presented_deltas_s(raw)
     motion_stall_deltas = [d for d in deltas if 1.5 > d > 0.25]
@@ -559,6 +577,8 @@ def cli_cases(tmp_path):
 
 
 def main() -> int:
+    global fp
+    fp = load("kiosk-framepace")
     rc0_cases()
     rc2_cases()
     p_block_cases()
