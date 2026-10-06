@@ -16,11 +16,13 @@ to close a stale-content defect found along the way; see §"Verdict".
 
 ## Test runs
 
-Every run names its board role and the image commit from `/etc/buildinfo` (R1); every capture is
-committed beside this README (R2); no table mixes runs (R3). S1 is the X baseline: bench, image
-`20a1f342580a10a0b32f26f4bcb804223ca068b1` (`origin/main` plus the `#185 capture` commits), booted
-from slot B. The S1 harness ran from a checkout pinned at `ea79e18`, clean, except time to page
-(below).
+Every run names its board role and the image commit from `/etc/buildinfo` (R1); every script run
+against a board is committed beside this README (R2); no table mixes runs (R3). S1–S3's raw
+captures are committed beside this README too; from S4 (Run 35) on, raw captures are retained
+off-tree instead, and each run's own "Raw capture" line below says so. S1 is the X baseline:
+bench, image `20a1f342580a10a0b32f26f4bcb804223ca068b1` (`origin/main` plus the `#185 capture`
+commits), booted from slot B. The S1 harness ran from a checkout pinned at `ea79e18`, clean,
+except time to page (below).
 
 | Run | Board (role) | Image commit | Harness / scripts | Result (1 line) |
 |---|---|---|---|---|
@@ -925,49 +927,49 @@ probe's own (570 s of the 585 s capture).
 |---|---|---|---|---|
 | 14728 kB (11) | 12 kB (3) | 16384 kB (1) | 4052 kB (1) | `vc4_dri.so`; 7 `renderD128` mappings |
 
-**Run 35** (`s4-smoothness-run1.txt`)
+**Run 35** (`s4-smoothness-run1.txt`, retained off-tree)
 
 | sec | frames | mean fps | % <50 ms | bt | stall rate t ≥ 15 s | clusters |
 |---|---|---|---|---|---|---|
 | 583 | 28248 | 48.45 | 97.9 | 24 | bounded 0.0246–0.0423/s (14–24) | 11 |
 
-**Run 36** (`s4-smoothness-run2.txt`)
+**Run 36** (`s4-smoothness-run2.txt`, retained off-tree)
 
 | sec | frames | mean fps | % <50 ms | bt | stall rate t ≥ 15 s | clusters |
 |---|---|---|---|---|---|---|
 | 580 | 28314 | 48.82 | 98.4 | 27 | bounded 0.0248–0.0478/s (14–27) | 11 |
 
-**Run 37** (`s4-smoothness-run3.txt`)
+**Run 37** (`s4-smoothness-run3.txt`, retained off-tree)
 
 | sec | frames | mean fps | % <50 ms | bt | stall rate t ≥ 15 s | clusters |
 |---|---|---|---|---|---|---|
 | 580 | 28251 | 48.71 | 98.3 | 28 | bounded 0.0248–0.0496/s (14–28) | 12 |
 
-**Run 40** (`s4-skia-cpu-run1.txt`)
+**Run 40** (`s4-skia-cpu-run1.txt`, retained off-tree)
 
 | sec | frames | mean fps | % <50 ms | bt | stall rate t ≥ 15 s | clusters |
 |---|---|---|---|---|---|---|
 | 581 | 26501 | 45.61 | 96.7 | 153 | bounded 0.0247–0.2703/s (14–153) | 13 |
 
-**Run 73** (`s4-smoothness-run1.txt`)
+**Run 73** (`s4-smoothness-run1.txt`, retained off-tree; a different file from Run 35's same-named capture)
 
 | sec | frames | mean fps | % <50 ms | bt | stall rate t ≥ 15 s | clusters |
 |---|---|---|---|---|---|---|
 | 580 | 29552 | 50.95 | 98.4 | 26 | bounded 0.0248–0.0460/s (14–26) | 13 |
 
-**Run 74** (`s4-smoothness-run2.txt`)
+**Run 74** (`s4-smoothness-run2.txt`, retained off-tree; a different file from Run 36's same-named capture)
 
 | sec | frames | mean fps | % <50 ms | bt | stall rate t ≥ 15 s | clusters |
 |---|---|---|---|---|---|---|
 | 581 | 29737 | 51.18 | 98.3 | 26 | bounded 0.0247–0.0459/s (14–26) | 13 |
 
-**Run 75** (`s4-smoothness-run3.txt`)
+**Run 75** (`s4-smoothness-run3.txt`, retained off-tree; a different file from Run 37's same-named capture)
 
 | sec | frames | mean fps | % <50 ms | bt | stall rate t ≥ 15 s | clusters |
 |---|---|---|---|---|---|---|
 | 580 | 29551 | 50.95 | 98.3 | 25 | bounded 0.0248–0.0442/s (14–25) | 12 |
 
-**Run 76** (`s4-soak.txt`; MF| from `parse_module_fault.py`, 121 samples)
+**Run 76** (`s4-soak.txt`, retained off-tree; MF| from `parse_module_fault.py`, 121 samples)
 
 | fmax | fever | umax | restarts | reboots | OOM lines | min MemAvailable | rss_total | swap in/out | PSI |
 |---|---|---|---|---|---|---|---|---|---|
