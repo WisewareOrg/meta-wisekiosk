@@ -72,9 +72,9 @@ do_install() {
     #
     # Not masked: 71-seat, 73-seat-late and 70-uaccess (logind seat/ACL
     # handling), kept with no consumer in this image -- cog runs as root and opens
-    # /dev/dri itself, and logind is masked; removing them is tracked by #196 WPE
-    # build-time levers. 60-drm (display), 60-persistent-storage and the net
-    # rules (SD card and lifeline) are kept for their consumers.
+    # /dev/dri itself, and logind is masked. 60-drm (display), 60-persistent-
+    # storage and the net rules (SD card and lifeline) are kept for their
+    # consumers.
     install -d ${D}${sysconfdir}/udev/rules.d
     for r in ${KIOSK_UDEV_RULES_MASKED}; do
         ln -sf /dev/null ${D}${sysconfdir}/udev/rules.d/$r.rules

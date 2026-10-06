@@ -56,7 +56,7 @@ local_conf_header:
   # virtual/egl and virtual/libgles2 (rpi-default-providers.inc): the EGL and
   # GLES WPE WebKit composites every frame through on the GPU. What compositing
   # costs on this SoC is in docs/issue_investigation/gpu_compositing/README.md
-  # under "Engine levers, measured and exhausted". The `graphics` block carries
+  # under "Engine levers, measured". The `graphics` block carries
   # the overlay and the mesa pin that go with it; kiosk-launch carries the mode.
   display: |
     # console=tty1 ONLY. The kiosk panel is the console (owner, 2026-08-12) --
@@ -88,7 +88,7 @@ local_conf_header:
   # an xrandr kick, and compositing both on and off -- it is not a performance
   # lever on this display, it is a blank one. See
   # docs/issue_investigation/gpu_compositing/README.md under "Engine levers,
-  # measured and exhausted". A hard set rather than a default taken:
+  # measured". A hard set rather than a default taken:
   # rpi-config_git.bb spells VC4DTBO `?=`, raspberrypi0-wifi.conf overrides
   # nothing, and sibling machine configs (raspberrypi3, raspberrypi-armv8) do
   # override it.
