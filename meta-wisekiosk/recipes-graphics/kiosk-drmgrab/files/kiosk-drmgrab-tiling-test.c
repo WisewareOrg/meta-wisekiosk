@@ -1,4 +1,5 @@
-/* Host test for kiosk-drmgrab.c's t_offset(): the VC4 T-tiled address map.
+/* Host test for kiosk-scanout.h's t_offset(), the VC4 T-tiled address map, and
+ * kiosk-framepace.c's region_offsets() and region_hash().
  *
  *   ./kiosk-drmgrab-tiling-test.sh
  *
@@ -6,7 +7,7 @@
  * shipped_t_offset.inc, never a copy of this file's own code -- against an
  * INDEPENDENT transcription below, ref_t_offset(), derived by hand straight
  * from mesa 24.0.7's VC4 tiling source (build/downloads/mesa-24.0.7.tar.xz),
- * not from kiosk-drmgrab.c:
+ * not from kiosk-scanout.h:
  *
  *   src/gallium/drivers/vc4/vc4_tiling.c:70-114  t_utile_address(): the 4k
  *     tile's 4096 B stride, the odd-tile-row x-flip, and the subtile index
@@ -26,8 +27,16 @@
  * implementations) against both; and that the map is a bijection onto
  * distinct byte offsets, every one inside the span.
  *
+ * kiosk-framepace's region block (shipped_region.inc) is checked against
+ * ref_region_hash(), the record format's hash restated here: FNV-1a 64 over
+ * R,G,B of every pixel of x 70-325 then 434-688 (inclusive) on each of the 10
+ * marquee scanlines, y ascending. The synthetic buffers are filled through
+ * ref_t_offset (T-tiled) and a plain pitch (linear); the X byte varies per
+ * pixel and must not reach the hash; a changed pixel at each span end changes
+ * the hash, and one just outside the region does not.
+ *
  * TO WATCH THIS FAIL -- seed a one-line defect in a SCRATCH COPY of
- * kiosk-drmgrab.c (never the tracked file) and point the .sh driver's
+ * kiosk-scanout.h (never the tracked file) and point the .sh driver's
  * extraction at that copy instead. Swapping even_stile/odd_stile's two array
  * literals, or flipping the tile_y odd test to test tile_x instead, each
  * takes the full-buffer cross-check and the bijection check red. Discard the
@@ -37,8 +46,10 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "shipped_t_offset.inc"  /* static size_t t_offset(uint32_t, uint32_t, uint32_t); */
+#include "shipped_region.inc"    /* region_offsets(), region_hash() */
 
 /* Independent transcription -- every term named for its mesa source, not
  * copied from t_offset() above. */
@@ -89,6 +100,85 @@ static const struct case_ HAND[] = {
 	{1279, 719, 3768316}, /* last pixel of the buffer -- 4 B short of the span */
 };
 
+/* Region pixels: R,G,B from (x, y); the X byte is separate so it can vary. */
+static uint32_t pix(uint32_t x, uint32_t y, uint32_t xbyte)
+{
+	return (xbyte << 24) | ((x * 2654435761u ^ y * 40503u) & 0xffffff);
+}
+
+static const uint32_t REF_Y[10] = {303, 326, 350, 388, 411, 522, 545, 568, 607, 630};
+static const uint32_t REF_X[2][2] = {{70, 325}, {434, 688}};
+
+static uint64_t ref_region_hash(void)
+{
+	uint64_t h = 0xcbf29ce484222325u;
+
+	for (int r = 0; r < 10; r++)
+		for (int s = 0; s < 2; s++)
+			for (uint32_t x = REF_X[s][0]; x <= REF_X[s][1]; x++) {
+				uint32_t v = pix(x, REF_Y[r], 0);
+				uint8_t b[3] = {v >> 16, v >> 8, v};
+
+				for (int i = 0; i < 3; i++)
+					h = (h ^ b[i]) * 0x100000001b3u;
+			}
+	return h;
+}
+
+/* Fill a 1280x720 buffer; tiled selects ref_t_offset, else a 5120 B pitch. */
+static void fill(uint8_t *buf, int tiled, uint32_t xbyte_salt)
+{
+	for (uint32_t y = 0; y < 720; y++)
+		for (uint32_t x = 0; x < 1280; x++) {
+			uint32_t v = pix(x, y, (x + y + xbyte_salt) & 0xff);
+
+			memcpy(buf + (tiled ? ref_t_offset(x, y, 40) : (size_t)y * 5120 + x * 4), &v, 4);
+		}
+}
+
+static void region_checks(int tiled)
+{
+	const char *kind = tiled ? "T-tiled" : "linear";
+	uint8_t *buf = calloc(3768320, 1);
+	size_t *off = malloc(sizeof(*off) * 10 * 1280);
+	uint64_t want = ref_region_hash(), base;
+	char name[96];
+	size_t n;
+
+	if (!buf || !off) {
+		fprintf(stderr, "out of memory allocating the region buffers\n");
+		exit(1);
+	}
+	fill(buf, tiled, 0);
+	n = region_offsets(off, tiled, 5120, 0);
+	snprintf(name, sizeof(name), "%s: region_offsets covers 5110 pixels", kind);
+	check(name, n == 5110);
+	base = region_hash(buf, off, n);
+	snprintf(name, sizeof(name), "%s: region_hash == ref_region_hash", kind);
+	check(name, base == want);
+
+	fill(buf, tiled, 77);
+	snprintf(name, sizeof(name), "%s: a different X byte leaves the hash unchanged", kind);
+	check(name, region_hash(buf, off, n) == base);
+
+	static const struct { uint32_t x, y; int in; } POKE[] = {
+		{70, 303, 1}, {325, 303, 1}, {434, 630, 1}, {688, 630, 1},
+		{69, 303, 0}, {326, 303, 0}, {433, 630, 0}, {689, 630, 0}, {200, 302, 0},
+	};
+	for (size_t i = 0; i < sizeof(POKE) / sizeof(POKE[0]); i++) {
+		size_t at = tiled ? ref_t_offset(POKE[i].x, POKE[i].y, 40)
+				  : (size_t)POKE[i].y * 5120 + POKE[i].x * 4;
+
+		buf[at] ^= 0x01;
+		snprintf(name, sizeof(name), "%s: a changed pixel at (%u,%u) %s the hash", kind,
+			 POKE[i].x, POKE[i].y, POKE[i].in ? "changes" : "leaves");
+		check(name, (region_hash(buf, off, n) != base) == POKE[i].in);
+		buf[at] ^= 0x01;
+	}
+	free(off);
+	free(buf);
+}
+
 int main(void)
 {
 	const uint32_t W = 1280, H = 720, TILES_ACROSS = 40;
@@ -138,6 +228,9 @@ int main(void)
 	check("the map is a bijection (no two pixels share an offset)", collision == 0);
 	check("max offset + 4 == span (the last pixel ends exactly at the span)",
 	      max_off + 4 == SPAN);
+
+	region_checks(1);
+	region_checks(0);
 
 	if (fails) {
 		fprintf(stderr, "\n%d check(s) FAILED\n", fails);

@@ -67,23 +67,7 @@ static void fail(const char *fmt, ...)
 	exit(1);
 }
 
-/* Byte offset of pixel (x, y) in a 32 bpp VC4 T-tiled buffer. */
-static size_t t_offset(uint32_t x, uint32_t y, uint32_t tiles_across)
-{
-	static const uint32_t even_stile[4] = {0, 3, 1, 2};
-	static const uint32_t odd_stile[4] = {2, 1, 3, 0};
-	uint32_t tile_x = x >> 5, tile_y = y >> 5;
-	int odd = tile_y & 1;
-	uint32_t stile = (((y >> 4) & 1) << 1) | ((x >> 4) & 1);
-	uint32_t utile = (((y >> 2) & 3) << 2) | ((x >> 2) & 3);
-	uint32_t pixel = ((y & 3) << 2) | (x & 3);
-
-	if (odd)
-		tile_x = tiles_across - tile_x - 1;
-	return (size_t)4096 * (tile_y * tiles_across + tile_x) +
-	       1024 * (odd ? odd_stile[stile] : even_stile[stile]) +
-	       64 * utile + 4 * pixel;
-}
+#include "kiosk-scanout.h"
 
 static uint64_t now_ns(void)
 {
@@ -104,19 +88,18 @@ static void parse_crop(const char *s, uint32_t *w, uint32_t *h, uint32_t *x, uin
 
 int main(int argc, char **argv)
 {
-	uint32_t cw, ch, cx, cy, tiles_across = 0, crtc_id = 0, fb_before = 0, fb_after = 0;
+	uint32_t cw, ch, cx, cy, tiles_across, crtc_id, fb_before, fb_after = 0, pipe;
 	uint64_t t0, t1;
-	drmModeCrtcPtr after;
+	drmModeCrtcPtr crtc, after;
 	int report = 0;
-	drmModeResPtr res;
-	drmModeFB2Ptr fb = NULL;
+	drmModeFB2Ptr fb;
 	uint64_t modifier;
-	size_t need, len;
-	off_t end;
-	uint8_t *map, *row;
+	size_t len;
+	const uint8_t *map;
+	uint8_t *row;
 	struct dma_buf_sync sync;
 	FILE *out;
-	int fd, pfd, i;
+	int fd, pfd;
 
 	if (argc > 1 && !strcmp(argv[1], "--report")) {
 		report = 1;
@@ -136,37 +119,12 @@ int main(int argc, char **argv)
 		fail("open %s: %s", CARD, strerror(errno));
 	drmDropMaster(fd);
 
-	res = drmModeGetResources(fd);
-	if (!res)
-		fail("drmModeGetResources: %s", strerror(errno));
-	for (i = 0; i < res->count_crtcs && !fb; i++) {
-		drmModeCrtcPtr crtc = drmModeGetCrtc(fd, res->crtcs[i]);
-
-		if (crtc && crtc->mode_valid && crtc->buffer_id) {
-			fb = drmModeGetFB2(fd, crtc->buffer_id);
-			crtc_id = crtc->crtc_id;
-			fb_before = crtc->buffer_id;
-			if (!fb)
-				fail("drmModeGetFB2(fb %u on crtc %u): %s", crtc->buffer_id,
-				     crtc->crtc_id, strerror(errno));
-		}
-		drmModeFreeCrtc(crtc);
-	}
-	drmModeFreeResources(res);
-	if (!fb)
-		fail("no CRTC with a valid mode and a bound framebuffer");
-
-	if (fb->pixel_format != DRM_FORMAT_XRGB8888 && fb->pixel_format != DRM_FORMAT_ARGB8888)
-		fail("unsupported format %.4s (0x%08" PRIx32 ")", (const char *)&fb->pixel_format,
-		     fb->pixel_format);
-	if (!(fb->flags & DRM_MODE_FB_MODIFIERS))
-		fail("framebuffer reports no modifier, so its layout is unknown");
+	crtc = find_crtc(fd, &pipe);
+	crtc_id = crtc->crtc_id;
+	fb_before = crtc->buffer_id;
+	drmModeFreeCrtc(crtc);
+	fb = fb_get(fd, fb_before, crtc_id);
 	modifier = fb->modifier;
-	if (modifier != DRM_FORMAT_MOD_LINEAR && modifier != DRM_FORMAT_MOD_BROADCOM_VC4_T_TILED)
-		fail("unsupported modifier 0x%016" PRIx64 " (format %.4s)", modifier,
-		     (const char *)&fb->pixel_format);
-	if (!fb->handles[0])
-		fail("GETFB2 returned no buffer handle (not root?)");
 
 	cw = fb->width;
 	ch = fb->height;
@@ -178,28 +136,8 @@ int main(int argc, char **argv)
 			     fb->height);
 	}
 
-	if (modifier == DRM_FORMAT_MOD_LINEAR) {
-		if (fb->pitches[0] < fb->width * 4)
-			fail("pitch %u is below width %u x 4", fb->pitches[0], fb->width);
-		need = (size_t)fb->offsets[0] + (size_t)fb->pitches[0] * fb->height;
-	} else {
-		if (fb->pitches[0] % 128)
-			fail("T-tiled pitch %u is not a whole number of 32-pixel tiles", fb->pitches[0]);
-		tiles_across = fb->pitches[0] / 128;
-		need = (size_t)fb->offsets[0] + (size_t)4096 * tiles_across * ((fb->height + 31) / 32);
-	}
-
-	if (drmPrimeHandleToFD(fd, fb->handles[0], DRM_CLOEXEC, &pfd))
-		fail("drmPrimeHandleToFD: %s", strerror(errno));
-	end = lseek(pfd, 0, SEEK_END);
-	if (end < 0)
-		fail("dma-buf size: %s", strerror(errno));
-	len = (size_t)end;
-	if (len < need)
-		fail("dma-buf is %zu bytes, layout needs %zu", len, need);
-	map = mmap(NULL, len, PROT_READ, MAP_SHARED, pfd, 0);
-	if (map == MAP_FAILED)
-		fail("mmap dma-buf: %s", strerror(errno));
+	map = fb_map(fd, fb, &pfd, &len);
+	tiles_across = fb->pitches[0] / 128;
 
 	row = malloc((size_t)cw * 3);
 	if (!row)
@@ -252,7 +190,7 @@ int main(int argc, char **argv)
 	if (rename(tmp_path, out_path))
 		fail("rename %s to %s: %s", tmp_path, out_path, strerror(errno));
 
-	munmap(map, len);
+	munmap((void *)map, len);
 	close(pfd);
 	drmCloseBufferHandle(fd, fb->handles[0]);
 	drmModeFreeFB2(fb);
