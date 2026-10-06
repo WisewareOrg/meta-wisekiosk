@@ -104,10 +104,12 @@ else
     echo "FAIL  KIOSK_BROWSER_PROCS: want 'WPEWebProcess|WPENetworkProcess|WPEGPUProcess|cog', got '${KIOSK_BROWSER_PROCS:-}'" >&2
 fi
 
+# shellcheck disable=SC2016
 if [ "$(printf '%s\n' "$emitter" | grep -cF '$KIOSK_BROWSER_PROCS')" -gt 0 ]; then
     pass=$((pass + 1))
 else
     fail=$((fail + 1))
+    # shellcheck disable=SC2016
     echo 'FAIL  the remote heredoc does not reference $KIOSK_BROWSER_PROCS -- the pattern' >&2
     echo "      is hardcoded a second time there instead of interpolated once" >&2
 fi
