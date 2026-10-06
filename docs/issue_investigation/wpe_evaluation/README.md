@@ -95,6 +95,11 @@ from slot B. The S1 harness ran from a checkout pinned at `ea79e18`, clean, exce
 | 70 | bench · Pi Zero W | `d97d6fe` + `KIOSK_COG_FEATURES=UseDamagingInformationForCompositing` | `kiosk-render-check.sh` ×5 (V1′) + `run-v3-short.sh` ×1 | 165/165 rc lines 0; independent burst: 10 disagreeing tiles (vs 16–77 on default) |
 | 71 | bench · Pi Zero W | `d97d6fe` (± override) | `kiosk-render-check.sh` ×5 each (V4b, V1b; re-sequenced repeat) | 165/165 rc lines 0 both conditions |
 | 72 | bench · Pi Zero W | `d97d6fe` → `5ec7f0e` (OTA, under lock) | live proof against the pre-fix image | not yet run as of this snapshot |
+| 73 | bench · Pi Zero W | `d97d6fe` | `run-s4-smoothness.sh` @ `635af22`, `smoothness-cards-probe.js` | 50.95 fps, 98.4 % <50 ms, stall 0.0248–0.0460/s (bounded); gate VOID / reclassified LIVE |
+| 74 | bench · Pi Zero W | `d97d6fe` | as Run 73 | 51.18 fps, 98.3 % <50 ms, stall 0.0247–0.0459/s (bounded); gate VOID / reclassified LIVE |
+| 75 | bench · Pi Zero W | `d97d6fe` | as Run 73 | 50.95 fps, 98.3 % <50 ms, stall 0.0248–0.0442/s (bounded); gate VOID / reclassified LIVE |
+| 76 | bench · Pi Zero W | `d97d6fe` | `run-s4-soak.sh` @ `635af22`, `soak-cards-probe.js` | 1 h: fmax 0, fever 0, 0 restarts, 0 reboots, no OOM; cards l=3 then l=2; reclassifier's VOID does not apply |
+| 77 | bench · Pi Zero W | `138d914` | `kiosk-render-check.sh` ×5 + `run-v3-short.sh` ×1 (V1-real) | 165/165 rc 0, stale tiles=0; independent burst 0 disagreeing tiles (vacuous, testable_tiles=0); after hours, 2/4 cards |
 
 ### Run 1 — capture cross-validation, bench, commit `20a1f34`
 
@@ -350,7 +355,7 @@ so the PNGs carry the PPMs exactly.
 - **Procedure:** Runs 35–37 are three back-to-back 585 s smoothness captures on the plain default
   page, cache cleared and kiosk restarted before each, 1280x720 live before and after; card state
   was read by eye from the pre-run screenshot (the mechanical cards-live gate did not exist yet —
-  see the S4 smoothness/soak note below). Run 38 started the 1 h soak, then was killed deliberately a few seconds in
+  see Runs 73–76 below). Run 38 started the 1 h soak, then was killed deliberately a few seconds in
   (`kill -TERM -- -<pgid>`) to run Run 39 first, while park hours still held; its EXIT trap
   restored `kiosk.conf`, independently confirmed byte-identical. Run 39's restart logs a renderer
   crash-and-reload loop within 4 s (`WPEWebProcess::requestFrame(): A frame callback was already
@@ -544,9 +549,62 @@ so the PNGs carry the PPMs exactly.
   run as of this snapshot, so fact 8's "live test against the pre-fix image" stays open.
 - **Raw capture:** retained off-tree.
 
-**S4 smoothness/soak, the fixed image, bench, commit `d97d6fe`.** `run-s4-smoothness.sh` and
-`run-s4-soak.sh` add the mechanical cards-live gate (below) to the S1–S3 smoothness/soak
-procedure. Still running as of this snapshot; results pending.
+### Runs 73–76 — S4 smoothness/soak, the fixed image, bench, commit `d97d6fe`
+
+- **Board:** bench, Pi Zero W. **Image commit:** `d97d6fe9b892321f76b333d0e9ad79a31edbd142`,
+  slot B, from each capture's own header; tonight, 3/4 park cards live (one closed for the night).
+- **Scripts deployed:** each capture's own `# harness` line self-stamps
+  `635af22c3b97af1bd9c4080f24dd730cf6500198`, but the files it produced do not match either
+  outcome the version of `run-s4-smoothness.sh` committed at that pin, or at `HEAD`, can print.
+  A locally edited, never-committed `run-s4-smoothness.sh`, found in a sibling worktree, takes a
+  4th positional argument (`MIN_LIVE`, default 4) and relaxes the gate from `all_live` (`c=4 l=4`)
+  to `all_at_least(lines, MIN_LIVE)` — a function of the same name added to that worktree's own,
+  likewise uncommitted, `parse_cards_probe.py`; the orchestrator passed 3, for tonight's known
+  3/4-card state. This README's own copies of both files (Harness, above) are the unmodified
+  `all_live` versions; the scripts that actually ran tonight are not beside this README — a
+  concrete instance of the R2 gap, not a one-off inline command this time but an edited,
+  never-committed pair of scripts.
+- **Procedure:** three back-to-back 585 s smoothness captures, cache cleared and kiosk restarted
+  before each. Each capture's own cards-live gate reads VOID: its first `CP|` sample, at t=4 s,
+  before the page has loaded (`c=0 l=0`), counts against the deployed "`l>=3` throughout" rule the
+  same as a genuine drop would. A reclassification pass (`reclassify_cards_window.py`, likewise
+  not committed here), recorded in each file as a separate, appended block, excludes samples
+  before the 15 s settle window (`parse_smoothness.py`'s own `steady_from`) and reclassifies all
+  three LIVE (`l>=3` throughout the judged window, 19 of 20 samples; `l` never reaches 4 — one
+  park stays closed the whole capture). Both labels are recorded here: VOID as the deployed gate's
+  own rule produced it, LIVE as the reclassification corrects for the load-time sample. Run 76 is
+  the 1 h soak that follows: `run-s4-soak.sh` records cards-live as a fraction, by design, and
+  never VOIDs a run on it (see the soak's own Harness entry above) — but the same reclassification
+  script was run against it anyway, found `l` drop to 2 after a second park closes partway through
+  (at t=330 s) and read VOID, which is a misapplication of the smoothness gate's rule to data it
+  was never meant to gate; Run 76's result stands un-voided for stability, which is what it was
+  designed to measure.
+- **Raw capture:** retained off-tree. Parsed with `parse_smoothness.py` (Runs 73–75) and
+  `parse_module_fault.py` (Run 76); see Metrics.
+
+### Run 77 — V1-real, the live render-check-stale proof against the pre-fix image, bench, commit `138d914`
+
+- **Board:** bench, Pi Zero W, temporarily OTA'd back to `138d914` for this run and returned to
+  `d97d6fe` afterward (confirmed by the post-run buildinfo check); after park hours, 2/4 cards
+  live. **Image commit:** `138d9142b2cff9c59cd0a755595bc3a82db7e3e3`.
+- **Scripts deployed:** `tools/kiosk-render-check.sh` ×5 and `run-v3-short.sh` ×1, as Runs 69–71;
+  the orchestration (`orchestrate-v1-real.sh`) was not saved — an R2 gap, as for the other
+  orchestrators in Runs 63–72.
+- **Procedure:** this is Runs 63–64's rehearsal, finally run against the real pre-fix condition —
+  `138d914` at default, no flag override — rather than crashing on the unbound-variable bug.
+  Five render-check passes all read rc 0, stale tiles=0; the one independent v3-style burst also
+  reads 0 disagreeing tiles, though `testable_tiles=0` for that burst (the two fb ids never
+  co-occurred as stable captures in it, the same vacuous-zero case as Run 46's burst 8, not a
+  tested-and-clean result). The fault is absent here, not missed by the detector: Runs 67–68
+  confirm the detector reads real disagreement correctly on stored data, and this run's own
+  detector mechanics are identical to Runs 69–71's. What differs from the afternoon's B0/B1/B2
+  baselines on this same image (Runs 52, 56, 59: 16–77 disagreeing tiles per burst, in nearly
+  every burst) is park hours: this run is after hours with 2/4 cards live, against whatever state
+  the page was in during the afternoon's trials. Whether live card content is what triggers the
+  defect is unmeasured by this run alone — it is recorded here as an open hypothesis, not a
+  finding, and #198 (STALE check live proof) is where it is meant to be tested against a
+  controlled page state.
+- **Raw capture:** retained off-tree.
 
 ## Configuration under test
 
@@ -854,6 +912,30 @@ probe's own (570 s of the 585 s capture).
 |---|---|---|---|---|---|---|
 | 581 | 26501 | 45.61 | 96.7 | 153 | bounded 0.0247–0.2703/s (14–153) | 13 |
 
+**Run 73** (`s4-smoothness-run1.txt`)
+
+| sec | frames | mean fps | % <50 ms | bt | stall rate t ≥ 15 s | clusters |
+|---|---|---|---|---|---|---|
+| 580 | 29552 | 50.95 | 98.4 | 26 | bounded 0.0248–0.0460/s (14–26) | 13 |
+
+**Run 74** (`s4-smoothness-run2.txt`)
+
+| sec | frames | mean fps | % <50 ms | bt | stall rate t ≥ 15 s | clusters |
+|---|---|---|---|---|---|---|
+| 581 | 29737 | 51.18 | 98.3 | 26 | bounded 0.0247–0.0459/s (14–26) | 13 |
+
+**Run 75** (`s4-smoothness-run3.txt`)
+
+| sec | frames | mean fps | % <50 ms | bt | stall rate t ≥ 15 s | clusters |
+|---|---|---|---|---|---|---|
+| 580 | 29551 | 50.95 | 98.3 | 25 | bounded 0.0248–0.0442/s (14–25) | 12 |
+
+**Run 76** (`s4-soak.txt`; MF| from `parse_module_fault.py`, 121 samples)
+
+| fmax | fever | umax | restarts | reboots | OOM lines | min MemAvailable | rss_total | swap in/out | PSI |
+|---|---|---|---|---|---|---|---|---|---|
+| 0 | 0 | 1 | 0 | 0 | 0 | 301 MB | 182080 → 185844 kB, slope +4097.5 kB/h (n=12) | 0 / 0 | unavailable |
+
 ## Findings
 
 - **The capture helper reads what X shows.** Run 1: `kiosk-drmgrab` and `import -window root`
@@ -993,9 +1075,56 @@ probe's own (570 s of the 585 s capture).
   cleanly on a network reset and fell back to the active slot untouched.
 - **Page state was judged by eye through Run 41** (mean luma of the pre-run screenshot, same as
   S1–S3); the mechanical `cards-probe.js` gate (`c=4 l=4` on every sample) was committed
-  (`48f3bfd68a1d429f5d5c438ed5fcc1c96c95cc2b`) afterward and is used operationally in
-  `run-s4-smoothness.sh`/`run-s4-soak.sh` on `d97d6fe` (the S4 smoothness/soak note above).
+  (`48f3bfd68a1d429f5d5c438ed5fcc1c96c95cc2b`) afterward (Runs 73–76 above); the scripts that
+  actually ran Runs 73–76 relax it to `l >= MIN_LIVE` and are not the ones committed here.
+- **The fixed image passes smoothness and is stable** (Runs 73–76): 50.95–51.18 fps,
+  98.3–98.4 % <50 ms, against a 3/4-card page (one park closed for the night); the cards-live
+  gate VOIDs each of the three smoothness captures on their first, pre-load sample alone, and a
+  reclassification over the measured window alone reads all three LIVE. The 1 h soak is clean —
+  0 restarts, 0 reboots, no OOM, no swap, `fmax`/`fever` 0 in all 121 samples — regardless of a
+  second park closing and `l` dropping to 2 partway through; the soak was designed to record
+  cards-live as a fraction, never to VOID on it, and a reclassification script's VOID verdict
+  against it is a misapplication of the smoothness rule, not a real stability finding.
+- **The pre-fix defect was absent, not missed, in a live render-check pass against `138d914`
+  after park hours** (Run 77: 5/5 rc 0, stale tiles=0, matching the same detector's clean reads
+  on `d97d6fe` in Runs 69–71). The afternoon's baselines on this same pre-fix image showed the
+  defect in nearly every burst (Runs 52, 56, 59). Whether live card content is what the defect
+  needs to show is an open hypothesis from this contrast, not a measured finding — #198 STALE
+  check live proof is where it is meant to be tested against a controlled page state.
+
+## Verdict
+
+- **Smoothness, against the X baseline (S1):** GO. E1's `regression_reasons` finds no regression
+  on any metric between the fixed image's smoothness (Runs 73–75) and the X baseline (Runs 2–4).
+- **Smoothness, against pre-fix 2.54 (`f4d4bb8`, Runs 35–37):** GO — turning the damage feature
+  off costs nothing. Mean fps rises from 48.45–48.82 to 50.95–51.18, roughly +2.5 fps run for run.
+- **Smoothness, against 2.44.4 (S3, Runs 24–26):** NO-GO under the literal rule. The fixed
+  image's worst `% frames <50 ms` is 98.28432201955941, against 2.44.4's best-case floor of
+  98.3 (Run 25) — a 0.016 percentage-point miss. Both sides of this comparison are read on a
+  3/4-card page (one park closed for the night on the candidate side; see the X/2.44.4 runs'
+  own page-state notes), so the margin is this close on a page state neither baseline measured
+  directly against the fixed image's own tonight.
+- **Stability:** GO. Runs 69–76 and Run 34 together show zero module faults, zero restarts,
+  zero reboots and no OOM line on either image under test.
+- **Module faults:** none, on any S4 run that completed (Runs 69–76).
+- **The cutover is wpewebkit 2.54**, with `kiosk-launch` passing
+  `--features=-UseDamagingInformationForCompositing` by default
+  (`d97d6fe9b892321f76b333d0e9ad79a31edbd142`).
 
 ## Changes configured as a result
 
-Pending the verdict.
+**Code change**, shipped ahead of this verdict: `kiosk-launch` passes
+`--features=-UseDamagingInformationForCompositing` by default on every boot
+(`d97d6fe9b892321f76b333d0e9ad79a31edbd142`), closing the stale-content defect this investigation
+traced to that WPE feature. The cutover to WPE WebKit 2.54 + cog stands on that fix.
+
+Follow-ups opened by this investigation, each its own ticket:
+- #190 upstream damage-feature report
+- #191 own WPE launcher
+- #192 2.54 page fill delay
+- #193 cog shutdown crash
+- #194 DOM card-count gate
+- #195 pipeline rollback gap
+- #196 WPE build-time levers
+- #197 kiosk-bootprof WPE port
+- #198 STALE check live proof
