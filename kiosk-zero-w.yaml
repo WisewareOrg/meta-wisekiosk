@@ -205,8 +205,8 @@ local_conf_header:
 
     # Journal persistence is the kiosk-journal recipe, not VOLATILE_LOG_DIR.
     # That variable is read by systemd's do_install, so setting it re-hashes
-    # systemd -> gtk+3/at-spi2-core -> webkitgtk3, costing a multi-hour WebKit
-    # rebuild. It also puts the journal on the rootfs slot, which an A/B update
+    # systemd, which wpewebkit build-depends on (udev, via its wpe-platform-drm
+    # option), costing a multi-hour WebKit rebuild. It also puts the journal on the rootfs slot, which an A/B update
     # replaces -- destroying the logs of the boot that failed.
     # hostname is NOT baked. It is site configuration; kiosk-provision sets it
     # from /data/config/hostname at boot.

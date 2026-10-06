@@ -1,10 +1,10 @@
 SUMMARY = "Kiosk hardware trim: keep unused subsystems out of the boot, and reboot on panic"
 DESCRIPTION = "Drop-in configuration only -- no binaries, no services. Deliberately a \
 separate recipe rather than a systemd_%.bbappend: touching the systemd recipe risks a \
-multi-hour WebKit rebuild for three config files, and dbus is the load-bearing hop, not \
-gtk+3. The chain is at recipes-core/packagegroups/packagegroup-base.bbappend and the \
-removal routes it closes are in docs/issue_investigation/webkit_dependency_trims/README.md. \
-The same reasoning is why kiosk-journal exists."
+multi-hour WebKit rebuild for three config files, since wpewebkit build-depends on systemd \
+(udev, via its wpe-platform-drm option). The removal routes it closes are in \
+docs/issue_investigation/webkit_dependency_trims/README.md. The same reasoning is why \
+kiosk-journal exists."
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
@@ -43,8 +43,8 @@ do_install() {
     ln -sf /dev/null ${D}${sysconfdir}/systemd/system/systemd-resolved.service
 
     # Nobody logs in interactively on a kiosk behind glass. logind owns seat and
-    # session management that Xorg MAY want, which is why this was flagged rather
-    # than recommended until it was tried.
+    # session management, which nothing in this image uses: cog runs as root and
+    # opens /dev/dri itself.
     #
     # Measured n=3 at basic.target, on top of the resolved masking above:
     #   resolved masked only          21.30 / 21.15 / 21.07  mean 21.17
@@ -60,18 +60,21 @@ do_install() {
 
     # udev evaluates every rule file against all 345 device uevents. This board
     # has no sound card (/sys/class/sound empty), no V4L (/sys/class/video4linux
-    # absent), no DRM card, and only the aggregate 'mice' input node -- yet the
-    # image still ships rules for cameras, joysticks, tape, MTD, CD-ROM,
-    # InfiniBand, FIDO and btrfs. Masking these took the effective rule set from
-    # 616 lines to 350 and udevd's CPU from 5091ms to 4513ms, measured n=3.
+    # absent), one DRM card (card0, the vc4 device cog drives), and only the
+    # aggregate 'mice' input node -- yet the image still ships rules for
+    # cameras, joysticks, tape, MTD, CD-ROM, InfiniBand, FIDO and btrfs. Masking
+    # these took the effective rule set from 616 lines to 350 and udevd's CPU
+    # from 5091ms to 4513ms, measured n=3.
     #
     # A /dev/null symlink in /etc/udev/rules.d shadows the /usr/lib file of the
     # same name -- udev(7). Nothing under /usr/lib is modified, so this does not
     # re-hash systemd.
     #
-    # NOT masked, deliberately: 71-seat, 73-seat-late and 70-uaccess (logind
-    # seat/ACL handling that Xorg may want), 60-drm (display), 60-persistent-
-    # storage and the net rules (SD card and lifeline).
+    # Not masked: 71-seat, 73-seat-late and 70-uaccess (logind seat/ACL
+    # handling), kept with no consumer in this image -- cog runs as root and opens
+    # /dev/dri itself, and logind is masked; removing them is tracked by #196 WPE
+    # build-time levers. 60-drm (display), 60-persistent-storage and the net
+    # rules (SD card and lifeline) are kept for their consumers.
     install -d ${D}${sysconfdir}/udev/rules.d
     for r in ${KIOSK_UDEV_RULES_MASKED}; do
         ln -sf /dev/null ${D}${sysconfdir}/udev/rules.d/$r.rules
