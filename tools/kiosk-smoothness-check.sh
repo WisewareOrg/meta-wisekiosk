@@ -141,11 +141,11 @@ fi
 
 # shellcheck disable=SC2016
 procs=$(dev 'for d in /proc/[0-9]*; do c=$(cat "$d/comm" 2> /dev/null) || continue
-    case $c in Xorg|surf|WebKitWebProces|WebKitNetworkPr|wpe-kiosk|WPE*) echo "${d#/proc/}:$c";; esac
+    case $c in X|surf|WebKit*|wpe-kiosk|WPE*) echo "${d#/proc/}:$c";; esac
     done' | sort -n)
 p browser_procs "$(paste -sd, <<< "$procs")"
 comms=$(cut -d: -f2 <<< "$procs")
-has_x=$(grep -cx Xorg <<< "$comms")
+has_x=$(grep -cx X <<< "$comms")
 has_wpe=$(grep -cx wpe-kiosk <<< "$comms")
 engine=unknown launcher=
 if [ "$has_x" -gt 0 ] && [ "$has_wpe" -eq 0 ]; then

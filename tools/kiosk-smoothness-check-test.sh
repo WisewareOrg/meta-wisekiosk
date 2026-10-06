@@ -58,7 +58,7 @@ hostname) echo stub-bench ;;
 "rauc status --output-format=shell") echo "RAUC_SYSTEM_BOOTED_BOOTNAME='A'" ;;
 "test -f /data/config/kiosk.conf && echo present") [ -e "$d/kiosk.conf" ] && echo present ;;
 "cat /data/config/kiosk.conf") cat "$d/kiosk.conf" ;;
-"for d in"*) printf '101:Xorg\n102:surf\n103:WebKitWebProces\n' ;;
+"for d in"*) printf '101:X\n102:surf\n103:WebKitWebProces\n' ;;
 "cat /proc/102/cmdline") cat "$d/cmdline" ;;
 "cat /proc/102/environ") cat "$d/environ" ;;
 "grep -E 'fb=|mode:' /sys/kernel/debug/dri/0/state") printf '\tfb=96\n\tmode: "1280x720": 60\n' ;;

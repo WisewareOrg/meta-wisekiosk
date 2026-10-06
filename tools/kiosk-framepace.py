@@ -76,10 +76,10 @@ def parse(lines):
 
 def engine_of(prov, reasons):
     comms = {p.partition(":")[2] for p in prov.get("browser_procs", "").split(",")}
-    engines = [e for e, comm in (("X", "Xorg"), ("WPE", "wpe-kiosk")) if comm in comms]
+    engines = [e for e, comm in (("X", "X"), ("WPE", "wpe-kiosk")) if comm in comms]
     if len(engines) != 1:
-        reasons.append("browser_procs names " + ("both Xorg and wpe-kiosk" if engines
-                                                 else "neither Xorg nor wpe-kiosk"))
+        reasons.append("browser_procs names " + ("both X and wpe-kiosk" if engines
+                                                 else "neither X nor wpe-kiosk"))
         return None
     return engines[0]
 
