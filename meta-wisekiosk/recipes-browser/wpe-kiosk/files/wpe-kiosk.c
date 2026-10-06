@@ -23,6 +23,7 @@
  *                           connector's first WxH mode, print "WPP|preset=WxH
  *                           crtc=<id> connector=<id>", drop master, keep fd open
  *
+ * Each finished load prints "WPP|loaded <uri>" on stderr.
  * A terminated web process prints "WPP|web-process-terminated reason=<n>"
  * (WebKitWebProcessTerminationReason) and exits 1, so the service restarts.
  * SIGTERM exits 0. A connect failure, a missing view, an unknown feature or a
@@ -142,6 +143,12 @@ static gboolean preset_mode(const char *spec)
     return FALSE;
 }
 
+static void on_load_finished(WebKitWebView *web_view, WebKitLoadEvent event)
+{
+    if (event == WEBKIT_LOAD_FINISHED)
+        g_printerr("WPP|loaded %s\n", webkit_web_view_get_uri(web_view));
+}
+
 static void on_web_process_terminated(WebKitWebView *web_view, WebKitWebProcessTerminationReason reason)
 {
     (void) web_view;
@@ -197,6 +204,7 @@ int main(int argc, char **argv)
         g_printerr("WPP|display=%s\n", G_OBJECT_TYPE_NAME(display));
 
     g_signal_connect(web_view, "web-process-terminated", G_CALLBACK(on_web_process_terminated), NULL);
+    g_signal_connect(web_view, "load-changed", G_CALLBACK(on_load_finished), NULL);
     const char *script = g_getenv("WPE_KIOSK_SCRIPT");
     if (script) {
         g_signal_connect(web_view, "load-changed", G_CALLBACK(on_load_changed), (gpointer) script);
