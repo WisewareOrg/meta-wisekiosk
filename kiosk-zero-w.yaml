@@ -167,9 +167,9 @@ local_conf_header:
     # webkitgtk3's default build cannot decode that format at all -- neither
     # face ever loads without this. Recipe: meta-wisekiosk/recipes-graphics/woff2.
     PACKAGECONFIG:append:pn-webkitgtk3 = " woff2"
-    # imagemagick is here for `import -window root`, the only screenshot path
-    # this image has: fbgrab was dropped on a misdiagnosis and never restored.
-    # See docs/issue_investigation/screenshot_capture_fbgrab/README.md.
+    # imagemagick: `import -window root` is the X screenshot path; kiosk-drmgrab
+    # (below) reads the DRM scanout. No fbgrab: see
+    # docs/issue_investigation/screenshot_capture_fbgrab/README.md.
     IMAGE_INSTALL:append = " surf kiosk-session kiosk-soak kiosk-journal kiosk-timesync-persist kiosk-hardware kiosk-netcheck kiosk-bootprof zram wpa-supplicant-service packagegroup-core-x11 xwininfo xprop ttf-roboto imagemagick tzdata-core tzdata-americas"
 
     # kiosk-drmgrab: scanout capture straight from DRM, independent of the
