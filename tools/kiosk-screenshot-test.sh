@@ -99,5 +99,41 @@ check "neither tool on PATH: refuses (rc 1)" "$RC2" "1"
 check "neither tool on PATH: clear message naming magick" "$GOT2" \
     "imagemagick (magick) is required on this host"
 
+# Case 3: magick is present and the conversion step succeeds, but the stats
+# step itself fails (exits non-zero, prints nothing) -- the class N6 belongs
+# to, not just the one instance: ANY way the stats step can fail must be
+# surfaced as an error, never silently misread as BLANK on the two empty
+# strings its unchecked exit status leaves behind. The stub magick tells the
+# two steps apart by the presence of -format (used only by whatever form the
+# stats read takes, "magick identify -format ..." or "magick <file> -format
+# ... info:"), not by a specific subcommand spelling, so it exercises the fix
+# regardless of which form it takes.
+stats_fail_dir="$STUB/stats-fail"
+mkdir -p "$stats_fail_dir"
+ln -s "$STUB/ssh" "$stats_fail_dir/ssh"
+ln -s "$STUB/scp" "$stats_fail_dir/scp"
+cat > "$stats_fail_dir/magick" << 'EOF'
+#!/usr/bin/env bash
+for a in "$@"; do
+    [ "$a" = "-format" ] && exit 1
+done
+: > "${@: -1}"
+EOF
+chmod +x "$stats_fail_dir/magick"
+OUT3="$STUB/out3.png"
+GOT3=$(env -i PATH="$stats_fail_dir:/usr/bin:/bin" HOME="$STUB" \
+    bash "$TOOL" root@kiosk-screenshot-test.invalid "$OUT3" 2>&1)
+RC3=$?
+if [ "$RC3" -ne 0 ]; then
+    pass=$((pass + 1))
+else
+    fail=$((fail + 1))
+    echo "FAIL  stats step failing must not exit 0" >&2
+    echo "      got rc=$RC3" >&2
+fi
+check "stats step failing: never read as BLANK" "$GOT3" "" "BLANK"
+check "stats step failing: a message names the stats failure" "$GOT3" \
+    "could not read capture statistics"
+
 echo "kiosk-screenshot: pass=$pass fail=$fail"
 [ "$fail" -eq 0 ]
