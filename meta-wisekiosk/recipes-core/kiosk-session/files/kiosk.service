@@ -1,5 +1,5 @@
 [Unit]
-Description=Kiosk browser: cog on WPE WebKit, straight to DRM, no display server
+Description=Kiosk browser: wpe-kiosk on WPE WebKit, straight to DRM, no display server
 After=network-online.target data.mount
 Wants=network-online.target
 Requires=data.mount

@@ -1,4 +1,4 @@
-SUMMARY = "Kiosk session: cog on WPE WebKit, DRM platform, under systemd"
+SUMMARY = "Kiosk session: wpe-kiosk on the WPE Platform DRM backend, under systemd"
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
@@ -9,7 +9,7 @@ S = "${WORKDIR}"
 
 inherit systemd
 
-RDEPENDS:${PN} = "cog"
+RDEPENDS:${PN} = "wpe-kiosk"
 
 SYSTEMD_SERVICE:${PN} = "kiosk.service"
 SYSTEMD_AUTO_ENABLE = "enable"

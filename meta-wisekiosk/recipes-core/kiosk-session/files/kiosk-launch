@@ -1,16 +1,15 @@
 #!/bin/sh
-# cog on its DRM platform, run by kiosk.service as root: cog opens /dev/dri
-# itself, with no display server, no logind and no seat manager. systemd
-# Restart=always is the restart loop.
+# wpe-kiosk on WebKit's WPE Platform DRM backend, run by kiosk.service as root:
+# it opens /dev/dri itself, with no display server, no logind and no seat
+# manager. systemd Restart=always is the restart loop.
 
 # 1280x720 on a panel the firmware brings up at 1080p. Pixel area is what the
 # during-motion framerate is bound by -- see
 # docs/issue_investigation/gpu_compositing/README.md under "Engine levers,
-# measured". The value must be a mode the connector lists; cog
+# measured". The value must be a mode the connector lists; wpe-kiosk
 # exits on one it does not, and systemd restarts it. A default, so
 # /data/config/kiosk.conf can set another mode with no rebuild.
-: "${COG_PLATFORM_DRM_VIDEO_MODE:=1280x720}"
-export COG_PLATFORM_DRM_VIDEO_MODE
+export WPE_KIOSK_MODE="${COG_PLATFORM_DRM_VIDEO_MODE:-1280x720}"
 
 # Remote Web Inspector. OFF by default: it must not perturb a measurement, and
 # it should not listen unless asked. Turn it on over SSH with no rebuild:
@@ -20,32 +19,29 @@ export COG_PLATFORM_DRM_VIDEO_MODE
 #   # then from the workstation:  ssh -L 2999:127.0.0.1:2999 root@<kiosk>
 #
 # Bound to loopback, reached through the tunnel.
-INSPECT=""
 if [ "${KIOSK_INSPECTOR:-0}" = "1" ]; then
 	export WEBKIT_INSPECTOR_HTTP_SERVER="${KIOSK_INSPECTOR_BIND:-127.0.0.1:2999}"
-	INSPECT="--enable-developer-extras=true"
+	export WPE_KIOSK_INSPECTOR=1
 fi
 
 # Measurement probe. OFF by default. KIOSK_PROBE=1 injects the script at
 # KIOSK_PROBE_SCRIPT into the page and sends the page's console messages and
 # each title change to stdout, which is the journal.
-PROBE_CONSOLE=""
-PROBE_SCRIPT=""
 if [ "${KIOSK_PROBE:-0}" = "1" ]; then
-	PROBE_CONSOLE="--enable-write-console-messages-to-stdout=true"
-	PROBE_SCRIPT="--user-script=${KIOSK_PROBE_SCRIPT:-/home/root/kiosk-probe.js}"
+	export WPE_KIOSK_CONSOLE=1
+	export WPE_KIOSK_SCRIPT="${KIOSK_PROBE_SCRIPT:-/home/root/kiosk-probe.js}"
 fi
 
-# WebKit features: cog always gets --features=-UseDamagingInformationForCompositing,
-# and KIOSK_COG_FEATURES, when set, is appended after a comma in the same argument:
-# comma-separated with no spaces, using the names `cog --features=help` lists, e.g.
-# -AcceleratedCompositing,-ThreadedScrolling. cog exits on a name it does not know,
-# a leading space included, so a typo restart-loops kiosk.service with no page.
-FEATURES="--features=-UseDamagingInformationForCompositing"
+# WebKit features: -UseDamagingInformationForCompositing always, and
+# KIOSK_COG_FEATURES, when set, appended after a comma: comma-separated WebKit
+# feature identifiers, case-insensitive, '-' or '!' to disable, e.g.
+# -AcceleratedCompositing,-ThreadedScrolling. wpe-kiosk exits on a name it
+# does not know, a leading space included, so a typo restart-loops
+# kiosk.service with no page.
+WPE_KIOSK_FEATURES="-UseDamagingInformationForCompositing"
 if [ -n "${KIOSK_COG_FEATURES:-}" ]; then
-	FEATURES="$FEATURES,${KIOSK_COG_FEATURES}"
+	WPE_KIOSK_FEATURES="$WPE_KIOSK_FEATURES,${KIOSK_COG_FEATURES}"
 fi
+export WPE_KIOSK_FEATURES
 
-# shellcheck disable=SC2086  # INSPECT is empty or one flag, split on purpose
-exec cog -P drm $INSPECT ${PROBE_CONSOLE:+"$PROBE_CONSOLE"} ${PROBE_SCRIPT:+"$PROBE_SCRIPT"} \
-	"$FEATURES" "$KIOSK_URL"
+exec wpe-kiosk "$KIOSK_URL"
