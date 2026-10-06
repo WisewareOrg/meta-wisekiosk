@@ -90,13 +90,13 @@ analyzer before trusting this).
     candidate, fps regr: k = 9, 3, 4   -> fps 6.67, 20, 15 min 6.67 < 10
     candidate, improve:  k = 3, 3, 3   -> fps 20 each       min 20 > baseline max 15
 
-  QUALITY FAMILY (pct_under_50 / stall_rate focus; presented_fps stays >= 59 and
-  pct_under_50 == 100 for every record EXCEPT the one deliberate anomaly in each
-  case, confirmed below, so fps never also regresses by accident):
+  QUALITY FAMILY (pct_under_50 focus; presented_fps stays >= 59 and
+  pct_under_50 == 100 for every record EXCEPT the one deliberate anomaly,
+  confirmed below, so fps never also regresses by accident):
     baseline:            k = 1, 2, 2   -> fps 60, 30, 30, pct 100 throughout, no
                           stalls. range: fps (30, 60), pct (100, 100), stall (0, 0)
     candidate, pct regr: one record = a clean 120-sample ~60 fps block, ONE
-                          60 ms gap (steady_with_gap -- motion: < 1.5 s, not a
+                          60 ms gap (steady_with_gap -- motion: < 1.0 s, not a
                           stall: <= 250 ms), then another clean 120-sample
                           block -- fps 59.354, pct 99.58 (the one non-zero
                           interval), no stall -- plus two clean k=1 (60 fps,
@@ -104,38 +104,54 @@ analyzer before trusting this).
                           pct min 100; candidate fps min 59.354 is still >=
                           baseline fps min 30 (no fps regression); stall
                           untouched.
-    candidate, stall regr: one record = the same clean-120/gap/clean-120 shape
-                          with a 2.6 s hold instead (excess 600 ms > 250 ms ->
-                          one stall; a HOLD interval is excluded from "motion"
-                          entirely, so fps == 60.000 and pct == 100.000 exactly,
-                          confirmed, untouched) -- plus two clean k=1 records.
-                          Candidate stall_rate max 8.57 > baseline stall_rate
-                          max 0; fps/pct both clean (60 is NOT > baseline's own
-                          max of 60, so this also does not flag an accidental
-                          fps "improvement").
 
   STALL-SPREAD BASELINE (BASELINE_STALL_SPREAD -- pins the stall_rate
   regression rule's DIRECTION: candidate's max vs the baseline's own max,
-  not its min. Every baseline above gives stall_rate (0, 0), degenerate --
-  a wrong implementation comparing against the baseline's min instead of
-  its max is invisible to all of them, since min == max == 0 there. Found
-  by impl mutation-testing kiosk-framepace-verdict.py (`c_max > b_max`
-  changed to `c_max > b_min`; this file's suite, without this family,
-  stayed 36/36)):
-    baseline:  one record with a 2.6 s hold (stall_rate 8.571), two clean
-               (0 each) -- range (0, 8.571), genuinely non-degenerate.
-    candidate, between (rc0_cases): one record with a 3.9 s hold, big
-               enough motion blocks (n_block=300) either side to still
-               clear the 50%-of-window gate at that gap size -- stall_rate
-               4.286, strictly between the baseline's min and max -- plus
-               two clean records. Correct rule: 4.286 does not exceed the
-               baseline's own max (8.571) -> rc 0. Wrong rule (candidate
-               max vs baseline MIN): 4.286 does exceed 0 -> rc 1.
-    candidate, above max (rc1_cases): one record with a 2.3 s hold --
-               stall_rate 10.0, strictly ABOVE the baseline's max (8.571)
-               -- plus two clean records. A regression under EITHER rule;
-               completes the direction pin rather than discriminating on
-               its own.
+  not its min. Every OTHER baseline in this file gives stall_rate (0, 0),
+  degenerate -- a wrong implementation comparing against the baseline's min
+  instead of its max is invisible to all of them, since min == max == 0
+  there. Found by impl mutation-testing kiosk-framepace-verdict.py
+  (`c_max > b_max` changed to `c_max > b_min`; this file's suite, without
+  this family, stayed 36/36).
+
+  Amended (team-lead, 2026-10-06, from the real bench record -- see
+  kiosk-framepace-test.py's own module docstring for the full amendment):
+  the hold threshold moved to 1.0 s and the hold-edge excess rule is
+  GONE -- no hold, of any length, produces a stall any more. Every
+  stall here is now a MOTION interval (0.25 s, 1.0 s), built the same
+  way (steady_with_gap, same "hold" item kind -- same-hash filler, then a
+  toggle exactly gap_ns later -- which carries no threshold assumption of
+  its own and needs the filler regardless of whether the resulting
+  interval classifies as a stall or a hold). A motion-interval stall also
+  drags that record's own pct_under_50 down a little (it is > 50 ms, so
+  outside the "under 50 ms" bucket), unlike the old hold-edge stalls (fully
+  excluded from "motion"), so this family's own fps/pct floors sit a
+  little under 100 -- confirmed below to still clear every OTHER
+  comparison in these cases, not assumed. This also replaces the old
+  "stall regr" case in the QUALITY family above (its 2.6 s hold produced
+  zero stalls after the amendment): the "above max" case below already
+  proves stall_rate can regress in isolation, so that proof is not
+  duplicated:
+    baseline:  one record = a 60-sample ~60 fps block, a 0.9 s motion-
+               stall, another 60-sample block -- fps 41.512, pct 99.160,
+               stall_rate 20.0 -- plus two clean k=1 records. Range:
+               fps (41.512, 60), pct (99.160, 100), stall_rate (0, 20.0).
+    candidate, between (rc0_cases): one record = a 120-sample block, a
+               0.3 s motion-stall, another 120-sample block -- fps 56.016
+               (>= baseline's 41.512), pct 99.582 (>= baseline's 99.160),
+               stall_rate 15.0, strictly between the baseline's min and
+               max -- plus two clean records. Correct rule: 15.0 does not
+               exceed the baseline's own max (20.0) -> rc 0. Wrong rule
+               (candidate max vs baseline MIN): 15.0 does exceed 0 -> rc 1.
+    candidate, above max (rc1_cases): one record = a 60-sample block, a
+               0.3 s motion-stall, another 60-sample block -- fps 52.500
+               (>= baseline's 41.512), pct 99.160 (== baseline's 99.160,
+               not below it), stall_rate 30.0, strictly ABOVE the
+               baseline's max (20.0) -- plus two clean records. A
+               regression under EITHER rule, on stall_rate alone (fps and
+               pct both confirmed non-regressing); completes the direction
+               pin and stands in for the old isolated "stall regression"
+               case at once.
 """
 import importlib.util
 import subprocess
@@ -232,15 +248,15 @@ def steady_with_gap(engine, gap_ns, host_role="bench", n_block=120):
     """A clean n_block-sample ~60 fps steady-motion block, one extra gap of
     gap_ns (via the "hold" item kind: same-hash filler, then a toggle exactly
     gap_ns later -- kiosk-framepace-test.py's own mechanism, which carries no
-    1.5 s assumption of its own), then ANOTHER clean n_block-sample block --
-    n_block defaults to 120, large enough on both sides that motion time
-    clears the record's own 50%-of-window gate even against a multi-second
-    gap (the asymmetric 120/5 split this used earlier failed exactly that
-    gate for the 2.6 s case; fixed by matching kiosk-framepace-test.py's own
-    proven-good hold fixtures, which use 120 on both sides). A larger gap
-    needs a larger n_block to keep clearing that same gate -- confirmed
-    against the real analyzer before use, not assumed (see the stall_rate
-    DIRECTION case below, which needs a gap too big for n_block=120)."""
+    threshold assumption of its own, so it is used for gaps on EITHER side of
+    the hold/motion boundary -- a stall gap under 1.0 s or a genuine hold at
+    or above it), then ANOTHER clean n_block-sample block -- n_block defaults
+    to 120. A large hold gap needs a correspondingly large n_block to keep
+    motion time clearing the record's own 25%-of-window gate; a motion-stall
+    gap (< 1.0 s) is cheap by comparison but still needs enough samples either
+    side to clear the 90%-of-expected sample-count gate -- confirmed against
+    the real analyzer for every n_block/gap_ns combination actually used
+    below, not assumed."""
     spec = [("motion", n_block, DT), ("hold", gap_ns, DT), ("motion", n_block, DT)]
     lines, seconds, raw = fptest.build_record(
         spec, p_kwargs={"engine": engine, "host_role": host_role})
@@ -269,16 +285,18 @@ BASELINE_QUALITY_LINES = [lines_only(r) for r in BASELINE_QUALITY]
 BASELINE_QUALITY_PCT_RANGE = group_range(BASELINE_QUALITY, "pct_under_50")
 BASELINE_QUALITY_STALL_RANGE = group_range(BASELINE_QUALITY, "stall_rate")
 
-# A baseline with a genuine, non-degenerate stall_rate spread (0, 8.571) --
-# one record with a 2.6 s hold-edge stall, two without. Every OTHER baseline
-# in this file gives stall_rate (0, 0), so a wrong implementation comparing
-# the candidate's worst against the baseline's MIN (always 0 elsewhere here)
-# instead of its MAX cannot be told apart from the correct one by anything
-# above -- impl found this by mutation testing kiosk-framepace-verdict.py
-# (changed `c_max > b_max` to `c_max > b_min`; the suite stayed 36/36).
-# Reused by both the "between" (rc 0) and "above max" (rc 1) cases below, so
-# the direction is pinned against the SAME baseline both ways.
-BASELINE_STALL_SPREAD = [steady_with_gap("X", 2_600_000_000), steady("X", 1), steady("X", 1)]
+# A baseline with a genuine, non-degenerate stall_rate spread (0, 20.0) --
+# one record with a 0.9 s MOTION-interval stall (holds no longer produce
+# stalls at all, post-amendment: see this file's module docstring), two
+# without. Every OTHER baseline in this file gives stall_rate (0, 0), so a
+# wrong implementation comparing the candidate's worst against the
+# baseline's MIN (always 0 elsewhere here) instead of its MAX cannot be
+# told apart from the correct one by anything above -- impl found this by
+# mutation testing kiosk-framepace-verdict.py (changed `c_max > b_max` to
+# `c_max > b_min`; the suite stayed 36/36). Reused by both the "between"
+# (rc 0) and "above max" (rc 1) cases below, so the direction is pinned
+# against the SAME baseline both ways.
+BASELINE_STALL_SPREAD = [steady_with_gap("X", 900_000_000, n_block=60), steady("X", 1), steady("X", 1)]
 BASELINE_STALL_SPREAD_LINES = [lines_only(r) for r in BASELINE_STALL_SPREAD]
 BASELINE_STALL_SPREAD_RANGE = group_range(BASELINE_STALL_SPREAD, "stall_rate")
 
@@ -310,16 +328,16 @@ def rc0_cases():
 
     # stall_rate regression DIRECTION, "between" half (the "above max" half
     # is in rc1_cases(), against the SAME baseline): the candidate's worst
-    # (4.286, from a smaller-rate hold-edge stall -- a bigger gap needs
-    # bigger motion blocks to still clear the 50%-of-window gate, confirmed
-    # against the real analyzer, not assumed) sits strictly BETWEEN the
-    # baseline's min (0) and max (8.571): not a regression under the
-    # correct rule (4.286 does not exceed the baseline's own worst, 8.571),
-    # but IS one under the wrong rule (4.286 does exceed the baseline's
-    # best, 0).
+    # (15.0, from a smaller motion-stall -- 0.3 s in a 120-sample block,
+    # confirmed against the real analyzer, not assumed) sits strictly
+    # BETWEEN the baseline's min (0) and max (20.0): not a regression under
+    # the correct rule (15.0 does not exceed the baseline's own worst,
+    # 20.0), but IS one under the wrong rule (15.0 does exceed the
+    # baseline's best, 0). Its fps (56.016) and pct (99.582) both stay >=
+    # the baseline's own floors (41.512, 99.160), so neither also regresses.
     case("stall_rate direction: the baseline's spread is non-degenerate (min != max)",
          BASELINE_STALL_SPREAD_RANGE[0] != BASELINE_STALL_SPREAD_RANGE[1], True)
-    candidate_between = [steady_with_gap("WPE", 3_900_000_000, n_block=300),
+    candidate_between = [steady_with_gap("WPE", 300_000_000, n_block=120),
                           steady("WPE", 1), steady("WPE", 1)]
     got = verdict.framepace_verdict(BASELINE_STALL_SPREAD_LINES,
                                      [lines_only(r) for r in candidate_between])
@@ -365,34 +383,21 @@ def rc1_cases():
     case("pct_under_50 regression: stall_rate did NOT also regress",
          any("stall_rate" in r or "stall" in r for r in got["reasons"]), False)
 
-    # stall_rate regression, isolated (quality family): one candidate record
-    # carries a 2.6 s hold (600 ms edge excess -> one stall). A HOLD interval
-    # is excluded from "motion" entirely, so this record's fps (60.000) and
-    # pct_under_50 (100.000) are untouched (confirmed above) -- only
-    # stall_rate can regress here.
-    hold_rec = steady_with_gap("WPE", 2_600_000_000)
-    candidate_lines = [lines_only(hold_rec)] + [lines_only(steady("WPE", 1)) for _ in range(2)]
-    got = verdict.framepace_verdict(BASELINE_QUALITY_LINES, candidate_lines)
-    case("stall_rate regression: rc 1", got["rc"], 1)
-    case("stall_rate regression: reasons name stall_rate",
-         any("stall_rate" in r or "stall" in r for r in got["reasons"]), True)
-    close("stall_rate regression: candidate stall_rate max",
-          got["ranges"]["candidate"]["stall_rate"][1], hold_rec[1]["stall_rate"])
-    case("stall_rate regression: fps did NOT also regress",
-         any("presented_fps" in r or "fps" in r for r in got["reasons"]), False)
-    case("stall_rate regression: pct_under_50 did NOT also regress",
-         any("pct_under_50" in r for r in got["reasons"]), False)
-
     # stall_rate regression DIRECTION, "above max" half (the "between" half
     # is in rc0_cases(), against the SAME baseline, BASELINE_STALL_SPREAD --
     # see its own comment for why a non-degenerate baseline matters here).
-    # The candidate's worst (10.0, a smaller/shorter hold-edge stall than
-    # the baseline's own) is strictly ABOVE the baseline's max (8.571), so
-    # this is a regression under EITHER rule; its purpose is completing
-    # the direction pin (between -> rc 0, above max -> rc 1) against a
-    # baseline whose min and max actually differ, not telling two rules
-    # apart on its own.
-    above_rec = steady_with_gap("WPE", 2_300_000_000)
+    # This case also DOES the job the old isolated "stall_rate regression"
+    # case (quality family) used to: its 2.6 s hold produced zero stalls
+    # after the amendment (holds no longer produce stalls at all), so it is
+    # replaced rather than fixed -- this one proves the same thing (stall_
+    # rate regresses with fps/pct both confirmed clean) while ALSO pinning
+    # the direction. The candidate's worst (30.0, a 0.3 s motion-stall in a
+    # 60-sample block) is strictly ABOVE the baseline's max (20.0): a
+    # regression under EITHER rule. Its fps (52.500) stays >= the
+    # baseline's own floor (41.512); its pct (99.160) EQUALS the
+    # baseline's own floor (99.160), not below it -- so neither also
+    # regresses, confirmed, not assumed.
+    above_rec = steady_with_gap("WPE", 300_000_000, n_block=60)
     candidate_above_lines = [lines_only(above_rec)] + [lines_only(steady("WPE", 1)) for _ in range(2)]
     got = verdict.framepace_verdict(BASELINE_STALL_SPREAD_LINES, candidate_above_lines)
     case("stall_rate direction (above max): candidate's worst exceeds the "
@@ -401,6 +406,10 @@ def rc1_cases():
     case("stall_rate direction (above max): rc 1", got["rc"], 1)
     case("stall_rate direction (above max): reasons name stall_rate",
          any("stall_rate" in r or "stall" in r for r in got["reasons"]), True)
+    case("stall_rate direction (above max): fps did NOT also regress",
+         any("presented_fps" in r or "fps" in r for r in got["reasons"]), False)
+    case("stall_rate direction (above max): pct_under_50 did NOT also regress",
+         any("pct_under_50" in r for r in got["reasons"]), False)
     close("stall_rate direction (above max): candidate stall_rate max",
           got["ranges"]["candidate"]["stall_rate"][1], above_rec[1]["stall_rate"])
 

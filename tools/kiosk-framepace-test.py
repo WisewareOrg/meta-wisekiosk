@@ -40,17 +40,24 @@ Processing, straight from the spec:
   - Intervals are the time between consecutive presented frames (so the record's
     very first presented frame starts no interval of its own -- an interval needs
     two of them).
-  - Hold rule: interval >= 1.5 s is a hold; its excess = interval - 2.0 s, and an
-    excess > 0.25 s is one stall of that excess size (a stall at the hold edge).
-    interval < 1.5 s is a motion interval; one > 0.25 s is one stall of that
-    interval's own size.
+  - Hold rule (amended, team-lead, 2026-10-06, from bench's first real X record,
+    local/framepace/20261006T210803Z-bench-X.rec: real holds cluster at ~1.6 s
+    and ~2.9 s, not a clean 2.0 s, and a fully-live page's own marquee moves
+    only ~48 % of the window -- the ORIGINAL 1.5 s/2.0 s-excess/50 % rules below
+    read that healthy capture as rc 2, "could not tell"): interval >= 1.0 s is
+    a hold, NOT JUDGED AT ALL -- no excess, no stall, regardless of how long.
+    interval < 1.0 s is a motion interval; one > 0.25 s is one stall of that
+    interval's own size (so a stall is, equivalently, an interval in
+    (0.25 s, 1.0 s) -- the upper bound is just the hold threshold itself, not a
+    second number to track). The hold-edge excess rule is GONE entirely: a
+    hold of any length, 1.0 s or 10 s, now contributes nothing to stalls.
   - presented_fps and pct_under_50 are computed over motion intervals only:
     presented_fps = (count of motion intervals) / (their summed duration) --
     "motion frames" is this count, since the first sample of any run is
     structurally unclassifiable and every other one pairs 1:1 with the interval
     that produced it, so "frames" and "intervals" name the same count here.
     pct_under_50 = 100 * (motion intervals < 50 ms) / (all motion intervals).
-  - stalls = count of motion-interval stalls + hold-edge stalls (as defined above).
+  - stalls = count of motion-interval stalls (hold-edge stalls no longer exist).
     max_stall_ms = the largest stall size in ms (0.0 if there are none).
   - stall_rate = stalls / (DECLARED window minutes, from the record's own `H
     seconds=<N>`) -- the spec's "Host analyzer" wording deliberately shifts from
@@ -68,8 +75,9 @@ Processing, straight from the spec:
         independent of any self-reported count) is under 90 % of the expected count
         for the declared window and pacing (seconds * refresh for pacing=vblank,
         using the refresh parsed out of `H mode=<w>x<h>@<refresh>`);
-      - motion seconds (summed motion-interval duration) is under 50 % of the
-        declared window;
+      - motion seconds (summed motion-interval duration) is under 25 % of the
+        declared window (amended from 50 %, same bench record: a fully-live
+        page's own real motion fraction was ~48 %, under the old 50 % floor);
       - the declared mode is not exactly 1280x720 (any refresh).
 
 A record is actually `P key=value` lines (the driver's provenance block,
@@ -217,12 +225,13 @@ def presented_deltas_s(raw):
 
 def expected_metrics(deltas_s, window_seconds):
     """The oracle: framepace-spec.md's "Hold rule" and "Metrics" clauses applied
-    directly to a presented-frame interval list. See this file's module docstring
-    for the exact wording each line below transcribes."""
-    motion = [d for d in deltas_s if d < 1.5]
-    holds = [d for d in deltas_s if d >= 1.5]
+    directly to a presented-frame interval list, as amended (team-lead,
+    2026-10-06, from the real bench record -- see this file's module docstring
+    for the exact wording): hold threshold 1.0 s (was 1.5 s), the hold-edge
+    excess rule dropped entirely, a stall is a motion interval > 0.25 s (its
+    upper bound is the hold threshold itself, not a second number)."""
+    motion = [d for d in deltas_s if d < 1.0]
     stall_sizes_ms = [d * 1000 for d in motion if d > 0.25]
-    stall_sizes_ms += [(d - 2.0) * 1000 for d in holds if (d - 2.0) > 0.25]
     motion_seconds = sum(motion)
     return {
         "motion_seconds": motion_seconds,
@@ -366,10 +375,10 @@ def rc0_cases():
     close("steady 60 fps motion: stall_rate", got["stall_rate"], 0.0)
 
     # Motion with mid-motion stalls: two isolated gaps (300 ms, 400 ms), both
-    # still < 1.5 s so both are motion intervals, both > 250 ms so both are
+    # still < 1.0 s so both are motion intervals, both > 250 ms so both are
     # stalls. Built with the "hold" item kind -- which just means "same-hash
-    # filler samples, then a toggle exactly gap_ns later" and carries no 1.5 s
-    # assumption of its own -- so a real device's continuous vblank sampling
+    # filler samples, then a toggle exactly gap_ns later" and carries no hold-
+    # threshold assumption of its own -- so a real device's continuous vblank sampling
     # through the gap is represented, not skipped (impl finding: the bare
     # one-sample "motion" item this used before left the gap unsampled,
     # failing the record's own 90%-of-expected-samples gate). 120-sample
@@ -389,55 +398,104 @@ def rc0_cases():
     close("motion with mid-motion stalls: max_stall_ms == 400", got["max_stall_ms"], 400.0)
     close("motion with mid-motion stalls: stall_rate", got["stall_rate"], want["stall_rate"])
 
-    # A hold of exactly 2.0 s: excess == 0, not > 0.25 -- no stall. 120-sample
-    # motion blocks (not 60) so motion_seconds (~3.97 s) clears the record's
-    # own 50%-of-window motion gate against this 2.0 s hold (impl finding: at
-    # 60 samples/block, motion was only ~1.97 s against a ~4 s window, under
-    # 50%).
-    spec = [("motion", 120, DT), ("hold", 2_000_000_000, DT), ("motion", 120, DT)]
+    # A hold of exactly 1.0 s: the new boundary itself -- a hold (interval
+    # >= 1.0 s), NOT JUDGED at all, zero stalls (the excess rule is gone
+    # entirely, so there is nothing left to compute at the edge). 120-sample
+    # motion blocks so motion_seconds (~3.97 s) clears the record's own
+    # 25%-of-window motion gate against this hold.
+    spec = [("motion", 120, DT), ("hold", 1_000_000_000, DT), ("motion", 120, DT)]
     lines, seconds, raw = build_record(spec)
     deltas = presented_deltas_s(raw)
-    hold_deltas = [d for d in deltas if d >= 1.5]
-    case("hold of exactly 2.0s: the fixture actually produced one hold interval",
+    hold_deltas = [d for d in deltas if d >= 1.0]
+    case("hold of exactly 1.0s: the fixture actually produced one hold interval",
          len(hold_deltas), 1)
-    close("hold of exactly 2.0s: that interval is 2.000 s", hold_deltas[0], 2.0, tol=1e-9)
+    close("hold of exactly 1.0s: that interval is 1.000 s", hold_deltas[0], 1.0, tol=1e-9)
     got = fp.analyze(lines)
-    case("hold of exactly 2.0s: rc 0", got["rc"], 0)
-    case("hold of exactly 2.0s: stalls == 0 (no stall at the edge)", got["stalls"], 0)
-    close("hold of exactly 2.0s: max_stall_ms == 0", got["max_stall_ms"], 0.0)
+    case("hold of exactly 1.0s: rc 0", got["rc"], 0)
+    case("hold of exactly 1.0s: stalls == 0 (a hold is not judged)", got["stalls"], 0)
+    close("hold of exactly 1.0s: max_stall_ms == 0", got["max_stall_ms"], 0.0)
 
-    # A hold of 2.6 s: excess == 0.6 s == 600 ms > 0.25 s -- one stall, sized
-    # by the excess, not by the hold's own 2.6 s length. 120-sample motion
-    # blocks for the same 50%-of-window reason as the 2.0 s case above.
+    # An interval of 0.9 s: just UNDER the hold threshold, so still a motion
+    # interval, and > 0.25 s, so a stall of its own full size (900 ms) --
+    # pins the new boundary from the motion side, the mirror of the 1.0 s
+    # case above.
+    spec = [("motion", 120, DT), ("hold", 900_000_000, DT), ("motion", 120, DT)]
+    lines, seconds, raw = build_record(spec)
+    deltas = presented_deltas_s(raw)
+    motion_stall_deltas = [d for d in deltas if 1.0 > d > 0.25]
+    case("interval of 0.9s: the fixture actually produced one such motion interval",
+         len(motion_stall_deltas), 1)
+    close("interval of 0.9s: that interval is 0.900 s", motion_stall_deltas[0], 0.9, tol=1e-9)
+    got = fp.analyze(lines)
+    case("interval of 0.9s: rc 0", got["rc"], 0)
+    case("interval of 0.9s: stalls == 1 (motion, not a hold)", got["stalls"], 1)
+    close("interval of 0.9s: max_stall_ms == 900 (the full interval)", got["max_stall_ms"], 900.0)
+
+    # A hold of 2.6 s is now a PLAIN hold -- zero stalls, regardless of its
+    # length, since the hold-edge excess rule is gone (team-lead's amendment:
+    # "DROP the hold-edge excess rule entirely"). Before the amendment this
+    # same fixture asserted stalls == 1 (excess 600 ms); pinning the flip
+    # here guards against regressing to the dropped rule.
     spec = [("motion", 120, DT), ("hold", 2_600_000_000, DT), ("motion", 120, DT)]
     lines, seconds, raw = build_record(spec)
     deltas = presented_deltas_s(raw)
-    hold_deltas = [d for d in deltas if d >= 1.5]
+    hold_deltas = [d for d in deltas if d >= 1.0]
     case("hold of 2.6s: the fixture actually produced one hold interval",
          len(hold_deltas), 1)
     close("hold of 2.6s: that interval is 2.600 s", hold_deltas[0], 2.6, tol=1e-9)
     got = fp.analyze(lines)
     case("hold of 2.6s: rc 0", got["rc"], 0)
-    case("hold of 2.6s: stalls == 1 (one edge stall)", got["stalls"], 1)
-    close("hold of 2.6s: max_stall_ms == 600 (the excess, not 2600)", got["max_stall_ms"], 600.0)
+    case("hold of 2.6s: stalls == 0 (a plain hold now, the excess rule is gone)",
+         got["stalls"], 0)
+    close("hold of 2.6s: max_stall_ms == 0", got["max_stall_ms"], 0.0)
 
-    # An interval of 1.4 s: < 1.5 s, so a MOTION interval, not a hold -- its
-    # whole 1400 ms counts as the stall size (no excess subtraction), and a
-    # wrong-threshold implementation that misclassified it as a hold would see
-    # excess = 1.4 - 2.0 = -0.6, not > 0.25, i.e. stalls == 0 instead of 1.
-    # Built with "hold" (continuously filler-sampled, same impl finding as
-    # above) and 120-sample motion blocks for sample-count margin.
+    # An interval of 1.4 s is now a HOLD (threshold moved from 1.5 s to
+    # 1.0 s), not a motion stall -- before the amendment this fixture
+    # asserted stalls == 1; pinning the flip here guards against
+    # regressing to the old 1.5 s threshold.
     spec = [("motion", 120, DT), ("hold", 1_400_000_000, DT), ("motion", 120, DT)]
     lines, seconds, raw = build_record(spec)
     deltas = presented_deltas_s(raw)
-    motion_stall_deltas = [d for d in deltas if 1.5 > d > 0.25]
-    case("interval of 1.4s: the fixture actually produced one such motion interval",
-         len(motion_stall_deltas), 1)
-    close("interval of 1.4s: that interval is 1.400 s", motion_stall_deltas[0], 1.4, tol=1e-9)
+    hold_deltas = [d for d in deltas if d >= 1.0]
+    case("interval of 1.4s: the fixture actually produced one hold interval "
+         "(not a motion stall)", len(hold_deltas), 1)
+    close("interval of 1.4s: that interval is 1.400 s", hold_deltas[0], 1.4, tol=1e-9)
     got = fp.analyze(lines)
     case("interval of 1.4s: rc 0", got["rc"], 0)
-    case("interval of 1.4s: stalls == 1 (classified motion, not a hold)", got["stalls"], 1)
-    close("interval of 1.4s: max_stall_ms == 1400 (the full interval)", got["max_stall_ms"], 1400.0)
+    case("interval of 1.4s: stalls == 0 (a hold now, not a motion stall)",
+         got["stalls"], 0)
+
+    # A record shaped like the real bench capture (team-lead, 2026-10-06,
+    # local/framepace/20261006T210803Z-bench-X.rec, read not committed):
+    # holds at 1.6 s and 2.9 s, two mid-motion stalls at 0.45 s (that
+    # record's own dominant stall size), ~46 % motion -- comfortably over
+    # the new 25 % floor, still clearly short of the old 50 % one (which
+    # misread that real, healthy capture as rc 2 -- the reason for this
+    # whole amendment). 40-sample motion blocks, confirmed to clear the
+    # 90%-of-expected-samples gate too (517 actual vs 486 expected).
+    spec = [("motion", 40, DT), ("hold", 450_000_000, DT),
+            ("motion", 40, DT), ("hold", 1_600_000_000, DT),
+            ("motion", 40, DT), ("hold", 450_000_000, DT),
+            ("motion", 40, DT), ("hold", 2_900_000_000, DT),
+            ("motion", 40, DT)]
+    lines, seconds, raw = build_record(spec)
+    deltas = presented_deltas_s(raw)
+    want = expected_metrics(deltas, seconds)
+    motion_fraction = want["motion_seconds"] / seconds
+    case("bench-shaped record: motion is between the new 25% floor and the "
+         "old 50% one (the real record this is shaped on would misread as "
+         "rc 2 under the old rule)", 0.25 <= motion_fraction < 0.50, True)
+    hold_deltas = sorted(d for d in deltas if d >= 1.0)
+    case("bench-shaped record: holds are exactly 1.6s and 2.9s",
+         hold_deltas, [1.6, 2.9])
+    got = fp.analyze(lines)
+    case("bench-shaped record: rc 0", got["rc"], 0)
+    case("bench-shaped record: reasons empty", got["reasons"], [])
+    case("bench-shaped record: stalls == 2 (the two 0.45s gaps)", got["stalls"], 2)
+    close("bench-shaped record: max_stall_ms == 450", got["max_stall_ms"], 450.0)
+    close("bench-shaped record: presented_fps", got["presented_fps"], want["presented_fps"])
+    close("bench-shaped record: pct_under_50", got["pct_under_50"], want["pct_under_50"])
+    close("bench-shaped record: stall_rate", got["stall_rate"], want["stall_rate"])
 
 
 # ----------------------------------------------------------------- rc 2 cases
@@ -464,7 +522,7 @@ def rc2_cases():
     # Too few samples: a declared 8 s / 60 Hz window expects 480 samples;
     # 50 sparse-but-continuously-toggling samples is far under 90% of that
     # (432), while motion_seconds still covers nearly the whole declared
-    # window (so this is isolated from the "motion under 50%" case below).
+    # window (so this is isolated from the "motion under 25%" case below).
     sparse_spec = [("motion", 50, 160_000_000)]  # 50 samples, 160 ms apart, ~8s span
     sample_lines, raw = gen_raw_samples(sparse_spec)
     lines, seconds, _ = build_record(None, seconds=8, sample_lines=sample_lines)
@@ -472,18 +530,19 @@ def rc2_cases():
     case("too few samples: rc 2", got["rc"], 2)
     case("too few samples: reasons non-empty", len(got["reasons"]) > 0, True)
 
-    # Motion under 50% of the window: a long hold dwarfs two short motion runs
-    # either side of it, well-sampled throughout (dense filler during the
-    # hold) so this is isolated from the "too few samples" case above.
+    # Motion under 25% of the window (amended from 50%): a long hold dwarfs
+    # two short motion runs either side of it, well-sampled throughout
+    # (dense filler during the hold) so this is isolated from the "too few
+    # samples" case above.
     void_spec = [("motion", 10, DT), ("hold", 7_000_000_000, DT), ("motion", 10, DT)]
     lines, seconds, raw = build_record(void_spec)
     deltas = presented_deltas_s(raw)
-    motion_fraction = sum(d for d in deltas if d < 1.5) / seconds
-    case("motion under 50%: the fixture actually is under 50% motion",
-         motion_fraction < 0.5, True)
+    motion_fraction = sum(d for d in deltas if d < 1.0) / seconds
+    case("motion under 25%: the fixture actually is under 25% motion",
+         motion_fraction < 0.25, True)
     got = fp.analyze(lines)
-    case("motion under 50%: rc 2", got["rc"], 2)
-    case("motion under 50%: reasons non-empty", len(got["reasons"]) > 0, True)
+    case("motion under 25%: rc 2", got["rc"], 2)
+    case("motion under 25%: reasons non-empty", len(got["reasons"]) > 0, True)
 
     # The wrong mode: otherwise identical to the rc-0 steady-motion fixture.
     lines, seconds, raw = build_record(base_spec, mode="1920x1080@60")
