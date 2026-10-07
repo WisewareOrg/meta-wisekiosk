@@ -1,8 +1,10 @@
 """The applied-page title parser and verdict. Pure: no device, no DOM --
 every title and sample list is a plain Python value.
 """
+import re
 
 _MARKER = "WK1 "
+_WM_NAME = re.compile(r'WM_NAME\(\w+\) = "(.*)"$')
 _FIELDS = ("nonce", "state", "cards", "faulted", "unreachable")
 _INT_FIELDS = ("faulted", "unreachable")
 
@@ -25,22 +27,31 @@ def parse_title(title):
     return {key: (int(fields[key]) if key in _INT_FIELDS else fields[key]) for key in _FIELDS}
 
 
-def verdict(samples, deadline_passed):
+def read_sample(xprop_output):
+    """The applied-page sample from xprop's raw per-window dump (one
+    WM_NAME(<type>) = "<title>" line per window xwininfo -tree found) --
+    the first window whose title parses to a probe payload, or None if no
+    window carries one."""
+    for line in xprop_output.splitlines():
+        m = _WM_NAME.match(line)
+        if not m:
+            continue
+        sample = parse_title(m.group(1))
+        if sample is not None:
+            return sample
+    return None
+
+
+def verdict(samples):
     """The case's outcome over the probe's samples, collected once the
     case's own poll loop has ended -- each sample a parse_title() result,
     or None for a read with no probe payload. "applied" once any sample
-    says so; otherwise "failed:<state>" (the last real sample's state),
-    "error:no-probe" (every sample was None) or "error:no-window" (no
-    sample at all). deadline_passed records whether the loop ended by
-    exhausting its budget rather than by an early "applied" sighting -- the
-    only case this function does not need to tell apart, since an early
-    exit is always an "applied" sighting and is already covered above."""
+    says so; otherwise "failed:<state>" (the last real sample's state), or
+    "error:no-probe" (every sample was None)."""
     real = [sample for sample in samples if sample is not None]
 
     if any(sample["state"] == "applied" for sample in real):
         return "applied"
-    if not samples:
-        return "error:no-window"
     if not real:
         return "error:no-probe"
     return f"failed:{real[-1]['state']}"

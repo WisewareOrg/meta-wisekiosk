@@ -11,6 +11,9 @@ WiseKiosk's shipped config.json shape), not an invented format.
 
 import hashlib
 import hmac
+import re
+import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -21,22 +24,30 @@ from wisekiosk.record import (
     boot_ordinal,
     booted_slot,
     config_summary,
+    decode_hex_dump,
+    dirty,
     image_line,
     keyed_hash,
+    kiosk_conf_mac,
     page_line,
     parse_buildinfo,
+    pid_from_pgrep,
     scrub_argv,
+    slot_from_boot_journal,
     slot_installed_at,
     sut_line,
     tool_line,
+    tool_name,
+    uptime_seconds,
+    webkit_env,
 )
 
 SHA = "deadbeef" * 5  # 40 hex chars, the shape image-buildinfo and git both require
 
 
 # --------------------------------------------------------------- parse_buildinfo
-# image-buildinfo writes one line per layer as "%-17s = %s:%s%s"; the gate's own
-# awk/sed (recon.md section 2) is the ported logic here.
+# image-buildinfo writes one line per layer as "%-17s = %s:%s%s"; ported from
+# tools/reproducibility-gate.sh's own awk/sed.
 
 BUILDINFO_OTHER_LAYERS = (
     "meta               = master:1111111111111111111111111111111111111111\n"
@@ -47,21 +58,48 @@ BUILDINFO_OTHER_LAYERS = (
 NORMAL_BUILDINFO = BUILDINFO_OTHER_LAYERS + f"meta-wisekiosk     = main:{SHA}\n"
 
 BUILDINFO_CASES = [
-    ("normal line among other layers", NORMAL_BUILDINFO, ("main", SHA)),
+    ("normal line among other layers", NORMAL_BUILDINFO, SHA),
     ("modified suffix dropped by field-splitting, not specially matched",
-     BUILDINFO_OTHER_LAYERS + f"meta-wisekiosk     = main:{SHA} -- modified\n", ("main", SHA)),
+     BUILDINFO_OTHER_LAYERS + f"meta-wisekiosk     = main:{SHA} -- modified\n", SHA),
     ("image-buildinfo's own <unknown> sha passes through unchanged",
-     "meta-wisekiosk     = main:<unknown>\n", ("main", "<unknown>")),
-    ("no meta-wisekiosk line at all", BUILDINFO_OTHER_LAYERS, ("", "")),
-    ("empty buildinfo", "", ("", "")),
+     "meta-wisekiosk     = main:<unknown>\n", "<unknown>"),
+    ("no meta-wisekiosk line at all", BUILDINFO_OTHER_LAYERS, ""),
+    ("empty buildinfo", "", ""),
     ("CRLF line endings are stripped before matching",
-     NORMAL_BUILDINFO.replace("\n", "\r\n"), ("main", SHA)),
+     NORMAL_BUILDINFO.replace("\n", "\r\n"), SHA),
 ]
 
 
 @pytest.mark.parametrize(("name", "text", "want"), BUILDINFO_CASES, ids=[c[0] for c in BUILDINFO_CASES])
 def test_parse_buildinfo(name, text, want):
     assert parse_buildinfo(text) == want, name
+
+
+GATE_PATH = Path(__file__).resolve().parents[5] / "tools" / "reproducibility-gate.sh"
+_GATE_AWK_LINE = re.compile(r"rev=\$\(awk '([^']*)' <<< \"\$info\"\)")
+
+
+def _gate_commit(text):
+    """Runs the exact awk program extracted from the live tools/reproducibility-gate.sh (never a
+    copy) against text, after the same tr -d '\\r' preprocessing the gate applies first."""
+    m = _GATE_AWK_LINE.search(GATE_PATH.read_text())
+    assert m, "the gate's awk line has changed shape -- update this extraction"
+    info = text.replace("\r", "")
+    rev = subprocess.run(
+        ["awk", m.group(1)], input=info, capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    return rev.rsplit(":", 1)[-1] if rev else ""
+
+
+AGREEMENT_CASES = [(c[0], c[1]) for c in BUILDINFO_CASES] + [
+    ("unspaced 'meta-wisekiosk=main:<sha>' disagrees without this test",
+     f"meta-wisekiosk=main:{SHA}\n"),
+]
+
+
+@pytest.mark.parametrize(("name", "text"), AGREEMENT_CASES, ids=[c[0] for c in AGREEMENT_CASES])
+def test_parse_buildinfo_agrees_with_the_gates_own_awk(name, text):
+    assert parse_buildinfo(text) == _gate_commit(text), name
 
 
 # ------------------------------------------------------------------- booted_slot
@@ -83,10 +121,10 @@ def test_booted_slot(name, text, want):
 
 
 # ---------------------------------------------------------------- slot_installed_at
-# Real sample: local/202/step1/rauc-journal-sample.txt, "rauc status --detailed
-# --output-format=shell" on bench, RAUC 1.15.2. Slot 1 (bootname B) is booted and
-# carries the real install timestamp; slot 2 (bootname A, inactive) is the
-# distractor that proves the function picks the BOOTED slot, not the first one.
+# A real, identity-scrubbed "rauc status --detailed --output-format=shell" capture
+# from bench. Slot 1 (bootname B) is booted and carries the real install
+# timestamp; slot 2 (bootname A, inactive) is the distractor that proves the
+# function picks the BOOTED slot, not the first one.
 
 DETAILED_SHELL_BENCH_SAMPLE = """RAUC_SYSTEM_BOOTED_BOOTNAME='B'
 RAUC_SLOT_STATE_1='booted'
@@ -126,12 +164,13 @@ def test_slot_installed_at_booted_slot_missing_its_timestamp_raises():
 
 
 # --------------------------------------------------------------------- boot_ordinal
-# Real sample, same source: "journalctl --list-boots -o json" on bench. The last
-# seven real boot entries (indices -6..0) are used verbatim -- boot ids and
-# first_entry/last_entry microsecond timestamps are the device's own, not
-# invented. Independently computed (not via the module under test): with
-# installed_at = slot A's real install instant (2026-10-06T20:58:31Z), boots -5
-# through 0 (6 of the 7) have a first_entry at or after it; boot -6 does not.
+# Real sample, same source as slot_installed_at: "journalctl --list-boots -o json"
+# on bench. The last seven real boot entries (indices -6..0) are used verbatim.
+# boot_ordinal counts a boot only when it is at or after installed_at AND its own
+# slot (from boot_slots, keyed by boot_id) matches the booted slot -- the ticket's
+# own definition. The cases below hold every boot to the same slot, so they
+# exercise only the timestamp boundary; test_boot_ordinal_counts_only_the_booted_
+# slots_own_boots is the dedicated, deliberately-invented case for the filter.
 
 LAST_7_BOOTS_JSON = (
     '[{"index": -6, "boot_id": "e65eda34a3264678a75feb6eaf6d123c", '
@@ -153,34 +192,111 @@ LAST_7_BOOTS_JSON = (
 # own first_entry, exactly, computed independently of boot_ordinal.
 BOOT_0_FIRST_ENTRY_ISO = "2026-10-07T06:15:35.699163Z"
 
+# A constructed boot_slots map holding every boot in LAST_7_BOOTS_JSON to slot
+# "B" -- not a claim about which slot each real boot actually ran, only a map
+# that filters nothing out, so the cases below isolate the timestamp boundary.
+_ALL_SLOT_B = {bid: "B" for bid in (
+    "e65eda34a3264678a75feb6eaf6d123c", "13bae6d42bbb42a4be34bb753e8b9dc7",
+    "eb10912bdeec423195019862d7b32b6a", "f26fc45501ea4a24a47f9421c17361fe",
+    "757a013206d24084914efb3ee23e7762", "14991b2a366a4b8abd95c3f1deb1b9db",
+    "c49325c8c53d4b59a560d80045297f4c",
+)}
+
 BOOT_ORDINAL_CASES = [
-    ("install instant falls between two real boots (slot B, booted): only the"
-     " current boot (index 0) is at or after it",
-     LAST_7_BOOTS_JSON, "2026-10-07T06:15:27Z", 1),
+    ("install instant falls between two real boots: only the current boot"
+     " (index 0) is at or after it", "2026-10-07T06:15:27Z", 1),
     ("install instant equals a boot's first_entry exactly -- inclusive, not exclusive",
-     LAST_7_BOOTS_JSON, BOOT_0_FIRST_ENTRY_ISO, 1),
+     BOOT_0_FIRST_ENTRY_ISO, 1),
     ("install instant later than every boot reads 0, not an error",
-     LAST_7_BOOTS_JSON, "2026-10-07T07:00:00Z", 0),
-    ("slot A's real (non-booted) install instant counts 6 of these 7 real boots",
-     LAST_7_BOOTS_JSON, "2026-10-06T20:58:31Z", 6),
-    ("an empty boot list reads 0", "[]", "2026-10-07T06:15:27Z", 0),
+     "2026-10-07T07:00:00Z", 0),
+    ("a richer install instant counts 6 of these 7 real boots",
+     "2026-10-06T20:58:31Z", 6),
 ]
 
 
-@pytest.mark.parametrize(("name", "boots_json", "installed_at", "want"), BOOT_ORDINAL_CASES,
+@pytest.mark.parametrize(("name", "installed_at", "want"), BOOT_ORDINAL_CASES,
                           ids=[c[0] for c in BOOT_ORDINAL_CASES])
-def test_boot_ordinal(name, boots_json, installed_at, want):
-    assert boot_ordinal(boots_json, installed_at) == want, name
+def test_boot_ordinal_timestamp_boundary(name, installed_at, want):
+    assert boot_ordinal(LAST_7_BOOTS_JSON, installed_at, "B", _ALL_SLOT_B) == want, name
+
+
+def test_boot_ordinal_empty_boot_list_reads_zero():
+    assert boot_ordinal("[]", "2026-10-07T06:15:27Z", "B", {}) == 0
 
 
 def test_boot_ordinal_unparseable_json_raises():
     with pytest.raises(ValueError):
-        boot_ordinal("not json", "2026-10-07T06:15:27Z")
+        boot_ordinal("not json", "2026-10-07T06:15:27Z", "B", {})
 
 
 def test_boot_ordinal_unparseable_iso_raises():
     with pytest.raises(ValueError):
-        boot_ordinal(LAST_7_BOOTS_JSON, "not a timestamp")
+        boot_ordinal(LAST_7_BOOTS_JSON, "not a timestamp", "B", _ALL_SLOT_B)
+
+
+# The ticket's own definition, dedicated case: installed B at T0, boots since T0
+# are B, A, B in order -- only the two B boots count. Entirely invented, no real
+# boot ids or device data.
+TWO_SLOT_HISTORY_JSON = (
+    '[{"index": -3, "boot_id": "before-install", "first_entry": 1800000000000000, '
+    '"last_entry": 1800000050000000}, '
+    '{"index": -2, "boot_id": "boot-b1", "first_entry": 1800000100000000, '
+    '"last_entry": 1800000150000000}, '
+    '{"index": -1, "boot_id": "boot-a1", "first_entry": 1800000200000000, '
+    '"last_entry": 1800000250000000}, '
+    '{"index": 0, "boot_id": "boot-b2", "first_entry": 1800000300000000, '
+    '"last_entry": 1800000350000000}]'
+)
+TWO_SLOT_HISTORY_T0 = "2027-01-15T08:00:50Z"
+TWO_SLOT_HISTORY_SLOTS = {"boot-b1": "B", "boot-a1": "A", "boot-b2": "B"}
+
+
+def test_boot_ordinal_counts_only_the_booted_slots_own_boots():
+    got = boot_ordinal(TWO_SLOT_HISTORY_JSON, TWO_SLOT_HISTORY_T0, "B", TWO_SLOT_HISTORY_SLOTS)
+    assert got == 2
+
+
+def test_boot_ordinal_a_boot_with_no_known_slot_does_not_count():
+    # Its journal carried no RAUC "Booted into..." line, so its slot is unknown
+    # -- excluded from the count, never assumed to be the booted slot. Nothing
+    # else is reported: the record's keys are unchanged.
+    slots_missing_one = dict(TWO_SLOT_HISTORY_SLOTS)
+    del slots_missing_one["boot-b2"]
+    got = boot_ordinal(TWO_SLOT_HISTORY_JSON, TWO_SLOT_HISTORY_T0, "B", slots_missing_one)
+    assert got == 1
+
+
+# ------------------------------------------------------------ slot_from_boot_journal
+# Each boot's slot comes from RAUC's own per-boot journal line, logged by the
+# service rauc-mark-good.service starts on every boot: "Booted into rootfs.<n>
+# (<slot>)" (bench fact: the kernel's own "Command line:" entry does not survive
+# journald's rotation at the start of this image's boots, so that line is read
+# instead -- journalctl -b <id> -o cat, message text only, no unit prefix).
+# Constructed journal text, invented surrounding lines.
+
+BOOT_JOURNAL_SLOT_B = (
+    "systemd[1]: Started Network Time Synchronization.\n"
+    "Booted into rootfs.1 (B)\n"
+    "systemd[1]: Started RAUC Mark Good.\n"
+)
+BOOT_JOURNAL_SLOT_A = BOOT_JOURNAL_SLOT_B.replace("rootfs.1 (B)", "rootfs.0 (A)")
+BOOT_JOURNAL_NO_RAUC_LINE = (
+    "systemd[1]: Started Network Time Synchronization.\n"
+    "systemd[1]: Reached target Multi-User System.\n"
+)
+
+
+def test_slot_from_boot_journal_finds_the_rauc_line():
+    assert slot_from_boot_journal(BOOT_JOURNAL_SLOT_B) == "B"
+    assert slot_from_boot_journal(BOOT_JOURNAL_SLOT_A) == "A"
+
+
+def test_slot_from_boot_journal_no_rauc_line_raises():
+    # "a boot with no RAUC line" (M2) -- counted as not the booted slot, never
+    # guessed; the case treats this as "slot unknown for this boot_id", the same
+    # shape test_boot_ordinal_a_boot_with_no_known_slot_does_not_count exercises.
+    with pytest.raises(ValueError):
+        slot_from_boot_journal(BOOT_JOURNAL_NO_RAUC_LINE)
 
 
 # --------------------------------------------------------------------- keyed_hash
@@ -202,6 +318,124 @@ def test_keyed_hash_matches_independent_hmac_sha256():
     key, data = b"local-hmac-key", b'{"modules": []}'
     want = hmac.new(key, data, hashlib.sha256).hexdigest()
     assert keyed_hash(key, data) == want
+
+
+# ----------------------------------------------------------------- decode_hex_dump
+# The device transport for a file's bytes is hex (busybox has no base64 applet):
+# `od -An -tx1 -v` (space/newline-separated pairs) or `hexdump -ve '1/1 "%02x"'`
+# (one continuous run). Real, computed dumps (`printf ... | od -An -tx1 -v`), not
+# guessed. The decoder must be tolerant of either layout.
+
+@pytest.mark.parametrize(
+    ("name", "dump", "want"),
+    [
+        ("od-style LF", " 66 6f 6f 0a", b"foo\n"),
+        ("od-style CRLF", " 66 6f 6f 0d 0a", b"foo\r\n"),
+        ("od-style trailing space", " 66 6f 6f 0a 20", b"foo\n "),
+        ("hexdump-style (no whitespace) LF", "666f6f0a", b"foo\n"),
+        ("hexdump-style CRLF", "666f6f0d0a", b"foo\r\n"),
+        ("hexdump-style trailing space", "666f6f0a20", b"foo\n "),
+        ("od-style wrapped across two lines", " 66 6f\n 6f 0a", b"foo\n"),
+        ("empty dump is empty bytes", "", b""),
+    ],
+)
+def test_decode_hex_dump(name, dump, want):
+    assert decode_hex_dump(dump) == want, name
+
+
+# --------------------------------------------------------------------- uptime_seconds
+# /proc/uptime's own shape: "<uptime> <idle>\n", both fields in seconds.
+
+@pytest.mark.parametrize(
+    ("name", "text", "want"),
+    [
+        ("typical uptime", "421.07 393.21\n", 421),
+        ("just booted", "0.42 0.00\n", 0),
+        ("no trailing newline", "123456.78 99999.99", 123456),
+    ],
+)
+def test_uptime_seconds(name, text, want):
+    assert uptime_seconds(text) == want, name
+
+
+# --------------------------------------------------------------------- webkit_env
+# Takes the whole (already NUL-to-newline-converted) /proc/<pid>/environ dump and
+# filters WEBKIT_* lines itself -- the case runs no grep, so there is no grep exit
+# status for kiosk.py to branch on.
+
+def test_webkit_env_filters_and_joins_in_order():
+    text = "HOME=/root\nWEBKIT_DISABLE_DMABUF_RENDERER=1\nPATH=/bin\nWEBKIT_FORCE_VBLANK_TIMER=1\n"
+    assert webkit_env(text) == "WEBKIT_DISABLE_DMABUF_RENDERER=1,WEBKIT_FORCE_VBLANK_TIMER=1"
+
+
+def test_webkit_env_none_present_is_empty():
+    assert webkit_env("HOME=/root\nPATH=/bin\n") == ""
+
+
+def test_webkit_env_empty_input_is_empty():
+    assert webkit_env("") == ""
+
+
+# ------------------------------------------------------------------ kiosk_conf_mac
+# status is the ssh status of `cat /data/config/kiosk.conf`: 0 means the file was
+# read, anything else means it does not exist (EnvironmentFile=- is optional).
+
+def test_kiosk_conf_mac_present_is_keyed_hash_of_the_bytes():
+    key, text = b"local-hmac-key", "KIOSK_URL=http://localhost:8080\n"
+    assert kiosk_conf_mac(0, text, key) == keyed_hash(key, text.encode())
+
+
+def test_kiosk_conf_mac_absent_is_the_literal_absent():
+    assert kiosk_conf_mac(1, "cat: No such file or directory\n", b"local-hmac-key") == "absent"
+
+
+# ------------------------------------------------------------------------ tool_name
+# sys.argv[0]'s basename: "oe-test" under a hand run, anything else (bitbake-worker
+# under testimage) means the pipeline ran it.
+
+@pytest.mark.parametrize(
+    ("name", "argv0", "want"),
+    [
+        ("hand-run basename", "oe-test", "oe-test"),
+        ("hand-run full path", "/usr/bin/oe-test", "oe-test"),
+        ("testimage's own worker", "/usr/bin/bitbake-worker", "testimage"),
+        ("empty argv0", "", "testimage"),
+    ],
+)
+def test_tool_name(name, argv0, want):
+    assert tool_name(argv0) == want, name
+
+
+# ----------------------------------------------------------------------------- dirty
+# git status --porcelain: any output at all means a dirty tree.
+
+@pytest.mark.parametrize(
+    ("name", "porcelain", "want"),
+    [
+        ("clean tree, empty output", "", 0),
+        ("clean tree, whitespace only", "   \n", 0),
+        ("a modified file", " M some/file.py\n", 1),
+    ],
+)
+def test_dirty(name, porcelain, want):
+    assert dirty(porcelain) == want, name
+
+
+# ------------------------------------------------------------------ pid_from_pgrep
+# `pgrep -x surf`'s own shape: one pid per line. An empty result means no such
+# process -- a named error, not an IndexError on an empty splitlines() list.
+
+def test_pid_from_pgrep_first_line():
+    assert pid_from_pgrep("1234\n") == "1234"
+
+
+def test_pid_from_pgrep_takes_the_first_of_several():
+    assert pid_from_pgrep("1234\n5678\n") == "1234"
+
+
+def test_pid_from_pgrep_empty_raises():
+    with pytest.raises(ValueError):
+        pid_from_pgrep("")
 
 
 # --------------------------------------------------------------------- scrub_argv
@@ -288,42 +522,42 @@ def test_asset_hashes_none_is_empty():
 
 
 # ----------------------------------------------------------------- config_summary
-# Grounded in WiseKiosk's real shipped config.json shape (modules/region/options).
-# docs/testing.md section "Running it" ("The run record."): the app line carries
-# config.json's "location-free summary", no coordinate or park identifier -- so
-# this is asserted by presence of the rest and absence of exactly those two leak
-# vectors, never by its own exact serialisation.
+# config.json's real shape (modules/region/options) with invented values -- never
+# a real park name or a real coordinate, per CONTRIBUTING's fixture rule. The app
+# line carries config.json's location-free summary, no coordinate or park
+# identifier -- so this is asserted by presence of the rest and absence of
+# exactly those two leak vectors, never by its own exact serialisation.
 
-REAL_SHAPED_CONFIG = """{
+INVENTED_CONFIG_JSON = """{
   "edge_band": 8,
   "modules": [
     {"region": "top_left", "module": "clock", "options": {"show_seconds": true}},
     {"region": "top_right", "module": "weather",
-     "options": {"location": {"lat": 29.2108, "lon": -81.0228},
+     "options": {"location": {"lat": 12.3456, "lon": -65.4321},
                  "series_switch_seconds": 10}},
     {"region": "bottom_left", "module": "park_wait_times",
-     "options": {"parks": ["Magic Kingdom", "Epcot"], "columns": 2}}
+     "options": {"parks": ["Example Park One", "Example Park Two"], "columns": 2}}
   ]
 }"""
 
 
 def test_config_summary_carries_modules_regions_and_intervals():
-    summary = config_summary(REAL_SHAPED_CONFIG)
+    summary = config_summary(INVENTED_CONFIG_JSON)
     for expect in ("clock", "weather", "park_wait_times", "top_left", "top_right",
                    "bottom_left", "series_switch_seconds", "10"):
         assert expect in summary, expect
 
 
 def test_config_summary_excludes_coordinates_and_park_identifiers():
-    summary = config_summary(REAL_SHAPED_CONFIG)
-    for leak in ("29.2108", "-81.0228", "Magic Kingdom", "Epcot"):
+    summary = config_summary(INVENTED_CONFIG_JSON)
+    for leak in ("12.3456", "-65.4321", "Example Park One", "Example Park Two"):
         assert leak not in summary, leak
 
 
 def test_config_summary_has_no_raw_space():
     # The line builders below render space-delimited k=v pairs; a space inside
     # config= would corrupt the line it is embedded in.
-    assert " " not in config_summary(REAL_SHAPED_CONFIG)
+    assert " " not in config_summary(INVENTED_CONFIG_JSON)
 
 
 # ------------------------------------------------------------------- line builders
@@ -403,11 +637,11 @@ def test_record_never_leaks_identity_or_the_hmac_key():
         image_line(sha=SHA, slot="A"),
         app_line(
             bundle=",".join(asset_hashes(REAL_BUILT_INDEX_HTML)),
-            config_mac=keyed_hash(key, REAL_SHAPED_CONFIG.encode()),
-            config=config_summary(REAL_SHAPED_CONFIG),
+            config_mac=keyed_hash(key, INVENTED_CONFIG_JSON.encode()),
+            config=config_summary(INVENTED_CONFIG_JSON),
         ),
     ]
     record = "\n".join(lines)
 
-    for leak in (address, "topsecretkey", "29.2108", "-81.0228", "Magic Kingdom", "Epcot"):
+    for leak in (address, "topsecretkey", "12.3456", "-65.4321", "Example Park One", "Example Park Two"):
         assert leak not in record, leak

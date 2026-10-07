@@ -1,10 +1,7 @@
-"""Specifies wisekiosk.render.verdict: a faithful port of tools/kiosk-render-check.sh's
-render_verdict (recon.md section 3), over the same probe vocabulary -- "cap import=0",
-"frame <n> rc=<rc> bytes=<b> md5=<m>", "blank min=<mn> max=<mx>" -- as a list of lines rather than
-one shell string. Every case ported here is a case in tools/kiosk-render-check-test.sh, read
-directly: same probe lines, same verdict. The ported shell's own purpose (two traps, both found
-the expensive way: a failed capture must never read FROZEN, and a uniform region is could-not-tell,
-not frozen) is the reason each guard gets a fixture pinned to that guard alone.
+"""Specifies wisekiosk.render.verdict: a port of tools/kiosk-render-check.sh's render_verdict over
+the same probe vocabulary -- "cap import=0", "frame <n> rc=<rc> bytes=<b> md5=<m>", "blank min=<mn>
+max=<mx>" -- as a list of lines rather than one shell string. Every case here ports a case in
+tools/kiosk-render-check-test.sh.
 
 No device, no subprocess -- every case is a constructed list of probe lines.
 """
@@ -80,11 +77,8 @@ def test_verdict_outcome(name, lines, want_outcome):
     assert reason, f"{name}: reason must not be empty"
 
 
-# Guard-pinning: each could-not-tell case above must be distinguishable from every OTHER
-# could-not-tell case by its reason, the same property tools/kiosk-render-check-test.sh's header
-# calls out (neutering any one of trap (a)'s three guards takes a different, named fixture red).
-# A verdict that collapsed every guard into the same generic "error" message would still pass
-# test_verdict_outcome above; this is what catches that.
+# Each could-not-tell case above is distinguishable from every other by its reason: a verdict that
+# collapsed every guard into one generic "error" message would still pass test_verdict_outcome above.
 REASON_SUBSTRINGS = [
     ("no import on the device is error", "import"),
     ("one frame only is error -- nothing to compare", "frame"),

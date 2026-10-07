@@ -24,6 +24,7 @@ pythonpath = ["meta-wisekiosk/lib"]
 
 [tool.coverage.run]
 source = ["meta-wisekiosk/lib/wisekiosk"]
+branch = true
 omit = [
     "meta-wisekiosk/lib/wisekiosk/*/tests/*",
 ]
