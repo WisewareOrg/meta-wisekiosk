@@ -6,7 +6,7 @@ result at that tier does **not** let you conclude.
 | Tier | Guarantees | Runs | What green does not say |
 |---|---|---|---|
 | Static (`just guards`, CI) | Repository invariants hold: no secret or identity reaches a tracked file, shell and YAML parse, every wiring self-test passes. | Every commit (pre-commit hook), every PR and merge-group commit (CI). | Anything about a Yocto build. This tier never invokes bitbake. |
-| Host (`just test`) | `meta-wisekiosk/lib/wisekiosk`'s evaluator functions — the run record's builders and parsers, the render verdict, the applied-page title parser and verdict — behave as their constructed-input tests say, at a 100% line-coverage floor. | Every commit (pre-commit hook), every PR and merge-group commit (CI). | That a board actually produces the input these functions expect. That contract is proven separately, by a case's own acceptance runs on bench; `meta-wisekiosk/lib/oeqa`'s cases are transport only and are outside this tier's coverage population by construction. |
+| Host (`just test`) | `meta-wisekiosk/lib/wisekiosk`'s evaluator functions — the run record's builders and parsers, the render verdict, the applied-page title parser and verdict — behave as their constructed-input tests say, at a 100% line and branch coverage floor. | Every commit (pre-commit hook), every PR and merge-group commit (CI). | That a board actually produces the input these functions expect. That contract is proven separately, by a case's own acceptance runs on bench; `meta-wisekiosk/lib/oeqa`'s cases are transport only and are outside this tier's coverage population by construction. |
 | Build (`just build`) | The kas config resolves and bitbake completes: an image artifact exists. | On demand, locally — never in CI, which does not build. | Whether the image differs from the last one, whether it boots, whether it serves anything. |
 | Device smoke (`testimage` in the pipeline, or `just oe-test <target>` by hand) | The backend unit is active, `/healthz` answers, the page serves, WebKit still composites on the GPU, the page is still painting, and the page is applied as the application designs it — on **one** physical device, one boot. Both run the identical `meta-wisekiosk/lib/oeqa/runtime/cases/kiosk.py` suite and write the same run record. | The pipeline, once per queue job, after an OTA install (never a flash). By hand, any time, against any board `local/device-identity.md` names — never prod, which the suite's own hostname check refuses. | The shared boot partition (`config.txt`, `cmdline.txt`, `boot.scr`, and `uboot.env` apart from RAUC's own boot-selection variables) — an OTA writes only the slot rootfs it boots, which does carry the kernel. The RAUC slot layout, which an OTA never touches, or a second boot. |
 | OTA/rollback (the queue run) | Install, reboot, and — for a queue run — mark-bad, reboot and land back on the baseline slot all completed, and the device answered again each time. | Every queue job. | Whether the slot rolled back *into* would itself survive a fresh install — it was booted back into, not reinstalled. There are only two slots. |
@@ -24,6 +24,12 @@ just pipeline-run-ref <ref>          # dev tool: build and run <ref> from this c
 just pipeline-accept-bench-config    # record bench's current /data as the accepted baseline
 just pipeline-watch                  # live view of the merge queue and the current run; q quits
 ```
+
+`pipeline-run`, `pipeline-run-ref` and `pipeline-accept-bench-config` each call a script that sources
+`~/.config/wisekiosk/pipeline.env` itself when `PIPELINE_TARGET` is unset, rather than the recipe
+sourcing it first — one place per script, not a line repeated at every call site. `pipeline-run`
+calls the driver checkout's own `run.sh`, so that self-sourcing takes effect there once the driver
+is running a commit that carries it.
 
 The job is the head of the merge queue — the entry whose own base commit is `origin/main`'s current
 tip, since every later entry is built on an earlier one's still-speculative result, not on main — and
@@ -149,9 +155,10 @@ runs only when the job's base commit has no such tag: it resets `build/buildhist
 an ejected candidate's own job tag is never picked up this way — builds the missing commit, tags its
 own buildhistory, and stops — no status is posted and no PR comment is written, because no job's own
 commit is under test. The next tick picks up the queue job against the tagged baseline.
-`pipeline-run-ref` never builds or tags a baseline this way: a missing tag there is a refusal naming
-it, not a silent build — a ref run of `main` can create the tag it needs, but that run posts status
-like any other queue job and is not what names the tag a dev-tool run can rely on finding.
+`pipeline-run-ref` never builds or tags a baseline, and never posts, for any ref including `main`
+itself: a missing tag there is a refusal naming it and the fix, not a silent build. The fix is a
+queue job on `main`, which tags as it merges — that is the only path that names the tag a dev-tool
+run can rely on finding.
 
 **Each queue job's buildhistory starts from the baseline tag.** Immediately before the job's own
 build, `build/buildhistory` is reset to the job's base commit's tag, so the build's own
@@ -199,8 +206,7 @@ regardless), refuses with a message if the HMAC key, the identity file, `sources
 last build's deploy artifacts are missing, and writes its own run record under gitignored
 `local/oe-test/<timestamp>/`. It never touches RAUC, never installs, never reboots: the only change
 either case makes to the board is `test_page_applied` arming the DOM probe (`copyTo` the script,
-restart `kiosk.service`), which it leaves in place rather than restoring, the way the probe stays
-live for a later reboot.
+restart `kiosk.service`), which its own teardown removes before the case ends.
 
 Its `PYTHONPATH` carries `sources/poky/bitbake/lib` beside `meta/lib`: `oe-test`'s own component
 loader imports every subcommand's context module up front, including one that imports `bb.utils`

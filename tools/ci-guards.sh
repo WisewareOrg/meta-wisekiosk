@@ -970,6 +970,32 @@ else
     fi
 fi
 
+# --- 21. the device-role identity resolver must still pass its own
+# self-test -- fixture-only, no bench, no local/, runs fully here. ---------
+roletest21="tools/device-role-test.py"
+if [ ! -f "$roletest21" ]; then
+    bad "guard 21: $roletest21 missing -- the device-role resolver is no longer self-tested"
+elif out21=$("$PY" "$roletest21" 2>&1); then
+    ok "the device-role resolver passes its self-test ($(printf '%s\n' "$out21" | tail -n1))"
+else
+    bad "the device-role resolver FAILS its own self-test:"
+    printf '%s\n' "$out21" | grep -E '^(FAIL|pass=)' | sed 's/^/        /'
+fi
+
+# --- 22. the pipeline tools' self-test must still pass -- fixture-only
+# (report-build.py, the ssh-quoting and dirty-field regressions, the
+# buildinfo-grammar agreement, scrub-identity.py --filter); no bench, no
+# local/, runs fully here. --------------------------------------------------
+pipelinetest22="tools/pipeline-test.sh"
+if [ ! -f "$pipelinetest22" ]; then
+    bad "guard 22: $pipelinetest22 missing -- the pipeline tools are no longer self-tested"
+elif out22=$(bash "$pipelinetest22" 2>&1); then
+    ok "the pipeline tools pass their self-test ($(printf '%s\n' "$out22" | tail -n1))"
+else
+    bad "the pipeline tools FAIL their own self-test:"
+    printf '%s\n' "$out22" | grep -E '^(FAIL|pass=)' | sed 's/^/        /'
+fi
+
 if [ "$fail" -ne 0 ]; then
     printf '\nguards FAILED\n'
     exit 1
