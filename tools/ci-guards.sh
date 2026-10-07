@@ -996,6 +996,32 @@ else
     printf '%s\n' "$out22" | grep -E '^(FAIL|pass=)' | sed 's/^/        /'
 fi
 
+# --- 23. the requirements tree passes the shared check-reqs gate ---------
+# Fixture-free -- this runs the real tree under docs/requirements/, the one
+# tools/check-reqs.sh spells out. See docs/testing.md for why build/ and
+# sources/ each need a .doorstop.skip-all marker. ---------------------------
+reqs23="tools/check-reqs.sh"
+if [ ! -f "$reqs23" ]; then
+    bad "guard 23: $reqs23 missing -- the requirements tree is no longer gated"
+elif out23=$("$reqs23" 2>&1); then
+    ok "the requirements tree passes check-reqs ($(printf '%s\n' "$out23" | tail -n1))"
+else
+    bad "guard 23: the requirements tree FAILS check-reqs:"
+    printf '%s\n' "$out23" | sed 's/^/        /'
+fi
+
+# --- 24. the upstream requirements-citation checker must still pass its
+# own self-test -- fixture-only, no network, no bench, runs fully here. ----
+upstreamtest24="tools/upstream-reqs-check-test.py"
+if [ ! -f "$upstreamtest24" ]; then
+    bad "guard 24: $upstreamtest24 missing -- the upstream citation checker is no longer self-tested"
+elif out24=$("$PY" "$upstreamtest24" 2>&1); then
+    ok "the upstream citation checker passes its self-test ($(printf '%s\n' "$out24" | tail -n1))"
+else
+    bad "the upstream citation checker FAILS its own self-test:"
+    printf '%s\n' "$out24" | grep -E '^(FAIL|pass=)' | sed 's/^/        /'
+fi
+
 if [ "$fail" -ne 0 ]; then
     printf '\nguards FAILED\n'
     exit 1

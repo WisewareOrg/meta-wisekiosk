@@ -103,7 +103,7 @@ spotless: clean
 # two independent findings are worth more than the first one twice.
 [group('guards')]
 [script('bash')]
-[doc("Run repository guards: secrets, template, shell syntax, YAML, gitleaks, IPs, service reachability, recovery wiring, trailing-; hooks, guard wiring, guard self-test, review-checklist taxonomy, CVE tools self-test, python interpreter, Go module generator self-test, config seed self-test, default-config path agreement, app lockfile self-test, device identity")]
+[doc("Run repository guards: secrets, template, shell syntax, YAML, gitleaks, IPs, service reachability, recovery wiring, trailing-; hooks, guard wiring, guard self-test, review-checklist taxonomy, CVE tools self-test, python interpreter, Go module generator self-test, config seed self-test, default-config path agreement, app lockfile self-test, device identity, requirements tree gate, upstream citation checker self-test")]
 guards:
     rc=0
     tools/ci-guards.sh || rc=1
@@ -130,6 +130,8 @@ verify:
     rc=0
     {{py}} tools/doc-links.py || rc=1
     {{py}} tools/doc-image.py check || rc=1
+    tools/check-reqs.sh || rc=1
+    {{py}} tools/upstream-reqs-check.py || rc=1
     if [ $rc -ne 0 ]; then echo; echo "verify FAILED"; fi
     exit $rc
 
