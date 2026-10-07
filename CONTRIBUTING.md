@@ -47,22 +47,20 @@ in the tree (#167 restore pinned Python tooling).
 ```sh
 just                # the recipe roster, each beside what it does
 just verify         # every documentation check: cross-references + docs-vs-image,
-                    # plus the requirements tree gate and the upstream citation check
+                    # plus the requirements tree gate
 just links          # cross-references only (this is the one CI requires)
 just guards         # repository invariants: secrets, identity, syntax, wiring;
-                    # runs the device guard's, the CVE tools', the requirements
-                    # tree's and the upstream citation checker's self-tests too
+                    # runs the device guard's, the CVE tools' and the requirements
+                    # tree's self-tests too
 just test           # pytest over meta-wisekiosk/lib/oeqa/runtime (framework/ and cases/), 100% coverage floor
 just install-hooks  # once per clone: point core.hooksPath at .githooks
 bash .claude/hooks/guard-test.sh   # the device guard's self-test on its own
 ```
 
-CI runs [`tools/ci-guards.sh`](tools/ci-guards.sh) (requirements tree gate and upstream citation
-self-test included — see [`docs/requirements/README.md`](docs/requirements/README.md)),
-[`tools/scrub-identity.py`](tools/scrub-identity.py) `--check`, [`tools/doc-links.py`](tools/doc-links.py),
-the upstream citation checker's real, networked run, and `just test`. The pre-commit hook skips that
-networked run (it needs none of the hook's other checks) but runs the rest, so a commit cannot pass
-locally and fail there on anything else. `just image` and `just verify`'s doc-vs-image half need a
+CI runs [`tools/ci-guards.sh`](tools/ci-guards.sh) (requirements tree gate included — see
+[`docs/requirements/README.md`](docs/requirements/README.md)),
+[`tools/scrub-identity.py`](tools/scrub-identity.py) `--check`, [`tools/doc-links.py`](tools/doc-links.py)
+and `just test`. The pre-commit hook runs the same four, so a commit cannot pass locally and fail there. `just image` and `just verify`'s doc-vs-image half need a
 populated `build/` and are local-only: CI never builds, and a required check that skips on every run
 is noise rather than a gate.
 
