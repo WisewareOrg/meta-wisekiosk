@@ -71,6 +71,47 @@ else
     bad "passing case got a log section"
 fi
 
+RECORD_RESULTS="$TOP/record-results.json"
+cat > "$RECORD_RESULTS" <<'EOF'
+{"5678-efgh": {"configuration": {}, "result": {
+    "test_backend_unit_active": {"status": "PASSED"},
+    "wisekiosk.record": {
+        "tool": "R tool=oe-test tool_commit=abc dirty=0 argv=x",
+        "sut": "R sut browser=surf nrestarts=0 cmdline_sha=a webkit_env=b kiosk_conf_mac=c mode=d kernel=e cpufreq_max=f timesync=g",
+        "image": "R image=abc slot=A",
+        "page.test_page_applied": "R page nonce=1 state=applied cards=-/- faulted=0 unreachable=0"
+    }
+}}}
+EOF
+capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --results "$RECORD_RESULTS"
+if [ "$rc" -eq 0 ] && [[ "$out" == *"## Run record"* ]]; then
+    rest="$out"
+    order_ok=1
+    for marker in "tool_commit=abc" "image=abc slot=A" "sut browser=surf" "page nonce=1"; do
+        case "$rest" in
+            *"$marker"*) rest="${rest#*"$marker"}" ;;
+            *) order_ok=0 ;;
+        esac
+    done
+    if [ "$order_ok" -eq 1 ]; then
+        ok "build: the run record renders verbatim, tool/image/sut/page in order"
+    else
+        bad "run record line order" "$out"
+    fi
+else
+    bad "run record heading" "rc=$rc out=$out"
+fi
+if [[ "$out" != *"wisekiosk.record"* ]]; then
+    ok "build: the run record's key is left out of the case table"
+else
+    bad "run record key leaked into the case table" "$out"
+fi
+if [[ "$out" == *"| test_backend_unit_active | PASSED |"* ]]; then
+    ok "build: the case table still lists every real case beside the run record"
+else
+    bad "case table beside run record" "$out"
+fi
+
 capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --log "$LONGLOG"
 if [ "$rc" -eq 0 ] && [[ "$out" == *"## Log — long.log"* ]] \
         && [[ "$out" == *$'\n1\n'* ]] && [[ "$out" == *$'\n250'* ]]; then

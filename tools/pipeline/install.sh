@@ -16,6 +16,34 @@ if [ -z "$PIPELINE_TARGET" ]; then
     exit 1
 fi
 TARGET="$PIPELINE_TARGET"
+
+# PIPELINE_TARGET_ROLE: the role (prod or bench) whose local/device-identity.md
+# address equals TARGET, through tools/scrub-identity.py's own fenced-block
+# parser (never a copy of it). Refuses outright on prod -- the pipeline OTAs,
+# reboots and rolls back the board it provisions, and prod is read-only
+# except under a tools/prod-authorize.sh grant.
+ROLE=$(python3 -c '
+import importlib.util
+import sys
+from pathlib import Path
+
+root, target = Path(sys.argv[1]), sys.argv[2]
+spec = importlib.util.spec_from_file_location(
+    "scrub_identity", root / "tools" / "scrub-identity.py")
+scrub_identity = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(scrub_identity)
+
+rows = dict(scrub_identity._map_rows(scrub_identity.map_path(root)))
+role = next((r for r in ("prod", "bench") if rows.get(r + ".address") == target), None)
+if role is None:
+    sys.exit("pipeline-install: no role in local/device-identity.md has address %s" % target)
+print(role)
+' "$ROOT" "$TARGET")
+if [ "$ROLE" = "prod" ]; then
+    echo "pipeline-install: PIPELINE_TARGET resolves to role=prod -- refusing to provision the pipeline against prod" >&2
+    exit 1
+fi
+
 PIPELINE_LOCK="$HOME/.config/wisekiosk/pipeline.lock"
 mkdir -p "$(dirname "$PIPELINE_LOCK")"
 exec 9>"$PIPELINE_LOCK"
@@ -53,6 +81,17 @@ ln -sf "$MAP" "$DRIVER/local/device-identity.md"
 # local/keys: an empty bind-mount target -- docs/testing.md §"Running it".
 mkdir -p "$TREE/local/keys"
 
+# The run record's keyed-hash key: one file, shared by every hand run and
+# every pipeline job, linked into both checkouts the way device-identity.md
+# is linked into the driver's.
+HMAC_KEY="$ROOT/local/hmac.key"
+if [ ! -f "$HMAC_KEY" ]; then
+    head -c 32 /dev/urandom | base64 > "$HMAC_KEY"
+    chmod 600 "$HMAC_KEY"
+fi
+ln -sf "$HMAC_KEY" "$DRIVER/local/hmac.key"
+ln -sf "$HMAC_KEY" "$TREE/local/hmac.key"
+
 CONF_DIR="$HOME/.config/wisekiosk"
 mkdir -p "$CONF_DIR"
 SSH_DIR="$CONF_DIR/pipeline-ssh"
@@ -66,6 +105,7 @@ SSH_DIR="$CONF_DIR/pipeline-ssh"
     printf 'PIPELINE_SSH_DIR="%s"\n' "$SSH_DIR"
     printf 'PIPELINE_KEYS_DIR="%s"\n' "$KEYS"
     printf 'PIPELINE_TARGET="%s"\n' "$TARGET"
+    printf 'PIPELINE_TARGET_ROLE="%s"\n' "$ROLE"
     printf 'PIPELINE_LOCK="%s"\n' "$PIPELINE_LOCK"
 } > "$CONF_DIR/pipeline.env"
 

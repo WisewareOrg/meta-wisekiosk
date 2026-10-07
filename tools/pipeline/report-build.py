@@ -17,6 +17,12 @@ from pathlib import Path
 
 TAIL_LINES = 200
 
+# The run record's own extraresults key, and the order its lines render
+# in -- tool, board, image, app, sut, then every probe case's own
+# page.<case id> line, sorted, then cost if the run measured it.
+RECORD_KEY = "wisekiosk.record"
+RECORD_ORDER = ("tool", "board", "image", "app", "sut")
+
 
 def result_dict(data):
     """The case->status dict from oeqa's `{<result-id>: {configuration, result}}`
@@ -38,14 +44,27 @@ def tail(text, n=TAIL_LINES):
     return "\n".join(lines[-n:]), True
 
 
+def render_record(record):
+    """The run record's own lines, verbatim and in order, under one
+    heading. Interprets none of them."""
+    keys = list(RECORD_ORDER) + sorted(k for k in record if k.startswith("page."))
+    if "cost" in record:
+        keys.append("cost")
+    lines = [record[key] for key in keys if key in record]
+    return "\n".join(["## Run record", "", "```", *lines, "```", ""])
+
+
 def render_results(path):
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return "## Test results\n\n(could not read the results file)\n"
     cases = result_dict(data)
+    record = cases.pop(RECORD_KEY, None)
+    parts = [render_record(record)] if record else []
     if not cases:
-        return "## Test results\n\n(no cases in the results file)\n"
+        parts.append("## Test results\n\n(no cases in the results file)\n")
+        return "\n".join(parts)
     lines = ["## Test results", "", "| case | status |", "|---|---|"]
     for case_id in sorted(cases):
         lines.append(f"| {case_id} | {cases[case_id].get('status', '?')} |")
@@ -60,7 +79,8 @@ def render_results(path):
         if truncated:
             lines.append(f"(tailed to the last {TAIL_LINES} lines)")
         lines.append("")
-    return "\n".join(lines)
+    parts.append("\n".join(lines))
+    return "\n".join(parts)
 
 
 def render_logs(paths):

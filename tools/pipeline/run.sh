@@ -1,16 +1,26 @@
 #!/usr/bin/env bash
-# run.sh -- build, OTA and smoke-test the merge-queue head, or a missing
-# baseline for it.
+# run.sh [ref] -- build, OTA and smoke-test the merge-queue head, or a
+# missing baseline for it. With a ref, builds and runs that branch's own
+# head instead, as a development tool: posts nothing, tags no baseline.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 TOOLS="$(dirname "$HERE")"
+REF="${1:-}"
 
 for v in PIPELINE_DRIVER PIPELINE_TREE PIPELINE_SSH_DIR \
-        PIPELINE_KEYS_DIR PIPELINE_TARGET PIPELINE_TARGET_HOSTNAME PIPELINE_LOCK \
-        DL_DIR SSTATE_DIR PATH; do
+        PIPELINE_KEYS_DIR PIPELINE_TARGET PIPELINE_TARGET_HOSTNAME PIPELINE_TARGET_ROLE \
+        PIPELINE_LOCK DL_DIR SSTATE_DIR PATH; do
     [ -n "${!v:-}" ] || { echo "run.sh: $v not set" >&2; exit 2; }
 done
+
+if [ -n "$REF" ]; then
+    if [ "$(systemctl --user is-enabled wisekiosk-pipeline.timer 2>/dev/null || true)" = "enabled" ] \
+            || systemctl --user is-active --quiet wisekiosk-pipeline.service; then
+        echo "run.sh: refusing a ref run while the pipeline timer is enabled -- 'just pipeline-off' first" >&2
+        exit 2
+    fi
+fi
 
 cd "$PIPELINE_TREE"
 
@@ -24,6 +34,11 @@ CHECKS="$PIPELINE_TREE/tools"
 SSH_OPTS=(-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
 SSH_HOST="root@$PIPELINE_TARGET"
 export KIOSK_HOST="$SSH_HOST"
+
+# A ref run posts no status and tags no baseline (D16): it is a development
+# tool, never something the merge gate can wait on.
+POST=1
+[ -z "$REF" ] || POST=0
 
 MUTATED=""
 rc=0
@@ -86,8 +101,9 @@ stage_logargs() {
     done < <(sed -n 's/.*Logfile of failure stored in: //p' "$logfile" 2>/dev/null)
 }
 
-# finish STATE TEXT [report-build.py args...] -- posts the status on $SHA,
-# writes the PR comment, exits 0.
+# finish STATE TEXT [report-build.py args...] -- assembles the report body;
+# for a queue job (POST=1) also posts the status and PR comment on $SHA.
+# Always exits 0.
 finish() {
     MUTATED=""
     local state=$1 text=$2; shift 2
@@ -100,12 +116,14 @@ finish() {
             < "$RUN_DIR/body.raw" > "$RUN_DIR/body.full" \
         || abort "identity map unavailable"
     head -c 60000 "$RUN_DIR/body.full" > "$RUN_DIR/body.md"
-    local comment_url
-    comment_url=$(gh pr comment "$PR_NUMBER" --body-file "$RUN_DIR/body.md" | tail -n1) \
-        || abort "could not post the PR comment for $SHA"
-    gh api "repos/:owner/:repo/statuses/$SHA" -f state="$state" -f context=bench-pipeline \
-            -f description="${text:0:140}" -f target_url="$comment_url" > /dev/null \
-        || abort "could not post the status for $SHA"
+    if [ "$POST" -eq 1 ]; then
+        local comment_url
+        comment_url=$(gh pr comment "$PR_NUMBER" --body-file "$RUN_DIR/body.md" | tail -n1) \
+            || abort "could not post the PR comment for $SHA"
+        gh api "repos/:owner/:repo/statuses/$SHA" -f state="$state" -f context=bench-pipeline \
+                -f description="${text:0:140}" -f target_url="$comment_url" > /dev/null \
+            || abort "could not post the status for $SHA"
+    fi
     exit 0
 }
 
@@ -118,12 +136,14 @@ run_or_fail() {
     finish failure "$name failed" "${LOGARGS[@]}"
 }
 
-git -C "$PIPELINE_DRIVER" fetch --quiet origin \
-    || abort "git fetch origin failed in $PIPELINE_DRIVER"
-if [ "$(git -C "$PIPELINE_DRIVER" rev-parse HEAD)" != "$(git -C "$PIPELINE_DRIVER" rev-parse origin/main)" ]; then
-    git -C "$PIPELINE_DRIVER" checkout --quiet --detach origin/main \
-        || abort "could not check out origin/main in $PIPELINE_DRIVER"
-    exec "$PIPELINE_DRIVER/tools/pipeline/run.sh" "$@"
+if [ -z "$REF" ]; then
+    git -C "$PIPELINE_DRIVER" fetch --quiet origin \
+        || abort "git fetch origin failed in $PIPELINE_DRIVER"
+    if [ "$(git -C "$PIPELINE_DRIVER" rev-parse HEAD)" != "$(git -C "$PIPELINE_DRIVER" rev-parse origin/main)" ]; then
+        git -C "$PIPELINE_DRIVER" checkout --quiet --detach origin/main \
+            || abort "could not check out origin/main in $PIPELINE_DRIVER"
+        exec "$PIPELINE_DRIVER/tools/pipeline/run.sh" "$@"
+    fi
 fi
 
 # tag_job_baseline -- tags the job's buildhistory commit JOB_BH as
@@ -138,31 +158,39 @@ tag_job_baseline() {
 
 git fetch origin || abort "git fetch origin failed in $PIPELINE_TREE"
 
-[ -z "${1:-}" ] || { echo "usage: run.sh" >&2; exit 2; }
-
-QUEUE_REFS=$(git ls-remote origin 'refs/heads/gh-readonly-queue/main/*') \
-    || abort "git ls-remote for the merge queue failed"
-CURRENT_MAIN=$(git rev-parse origin/main) || abort "could not resolve origin/main"
-MATCHING=$(printf '%s\n' "$QUEUE_REFS" | awk -F'\t' -v base="$CURRENT_MAIN" '
-    { n = split($2, a, "/"); ref = a[n]
-      if (ref ~ /^pr-[0-9]+-[0-9a-f]+$/) {
-          split(ref, b, "-")
-          if (b[3] == base) print $1 "\t" b[2] "\t" $2
-      }
-    }')
-MATCH_COUNT=$(printf '%s\n' "$MATCHING" | grep -c . || true)
-if [ "$MATCH_COUNT" -eq 0 ]; then
-    echo "run.sh: no job" >&2
-    exit 0
-elif [ "$MATCH_COUNT" -gt 1 ]; then
-    echo "run.sh: more than one gh-readonly-queue ref based on origin/main" >&2
-    exit 2
+if [ -n "$REF" ]; then
+    git rev-parse --verify -q "refs/remotes/origin/$REF" > /dev/null 2>&1 \
+        || { echo "run.sh: $REF is not a branch on origin" >&2; exit 2; }
+    QUEUE_SHA=$(git rev-parse "refs/remotes/origin/$REF") || abort "could not resolve $REF"
+    PR_NUMBER="ref:$REF"
+    BASELINE=$(git merge-base origin/main "$QUEUE_SHA") \
+        || abort "could not compute a merge-base of origin/main and $REF"
+else
+    QUEUE_REFS=$(git ls-remote origin 'refs/heads/gh-readonly-queue/main/*') \
+        || abort "git ls-remote for the merge queue failed"
+    CURRENT_MAIN=$(git rev-parse origin/main) || abort "could not resolve origin/main"
+    MATCHING=$(printf '%s\n' "$QUEUE_REFS" | awk -F'\t' -v base="$CURRENT_MAIN" '
+        { n = split($2, a, "/"); ref = a[n]
+          if (ref ~ /^pr-[0-9]+-[0-9a-f]+$/) {
+              split(ref, b, "-")
+              if (b[3] == base) print $1 "\t" b[2] "\t" $2
+          }
+        }')
+    MATCH_COUNT=$(printf '%s\n' "$MATCHING" | grep -c . || true)
+    if [ "$MATCH_COUNT" -eq 0 ]; then
+        echo "run.sh: no job" >&2
+        exit 0
+    elif [ "$MATCH_COUNT" -gt 1 ]; then
+        echo "run.sh: more than one gh-readonly-queue ref based on origin/main" >&2
+        exit 2
+    fi
+    QUEUE_SHA=$(printf '%s' "$MATCHING" | cut -f1)
+    PR_NUMBER=$(printf '%s' "$MATCHING" | cut -f2)
+    QUEUE_REF=$(printf '%s' "$MATCHING" | cut -f3)
+    git fetch --quiet origin "$QUEUE_REF" || abort "could not fetch $QUEUE_REF"
+    BASELINE=$(git rev-parse "$QUEUE_SHA^1") || abort "could not resolve $QUEUE_SHA^1"
 fi
-QUEUE_SHA=$(printf '%s' "$MATCHING" | cut -f1)
-PR_NUMBER=$(printf '%s' "$MATCHING" | cut -f2)
-QUEUE_REF=$(printf '%s' "$MATCHING" | cut -f3)
-git fetch --quiet origin "$QUEUE_REF" || abort "could not fetch $QUEUE_REF"
-BASELINE=$(git rev-parse "$QUEUE_SHA^1") || abort "could not resolve $QUEUE_SHA^1"
+
 if git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse --verify -q \
         "refs/tags/baseline/$BASELINE" > /dev/null 2>&1; then
     KIND=queue; SHA=$QUEUE_SHA
@@ -194,6 +222,31 @@ fi
 OBSERVED_HOSTNAME=$(ssh "${SSH_OPTS[@]}" "$SSH_HOST" hostname 2>/dev/null || true)
 [ "$OBSERVED_HOSTNAME" = "$PIPELINE_TARGET_HOSTNAME" ] \
     || abort "PIPELINE_TARGET's live hostname does not match PIPELINE_TARGET_HOSTNAME"
+
+# The /data precondition: bench's /data/config/{kiosk.conf,config.json}
+# keyed hashes must match the values `just pipeline-accept-bench-config`
+# recorded. A left-behind seed from a prior run's own stimulus, or a hand
+# edit, is an environment problem a person must accept, not a silent
+# comparison against a stale baseline (docs/testing.md).
+MAC_FILE="$PIPELINE_DRIVER/local/pipeline/bench-config.mac"
+[ -f "$MAC_FILE" ] \
+    || abort "bench /data differs from the accepted configuration; run just pipeline-accept-bench-config"
+EXPECTED_KIOSK_CONF_MAC=$(sed -n 's/^kiosk_conf_mac=//p' "$MAC_FILE")
+EXPECTED_CONFIG_MAC=$(sed -n 's/^config_mac=//p' "$MAC_FILE")
+
+OBSERVED_KIOSK_CONF_MAC=absent
+if OBSERVED_KIOSK_CONF=$(ssh "${SSH_OPTS[@]}" "$SSH_HOST" cat /data/config/kiosk.conf 2>/dev/null); then
+    OBSERVED_KIOSK_CONF_MAC=$(printf '%s' "$OBSERVED_KIOSK_CONF" \
+        | python3 "$TOOLS/pipeline/config-mac.py" "$PIPELINE_DRIVER/local/hmac.key")
+fi
+OBSERVED_CONFIG_JSON=$(ssh "${SSH_OPTS[@]}" "$SSH_HOST" cat /data/config/config.json)
+OBSERVED_CONFIG_MAC=$(printf '%s' "$OBSERVED_CONFIG_JSON" \
+    | python3 "$TOOLS/pipeline/config-mac.py" "$PIPELINE_DRIVER/local/hmac.key")
+
+if [ "$OBSERVED_KIOSK_CONF_MAC" != "$EXPECTED_KIOSK_CONF_MAC" ] \
+        || [ "$OBSERVED_CONFIG_MAC" != "$EXPECTED_CONFIG_MAC" ]; then
+    abort "bench /data differs from the accepted configuration; run just pipeline-accept-bench-config"
+fi
 
 git checkout --detach "$SHA" > "$RUN_DIR/checkout.log" 2>&1 \
     || abort "could not check out $SHA in $PIPELINE_TREE"
@@ -235,41 +288,114 @@ if [ "$DEVICE_BACK" -eq 0 ] || [ "$NEW_SLOT" = "$PREV_SLOT" ]; then
     finish failure "new slot did not boot"
 fi
 
-rm -rf "$PIPELINE_TREE/local/pipeline/runs/$SHA/smoke"
-mkdir -p "$PIPELINE_TREE/local/pipeline/runs/$SHA/smoke"
-export TEST_TARGET_IP="$PIPELINE_TARGET"
-export OEQA_JSON_RESULT_DIR="/work/local/pipeline/runs/$SHA/smoke"
+# Buildinfo readback: the booted slot must carry $SHA before the suite runs
+# against it -- the same awk/sed tools/reproducibility-gate.sh uses on an
+# offline image, read here from the live board instead. A mismatch skips
+# testimage and the two scripts (no point running the suite against the
+# wrong image) but still rolls back, below, like every other failure.
+BUILDINFO=$(ssh "${SSH_OPTS[@]}" "$SSH_HOST" cat /etc/buildinfo 2>/dev/null || true)
+BOOTED_REV=$(printf '%s\n' "$BUILDINFO" | awk '$1 == "meta-wisekiosk" && $2 == "=" { print $3; exit }')
+BOOTED_SHA=${BOOTED_REV##*:}
 
-TESTIMAGE_RC=0
-"${TREE_JUST[@]}" testimage > "$RUN_DIR/testimage.log" 2>&1 || TESTIMAGE_RC=$?
-
-RESULTS_JSON="$PIPELINE_TREE/local/pipeline/runs/$SHA/smoke/testresults.json"
 RESULTSARG=()
 LOGARGS=()
-if [ -f "$RESULTS_JSON" ]; then
-    cp "$RESULTS_JSON" "$RUN_DIR/testresults.json"
-    RESULTSARG=(--results "$RUN_DIR/testresults.json")
-else
-    stage_logargs testimage "$RUN_DIR/testimage.log"
-fi
+TRANSPORT_RC=0
 
-RENDER_RC=0
-"$CHECKS/kiosk-render-check.sh" "$SSH_HOST" > "$RUN_DIR/render.log" 2>&1 || RENDER_RC=$?
-GPU_RC=0
-"$CHECKS/kiosk-gpu-check.sh" "$SSH_HOST" > "$RUN_DIR/gpu.log" 2>&1 || GPU_RC=$?
-if [ "$RENDER_RC" -ne 0 ]; then
-    tail -n 200 "$RUN_DIR/render.log" > "$RUN_DIR/render.tail.log"
-    LOGARGS+=(--log "$RUN_DIR/render.tail.log")
-fi
-if [ "$GPU_RC" -ne 0 ]; then
-    tail -n 200 "$RUN_DIR/gpu.log" > "$RUN_DIR/gpu.tail.log"
-    LOGARGS+=(--log "$RUN_DIR/gpu.tail.log")
-fi
-
-if [ "$TESTIMAGE_RC" -eq 0 ] && [ "$RENDER_RC" -eq 0 ] && [ "$GPU_RC" -eq 0 ]; then
-    SMOKE_STATE=success
-else
+if [ "$BOOTED_SHA" != "$SHA" ]; then
     SMOKE_STATE=failure
+    SMOKE_TEXT="pr #$PR_NUMBER $SHA: smoke failure (booted slot carries $BOOTED_SHA, not $SHA)"
+else
+    rm -rf "$PIPELINE_TREE/local/pipeline/runs/$SHA/smoke"
+    mkdir -p "$PIPELINE_TREE/local/pipeline/runs/$SHA/smoke"
+    export TEST_TARGET_IP="$PIPELINE_TARGET"
+    export OEQA_JSON_RESULT_DIR="/work/local/pipeline/runs/$SHA/smoke"
+    export KIOSK_TARGET_ROLE="$PIPELINE_TARGET_ROLE"
+    export KIOSK_TARGET_HOSTNAME="$PIPELINE_TARGET_HOSTNAME"
+
+    TESTIMAGE_RC=0
+    "${TREE_JUST[@]}" testimage > "$RUN_DIR/testimage.log" 2>&1 || TESTIMAGE_RC=$?
+
+    RESULTS_JSON="$PIPELINE_TREE/local/pipeline/runs/$SHA/smoke/testresults.json"
+    RECORD_RC=0
+    RECORD_REASON=""
+    if [ -f "$RESULTS_JSON" ]; then
+        cp "$RESULTS_JSON" "$RUN_DIR/testresults.json"
+        RESULTSARG=(--results "$RUN_DIR/testresults.json")
+
+        # The record precondition: testresults.json must carry the
+        # wisekiosk.record extraresults entry, naming $SHA and a clean tree.
+        # Also names whether any page.* line declares a transport error --
+        # run.sh's own infrastructure-failure path, never the candidate's.
+        RECORD_CHECK=$(python3 - "$RUN_DIR/testresults.json" <<'PY'
+import json
+import re
+import sys
+
+try:
+    data = json.load(open(sys.argv[1]))
+except Exception as exc:
+    print("ERROR", f"could not read testresults.json: {exc}", "0")
+    raise SystemExit
+
+record = None
+for value in data.values():
+    if isinstance(value, dict):
+        result = value.get("result")
+        if isinstance(result, dict) and "wisekiosk.record" in result:
+            record = result["wisekiosk.record"]
+            break
+
+if not isinstance(record, dict) or "tool" not in record or "image" not in record:
+    print("ERROR", "no run record", "0")
+    raise SystemExit
+
+image_m = re.search(r"image=(\S+)", record["image"])
+dirty_m = re.search(r"dirty=(\S+)", record["tool"])
+transport = any(
+    key.startswith("page.") and "state=error:transport" in value
+    for key, value in record.items())
+print("OK", image_m.group(1) if image_m else "", dirty_m.group(1) if dirty_m else "",
+      "1" if transport else "0")
+PY
+)
+        read -r RECORD_STATUS RECORD_A RECORD_B RECORD_TRANSPORT <<< "$RECORD_CHECK"
+        [ "$RECORD_TRANSPORT" = "1" ] && TRANSPORT_RC=1
+        if [ "$RECORD_STATUS" != "OK" ]; then
+            RECORD_RC=1
+            RECORD_REASON="$RECORD_A $RECORD_B"
+        elif [ "$RECORD_A" != "$SHA" ]; then
+            RECORD_RC=1
+            RECORD_REASON="run record names image=$RECORD_A, not $SHA"
+        elif [ "$RECORD_B" = "1" ]; then
+            RECORD_RC=1
+            RECORD_REASON="run record reports a dirty tree"
+        fi
+    else
+        RECORD_RC=1
+        RECORD_REASON="no run record"
+        stage_logargs testimage "$RUN_DIR/testimage.log"
+    fi
+
+    RENDER_RC=0
+    "$CHECKS/kiosk-render-check.sh" "$SSH_HOST" > "$RUN_DIR/render.log" 2>&1 || RENDER_RC=$?
+    GPU_RC=0
+    "$CHECKS/kiosk-gpu-check.sh" "$SSH_HOST" > "$RUN_DIR/gpu.log" 2>&1 || GPU_RC=$?
+    if [ "$RENDER_RC" -ne 0 ]; then
+        tail -n 200 "$RUN_DIR/render.log" > "$RUN_DIR/render.tail.log"
+        LOGARGS+=(--log "$RUN_DIR/render.tail.log")
+    fi
+    if [ "$GPU_RC" -ne 0 ]; then
+        tail -n 200 "$RUN_DIR/gpu.log" > "$RUN_DIR/gpu.tail.log"
+        LOGARGS+=(--log "$RUN_DIR/gpu.tail.log")
+    fi
+
+    if [ "$TESTIMAGE_RC" -eq 0 ] && [ "$RENDER_RC" -eq 0 ] && [ "$GPU_RC" -eq 0 ] && [ "$RECORD_RC" -eq 0 ]; then
+        SMOKE_STATE=success
+    else
+        SMOKE_STATE=failure
+    fi
+    SMOKE_TEXT="pr #$PR_NUMBER $SHA: smoke $SMOKE_STATE"
+    [ "$RECORD_RC" -eq 0 ] || SMOKE_TEXT="$SMOKE_TEXT ($RECORD_REASON)"
 fi
 
 "${TREE_JUST[@]}" kiosk-rollback > "$RUN_DIR/rollback.log" 2>&1 \
@@ -279,7 +405,12 @@ fi
 SLOT_NOW=$(booted_slot "$SSH_HOST") || abort "could not read the booted slot after the rollback"
 [ "$SLOT_NOW" = "$PREV_SLOT" ] || abort "device resting on the job's slot"
 
-[ "$SMOKE_STATE" = success ] && tag_job_baseline
+# The declared transport kind (ticket, Decided): an infrastructure failure,
+# never the candidate's -- classified only after rollback, so bench is
+# never left on the installed slot with the timer disabled.
+[ "$TRANSPORT_RC" -eq 0 ] || abort "testimage transport error"
 
-finish "$SMOKE_STATE" "pr #$PR_NUMBER $SHA: smoke $SMOKE_STATE" \
+[ "$SMOKE_STATE" = success ] && [ "$POST" -eq 1 ] && tag_job_baseline
+
+finish "$SMOKE_STATE" "$SMOKE_TEXT" \
     "${RESULTSARG[@]}" "${LOGARGS[@]}"
