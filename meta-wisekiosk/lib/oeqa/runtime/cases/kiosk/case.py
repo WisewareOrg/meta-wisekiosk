@@ -6,7 +6,7 @@ from pathlib import Path
 
 from oeqa.runtime.case import OERuntimeTestCase
 
-from oeqa.runtime.cases.kiosk import record
+from . import record
 
 # busybox wget: rc 0 only on 2xx. Shared across the pre-existing cases that
 # split out of this module (kiosk_backend_unit, kiosk_healthz_bound,

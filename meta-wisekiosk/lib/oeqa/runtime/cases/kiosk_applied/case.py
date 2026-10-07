@@ -1,10 +1,10 @@
 import time
 from pathlib import Path
 
-from oeqa.runtime.cases.kiosk import record
-from oeqa.runtime.cases.kiosk.case import WiseKioskCase, POLL_ATTEMPT_TIMEOUT_SECONDS
+from kiosk import record
+from kiosk.case import WiseKioskCase, POLL_ATTEMPT_TIMEOUT_SECONDS
 
-from oeqa.runtime.cases.kiosk_applied.verdict import read_sample, verdict as applied_verdict
+from .verdict import read_sample, verdict as applied_verdict
 
 # Walks the root's whole tree and reads every window's WM_NAME.
 # docs/testing.md § "The render and applied cases" has the why.

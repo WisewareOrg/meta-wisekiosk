@@ -1,4 +1,4 @@
-from oeqa.runtime.cases.kiosk.case import WiseKioskCase
+from kiosk.case import WiseKioskCase
 
 
 class KioskHealthFlagTest(WiseKioskCase):

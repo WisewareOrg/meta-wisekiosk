@@ -1,6 +1,6 @@
 import time
 
-from oeqa.runtime.cases.kiosk.case import (
+from kiosk.case import (
     WiseKioskCase, BOUND_SECONDS, POLL_INTERVAL_SECONDS, POLL_ATTEMPT_TIMEOUT_SECONDS,
 )
 

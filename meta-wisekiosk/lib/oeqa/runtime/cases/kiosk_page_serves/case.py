@@ -1,4 +1,4 @@
-from oeqa.runtime.cases.kiosk.case import WiseKioskCase, INDEX_URL, POLL_ATTEMPT_TIMEOUT_SECONDS
+from kiosk.case import WiseKioskCase, INDEX_URL, POLL_ATTEMPT_TIMEOUT_SECONDS
 
 
 class KioskPageServesTest(WiseKioskCase):

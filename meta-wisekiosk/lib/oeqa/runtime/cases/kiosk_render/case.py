@@ -1,6 +1,6 @@
-from oeqa.runtime.cases.kiosk.case import WiseKioskCase
+from kiosk.case import WiseKioskCase
 
-from oeqa.runtime.cases.kiosk_render.verdict import verdict as render_verdict
+from .verdict import verdict as render_verdict
 
 # The render check's default crop, ported from tools/kiosk-render-check.sh --
 # docs/testing.md § "The render and applied cases" has the why.

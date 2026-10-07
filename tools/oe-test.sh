@@ -62,8 +62,14 @@ fi
 export KIOSK_TARGET_ROLE KIOSK_TARGET_HOSTNAME
 export KIOSK_HMAC_KEY="$KEY"
 
-# docs/testing.md § "The hand-run path" has the why.
-export PYTHONPATH="$POKY/meta/lib:$POKY/bitbake/lib:$ROOT/meta-wisekiosk/lib"
+# poky's own paths only, matching testimage's: the loader inserts the
+# cases directory itself as each case's own top_level_dir (so kiosk,
+# kiosk_render etc. resolve as bare top-level packages there, never
+# oeqa.runtime.cases.*), and meta-wisekiosk/lib on PYTHONPATH masks that --
+# namespace-package merging would let the nested form resolve too, passing
+# a case.py testimage itself would refuse. docs/testing.md § "The hand-run
+# path" has the why.
+export PYTHONPATH="$POKY/meta/lib:$POKY/bitbake/lib"
 
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 RESULT_DIR="$ROOT/local/oe-test/$STAMP"

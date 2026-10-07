@@ -207,9 +207,22 @@ own ssh identity already accepted as root on the device, and `just pipeline-inst
 
 Each device test lives in its own package under `cases/` (a directory carrying its own
 `__init__.py`); the pinned poky oeqa loader discovers one the same way it discovers any other
-layer's oeqa extension — by walking every such package under `BBPATH` — and `TEST_SUITES` /
-`--run-tests` select a package by its own top-level name, proven directly against this pinned
-loader and against a real board rather than assumed from its source.
+layer's oeqa extension, and `TEST_SUITES` / `--run-tests` select a package by its own top-level
+name, proven directly against this pinned loader and against a real board rather than assumed from
+its source. The mechanism is precise, and every case's own imports depend on it: for each layer that
+carries one, the loader hands Python's own `unittest.TestLoader.discover()` that layer's
+`lib/oeqa/runtime/cases` directory itself as both `start_dir` and `top_level_dir` — so `kiosk`,
+`kiosk_render` and so on resolve as bare top-level packages rooted at that directory, never as
+`oeqa.runtime.cases.kiosk` (there is no parent `oeqa`/`oeqa.runtime` package in this path at all,
+only poky's own, found separately through its own layer). A `case.py` therefore imports a sibling
+module in its own package with a relative import (`from . import record`) and a module in another
+case package by that package's bare top-level name (`from kiosk.case import WiseKioskCase`) — never
+`oeqa.runtime.cases.*`, which does not resolve here and will not be caught by a hand run whose
+`PYTHONPATH` also carries `meta-wisekiosk/lib` (below): that extra entry makes the nested form
+resolve too, through ordinary namespace-package merging, passing what testimage itself refuses.
+Every reader outside this tree — the pytest fixtures under each package's `tests/`, and the pipeline
+driver scripts under `tools/pipeline/` — runs on the host with `meta-wisekiosk/lib` on `sys.path`
+directly, where `oeqa.runtime.cases.<package>.<module>` is the form that resolves; they keep it.
 
 `just oe-test <target-ip>` runs the identical suite — the six `meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_*`
 packages, each with the pure `verdict.py`/`record.py` beside the `case.py` it serves — with `oe-test runtime`, no bitbake, no OTA,
@@ -222,9 +235,14 @@ last build's deploy artifacts are missing, and writes its own run record under g
 either case makes to the board is `test_page_applied` arming the DOM probe (`copyTo` the script,
 restart `kiosk.service`), which its own teardown removes before the case ends.
 
-Its `PYTHONPATH` carries `sources/poky/bitbake/lib` beside `meta/lib`: `oe-test`'s own component
-loader imports every subcommand's context module up front, including one that imports `bb.utils`
-at module scope, regardless of which subcommand is actually requested. It also runs from inside its
+Its `PYTHONPATH` is exactly testimage's own: `sources/poky/meta/lib` and `sources/poky/bitbake/lib`,
+nothing else — `meta-wisekiosk/lib` is never on it. `bitbake/lib` beside `meta/lib` because `oe-test`'s
+own component loader imports every subcommand's context module up front, including one that imports
+`bb.utils` at module scope, regardless of which subcommand is actually requested; `meta/lib` for
+`oeqa.runtime.case` and everything else poky's own oeqa package provides. The directory passed on
+`oe-test`'s own command line (`meta-wisekiosk/lib/oeqa/runtime/cases`) becomes its `top_level_dir` the
+same way testimage's own run does: the two sys.paths match exactly, so a case whose cross-package
+import testimage refuses fails the identical way here. It also runs from inside its
 own `local/oe-test/<timestamp>/` directory, so poky's own ssh target class — which writes
 `remoteTarget.log` into whatever directory the process started in, with no flag to redirect it —
 leaves that file beside the run's own record instead of in the repository root.
