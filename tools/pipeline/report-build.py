@@ -15,12 +15,14 @@ import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "meta-wisekiosk" / "lib"))
+from wisekiosk import record as _record  # noqa: E402
+
 TAIL_LINES = 200
 
-# The run record's own extraresults key, and the order its lines render
-# in -- tool, board, image, app, sut, then every probe case's own
-# page.<case id> line, sorted, then cost if the run measured it.
-RECORD_KEY = "wisekiosk.record"
+# The order the record's lines render in -- tool, board, image, app, sut,
+# then every probe case's own page.<case id> line, sorted. The key itself
+# is _record.RECORD_KEY, imported, never a second spelling.
 RECORD_ORDER = ("tool", "board", "image", "app", "sut")
 
 
@@ -46,11 +48,12 @@ def tail(text, n=TAIL_LINES):
 
 def render_record(record):
     """The run record's own lines, verbatim and in order, under one
-    heading. Interprets none of them."""
-    keys = list(RECORD_ORDER) + sorted(k for k in record if k.startswith("page."))
-    if "cost" in record:
-        keys.append("cost")
-    lines = [record[key] for key in keys if key in record]
+    heading. Interprets none of them: a key this function does not name
+    still renders, after the named ones, sorted."""
+    page_keys = sorted(k for k in record if k.startswith("page."))
+    named = list(RECORD_ORDER) + page_keys
+    unknown = sorted(k for k in record if k not in named)
+    lines = [record[key] for key in named + unknown if key in record]
     return "\n".join(["## Run record", "", "```", *lines, "```", ""])
 
 
@@ -60,7 +63,7 @@ def render_results(path):
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return "## Test results\n\n(could not read the results file)\n"
     cases = result_dict(data)
-    record = cases.pop(RECORD_KEY, None)
+    record = cases.pop(_record.RECORD_KEY, None)
     parts = [render_record(record)] if record else []
     if not cases:
         parts.append("## Test results\n\n(no cases in the results file)\n")

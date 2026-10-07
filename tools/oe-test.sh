@@ -1,14 +1,8 @@
 #!/usr/bin/env bash
-# Hand-run path for the kiosk oeqa suite: the same cases and the same
-# run record `testimage` produces in the pipeline, run with `oe-test runtime`
-# against any reachable target -- no bitbake, no OTA.
+# Hand-run path for the kiosk oeqa suite, against any reachable target --
+# no bitbake, no OTA. docs/testing.md § "The hand-run path" has the why.
 #
 #   tools/oe-test.sh <target-ip>
-#
-# KIOSK_TARGET_ROLE and KIOSK_TARGET_HOSTNAME are resolved from
-# local/device-identity.md: the role (prod or bench) whose recorded address
-# equals <target-ip>, and bench's own recorded hostname -- the suite refuses
-# any board that is not bench, so the expected hostname is always bench's.
 #
 # Env: OE_TEST_TESTDATA, OE_TEST_MANIFEST override the last build's own
 # .testdata.json/.manifest symlinks under the deploy directory.
@@ -23,7 +17,7 @@ if [ -z "${1:-}" ]; then
 fi
 TARGET=$1
 
-KEY="$ROOT/local/hmac.key"
+KEY="$ROOT/local/keys/hmac.key"
 if [ ! -f "$KEY" ]; then
     echo "oe-test.sh: no $KEY -- run 'just pipeline-install' first" >&2
     exit 1
@@ -53,49 +47,29 @@ if [ ! -f "$MANIFEST" ]; then
     exit 1
 fi
 
-# Resolves the two identity env vars through tools/scrub-identity.py's own
-# fenced-block parser (never a copy of it): prod and bench are the only two
-# documented roles, so only their .address keys are candidates.
-IDENTITY=$(python3 -c '
-import importlib.util
-import sys
-from pathlib import Path
-
-root, target = Path(sys.argv[1]), sys.argv[2]
-spec = importlib.util.spec_from_file_location(
-    "scrub_identity", root / "tools" / "scrub-identity.py")
-scrub_identity = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(scrub_identity)
-
-rows = dict(scrub_identity._map_rows(scrub_identity.map_path(root)))
-
-hostname = rows.get("bench.hostname")
-if not hostname:
-    sys.exit("oe-test.sh: local/device-identity.md has no bench.hostname")
-
-role = next((r for r in ("prod", "bench") if rows.get(r + ".address") == target), None)
-if role is None:
-    sys.exit("oe-test.sh: no role in local/device-identity.md has address %s" % target)
-
-print("KIOSK_TARGET_ROLE=%s" % role)
-print("KIOSK_TARGET_HOSTNAME=%s" % hostname)
-' "$ROOT" "$TARGET") || exit 1
-eval "$IDENTITY"
+# Resolves the role and hostname through tools/device-role.py, then
+# refuses outright on anything but bench: this suite never runs against
+# prod, by direct check here rather than relying only on the base class's
+# live-hostname comparison.
+ROLE_LINE=$(python3 "$ROOT/tools/device-role.py" "$TARGET") || exit 1
+read -r ROLE_KV HOSTNAME_KV <<< "$ROLE_LINE"
+KIOSK_TARGET_ROLE=${ROLE_KV#role=}
+KIOSK_TARGET_HOSTNAME=${HOSTNAME_KV#hostname=}
+if [ "$KIOSK_TARGET_ROLE" != "bench" ]; then
+    echo "oe-test.sh: $TARGET resolves to role=$KIOSK_TARGET_ROLE -- this suite only ever runs against bench" >&2
+    exit 1
+fi
 export KIOSK_TARGET_ROLE KIOSK_TARGET_HOSTNAME
 
-# sources/poky/bitbake/lib is needed in addition to meta/lib: oe-test's own
-# component loader imports every subcommand's context module up front, and
-# oeqa.selftest.context imports bb.utils at module scope regardless of which
-# subcommand (runtime) is actually requested.
+# docs/testing.md § "The hand-run path" has the why.
 export PYTHONPATH="$POKY/meta/lib:$POKY/bitbake/lib:$ROOT/meta-wisekiosk/lib"
 
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 RESULT_DIR="$ROOT/local/oe-test/$STAMP"
 mkdir -p "$RESULT_DIR"
 
-# oeqa's own ssh target writes remoteTarget.log into os.getcwd(), with no
-# flag to redirect it (sources/poky/meta/lib/oeqa/core/target/ssh.py) --
-# every other path above is already absolute, so cwd is free to move.
+# Every other path above is already absolute, so cwd is free to move.
+# docs/testing.md § "The hand-run path" has the why.
 cd "$RESULT_DIR" || exit 1
 
 exec python3 "$POKY/scripts/oe-test" runtime "$ROOT/meta-wisekiosk/lib/oeqa/runtime/cases" \

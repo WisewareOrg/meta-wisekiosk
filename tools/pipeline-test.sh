@@ -5,6 +5,10 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPORT="$HERE/pipeline/report-build.py"
+RUN_SH="$HERE/pipeline/run.sh"
+RECORD_CHECK_PY="$HERE/pipeline/record-check.py"
+KIOSK_PY="$HERE/../meta-wisekiosk/lib/oeqa/runtime/cases/kiosk.py"
+RECORD_PY="$HERE/../meta-wisekiosk/lib/wisekiosk/record/__init__.py"
 SCRUB="$HERE/scrub-identity.py"
 
 PY=python3
@@ -112,12 +116,95 @@ else
     bad "case table beside run record" "$out"
 fi
 
+UNKNOWN_KEY_RESULTS="$TOP/unknown-key-results.json"
+cat > "$UNKNOWN_KEY_RESULTS" <<'EOF'
+{"5678-efgh": {"configuration": {}, "result": {
+    "wisekiosk.record": {
+        "tool": "R tool=oe-test tool_commit=abc dirty=0 argv=x",
+        "image": "R image=abc slot=A",
+        "replay": "R replay=cards4-live@deadbeef"
+    }
+}}}
+EOF
+capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --results "$UNKNOWN_KEY_RESULTS"
+if [ "$rc" -eq 0 ] && [[ "$out" == *"R replay=cards4-live@deadbeef"* ]]; then
+    ok "build: a record key the renderer does not name still renders, not dropped"
+else
+    bad "unknown record key dropped" "rc=$rc out=$out"
+fi
+
 capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --log "$LONGLOG"
 if [ "$rc" -eq 0 ] && [[ "$out" == *"## Log — long.log"* ]] \
         && [[ "$out" == *$'\n1\n'* ]] && [[ "$out" == *$'\n250'* ]]; then
     ok "build: a --log's label is its basename, and the renderer does not re-tail it"
 else
     bad "log label and no re-tail" "rc=$rc"
+fi
+
+# --- boundary: the record key and transport state are defined once, in
+# wisekiosk.record, and every reader imports them rather than spelling its
+# own copy (F10/M3) --------------------------------------------------------
+RECORD_KEY=$(sed -n 's/^RECORD_KEY = "\(.*\)"$/\1/p' "$RECORD_PY")
+if [ -n "$RECORD_KEY" ] && grep -qF 'record.RECORD_KEY' "$KIOSK_PY" \
+        && grep -qF 'record.RECORD_KEY' "$RECORD_CHECK_PY" \
+        && grep -qF '_record.RECORD_KEY' "$REPORT"; then
+    ok "boundary: kiosk.py, record-check.py and report-build.py all import record.RECORD_KEY ($RECORD_KEY)"
+else
+    bad "a reader spells the record key itself instead of importing wisekiosk.record.RECORD_KEY"
+fi
+if grep -qF 'record.TRANSPORT_STATE' "$KIOSK_PY" && grep -qF 'record.TRANSPORT_STATE' "$RECORD_CHECK_PY"; then
+    ok "boundary: kiosk.py and record-check.py both import record.TRANSPORT_STATE"
+else
+    bad "the declared transport state is not imported consistently"
+fi
+if grep -qF 'hexdump' "$RUN_SH" && grep -qF 'hexdump' "$KIOSK_PY"; then
+    ok "boundary: run.sh and kiosk.py transport config/kiosk.conf the same way (hexdump)"
+else
+    bad "run.sh and kiosk.py disagree on the device transport for the keyed hashes"
+fi
+
+# --- F7: the shell path (hexdump | config-mac.py) agrees with hashing the
+# file's bytes directly in Python, for real LF/CRLF/trailing-space content --
+HEXKEY="$TOP/hexkey"
+head -c 32 /dev/urandom | base64 > "$HEXKEY"
+for content_name in lf crlf trailing_space; do
+    case "$content_name" in
+        lf) printf 'KIOSK_URL=http://localhost:8080\n' > "$TOP/hexfixture" ;;
+        crlf) printf 'KIOSK_URL=http://localhost:8080\r\n' > "$TOP/hexfixture" ;;
+        trailing_space) printf 'KIOSK_URL=http://localhost:8080\n \n' > "$TOP/hexfixture" ;;
+    esac
+    SHELL_MAC=$(hexdump -ve '1/1 "%02x"' "$TOP/hexfixture" | "$PY" "$HERE/pipeline/config-mac.py" "$HEXKEY")
+    PY_MAC=$("$PY" -c "
+import sys
+sys.path.insert(0, '$HERE/../meta-wisekiosk/lib')
+from wisekiosk import record
+key = open('$HEXKEY', 'rb').read()
+data = open('$TOP/hexfixture', 'rb').read()
+print(record.keyed_hash(key, data))
+")
+    if [ -n "$SHELL_MAC" ] && [ "$SHELL_MAC" = "$PY_MAC" ]; then
+        ok "F7: shell hexdump|config-mac.py agrees with Python's direct byte hash ($content_name)"
+    else
+        bad "F7 $content_name mismatch" "shell=$SHELL_MAC py=$PY_MAC"
+    fi
+done
+
+# --- boundary: run.sh's buildinfo awk is the gate's own program, and both
+# strip \r before it (F9) -------------------------------------------------
+GATE_SH="$HERE/reproducibility-gate.sh"
+# The single quotes are the point: this is a literal fragment of the gate's
+# own source, matched with grep -F.
+# shellcheck disable=SC2016
+AWK_PROGRAM='$1 == "meta-wisekiosk" && $2 == "=" { print $3; exit }'
+if grep -qF "$AWK_PROGRAM" "$GATE_SH" && grep -qF "$AWK_PROGRAM" "$RUN_SH"; then
+    ok "boundary: run.sh's buildinfo awk is the gate's own program, not a drifted copy"
+else
+    bad "run.sh's buildinfo awk differs from the gate's"
+fi
+if grep -qF "tr -d '\r'" "$GATE_SH" && grep -qF "tr -d '\r'" "$RUN_SH"; then
+    ok "boundary: run.sh strips carriage returns before awk, matching the gate"
+else
+    bad "run.sh does not strip carriage returns before its buildinfo awk, unlike the gate"
 fi
 
 # --- scrub-identity.py --filter fixtures --------------------------------
