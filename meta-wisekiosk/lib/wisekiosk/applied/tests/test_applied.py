@@ -67,10 +67,9 @@ def test_parse_title_returns_none_for_not_probe(name, title):
 
 
 # ------------------------------------------------------------------------- read_sample
-# F6: moves the case's own per-window scan out of kiosk.py. Input is xprop's raw,
-# unindented output for every window xwininfo -tree found ("WM_NAME(STRING) =
-# "<title>"" per window, one per line); returns the first window's parsed sample
-# that is not None, or None if no window carries one.
+# Scans xprop's raw, unindented output for every window xwininfo -tree found
+# ("WM_NAME(STRING) = "<title>"" per window, one per line); returns the first
+# window's parsed sample that is not None, or None if no window carries one.
 
 def test_read_sample_finds_the_first_probe_payload_among_several_windows():
     xprop_output = (
@@ -110,7 +109,7 @@ def test_read_sample_skips_a_line_with_no_wm_name_property():
 # samples is the sequence of parse_title results collected over the 90 s window: a dict for a
 # found-and-parsed probe sample, None for a sample whose title carried no payload. The case's own
 # poll loop always appends at least one sample before calling verdict, so an empty list is
-# unreachable from production and is not a case here (D2).
+# unreachable from production and is not a case here.
 
 def _sample(state):
     return {"nonce": "1", "state": state, "cards": "-/-", "faulted": 0, "unreachable": 0}

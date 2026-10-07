@@ -30,7 +30,11 @@ def verdict(lines):
     parsed = [_fields(line) for line in frames]
 
     if any(fields.get("rc", "0") != "0" for fields in parsed):
-        return "error", "'import' exited non-zero on at least one frame -- see its rc field"
+        errs = [fields["err"] for fields in parsed
+                if fields.get("rc", "0") != "0" and fields.get("err")]
+        detail = "; ".join(e for e in errs if e != "none")
+        suffix = f" ({detail})" if detail else ""
+        return "error", f"'import' exited non-zero on at least one frame -- see its rc field{suffix}"
 
     for fields in parsed:
         raw_bytes = fields.get("bytes")

@@ -267,16 +267,13 @@ def test_boot_ordinal_a_boot_with_no_known_slot_does_not_count():
 
 
 # ----------------------------------------------------------- boot_slots_from_journal
-# M2's final mechanism: one bulk read, `journalctl -u rauc.service -o json
-# --output-fields=_BOOT_ID,MESSAGE` (bench-confirmed: rauc.service is the real
-# owning unit; 17.7 s for the one call against >3 min for a per-boot-id loop),
-# builds the whole boot_id -> slot map boot_ordinal needs. One JSON object per
-# line, journalctl -o json's own shape; _BOOT_ID is the same 32-character
-# lowercase-hex form --list-boots -o json's own "boot_id" field uses
-# (bench-confirmed: loop-board's probe asserted every _BOOT_ID is exactly 32
-# hex characters). Extra __-prefixed trusted fields (__REALTIME_TIMESTAMP,
-# __CURSOR) are real and must be tolerated, not rejected. Constructed lines in
-# this exact shape -- boot ids and timestamps invented, never a real capture.
+# One bulk read, `journalctl -u rauc.service -o json --output-fields=_BOOT_ID,
+# MESSAGE`, builds the whole boot_id -> slot map boot_ordinal needs. One JSON
+# object per line, journalctl -o json's own shape; _BOOT_ID is the same
+# 32-character lowercase-hex form --list-boots -o json's own "boot_id" field
+# uses. Extra __-prefixed trusted fields (__REALTIME_TIMESTAMP, __CURSOR) are
+# real and must be tolerated, not rejected. Constructed lines in this exact
+# shape -- boot ids and timestamps invented, never a real capture.
 
 BOOT_ID_B = "a" * 32
 BOOT_ID_A = "b" * 32

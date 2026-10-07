@@ -98,3 +98,17 @@ def test_verdict_reason_names_its_own_guard(name, substring):
     by_name = {c[0]: c[1] for c in CASES}
     _, reason = verdict(by_name[name])
     assert substring in reason.lower(), f"{name}: reason {reason!r} does not mention {substring!r}"
+
+
+def test_verdict_rc_error_reason_folds_in_the_frame_s_stderr():
+    # The probe always carries import's own stderr as a trailing err= field on
+    # the frame line (kiosk.py's grab(): "frame $n rc=$rc bytes=$b md5=$m
+    # err=${err:-none}", spaces turned to underscores). When rc != 0, the
+    # reason must surface it, not just point at the rc field.
+    lines = [
+        'frame 1 rc=1 bytes=0 md5=none err=import:_unable_to_open_X_server_`:0`',
+        f"frame 2 rc=0 bytes=1840 md5={A}",
+    ]
+    outcome, reason = verdict(lines)
+    assert outcome == "error"
+    assert "import:_unable_to_open_X_server_`:0`" in reason

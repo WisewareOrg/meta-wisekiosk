@@ -4,40 +4,48 @@
     device-role.py <address>    -- print "role=<r> hostname=<h>", rc 1 on no match
 
 The single definition `oe-test.sh` and `install.sh` both called inline before
-this file existed. Parses the map's ```identity fence the same way
-tools/scrub-identity.py does (FENCE_OPEN/FENCE_CLOSE/MAP_ROW), so prose outside
-the fence cannot register a false match.
+this file existed. Scans the map's ```identity fence through
+tools/scrub-identity.py's own fenced-block parser (loaded by path -- the file
+name has a hyphen), never a copy of its regexes. Only "prod" and "bench" are
+ever candidates; any other role's address is "no role has address X", the
+same as an address matching no row at all.
 """
-import re
+import importlib.util
 import sys
+import tempfile
 from pathlib import Path
 
-FENCE_OPEN = re.compile(r'^```identity\s*$')
-FENCE_CLOSE = re.compile(r'^```\s*$')
-MAP_ROW = re.compile(r'^\s*([A-Za-z0-9_.]+)\s*=\s*(\S.*?)\s*$')
+_SCRUB_IDENTITY = None
+
+
+def _load_scrub_identity():
+    global _SCRUB_IDENTITY
+    if _SCRUB_IDENTITY is None:
+        tools = Path(__file__).resolve().parent
+        spec = importlib.util.spec_from_file_location("scrub_identity", tools / "scrub-identity.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _SCRUB_IDENTITY = module
+    return _SCRUB_IDENTITY
 
 
 def resolve_role(fence_text, address):
-    """(role, hostname) for the role whose "<role>.address" row equals
-    address, scanning only fence_text's ```identity fence. Raises
-    ValueError naming address if no role's address matches."""
-    rows, inside = {}, False
-    for line in fence_text.splitlines():
-        if not inside:
-            if FENCE_OPEN.match(line):
-                inside = True
-            continue
-        if FENCE_CLOSE.match(line):
-            break
-        m = MAP_ROW.match(line)
-        if m:
-            rows[m.group(1)] = m.group(2)
-
-    for key, value in rows.items():
-        if key.endswith(".address") and value == address:
-            role = key[: -len(".address")]
-            return role, rows.get(f"{role}.hostname", "")
-    raise ValueError(f"no role in the map has address {address}")
+    """(role, hostname) for the role -- "prod" or "bench" only -- whose
+    "<role>.address" row in fence_text equals address, scanned through
+    tools/scrub-identity.py's own `_map_rows`. Raises ValueError naming
+    address if neither role's address matches."""
+    scrub_identity = _load_scrub_identity()
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as f:
+        f.write(fence_text)
+        temp_path = Path(f.name)
+    try:
+        rows = dict(scrub_identity._map_rows(temp_path))
+    finally:
+        temp_path.unlink()
+    role = next((r for r in ("prod", "bench") if rows.get(f"{r}.address") == address), None)
+    if role is None:
+        raise ValueError(f"no role in the map has address {address}")
+    return role, rows.get(f"{role}.hostname", "")
 
 
 def main():
@@ -46,11 +54,12 @@ def main():
         return 2
     address = sys.argv[1]
     root = Path(__file__).resolve().parent.parent
-    map_path = root / "local" / "device-identity.md"
+    scrub_identity = _load_scrub_identity()
+    map_file = scrub_identity.map_path(root)
     try:
-        fence_text = map_path.read_text(encoding="utf-8")
+        fence_text = map_file.read_text(encoding="utf-8")
     except OSError as exc:
-        print(f"device-role.py: cannot read {map_path}: {exc}", file=sys.stderr)
+        print(f"device-role.py: cannot read {map_file}: {exc}", file=sys.stderr)
         return 1
     try:
         role, hostname = resolve_role(fence_text, address)

@@ -47,6 +47,8 @@ def check(results_path, sha):
     dirty_m = re.search(r"dirty=(\S+)", tool_val)
     image = image_m.group(1) if image_m else "-"
     dirty = dirty_m.group(1) if dirty_m else "-"
+    if dirty not in ("0", "1"):
+        return f"ERROR - {dirty} - run record names dirty={dirty}, not 0 or 1"
     transport = "1" if any(
         key.startswith("page.") and isinstance(value, str) and record.TRANSPORT_STATE in value
         for key, value in rec.items()) else "0"

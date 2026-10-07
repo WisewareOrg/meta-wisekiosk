@@ -355,9 +355,15 @@ else
         # "Running it" has the why.
         RECORD_CHECK=$(python3 "$TOOLS/pipeline/record-check.py" "$RUN_DIR/testresults.json" "$SHA")
         read -r RECORD_STATUS _ RECORD_DIRTY RECORD_TRANSPORT RECORD_REASON <<< "$RECORD_CHECK"
-        [ "$RECORD_DIRTY" = "1" ] && DIRTY_RC=1
         [ "$RECORD_TRANSPORT" = "1" ] && TRANSPORT_RC=1
-        [ "$RECORD_STATUS" = "OK" ] || RECORD_RC=1
+        if [ "$RECORD_STATUS" != "OK" ]; then
+            RECORD_RC=1
+        elif [ "$RECORD_DIRTY" = "1" ]; then
+            DIRTY_RC=1
+        elif [ "$RECORD_DIRTY" != "0" ]; then
+            RECORD_RC=1
+            RECORD_REASON="run record names dirty=$RECORD_DIRTY, not 0 or 1"
+        fi
     else
         RECORD_RC=1
         RECORD_REASON="no run record"

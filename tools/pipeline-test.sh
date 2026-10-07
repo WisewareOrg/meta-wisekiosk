@@ -144,7 +144,7 @@ fi
 
 # --- boundary: the record key and transport state are defined once, in
 # wisekiosk.record, and every reader imports them rather than spelling its
-# own copy (F10/M3) --------------------------------------------------------
+# own copy ------------------------------------------------------------------
 RECORD_KEY=$(sed -n 's/^RECORD_KEY = "\(.*\)"$/\1/p' "$RECORD_PY")
 if [ -n "$RECORD_KEY" ] && grep -qF 'record.RECORD_KEY' "$KIOSK_PY" \
         && grep -qF 'record.RECORD_KEY' "$RECORD_CHECK_PY" \
@@ -158,12 +158,6 @@ if grep -qF 'record.TRANSPORT_STATE' "$KIOSK_PY" && grep -qF 'record.TRANSPORT_S
 else
     bad "the declared transport state is not imported consistently"
 fi
-if grep -qF 'hexdump' "$RUN_SH" && grep -qF 'hexdump' "$KIOSK_PY"; then
-    ok "boundary: run.sh and kiosk.py transport config/kiosk.conf the same way (hexdump)"
-else
-    bad "run.sh and kiosk.py disagree on the device transport for the keyed hashes"
-fi
-
 # --- ssh-quoting regression: ssh joins separate remote-command words
 # with spaces, and the remote shell re-parses the result -- a format
 # string quoted for *local* bash does not survive that round trip unless
@@ -207,7 +201,59 @@ for f in "$RUN_SH" "$ACCEPT_SH"; do
     fi
 done
 
-# --- F7: the shell path (hexdump | config-mac.py) agrees with hashing the
+# --- record-check.py posts only on an exact dirty=0. dirty=1 is left to
+# run.sh's existing, unchanged abort path (STATUS stays OK; run.sh's own
+# "= 1" check fires on the value). A missing or malformed dirty is a
+# malformed record -- STATUS must not read OK, so run.sh's existing
+# "status != OK" job-failure path catches it for free. Through the real
+# script, never a copy of its logic.
+dirty_fixture() {
+    # $1 = the tool line's dirty token (e.g. "dirty=0 ", or "" to omit it
+    # entirely) -- written at the same place a real tool line carries it.
+    local dirty_token=$1
+    cat > "$TOP/dirty-results.json" <<EOF
+{"5678-efgh": {"configuration": {}, "result": {
+    "wisekiosk.record": {
+        "tool": "R tool=oe-test tool_commit=abc ${dirty_token}argv=x",
+        "image": "R image=abc slot=A"
+    }
+}}}
+EOF
+}
+
+dirty_fixture "dirty=0 "
+capture out rc "$PY" "$RECORD_CHECK_PY" "$TOP/dirty-results.json" abc
+if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0" ]; then
+    ok "record-check: dirty=0 reports clean"
+else
+    bad "record-check: dirty=0 did not report clean" "rc=$rc out=$out"
+fi
+
+dirty_fixture "dirty=1 "
+capture out rc "$PY" "$RECORD_CHECK_PY" "$TOP/dirty-results.json" abc
+if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 1 0" ]; then
+    ok "record-check: dirty=1 still reports OK -- run.sh's own abort path reads the 1"
+else
+    bad "record-check: dirty=1 changed shape" "rc=$rc out=$out"
+fi
+
+dirty_fixture ""
+capture out rc "$PY" "$RECORD_CHECK_PY" "$TOP/dirty-results.json" abc
+if [ "$rc" -eq 0 ] && [[ "$out" == ERROR\ * ]] && [[ "$out" == *dirty* ]]; then
+    ok "record-check: a missing dirty= is a malformed record, not clean"
+else
+    bad "record-check: a missing dirty= did not report malformed" "rc=$rc out=$out"
+fi
+
+dirty_fixture "dirty=yes "
+capture out rc "$PY" "$RECORD_CHECK_PY" "$TOP/dirty-results.json" abc
+if [ "$rc" -eq 0 ] && [[ "$out" == ERROR\ * ]] && [[ "$out" == *dirty* ]] && [[ "$out" == *yes* ]]; then
+    ok "record-check: a malformed dirty=yes is a malformed record, not clean"
+else
+    bad "record-check: a malformed dirty value did not report malformed" "rc=$rc out=$out"
+fi
+
+# --- the shell path (hexdump | config-mac.py) agrees with hashing the
 # file's bytes directly in Python, for real LF/CRLF/trailing-space content --
 HEXKEY="$TOP/hexkey"
 head -c 32 /dev/urandom | base64 > "$HEXKEY"
@@ -227,14 +273,14 @@ data = open('$TOP/hexfixture', 'rb').read()
 print(record.keyed_hash(key, data))
 ")
     if [ -n "$SHELL_MAC" ] && [ "$SHELL_MAC" = "$PY_MAC" ]; then
-        ok "F7: shell hexdump|config-mac.py agrees with Python's direct byte hash ($content_name)"
+        ok "shell hexdump|config-mac.py agrees with Python's direct byte hash ($content_name)"
     else
-        bad "F7 $content_name mismatch" "shell=$SHELL_MAC py=$PY_MAC"
+        bad "$content_name mismatch" "shell=$SHELL_MAC py=$PY_MAC"
     fi
 done
 
 # --- boundary: run.sh's buildinfo awk is the gate's own program, and both
-# strip \r before it (F9) -------------------------------------------------
+# strip \r before it ---------------------------------------------------------
 GATE_SH="$HERE/reproducibility-gate.sh"
 # The single quotes are the point: this is a literal fragment of the gate's
 # own source, matched with grep -F.

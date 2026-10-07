@@ -170,8 +170,8 @@ class WiseKioskCase(OERuntimeTestCase):
         webkit_env = record.webkit_env(
             target.run("tr '\\0' '\\n' < /proc/%s/environ" % pid)[1])
         conf_status, kiosk_conf_hex = target.run("hexdump -ve '1/1 \"%02x\"' /data/config/kiosk.conf")
-        kiosk_conf = record.decode_hex_dump(kiosk_conf_hex).decode() if conf_status == 0 else ""
-        kiosk_conf_mac = record.kiosk_conf_mac(conf_status, kiosk_conf, WiseKioskCase.hmac_key)
+        kiosk_conf_mac = record.kiosk_conf_mac(
+            conf_status, record.decode_hex_dump(kiosk_conf_hex).decode(), WiseKioskCase.hmac_key)
         mode = target.run("DISPLAY=:0 xrandr | awk '/\\*/{print $1; exit}'")[1].strip()
         kernel = target.run("uname -r")[1].strip()
         cpufreq_max = target.run(
@@ -250,25 +250,24 @@ class WiseKioskTest(WiseKioskCase):
         return applied.read_sample(output)
 
     def _applied_attempt(self):
-        # The restart gets whatever remains of this one 90 s deadline, not
-        # its own short cut-off: a slow restart shows up as the attempt's
-        # own timeout (then the retry, then error:transport), never as a
-        # truncated restart silently misread as a deploy failure.
-        deadline = time.time() + _APPLIED_DEADLINE_SECONDS
-
-        # A deploy or transport failure here takes the same retry path as
-        # a probe failure: the caller only ever sees an "error:*" outcome.
+        # A deploy failure here takes the same retry path as a probe
+        # failure: the caller only ever sees an "error:*" outcome. Deploy
+        # (mkdir, copyTo) runs before the clock and is unbounded; the 90 s
+        # deadline starts when the restart is issued, matching the
+        # ticket's "applied within 90 s of the restart" -- the restart's
+        # own duration counts, and the poll gets the remainder.
         try:
             mkdir_status, _ = self.target.run(
                 "mkdir -p /home/root/.surf", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
             if mkdir_status != 0:
                 return "error:deploy", None
             self.target.copyTo(str(_PROBE_SRC), "/home/root/.surf/script.js")
+            deadline = time.time() + _APPLIED_DEADLINE_SECONDS
             restart_status, _ = self.target.run(
                 "systemctl restart kiosk.service", timeout=int(max(1, deadline - time.time())))
             if restart_status != 0:
                 return "error:deploy", None
-        except Exception:
+        except AssertionError:
             return "error:deploy", None
 
         samples = []
