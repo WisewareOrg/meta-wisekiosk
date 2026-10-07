@@ -38,11 +38,13 @@ def check(results_path, sha):
                     rec = result[record.RECORD_KEY]
                     break
 
-    if not isinstance(rec, dict) or "tool" not in rec or "image" not in rec:
+    tool_val = rec.get("tool") if isinstance(rec, dict) else None
+    image_val = rec.get("image") if isinstance(rec, dict) else None
+    if not isinstance(tool_val, str) or not isinstance(image_val, str):
         return "ERROR - - - no run record"
 
-    image_m = re.search(r"image=(\S+)", rec["image"])
-    dirty_m = re.search(r"dirty=(\S+)", rec["tool"])
+    image_m = re.search(r"image=(\S+)", image_val)
+    dirty_m = re.search(r"dirty=(\S+)", tool_val)
     image = image_m.group(1) if image_m else "-"
     dirty = dirty_m.group(1) if dirty_m else "-"
     transport = "1" if any(

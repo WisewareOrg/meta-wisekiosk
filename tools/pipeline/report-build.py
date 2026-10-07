@@ -53,7 +53,7 @@ def render_record(record):
     page_keys = sorted(k for k in record if k.startswith("page."))
     named = list(RECORD_ORDER) + page_keys
     unknown = sorted(k for k in record if k not in named)
-    lines = [record[key] for key in named + unknown if key in record]
+    lines = [str(record[key]) for key in named + unknown if key in record]
     return "\n".join(["## Run record", "", "```", *lines, "```", ""])
 
 
