@@ -20,6 +20,10 @@ if [ -z "$TEST_SUITES" ]; then
     echo "oe-test.sh: no TEST_SUITES found in $ROOT/includes/testimage.yaml" >&2
     exit 1
 fi
+# An array, not a quoted string: the space-separated names are meant to
+# reach --run-tests as six separate arguments (its own nargs='+'), which
+# quoting would collapse into one.
+read -r -a TEST_SUITES_ARR <<< "$TEST_SUITES"
 
 if [ -z "${1:-}" ]; then
     echo "usage: oe-test.sh <target-ip>" >&2
@@ -96,6 +100,6 @@ exec python3 "$POKY/scripts/oe-test" runtime "$ROOT/meta-wisekiosk/lib/oeqa/runt
     --packages-manifest "$MANIFEST" \
     --target-type simpleremote \
     --target-ip "$TARGET" \
-    --run-tests $TEST_SUITES \
+    --run-tests "${TEST_SUITES_ARR[@]}" \
     --json-result-dir "$RESULT_DIR" \
     --output-log "$RESULT_DIR/oe-test.log"
