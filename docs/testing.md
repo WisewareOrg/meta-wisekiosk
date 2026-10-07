@@ -205,6 +205,12 @@ own ssh identity already accepted as root on the device, and `just pipeline-inst
 
 ## The hand-run path
 
+Each device test lives in its own package under `cases/` (a directory carrying its own
+`__init__.py`); the pinned poky oeqa loader discovers one the same way it discovers any other
+layer's oeqa extension — by walking every such package under `BBPATH` — and `TEST_SUITES` /
+`--run-tests` select a package by its own top-level name, proven directly against this pinned
+loader and against a real board rather than assumed from its source.
+
 `just oe-test <target-ip>` runs the identical suite — `meta-wisekiosk/lib/oeqa/runtime/cases`, over
 the shared `meta-wisekiosk/lib/wisekiosk` package — with `oe-test runtime`, no bitbake, no OTA,
 against any board already built and booted. `tools/oe-test.sh` resolves `KIOSK_TARGET_ROLE` and
