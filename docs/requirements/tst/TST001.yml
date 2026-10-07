@@ -1,0 +1,23 @@
+active: true
+derived: false
+header: |
+  Applied-page check passes
+level: 1.0
+links:
+- SRS001: 6yVbCJR6FLm2q-aTyZofQ00UG5i6KCZ5oBd9F0v5-ew=
+normative: true
+rationale: ''
+ref: ''
+references:
+- keyword: def test_page_applied
+  path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk.py
+  sha: 4da4b594d9e7d4dfa6e3eeafbb6d19c68a0d4f8d6c7a12c8e350b78c5c1617ff
+  type: file
+reviewed: YaCixAdjqbUCGZ8XykVvgzqTwKkestiDSX1wEKIF1oI=
+status: proposed
+text: |
+  Run the device oeqa suite's applied-page case against the booted image and assert it passes.
+verification-justification: |
+  Settles that the page the application serves is the one reported applied on screen, on one
+  physical device, one boot. Leaves unproven whether it stays applied, and whether it renders.
+verification-method: test

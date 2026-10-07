@@ -1,0 +1,17 @@
+active: true
+derived: false
+header: |
+  Performs smoothly on this hardware
+level: 1.2
+links: []
+normative: true
+rationale: ''
+ref: ''
+reviewed: O7BFoXulC0cki2CUcyVGjbUBULpNp1h7JjThAwwTZPw=
+status: proposed
+text: |
+  The kiosk shall perform smoothly on this hardware.
+verification-justification: |
+  Settles that the display keeps rendering rather than freezing. Leaves unproven whether a
+  frame is visually correct, and whether the display is applied as designed in the first place.
+verification-method: test

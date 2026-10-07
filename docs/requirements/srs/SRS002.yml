@@ -1,0 +1,18 @@
+active: true
+derived: false
+header: |
+  Display keeps rendering
+level: 1.1
+links:
+- SYS003: O7BFoXulC0cki2CUcyVGjbUBULpNp1h7JjThAwwTZPw=
+normative: true
+rationale: ''
+ref: ''
+reviewed: drvoV8eO1UTUguEGJoltrHch2Czx3RQOLSFj_5ALG9o=
+status: proposed
+text: |
+  The display shall continue rendering rather than stall.
+verification-justification: |
+  Settles that the display is still painting, rather than frozen. Leaves unproven whether a
+  painted frame is visually correct, and anything about frame rate or latency.
+verification-method: test

@@ -1,0 +1,24 @@
+active: true
+derived: false
+header: |
+  Render-advancing check passes
+level: 1.1
+links:
+- SRS002: uY_vQgxKYXcHe-NInQv3B-5G27fRXU1vp02fhEFgEeY=
+normative: true
+rationale: ''
+ref: ''
+references:
+- keyword: def test_render_advancing
+  path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk.py
+  sha: 4da4b594d9e7d4dfa6e3eeafbb6d19c68a0d4f8d6c7a12c8e350b78c5c1617ff
+  type: file
+reviewed: 4LtZZDtFXH03l1g3T6IZlu0MLuwb9Cv5hPT9P4FTIYE=
+status: proposed
+text: |
+  Run the device oeqa suite's render-advancing case against the booted image and assert it
+  passes.
+verification-justification: |
+  Settles that the display is still painting across the two captured frames, on one physical
+  device, one boot. Leaves unproven whether a painted frame is visually correct.
+verification-method: test
