@@ -7,15 +7,18 @@ A local item realising an upstream one cites it in its own `rationale`: a
 line reads `<repo> <item id> <exact header>` (the ticket's own worked
 example: "WiseKiosk SRS026 The display says when the backend is gone"). The
 upstream `reviewed:` stamp is never embedded in that text -- it is recorded
-in a separate local attribute on the citing item. Three functions here are
+in a separate local attribute on the citing item. Four functions here are
 pure and are exercised with constructed values only: `read_srcrev` parses
 `wisekiosk-src.inc`'s own text; `parse_citation` reads every citation line
 out of a `rationale` string; `compare` is the predicate the module runs per
 citation, against the citing item's own recorded stamp and one live-fetched
-upstream item (or None, when the cited id wasn't found). None of the three
-performs I/O -- the module's own `gh api` fetch, and the directory walk that
-finds which local items cite what, run exclusively in the real, networked
-pass `just verify` makes, never here.
+upstream item (or None, when the cited id wasn't found); `classify_gh_failure`
+tells a `gh api` content difference (the cited item genuinely absent
+upstream) apart from an auth or network failure, given only the returncode
+and stderr text `gh` already produced. None of the four performs I/O -- the
+module's own `gh api` fetch, and the directory walk that finds which local
+items cite what, run exclusively in the real, networked pass `just verify`
+makes, never here.
 """
 import importlib.util
 import sys
@@ -141,10 +144,58 @@ def compare_cases():
          any("not found" in m.lower() for m in missing_upstream), True)
 
 
+# --- classify_gh_failure -----------------------------------------------------
+#
+# Real `gh` wording, reproduced directly against the live CLI this session --
+# never guessed. A clean 404 (the cited item genuinely absent upstream, a
+# content difference) and an unauthenticated environment's own refusal (a
+# tooling failure, not a content assertion) read very differently; the
+# classifier must tell them apart from returncode + stderr alone, since that
+# is all `fetch_upstream_item` has once `gh` has already exited.
+
+NOT_FOUND_STDERR = (
+    'gh: Not Found (HTTP 404)\n'
+)
+AUTH_STDERR = (
+    "To get started with GitHub CLI, please run:  gh auth login\n"
+    "Alternatively, populate the GH_TOKEN environment variable with a GitHub "
+    "API authentication token.\n"
+)
+# Nonzero, no auth wording, no clean 404 either -- a network-shaped failure,
+# proving the classifier isn't keyed to returncode 4 specifically.
+NETWORK_STDERR = (
+    "gh: There was a problem communicating with the GitHub API.\n"
+    "curl: (6) Could not resolve host: api.github.com\n"
+)
+# Contains the defect's own substring run together, differently cased and
+# without the space gh's real wording carries -- proves the check is not a
+# loose case-insensitive match that would collapse this into "not-found" too.
+LOOKALIKE_STDERR = (
+    "gh: error fetching user, notfound in organization WisewareOrg\n"
+)
+
+
+def classify_gh_failure_cases():
+    case("classify_gh_failure: a clean 404 is a content difference, not a tooling failure",
+         upstream_reqs_check.classify_gh_failure(1, NOT_FOUND_STDERR), "not-found")
+
+    case("classify_gh_failure: gh's own auth-required exit is a tooling failure",
+         upstream_reqs_check.classify_gh_failure(4, AUTH_STDERR), "auth")
+
+    case("classify_gh_failure: a network-shaped failure (nonzero, no auth wording,"
+         " no clean 404) is still a tooling failure, not keyed to returncode 4",
+         upstream_reqs_check.classify_gh_failure(1, NETWORK_STDERR), "other")
+
+    case("classify_gh_failure: a lookalike stderr merely containing 'notfound' run"
+         " together is not mistaken for gh's own clean 404 wording",
+         upstream_reqs_check.classify_gh_failure(1, LOOKALIKE_STDERR), "other")
+
+
 def main() -> int:
     read_srcrev_cases()
     parse_citation_cases()
     compare_cases()
+    classify_gh_failure_cases()
     print(f"\npass={len(PASS)} fail={len(FAIL)} skip=0")
     return 1 if FAIL else 0
 
