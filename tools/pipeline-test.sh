@@ -8,8 +8,9 @@ REPORT="$HERE/pipeline/report-build.py"
 RUN_SH="$HERE/pipeline/run.sh"
 ACCEPT_SH="$HERE/pipeline/accept-bench-config.sh"
 RECORD_CHECK_PY="$HERE/pipeline/record-check.py"
-KIOSK_PY="$HERE/../meta-wisekiosk/lib/oeqa/runtime/cases/kiosk.py"
-RECORD_PY="$HERE/../meta-wisekiosk/lib/wisekiosk/record/__init__.py"
+KIOSK_CASE_PY="$HERE/../meta-wisekiosk/lib/oeqa/runtime/cases/kiosk/case.py"
+KIOSK_APPLIED_CASE_PY="$HERE/../meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_applied/case.py"
+RECORD_PY="$HERE/../meta-wisekiosk/lib/oeqa/runtime/cases/kiosk/record.py"
 SCRUB="$HERE/scrub-identity.py"
 
 PY=python3
@@ -143,18 +144,22 @@ else
 fi
 
 # --- boundary: the record key and transport state are defined once, in
-# wisekiosk.record, and every reader imports them rather than spelling its
-# own copy ------------------------------------------------------------------
+# kiosk/record.py, and every reader imports them rather than spelling its
+# own copy. record.RECORD_KEY is read by the shared base (kiosk/case.py) and
+# by the applied case (kiosk_applied/case.py, which also reads
+# record.TRANSPORT_STATE); no other case needs either. ----------------------
 RECORD_KEY=$(sed -n 's/^RECORD_KEY = "\(.*\)"$/\1/p' "$RECORD_PY")
-if [ -n "$RECORD_KEY" ] && grep -qF 'record.RECORD_KEY' "$KIOSK_PY" \
+if [ -n "$RECORD_KEY" ] && grep -qF 'record.RECORD_KEY' "$KIOSK_CASE_PY" \
+        && grep -qF 'record.RECORD_KEY' "$KIOSK_APPLIED_CASE_PY" \
         && grep -qF 'record.RECORD_KEY' "$RECORD_CHECK_PY" \
         && grep -qF '_record.RECORD_KEY' "$REPORT"; then
-    ok "boundary: kiosk.py, record-check.py and report-build.py all import record.RECORD_KEY ($RECORD_KEY)"
+    ok "boundary: kiosk/case.py, kiosk_applied/case.py, record-check.py and report-build.py all import record.RECORD_KEY ($RECORD_KEY)"
 else
-    bad "a reader spells the record key itself instead of importing wisekiosk.record.RECORD_KEY"
+    bad "a reader spells the record key itself instead of importing kiosk/record.py's RECORD_KEY"
 fi
-if grep -qF 'record.TRANSPORT_STATE' "$KIOSK_PY" && grep -qF 'record.TRANSPORT_STATE' "$RECORD_CHECK_PY"; then
-    ok "boundary: kiosk.py and record-check.py both import record.TRANSPORT_STATE"
+if grep -qF 'record.TRANSPORT_STATE' "$KIOSK_APPLIED_CASE_PY" \
+        && grep -qF 'record.TRANSPORT_STATE' "$RECORD_CHECK_PY"; then
+    ok "boundary: kiosk_applied/case.py and record-check.py both import record.TRANSPORT_STATE"
 else
     bad "the declared transport state is not imported consistently"
 fi
@@ -267,7 +272,7 @@ for content_name in lf crlf trailing_space; do
     PY_MAC=$("$PY" -c "
 import sys
 sys.path.insert(0, '$HERE/../meta-wisekiosk/lib')
-from wisekiosk import record
+from oeqa.runtime.cases.kiosk import record
 key = open('$HEXKEY', 'rb').read()
 data = open('$TOP/hexfixture', 'rb').read()
 print(record.keyed_hash(key, data))

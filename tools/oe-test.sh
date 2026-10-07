@@ -78,6 +78,6 @@ exec python3 "$POKY/scripts/oe-test" runtime "$ROOT/meta-wisekiosk/lib/oeqa/runt
     --packages-manifest "$MANIFEST" \
     --target-type simpleremote \
     --target-ip "$TARGET" \
-    --run-tests kiosk \
+    --run-tests kiosk_backend_unit kiosk_healthz_bound kiosk_page_serves kiosk_health_flag kiosk_render kiosk_applied \
     --json-result-dir "$RESULT_DIR" \
     --output-log "$RESULT_DIR/oe-test.log"

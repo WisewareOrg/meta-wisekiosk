@@ -1,14 +1,14 @@
-"""Specifies wisekiosk.render.verdict: a port of tools/kiosk-render-check.sh's render_verdict over
-the same probe vocabulary -- "cap import=0", "frame <n> rc=<rc> bytes=<b> md5=<m>", "blank min=<mn>
-max=<mx>" -- as a list of lines rather than one shell string. Every case here ports a case in
-tools/kiosk-render-check-test.sh.
+"""Specifies cases/kiosk_render/verdict.py: a port of tools/kiosk-render-check.sh's render_verdict
+over the same probe vocabulary -- "cap import=0", "frame <n> rc=<rc> bytes=<b> md5=<m>", "blank
+min=<mn> max=<mx>" -- as a list of lines rather than one shell string. Every case here ports a case
+in tools/kiosk-render-check-test.sh.
 
 No device, no subprocess -- every case is a constructed list of probe lines.
 """
 
 import pytest
 
-from wisekiosk.render import verdict
+from oeqa.runtime.cases.kiosk_render.verdict import verdict
 
 A = "5d41402abc4b2a76b9719d911017c592"
 B = "7d793037a0760186574b0282f2f435e7"

@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "meta-wisekiosk" / "lib"))
-from wisekiosk import record  # noqa: E402
+from oeqa.runtime.cases.kiosk import record  # noqa: E402
 
 
 def check(results_path, sha):

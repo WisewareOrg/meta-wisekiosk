@@ -1,4 +1,4 @@
-"""Specifies wisekiosk.record: the run record's parsers and R-line builders
+"""Specifies cases/kiosk/record.py: the run record's parsers and R-line builders
 (docs/testing.md section "Running it": "The run record.").
 
 Every case is a constructed string or bytes value -- no board, no subprocess, no network. The
@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from wisekiosk.record import (
+from oeqa.runtime.cases.kiosk.record import (
     app_line,
     asset_hashes,
     board_line,
@@ -74,7 +74,7 @@ def test_parse_buildinfo(name, text, want):
     assert parse_buildinfo(text) == want, name
 
 
-GATE_PATH = Path(__file__).resolve().parents[5] / "tools" / "reproducibility-gate.sh"
+GATE_PATH = Path(__file__).resolve().parents[7] / "tools" / "reproducibility-gate.sh"
 _GATE_AWK_LINE = re.compile(r"rev=\$\(awk '([^']*)' <<< \"\$info\"\)")
 
 

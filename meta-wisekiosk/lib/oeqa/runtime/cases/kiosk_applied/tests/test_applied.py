@@ -1,6 +1,6 @@
-"""Specifies wisekiosk.applied: parse_title over surf's window-title shape, and verdict over a
-sequence of parsed samples (docs/testing.md section "Running it": the run record's page.<case id>
-line and its no-leak guarantee).
+"""Specifies cases/kiosk_applied/verdict.py: parse_title over surf's window-title shape, and
+verdict over a sequence of parsed samples (docs/testing.md section "Running it": the run record's
+page.<case id> line and its no-leak guarantee).
 
 surf's updatetitle() (vendored surf.c) renders "[<progress>%] <toggles>:<pagestats> | <title>"
 while progress != 100, and drops the leading "[NN%] " bracket once progress reaches 100 --
@@ -14,7 +14,7 @@ No device, no DOM -- every title and every sample list is constructed.
 
 import pytest
 
-from wisekiosk.applied import parse_title, read_sample, verdict
+from oeqa.runtime.cases.kiosk_applied.verdict import parse_title, read_sample, verdict
 
 PROBE = "WK1 nonce=1699999999.5 state=applied cards=-/- faulted=0 unreachable=0"
 

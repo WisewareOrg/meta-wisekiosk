@@ -2,63 +2,21 @@ import datetime
 import os
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 from oeqa.runtime.case import OERuntimeTestCase
 
-from wisekiosk import applied, record, render
+from oeqa.runtime.cases.kiosk import record
 
-# busybox wget: rc 0 only on 2xx
+# busybox wget: rc 0 only on 2xx. Shared across the pre-existing cases that
+# split out of this module (kiosk_backend_unit, kiosk_healthz_bound,
+# kiosk_page_serves import the ones they need from here, rather than each
+# repeating its own copy of the same literal).
 HEALTHZ_URL = "http://127.0.0.1:8080/healthz"
 INDEX_URL = "http://127.0.0.1:8080/"
 BOUND_SECONDS = 60
 POLL_INTERVAL_SECONDS = 2
 POLL_ATTEMPT_TIMEOUT_SECONDS = 10
-
-# The render check's default crop, ported from tools/kiosk-render-check.sh --
-# docs/testing.md § "The render and applied cases" has the why.
-_RENDER_CROP = "560x300+220+20"
-_RENDER_PROBE = (
-    'if ! command -v import > /dev/null 2>&1; then echo "cap import=0"; exit 0; fi\n'
-    "F=/tmp/render-check.$$\n"
-    "grab() {\n"
-    "    n=$1\n"
-    '    DISPLAY=:0 import -window root -crop "%s" +repage "$F.$n.png" > /dev/null 2>"$F.$n.err"\n'
-    "    rc=$?\n"
-    '    if [ -f "$F.$n.png" ]; then\n'
-    '        b=$(wc -c < "$F.$n.png")\n'
-    '        m=$(md5sum < "$F.$n.png" | cut -d\' \' -f1)\n'
-    "    else\n"
-    "        b=0\n"
-    "        m=none\n"
-    "    fi\n"
-    '    err=$(tr \'\\n\' \' \' < "$F.$n.err" 2>/dev/null | tr -s \' \' \'_\')\n'
-    '    echo "frame $n rc=$rc bytes=$b md5=$m err=${err:-none}"\n'
-    "}\n"
-    "grab 1\n"
-    "sleep 3\n"
-    "grab 2\n"
-    'if command -v identify > /dev/null 2>&1 && [ -f "$F.2.png" ]; then\n'
-    "    identify -format 'blank min=%%[fx:minima*255] max=%%[fx:maxima*255] "
-    "mean=%%[fx:mean*255]\\n' \"$F.2.png\" 2>/dev/null\n"
-    "fi\n"
-    'rm -f "$F.1.png" "$F.2.png" "$F.1.err" "$F.2.err"\n'
-) % _RENDER_CROP
-
-# Walks the root's whole tree and reads every window's WM_NAME.
-# docs/testing.md § "The render and applied cases" has the why.
-_WINDOW_TITLES_PROBE = (
-    "for id in $(DISPLAY=:0 xwininfo -root -tree 2>/dev/null | "
-    "awk '/^ +0x/ { print $1 }'); do "
-    'DISPLAY=:0 xprop -id "$id" WM_NAME 2>/dev/null; done'
-)
-
-_PROBE_SRC = Path(__file__).resolve().parents[3] / "wisekiosk" / "applied" / "probe.js"
-
-_APPLIED_DEADLINE_SECONDS = 90
-_APPLIED_POLL_SECONDS = 2
-_APPLIED_ATTEMPTS = 2
 
 
 def _now_iso():
@@ -81,8 +39,8 @@ class WiseKioskCase(OERuntimeTestCase):
     carries, where it lands and the posting precondition), before any
     case's own assertions run. Transport only: every collector here is a
     self.target.run of a busybox one-liner (or, for the tool line, a git
-    call against the host checkout); every judgement is a call into the
-    wisekiosk package.
+    call against the host checkout); every judgement is a call into
+    record.py.
     """
 
     @classmethod
@@ -107,7 +65,7 @@ class WiseKioskCase(OERuntimeTestCase):
         # derived from __file__: inside kas-container that resolves to
         # the /repo mount, a different one from PIPELINE_KEYS_DIR's
         # /work/local/keys (tools/kas-run.sh).
-        repo = Path(__file__).resolve().parents[5]
+        repo = Path(__file__).resolve().parents[6]
         hmac_key_path = Path(hmac_key_env)
         if not hmac_key_path.is_file():
             raise RuntimeError(f"no {hmac_key_path} -- run 'just pipeline-install' first")
@@ -200,119 +158,3 @@ class WiseKioskCase(OERuntimeTestCase):
         super().tearDown()
         self.tc.extraresults[record.RECORD_KEY]["board"] = record.board_line(
             end=_now_iso(), **WiseKioskCase.board_fields)
-
-
-class WiseKioskTest(WiseKioskCase):
-
-    def test_backend_unit_active(self):
-        deadline = time.time() + BOUND_SECONDS
-        status, output = None, None
-        while True:
-            status, output = self.target.run(
-                "systemctl is-active wisekiosk.service", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
-            if output == "active":
-                return
-            if time.time() >= deadline:
-                break
-            time.sleep(POLL_INTERVAL_SECONDS)
-        self.fail("wisekiosk.service was not active within %ss (rc %s): %s" % (BOUND_SECONDS, status, output))
-
-    def test_healthz_within_bound(self):
-        deadline = time.time() + BOUND_SECONDS
-        status, output = None, None
-        while True:
-            status, output = self.target.run("wget -q -O- %s" % HEALTHZ_URL, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
-            if status == 0:
-                return
-            if time.time() >= deadline:
-                break
-            time.sleep(POLL_INTERVAL_SECONDS)
-        self.fail("/healthz did not return within %ss (rc %s): %s" % (BOUND_SECONDS, status, output))
-
-    def test_page_serves(self):
-        status, output = self.target.run("wget -q -O- %s" % INDEX_URL, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
-        self.assertEqual(status, 0, "GET / failed (rc %s): %s" % (status, output))
-        self.assertIn("<html", output, "GET / did not return an <html> body: %s" % output)
-
-    def test_health_check_flag(self):
-        status, output = self.target.run("/usr/bin/wisekiosk -health-check")
-        if status != 0 and "flag provided but not defined" in output:
-            self.skipTest("pinned app has no -health-check")
-        self.assertEqual(status, 0, "-health-check failed (rc %s): %s" % (status, output))
-
-    def test_render_advancing(self):
-        _status, output = self.target.run(_RENDER_PROBE)
-        outcome, reason = render.verdict(output.splitlines())
-        if outcome == "advancing":
-            return
-        if outcome == "frozen":
-            self.fail(reason)
-        raise RuntimeError(reason)
-
-    def _read_applied_sample(self):
-        status, output = self.target.run(
-            _WINDOW_TITLES_PROBE, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
-        if status != 0:
-            return None
-        return applied.read_sample(output)
-
-    def _applied_attempt(self):
-        # A deploy failure here takes the same retry path as a probe
-        # failure: the caller only ever sees an "error:*" outcome. Deploy
-        # (mkdir, copyTo) runs before the clock and is unbounded; the 90 s
-        # deadline starts when the restart is issued, matching the
-        # ticket's "applied within 90 s of the restart" -- the restart's
-        # own duration counts, and the poll gets the remainder.
-        try:
-            mkdir_status, _ = self.target.run(
-                "mkdir -p /home/root/.surf", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
-            if mkdir_status != 0:
-                return "error:deploy", None
-            self.target.copyTo(str(_PROBE_SRC), "/home/root/.surf/script.js")
-            deadline = time.time() + _APPLIED_DEADLINE_SECONDS
-            restart_status, _ = self.target.run(
-                "systemctl restart kiosk.service", timeout=int(max(1, deadline - time.time())))
-            if restart_status != 0:
-                return "error:deploy", None
-        except AssertionError:
-            return "error:deploy", None
-
-        samples = []
-        while True:
-            samples.append(self._read_applied_sample())
-            outcome = applied.verdict(samples)
-            if outcome == "applied":
-                return outcome, samples[-1]
-            if time.time() >= deadline:
-                break
-            time.sleep(_APPLIED_POLL_SECONDS)
-
-        outcome = applied.verdict(samples)
-        real = [sample for sample in samples if sample is not None]
-        return outcome, (real[-1] if real else None)
-
-    def test_page_applied(self):
-        if WiseKioskCase.role != "bench":
-            raise RuntimeError(
-                f"test_page_applied requires role=bench, got {WiseKioskCase.role!r}")
-        self.addCleanup(self.target.run, "rm -f /home/root/.surf/script.js")
-
-        outcome, sample = None, None
-        for attempt in range(_APPLIED_ATTEMPTS):
-            outcome, sample = self._applied_attempt()
-            if not outcome.startswith("error:"):
-                break
-        else:
-            # The declared transport kind: run.sh's own infrastructure-
-            # failure path reads this exact state from the page line.
-            self.tc.extraresults[record.RECORD_KEY][f"page.{self.id()}"] = record.page_line(
-                nonce="", state=record.TRANSPORT_STATE, cards="-/-", faulted=0, unreachable=0)
-            raise RuntimeError(f"transport: {outcome} after {_APPLIED_ATTEMPTS} attempts")
-
-        self.tc.extraresults[record.RECORD_KEY][f"page.{self.id()}"] = record.page_line(
-            nonce=sample["nonce"], state=sample["state"], cards=sample["cards"],
-            faulted=sample["faulted"], unreachable=sample["unreachable"])
-
-        if outcome == "applied":
-            return
-        self.fail(outcome)
