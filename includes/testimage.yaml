@@ -17,8 +17,13 @@ local_conf_header:
     # required non-empty by testimage_sanity; unused
     TEST_SERVER_IP = "127.0.0.1"
 
+    # /work/local/keys is PIPELINE_KEYS_DIR's own mount (tools/kas-run.sh);
+    # the case's __file__-derived repo root is kas-container's separate
+    # /repo mount and cannot see it.
+    KIOSK_HMAC_KEY = "/work/local/keys/hmac.key"
+
     # do_testimage refreshes exactly these names into td from the live
     # datastore on every run, regardless of whether do_rootfs reran.
     # :append, not +=: += runs before testimage.bbclass's own ?= default
     # and would replace its five names outright, not add to them.
-    TESTIMAGE_UPDATE_VARS:append = " KIOSK_TARGET_ROLE KIOSK_TARGET_HOSTNAME"
+    TESTIMAGE_UPDATE_VARS:append = " KIOSK_TARGET_ROLE KIOSK_TARGET_HOSTNAME KIOSK_HMAC_KEY"

@@ -96,7 +96,13 @@ with a hand build.
 in the image — its queue job builds, installs on bench, reboots, runs the smoke test and rolls
 back.
 
-**The run record.** The suite's base class writes one record into `testresults.json`'s
+**The run record.** The suite's own inputs -- `KIOSK_TARGET_ROLE`, `KIOSK_TARGET_HOSTNAME` and
+`KIOSK_HMAC_KEY` -- arrive through `testimage`'s `env:` passthrough under the pipeline, or
+`tools/oe-test.sh`'s own resolution by hand; the case refuses outright if any is unset.
+`KIOSK_HMAC_KEY` names the key's path rather than letting the case derive it from its own
+`__file__`, since that resolves to kas-container's `/repo` mount, not `PIPELINE_KEYS_DIR`'s separate
+`/work/local/keys` mount (`tools/kas-run.sh`). The suite's base class then writes one record into
+`testresults.json`'s
 `extraresults` before any case's own assertions run: `tool` (the checkout's own commit and dirty
 state, and `argv`, identity-scrubbed), `board` (role, the live-hostname check,
 boot id, boot ordinal since the booted slot's install, uptime, start/end), `image` (the booted

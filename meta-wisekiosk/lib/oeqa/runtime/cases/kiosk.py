@@ -95,14 +95,20 @@ class WiseKioskCase(OERuntimeTestCase):
 
         role = (cls.td or {}).get("KIOSK_TARGET_ROLE") or os.environ.get("KIOSK_TARGET_ROLE")
         hostname = (cls.td or {}).get("KIOSK_TARGET_HOSTNAME") or os.environ.get("KIOSK_TARGET_HOSTNAME")
-        if not role or not hostname:
+        hmac_key_env = (cls.td or {}).get("KIOSK_HMAC_KEY") or os.environ.get("KIOSK_HMAC_KEY")
+        if not role or not hostname or not hmac_key_env:
             raise RuntimeError(
-                "KIOSK_TARGET_ROLE and KIOSK_TARGET_HOSTNAME must both be set -- "
-                "under testimage this is includes/testimage.yaml's env passthrough; "
-                "by hand, tools/oe-test.sh resolves them from local/device-identity.md")
+                "KIOSK_TARGET_ROLE, KIOSK_TARGET_HOSTNAME and KIOSK_HMAC_KEY must all be "
+                "set -- under testimage this is includes/testimage.yaml's env passthrough; "
+                "by hand, tools/oe-test.sh resolves them from local/device-identity.md and "
+                "<repo>/local/keys/hmac.key")
 
+        # The key's path is an input, like role and hostname, never
+        # derived from __file__: inside kas-container that resolves to
+        # the /repo mount, a different one from PIPELINE_KEYS_DIR's
+        # /work/local/keys (tools/kas-run.sh).
         repo = Path(__file__).resolve().parents[5]
-        hmac_key_path = repo / "local" / "keys" / "hmac.key"
+        hmac_key_path = Path(hmac_key_env)
         if not hmac_key_path.is_file():
             raise RuntimeError(f"no {hmac_key_path} -- run 'just pipeline-install' first")
 

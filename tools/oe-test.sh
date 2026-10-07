@@ -60,6 +60,7 @@ if [ "$KIOSK_TARGET_ROLE" != "bench" ]; then
     exit 1
 fi
 export KIOSK_TARGET_ROLE KIOSK_TARGET_HOSTNAME
+export KIOSK_HMAC_KEY="$KEY"
 
 # docs/testing.md § "The hand-run path" has the why.
 export PYTHONPATH="$POKY/meta/lib:$POKY/bitbake/lib:$ROOT/meta-wisekiosk/lib"
