@@ -72,6 +72,17 @@ booted_slot() {
         | sed -n "s/^RAUC_SYSTEM_BOOTED_BOOTNAME='\(.*\)'/\1/p"
 }
 
+# hex_read HOST PATH -- PATH's bytes on HOST as a hexdump -ve '1/1 "%02x"'
+# dump: busybox has no base64 applet and no long-option od, and hex is
+# the byte-safe transport the keyed hash needs. One pre-assembled string,
+# not separate ssh arguments: ssh joins separate command words with
+# spaces and the remote shell re-parses the result, which loses this
+# format string's quoting. docs/testing.md § "Running it" has the why.
+hex_read() {
+    # shellcheck disable=SC2029
+    ssh "${SSH_OPTS[@]}" "$1" "hexdump -ve '1/1 \"%02x\"' $2"
+}
+
 # wait_installer_idle HOST -- polls rauc's Installer.Operation over ssh,
 # sleeping 10s between tries, until it reports idle or 10 minutes of
 # wall-clock time have passed -- ssh's own connection timeout counts against
@@ -249,16 +260,13 @@ MAC_FILE="$PIPELINE_DRIVER/local/pipeline/bench-config.mac"
 EXPECTED_KIOSK_CONF_MAC=$(sed -n 's/^kiosk_conf_mac=//p' "$MAC_FILE")
 EXPECTED_CONFIG_MAC=$(sed -n 's/^config_mac=//p' "$MAC_FILE")
 
-# hexdump, not cat: busybox has no base64 applet and no long-option od,
-# and a hex dump is the byte-safe transport the keyed hash needs.
-# docs/testing.md § "Running it" has the why.
 HMAC_KEY="$PIPELINE_KEYS_DIR/hmac.key"
 OBSERVED_KIOSK_CONF_MAC=absent
-if OBSERVED_KIOSK_CONF_HEX=$(ssh "${SSH_OPTS[@]}" "$SSH_HOST" hexdump -ve '1/1 "%02x"' /data/config/kiosk.conf 2>/dev/null); then
+if OBSERVED_KIOSK_CONF_HEX=$(hex_read "$SSH_HOST" /data/config/kiosk.conf 2>/dev/null); then
     OBSERVED_KIOSK_CONF_MAC=$(printf '%s' "$OBSERVED_KIOSK_CONF_HEX" \
         | python3 "$TOOLS/pipeline/config-mac.py" "$HMAC_KEY")
 fi
-OBSERVED_CONFIG_JSON_HEX=$(ssh "${SSH_OPTS[@]}" "$SSH_HOST" hexdump -ve '1/1 "%02x"' /data/config/config.json)
+OBSERVED_CONFIG_JSON_HEX=$(hex_read "$SSH_HOST" /data/config/config.json)
 OBSERVED_CONFIG_MAC=$(printf '%s' "$OBSERVED_CONFIG_JSON_HEX" \
     | python3 "$TOOLS/pipeline/config-mac.py" "$HMAC_KEY")
 

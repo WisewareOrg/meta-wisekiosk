@@ -6,6 +6,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPORT="$HERE/pipeline/report-build.py"
 RUN_SH="$HERE/pipeline/run.sh"
+ACCEPT_SH="$HERE/pipeline/accept-bench-config.sh"
 RECORD_CHECK_PY="$HERE/pipeline/record-check.py"
 KIOSK_PY="$HERE/../meta-wisekiosk/lib/oeqa/runtime/cases/kiosk.py"
 RECORD_PY="$HERE/../meta-wisekiosk/lib/wisekiosk/record/__init__.py"
@@ -162,6 +163,49 @@ if grep -qF 'hexdump' "$RUN_SH" && grep -qF 'hexdump' "$KIOSK_PY"; then
 else
     bad "run.sh and kiosk.py disagree on the device transport for the keyed hashes"
 fi
+
+# --- ssh-quoting regression: ssh joins separate remote-command words
+# with spaces, and the remote shell re-parses the result -- a format
+# string quoted for *local* bash does not survive that round trip unless
+# the whole command reaches ssh as one argument. Simulates exactly that
+# join, through sh -c, never by calling hexdump with its own argv (which
+# always works and would hide the bug).
+HEXFIXTURE="$TOP/hexfixture-quoting"
+printf 'KIOSK_INSPECTOR=0\n' > "$HEXFIXTURE"
+
+simulate_ssh_remote_command() {
+    # ssh concatenates its remaining arguments with spaces and hands the
+    # result to the remote shell for re-parsing -- "$*" is that exact join.
+    sh -c "$*"
+}
+
+if simulate_ssh_remote_command hexdump -ve '1/1 "%02x"' "$HEXFIXTURE" > /dev/null 2>&1; then
+    bad "ssh-quoting: the split-argv form unexpectedly succeeded -- this check no longer isolates the bug"
+else
+    ok "ssh-quoting: the split-argv form fails under ssh's own join (the bug is real)"
+fi
+
+FIXED_CMD="hexdump -ve '1/1 \"%02x\"' $HEXFIXTURE"
+GOT=$(simulate_ssh_remote_command "$FIXED_CMD")
+WANT=$(hexdump -ve '1/1 "%02x"' "$HEXFIXTURE")
+if [ -n "$GOT" ] && [ "$GOT" = "$WANT" ]; then
+    ok "ssh-quoting: the one-string form survives ssh's join and decodes correctly"
+else
+    bad "ssh-quoting: the one-string form does not survive ssh's join" "got=$GOT want=$WANT"
+fi
+
+for f in "$RUN_SH" "$ACCEPT_SH"; do
+    HEX_READ_DEFS=$(grep -c '^hex_read() {' "$f")
+    # The single quotes are the point: this is a literal fragment to
+    # match in the target file, not an expression to expand here.
+    # shellcheck disable=SC2016
+    if [ "$HEX_READ_DEFS" -eq 1 ] && grep -qF '"hexdump -ve' "$f"; then
+        ok "ssh-quoting: $(basename "$f") defines hex_read once, as one quoted remote command"
+    else
+        bad "$(basename "$f") does not define hex_read exactly once as one quoted remote command" \
+            "hex_read definitions=$HEX_READ_DEFS"
+    fi
+done
 
 # --- F7: the shell path (hexdump | config-mac.py) agrees with hashing the
 # file's bytes directly in Python, for real LF/CRLF/trailing-space content --
