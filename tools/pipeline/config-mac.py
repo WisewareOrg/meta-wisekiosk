@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Keyed hash of a device-transported hex dump, under the key named on the
-command line. The same decode oeqa.runtime.cases.kiosk.record uses for the
-run record, so the two agree on a boundary value by construction, not by copy.
+command line. The same decode framework.record uses for the run record, so
+the two agree on a boundary value by construction, not by copy.
 
     ssh ... hexdump -ve '1/1 "%02x"' /data/config/config.json \\
         | python3 tools/pipeline/config-mac.py <keyfile>
@@ -13,8 +13,8 @@ rc 2 if <keyfile> is missing or cannot be read.
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "meta-wisekiosk" / "lib"))
-from oeqa.runtime.cases.kiosk import record  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "meta-wisekiosk" / "lib" / "oeqa" / "runtime"))
+from framework import record  # noqa: E402
 
 
 def main():

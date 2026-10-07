@@ -1,4 +1,4 @@
-from kiosk.case import WiseKioskCase
+from framework.base import WiseKioskCase
 
 from .verdict import verdict as render_verdict
 

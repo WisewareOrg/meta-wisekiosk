@@ -1,6 +1,6 @@
 import time
 
-from kiosk.case import (
+from framework.base import (
     WiseKioskCase, BOUND_SECONDS, POLL_INTERVAL_SECONDS, POLL_ATTEMPT_TIMEOUT_SECONDS,
 )
 

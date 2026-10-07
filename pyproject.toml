@@ -19,19 +19,21 @@ dev = [
 # defined in one place. :skip-covered collapses a fully-covered file to the summary line instead
 # of listing it; a file under 100% still lists its missing lines.
 addopts = ["--cov", "--cov-report=term-missing:skip-covered"]
-testpaths = ["meta-wisekiosk/lib/oeqa/runtime/cases"]
-pythonpath = ["meta-wisekiosk/lib"]
+testpaths = ["meta-wisekiosk/lib/oeqa/runtime"]
+pythonpath = ["meta-wisekiosk/lib", "meta-wisekiosk/lib/oeqa/runtime"]
 
 [tool.coverage.run]
-source = ["meta-wisekiosk/lib/oeqa/runtime/cases"]
+source = ["meta-wisekiosk/lib/oeqa/runtime"]
 branch = true
 omit = [
-    # Every case.py imports oeqa, unavailable on the host: this tier's
-    # population is the pure verdict/record modules beside it, never the
-    # oeqa case itself -- meta-wisekiosk/lib/oeqa/runtime/cases/README.md
-    # has the why.
+    # Every case.py and framework/base.py imports oeqa, unavailable on the
+    # host: this tier's population is the pure verdict/record modules
+    # beside them, never the oeqa case or base class itself --
+    # meta-wisekiosk/lib/oeqa/runtime/cases/README.md has the why.
     "meta-wisekiosk/lib/oeqa/runtime/cases/*/case.py",
     "meta-wisekiosk/lib/oeqa/runtime/cases/*/tests/*",
+    "meta-wisekiosk/lib/oeqa/runtime/framework/base.py",
+    "meta-wisekiosk/lib/oeqa/runtime/framework/tests/*",
 ]
 
 [tool.coverage.report]

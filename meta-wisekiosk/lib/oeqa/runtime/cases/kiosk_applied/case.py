@@ -1,8 +1,8 @@
 import time
 from pathlib import Path
 
-from kiosk import record
-from kiosk.case import WiseKioskCase, POLL_ATTEMPT_TIMEOUT_SECONDS
+from framework import record
+from framework.base import WiseKioskCase, POLL_ATTEMPT_TIMEOUT_SECONDS
 
 from .verdict import read_sample, verdict as applied_verdict
 

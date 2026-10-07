@@ -65,7 +65,7 @@ class WiseKioskCase(OERuntimeTestCase):
         # derived from __file__: inside kas-container that resolves to
         # the /repo mount, a different one from PIPELINE_KEYS_DIR's
         # /work/local/keys (tools/kas-run.sh).
-        repo = Path(__file__).resolve().parents[6]
+        repo = Path(__file__).resolve().parents[5]
         hmac_key_path = Path(hmac_key_env)
         if not hmac_key_path.is_file():
             raise RuntimeError(f"no {hmac_key_path} -- run 'just pipeline-install' first")
