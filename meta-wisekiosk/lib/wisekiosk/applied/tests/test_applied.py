@@ -1,13 +1,14 @@
 """Specifies wisekiosk.applied: parse_title over surf's real window-title shape, and verdict over
-a sequence of parsed samples (design.md section 2.5, the brief's step1).
+a sequence of parsed samples (docs/testing.md section "Running it": the run record's page.<case id>
+line and its no-leak guarantee).
 
 surf's own updatetitle() (vendored surf.c, read directly) renders "[<progress>%] <toggles>:
 <pagestats> | <title>" while progress != 100, and drops the leading "[NN%] " bracket entirely once
 progress reaches 100 -- "<toggles>:<pagestats> | <title>". Both forms are fixtures here, not just
 the bracketed one. surf's own built-in paint-timing script (same source) sets
 document.title = 'T ' + performance.timing.navigationStart + ' ' + Math.round(performance.now()),
-which then gets the same surf-applied wrapping -- the exact "T <ms> <ms>" shape applied/probe.js's
-own module docstring and the brief call out as not-probe.
+which then gets the same surf-applied wrapping -- the exact "T <ms> <ms>" shape parse_title must
+treat as not-probe (tested below), distinct from our own probe's "WK1 " payload.
 
 No device, no DOM -- every title and every sample list is constructed.
 """

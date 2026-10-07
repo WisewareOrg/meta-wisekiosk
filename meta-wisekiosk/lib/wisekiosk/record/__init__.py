@@ -1,6 +1,6 @@
 """The run record: R-line builders and the parsers/scrubbers that feed them
-(design.md section 4). Every function here is pure: text or bytes in, text
-or a tuple out, no board, no file, no network.
+(docs/testing.md names what the record carries). Every function here is
+pure: text or bytes in, text or a tuple out, no board, no file, no network.
 """
 import datetime
 import hashlib

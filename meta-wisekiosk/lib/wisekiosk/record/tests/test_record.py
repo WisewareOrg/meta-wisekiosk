@@ -1,4 +1,5 @@
-"""Specifies wisekiosk.record: the run record's parsers and R-line builders (design.md section 4).
+"""Specifies wisekiosk.record: the run record's parsers and R-line builders
+(docs/testing.md section "Running it": "The run record.").
 
 Every case is a constructed string or bytes value -- no board, no subprocess, no network. The
 parsers are each a faithful port of an existing shell fragment (tools/reproducibility-gate.sh's
@@ -288,10 +289,10 @@ def test_asset_hashes_none_is_empty():
 
 # ----------------------------------------------------------------- config_summary
 # Grounded in WiseKiosk's real shipped config.json shape (modules/region/options).
-# design.md section 4: the summary publishes the rest of the file's shape once
-# coordinates and park identifiers are removed -- so it is asserted by presence of
-# the rest and absence of exactly those two leak vectors, never by its own exact
-# serialisation.
+# docs/testing.md section "Running it" ("The run record."): the app line carries
+# config.json's "location-free summary", no coordinate or park identifier -- so
+# this is asserted by presence of the rest and absence of exactly those two leak
+# vectors, never by its own exact serialisation.
 
 REAL_SHAPED_CONFIG = """{
   "edge_band": 8,
@@ -320,14 +321,14 @@ def test_config_summary_excludes_coordinates_and_park_identifiers():
 
 
 def test_config_summary_has_no_raw_space():
-    # The R-line grammar (design.md section 4) is space-delimited k=v pairs; a
-    # space inside config= would corrupt the line it is embedded in.
+    # The line builders below render space-delimited k=v pairs; a space inside
+    # config= would corrupt the line it is embedded in.
     assert " " not in config_summary(REAL_SHAPED_CONFIG)
 
 
 # ------------------------------------------------------------------- line builders
-# design.md section 4, verbatim: each builder renders exactly one R line from
-# keyword arguments and interprets nothing.
+# Each builder renders exactly one record line from keyword arguments and
+# interprets nothing (docs/testing.md section "Running it": "The run record.").
 
 def test_tool_line():
     got = tool_line(name="oe-test", tool_commit=SHA, dirty=0, argv="oe-test runtime <target>")
@@ -378,15 +379,15 @@ def test_page_line():
 
 
 # ------------------------------------------------------------ the whole record
-# design.md section 4 / brief: a record built from inputs carrying an address, a
-# hostname, a key and config.json's coordinates and park identifiers must leak
-# none of them. No new function -- this composes the ones proven individually
-# above, the way a case's setUpClass would.
+# docs/testing.md section "Running it" ("The run record."): "No address, hostname,
+# key material, coordinate or park identifier ever reaches it." A record built
+# from inputs carrying all of them must leak none. No new function -- this
+# composes the ones proven individually above, the way a case's setUpClass would.
 
 def test_record_never_leaks_identity_or_the_hmac_key():
-    # The hostname is not asserted here: design.md section 4 keeps it out structurally (no R-line
-    # field carries one at all -- it is compared live in setUpClass, never stored), so there is no
-    # scrub to exercise. The address is assembled via _dotted, never a literal (see scrub_argv
+    # The hostname is not asserted here: no record line carries one at all -- it
+    # is compared live in setUpClass, never stored -- so there is no scrub to
+    # exercise. The address is assembled via _dotted, never a literal (see scrub_argv
     # section above).
     address, key = _dotted(192, 168, 1, 77), b"topsecretkey"
 

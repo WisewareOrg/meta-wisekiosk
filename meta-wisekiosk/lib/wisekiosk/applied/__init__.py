@@ -1,5 +1,5 @@
-"""The applied-page title parser and verdict (design.md section 2.5). Pure:
-no device, no DOM -- every title and sample list is a plain Python value.
+"""The applied-page title parser and verdict. Pure: no device, no DOM --
+every title and sample list is a plain Python value.
 """
 
 _MARKER = "WK1 "
