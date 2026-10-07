@@ -6,9 +6,9 @@ result at that tier does **not** let you conclude.
 | Tier | Guarantees | Runs | What green does not say |
 |---|---|---|---|
 | Static (`just guards`, CI) | Repository invariants hold: no secret or identity reaches a tracked file, shell and YAML parse, every wiring self-test passes. | Every commit (pre-commit hook), every PR and merge-group commit (CI). | Anything about a Yocto build. This tier never invokes bitbake. |
-| Host (`just test`) | `meta-wisekiosk/lib/wisekiosk`'s evaluator functions — the run record's builders and parsers, the render verdict, the applied-page title parser and verdict — behave as their constructed-input tests say, at a 100% line and branch coverage floor. | Every commit (pre-commit hook), every PR and merge-group commit (CI). | That a board actually produces the input these functions expect. That contract is proven separately, by a case's own acceptance runs on bench; `meta-wisekiosk/lib/oeqa`'s cases are transport only and are outside this tier's coverage population by construction. |
+| Host (`just test`) | Every case package's `verdict.py`/`record.py` under `meta-wisekiosk/lib/oeqa/runtime/cases/` — the run record's builders and parsers, the render verdict, the applied-page title parser and verdict — behave as their constructed-input tests say, at a 100% line and branch coverage floor. | Every commit (pre-commit hook), every PR and merge-group commit (CI). | That a board actually produces the input these functions expect. That contract is proven separately, by a case's own acceptance runs on bench; each package's `case.py` is transport only and is outside this tier's coverage population by construction. |
 | Build (`just build`) | The kas config resolves and bitbake completes: an image artifact exists. | On demand, locally — never in CI, which does not build. | Whether the image differs from the last one, whether it boots, whether it serves anything. |
-| Device smoke (`testimage` in the pipeline, or `just oe-test <target>` by hand) | The backend unit is active, `/healthz` answers, the page serves, WebKit still composites on the GPU, the page is still painting, and the page is applied as the application designs it — on **one** physical device, one boot. Both run the identical `meta-wisekiosk/lib/oeqa/runtime/cases/kiosk.py` suite and write the same run record. | The pipeline, once per queue job, after an OTA install (never a flash). By hand, any time, against any board `local/device-identity.md` names — never prod, which the suite's own hostname check refuses. | The shared boot partition (`config.txt`, `cmdline.txt`, `boot.scr`, and `uboot.env` apart from RAUC's own boot-selection variables) — an OTA writes only the slot rootfs it boots, which does carry the kernel. The RAUC slot layout, which an OTA never touches, or a second boot. |
+| Device smoke (`testimage` in the pipeline, or `just oe-test <target>` by hand) | The backend unit is active, `/healthz` answers, the page serves, WebKit still composites on the GPU, the page is still painting, and the page is applied as the application designs it — on **one** physical device, one boot. Both run the identical six `meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_*` packages and write the same run record. | The pipeline, once per queue job, after an OTA install (never a flash). By hand, any time, against any board `local/device-identity.md` names — never prod, which the suite's own hostname check refuses. | The shared boot partition (`config.txt`, `cmdline.txt`, `boot.scr`, and `uboot.env` apart from RAUC's own boot-selection variables) — an OTA writes only the slot rootfs it boots, which does carry the kernel. The RAUC slot layout, which an OTA never touches, or a second boot. |
 | OTA/rollback (the queue run) | Install, reboot, and — for a queue run — mark-bad, reboot and land back on the baseline slot all completed, and the device answered again each time. | Every queue job. | Whether the slot rolled back *into* would itself survive a fresh install — it was booted back into, not reinstalled. There are only two slots. |
 
 ## Running it
@@ -123,7 +123,7 @@ no long options and no `base64` applet exists either, and hex is the one transpo
 capture's trailing-newline handling cannot silently lose a byte from, so every reader that computes
 one of these hashes -- the record, the `/data` precondition below, and
 `pipeline-accept-bench-config` -- decodes the same dump the same way, through `config-mac.py` on
-the shell side and `wisekiosk.record.decode_hex_dump` directly on the Python side. No address,
+the shell side and `oeqa.runtime.cases.kiosk.record.decode_hex_dump` directly on the Python side. No address,
 hostname, key material, coordinate or park identifier ever reaches it.
 It lands wherever the harness writes `testresults.json` — under the driver at
 `local/pipeline/runs/<sha>/testresults.json` for a pipeline job, under the path a hand run names
@@ -211,8 +211,8 @@ layer's oeqa extension — by walking every such package under `BBPATH` — and 
 `--run-tests` select a package by its own top-level name, proven directly against this pinned
 loader and against a real board rather than assumed from its source.
 
-`just oe-test <target-ip>` runs the identical suite — `meta-wisekiosk/lib/oeqa/runtime/cases`, over
-the shared `meta-wisekiosk/lib/wisekiosk` package — with `oe-test runtime`, no bitbake, no OTA,
+`just oe-test <target-ip>` runs the identical suite — the six `meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_*`
+packages, each with the pure `verdict.py`/`record.py` beside the `case.py` it serves — with `oe-test runtime`, no bitbake, no OTA,
 against any board already built and booted. `tools/oe-test.sh` resolves `KIOSK_TARGET_ROLE` and
 `KIOSK_TARGET_HOSTNAME` from `local/device-identity.md` (the role whose recorded address is
 `<target-ip>`, and bench's own recorded hostname — the suite refuses any board that is not bench
@@ -231,6 +231,11 @@ leaves that file beside the run's own record instead of in the repository root.
 
 ## The render and applied cases
 
+Each lives in its own package: `kiosk_render/` holds `test_render_advancing` beside the verdict it
+calls, `kiosk_applied/` holds `test_page_applied` beside `probe.js` and the title parser/verdict it
+calls — `meta-wisekiosk/lib/oeqa/runtime/cases/README.md` states the layout every case package
+follows.
+
 `test_render_advancing` captures a small region (`560x300+220+20`, aimed at the clock's own
 seconds field) rather than the whole screen: a full-screen capture costs about 8 s per frame on
 this board against roughly 1.4-2.4 s for the crop, and two full frames plus the interval would be
@@ -238,7 +243,7 @@ load on the thing being measured, not a measurement of it. The crop assumes the 
 has a moving element inside the captured region; today that element is the clock's seconds field.
 `import`'s own stderr is kept, not discarded, and folded into the error reason when `import` itself
 fails, rather than left to read "exited non-zero" with no further detail. The two captures are
-judged by `wisekiosk.render.verdict`, a port of the same probe's own guards.
+judged by `kiosk_render.verdict.verdict`, a port of the same probe's own guards.
 
 `test_page_applied` reads the page's state back through `document.title`, because surf's console
 does not reach the journal on this image: the DOM probe writes its state there on every finished

@@ -50,7 +50,7 @@ just verify         # every documentation check: cross-references + docs-vs-imag
 just links          # cross-references only (this is the one CI requires)
 just guards         # repository invariants: secrets, identity, syntax, wiring;
                     # runs the device guard's and the CVE tools' self-tests too
-just test           # pytest over meta-wisekiosk/lib/wisekiosk, 100% coverage floor
+just test           # pytest over meta-wisekiosk/lib/oeqa/runtime/cases, 100% coverage floor
 just install-hooks  # once per clone: point core.hooksPath at .githooks
 bash .claude/hooks/guard-test.sh   # the device guard's self-test on its own
 ```
