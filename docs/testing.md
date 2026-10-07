@@ -6,8 +6,9 @@ result at that tier does **not** let you conclude.
 | Tier | Guarantees | Runs | What green does not say |
 |---|---|---|---|
 | Static (`just guards`, CI) | Repository invariants hold: no secret or identity reaches a tracked file, shell and YAML parse, every wiring self-test passes. | Every commit (pre-commit hook), every PR and merge-group commit (CI). | Anything about a Yocto build. This tier never invokes bitbake. |
+| Host (`just test`) | `meta-wisekiosk/lib/wisekiosk`'s evaluator functions — the run record's builders and parsers, the render verdict, the applied-page title parser and verdict — behave as their constructed-input tests say, at a 100% line-coverage floor. | Every commit (pre-commit hook), every PR and merge-group commit (CI). | That a board actually produces the input these functions expect. That contract is proven separately, by a case's own acceptance runs on bench; `meta-wisekiosk/lib/oeqa`'s cases are transport only and are outside this tier's coverage population by construction. |
 | Build (`just build`) | The kas config resolves and bitbake completes: an image artifact exists. | On demand, locally — never in CI, which does not build. | Whether the image differs from the last one, whether it boots, whether it serves anything. |
-| Device smoke (`testimage` + stages) | The backend unit is active, `/healthz` answers, the page serves, WebKit still composites on the GPU, the page is still painting — on **one** physical device (`PIPELINE_TARGET`), **one** boot, after an OTA install (never a flash). | The pipeline, once per run. | The shared boot partition (`config.txt`, `cmdline.txt`, `boot.scr`, and `uboot.env` apart from RAUC's own boot-selection variables) — an OTA writes only the slot rootfs it boots, which does carry the kernel. The RAUC slot layout, which an OTA never touches, or a second boot. |
+| Device smoke (`testimage` in the pipeline, or `just oe-test <target>` by hand) | The backend unit is active, `/healthz` answers, the page serves, WebKit still composites on the GPU, the page is still painting, and the page is applied as the application designs it — on **one** physical device, one boot. Both run the identical `meta-wisekiosk/lib/oeqa/runtime/cases/kiosk.py` suite and write the same run record. | The pipeline, once per queue job, after an OTA install (never a flash). By hand, any time, against any board `local/device-identity.md` names — never prod, which the suite's own hostname check refuses. | The shared boot partition (`config.txt`, `cmdline.txt`, `boot.scr`, and `uboot.env` apart from RAUC's own boot-selection variables) — an OTA writes only the slot rootfs it boots, which does carry the kernel. The RAUC slot layout, which an OTA never touches, or a second boot. |
 | OTA/rollback (the queue run) | Install, reboot, and — for a queue run — mark-bad, reboot and land back on the baseline slot all completed, and the device answered again each time. | Every queue job. | Whether the slot rolled back *into* would itself survive a fresh install — it was booted back into, not reinstalled. There are only two slots. |
 
 ## Running it
@@ -19,6 +20,8 @@ just pipeline-on                     # enable the timer
 just pipeline-off                    # disable it
 just pipeline-status                 # timer state + any DISABLED reason
 just pipeline-run                    # one job by hand: the queue head, or a missing baseline
+just pipeline-run-ref <ref>          # dev tool: build and run <ref> from this checkout, posting nothing
+just pipeline-accept-bench-config    # record bench's current /data as the accepted baseline
 just pipeline-watch                  # live view of the merge queue and the current run; q quits
 ```
 
@@ -85,6 +88,34 @@ with a hand build.
 in the image — its queue job builds, installs on bench, reboots, runs the smoke test and rolls
 back.
 
+**The run record.** The suite's base class writes one record into `testresults.json`'s
+`extraresults` before any case's own assertions run: `tool` (the checkout's own commit and dirty
+state, and `argv`, identity-scrubbed), `board` (role, the live-hostname check, boot id, boot
+ordinal since the booted slot's install, uptime, start/end), `image` (the booted slot's
+`/etc/buildinfo` commit and slot), `app` (the served bundle's asset hashes, a keyed hash of
+`config.json`, and its location-free summary), `sut` (the browser process, restart count, keyed
+`kiosk.conf` hash, mode, kernel, cpufreq cap, timesync state), and one `page.<case id>` line per
+DOM-probe case. No address, hostname, key material, coordinate or park identifier ever reaches it.
+It lands wherever the harness writes `testresults.json` — under the driver at
+`local/pipeline/runs/<sha>/testresults.json` for a pipeline job, under the path a hand run names
+for `just oe-test`. `run.sh` reads it back before posting: a missing or malformed record, an
+`image=` that is not `$SHA`, or `dirty=1`, is the job's own failure, never posted as a pass.
+`report-build.py` renders the record's lines verbatim under their own heading, never as case rows,
+so a later change to the record's shape needs no change to this renderer.
+
+**The `/data` precondition.** Before every job, `run.sh` compares bench's `/data/config/kiosk.conf`
+and `/data/config/config.json` keyed hashes against `just pipeline-accept-bench-config`'s last
+recorded values, and refuses the job on any difference — a seed a prior run's own case left behind,
+or a hand edit, is an environment problem a person accepts, not a silent comparison against a stale
+baseline. `pipeline-accept-bench-config` needs the timer off; it prints both hashes and
+`kiosk.conf`'s key names, never its values.
+
+**`pipeline-run-ref <ref>` is a development tool, not a path to `main`.** Run from a branch
+checkout with the timer off, it builds and runs that ref's own head through the same stages as a
+queue job — using that checkout's own `run.sh`, never the driver's — and posts no status, writes no
+PR comment and tags no baseline, because no merge-queue entry is under test. The merge gate still
+reads only `main`'s queue, judged by `main`'s driver.
+
 **The baseline tag advances on every successful queue job.** A queue job that posts `success` —
 on a device run whose smoke test passes — tags its own buildhistory commit `baseline/<sha>`; an
 existing tag is left as is. A baseline build
@@ -120,11 +151,36 @@ unreachable, the attempt is logged and the run still finishes. A missing buildhi
 baseline commit is not a failure either: it selects a baseline build for that commit instead of a job
 run.
 
-`PIPELINE_TARGET` or `PIPELINE_TARGET_HOSTNAME` unset refuses the run outright (rc 2) without
-touching the timer — a `pipeline.env` configuration problem, like any other required variable
-missing, not an infrastructure failure. More than one merge-queue ref based on `origin/main`'s tip
-refuses the same way (rc 2, timer untouched): the ambiguity is visible only in the timer's own log,
-with no DISABLED file and no PR comment.
+`PIPELINE_TARGET`, `PIPELINE_TARGET_HOSTNAME` or `PIPELINE_TARGET_ROLE` unset refuses the run outright
+(rc 2) without touching the timer — a `pipeline.env` configuration problem, like any other required
+variable missing, not an infrastructure failure. More than one merge-queue ref based on
+`origin/main`'s tip refuses the same way (rc 2, timer untouched): the ambiguity is visible only in
+the timer's own log, with no DISABLED file and no PR comment.
 
 A new host needs a clone, the dev tree's `local/device-identity.md`, `gh auth login`, the host user's
 own ssh identity already accepted as root on the device, and `just pipeline-install`.
+
+## The hand-run path
+
+`just oe-test <target-ip>` runs the identical suite — `meta-wisekiosk/lib/oeqa/runtime/cases`, over
+the shared `meta-wisekiosk/lib/wisekiosk` package — with `oe-test runtime`, no bitbake, no OTA,
+against any board already built and booted. `tools/oe-test.sh` resolves `KIOSK_TARGET_ROLE` and
+`KIOSK_TARGET_HOSTNAME` from `local/device-identity.md` (the role whose recorded address is
+`<target-ip>`, and bench's own recorded hostname — the suite refuses any board that is not bench
+regardless), refuses with a message if the HMAC key, the identity file, `sources/poky`, or the
+last build's deploy artifacts are missing, and writes its own run record under gitignored
+`local/oe-test/<timestamp>/`. It never touches RAUC, never installs, never reboots: only a case's
+own stimulus (arming the DOM probe, stopping a service) changes anything on the board, and each
+case restores what it changed.
+
+## The render and applied cases
+
+`test_render_advancing` captures the same default region `tools/kiosk-render-check.sh` already
+uses — that script's own header has the geometry's rationale — and judges the two captures with
+`wisekiosk.render.verdict`, a port of the script's own guards.
+
+`test_page_applied` reads the page's state back through `document.title`, because surf's console
+does not reach the journal on this image: the DOM probe writes its state there on every finished
+load and every 5 s after, and the case reads it back over ssh with `xwininfo -tree` (surf sets
+override-redirect, so its window carries no `_NET_*` properties and is absent from the client list)
+and `xprop`'s `WM_NAME`, the same channel `kiosk-bootprof`'s `measure-surf.sh` already reads.

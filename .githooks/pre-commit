@@ -6,8 +6,8 @@
 # checkouts do not have, so it would print a skip banner on every commit. It is
 # a local gate, `just image`, run by hand after a build.
 #
-# Both checks run even when the first fails, matching `just verify`: two
-# independent findings are worth more than the first one twice.
+# Every check below runs even when an earlier one fails, matching `just
+# verify`: independent findings are worth more than the first one twice.
 rc=0
 
 # Resolve the repo .venv python the way tools/ci-guards.sh does: a git hook
@@ -46,4 +46,5 @@ tools/ci-guards.sh || rc=1
 # rather than a pass. ci-guards guard 11 asserts this call is still here, so
 # deleting it fails the guards rather than going quiet.
 "$py" tools/scrub-identity.py --check || rc=1
+just test || rc=1
 exit $rc

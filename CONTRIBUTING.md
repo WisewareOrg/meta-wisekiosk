@@ -50,16 +50,17 @@ just verify         # every documentation check: cross-references + docs-vs-imag
 just links          # cross-references only (this is the one CI requires)
 just guards         # repository invariants: secrets, identity, syntax, wiring;
                     # runs the device guard's and the CVE tools' self-tests too
+just test           # pytest over meta-wisekiosk/lib/wisekiosk, 100% coverage floor
 just install-hooks  # once per clone: point core.hooksPath at .githooks
 bash .claude/hooks/guard-test.sh   # the device guard's self-test on its own
 ```
 
 CI runs [`tools/ci-guards.sh`](tools/ci-guards.sh),
-[`tools/scrub-identity.py`](tools/scrub-identity.py) `--check` and
-[`tools/doc-links.py`](tools/doc-links.py). The pre-commit hook runs the same three, so a commit
-cannot pass locally and fail there. `just image` and `just verify`'s second half need a populated
-`build/` and are local-only: CI never builds, and a required check that skips on every run is noise
-rather than a gate.
+[`tools/scrub-identity.py`](tools/scrub-identity.py) `--check`,
+[`tools/doc-links.py`](tools/doc-links.py) and `just test`. The pre-commit hook runs the same four,
+so a commit cannot pass locally and fail there. `just image` and `just verify`'s second half need a
+populated `build/` and are local-only: CI never builds, and a required check that skips on every run
+is noise rather than a gate.
 
 `tools/scrub-identity.py --check` has two halves and says which ran. The pattern half needs no
 configuration and runs everywhere. The known-value half reads `local/device-identity.md`, which is
