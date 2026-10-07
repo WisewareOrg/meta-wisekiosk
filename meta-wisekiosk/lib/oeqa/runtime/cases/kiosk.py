@@ -254,6 +254,12 @@ class WiseKioskTest(WiseKioskCase):
         return applied.read_sample(output)
 
     def _applied_attempt(self):
+        # The restart gets whatever remains of this one 90 s deadline, not
+        # its own short cut-off: a slow restart shows up as the attempt's
+        # own timeout (then the retry, then error:transport), never as a
+        # truncated restart silently misread as a deploy failure.
+        deadline = time.time() + _APPLIED_DEADLINE_SECONDS
+
         # A deploy or transport failure here takes the same retry path as
         # a probe failure: the caller only ever sees an "error:*" outcome.
         try:
@@ -263,13 +269,12 @@ class WiseKioskTest(WiseKioskCase):
                 return "error:deploy", None
             self.target.copyTo(str(_PROBE_SRC), "/home/root/.surf/script.js")
             restart_status, _ = self.target.run(
-                "systemctl restart kiosk.service", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
+                "systemctl restart kiosk.service", timeout=int(max(1, deadline - time.time())))
             if restart_status != 0:
                 return "error:deploy", None
         except Exception:
             return "error:deploy", None
 
-        deadline = time.time() + _APPLIED_DEADLINE_SECONDS
         samples = []
         while True:
             samples.append(self._read_applied_sample())

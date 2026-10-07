@@ -18,6 +18,7 @@ collects for itself.
 - `applied/` — the title parser and the applied verdict, plus `probe.js`, the DOM probe surf
   evaluates (no recipe; the case deploys it with `copyTo`).
 
-Every function here is certified against constructed inputs, never against a sample captured from a
-board: the contract between what the device emits and what a function expects is proven separately,
-by the case's own acceptance runs on bench. `just test` holds this package to a 100% coverage floor.
+Every function here is certified against constructed or scrubbed board-captured inputs -- never an
+invented device-output shape: the contract between what the device emits and what a function
+expects is proven separately, by the case's own acceptance runs on bench. `just test` holds this
+package to a 100% coverage floor.
