@@ -5,6 +5,8 @@ header:
 env:
   TEST_TARGET_IP: ""
   OEQA_JSON_RESULT_DIR: ""
+  KIOSK_TARGET_ROLE: ""
+  KIOSK_TARGET_HOSTNAME: ""
 
 local_conf_header:
   testimage: |

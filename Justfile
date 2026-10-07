@@ -140,6 +140,11 @@ verify:
 links:
     {{py}} tools/doc-links.py
 
+[group('check')]
+[doc("Run the pytest suite over meta-wisekiosk/lib/wisekiosk (100% coverage floor)")]
+test:
+    uv run --frozen --group dev pytest
+
 # What the prose says the image ships, against what it ships. Needs a populated
 # build/ rootfs and is therefore local-only -- CI never builds, so wiring it
 # into a required check would mean a permanently skipping gate.
@@ -204,7 +209,12 @@ testimage ssh_dir=env('PIPELINE_SSH_DIR', ''):
         echo "testimage needs ssh_dir (or PIPELINE_SSH_DIR) and TEST_TARGET_IP set -- refusing" >&2
         exit 2
     fi
-    KAS_RUN_ENV="TEST_TARGET_IP OEQA_JSON_RESULT_DIR" tools/kas-run.sh --ssh-dir {{ssh_dir}} build {{config}}:includes/testimage.yaml -c testimage
+    KAS_RUN_ENV="TEST_TARGET_IP OEQA_JSON_RESULT_DIR KIOSK_TARGET_ROLE KIOSK_TARGET_HOSTNAME" tools/kas-run.sh --ssh-dir {{ssh_dir}} build {{config}}:includes/testimage.yaml -c testimage
+
+[group('audit')]
+[doc("Run the wisekiosk oeqa suite by hand against <target-ip>, no bitbake, no OTA")]
+oe-test target:
+    tools/oe-test.sh {{target}}
 
 # Write per-site config to a device's /data. The image carries none of it.
 [group('provision')]
