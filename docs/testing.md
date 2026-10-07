@@ -48,9 +48,11 @@ which every host needs once regardless of the pipeline. `pipeline-install` creat
 - `wisekiosk-pipeline/tree` — a second, detached checkout of the same repository; the tree under test.
 - `wisekiosk-pipeline/driver/local/device-identity.md` — a symlink to the dev tree's own copy;
   `tools/scrub-identity.py --filter` is the only thing that reads it, when a run posts its report.
-- `wisekiosk-pipeline/tree/local/keys` — a real, empty directory. The fleet signing key is bind-mounted
-  read-only into the build container from the dev tree's own `local/keys` (`PIPELINE_KEYS_DIR` below);
-  it is never copied, and the driver checkout, which never runs bitbake, gets no keys dir at all.
+- `wisekiosk-pipeline/tree/local/keys` — a real, empty directory. The fleet signing key and
+  `hmac.key` both live in the dev tree's own `local/keys` (`PIPELINE_KEYS_DIR` below), bind-mounted
+  read-only into the build container at `/work/local/keys`; the tree checkout sees them only as
+  that mount, and neither file is ever copied into it. The driver checkout, which never runs
+  bitbake, reads `hmac.key` straight from `PIPELINE_KEYS_DIR` and has no keys directory of its own.
 - `.config/wisekiosk/pipeline.env` — `PIPELINE_DRIVER`, `PIPELINE_TREE`,
   `PIPELINE_SSH_DIR`, `PIPELINE_KEYS_DIR` (the dev tree's own `local/keys`),
   `PIPELINE_TARGET` (the device's address; required, no default), `PIPELINE_TARGET_HOSTNAME` (recorded
@@ -90,16 +92,31 @@ back.
 
 **The run record.** The suite's base class writes one record into `testresults.json`'s
 `extraresults` before any case's own assertions run: `tool` (the checkout's own commit and dirty
-state, and `argv`, identity-scrubbed), `board` (role, the live-hostname check, boot id, boot
-ordinal since the booted slot's install, uptime, start/end), `image` (the booted slot's
-`/etc/buildinfo` commit and slot), `app` (the served bundle's asset hashes, a keyed hash of
-`config.json`, and its location-free summary), `sut` (the browser process, restart count, keyed
-`kiosk.conf` hash, mode, kernel, cpufreq cap, timesync state), and one `page.<case id>` line per
-DOM-probe case. No address, hostname, key material, coordinate or park identifier ever reaches it.
+state, and `argv`, identity-scrubbed), `board` (role, the live-hostname check,
+boot id, boot ordinal since the booted slot's install, uptime, start/end), `image` (the booted
+slot's `/etc/buildinfo` commit and slot), `app` (the served bundle's asset hashes, a keyed hash of
+`config.json`, and its location-free summary), `sut` (the browser process, restart count, its own
+cmdline hash, WebKit's env overrides, a keyed `kiosk.conf` hash, mode, kernel, cpufreq cap, timesync
+state), and one `page.<case id>` line per DOM-probe case. `boot_ordinal` counts only the booted
+slot's own boots: each boot's slot comes from that boot's own `journalctl -b <id> -o cat` line
+(`Booted into rootfs.<n> (<slot>)`, logged by `rauc-mark-good.service`), never guessed, and a boot
+with no such line is excluded rather than assumed to match. The two keyed hashes -- `config.json`'s
+and `kiosk.conf`'s -- are read as a `hexdump -ve '1/1 "%02x"'` dump, not `cat`: busybox's `od` has
+no long options and no `base64` applet exists either, and hex is the one transport a plain text
+capture's trailing-newline handling cannot silently lose a byte from, so every reader that computes
+one of these hashes -- the record, the `/data` precondition below, and
+`pipeline-accept-bench-config` -- decodes the same dump the same way, through `config-mac.py` on
+the shell side and `wisekiosk.record.decode_hex_dump` directly on the Python side. No address,
+hostname, key material, coordinate or park identifier ever reaches it.
 It lands wherever the harness writes `testresults.json` — under the driver at
 `local/pipeline/runs/<sha>/testresults.json` for a pipeline job, under the path a hand run names
-for `just oe-test`. `run.sh` reads it back before posting: a missing or malformed record, an
-`image=` that is not `$SHA`, or `dirty=1`, is the job's own failure, never posted as a pass.
+for `just oe-test`. `run.sh` reads it back before posting, through `tools/pipeline/record-check.py`
+(which imports the package the way `config-mac.py` does, and prints one line `run.sh` reads with a
+single `read`): a missing or malformed record, or an `image=` that is not `$SHA`, is the job's own
+failure, never posted as a pass; a dirty tree is an infrastructure failure instead, since it names a
+problem with the checkout the job ran from rather than the candidate. Neither check exits non-zero
+itself, however malformed the record: the device sits mid-OTA by then, and a script failure under
+`set -e` at that point would abort before the unconditional rollback runs.
 `report-build.py` renders the record's lines verbatim under their own heading, never as case rows,
 so a later change to the record's shape needs no change to this renderer.
 
@@ -109,6 +126,11 @@ recorded values, and refuses the job on any difference — a seed a prior run's 
 or a hand edit, is an environment problem a person accepts, not a silent comparison against a stale
 baseline. `pipeline-accept-bench-config` needs the timer off; it prints both hashes and
 `kiosk.conf`'s key names, never its values.
+
+**The buildinfo readback.** After the install reboot, `run.sh` reads the booted slot's
+`/etc/buildinfo` back and compares its `meta-wisekiosk` commit to `$SHA`. A mismatch skips
+`testimage` and the two device checks — there is no point running the suite against the wrong
+image — but still rolls back, like every other outcome, before `finish failure` names the mismatch.
 
 **`pipeline-run-ref <ref>` is a development tool, not a path to `main`.** Run from a branch
 checkout with the timer off, it builds and runs that ref's own head through the same stages as a
@@ -124,6 +146,9 @@ runs only when the job's base commit has no such tag: it resets `build/buildhist
 an ejected candidate's own job tag is never picked up this way — builds the missing commit, tags its
 own buildhistory, and stops — no status is posted and no PR comment is written, because no job's own
 commit is under test. The next tick picks up the queue job against the tagged baseline.
+`pipeline-run-ref` never builds or tags a baseline this way: a missing tag there is a refusal naming
+it, not a silent build — a ref run of `main` can create the tag it needs, but that run posts status
+like any other queue job and is not what names the tag a dev-tool run can rely on finding.
 
 **Each queue job's buildhistory starts from the baseline tag.** Immediately before the job's own
 build, `build/buildhistory` is reset to the job's base commit's tag, so the build's own
@@ -169,18 +194,39 @@ against any board already built and booted. `tools/oe-test.sh` resolves `KIOSK_T
 `<target-ip>`, and bench's own recorded hostname — the suite refuses any board that is not bench
 regardless), refuses with a message if the HMAC key, the identity file, `sources/poky`, or the
 last build's deploy artifacts are missing, and writes its own run record under gitignored
-`local/oe-test/<timestamp>/`. It never touches RAUC, never installs, never reboots: only a case's
-own stimulus (arming the DOM probe, stopping a service) changes anything on the board, and each
-case restores what it changed.
+`local/oe-test/<timestamp>/`. It never touches RAUC, never installs, never reboots: the only change
+either case makes to the board is `test_page_applied` arming the DOM probe (`copyTo` the script,
+restart `kiosk.service`), which it leaves in place rather than restoring, the way the probe stays
+live for a later reboot.
+
+Its `PYTHONPATH` carries `sources/poky/bitbake/lib` beside `meta/lib`: `oe-test`'s own component
+loader imports every subcommand's context module up front, including one that imports `bb.utils`
+at module scope, regardless of which subcommand is actually requested. It also runs from inside its
+own `local/oe-test/<timestamp>/` directory, so poky's own ssh target class — which writes
+`remoteTarget.log` into whatever directory the process started in, with no flag to redirect it —
+leaves that file beside the run's own record instead of in the repository root.
 
 ## The render and applied cases
 
-`test_render_advancing` captures the same default region `tools/kiosk-render-check.sh` already
-uses — that script's own header has the geometry's rationale — and judges the two captures with
-`wisekiosk.render.verdict`, a port of the script's own guards.
+`test_render_advancing` captures a small region (`560x300+220+20`, aimed at the clock's own
+seconds field) rather than the whole screen: a full-screen capture costs about 8 s per frame on
+this board against roughly 1.4-2.4 s for the crop, and two full frames plus the interval would be
+load on the thing being measured, not a measurement of it. The crop assumes the kiosk page always
+has a moving element inside the captured region; today that element is the clock's seconds field.
+`import`'s own stderr is kept, not discarded, and folded into the error reason when `import` itself
+fails, rather than left to read "exited non-zero" with no further detail. The two captures are
+judged by `wisekiosk.render.verdict`, a port of the same probe's own guards.
 
 `test_page_applied` reads the page's state back through `document.title`, because surf's console
 does not reach the journal on this image: the DOM probe writes its state there on every finished
 load and every 5 s after, and the case reads it back over ssh with `xwininfo -tree` (surf sets
 override-redirect, so its window carries no `_NET_*` properties and is absent from the client list)
-and `xprop`'s `WM_NAME`, the same channel `kiosk-bootprof`'s `measure-surf.sh` already reads.
+and `xprop`'s `WM_NAME`, the same channel `kiosk-bootprof`'s `measure-surf.sh` already reads. Its
+own teardown removes the probe script it deployed, without restarting `kiosk.service` — the file is
+gone before any later boot or restart would load it again, though the already-running process it
+armed keeps running until then.
+
+A deploy, probe or transport error is retried once; a second one declares the page line's state
+`error:transport` before raising. `run.sh` reads that declared kind, after rollback (bench is never
+left on the installed slot with the timer disabled), and treats it as an infrastructure failure —
+`abort`, never posted on the candidate — where any other error or failure is the job's own.

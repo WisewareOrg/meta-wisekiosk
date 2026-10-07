@@ -25,10 +25,5 @@
 
 Each investigation is a directory whose `README.md` is the record of record, with any raw captures
 as siblings beside it. [`issue_investigation/TEMPLATE.md`](issue_investigation/TEMPLATE.md) is the
-authoritative shape — copy it as the new `README.md` and fill every field. It carries three rules:
-
-- **R1** Every test run names its board (role) and the image commit it ran.
-- **R2** Every script put on a board is either shipped (link its recipe/PR) or one-off (committed in
-  the investigation directory beside its `README.md`) — never left only in `local/`.
-- **R3** Runs are never blended: one board × one build × one test = one run, and numbers from
-  different runs never share a table.
+authoritative shape — copy it as the new `README.md`, fill every field, and follow its R1, R2
+and R3 in full.

@@ -71,8 +71,9 @@ def reminder(path: str):
             f"SELF-CHECK — {path} is under gitignored `local/`: operator notes, keys and raw "
             "captures. Nothing here is published and nothing here is a build input, so a fact "
             "that belongs to the repository does not belong here. Investigation findings move to "
-            "docs/issue_investigation/ under TEMPLATE.md; a script put on a board is shipped in a "
-            "recipe or committed beside the investigation (R2), never left only here."
+            "docs/issue_investigation/ under TEMPLATE.md; a measurement is an oeqa case, never a "
+            "standalone script (R2), and even a one-off needs a stated reason and a committed "
+            "copy, never left only here."
         )
     for pat in DESIGN_RAUC:
         if re.search(pat, path):

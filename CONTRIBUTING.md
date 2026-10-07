@@ -102,10 +102,7 @@ this reason.
 
 **An investigation is a directory whose `README.md` is the record of record**, copied from
 [`docs/issue_investigation/TEMPLATE.md`](docs/issue_investigation/TEMPLATE.md) with every field
-filled, and it carries three rules the template states in full: **R1** every test run names its board
-role and the image commit it ran; **R2** every script put on a board is either shipped in a recipe or
-committed beside the investigation, never left only in `local/`; **R3** runs are never blended — one
-board × one build × one test, and numbers from different runs never share a table.
+filled, and governed by the template's own R1, R2 and R3 in full.
 
 **Links are hub-and-spoke.** New documents are reachable from [`docs/README.md`](docs/README.md);
 relative links resolve from the citing file's own directory, and a leading `/` fails. Never anchor a
