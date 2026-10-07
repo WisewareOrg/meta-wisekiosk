@@ -7,6 +7,8 @@
 | [`cve-and-sbom.md`](cve-and-sbom.md) | What is the image made of, which of those packages carry published vulnerabilities, and how do you find out? |
 | [`layer-currency.md`](layer-currency.md) | How old is the image's software — have the pins fallen behind, is a newer recipe already inside a pinned layer, and what would a bump close? |
 | [`testing.md`](testing.md) | What does each testing tier prove, what does a green result at that tier not say, and how do you run the device pipeline? |
+| [`requirements/README.md`](requirements/README.md) | What does the image own as an obligation, and which check discharges each one? |
+| [`decisions/README.md`](decisions/README.md) | Which architecture decisions were taken, and why — and why is verification built the way it is? |
 | [`../meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md`](../meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md) | How do you bump the WiseKiosk app pin, and why does the build regenerate its API client and types instead of committing them? |
 | [`issue_investigation/TEMPLATE.md`](issue_investigation/TEMPLATE.md) | What shape must an issue investigation take, and what must every test run in it name? |
 | [`issue_investigation/boot_cpu_saturation/`](issue_investigation/boot_cpu_saturation/README.md) | Across a boot, is the single core doing work, waiting on hardware, or queued behind something else? |

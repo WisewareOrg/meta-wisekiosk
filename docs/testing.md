@@ -11,6 +11,15 @@ result at that tier does **not** let you conclude.
 | Device smoke (`testimage` in the pipeline, or `just oe-test <target>` by hand) | The backend unit is active, `/healthz` answers, the page serves, WebKit still composites on the GPU, the page is still painting, and the page is applied as the application designs it — on **one** physical device, one boot. Both run the identical six `meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_*` packages and write the same run record. | The pipeline, once per queue job, after an OTA install (never a flash). By hand, any time, against any board `local/device-identity.md` names — never prod, which the suite's own hostname check refuses. | The shared boot partition (`config.txt`, `cmdline.txt`, `boot.scr`, and `uboot.env` apart from RAUC's own boot-selection variables) — an OTA writes only the slot rootfs it boots, which does carry the kernel. The RAUC slot layout, which an OTA never touches, or a second boot. |
 | OTA/rollback (the queue run) | Install, reboot, and — for a queue run — mark-bad, reboot and land back on the baseline slot all completed, and the device answered again each time. | Every queue job. | Whether the slot rolled back *into* would itself survive a fresh install — it was booted back into, not reinstalled. There are only two slots. |
 
+The Static tier's `docs/requirements/` gate (see [`docs/requirements/README.md`](requirements/README.md))
+walks the project root looking for Doorstop documents; `build/` and `sources/` each carry a
+`.doorstop.skip-all` marker for exactly this reason, written by `tools/write-build-rev.sh` once the
+directory exists and the marker is absent, never committed. A fresh checkout has neither directory, so
+nothing is written and nothing is walked. A `build/` or `sources/` already populated from a build that
+predates this marker, or large from ordinary use, costs the gate real time regardless of the marker:
+Doorstop's own reference search walks every non-ignored file under the project root once per run, and
+that walk is slower the larger either directory already is — a known local-dev cost, not a defect.
+
 ## Running it
 
 ```sh
