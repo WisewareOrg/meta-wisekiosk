@@ -26,3 +26,13 @@ from the pull request that lands the case.
 already documents for a `TST` item with no verification yet, applied one tier up for a `SYS`/`SRS`
 item whose children are a later step's scope. It is reactivated in the pull request that adds those
 children, never left inactive once they exist.
+
+**A local item realising an upstream WiseKiosk obligation cites it in its own `rationale`**: the
+first line reads `<repo> <item id> <exact header>` (e.g. `WiseKiosk SRS026 The display says when the
+backend is gone`). The upstream `reviewed:` stamp it was reviewed against is recorded separately, in
+the citing item's own `upstream-reviewed` attribute — never embedded in the `rationale` text.
+Whichever tier first carries a citing item must add `upstream-reviewed` to that tier's
+`.doorstop.yml` under `attributes.reviewed:`, the same place `rationale` and the two
+`verification-*` attributes already sit: leaving it out would let the recorded stamp be edited
+without Doorstop ever treating the item as unreviewed, defeating the re-review
+[`tools/upstream-reqs-check.py`](../../tools/upstream-reqs-check.py) exists to force.
