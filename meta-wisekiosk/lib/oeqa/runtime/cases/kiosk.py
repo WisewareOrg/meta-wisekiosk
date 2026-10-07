@@ -1,6 +1,6 @@
 import datetime
+import json
 import os
-import re
 import subprocess
 import sys
 import time
@@ -25,7 +25,7 @@ _RENDER_PROBE = (
     "F=/tmp/render-check.$$\n"
     "grab() {\n"
     "    n=$1\n"
-    '    DISPLAY=:0 import -window root -crop "%s" +repage "$F.$n.png" > /dev/null 2>&1\n'
+    '    DISPLAY=:0 import -window root -crop "%s" +repage "$F.$n.png" > /dev/null 2>"$F.$n.err"\n'
     "    rc=$?\n"
     '    if [ -f "$F.$n.png" ]; then\n'
     '        b=$(wc -c < "$F.$n.png")\n'
@@ -34,7 +34,8 @@ _RENDER_PROBE = (
     "        b=0\n"
     "        m=none\n"
     "    fi\n"
-    '    echo "frame $n rc=$rc bytes=$b md5=$m"\n'
+    '    err=$(tr \'\\n\' \' \' < "$F.$n.err" 2>/dev/null | tr -s \' \' \'_\')\n'
+    '    echo "frame $n rc=$rc bytes=$b md5=$m err=${err:-none}"\n'
     "}\n"
     "grab 1\n"
     "sleep 3\n"
@@ -43,19 +44,16 @@ _RENDER_PROBE = (
     "    identify -format 'blank min=%%[fx:minima*255] max=%%[fx:maxima*255] "
     "mean=%%[fx:mean*255]\\n' \"$F.2.png\" 2>/dev/null\n"
     "fi\n"
-    'rm -f "$F.1.png" "$F.2.png"\n'
+    'rm -f "$F.1.png" "$F.2.png" "$F.1.err" "$F.2.err"\n'
 ) % _RENDER_CROP
 
-# surf sets override-redirect, so its window is absent from the client
-# list -- walk the root's whole tree and read every window's WM_NAME, the
-# same channel kiosk-bootprof's measure-surf.sh already reads.
+# Walks the root's whole tree and reads every window's WM_NAME.
 # docs/testing.md § "The render and applied cases" has the why.
 _WINDOW_TITLES_PROBE = (
     "for id in $(DISPLAY=:0 xwininfo -root -tree 2>/dev/null | "
     "awk '/^ +0x/ { print $1 }'); do "
     'DISPLAY=:0 xprop -id "$id" WM_NAME 2>/dev/null; done'
 )
-_WM_NAME = re.compile(r'WM_NAME\(\w+\) = "(.*)"$')
 
 _PROBE_SRC = Path(__file__).resolve().parents[3] / "wisekiosk" / "applied" / "probe.js"
 
@@ -75,7 +73,7 @@ def _tool_commit_and_dirty(repo):
     porcelain = subprocess.run(
         ["git", "-C", str(repo), "status", "--porcelain"],
         capture_output=True, text=True, check=True).stdout
-    return commit, (1 if porcelain.strip() else 0)
+    return commit, record.dirty(porcelain)
 
 
 class WiseKioskCase(OERuntimeTestCase):
@@ -92,7 +90,7 @@ class WiseKioskCase(OERuntimeTestCase):
     def setUpClass(cls):
         if not hasattr(cls.tc, "extraresults"):
             cls.tc.extraresults = {}
-        record_dict = cls.tc.extraresults.setdefault("wisekiosk.record", {})
+        record_dict = cls.tc.extraresults.setdefault(record.RECORD_KEY, {})
         if "tool" in record_dict:
             return
 
@@ -105,13 +103,12 @@ class WiseKioskCase(OERuntimeTestCase):
                 "by hand, tools/oe-test.sh resolves them from local/device-identity.md")
 
         repo = Path(__file__).resolve().parents[5]
-        hmac_key_path = repo / "local" / "hmac.key"
+        hmac_key_path = repo / "local" / "keys" / "hmac.key"
         if not hmac_key_path.is_file():
             raise RuntimeError(f"no {hmac_key_path} -- run 'just pipeline-install' first")
 
-        # cls.target is set per test-case instance by OERuntimeTestLoader, not
-        # on the class, so it is not yet set at setUpClass time; cls.tc.target
-        # is the same connection, reachable from the class throughout.
+        # cls.tc.target, not cls.target: OERuntimeTestLoader sets the
+        # latter per test-case instance, not on the class.
         target = cls.tc.target
 
         # The bench-only refusal: the first thing this suite does with the
@@ -135,8 +132,19 @@ class WiseKioskCase(OERuntimeTestCase):
         slot = record.booted_slot(rauc_shell)
         installed_at = record.slot_installed_at(rauc_shell)
         boots_json = target.run("journalctl --list-boots -o json")[1]
-        boot_ordinal = record.boot_ordinal(boots_json, installed_at)
-        uptime_s = int(float(target.run("cat /proc/uptime")[1].split()[0]))
+
+        # Each boot's own slot: RAUC's "Booted into rootfs.<n> (<slot>)"
+        # line, one per-boot journal read. A boot with no such line is
+        # excluded from boot_slots, never assumed to match.
+        boot_slots = {}
+        for boot in json.loads(boots_json):
+            boot_journal = target.run("journalctl -b %s -o cat" % boot["boot_id"])[1]
+            try:
+                boot_slots[boot["boot_id"]] = record.slot_from_boot_journal(boot_journal)
+            except ValueError:
+                continue
+        boot_ordinal = record.boot_ordinal(boots_json, installed_at, slot, boot_slots)
+        uptime_s = record.uptime_seconds(target.run("cat /proc/uptime")[1])
 
         WiseKioskCase.board_fields = {
             "role": role, "boot_id": boot_id, "boot_ordinal": boot_ordinal,
@@ -144,34 +152,37 @@ class WiseKioskCase(OERuntimeTestCase):
         }
 
         buildinfo = target.run("cat /etc/buildinfo")[1]
-        _branch, sha = record.parse_buildinfo(buildinfo)
+        sha = record.parse_buildinfo(buildinfo)
 
         index_html = target.run("wget -qO- %s" % INDEX_URL)[1]
         bundle = ",".join(record.asset_hashes(index_html))
-        config_json = target.run("cat /data/config/config.json")[1]
+
+        # hexdump, not cat: busybox has no base64 applet and no long-option
+        # od, and a hex dump is the byte-safe transport the keyed hash
+        # needs. docs/testing.md § "Running it" has the why.
+        config_hex = target.run("hexdump -ve '1/1 \"%02x\"' /data/config/config.json")[1]
+        config_json = record.decode_hex_dump(config_hex).decode()
         config_mac = record.keyed_hash(WiseKioskCase.hmac_key, config_json.encode())
         config = record.config_summary(config_json)
 
-        pid = target.run("pgrep -x surf")[1].splitlines()[0].strip()
+        pid = record.pid_from_pgrep(target.run("pgrep -x surf")[1])
         browser = target.run("cat /proc/%s/comm" % pid)[1].strip()
         nrestarts = target.run(
             "systemctl show -p NRestarts --value kiosk.service")[1].strip()
         cmdline_sha = target.run(
             "sha256sum /proc/%s/cmdline | cut -d' ' -f1" % pid)[1].strip()
-        webkit_status, webkit_lines = target.run(
-            "tr '\\0' '\\n' < /proc/%s/environ | grep '^WEBKIT_'" % pid)
-        webkit_env = ",".join(webkit_lines.splitlines()) if webkit_status == 0 else ""
-        conf_status, kiosk_conf = target.run("cat /data/config/kiosk.conf")
-        kiosk_conf_mac = (
-            record.keyed_hash(WiseKioskCase.hmac_key, kiosk_conf.encode())
-            if conf_status == 0 else "absent")
+        webkit_env = record.webkit_env(
+            target.run("tr '\\0' '\\n' < /proc/%s/environ" % pid)[1])
+        conf_status, kiosk_conf_hex = target.run("hexdump -ve '1/1 \"%02x\"' /data/config/kiosk.conf")
+        kiosk_conf = record.decode_hex_dump(kiosk_conf_hex).decode() if conf_status == 0 else ""
+        kiosk_conf_mac = record.kiosk_conf_mac(conf_status, kiosk_conf, WiseKioskCase.hmac_key)
         mode = target.run("DISPLAY=:0 xrandr | awk '/\\*/{print $1; exit}'")[1].strip()
         kernel = target.run("uname -r")[1].strip()
         cpufreq_max = target.run(
             "cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq")[1].strip()
         timesync = target.run("timedatectl show -p NTPSynchronized --value")[1].strip()
 
-        tool_name = "oe-test" if Path(sys.argv[0]).name == "oe-test" else "testimage"
+        tool_name = record.tool_name(sys.argv[0])
         record_dict["tool"] = record.tool_line(
             name=tool_name, tool_commit=tool_commit, dirty=dirty, argv=argv)
         record_dict["board"] = record.board_line(end=_now_iso(), **WiseKioskCase.board_fields)
@@ -184,7 +195,7 @@ class WiseKioskCase(OERuntimeTestCase):
 
     def tearDown(self):
         super().tearDown()
-        self.tc.extraresults["wisekiosk.record"]["board"] = record.board_line(
+        self.tc.extraresults[record.RECORD_KEY]["board"] = record.board_line(
             end=_now_iso(), **WiseKioskCase.board_fields)
 
 
@@ -236,34 +247,40 @@ class WiseKioskTest(WiseKioskCase):
         raise RuntimeError(reason)
 
     def _read_applied_sample(self):
-        status, output = self.target.run(_WINDOW_TITLES_PROBE)
+        status, output = self.target.run(
+            _WINDOW_TITLES_PROBE, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
         if status != 0:
             return None
-        for line in output.splitlines():
-            m = _WM_NAME.match(line)
-            if not m:
-                continue
-            sample = applied.parse_title(m.group(1))
-            if sample is not None:
-                return sample
-        return None
+        return applied.read_sample(output)
 
     def _applied_attempt(self):
-        self.target.run("mkdir -p /home/root/.surf")
-        self.target.copyTo(str(_PROBE_SRC), "/home/root/.surf/script.js")
-        self.target.run("systemctl restart kiosk.service")
+        # A deploy or transport failure here takes the same retry path as
+        # a probe failure: the caller only ever sees an "error:*" outcome.
+        try:
+            mkdir_status, _ = self.target.run(
+                "mkdir -p /home/root/.surf", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
+            if mkdir_status != 0:
+                return "error:deploy", None
+            self.target.copyTo(str(_PROBE_SRC), "/home/root/.surf/script.js")
+            restart_status, _ = self.target.run(
+                "systemctl restart kiosk.service", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
+            if restart_status != 0:
+                return "error:deploy", None
+        except Exception:
+            return "error:deploy", None
 
         deadline = time.time() + _APPLIED_DEADLINE_SECONDS
         samples = []
         while True:
             samples.append(self._read_applied_sample())
-            if samples[-1] is not None and samples[-1]["state"] == "applied":
-                return applied.verdict(samples, False), samples[-1]
+            outcome = applied.verdict(samples)
+            if outcome == "applied":
+                return outcome, samples[-1]
             if time.time() >= deadline:
                 break
             time.sleep(_APPLIED_POLL_SECONDS)
 
-        outcome = applied.verdict(samples, True)
+        outcome = applied.verdict(samples)
         real = [sample for sample in samples if sample is not None]
         return outcome, (real[-1] if real else None)
 
@@ -271,6 +288,7 @@ class WiseKioskTest(WiseKioskCase):
         if WiseKioskCase.role != "bench":
             raise RuntimeError(
                 f"test_page_applied requires role=bench, got {WiseKioskCase.role!r}")
+        self.addCleanup(self.target.run, "rm -f /home/root/.surf/script.js")
 
         outcome, sample = None, None
         for attempt in range(_APPLIED_ATTEMPTS):
@@ -280,20 +298,14 @@ class WiseKioskTest(WiseKioskCase):
         else:
             # The declared transport kind: run.sh's own infrastructure-
             # failure path reads this exact state from the page line.
-            self.tc.extraresults["wisekiosk.record"][f"page.{self.id()}"] = record.page_line(
-                nonce=sample["nonce"] if sample else "", state="error:transport",
-                cards=sample["cards"] if sample else "-/-",
-                faulted=sample["faulted"] if sample else 0,
-                unreachable=sample["unreachable"] if sample else 0)
+            self.tc.extraresults[record.RECORD_KEY][f"page.{self.id()}"] = record.page_line(
+                nonce="", state=record.TRANSPORT_STATE, cards="-/-", faulted=0, unreachable=0)
             raise RuntimeError(f"transport: {outcome} after {_APPLIED_ATTEMPTS} attempts")
 
-        if sample is not None:
-            self.tc.extraresults["wisekiosk.record"][f"page.{self.id()}"] = record.page_line(
-                nonce=sample["nonce"], state=sample["state"], cards=sample["cards"],
-                faulted=sample["faulted"], unreachable=sample["unreachable"])
+        self.tc.extraresults[record.RECORD_KEY][f"page.{self.id()}"] = record.page_line(
+            nonce=sample["nonce"], state=sample["state"], cards=sample["cards"],
+            faulted=sample["faulted"], unreachable=sample["unreachable"])
 
         if outcome == "applied":
             return
-        if outcome.startswith("failed:"):
-            self.fail(outcome)
-        raise RuntimeError(f"transport: unexpected outcome {outcome!r}")
+        self.fail(outcome)
