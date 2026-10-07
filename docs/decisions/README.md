@@ -33,7 +33,7 @@ amended, so a number in git history need not mean what it means here.
 
 | # | Rev | Decided | Decision |
 |---|---|---|---|
-| [0001](0001-verification-architecture.md) | 1 | 2026-10-06 | Verification architecture: a lean Doorstop tree for the image's own obligations, the shared check-reqs gate, run-record provenance, and the test tiers this is built on |
+| [0001](0001-verification-architecture.md) | 1 | 2026-10-06 | Verification architecture: a lean Doorstop tree for the image's own obligations, mirroring WiseKiosk's shape and consuming wise-ci's shared check-reqs gate |
 
 ## Revisions
 

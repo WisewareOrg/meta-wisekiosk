@@ -19,11 +19,6 @@ scratchpad/
 # source. Must be ignored, not merely untracked -- see ci-guards.sh guard 10.
 meta-wisekiosk/conf/build-rev.inc
 
-# Written by tools/write-build-rev.sh before every build, same reason -- see
-# docs/testing.md for why Doorstop needs them.
-build/.doorstop.skip-all
-sources/.doorstop.skip-all
-
 # Written by tools/go-mods.py before every build, same as build-rev.inc above:
 # an autogenerable file is build input, never committed (owner, 2026-09-27).
 meta-wisekiosk/recipes-wisekiosk/wisekiosk/wisekiosk-backend-go-mods.inc

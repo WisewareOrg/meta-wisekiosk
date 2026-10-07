@@ -45,10 +45,10 @@ case, never from the tree itself.
 
 A rendering setting, a render node held by a process, a flag on a unit file, a probe channel: these
 are mechanisms that deliver a need, not needs themselves, and the tree never asserts them. This is
-why `tools/kiosk-gpu-check.sh` retires outright with no successor item: the user need it stood near —
-the display is on the screen, laid out right, painting, smooth — is already owned by the applied,
-layout, render and performance obligations, and the setting it checked is recorded as run-record
-context instead.
+why a later step retires `tools/kiosk-gpu-check.sh` outright, with no successor item, rather than
+this one: the user need it stood near — the display is on the screen, laid out right, painting,
+smooth — is already owned by the applied, layout, render and performance obligations, and the
+setting it checked is recorded as run-record context instead.
 
 Each step of this effort lands as one pull request into one integration branch named for the parent
 ticket, proven whole on bench before that branch lands on `main` as a single pull request closing the
