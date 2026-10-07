@@ -56,44 +56,40 @@ def slot_installed_at(text):
     return timestamp.group(1)
 
 
-def boot_ordinal(boots_json, installed_at, booted_bootname, boot_slots):
-    """The count of `journalctl --list-boots -o json` entries at or after
-    installed_at (an ISO 8601 instant) whose own slot -- boot_slots, keyed
-    by boot_id -- is booted_bootname. A boot_id absent from boot_slots is
-    excluded, never assumed to match. Raises ValueError on unparseable
-    input."""
-    boots = json.loads(boots_json)
+def boot_ordinal(journal_json_lines, installed_at, booted_bootname):
+    """The count of rauc.service's own "Booted into rootfs.<n> (<slot>)"
+    journal entries (one `journalctl -u rauc.service -o json
+    --output-fields=_BOOT_ID,MESSAGE,__REALTIME_TIMESTAMP` read, one JSON
+    object per line) whose slot is booted_bootname and whose own
+    __REALTIME_TIMESTAMP (a string, microseconds since the epoch) is at
+    or after installed_at (an ISO 8601 instant) -- never a boot's
+    `--list-boots` first_entry, which the early-boot clock can floor
+    before NTP syncs. A line that fails to parse, carries no
+    __REALTIME_TIMESTAMP, or whose MESSAGE names no slot, is skipped,
+    never guessed. Raises ValueError if installed_at is unparseable."""
     threshold = datetime.datetime.fromisoformat(installed_at)
-    return sum(
-        1 for boot in boots
-        if boot_slots.get(boot["boot_id"]) == booted_bootname
-        and datetime.datetime.fromtimestamp(boot["first_entry"] / 1e6, tz=datetime.timezone.utc)
-        >= threshold
-    )
-
-
-def boot_slots_from_journal(json_lines_text):
-    """boot_id -> slot, from rauc.service's own journal entries across
-    every retained boot in one read (`journalctl -u rauc.service -o json
-    --output-fields=_BOOT_ID,MESSAGE`: one JSON object per line). A line
-    that fails to parse, carries no _BOOT_ID, or whose MESSAGE names no
-    slot is skipped, never guessed."""
-    slots = {}
-    for line in json_lines_text.splitlines():
+    count = 0
+    for line in journal_json_lines.splitlines():
         if not line.strip():
             continue
         try:
             entry = json.loads(line)
         except json.JSONDecodeError:
             continue
-        boot_id = entry.get("_BOOT_ID")
         message = entry.get("MESSAGE")
-        if not boot_id or not isinstance(message, str):
+        realtime = entry.get("__REALTIME_TIMESTAMP")
+        if not isinstance(message, str) or not realtime:
             continue
         m = _BOOTED_INTO.search(message)
-        if m:
-            slots[boot_id] = m.group(1)
-    return slots
+        if not m or m.group(1) != booted_bootname:
+            continue
+        try:
+            when = datetime.datetime.fromtimestamp(int(realtime) / 1e6, tz=datetime.timezone.utc)
+        except (ValueError, TypeError):
+            continue
+        if when >= threshold:
+            count += 1
+    return count
 
 
 def keyed_hash(key, data):

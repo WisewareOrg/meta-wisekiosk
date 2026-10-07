@@ -136,16 +136,17 @@ class WiseKioskCase(OERuntimeTestCase):
         rauc_shell = target.run("rauc status --detailed --output-format=shell")[1]
         slot = record.booted_slot(rauc_shell)
         installed_at = record.slot_installed_at(rauc_shell)
-        boots_json = target.run("journalctl --list-boots -o json")[1]
 
-        # Every boot's own slot, one call, not one per boot: rauc.service's
-        # own "Booted into rootfs.<n> (<slot>)" line survives the early-boot
-        # journal rotation that drops the kernel's Command line entry.
-        # docs/testing.md § "Running it" has the why.
+        # Every boot's own slot and the instant that boot logged it, one
+        # call, not one per boot and never --list-boots' first_entry: the
+        # early-boot clock floors first_entry on some boots before NTP
+        # syncs, while rauc.service's own "Booted into rootfs.<n> (<slot>)"
+        # line is stamped after the clock is restored. docs/testing.md §
+        # "Running it" has the why.
         boot_journal_lines = target.run(
-            "journalctl -u rauc.service -o json --output-fields=_BOOT_ID,MESSAGE")[1]
-        boot_slots = record.boot_slots_from_journal(boot_journal_lines)
-        boot_ordinal = record.boot_ordinal(boots_json, installed_at, slot, boot_slots)
+            "journalctl -u rauc.service -o json "
+            "--output-fields=_BOOT_ID,MESSAGE,__REALTIME_TIMESTAMP")[1]
+        boot_ordinal = record.boot_ordinal(boot_journal_lines, installed_at, slot)
         uptime_s = record.uptime_seconds(target.run("cat /proc/uptime")[1])
 
         WiseKioskCase.board_fields = {

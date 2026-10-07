@@ -110,12 +110,14 @@ slot's `/etc/buildinfo` commit and slot), `app` (the served bundle's asset hashe
 `config.json`, and its location-free summary), `sut` (the browser process, restart count, its own
 cmdline hash, WebKit's env overrides, a keyed `kiosk.conf` hash, mode, kernel, cpufreq cap, timesync
 state), and one `page.<case id>` line per DOM-probe case. `boot_ordinal` counts only the booted
-slot's own boots: every boot's slot comes from one read, `journalctl -u rauc.service -o json
---output-fields=_BOOT_ID,MESSAGE`, mapping `_BOOT_ID` to the slot named in that unit's own
-`Booted into rootfs.<n> (<slot>)` line (the kernel's own `Command line` entry does not survive this
-image's early-boot journal rotation, so that line is read instead) -- one call across the whole
-retained history, never one call per boot, and a boot with no such line is excluded rather than
-assumed to match. The two keyed hashes -- `config.json`'s
+slot's own boots since install, from one read across the whole retained history, never one call
+per boot: `journalctl -u rauc.service -o json
+--output-fields=_BOOT_ID,MESSAGE,__REALTIME_TIMESTAMP`. Each entry's `MESSAGE` names the slot in
+that unit's own `Booted into rootfs.<n> (<slot>)` line (the kernel's own `Command line` entry does
+not survive this image's early-boot journal rotation, so that line is read instead), and a boot is
+counted only when its own `__REALTIME_TIMESTAMP` -- never `--list-boots`' `first_entry`, which the
+early-boot clock can floor before NTP syncs -- is at or after the install instant. A boot with no
+RAUC line is excluded rather than assumed to match. The two keyed hashes -- `config.json`'s
 and `kiosk.conf`'s -- are read as a `hexdump -ve '1/1 "%02x"'` dump, not `cat`: busybox's `od` has
 no long options and no `base64` applet exists either, and hex is the one transport a plain text
 capture's trailing-newline handling cannot silently lose a byte from, so every reader that computes

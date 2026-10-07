@@ -22,7 +22,6 @@ from wisekiosk.record import (
     asset_hashes,
     board_line,
     boot_ordinal,
-    boot_slots_from_journal,
     booted_slot,
     config_summary,
     decode_hex_dump,
@@ -164,153 +163,103 @@ def test_slot_installed_at_booted_slot_missing_its_timestamp_raises():
 
 
 # --------------------------------------------------------------------- boot_ordinal
-# Real sample, same source as slot_installed_at: "journalctl --list-boots -o json"
-# on bench. The last seven real boot entries (indices -6..0) are used verbatim.
-# boot_ordinal counts a boot only when it is at or after installed_at AND its own
-# slot (from boot_slots, keyed by boot_id) matches the booted slot -- the ticket's
-# own definition. The cases below hold every boot to the same slot, so they
-# exercise only the timestamp boundary; test_boot_ordinal_counts_only_the_booted_
-# slots_own_boots is the dedicated, deliberately-invented case for the filter.
+# One pass over `journalctl -u rauc.service -o json --output-fields=_BOOT_ID,
+# MESSAGE,__REALTIME_TIMESTAMP` (one JSON object per line). Counts a line when
+# its MESSAGE names booted_bootname's "Booted into rootfs.<n> (<slot>)" AND its
+# own __REALTIME_TIMESTAMP (microseconds since the epoch, journalctl -o json's
+# own string form) is at or after installed_at -- never --list-boots' own
+# first_entry, which floors to a pre-sync clock on some boots before NTP
+# corrects it; the RAUC line's timestamp is taken after that correction.
+#
+# The first four lines are a real bench capture (one job's log.do_testimage),
+# kept in the device's own order -- which is not time-sorted, so counting
+# correctly here already proves there is no positional assumption:
+#   14:43:51 B (131d6d5b)  14:47:35 B (590fa325)
+#   15:10:45 A (d3a2c6d4)  15:15:59 B (84c05234)
 
-LAST_7_BOOTS_JSON = (
-    '[{"index": -6, "boot_id": "e65eda34a3264678a75feb6eaf6d123c", '
-    '"first_entry": 1791319333678888, "last_entry": 1791320316339998}, '
-    '{"index": -5, "boot_id": "13bae6d42bbb42a4be34bb753e8b9dc7", '
-    '"first_entry": 1791320317811532, "last_entry": 1791327184481256}, '
-    '{"index": -4, "boot_id": "eb10912bdeec423195019862d7b32b6a", '
-    '"first_entry": 1791327185815877, "last_entry": 1791327403804314}, '
-    '{"index": -3, "boot_id": "f26fc45501ea4a24a47f9421c17361fe", '
-    '"first_entry": 1791327405108465, "last_entry": 1791328271675732}, '
-    '{"index": -2, "boot_id": "757a013206d24084914efb3ee23e7762", '
-    '"first_entry": 1791328273002779, "last_entry": 1791328482901988}, '
-    '{"index": -1, "boot_id": "14991b2a366a4b8abd95c3f1deb1b9db", '
-    '"first_entry": 1791328484301119, "last_entry": 1791353734394259}, '
-    '{"index": 0, "boot_id": "c49325c8c53d4b59a560d80045297f4c", '
-    '"first_entry": 1791353735699163, "last_entry": 1791367275788819}]'
+REAL_JOURNAL_JSON_LINES = (
+    '{"_BOOT_ID": "d3a2c6d465d84d14b53f5606725bfe8c", "MESSAGE": "Booted into rootfs.0 (A)", '
+    '"__REALTIME_TIMESTAMP": "1791385845368898"}\n'
+    '{"_BOOT_ID": "131d6d5bcc4c4c5082b5d8f651f5a968", "MESSAGE": "Booted into rootfs.1 (B)", '
+    '"__REALTIME_TIMESTAMP": "1791384231764057"}\n'
+    '{"_BOOT_ID": "590fa3255db345f097abf7f73a24b663", "MESSAGE": "Booted into rootfs.1 (B)", '
+    '"__REALTIME_TIMESTAMP": "1791384455580062"}\n'
+    '{"_BOOT_ID": "84c05234c0a34756bf4f7f7b7f5ef396", "MESSAGE": "Booted into rootfs.1 (B)", '
+    '"__REALTIME_TIMESTAMP": "1791386159499831"}\n'
 )
-# datetime.fromtimestamp(1791353735699163 / 1e6, tz=utc).isoformat() -- boot 0's
-# own first_entry, exactly, computed independently of boot_ordinal.
-BOOT_0_FIRST_ENTRY_ISO = "2026-10-07T06:15:35.699163Z"
+# datetime.fromtimestamp(1791386159499831 / 1e6, tz=utc).isoformat() -- the last
+# B line's own timestamp, exactly, computed independently of boot_ordinal.
+LAST_B_TIMESTAMP_ISO = "2026-10-07T15:15:59.499831Z"
 
-# A constructed boot_slots map holding every boot in LAST_7_BOOTS_JSON to slot
-# "B" -- not a claim about which slot each real boot actually ran, only a map
-# that filters nothing out, so the cases below isolate the timestamp boundary.
-_ALL_SLOT_B = {bid: "B" for bid in (
-    "e65eda34a3264678a75feb6eaf6d123c", "13bae6d42bbb42a4be34bb753e8b9dc7",
-    "eb10912bdeec423195019862d7b32b6a", "f26fc45501ea4a24a47f9421c17361fe",
-    "757a013206d24084914efb3ee23e7762", "14991b2a366a4b8abd95c3f1deb1b9db",
-    "c49325c8c53d4b59a560d80045297f4c",
-)}
-
-BOOT_ORDINAL_CASES = [
-    ("install instant falls between two real boots: only the current boot"
-     " (index 0) is at or after it", "2026-10-07T06:15:27Z", 1),
-    ("install instant equals a boot's first_entry exactly -- inclusive, not exclusive",
-     BOOT_0_FIRST_ENTRY_ISO, 1),
-    ("install instant later than every boot reads 0, not an error",
-     "2026-10-07T07:00:00Z", 0),
-    ("a richer install instant counts 6 of these 7 real boots",
-     "2026-10-06T20:58:31Z", 6),
+REAL_JOURNAL_CASES = [
+    ("the clock-floor case: counts by each line's own timestamp, not device"
+     " order -- only the last (chronologically, not textually) B line is at"
+     " or after this instant", "B", "2026-10-07T15:00:00Z", 1),
+    ("install instant equals a line's own timestamp exactly -- inclusive",
+     "B", LAST_B_TIMESTAMP_ISO, 1),
+    ("install instant before every line counts all three of this slot's boots",
+     "B", "2026-10-07T14:00:00Z", 3),
+    ("install instant after every line reads 0, not an error",
+     "B", "2026-10-07T16:00:00Z", 0),
+    ("a different booted_bootname counts only its own slot's one line",
+     "A", "2026-10-07T14:00:00Z", 1),
 ]
 
 
-@pytest.mark.parametrize(("name", "installed_at", "want"), BOOT_ORDINAL_CASES,
-                          ids=[c[0] for c in BOOT_ORDINAL_CASES])
-def test_boot_ordinal_timestamp_boundary(name, installed_at, want):
-    assert boot_ordinal(LAST_7_BOOTS_JSON, installed_at, "B", _ALL_SLOT_B) == want, name
+@pytest.mark.parametrize(("name", "booted_bootname", "installed_at", "want"), REAL_JOURNAL_CASES,
+                          ids=[c[0] for c in REAL_JOURNAL_CASES])
+def test_boot_ordinal_real_bench_capture(name, booted_bootname, installed_at, want):
+    assert boot_ordinal(REAL_JOURNAL_JSON_LINES, installed_at, booted_bootname) == want, name
 
 
-def test_boot_ordinal_empty_boot_list_reads_zero():
-    assert boot_ordinal("[]", "2026-10-07T06:15:27Z", "B", {}) == 0
+def test_boot_ordinal_empty_input_reads_zero():
+    assert boot_ordinal("", "2026-10-07T06:15:27Z", "B") == 0
 
 
-def test_boot_ordinal_unparseable_json_raises():
+def test_boot_ordinal_unparseable_installed_at_raises():
     with pytest.raises(ValueError):
-        boot_ordinal("not json", "2026-10-07T06:15:27Z", "B", {})
-
-
-def test_boot_ordinal_unparseable_iso_raises():
-    with pytest.raises(ValueError):
-        boot_ordinal(LAST_7_BOOTS_JSON, "not a timestamp", "B", _ALL_SLOT_B)
+        boot_ordinal(REAL_JOURNAL_JSON_LINES, "not a timestamp", "B")
 
 
 # The ticket's own definition, dedicated case: installed B at T0, boots since T0
 # are B, A, B in order -- only the two B boots count. Entirely invented, no real
 # boot ids or device data.
-TWO_SLOT_HISTORY_JSON = (
-    '[{"index": -3, "boot_id": "before-install", "first_entry": 1800000000000000, '
-    '"last_entry": 1800000050000000}, '
-    '{"index": -2, "boot_id": "boot-b1", "first_entry": 1800000100000000, '
-    '"last_entry": 1800000150000000}, '
-    '{"index": -1, "boot_id": "boot-a1", "first_entry": 1800000200000000, '
-    '"last_entry": 1800000250000000}, '
-    '{"index": 0, "boot_id": "boot-b2", "first_entry": 1800000300000000, '
-    '"last_entry": 1800000350000000}]'
+TWO_SLOT_HISTORY_JOURNAL = (
+    '{"_BOOT_ID": "before-install", "MESSAGE": "Booted into rootfs.1 (B)", '
+    '"__REALTIME_TIMESTAMP": "1800000000000000"}\n'
+    '{"_BOOT_ID": "boot-b1", "MESSAGE": "Booted into rootfs.1 (B)", '
+    '"__REALTIME_TIMESTAMP": "1800000100000000"}\n'
+    '{"_BOOT_ID": "boot-a1", "MESSAGE": "Booted into rootfs.0 (A)", '
+    '"__REALTIME_TIMESTAMP": "1800000200000000"}\n'
+    '{"_BOOT_ID": "boot-b2", "MESSAGE": "Booted into rootfs.1 (B)", '
+    '"__REALTIME_TIMESTAMP": "1800000300000000"}\n'
 )
 TWO_SLOT_HISTORY_T0 = "2027-01-15T08:00:50Z"
-TWO_SLOT_HISTORY_SLOTS = {"boot-b1": "B", "boot-a1": "A", "boot-b2": "B"}
 
 
 def test_boot_ordinal_counts_only_the_booted_slots_own_boots():
-    got = boot_ordinal(TWO_SLOT_HISTORY_JSON, TWO_SLOT_HISTORY_T0, "B", TWO_SLOT_HISTORY_SLOTS)
+    got = boot_ordinal(TWO_SLOT_HISTORY_JOURNAL, TWO_SLOT_HISTORY_T0, "B")
     assert got == 2
 
 
-def test_boot_ordinal_a_boot_with_no_known_slot_does_not_count():
-    # Its journal carried no RAUC "Booted into..." line, so its slot is unknown
-    # -- excluded from the count, never assumed to be the booted slot. Nothing
-    # else is reported: the record's keys are unchanged.
-    slots_missing_one = dict(TWO_SLOT_HISTORY_SLOTS)
-    del slots_missing_one["boot-b2"]
-    got = boot_ordinal(TWO_SLOT_HISTORY_JSON, TWO_SLOT_HISTORY_T0, "B", slots_missing_one)
-    assert got == 1
-
-
-# ----------------------------------------------------------- boot_slots_from_journal
-# One bulk read, `journalctl -u rauc.service -o json --output-fields=_BOOT_ID,
-# MESSAGE`, builds the whole boot_id -> slot map boot_ordinal needs. One JSON
-# object per line, journalctl -o json's own shape; _BOOT_ID is the same
-# 32-character lowercase-hex form --list-boots -o json's own "boot_id" field
-# uses. Extra __-prefixed trusted fields (__REALTIME_TIMESTAMP, __CURSOR) are
-# real and must be tolerated, not rejected. Constructed lines in this exact
-# shape -- boot ids and timestamps invented, never a real capture.
-
-BOOT_ID_B = "a" * 32
-BOOT_ID_A = "b" * 32
-
-JOURNAL_JSON_LINES = (
-    '{"_BOOT_ID": "%s", "MESSAGE": "Booted into rootfs.1 (B)", '
-    '"__REALTIME_TIMESTAMP": "1700000000000000", "__CURSOR": "s=1;i=1"}\n'
-    '{"_BOOT_ID": "%s", "MESSAGE": "Booted into rootfs.0 (A)", '
-    '"__REALTIME_TIMESTAMP": "1700000100000000", "__CURSOR": "s=1;i=2"}\n'
-) % (BOOT_ID_B, BOOT_ID_A)
-
-
-def test_boot_slots_from_journal_parses_real_shaped_lines():
-    assert boot_slots_from_journal(JOURNAL_JSON_LINES) == {BOOT_ID_B: "B", BOOT_ID_A: "A"}
-
-
-def test_boot_slots_from_journal_trailing_blank_line_is_skipped():
-    # journalctl sometimes trails the output with an empty line.
-    assert boot_slots_from_journal(JOURNAL_JSON_LINES + "\n") == {BOOT_ID_B: "B", BOOT_ID_A: "A"}
-
-
-def test_boot_slots_from_journal_skips_bad_lines_without_raising():
-    boot_id_ok = "c" * 32
-    boot_id_unrelated = "d" * 32
+# Malformed lines are skipped, never guessed and never raised on -- the same
+# discipline every other journal parser in this module follows.
+def test_boot_ordinal_skips_malformed_lines_without_raising():
     text = (
+        "\n"  # journalctl sometimes trails output with a blank line
         "not json at all\n"
-        f'{{"_BOOT_ID": "{boot_id_ok}", "MESSAGE": "Booted into rootfs.1 (B)"}}\n'
-        '{"MESSAGE": "Booted into rootfs.0 (A)"}\n'  # no _BOOT_ID at all
-        f'{{"_BOOT_ID": "{boot_id_unrelated}", "MESSAGE": "rauc mark-good succeeded"}}\n'  # unrelated
+        '{"_BOOT_ID": "byte-array-message", "MESSAGE": ["not", "a", "string"], '
+        '"__REALTIME_TIMESTAMP": "1800000400000000"}\n'  # byte-array MESSAGE
+        '{"_BOOT_ID": "no-timestamp", "MESSAGE": "Booted into rootfs.1 (B)"}\n'  # no timestamp
+        '{"_BOOT_ID": "non-numeric-timestamp", "MESSAGE": "Booted into rootfs.1 (B)", '
+        '"__REALTIME_TIMESTAMP": "not-a-number"}\n'  # present but unparseable
+        '{"_BOOT_ID": "unrelated", "MESSAGE": "rauc mark-good succeeded", '
+        '"__REALTIME_TIMESTAMP": "1800000400000000"}\n'  # names no slot
+        '{"_BOOT_ID": "the-real-one", "MESSAGE": "Booted into rootfs.1 (B)", '
+        '"__REALTIME_TIMESTAMP": "1800000400000000"}\n'
     )
-    # Only the one well-formed, slot-naming line survives; the other three are
-    # skipped, never guessed and never raised on.
-    assert boot_slots_from_journal(text) == {boot_id_ok: "B"}
-
-
-def test_boot_slots_from_journal_empty_text_is_empty_dict():
-    assert boot_slots_from_journal("") == {}
+    # Only the one well-formed, slot-naming, timestamped line counts.
+    assert boot_ordinal(text, "2027-01-15T08:00:00Z", "B") == 1
 
 
 # --------------------------------------------------------------------- keyed_hash
