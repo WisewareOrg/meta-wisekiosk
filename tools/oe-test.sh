@@ -11,6 +11,16 @@ set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 
+# One list, one home: includes/testimage.yaml's own TEST_SUITES, read the
+# same way pipeline-test.sh reads a Python assignment's quoted value,
+# rather than a second copy of the six names that could drift from it
+# silently.
+TEST_SUITES=$(sed -n 's/^[[:space:]]*TEST_SUITES = "\(.*\)"$/\1/p' "$ROOT/includes/testimage.yaml")
+if [ -z "$TEST_SUITES" ]; then
+    echo "oe-test.sh: no TEST_SUITES found in $ROOT/includes/testimage.yaml" >&2
+    exit 1
+fi
+
 if [ -z "${1:-}" ]; then
     echo "usage: oe-test.sh <target-ip>" >&2
     exit 2
@@ -86,6 +96,6 @@ exec python3 "$POKY/scripts/oe-test" runtime "$ROOT/meta-wisekiosk/lib/oeqa/runt
     --packages-manifest "$MANIFEST" \
     --target-type simpleremote \
     --target-ip "$TARGET" \
-    --run-tests kiosk_backend_unit kiosk_healthz_bound kiosk_page_serves kiosk_health_flag kiosk_render kiosk_applied \
+    --run-tests $TEST_SUITES \
     --json-result-dir "$RESULT_DIR" \
     --output-log "$RESULT_DIR/oe-test.log"

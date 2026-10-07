@@ -12,6 +12,9 @@ local_conf_header:
   testimage: |
     IMAGE_CLASSES += "testimage"
     TEST_TARGET = "simpleremote"
+
+    # The one spelling of the six case names: tools/oe-test.sh reads this
+    # exact line for its own --run-tests, rather than a second copy.
     TEST_SUITES = "kiosk_backend_unit kiosk_healthz_bound kiosk_page_serves kiosk_health_flag kiosk_render kiosk_applied"
 
     # required non-empty by testimage_sanity; unused

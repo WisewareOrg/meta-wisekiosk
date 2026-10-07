@@ -208,8 +208,7 @@ own ssh identity already accepted as root on the device, and `just pipeline-inst
 Each device test lives in its own package under `cases/` (a directory carrying its own
 `__init__.py`); the pinned poky oeqa loader discovers one the same way it discovers any other
 layer's oeqa extension, and `TEST_SUITES` / `--run-tests` select a package by its own top-level
-name, proven directly against this pinned loader and against a real board rather than assumed from
-its source. The mechanism is precise, and every case's own imports depend on it: for each layer that
+name. The mechanism is precise, and every case's own imports depend on it: for each layer that
 carries one, the loader hands Python's own `unittest.TestLoader.discover()` that layer's
 `lib/oeqa/runtime/cases` directory itself as both `start_dir` and `top_level_dir` — so `kiosk_render`
 and so on resolve as bare top-level packages rooted at that directory. The shared base and record

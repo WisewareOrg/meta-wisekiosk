@@ -8,10 +8,9 @@ from oeqa.runtime.case import OERuntimeTestCase
 
 from . import record
 
-# busybox wget: rc 0 only on 2xx. Shared across the pre-existing cases that
-# split out of this module (kiosk_backend_unit, kiosk_healthz_bound,
-# kiosk_page_serves import the ones they need from here, rather than each
-# repeating its own copy of the same literal).
+# busybox wget: rc 0 only on 2xx. kiosk_backend_unit, kiosk_healthz_bound and
+# kiosk_page_serves import the ones they need from here -- one spelling of
+# each literal, not a copy per case.
 HEALTHZ_URL = "http://127.0.0.1:8080/healthz"
 INDEX_URL = "http://127.0.0.1:8080/"
 BOUND_SECONDS = 60

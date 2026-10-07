@@ -64,8 +64,8 @@ jobs:
         if: ${{ !cancelled() }}
         run: tools/scrub-identity.py --check --allow-partial
 
-      # meta-wisekiosk/lib/wisekiosk's own suite, gated at 100% coverage
-      # (pyproject.toml).
+      # meta-wisekiosk/lib/oeqa/runtime's own suite (framework/ and cases/),
+      # gated at 100% coverage (pyproject.toml).
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         if: ${{ !cancelled() }}
         with:
@@ -82,6 +82,6 @@ jobs:
         run: uv sync --frozen --group dev
 
       # Gated on uv-sync's own outcome, not just !cancelled().
-      - name: Run the wisekiosk package's test suite
+      - name: Run the oeqa framework/cases test suite
         if: ${{ !cancelled() && steps.uv-sync.outcome == 'success' }}
         run: just test
