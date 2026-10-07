@@ -7,3 +7,26 @@ requires-python = ">=3.13"
 dependencies = [
     "pyyaml",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-cov",
+]
+
+[tool.pytest.ini_options]
+# Bare --cov (no path) leaves the coverage source to [tool.coverage.run] source below, so it is
+# defined in one place. :skip-covered collapses a fully-covered file to the summary line instead
+# of listing it; a file under 100% still lists its missing lines.
+addopts = ["--cov", "--cov-report=term-missing:skip-covered"]
+testpaths = ["meta-wisekiosk/lib/wisekiosk"]
+pythonpath = ["meta-wisekiosk/lib"]
+
+[tool.coverage.run]
+source = ["meta-wisekiosk/lib/wisekiosk"]
+omit = [
+    "meta-wisekiosk/lib/wisekiosk/*/tests/*",
+]
+
+[tool.coverage.report]
+fail_under = 100
