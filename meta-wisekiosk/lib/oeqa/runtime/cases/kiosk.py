@@ -1,5 +1,4 @@
 import datetime
-import json
 import os
 import subprocess
 import sys
@@ -133,16 +132,13 @@ class WiseKioskCase(OERuntimeTestCase):
         installed_at = record.slot_installed_at(rauc_shell)
         boots_json = target.run("journalctl --list-boots -o json")[1]
 
-        # Each boot's own slot: RAUC's "Booted into rootfs.<n> (<slot>)"
-        # line, one per-boot journal read. A boot with no such line is
-        # excluded from boot_slots, never assumed to match.
-        boot_slots = {}
-        for boot in json.loads(boots_json):
-            boot_journal = target.run("journalctl -b %s -o cat" % boot["boot_id"])[1]
-            try:
-                boot_slots[boot["boot_id"]] = record.slot_from_boot_journal(boot_journal)
-            except ValueError:
-                continue
+        # Every boot's own slot, one call, not one per boot: rauc.service's
+        # own "Booted into rootfs.<n> (<slot>)" line survives the early-boot
+        # journal rotation that drops the kernel's Command line entry.
+        # docs/testing.md § "Running it" has the why.
+        boot_journal_lines = target.run(
+            "journalctl -u rauc.service -o json --output-fields=_BOOT_ID,MESSAGE")[1]
+        boot_slots = record.boot_slots_from_journal(boot_journal_lines)
         boot_ordinal = record.boot_ordinal(boots_json, installed_at, slot, boot_slots)
         uptime_s = record.uptime_seconds(target.run("cat /proc/uptime")[1])
 

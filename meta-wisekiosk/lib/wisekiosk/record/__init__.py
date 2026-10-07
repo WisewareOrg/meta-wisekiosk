@@ -72,14 +72,28 @@ def boot_ordinal(boots_json, installed_at, booted_bootname, boot_slots):
     )
 
 
-def slot_from_boot_journal(text):
-    """The slot name from RAUC's own per-boot journal line ("Booted into
-    rootfs.<n> (<slot>)", logged by rauc-mark-good.service). Raises
-    ValueError if no such line is present in this boot's journal text."""
-    m = _BOOTED_INTO.search(text)
-    if not m:
-        raise ValueError("no RAUC boot-slot line in journal text")
-    return m.group(1)
+def boot_slots_from_journal(json_lines_text):
+    """boot_id -> slot, from rauc.service's own journal entries across
+    every retained boot in one read (`journalctl -u rauc.service -o json
+    --output-fields=_BOOT_ID,MESSAGE`: one JSON object per line). A line
+    that fails to parse, carries no _BOOT_ID, or whose MESSAGE names no
+    slot is skipped, never guessed."""
+    slots = {}
+    for line in json_lines_text.splitlines():
+        if not line.strip():
+            continue
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        boot_id = entry.get("_BOOT_ID")
+        message = entry.get("MESSAGE")
+        if not boot_id or not isinstance(message, str):
+            continue
+        m = _BOOTED_INTO.search(message)
+        if m:
+            slots[boot_id] = m.group(1)
+    return slots
 
 
 def keyed_hash(key, data):

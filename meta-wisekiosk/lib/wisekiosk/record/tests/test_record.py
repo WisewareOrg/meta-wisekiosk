@@ -22,6 +22,7 @@ from wisekiosk.record import (
     asset_hashes,
     board_line,
     boot_ordinal,
+    boot_slots_from_journal,
     booted_slot,
     config_summary,
     decode_hex_dump,
@@ -33,7 +34,6 @@ from wisekiosk.record import (
     parse_buildinfo,
     pid_from_pgrep,
     scrub_argv,
-    slot_from_boot_journal,
     slot_installed_at,
     sut_line,
     tool_line,
@@ -266,37 +266,54 @@ def test_boot_ordinal_a_boot_with_no_known_slot_does_not_count():
     assert got == 1
 
 
-# ------------------------------------------------------------ slot_from_boot_journal
-# Each boot's slot comes from RAUC's own per-boot journal line, logged by the
-# service rauc-mark-good.service starts on every boot: "Booted into rootfs.<n>
-# (<slot>)" (bench fact: the kernel's own "Command line:" entry does not survive
-# journald's rotation at the start of this image's boots, so that line is read
-# instead -- journalctl -b <id> -o cat, message text only, no unit prefix).
-# Constructed journal text, invented surrounding lines.
+# ----------------------------------------------------------- boot_slots_from_journal
+# M2's final mechanism: one bulk read, `journalctl -u rauc.service -o json
+# --output-fields=_BOOT_ID,MESSAGE` (bench-confirmed: rauc.service is the real
+# owning unit; 17.7 s for the one call against >3 min for a per-boot-id loop),
+# builds the whole boot_id -> slot map boot_ordinal needs. One JSON object per
+# line, journalctl -o json's own shape; _BOOT_ID is the same 32-character
+# lowercase-hex form --list-boots -o json's own "boot_id" field uses
+# (bench-confirmed: loop-board's probe asserted every _BOOT_ID is exactly 32
+# hex characters). Extra __-prefixed trusted fields (__REALTIME_TIMESTAMP,
+# __CURSOR) are real and must be tolerated, not rejected. Constructed lines in
+# this exact shape -- boot ids and timestamps invented, never a real capture.
 
-BOOT_JOURNAL_SLOT_B = (
-    "systemd[1]: Started Network Time Synchronization.\n"
-    "Booted into rootfs.1 (B)\n"
-    "systemd[1]: Started RAUC Mark Good.\n"
-)
-BOOT_JOURNAL_SLOT_A = BOOT_JOURNAL_SLOT_B.replace("rootfs.1 (B)", "rootfs.0 (A)")
-BOOT_JOURNAL_NO_RAUC_LINE = (
-    "systemd[1]: Started Network Time Synchronization.\n"
-    "systemd[1]: Reached target Multi-User System.\n"
-)
+BOOT_ID_B = "a" * 32
+BOOT_ID_A = "b" * 32
 
-
-def test_slot_from_boot_journal_finds_the_rauc_line():
-    assert slot_from_boot_journal(BOOT_JOURNAL_SLOT_B) == "B"
-    assert slot_from_boot_journal(BOOT_JOURNAL_SLOT_A) == "A"
+JOURNAL_JSON_LINES = (
+    '{"_BOOT_ID": "%s", "MESSAGE": "Booted into rootfs.1 (B)", '
+    '"__REALTIME_TIMESTAMP": "1700000000000000", "__CURSOR": "s=1;i=1"}\n'
+    '{"_BOOT_ID": "%s", "MESSAGE": "Booted into rootfs.0 (A)", '
+    '"__REALTIME_TIMESTAMP": "1700000100000000", "__CURSOR": "s=1;i=2"}\n'
+) % (BOOT_ID_B, BOOT_ID_A)
 
 
-def test_slot_from_boot_journal_no_rauc_line_raises():
-    # "a boot with no RAUC line" (M2) -- counted as not the booted slot, never
-    # guessed; the case treats this as "slot unknown for this boot_id", the same
-    # shape test_boot_ordinal_a_boot_with_no_known_slot_does_not_count exercises.
-    with pytest.raises(ValueError):
-        slot_from_boot_journal(BOOT_JOURNAL_NO_RAUC_LINE)
+def test_boot_slots_from_journal_parses_real_shaped_lines():
+    assert boot_slots_from_journal(JOURNAL_JSON_LINES) == {BOOT_ID_B: "B", BOOT_ID_A: "A"}
+
+
+def test_boot_slots_from_journal_trailing_blank_line_is_skipped():
+    # journalctl sometimes trails the output with an empty line.
+    assert boot_slots_from_journal(JOURNAL_JSON_LINES + "\n") == {BOOT_ID_B: "B", BOOT_ID_A: "A"}
+
+
+def test_boot_slots_from_journal_skips_bad_lines_without_raising():
+    boot_id_ok = "c" * 32
+    boot_id_unrelated = "d" * 32
+    text = (
+        "not json at all\n"
+        f'{{"_BOOT_ID": "{boot_id_ok}", "MESSAGE": "Booted into rootfs.1 (B)"}}\n'
+        '{"MESSAGE": "Booted into rootfs.0 (A)"}\n'  # no _BOOT_ID at all
+        f'{{"_BOOT_ID": "{boot_id_unrelated}", "MESSAGE": "rauc mark-good succeeded"}}\n'  # unrelated
+    )
+    # Only the one well-formed, slot-naming line survives; the other three are
+    # skipped, never guessed and never raised on.
+    assert boot_slots_from_journal(text) == {boot_id_ok: "B"}
+
+
+def test_boot_slots_from_journal_empty_text_is_empty_dict():
+    assert boot_slots_from_journal("") == {}
 
 
 # --------------------------------------------------------------------- keyed_hash
