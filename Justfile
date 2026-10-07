@@ -203,7 +203,7 @@ cve-build:
 
 [group('audit')]
 [script('bash')]
-[doc("Build with testimage inherited; run the wisekiosk oeqa suite over ssh")]
+[doc("Build with testimage inherited; run the kiosk oeqa suite over ssh")]
 testimage ssh_dir=env('PIPELINE_SSH_DIR', ''):
     if [ -z "{{ssh_dir}}" ] || [ -z "${TEST_TARGET_IP:-}" ]; then
         echo "testimage needs ssh_dir (or PIPELINE_SSH_DIR) and TEST_TARGET_IP set -- refusing" >&2
@@ -212,7 +212,7 @@ testimage ssh_dir=env('PIPELINE_SSH_DIR', ''):
     KAS_RUN_ENV="TEST_TARGET_IP OEQA_JSON_RESULT_DIR KIOSK_TARGET_ROLE KIOSK_TARGET_HOSTNAME" tools/kas-run.sh --ssh-dir {{ssh_dir}} build {{config}}:includes/testimage.yaml -c testimage
 
 [group('audit')]
-[doc("Run the wisekiosk oeqa suite by hand against <target-ip>, no bitbake, no OTA")]
+[doc("Run the kiosk oeqa suite by hand against <target-ip>, no bitbake, no OTA")]
 oe-test target:
     tools/oe-test.sh {{target}}
 

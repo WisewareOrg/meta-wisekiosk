@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Hand-run path for the wisekiosk oeqa suite: the same cases and the same
+# Hand-run path for the kiosk oeqa suite: the same cases and the same
 # run record `testimage` produces in the pipeline, run with `oe-test runtime`
 # against any reachable target -- no bitbake, no OTA.
 #
@@ -93,11 +93,16 @@ STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 RESULT_DIR="$ROOT/local/oe-test/$STAMP"
 mkdir -p "$RESULT_DIR"
 
+# oeqa's own ssh target writes remoteTarget.log into os.getcwd(), with no
+# flag to redirect it (sources/poky/meta/lib/oeqa/core/target/ssh.py) --
+# every other path above is already absolute, so cwd is free to move.
+cd "$RESULT_DIR" || exit 1
+
 exec python3 "$POKY/scripts/oe-test" runtime "$ROOT/meta-wisekiosk/lib/oeqa/runtime/cases" \
     --test-data-file "$TESTDATA" \
     --packages-manifest "$MANIFEST" \
     --target-type simpleremote \
     --target-ip "$TARGET" \
-    --run-tests wisekiosk \
+    --run-tests kiosk \
     --json-result-dir "$RESULT_DIR" \
     --output-log "$RESULT_DIR/oe-test.log"

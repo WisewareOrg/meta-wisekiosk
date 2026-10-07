@@ -12,7 +12,7 @@ local_conf_header:
   testimage: |
     IMAGE_CLASSES += "testimage"
     TEST_TARGET = "simpleremote"
-    TEST_SUITES = "wisekiosk"
+    TEST_SUITES = "kiosk"
 
     # required non-empty by testimage_sanity; unused
     TEST_SERVER_IP = "127.0.0.1"
