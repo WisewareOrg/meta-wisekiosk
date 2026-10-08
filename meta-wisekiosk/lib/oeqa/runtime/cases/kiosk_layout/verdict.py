@@ -2,8 +2,8 @@
 configured mode. Pure: no device, no DOM -- every mode string and xrandr dump is a plain value.
 """
 
-_MIN_WIDTH = 1280
-_MIN_HEIGHT = 720
+MIN_WIDTH = 1280
+MIN_HEIGHT = 720
 
 
 def current_mode(xrandr_output):
@@ -31,8 +31,8 @@ def verdict(xrandr_output, configured_mode):
         return "error", "xrandr reported no current mode"
     width_str, _, height_str = mode.partition("x")
     width, height = int(width_str), int(height_str)
-    if width < _MIN_WIDTH or height < _MIN_HEIGHT:
-        return "below-floor", f"{mode} is below the {_MIN_WIDTH}x{_MIN_HEIGHT} floor"
+    if width < MIN_WIDTH or height < MIN_HEIGHT:
+        return "below-floor", f"{mode} is below the {MIN_WIDTH}x{MIN_HEIGHT} floor"
     if mode != configured_mode:
         return "mode-mismatch", f"xrandr reports {mode}, the launcher configures {configured_mode}"
     return "ok", ""
@@ -55,15 +55,13 @@ def pick_below_floor_mode(xrandr_output):
         if connector is None or not line.startswith(" "):
             continue
         parts = line.split()
-        if not parts:
-            continue
         w_str, _, h_str = parts[0].partition("x")
         if not (w_str.isdigit() and h_str.isdigit()):
             continue
         width, height = int(w_str), int(h_str)
         if "*" in line:
             current = parts[0]
-        if width < _MIN_WIDTH or height < _MIN_HEIGHT:
+        if width < MIN_WIDTH or height < MIN_HEIGHT:
             below_floor.append((width, height))
 
     candidate = None

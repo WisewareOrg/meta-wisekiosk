@@ -33,45 +33,35 @@ def test_current_mode_none_when_no_line_is_current():
     assert current_mode("HDMI-1 connected primary 1280x720+0+0\n   1280x720      60.00\n") is None
 
 
-def test_current_mode_skips_a_malformed_marked_line():
-    # Defensive: real xrandr output never emits this shape, but a stray "*"
-    # on a line whose first token is not "<w>x<h>" must not raise.
-    xrandr_output = "   not-a-mode*\n   1280x720      60.00*\n"
+def test_current_mode_skips_an_interlaced_current_line():
+    # Real xrandr shape: an interlaced mode's token carries a trailing "i"
+    # (e.g. "1920x1080i"); isdigit() correctly refuses it even marked "*".
+    xrandr_output = "   1920x1080i   60.00*\n   1280x720      60.00*\n"
     assert current_mode(xrandr_output) == "1280x720"
 
 
 @pytest.mark.parametrize(
-    ("name", "xrandr_output", "configured_mode", "want_outcome"),
+    ("name", "xrandr_output", "configured_mode", "want_outcome", "want_reason_substring"),
     [
         ("exactly at the floor, matching configured -- the boundary itself passes",
-         BENCH_XRANDR, "1280x720", "ok"),
+         BENCH_XRANDR, "1280x720", "ok", ""),
         ("a width below the floor",
          "HDMI-1 connected primary 1279x720+0+0\n   1279x720      60.00*\n", "1279x720",
-         "below-floor"),
+         "below-floor", "1279x720 is below the 1280x720 floor"),
         ("a height below the floor",
          "HDMI-1 connected primary 1280x719+0+0\n   1280x719      60.00*\n", "1280x719",
-         "below-floor"),
+         "below-floor", "1280x719 is below the 1280x720 floor"),
         ("clears the floor but does not match the configured mode",
          "HDMI-1 connected primary 1920x1080+0+0\n   1920x1080      60.00*\n", "1280x720",
-         "mode-mismatch"),
+         "mode-mismatch", "xrandr reports 1920x1080, the launcher configures 1280x720"),
         ("no current mode at all",
-         "HDMI-1 connected primary 1280x720+0+0\n", "1280x720", "error"),
+         "HDMI-1 connected primary 1280x720+0+0\n", "1280x720", "error", "no current mode"),
     ],
 )
-def test_verdict_outcome(name, xrandr_output, configured_mode, want_outcome):
+def test_verdict_outcome(name, xrandr_output, configured_mode, want_outcome, want_reason_substring):
     outcome, reason = verdict(xrandr_output, configured_mode)
     assert outcome == want_outcome, f"{name}: {reason!r}"
-
-
-def test_verdict_error_reason_names_why():
-    outcome, reason = verdict("HDMI-1 connected primary 1280x720+0+0\n", "1280x720")
-    assert "no current mode" in reason
-
-
-def test_verdict_mode_mismatch_reason_names_both_modes():
-    outcome, reason = verdict(
-        "HDMI-1 connected primary 1920x1080+0+0\n   1920x1080      60.00*\n", "1280x720")
-    assert "1920x1080" in reason and "1280x720" in reason
+    assert want_reason_substring in reason, f"{name}: {reason!r}"
 
 
 # ------------------------------------------------------------- pick_below_floor_mode
@@ -102,30 +92,18 @@ def test_pick_below_floor_mode_connector_offers_none():
     assert candidate is None
 
 
-def test_pick_below_floor_mode_a_blank_indented_line_is_skipped():
-    # Defensive: real xrandr output never emits a whitespace-only indented
-    # line, but one must not raise on an empty split().
+def test_pick_below_floor_mode_skips_an_interlaced_mode():
+    # Real xrandr shape: an interlaced mode's token carries a trailing "i"
+    # (e.g. "720x480i"); isdigit() correctly excludes it from the candidates.
     connector, current, candidate = pick_below_floor_mode(
         "HDMI-1 connected primary 1280x720+0+0\n"
-        "   \n"
+        "   720x480i      60.00\n"
+        "   1024x768      75.03\n"
         "   1280x720      60.00*\n"
     )
     assert connector == "HDMI-1"
     assert current == "1280x720"
-    assert candidate is None
-
-
-def test_pick_below_floor_mode_a_non_numeric_mode_token_is_skipped():
-    # Defensive: real xrandr output never emits this shape, but a stray
-    # "<w>x<non-digit>" token must not raise.
-    connector, current, candidate = pick_below_floor_mode(
-        "HDMI-1 connected primary 1280x720+0+0\n"
-        "   100xabc       60.00\n"
-        "   1280x720      60.00*\n"
-    )
-    assert connector == "HDMI-1"
-    assert current == "1280x720"
-    assert candidate is None
+    assert candidate == "1024x768"
 
 
 def test_pick_below_floor_mode_no_connected_output():

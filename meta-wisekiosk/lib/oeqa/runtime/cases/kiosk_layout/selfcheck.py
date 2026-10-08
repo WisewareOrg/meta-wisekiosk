@@ -2,7 +2,7 @@ from framework.base import WiseKioskCase
 from kiosk_applied.case import deploy_probe, wait_applied
 
 from .case import read_configured_mode
-from .verdict import current_mode, pick_below_floor_mode, verdict as layout_verdict
+from .verdict import MIN_HEIGHT, MIN_WIDTH, current_mode, pick_below_floor_mode, verdict as layout_verdict
 
 # meta-wisekiosk/recipes-core/kiosk-session/files/kiosk-launch's own --mode
 # line, backed up then sed-edited here.
@@ -44,7 +44,8 @@ class KioskLayoutSelfcheck(WiseKioskCase):
         connector, _current_mode, candidate = pick_below_floor_mode(output)
         if candidate is None:
             self.skipTest(
-                f"{connector!r} offers no mode below the 1280x720 floor -- cannot seed one")
+                f"{connector!r} offers no mode below the {MIN_WIDTH}x{MIN_HEIGHT} floor -- "
+                f"cannot seed one")
 
         deploy_probe(self)
         self.addCleanup(self._restore_launcher)
