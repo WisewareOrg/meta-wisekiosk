@@ -1,23 +1,9 @@
 import time
-from pathlib import Path
 
-from kiosk_applied.verdict import read_sample as applied_read_sample
-from framework.base import WiseKioskCase, POLL_ATTEMPT_TIMEOUT_SECONDS
+from framework import record
+from framework.base import WiseKioskCase
 
 from .verdict import read_sample, verdict as unreachable_verdict
-
-# The one probe script (design §2.5: "one probe script, one record format"),
-# owned by kiosk_applied -- referenced here rather than duplicated.
-_PROBE_SRC = Path(__file__).resolve().parents[1] / "kiosk_applied" / "probe.js"
-
-# Walks the root's whole tree and reads every window's WM_NAME -- the same
-# probe channel kiosk_applied's case.py arms. docs/testing.md § "The render
-# and applied cases" has the why.
-_WINDOW_TITLES_PROBE = (
-    "for id in $(DISPLAY=:0 xwininfo -root -tree 2>/dev/null | "
-    "awk '/^ +0x/ { print $1 }'); do "
-    'DISPLAY=:0 xprop -id "$id" WM_NAME 2>/dev/null; done'
-)
 
 _DEADLINE_SECONDS = 30
 _POLL_SECONDS = 2
@@ -30,47 +16,35 @@ class KioskBackendUnreachableTest(WiseKioskCase):
         if WiseKioskCase.role != "bench":
             raise RuntimeError(
                 f"test_backend_unreachable requires role=bench, got {WiseKioskCase.role!r}")
-        self.addCleanup(self.target.run, "systemctl start wisekiosk.service")
-        self.addCleanup(self.target.run, "rm -f /home/root/.surf/script.js")
+        self.arm_probe()
 
-        mkdir_status, _ = self.target.run(
-            "mkdir -p /home/root/.surf", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
-        if mkdir_status != 0:
-            raise RuntimeError("could not arm the probe (mkdir)")
-        self.target.copyTo(str(_PROBE_SRC), "/home/root/.surf/script.js")
-        restart_status, _ = self.target.run("systemctl restart kiosk.service")
-        if restart_status != 0:
-            raise RuntimeError("could not restart kiosk.service to arm the probe")
-        # The banner is the running page's reaction; stopping the backend
-        # before the page has applied yields a load failure instead.
-        applied_by = time.time() + _APPLIED_WAIT_SECONDS
+        # The red half: the page applied (unreachable=0) before the
+        # backend is stopped -- the record's page.<case id> line below
+        # shows this alongside the after sample (review round-1 F2).
+        before_start = time.time()
+        self.wait_applied(_APPLIED_WAIT_SECONDS)
+        before_seconds = round(time.time() - before_start, 1)
+        before = read_sample(self.titles()) or {}
+
+        self.stop_backend()
+        stop_start = time.time()
+
+        deadline = stop_start + _DEADLINE_SECONDS
+        outcome, reason, after = "error", "no probe payload", None
         while True:
-            _status, output = self.target.run(
-                _WINDOW_TITLES_PROBE, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
-            sample = applied_read_sample(output)
-            if sample is not None and sample.get("state") == "applied":
-                break
-            if time.time() >= applied_by:
-                last = sample.get("state") if sample else "no probe payload"
-                raise RuntimeError(
-                    f"the page did not apply within {_APPLIED_WAIT_SECONDS}s of arming the probe (last: {last})")
-            time.sleep(_POLL_SECONDS)
-
-        stop_status, _ = self.target.run("systemctl stop wisekiosk.service")
-        if stop_status != 0:
-            raise RuntimeError("could not stop wisekiosk.service")
-
-        deadline = time.time() + _DEADLINE_SECONDS
-        outcome, reason = "error", "no probe payload"
-        while True:
-            _status, output = self.target.run(
-                _WINDOW_TITLES_PROBE, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
-            sample = read_sample(output)
-            outcome, reason = unreachable_verdict(sample)
+            after = read_sample(self.titles())
+            outcome, reason = unreachable_verdict(after)
             if outcome == "ok":
-                return
+                break
             if time.time() >= deadline:
                 break
             time.sleep(_POLL_SECONDS)
 
+        if outcome == "ok":
+            after_seconds = round(time.time() - stop_start, 1)
+            self.tc.extraresults[record.RECORD_KEY][f"page.{self.id()}"] = record.unreachable_record_line(
+                before_unreachable=before.get("unreachable", "?"), before_seconds=before_seconds,
+                after_unreachable=after["unreachable"], after_diag=after["diag"],
+                after_rem=after["rem"], after_seconds=after_seconds)
+            return
         self.fail(f"within {_DEADLINE_SECONDS}s of stopping the backend: {reason}")

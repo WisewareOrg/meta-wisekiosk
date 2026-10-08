@@ -33,11 +33,13 @@ from framework.record import (
     page_line,
     parse_buildinfo,
     pid_from_pgrep,
+    recovery_record_line,
     scrub_argv,
     slot_installed_at,
     sut_line,
     tool_line,
     tool_name,
+    unreachable_record_line,
     uptime_seconds,
     webkit_env,
 )
@@ -594,6 +596,31 @@ def test_sut_line():
 def test_page_line():
     got = page_line(nonce="1699999999.5", state="applied", cards="-/-", faulted=0, unreachable=0)
     assert got == "R page nonce=1699999999.5 state=applied cards=-/- faulted=0 unreachable=0"
+
+
+# ------------------------------------------------------- page.<case id> builders
+# kiosk_backend_unreachable and kiosk_recovery each gate on their own stimulus
+# already; these two lines are the evidentiary record of the before/after
+# samples that stimulus produced (round-1 review F2).
+
+def test_unreachable_record_line():
+    got = unreachable_record_line(
+        before_unreachable=0, before_seconds=4.2, after_unreachable=1, after_diag=12,
+        after_rem=20, after_seconds=7.1)
+    assert got == (
+        "R page before_took_s=4.2 before_unreachable=0 after_took_s=7.1 "
+        "after_unreachable=1 after_diag=12 after_rem=20"
+    )
+
+
+def test_recovery_record_line():
+    got = recovery_record_line(
+        before_unreachable=1, before_loading=3, before_seconds=6.5, after_unreachable=0,
+        after_loading=0, after_seconds=9.3)
+    assert got == (
+        "R page before_took_s=6.5 before_unreachable=1 before_loading=3 after_took_s=9.3 "
+        "after_unreachable=0 after_loading=0"
+    )
 
 
 # ------------------------------------------------------------ the whole record

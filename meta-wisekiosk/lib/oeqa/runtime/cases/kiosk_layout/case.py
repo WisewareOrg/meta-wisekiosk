@@ -1,95 +1,91 @@
 import time
-import re
-from pathlib import Path
 
-from kiosk_applied.verdict import read_sample as applied_read_sample
-from framework.base import WiseKioskCase, POLL_ATTEMPT_TIMEOUT_SECONDS
+from framework import probe
+from framework.base import WiseKioskCase
 
-from .verdict import parse_layout, verdict as layout_verdict
-
-# The one probe script (design §2.5: "one probe script, one record format"),
-# owned by kiosk_applied -- referenced here rather than duplicated.
-_PROBE_SRC = Path(__file__).resolve().parents[1] / "kiosk_applied" / "probe.js"
-
-# Walks the root's whole tree and reads every window's WM_NAME -- the same
-# probe channel kiosk_applied's case.py arms. docs/testing.md § "The render
-# and applied cases" has the why.
-_WINDOW_TITLES_PROBE = (
-    "for id in $(DISPLAY=:0 xwininfo -root -tree 2>/dev/null | "
-    "awk '/^ +0x/ { print $1 }'); do "
-    'DISPLAY=:0 xprop -id "$id" WM_NAME 2>/dev/null; done'
-)
-
-_WM_NAME = re.compile(r'WM_NAME\(\w+\) = "(.*)"$')
-
+from .verdict import parse_layout, pick_below_floor_mode, verdict as layout_verdict
 
 _POLL_SECONDS = 2
-_APPLIED_WAIT_SECONDS = 180
 _BANNER_WAIT_SECONDS = 30
+_APPLIED_WAIT_SECONDS = 180
 
 
 class KioskLayoutTest(WiseKioskCase):
 
-    # Grouped with backend_unreachable (the banner this case measures
-    # clearance against is raised by the same stimulus, applied below) --
-    # every case restores its own stimulus in its own cleanup (ruling 5),
-    # so this case stops the backend itself rather than relying on
-    # backend_unreachable's state surviving past that case's own tearDown.
+    # The banner this case measures clearance against is raised by the
+    # same stimulus applied below -- self-sufficient (stops the backend
+    # itself) rather than relying on kiosk_backend_unreachable's state
+    # surviving past that case's own tearDown. docs/testing.md § "The
+    # render and applied cases" has why.
+
+    def _read_layout(self, deadline):
+        parsed = None
+        while parsed is None:
+            for title in probe.title_lines(self.titles()):
+                parsed = parse_layout(title)
+                if parsed is not None:
+                    break
+            if parsed is None:
+                if time.time() >= deadline:
+                    raise RuntimeError(
+                        f"no probe payload carried a layout= field within "
+                        f"{_BANNER_WAIT_SECONDS}s of stopping the backend")
+                time.sleep(_POLL_SECONDS)
+        return parsed
 
     def test_layout_floor(self):
         if WiseKioskCase.role != "bench":
             raise RuntimeError(f"test_layout_floor requires role=bench, got {WiseKioskCase.role!r}")
-        self.addCleanup(self.target.run, "systemctl start wisekiosk.service")
-        self.addCleanup(self.target.run, "rm -f /home/root/.surf/script.js")
+        self.arm_probe()
+        self.wait_applied(_APPLIED_WAIT_SECONDS)
+        self.stop_backend()
 
-        mkdir_status, _ = self.target.run(
-            "mkdir -p /home/root/.surf", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
-        if mkdir_status != 0:
-            raise RuntimeError("could not arm the probe (mkdir)")
-        self.target.copyTo(str(_PROBE_SRC), "/home/root/.surf/script.js")
-
-        restart_status, _ = self.target.run("systemctl restart kiosk.service")
-        if restart_status != 0:
-            raise RuntimeError("could not restart kiosk.service to arm the probe")
-        # The banner is the running page's reaction; stopping the backend
-        # before the page has applied yields a load failure instead.
-        applied_by = time.time() + _APPLIED_WAIT_SECONDS
-        while True:
-            _status, output = self.target.run(
-                _WINDOW_TITLES_PROBE, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
-            sample = applied_read_sample(output)
-            if sample is not None and sample.get("state") == "applied":
-                break
-            if time.time() >= applied_by:
-                last = sample.get("state") if sample else "no probe payload"
-                raise RuntimeError(
-                    f"the page did not apply within {_APPLIED_WAIT_SECONDS}s of arming the probe (last: {last})")
-            time.sleep(_POLL_SECONDS)
-
-        stop_status, _ = self.target.run("systemctl stop wisekiosk.service")
-        if stop_status != 0:
-            raise RuntimeError("could not stop wisekiosk.service")
-
-        # The banner the layout is measured against appears within the
-        # unreachable deadline of the stop; the layout field exists only then.
-        parsed = None
-        banner_by = time.time() + _BANNER_WAIT_SECONDS
-        while parsed is None:
-            _status, output = self.target.run(
-                _WINDOW_TITLES_PROBE, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
-            for line in output.splitlines():
-                m = _WM_NAME.match(line)
-                if not m:
-                    continue
-                parsed = parse_layout(m.group(1))
-                if parsed is not None:
-                    break
-            if parsed is None:
-                if time.time() >= banner_by:
-                    raise RuntimeError(
-                        f"no probe payload carried a layout= field within {_BANNER_WAIT_SECONDS}s of stopping the backend")
-                time.sleep(_POLL_SECONDS)
-
+        parsed = self._read_layout(time.time() + _BANNER_WAIT_SECONDS)
         outcome, reason = layout_verdict(parsed)
         if outcome != "ok":
             self.fail(reason)
+
+    def test_layout_seeded_fail(self):
+        if WiseKioskCase.role != "bench":
+            raise RuntimeError(
+                f"test_layout_seeded_fail requires role=bench, got {WiseKioskCase.role!r}")
+        status, output = self.target.run("DISPLAY=:0 xrandr")
+        if status != 0:
+            raise RuntimeError("could not read xrandr")
+        connector, current_mode, candidate = pick_below_floor_mode(output)
+        if candidate is None:
+            self.skipTest(
+                f"{connector!r} offers no mode below the 1280x720 floor -- cannot seed one")
+        if current_mode is None:
+            raise RuntimeError("xrandr reported no current mode to restore afterward")
+
+        self.addCleanup(
+            self.target.run, f"DISPLAY=:0 xrandr --output {connector} --mode {current_mode}")
+        set_status, _ = self.target.run(f"DISPLAY=:0 xrandr --output {connector} --mode {candidate}")
+        if set_status != 0:
+            raise RuntimeError(f"could not set {connector} to {candidate}")
+
+        self.arm_probe()
+        self.wait_applied(_APPLIED_WAIT_SECONDS)
+        self.stop_backend()
+
+        parsed = self._read_layout(time.time() + _BANNER_WAIT_SECONDS)
+        outcome, reason = layout_verdict(parsed)
+        if outcome == "ok":
+            # Found live on bench, round-1 fixes: kiosk-launch's own
+            # `xrandr --output HDMI-1 --mode 1280x720` runs unconditionally
+            # on every (re)start -- the one event that makes a fresh probe
+            # reading possible -- so a mode set here never survives to
+            # surf's own window. Confirmed with three independent
+            # mechanisms (restart, a live resize with no restart, and a
+            # kill-and-respawn): every one reads back 1280x720. Recorded,
+            # never asserted as a floor failure that cannot occur.
+            self.skipTest(
+                f"the seeded mode {candidate!r} did not reach the browser's own viewport "
+                f"(read back {parsed['width']}x{parsed['height']}) -- this image's kiosk-launch "
+                "unconditionally resets the display to 1280x720 on every (re)start, so no "
+                "restart-driven seed can produce a below-floor viewport on this board")
+        if outcome != "error" or "floor" not in reason:
+            self.fail(
+                f"the seeded below-floor mode {candidate!r} did not read as a floor failure -- "
+                f"got {outcome!r} ({reason!r})")

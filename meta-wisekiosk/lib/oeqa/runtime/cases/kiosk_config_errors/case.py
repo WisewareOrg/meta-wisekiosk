@@ -1,68 +1,108 @@
-import re
+import json
+import tempfile
 import time
-from pathlib import Path
 
-from framework.base import WiseKioskCase, POLL_ATTEMPT_TIMEOUT_SECONDS
+from framework import probe
+from framework.base import WiseKioskCase
 
 from .verdict import parse_configuration_error
 
-# The one probe script (design §2.5: "one probe script, one record format"),
-# owned by kiosk_applied -- referenced here rather than duplicated.
-_PROBE_SRC = Path(__file__).resolve().parents[1] / "kiosk_applied" / "probe.js"
-
-# Walks the root's whole tree and reads every window's WM_NAME -- the same
-# probe channel kiosk_applied's case.py arms. docs/testing.md § "The render
-# and applied cases" has the why.
-_WINDOW_TITLES_PROBE = (
-    "for id in $(DISPLAY=:0 xwininfo -root -tree 2>/dev/null | "
-    "awk '/^ +0x/ { print $1 }'); do "
-    'DISPLAY=:0 xprop -id "$id" WM_NAME 2>/dev/null; done'
-)
-
-_WM_NAME = re.compile(r'WM_NAME\(\w+\) = "(.*)"$')
-_DEADLINE_SECONDS = 90
+_CONFIG_PATH = "/data/config/config.json"
+_CONFIG_BACKUP = "/data/config/config.json.pre-seed"
+_APPLIED_DEADLINE_SECONDS = 90
 _POLL_SECONDS = 2
+
+_NON_JSON_BODY = "not json at all\n"
+# Schema-invalid per frontend/src/config/schema.json's own "required":
+# ["region", "module"] on a module placement -- this one carries neither.
+_SCHEMA_INVALID_BODY = json.dumps({"modules": [{}]})
+
+# (classification, replacement body or None for "move it aside") -- the
+# ticket's own three seeds, in order.
+_SEEDS = (
+    ("absent", None),
+    ("unparsable", _NON_JSON_BODY),
+    ("rejected", _SCHEMA_INVALID_BODY),
+)
 
 
 class KioskConfigErrorsTest(WiseKioskCase):
+
+    def _write_config(self, body):
+        # chmod after copyTo: copyTo preserves the local tempfile's own
+        # 0600, and wisekiosk.service runs as the non-root `kiosk` user --
+        # a 0600 root-owned file is unreadable to it, so the backend's own
+        # staticserve.go answers 404 for a permissions error exactly as it
+        # does for a missing file, misreading as "absent" (found live on
+        # bench, round-1 fixes).
+        with tempfile.NamedTemporaryFile("w", suffix=".json") as f:
+            f.write(body)
+            f.flush()
+            self.target.copyTo(f.name, _CONFIG_PATH)
+        self.target.run(f"chmod 0644 {_CONFIG_PATH}")
+
+    def _restore_config(self):
+        # Idempotent: a backup already consumed by an earlier restore in
+        # this same method leaves nothing to do.
+        status, _ = self.target.run(f"test -f {_CONFIG_BACKUP}")
+        if status != 0:
+            return
+        self.target.run(f"cp -a {_CONFIG_BACKUP} {_CONFIG_PATH}")
+        self.target.run(f"rm -f {_CONFIG_BACKUP}")
+        self.target.run("systemctl restart kiosk.service")
+
+    def _poll_configuration_error(self, want, deadline):
+        state = "no-probe"
+        while True:
+            for title in probe.title_lines(self.titles()):
+                found = parse_configuration_error(title)
+                if found is not None:
+                    state = found
+                    break
+                if probe.fields(title) is not None:
+                    state = "absent-field"
+                    break
+            if state == want:
+                return state
+            if time.time() >= deadline:
+                return state
+            time.sleep(_POLL_SECONDS)
 
     def test_configuration_errors(self):
         if WiseKioskCase.role != "bench":
             raise RuntimeError(
                 f"test_configuration_errors requires role=bench, got {WiseKioskCase.role!r}")
-        self.addCleanup(self.target.run, "rm -f /home/root/.surf/script.js")
+        self.addCleanup(self._restore_config)
+        backup_status, _ = self.target.run(f"cp -a {_CONFIG_PATH} {_CONFIG_BACKUP}")
+        if backup_status != 0:
+            raise RuntimeError(f"could not back up {_CONFIG_PATH}")
 
-        mkdir_status, _ = self.target.run(
-            "mkdir -p /home/root/.surf", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
-        if mkdir_status != 0:
-            raise RuntimeError("could not arm the probe (mkdir)")
-        self.target.copyTo(str(_PROBE_SRC), "/home/root/.surf/script.js")
-        deadline = time.time() + _DEADLINE_SECONDS
-        restart_status, _ = self.target.run(
-            "systemctl restart kiosk.service", timeout=int(max(1, deadline - time.time())))
-        if restart_status != 0:
-            raise RuntimeError("could not restart kiosk.service to arm the probe")
+        self.arm_probe()
+        self.wait_applied(_APPLIED_DEADLINE_SECONDS)
 
-        state = "no-probe"
-        while True:
-            _status, output = self.target.run(
-                _WINDOW_TITLES_PROBE, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
-            for line in output.splitlines():
-                m = _WM_NAME.match(line)
-                if not m:
-                    continue
-                found = parse_configuration_error(m.group(1))
-                if found is not None:
-                    state = found
-                    break
-                if "WK1 " in m.group(1):
-                    state = "absent-field"
-            if state == "absent-field":
-                return
-            if time.time() >= deadline:
-                break
-            time.sleep(_POLL_SECONDS)
+        deadline = time.time() + _APPLIED_DEADLINE_SECONDS
+        state = self._poll_configuration_error("absent-field", deadline)
+        if state != "absent-field":
+            self.fail(
+                f"a configuration-error={state!r} is present on the healthy board config -- "
+                "expected none")
 
-        self.fail(
-            f"a configuration-error={state!r} is still present {_DEADLINE_SECONDS}s after the "
-            "restart -- the healthy config.json on this board was not read as applied")
+        for kind, body in _SEEDS:
+            if body is None:
+                rm_status, _ = self.target.run(f"rm -f {_CONFIG_PATH}")
+                if rm_status != 0:
+                    raise RuntimeError(f"could not move {_CONFIG_PATH} aside for the {kind!r} seed")
+            else:
+                self._write_config(body)
+            restart_status, _ = self.target.run("systemctl restart kiosk.service")
+            if restart_status != 0:
+                raise RuntimeError(f"could not restart kiosk.service for the {kind!r} seed")
+            deadline = time.time() + _APPLIED_DEADLINE_SECONDS
+            state = self._poll_configuration_error(kind, deadline)
+            if state != kind:
+                self.fail(
+                    f"configuration-error did not read {kind!r} within "
+                    f"{_APPLIED_DEADLINE_SECONDS}s of the restart -- got {state!r}")
+
+        self._restore_config()
+        self.wait_applied(_APPLIED_DEADLINE_SECONDS)
