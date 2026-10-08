@@ -1,32 +1,30 @@
 import tempfile
-import time
 
 from framework.base import WiseKioskCase
 
-from .case import _DEADLINE_SECONDS, _deploy_probe, _kill_surf, _wait_applied_or_fail
+from .case import restart_attempt
 
 # Restart=no drop-in; _remove_dropin restores it.
 _DROPIN_DIR = "/etc/systemd/system/kiosk.service.d"
-_DROPIN_PATH = _DROPIN_DIR + "/zz-acceptance-restart.conf"
+_DROPIN_PATH = _DROPIN_DIR + "/zz-selfcheck.conf"
 _DROPIN_BODY = "[Service]\nRestart=no\n"
-_SEEDED_FAIL_DEADLINE_SECONDS = 60
-_POLL_SECONDS = 2
 
 
 class KioskBrowserRestartSelfcheck(WiseKioskCase):
 
     def _remove_dropin(self):
-        self.target.run(f"rm -f {_DROPIN_PATH}")
-        self.target.run("systemctl daemon-reload")
-        self.target.run("systemctl start kiosk.service")
+        rm_status, _ = self.target.run(f"rm -f {_DROPIN_PATH}")
+        if rm_status != 0:
+            raise RuntimeError(f"could not remove {_DROPIN_PATH}")
+        reload_status, _ = self.target.run("systemctl daemon-reload")
+        if reload_status != 0:
+            raise RuntimeError("could not daemon-reload after removing the drop-in")
+        start_status, _ = self.target.run("systemctl start kiosk.service")
+        if start_status != 0:
+            raise RuntimeError("could not start kiosk.service after removing the drop-in")
 
     def test_browser_restart_detects_broken_policy(self):
-        if WiseKioskCase.role != "bench":
-            raise RuntimeError(
-                f"test_browser_restart_detects_broken_policy requires role=bench, got "
-                f"{WiseKioskCase.role!r}")
         self.addCleanup(self._remove_dropin)
-        _deploy_probe(self)
 
         mkdir_status, _ = self.target.run(f"mkdir -p {_DROPIN_DIR}")
         if mkdir_status != 0:
@@ -38,24 +36,18 @@ class KioskBrowserRestartSelfcheck(WiseKioskCase):
         reload_status, _ = self.target.run("systemctl daemon-reload")
         if reload_status != 0:
             raise RuntimeError("could not daemon-reload after writing the drop-in")
+        readback_status, readback = self.target.run("systemctl show -p Restart --value kiosk.service")
+        if readback_status != 0 or readback.strip() != "no":
+            raise RuntimeError(
+                f"the Restart=no drop-in did not land -- systemctl reads Restart={readback.strip()!r}")
 
-        _kill_surf(self)
+        outcome, reason = restart_attempt(self)
+        if outcome != "not-restarted":
+            self.fail(f"Restart=no did not read as not-restarted -- got {outcome!r} ({reason!r})")
 
-        # The red: kiosk.service stays down for the whole deadline under
-        # Restart=no, where test_browser_restart's own run proves it would
-        # not, live, under the real Restart=always policy.
-        deadline = time.time() + _SEEDED_FAIL_DEADLINE_SECONDS
-        while True:
-            _status, active = self.target.run("systemctl is-active kiosk.service")
-            if active.strip() == "active":
-                self.fail(
-                    "kiosk.service came back despite the Restart=no drop-in -- "
-                    "the seed did not take effect")
-            if time.time() >= deadline:
-                break
-            time.sleep(_POLL_SECONDS)
-
-        # The green: remove the seed, start the unit (the probe deployed
-        # above is still in place -- surf picks it up on this start).
         self._remove_dropin()
-        _wait_applied_or_fail(self, _DEADLINE_SECONDS)
+
+        outcome, reason = restart_attempt(self)
+        if outcome != "restarted":
+            self.fail(
+                f"did not return to restarted after removing the drop-in -- got {outcome!r} ({reason!r})")

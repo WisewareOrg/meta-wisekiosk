@@ -1,31 +1,16 @@
 import time
-from pathlib import Path
 
-from framework.base import WiseKioskCase, POLL_ATTEMPT_TIMEOUT_SECONDS
+from framework.base import WiseKioskCase, POLL_SECONDS
+from kiosk_applied.case import deploy_probe, wait_applied
 from kiosk_applied.verdict import read_sample
 
-# The one probe script (design §2.5: "one probe script, one record format"),
-# owned by kiosk_applied -- referenced here rather than duplicated.
-_PROBE_SRC = Path(__file__).resolve().parents[1] / "kiosk_applied" / "probe.js"
+from .verdict import verdict as restart_verdict
 
+_ARM_WAIT_SECONDS = 90
 _DEADLINE_SECONDS = 60
-_POLL_SECONDS = 2
 
 
-def _deploy_probe(case):
-    # Deliberately not case.arm_probe(): that method also restarts
-    # kiosk.service, which here would be the stimulus itself, run too
-    # early. The deploy-only step every probe-reading case repeated is
-    # just mkdir+copyTo -- this case's own kill is the restart trigger.
-    case.addCleanup(case.target.run, "rm -f /home/root/.surf/script.js")
-    mkdir_status, _ = case.target.run(
-        "mkdir -p /home/root/.surf", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
-    if mkdir_status != 0:
-        raise RuntimeError("could not arm the probe (mkdir)")
-    case.target.copyTo(str(_PROBE_SRC), "/home/root/.surf/script.js")
-
-
-def _kill_surf(case):
+def kill_surf(case):
     status, _ = case.target.run("pgrep -x surf")
     if status != 0:
         raise RuntimeError("surf is not running before the kill")
@@ -34,28 +19,31 @@ def _kill_surf(case):
         raise RuntimeError("could not send SIGTERM to surf")
 
 
-def _wait_applied_or_fail(case, deadline_seconds):
-    deadline = time.time() + deadline_seconds
-    sample = None
+def restart_attempt(case):
+    """Arms the probe, reads the sample just before killing surf, then polls for a restarted
+    verdict against it -- deploy/restart/wait live once, through kiosk_applied's own helpers."""
+    deploy_probe(case)
+    restart_status, _ = case.target.run("systemctl restart kiosk.service")
+    if restart_status != 0:
+        raise RuntimeError("could not restart kiosk.service to arm the probe")
+    wait_applied(case, _ARM_WAIT_SECONDS)
+    before_sample = read_sample(case.titles())
+
+    kill_surf(case)
+
+    deadline = time.monotonic() + _DEADLINE_SECONDS
+    after_samples = []
     while True:
-        sample = read_sample(case.titles())
-        if sample and sample["state"] == "applied":
-            return
-        if time.time() >= deadline:
-            break
-        time.sleep(_POLL_SECONDS)
-    if sample is None:
-        case.fail(
-            f"no probe payload within {deadline_seconds}s -- kiosk.service did not restart surf")
-    case.fail(f"page not applied within {deadline_seconds}s -- state={sample['state']}")
+        after_samples.append(read_sample(case.titles()))
+        outcome, reason = restart_verdict(before_sample, after_samples)
+        if outcome == "restarted" or time.monotonic() >= deadline:
+            return outcome, reason
+        time.sleep(POLL_SECONDS)
 
 
 class KioskBrowserRestartTest(WiseKioskCase):
 
     def test_browser_restart(self):
-        if WiseKioskCase.role != "bench":
-            raise RuntimeError(
-                f"test_browser_restart requires role=bench, got {WiseKioskCase.role!r}")
-        _deploy_probe(self)
-        _kill_surf(self)
-        _wait_applied_or_fail(self, _DEADLINE_SECONDS)
+        outcome, reason = restart_attempt(self)
+        if outcome != "restarted":
+            self.fail(f"{outcome}: {reason}")
