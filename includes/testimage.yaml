@@ -13,9 +13,13 @@ local_conf_header:
     IMAGE_CLASSES += "testimage"
     TEST_TARGET = "simpleremote"
 
-    # The one spelling of the six case names: tools/oe-test.sh reads this
-    # exact line for its own --run-tests, rather than a second copy.
-    TEST_SUITES = "kiosk_backend_unit kiosk_healthz_bound kiosk_page_serves kiosk_health_flag kiosk_render kiosk_applied kiosk_browser_restart kiosk_layout"
+    # The one spelling of the case module list: tools/oe-test.sh reads this
+    # exact line for its own --run-tests, rather than a second copy. Full
+    # module names (<package>.case), never the bare package name: the
+    # loader's own module filter (sources/poky/meta/lib/oeqa/core/loader.py
+    # _filterModule) matches a bare package name against every module
+    # inside it, which would load a package's own selfcheck.py too.
+    TEST_SUITES = "kiosk_backend_unit.case kiosk_healthz_bound.case kiosk_page_serves.case kiosk_health_flag.case kiosk_render.case kiosk_applied.case kiosk_browser_restart.case kiosk_layout.case"
 
     # required non-empty by testimage_sanity; unused
     TEST_SERVER_IP = "127.0.0.1"

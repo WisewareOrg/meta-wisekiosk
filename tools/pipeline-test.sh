@@ -163,13 +163,9 @@ if grep -qF 'record.TRANSPORT_STATE' "$KIOSK_APPLIED_CASE_PY" \
 else
     bad "the declared transport state is not imported consistently"
 fi
-# --- regression pin, not a driver of new code: run.sh already exports
-# KIOSK_TARGET_ROLE/KIOSK_TARGET_HOSTNAME and includes/testimage.yaml already
-# carries both through TESTIMAGE_UPDATE_VARS -- this plumbing was traced end
-# to end and confirmed correct before this check was written, so it is green
-# from the day it lands, same as the two boundary checks above were once
-# their own imports settled. Its value is catching a future regression, by
-# fixture against the real source, never against a real device. -----------
+# Reads run.sh's own KIOSK_TARGET_ROLE/KIOSK_TARGET_HOSTNAME exports and
+# includes/testimage.yaml's own env:/TESTIMAGE_UPDATE_VARS entries; a miss
+# means that plumbing has drifted apart. -----------------------------------
 TESTIMAGE_YAML="$HERE/../includes/testimage.yaml"
 if grep -qE '^\s*export KIOSK_TARGET_ROLE=' "$RUN_SH" \
         && grep -qE '^\s*export KIOSK_TARGET_HOSTNAME=' "$RUN_SH"; then
