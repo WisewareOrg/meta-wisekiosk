@@ -183,11 +183,9 @@ else
     bad "includes/testimage.yaml does not carry KIOSK_TARGET_ROLE/KIOSK_TARGET_HOSTNAME through to testimage"
 fi
 
-# Every TEST_SUITES token is an existing case package named in full
-# (<pkg>.case); every cases/*/case.py is named. A bare package name would
-# load that package's own selfcheck.py in every job (the Shape ruling); a
-# missing package never runs. -----------------------------------------------
-CASE_PKGS=$(cd "$HERE/.." && ls meta-wisekiosk/lib/oeqa/runtime/cases/*/case.py \
+# Every TEST_SUITES token is <pkg>.case for an existing cases/<pkg>/case.py,
+# and every such package is named. -------------------------------------------
+CASE_PKGS=$(find "$HERE/../meta-wisekiosk/lib/oeqa/runtime/cases" -mindepth 2 -maxdepth 2 -name case.py \
     | sed -E 's#.*/cases/([^/]+)/case\.py#\1.case#' | sort)
 SUITE_PKGS=$(sed -n 's/^\s*TEST_SUITES = "\(.*\)"$/\1/p' "$TESTIMAGE_YAML" | tr ' ' '\n' | sort)
 if [ -n "$CASE_PKGS" ] && [ "$CASE_PKGS" = "$SUITE_PKGS" ]; then
