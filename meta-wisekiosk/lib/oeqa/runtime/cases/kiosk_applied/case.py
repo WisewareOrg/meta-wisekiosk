@@ -12,14 +12,6 @@ _KIOSK_CONF_BACKUP = "/data/config/kiosk.conf.seeded-fail-bak"
 _KIOSK_URL_KEY = "KIOSK_URL"
 _SEEDED_URL_LINE = f"{_KIOSK_URL_KEY}=http://localhost:1"
 
-# Walks the root's whole tree and reads every window's WM_NAME.
-# docs/testing.md § "The render and applied cases" has the why.
-_WINDOW_TITLES_PROBE = (
-    "for id in $(DISPLAY=:0 xwininfo -root -tree 2>/dev/null | "
-    "awk '/^ +0x/ { print $1 }'); do "
-    'DISPLAY=:0 xprop -id "$id" WM_NAME 2>/dev/null; done'
-)
-
 _PROBE_SRC = Path(__file__).resolve().parent / "probe.js"
 
 _APPLIED_DEADLINE_SECONDS = 90
@@ -30,11 +22,7 @@ _APPLIED_ATTEMPTS = 2
 class KioskAppliedTest(WiseKioskCase):
 
     def _read_applied_sample(self):
-        status, output = self.target.run(
-            _WINDOW_TITLES_PROBE, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
-        if status != 0:
-            return None
-        return read_sample(output)
+        return read_sample(self.titles())
 
     def _applied_attempt(self):
         # A deploy failure here takes the same retry path as a probe

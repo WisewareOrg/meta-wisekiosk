@@ -19,12 +19,12 @@ from oeqa.runtime.cases.kiosk_backend_unreachable.verdict import parse_title, re
 
 
 def test_parse_title_backend_down_with_diagnosis_and_remediation():
-    title = "sCgdimfFxt:T | WK1 nonce=1 state=error:configuration cards=-/- faulted=0 unreachable=1 diag=12 rem=20 modules=0/0"
+    title = "sCgdimfFxt:T | WK1 nonce=1 state=error:configuration cards=-/- faulted=0 unreachable=1 diag=12 rem=20 loading=0"
     assert parse_title(title) == {"unreachable": 1, "diag": 12, "rem": 20}
 
 
 def test_parse_title_healthy_baseline():
-    title = "sCgdimfFxt:T | WK1 nonce=1 state=applied cards=-/- faulted=0 unreachable=0 diag=0 rem=0 modules=0/0"
+    title = "sCgdimfFxt:T | WK1 nonce=1 state=applied cards=-/- faulted=0 unreachable=0 diag=0 rem=0 loading=0"
     assert parse_title(title) == {"unreachable": 0, "diag": 0, "rem": 0}
 
 
@@ -57,7 +57,7 @@ def test_parse_title_skips_a_malformed_token_with_no_equals():
     assert parse_title(title) == {"unreachable": 1, "diag": 12, "rem": 20}
 
 
-PAYLOAD = "WK1 nonce=1 state=error:configuration cards=-/- faulted=0 unreachable=1 diag=12 rem=20 modules=0/0"
+PAYLOAD = "WK1 nonce=1 state=error:configuration cards=-/- faulted=0 unreachable=1 diag=12 rem=20 loading=0"
 
 
 def test_read_sample_finds_the_first_probe_payload_among_several_windows():

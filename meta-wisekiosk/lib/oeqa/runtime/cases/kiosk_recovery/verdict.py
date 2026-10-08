@@ -1,32 +1,22 @@
 """The recovery title parser and verdict. Pure: no device, no DOM --
-every title and sample is a plain Python value.
+every title, dict and xprop dump is constructed.
 """
-import re
-
-_MARKER = "WK1 "
-_WM_NAME = re.compile(r'WM_NAME\(\w+\) = "(.*)"$')
+from framework.probe import fields as probe_fields, title_lines
 
 
 def parse_title(title):
-    """nonce/unreachable/loading from the probe's payload, or None if the
-    title carries no WK1 payload, or no `nonce`/`unreachable` field."""
-    index = title.find(_MARKER)
-    if index == -1:
+    """nonce/unreachable/loading from the probe's own standalone `loading=`
+    field (D3: `modules=<faulted>/<loading>`'s unread first half is gone),
+    or None if the title carries no WK1 payload, or no `nonce`/
+    `unreachable` field."""
+    found = probe_fields(title)
+    if found is None or "nonce" not in found or "unreachable" not in found:
         return None
-    fields = {}
-    for token in title[index + len(_MARKER):].split():
-        key, sep, value = token.partition("=")
-        if sep:
-            fields[key] = value
-    if "nonce" not in fields or "unreachable" not in fields:
-        return None
-    loading = 0
-    if "modules" in fields:
-        _unavailable, _sep, loading_str = fields["modules"].partition("/")
-        loading = int(loading_str) if loading_str.isdigit() else 0
+    loading_str = found.get("loading", "0")
+    loading = int(loading_str) if loading_str.isdigit() else 0
     return {
-        "nonce": fields["nonce"],
-        "unreachable": int(fields["unreachable"]),
+        "nonce": found["nonce"],
+        "unreachable": int(found["unreachable"]),
         "loading": loading,
     }
 
@@ -34,11 +24,8 @@ def parse_title(title):
 def read_sample(xprop_output):
     """The recovery sample from xprop's raw per-window dump -- the first
     window whose title parses to a probe payload, or None."""
-    for line in xprop_output.splitlines():
-        m = _WM_NAME.match(line)
-        if not m:
-            continue
-        sample = parse_title(m.group(1))
+    for title in title_lines(xprop_output):
+        sample = parse_title(title)
         if sample is not None:
             return sample
     return None

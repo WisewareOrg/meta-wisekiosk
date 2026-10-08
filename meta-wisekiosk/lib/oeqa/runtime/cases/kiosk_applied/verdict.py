@@ -1,10 +1,8 @@
 """The applied-page title parser and verdict. Pure: no device, no DOM --
 every title and sample list is a plain Python value.
 """
-import re
+from framework.probe import fields as probe_fields, title_lines
 
-_MARKER = "WK1 "
-_WM_NAME = re.compile(r'WM_NAME\(\w+\) = "(.*)"$')
 _FIELDS = ("nonce", "state", "cards", "faulted", "unreachable")
 _INT_FIELDS = ("faulted", "unreachable")
 
@@ -13,18 +11,12 @@ def parse_title(title):
     """The probe's payload from surf's window title ("[<progress>%]
     <toggles>:<pagestats> | <title>", or with the bracket dropped once
     progress reaches 100), or None if the title carries no WK1 payload --
-    including surf's own "T <ms> <ms>" paint-timing title."""
-    index = title.find(_MARKER)
-    if index == -1:
+    including surf's own "T <ms> <ms>" paint-timing title -- or is missing
+    any of the five fields this case's own contract requires."""
+    found = probe_fields(title)
+    if found is None or not all(key in found for key in _FIELDS):
         return None
-    fields = {}
-    for token in title[index + len(_MARKER):].split():
-        key, sep, value = token.partition("=")
-        if sep:
-            fields[key] = value
-    if not all(key in fields for key in _FIELDS):
-        return None
-    return {key: (int(fields[key]) if key in _INT_FIELDS else fields[key]) for key in _FIELDS}
+    return {key: (int(found[key]) if key in _INT_FIELDS else found[key]) for key in _FIELDS}
 
 
 def read_sample(xprop_output):
@@ -32,11 +24,8 @@ def read_sample(xprop_output):
     WM_NAME(<type>) = "<title>" line per window xwininfo -tree found) --
     the first window whose title parses to a probe payload, or None if no
     window carries one."""
-    for line in xprop_output.splitlines():
-        m = _WM_NAME.match(line)
-        if not m:
-            continue
-        sample = parse_title(m.group(1))
+    for title in title_lines(xprop_output):
+        sample = parse_title(title)
         if sample is not None:
             return sample
     return None

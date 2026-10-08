@@ -2,11 +2,12 @@ import datetime
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from oeqa.runtime.case import OERuntimeTestCase
 
-from . import record
+from . import probe, record
 
 # busybox wget: rc 0 only on 2xx. kiosk_backend_unit, kiosk_healthz_bound and
 # kiosk_page_serves import the ones they need from here -- one spelling of
@@ -16,6 +17,19 @@ INDEX_URL = "http://127.0.0.1:8080/"
 BOUND_SECONDS = 60
 POLL_INTERVAL_SECONDS = 2
 POLL_ATTEMPT_TIMEOUT_SECONDS = 10
+
+# Walks the root's whole tree and reads every window's WM_NAME -- the one
+# spelling every probe-reading case ran as its own copy. docs/testing.md §
+# "The render and applied cases" has the why.
+_WINDOW_TITLES_PROBE = (
+    "for id in $(DISPLAY=:0 xwininfo -root -tree 2>/dev/null | "
+    "awk '/^ +0x/ { print $1 }'); do "
+    'DISPLAY=:0 xprop -id "$id" WM_NAME 2>/dev/null; done'
+)
+
+# The one probe script (design §2.5: "one probe script, one record
+# format"), owned by kiosk_applied -- deployed from here, never duplicated.
+_PROBE_SRC = Path(__file__).resolve().parents[1] / "cases" / "kiosk_applied" / "probe.js"
 
 
 def _now_iso():
@@ -155,3 +169,62 @@ class WiseKioskCase(OERuntimeTestCase):
         super().tearDown()
         self.tc.extraresults[record.RECORD_KEY]["board"] = record.board_line(
             end=_now_iso(), **WiseKioskCase.board_fields)
+
+    def arm_probe(self):
+        """Deploys kiosk_applied's probe.js and restarts kiosk.service so
+        the freshly-deployed script is the one surf runs next -- the
+        mkdir/copyTo/restart sequence every probe-reading case repeated as
+        its own copy. Registers the script's own removal as this test's
+        cleanup."""
+        self.addCleanup(self.target.run, "rm -f /home/root/.surf/script.js")
+        mkdir_status, _ = self.target.run(
+            "mkdir -p /home/root/.surf", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
+        if mkdir_status != 0:
+            raise RuntimeError("could not arm the probe (mkdir)")
+        self.target.copyTo(str(_PROBE_SRC), "/home/root/.surf/script.js")
+        restart_status, _ = self.target.run("systemctl restart kiosk.service")
+        if restart_status != 0:
+            raise RuntimeError("could not restart kiosk.service to arm the probe")
+
+    def titles(self):
+        """The device's window titles, through xprop's WM_NAME walk --
+        transport only, raw text. Each case's own verdict module parses it
+        (framework.probe.title_lines, then its own field contract)."""
+        _status, output = self.target.run(
+            _WINDOW_TITLES_PROBE, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
+        return output
+
+    def wait_applied(self, seconds):
+        """Polls self.titles() until some window's probe payload reports
+        state=applied, raising with the last known state if seconds
+        elapses first. Only the state field is required here -- the
+        stricter, all-five-fields contract stays kiosk_applied.verdict's
+        own (a judgment call: flagged, not silent)."""
+        deadline = time.time() + seconds
+        last = "no probe payload"
+        while True:
+            for title in probe.title_lines(self.titles()):
+                found = probe.fields(title)
+                if found is not None and "state" in found:
+                    last = found["state"]
+                    if last == "applied":
+                        return
+            if time.time() >= deadline:
+                break
+            time.sleep(POLL_INTERVAL_SECONDS)
+        raise RuntimeError(f"the page did not apply within {seconds}s (last: {last})")
+
+    def stop_backend(self):
+        """Stops wisekiosk.service and registers its own restart as this
+        test's cleanup -- every case that stops the backend restores it
+        regardless of how the test ends."""
+        self.addCleanup(self.target.run, "systemctl start wisekiosk.service")
+        status, _ = self.target.run("systemctl stop wisekiosk.service")
+        if status != 0:
+            raise RuntimeError("could not stop wisekiosk.service")
+
+    def start_backend(self):
+        """Starts wisekiosk.service."""
+        status, _ = self.target.run("systemctl start wisekiosk.service")
+        if status != 0:
+            raise RuntimeError("could not start wisekiosk.service")
