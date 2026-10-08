@@ -4,7 +4,7 @@ header: |
   Browser-restart check passes
 level: 1.4
 links:
-- SRS005: mGkK1la8r-4fBuKv73p6xnauPeAawp-S4chSrdfVn-4=
+- SRS005: XGWAcZQvNfgkkpYq_Fpr26gzuxtPM6NxT6NTam_mwRE=
 normative: true
 rationale: ''
 ref: ''
@@ -13,13 +13,13 @@ references:
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_browser_restart/case.py
   sha: d83e954823c83dded204fab1f8074c36cdf10c9f036dfabbc72117779ea10e58
   type: file
-reviewed: BPA0nuRISNLhID_jjAZkXlOL4RBfkbhiukVnHkK0sRU=
+reviewed: -BzxbCLzOOPdw54BbF-l6omxiTz4xRoq3RBRmbtHKfc=
 status: proposed
 text: |
-  Kill the browser process and assert the page is applied again within the deadline.
+  Kill the browser process and assert the page is applied again within 60 s.
 verification-justification: |
   Settles that the browser restarts and the page is applied again within 60 s of the kill,
-  on one physical device, one boot. The failure branch is proven on constructed input and by
-  a hand-run self-test that is never part of a job, cited in the PR. Leaves unproven recovery
-  from any fault other than the browser process itself ending.
+  on one physical device, one boot. The failure branch is proven on constructed input and was
+  watched failing on bench when the check was built. Leaves unproven recovery from any fault
+  other than the browser process itself ending.
 verification-method: test

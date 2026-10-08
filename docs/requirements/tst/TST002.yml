@@ -13,14 +13,14 @@ references:
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_render/case.py
   sha: f0f6032645167011168c3b870c31d84d854f5c507f98f3e4ac3228789d911099
   type: file
-reviewed: kPrd1phZTuXi2t5eW4tZKwd0Qfd-TFqI0vwSyYihcHs=
+reviewed: ixTPd0xIMDTVFqag_aYRGVLDQ2yYI17E8BDT3mKuMjc=
 status: proposed
 text: |
   Run the device oeqa suite's render-advancing case against the booted image and assert it
   passes.
 verification-justification: |
   Settles that the display is still painting across the two captured frames, on one physical
-  device, one boot. The failure branch is proven on constructed input and by a hand-run
-  self-test that is never part of a job, cited in the PR. Leaves unproven whether a painted
-  frame is visually correct.
+  device, one boot. The failure branch is proven on constructed input and was watched failing
+  on bench when the check was built. Leaves unproven whether a painted frame is visually
+  correct.
 verification-method: test

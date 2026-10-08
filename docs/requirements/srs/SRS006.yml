@@ -8,12 +8,11 @@ links:
 normative: true
 rationale: ''
 ref: ''
-reviewed: N1nV8DYZIkow9f3PPWdttGoqAuKcBku0J5jHh4953lg=
+reviewed: TNa9nIc3zRAxW0xP0tYB4kihgUMXHWXqZrOjts02tr4=
 status: proposed
 text: |
   A misprovisioned unit shows a fault, never a blank or stale display.
 verification-justification: |
   No appliance-level fault display exists yet to verify this against: the application's own
-  configuration-error page is its own tier's mechanism, not the appliance's. Reactivate once an
-  appliance-level fault display exists to check.
+  configuration-error page is its own tier's mechanism, not the appliance's.
 verification-method: test

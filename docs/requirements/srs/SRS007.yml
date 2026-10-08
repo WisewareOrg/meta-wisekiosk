@@ -8,12 +8,12 @@ links:
 normative: true
 rationale: ''
 ref: ''
-reviewed: DykzEAbmOTagK1Dl5VQecrjILcJ-PS4eDPTEnzCWyAE=
+reviewed: mx_26ddcTyQ9Gacjk4GM7lUnmwW85JdMI0UabdWKpCU=
 status: proposed
 text: |
-  The display shall run at a mode at least 1280 wide and 720 high.
+  The display shall run at the configured mode, which shall be at least 1280 wide and 720 high.
 verification-justification: |
-  Settles the floor at the mode actually set. Leaves unproven anything about the display at a
-  mode below the floor, and the application's own screen layout -- the application's own
-  behaviour is its own tier's.
+  Settles the floor and the configured mode at the mode actually set. Leaves unproven anything
+  about the display at a mode below the floor, and the application's screen layout, which is
+  the application's own tier's.
 verification-method: test

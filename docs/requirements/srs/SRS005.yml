@@ -8,11 +8,11 @@ links:
 normative: true
 rationale: ''
 ref: ''
-reviewed: kQnAZZZreAT5d2xH0C_VSQiViG1RjjxoM8J70M_Iz98=
+reviewed: u3L2kBJJP3q7Ew-2tYxl-wgwBDWmbThVpPWJQVjb0hw=
 status: proposed
 text: |
-  The browser shall restart and the display shall be applied again after the browser process
-  is killed, with nobody attending the display.
+  The browser shall come back on its own, and the display be applied again, when it dies, with
+  nobody attending the display.
 verification-justification: |
   Settles that the browser comes back and the page is applied again after a kill. Leaves
   unproven recovery from any fault other than the browser process itself ending.

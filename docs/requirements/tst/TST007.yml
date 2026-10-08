@@ -4,7 +4,7 @@ header: |
   Layout-floor check passes
 level: 1.6
 links:
-- SRS007: fh3mJ4msBjSPj5EJ-XNYt7oX8t-Rf_HJCy0QCm4RE1w=
+- SRS007: T-nC5q_Q5j3MsS-QuwZtwmqkYRXJMuY93HF44R0BNwA=
 normative: true
 rationale: ''
 ref: ''
@@ -13,14 +13,14 @@ references:
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_layout/case.py
   sha: acd16e65bb73705be22c5425e496cc0c7990f4f4a0d230f40551d918a41956c2
   type: file
-reviewed: 2tvqXQbg4-zVYD5_0Z2hbWESU_wb3Op9eZEJp9Oir8U=
+reviewed: vM9U9nGqjJ-EzgJeHSd-G_KICOY3perLWM8tQBi8BBw=
 status: proposed
 text: |
-  Read the mode xrandr reports and assert it is at least 1280x720.
+  Read the mode xrandr reports and the launcher's own configured mode, and assert the former is
+  at least 1280x720 and matches the latter.
 verification-justification: |
-  Settles the floor at the mode xrandr reports, on one physical device, one boot. The failure
-  branch (a mode below the floor) is proven on constructed input and by a hand-run self-test
-  that is never part of a job, cited in the PR. Leaves unproven anything about the display at
-  a mode below the floor, and the application's own screen layout -- the application's own
-  behaviour is its own tier's.
+  Settles the floor and the configured-mode match at the mode xrandr reports, on one physical
+  device, one boot. The failure branch is proven on constructed input and was watched failing
+  on bench when the check was built. Leaves unproven anything about the display at a mode below
+  the floor, and the application's screen layout, which is the application's own tier's.
 verification-method: test
