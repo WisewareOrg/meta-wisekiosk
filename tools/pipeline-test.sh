@@ -183,8 +183,8 @@ else
     bad "includes/testimage.yaml does not carry KIOSK_TARGET_ROLE/KIOSK_TARGET_HOSTNAME through to testimage"
 fi
 
-# Every TEST_SUITES token is <pkg>.case for an existing cases/<pkg>/case.py,
-# and every such package is named. -------------------------------------------
+# --- Every TEST_SUITES token is <pkg>.case for an existing cases/<pkg>/case.py,
+# and every such package is named.
 CASE_PKGS=$(find "$HERE/../meta-wisekiosk/lib/oeqa/runtime/cases" -mindepth 2 -maxdepth 2 -name case.py \
     | sed -E 's#.*/cases/([^/]+)/case\.py#\1.case#' | sort)
 SUITE_PKGS=$(sed -n 's/^\s*TEST_SUITES = "\(.*\)"$/\1/p' "$TESTIMAGE_YAML" | tr ' ' '\n' | sort)

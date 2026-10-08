@@ -35,9 +35,10 @@ def test_current_mode_none_when_no_line_is_current():
 
 def test_current_mode_skips_an_interlaced_current_line():
     # Real xrandr shape: an interlaced mode's token carries a trailing "i"
-    # (e.g. "1920x1080i"); isdigit() correctly refuses it even marked "*".
-    xrandr_output = "   1920x1080i   60.00*\n   1280x720      60.00*\n"
-    assert current_mode(xrandr_output) == "1280x720"
+    # (e.g. "1920x1080i"); isdigit() correctly refuses it even marked "*",
+    # and xrandr marks exactly one mode current.
+    xrandr_output = "   1920x1080i   60.00*\n"
+    assert current_mode(xrandr_output) is None
 
 
 @pytest.mark.parametrize(

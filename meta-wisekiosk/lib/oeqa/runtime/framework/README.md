@@ -10,9 +10,9 @@ two import conventions it requires.
   app/sut lines) every case inherits, plus `titles()` (the one window-title walk every
   probe-reading case shares). Imports `oeqa`, like a `case.py`, so it is outside `just test`'s
   coverage population the same way.
-- `record.py` — the run record's own parsers, scrubbers and R-line builders, plus the refusal
-  message `hostname_mismatch` compares against. Pure: no `self.target.run`, no `subprocess`,
-  nothing that touches a device or the network.
+- `record.py` — the run record's own parsers, scrubbers and R-line builders, plus
+  `hostname_mismatch`, which builds the refusal message from the observed and recorded hostnames.
+  Pure: no `self.target.run`, no `subprocess`, nothing that touches a device or the network.
 - `tests/` — pytest over `record.py`, constructed inputs, every branch, held to the same 100% line
   and branch coverage floor as every case's own `verdict.py`.
 

@@ -403,7 +403,7 @@ def test_pid_from_pgrep_empty_raises():
 
 
 # ------------------------------------------------------------------ hostname_mismatch
-# base.py's own role/hostname refusal. base.py's own .strip() of the device's hostname
+# base.py's own hostname refusal. base.py's own .strip() of the device's hostname
 # happens before this function is called, so no whitespace case belongs to this
 # function's own contract.
 

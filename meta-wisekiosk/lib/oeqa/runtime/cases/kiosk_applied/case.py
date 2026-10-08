@@ -14,8 +14,7 @@ _APPLIED_ATTEMPTS = 2
 
 def deploy_probe(case):
     """Deploys this package's probe.js (mkdir, copyTo) and registers its
-    own removal as the case's cleanup -- the one deploy sequence every
-    probe-reading case shares."""
+    own removal as the case's cleanup."""
     case.addCleanup(case.target.run, "rm -f /home/root/.surf/script.js")
     mkdir_status, _ = case.target.run(
         "mkdir -p /home/root/.surf", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
@@ -76,8 +75,6 @@ def applied_attempt(case):
 class KioskAppliedTest(WiseKioskCase):
 
     def test_page_applied(self):
-        self.addCleanup(self.target.run, "rm -f /home/root/.surf/script.js")
-
         outcome, reason, sample = None, None, None
         for _attempt in range(_APPLIED_ATTEMPTS):
             outcome, reason, sample = applied_attempt(self)

@@ -16,6 +16,7 @@ INDEX_URL = "http://127.0.0.1:8080/"
 BOUND_SECONDS = 60
 POLL_SECONDS = 2
 POLL_ATTEMPT_TIMEOUT_SECONDS = 10
+RESTART_TIMEOUT_SECONDS = 10
 
 # Walks the root's whole tree and reads every window's WM_NAME.
 _WINDOW_TITLES_PROBE = (

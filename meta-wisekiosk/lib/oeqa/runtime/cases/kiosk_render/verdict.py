@@ -18,8 +18,9 @@ def _fields(line):
 
 def verdict(lines):
     """(outcome, reason) for the two-capture render-advancing probe.
-    outcome is one of "advancing", "frozen", "error"; reason is always set,
-    and names the guard that fired for an "error" outcome."""
+    outcome is one of "advancing", "frozen", "uniform", "error"; reason is
+    always set, and names the guard that fired for a non-"advancing"/
+    "frozen" outcome."""
     if any(line == "cap import=0" for line in lines):
         return "error", "no import on the device, so no frame could be captured"
 
@@ -47,7 +48,7 @@ def verdict(lines):
     blank_line = next((line for line in lines if line.startswith("blank ")), None)
     blank = dict(_KV.findall(blank_line)) if blank_line else {}
     if blank.get("min") is not None and blank.get("min") == blank.get("max"):
-        return "error", f"every pixel in the captured region is identical (min=max={blank['min']}) -- a uniform region carries no information"
+        return "uniform", f"every pixel in the captured region is identical (min=max={blank['min']}) -- a uniform region carries no information"
 
     h1, h2 = parsed[0].get("md5"), parsed[1].get("md5")
     if not h1 or not h2:

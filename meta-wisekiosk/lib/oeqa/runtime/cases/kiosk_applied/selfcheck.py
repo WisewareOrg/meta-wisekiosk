@@ -1,6 +1,6 @@
 import tempfile
 
-from framework.base import POLL_ATTEMPT_TIMEOUT_SECONDS, WiseKioskCase
+from framework.base import RESTART_TIMEOUT_SECONDS, WiseKioskCase
 
 from .case import applied_attempt
 
@@ -22,12 +22,11 @@ class KioskAppliedSelfcheck(WiseKioskCase):
         if mv_status != 0:
             raise RuntimeError(f"could not restore {_KIOSK_CONF_PATH} from its backup")
         restart_status, _ = self.target.run(
-            "systemctl restart kiosk.service", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
+            "systemctl restart kiosk.service", timeout=RESTART_TIMEOUT_SECONDS)
         if restart_status != 0:
             raise RuntimeError("could not restart kiosk.service after restoring kiosk.conf")
 
     def test_applied_detects_dead_url(self):
-        self.addCleanup(self.target.run, "rm -f /home/root/.surf/script.js")
         self.addCleanup(self._restore_kiosk_conf)
 
         status, original = self.target.run(f"cat {_KIOSK_CONF_PATH}")

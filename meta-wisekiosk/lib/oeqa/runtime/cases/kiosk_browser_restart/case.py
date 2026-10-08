@@ -1,6 +1,6 @@
 import time
 
-from framework.base import WiseKioskCase, POLL_ATTEMPT_TIMEOUT_SECONDS, POLL_SECONDS
+from framework.base import WiseKioskCase, POLL_SECONDS, RESTART_TIMEOUT_SECONDS
 from kiosk_applied.case import APPLIED_WAIT_SECONDS, deploy_probe, wait_applied
 from kiosk_applied.verdict import read_sample
 
@@ -9,7 +9,7 @@ from .verdict import verdict as restart_verdict
 _DEADLINE_SECONDS = 60
 
 
-def kill_surf(case):
+def _kill_surf(case):
     status, _ = case.target.run("pgrep -x surf")
     if status != 0:
         raise RuntimeError("surf is not running before the kill")
@@ -20,16 +20,16 @@ def kill_surf(case):
 
 def restart_attempt(case):
     """Arms the probe, reads the sample just before killing surf, then polls for a restarted
-    verdict against it -- deploy/restart/wait live once, through kiosk_applied's own helpers."""
+    verdict against it."""
     deploy_probe(case)
     restart_status, _ = case.target.run(
-        "systemctl restart kiosk.service", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
+        "systemctl restart kiosk.service", timeout=RESTART_TIMEOUT_SECONDS)
     if restart_status != 0:
         raise RuntimeError("could not restart kiosk.service to arm the probe")
     wait_applied(case, APPLIED_WAIT_SECONDS)
     before_sample = read_sample(case.titles())
 
-    kill_surf(case)
+    _kill_surf(case)
 
     deadline = time.monotonic() + _DEADLINE_SECONDS
     after_samples = []

@@ -11,9 +11,9 @@ ref: ''
 references:
 - keyword: def test_layout_floor
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_layout/case.py
-  sha: bcadf22f108defaf66849f00c373d8bb87a39245d6d2c02055387827d4f3322f
+  sha: b24a2c8578f60db47e1877edaf3713d2198f46d065ef911d28db821e66221f8d
   type: file
-reviewed: 3sY5T7P4NBE-C4w3vLCxOPG4JDB0RK5VNRIXp2Q7I34=
+reviewed: SHT9lveoeXg7lKS5_fQB9Hf7p61GG3jqSw-lglhLNCE=
 status: proposed
 text: |
   Read the mode xrandr reports and the launcher's own configured mode, and assert the former is

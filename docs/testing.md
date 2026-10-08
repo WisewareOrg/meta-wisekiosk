@@ -253,9 +253,10 @@ against any board already built and booted. It resolves `KIOSK_TARGET_ROLE` and
 regardless), refuses with a message if the HMAC key, the identity file, `sources/poky`, or the
 last build's deploy artifacts are missing, and writes its own run record under gitignored
 `local/oe-test/<timestamp>/`. It never touches RAUC, never installs, never reboots: of the suite's
-own cases, only two change anything on the board -- `test_page_applied` arms the DOM probe
+own cases, only two change anything on the board — `test_page_applied` arms the DOM probe
 (`copyTo` the script, restart `kiosk.service`), which its own teardown removes before the case
-ends, and `test_browser_restart` kills the browser and waits for it to come back.
+ends, and `test_browser_restart` arms the same probe, restarts `kiosk.service` to take its
+baseline, then kills the browser and waits for it to come back.
 
 To run one checker's self-test instead of the suite, see the `selfcheck.py` bullet in
 [`cases/README.md`](../meta-wisekiosk/lib/oeqa/runtime/cases/README.md).
