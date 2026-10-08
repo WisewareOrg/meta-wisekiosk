@@ -11,9 +11,9 @@ ref: ''
 references:
 - keyword: def test_backend_unreachable
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_backend_unreachable/case.py
-  sha: d67880c7595511419ca9e737e2c250ccaedf4c26e95310a0725ae2e3db5f6cb9
+  sha: 2ef7ca152b6c0109d5b6a7187114916a5a79e5a07d83ad2f4afed04b33c6ab6f
   type: file
-reviewed: 33q26aQRmU7Ev8724-2M9WSXgSGKsRGcukqgD7e5Fng=
+reviewed: 3iZXROA2ShRvcnGGqbtSK8goQtiGPU3I_-F4_VMEU3g=
 status: proposed
 text: |
   Stop the backend on the device and assert the banner, diagnosis and remediation appear

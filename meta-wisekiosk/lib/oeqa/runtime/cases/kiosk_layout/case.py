@@ -1,6 +1,8 @@
+import time
 import re
 from pathlib import Path
 
+from kiosk_applied.verdict import read_sample as applied_read_sample
 from framework.base import WiseKioskCase, POLL_ATTEMPT_TIMEOUT_SECONDS
 
 from .verdict import parse_layout, verdict as layout_verdict
@@ -21,6 +23,11 @@ _WINDOW_TITLES_PROBE = (
 _WM_NAME = re.compile(r'WM_NAME\(\w+\) = "(.*)"$')
 
 
+_POLL_SECONDS = 2
+_APPLIED_WAIT_SECONDS = 180
+_BANNER_WAIT_SECONDS = 30
+
+
 class KioskLayoutTest(WiseKioskCase):
 
     # Grouped with backend_unreachable (the banner this case measures
@@ -28,8 +35,6 @@ class KioskLayoutTest(WiseKioskCase):
     # every case restores its own stimulus in its own cleanup (ruling 5),
     # so this case stops the backend itself rather than relying on
     # backend_unreachable's state surviving past that case's own tearDown.
-    OETestDepends = [
-        "kiosk_backend_unreachable.case.KioskBackendUnreachableTest.test_backend_unreachable"]
 
     def test_layout_floor(self):
         if WiseKioskCase.role != "bench":
@@ -43,25 +48,47 @@ class KioskLayoutTest(WiseKioskCase):
             raise RuntimeError("could not arm the probe (mkdir)")
         self.target.copyTo(str(_PROBE_SRC), "/home/root/.surf/script.js")
 
-        stop_status, _ = self.target.run("systemctl stop wisekiosk.service")
-        if stop_status != 0:
-            raise RuntimeError("could not stop wisekiosk.service")
         restart_status, _ = self.target.run("systemctl restart kiosk.service")
         if restart_status != 0:
             raise RuntimeError("could not restart kiosk.service to arm the probe")
-
-        _status, output = self.target.run(
-            _WINDOW_TITLES_PROBE, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
-        parsed = None
-        for line in output.splitlines():
-            m = _WM_NAME.match(line)
-            if not m:
-                continue
-            parsed = parse_layout(m.group(1))
-            if parsed is not None:
+        # The banner is the running page's reaction; stopping the backend
+        # before the page has applied yields a load failure instead.
+        applied_by = time.time() + _APPLIED_WAIT_SECONDS
+        while True:
+            _status, output = self.target.run(
+                _WINDOW_TITLES_PROBE, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
+            sample = applied_read_sample(output)
+            if sample is not None and sample.get("state") == "applied":
                 break
-        if parsed is None:
-            raise RuntimeError("no probe payload carried a layout= field")
+            if time.time() >= applied_by:
+                last = sample.get("state") if sample else "no probe payload"
+                raise RuntimeError(
+                    f"the page did not apply within {_APPLIED_WAIT_SECONDS}s of arming the probe (last: {last})")
+            time.sleep(_POLL_SECONDS)
+
+        stop_status, _ = self.target.run("systemctl stop wisekiosk.service")
+        if stop_status != 0:
+            raise RuntimeError("could not stop wisekiosk.service")
+
+        # The banner the layout is measured against appears within the
+        # unreachable deadline of the stop; the layout field exists only then.
+        parsed = None
+        banner_by = time.time() + _BANNER_WAIT_SECONDS
+        while parsed is None:
+            _status, output = self.target.run(
+                _WINDOW_TITLES_PROBE, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
+            for line in output.splitlines():
+                m = _WM_NAME.match(line)
+                if not m:
+                    continue
+                parsed = parse_layout(m.group(1))
+                if parsed is not None:
+                    break
+            if parsed is None:
+                if time.time() >= banner_by:
+                    raise RuntimeError(
+                        f"no probe payload carried a layout= field within {_BANNER_WAIT_SECONDS}s of stopping the backend")
+                time.sleep(_POLL_SECONDS)
 
         outcome, reason = layout_verdict(parsed)
         if outcome != "ok":

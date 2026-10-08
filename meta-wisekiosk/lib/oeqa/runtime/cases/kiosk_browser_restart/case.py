@@ -2,7 +2,7 @@ import time
 from pathlib import Path
 
 from framework.base import WiseKioskCase, POLL_ATTEMPT_TIMEOUT_SECONDS
-from oeqa.runtime.cases.kiosk_applied.verdict import read_sample
+from kiosk_applied.verdict import read_sample
 
 # The one probe script (design §2.5: "one probe script, one record format"),
 # owned by kiosk_applied -- referenced here rather than duplicated.
@@ -39,7 +39,7 @@ class KioskBrowserRestartTest(WiseKioskCase):
         if status != 0:
             raise RuntimeError("surf is not running before the kill")
 
-        kill_status, _ = self.target.run("pkill -TERM -x surf")
+        kill_status, _ = self.target.run("kill -TERM $(pgrep -x surf)")
         if kill_status != 0:
             raise RuntimeError("could not send SIGTERM to surf")
 
