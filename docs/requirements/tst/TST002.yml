@@ -11,9 +11,9 @@ ref: ''
 references:
 - keyword: def test_render_advancing
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_render/case.py
-  sha: faa80652bb663cb31ccb8924d0643f0dd07d3fee8ea9e8eb1d8bbb98efddf54b
+  sha: f0f6032645167011168c3b870c31d84d854f5c507f98f3e4ac3228789d911099
   type: file
-reviewed: ladQRZtNY0YKTOBB93AuSkB2N07n_DDZxZ88-rw2qqo=
+reviewed: kPrd1phZTuXi2t5eW4tZKwd0Qfd-TFqI0vwSyYihcHs=
 status: proposed
 text: |
   Run the device oeqa suite's render-advancing case against the booted image and assert it

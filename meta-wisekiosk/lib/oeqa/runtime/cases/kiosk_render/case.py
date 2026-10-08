@@ -1,4 +1,3 @@
-import time
 from framework.base import WiseKioskCase
 
 from .verdict import verdict as render_verdict
@@ -6,7 +5,7 @@ from .verdict import verdict as render_verdict
 # The render check's default crop, ported from tools/kiosk-render-check.sh --
 # docs/testing.md § "The render and applied cases" has the why.
 _RENDER_CROP = "560x300+220+20"
-_RENDER_PROBE = (
+RENDER_PROBE = (
     'if ! command -v import > /dev/null 2>&1; then echo "cap import=0"; exit 0; fi\n'
     "F=/tmp/render-check.$$\n"
     "grab() {\n"
@@ -34,30 +33,10 @@ _RENDER_PROBE = (
 ) % _RENDER_CROP
 
 
-_PAINT_WAIT_SECONDS = 180
-_SETTLE_SECONDS = 15
-
-
-def _wait_for_painted(case):
-    # A page that is still loading after a kiosk.service restart captures as a
-    # uniform region; the two-frame check is meaningful only once it has painted.
-    deadline = time.monotonic() + _PAINT_WAIT_SECONDS
-    while True:
-        _status, output = case.target.run(_RENDER_PROBE)
-        outcome, reason = render_verdict(output.splitlines())
-        if not (outcome == "error" and "uniform" in reason):
-            break
-        if time.monotonic() >= deadline:
-            raise RuntimeError(f"the page did not paint within {_PAINT_WAIT_SECONDS}s: {reason}")
-        time.sleep(5)
-    time.sleep(_SETTLE_SECONDS)
-
-
 class KioskRenderTest(WiseKioskCase):
 
     def test_render_advancing(self):
-        _wait_for_painted(self)
-        _status, output = self.target.run(_RENDER_PROBE)
+        _status, output = self.target.run(RENDER_PROBE)
         outcome, reason = render_verdict(output.splitlines())
         if outcome == "advancing":
             return
