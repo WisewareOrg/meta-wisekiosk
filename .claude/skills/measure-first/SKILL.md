@@ -127,3 +127,10 @@ The ordered loop and the pre-trust list are [`CHECKLIST.md`](CHECKLIST.md).
   [`../../../CONTRIBUTING.md`](../../../CONTRIBUTING.md) §"Documentation conventions". Every run names its
   board role, its image commit and its frontend bundle hash; every probe is committed beside the
   investigation; numbers from different runs never share a table.
+- **A one-off probe here is the exploratory half; `just oe-test <target-ip>` is the durable
+  half.** The injectable proxies and hand-rolled readers in this skill earn their keep for a
+  hypothesis that may not survive the hour — an oeqa case would be premature. Once a metric or a
+  check is worth keeping, it moves into `meta-wisekiosk/lib/oeqa/runtime/cases` and is run the same
+  way by hand (`just oe-test`) and in the pipeline (`testimage`); [`../../../docs/testing.md`](../../../docs/testing.md)
+  §"The hand-run path" and [`../../../docs/issue_investigation/TEMPLATE.md`](../../../docs/issue_investigation/TEMPLATE.md)'s
+  R2 say when a one-off still needs a reason.

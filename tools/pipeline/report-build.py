@@ -15,7 +15,15 @@ import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "meta-wisekiosk" / "lib" / "oeqa" / "runtime"))
+from framework import record as _record  # noqa: E402
+
 TAIL_LINES = 200
+
+# The order the record's lines render in -- tool, board, image, app, sut,
+# then every probe case's own page.<case id> line, sorted. The key itself
+# is _record.RECORD_KEY, imported, never a second spelling.
+RECORD_ORDER = ("tool", "board", "image", "app", "sut")
 
 
 def result_dict(data):
@@ -38,14 +46,28 @@ def tail(text, n=TAIL_LINES):
     return "\n".join(lines[-n:]), True
 
 
+def render_record(record):
+    """The run record's own lines, verbatim and in order, under one
+    heading. Interprets none of them: a key this function does not name
+    still renders, after the named ones, sorted."""
+    page_keys = sorted(k for k in record if k.startswith("page."))
+    named = list(RECORD_ORDER) + page_keys
+    unknown = sorted(k for k in record if k not in named)
+    lines = [str(record[key]) for key in named + unknown if key in record]
+    return "\n".join(["## Run record", "", "```", *lines, "```", ""])
+
+
 def render_results(path):
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return "## Test results\n\n(could not read the results file)\n"
     cases = result_dict(data)
+    record = cases.pop(_record.RECORD_KEY, None)
+    parts = [render_record(record)] if record else []
     if not cases:
-        return "## Test results\n\n(no cases in the results file)\n"
+        parts.append("## Test results\n\n(no cases in the results file)\n")
+        return "\n".join(parts)
     lines = ["## Test results", "", "| case | status |", "|---|---|"]
     for case_id in sorted(cases):
         lines.append(f"| {case_id} | {cases[case_id].get('status', '?')} |")
@@ -60,7 +82,8 @@ def render_results(path):
         if truncated:
             lines.append(f"(tailed to the last {TAIL_LINES} lines)")
         lines.append("")
-    return "\n".join(lines)
+    parts.append("\n".join(lines))
+    return "\n".join(parts)
 
 
 def render_logs(paths):

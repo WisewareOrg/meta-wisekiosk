@@ -50,16 +50,17 @@ just verify         # every documentation check: cross-references + docs-vs-imag
 just links          # cross-references only (this is the one CI requires)
 just guards         # repository invariants: secrets, identity, syntax, wiring;
                     # runs the device guard's and the CVE tools' self-tests too
+just test           # pytest over meta-wisekiosk/lib/oeqa/runtime (framework/ and cases/), 100% coverage floor
 just install-hooks  # once per clone: point core.hooksPath at .githooks
 bash .claude/hooks/guard-test.sh   # the device guard's self-test on its own
 ```
 
 CI runs [`tools/ci-guards.sh`](tools/ci-guards.sh),
-[`tools/scrub-identity.py`](tools/scrub-identity.py) `--check` and
-[`tools/doc-links.py`](tools/doc-links.py). The pre-commit hook runs the same three, so a commit
-cannot pass locally and fail there. `just image` and `just verify`'s second half need a populated
-`build/` and are local-only: CI never builds, and a required check that skips on every run is noise
-rather than a gate.
+[`tools/scrub-identity.py`](tools/scrub-identity.py) `--check`,
+[`tools/doc-links.py`](tools/doc-links.py) and `just test`. The pre-commit hook runs the same four,
+so a commit cannot pass locally and fail there. `just image` and `just verify`'s second half need a
+populated `build/` and are local-only: CI never builds, and a required check that skips on every run
+is noise rather than a gate.
 
 `tools/scrub-identity.py --check` has two halves and says which ran. The pattern half needs no
 configuration and runs everywhere. The known-value half reads `local/device-identity.md`, which is
@@ -101,10 +102,7 @@ this reason.
 
 **An investigation is a directory whose `README.md` is the record of record**, copied from
 [`docs/issue_investigation/TEMPLATE.md`](docs/issue_investigation/TEMPLATE.md) with every field
-filled, and it carries three rules the template states in full: **R1** every test run names its board
-role and the image commit it ran; **R2** every script put on a board is either shipped in a recipe or
-committed beside the investigation, never left only in `local/`; **R3** runs are never blended — one
-board × one build × one test, and numbers from different runs never share a table.
+filled, and governed by the template's own R1, R2 and R3 in full.
 
 **Links are hub-and-spoke.** New documents are reachable from [`docs/README.md`](docs/README.md);
 relative links resolve from the citing file's own directory, and a leading `/` fails. Never anchor a

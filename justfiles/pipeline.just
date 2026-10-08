@@ -42,13 +42,19 @@ pipeline-status:
     fi
 
 [group('pipeline')]
-[script('bash')]
 [doc("Run one pipeline job by hand: the queue head, or a missing baseline")]
-pipeline-run *args:
-    set -a
-    . "$HOME/.config/wisekiosk/pipeline.env"
-    set +a
-    "$HOME/wisekiosk-pipeline/driver/tools/pipeline/run.sh" {{args}}
+pipeline-run:
+    "$HOME/wisekiosk-pipeline/driver/tools/pipeline/run.sh"
+
+[group('pipeline')]
+[doc("Build and run <ref> from this checkout's own run.sh -- a dev tool: posts nothing, tags no baseline")]
+pipeline-run-ref ref:
+    tools/pipeline/run.sh "{{ref}}"
+
+[group('pipeline')]
+[doc("Record bench's current /data config as accepted -- the pre-job precondition compares against it")]
+pipeline-accept-bench-config:
+    tools/pipeline/accept-bench-config.sh
 
 [group('pipeline')]
 [doc("Live view of the merge queue and the current run; q quits")]

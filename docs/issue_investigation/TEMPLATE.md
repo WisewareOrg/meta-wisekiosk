@@ -4,12 +4,13 @@
   One investigation = one directory. That README.md is the record of record.
   Hard rules:
     R1  Every test run names its BOARD (role) and the IMAGE COMMIT it ran.
-    R2  Every script put on a board is either SHIPPED (link its recipe/PR) or ONE-OFF
-        (committed in this directory beside this README). Never left only in local/ or hot-swapped
-        without a tracked source. A COMMAND that drives a run is a script under this rule too — an
-        ssh heredoc, or a one-liner that deploys a probe, reads back a result, or computes a recorded
-        number. Write it to a file beside the README and run it from that file. A number that rests
-        on a command existing only in a terminal or a session transcript fails R2.
+    R2  Every measurement is an oeqa case (`meta-wisekiosk/lib/oeqa/runtime/cases`), run through
+        `just oe-test` by hand or `testimage` in the pipeline — never a standalone script. The
+        investigation directory holds the run's own record, exactly as the harness wrote it, and
+        the README that cites it. A ONE-OFF script — an ssh heredoc, a hand-deployed probe, a
+        reading taken outside the suite — needs a stated reason here for why no case covers it,
+        and like every other script this rule covers, is committed beside this README, never left
+        only in local/ or hot-swapped without a tracked source.
     R3  Runs are NEVER blended. One board × one build × one test = one run. Numbers from different
         runs never share a table.
   Example file names below are backticked, not linked: `just links` resolves every Markdown link

@@ -63,3 +63,25 @@ jobs:
       - name: Scan for device identity
         if: ${{ !cancelled() }}
         run: tools/scrub-identity.py --check --allow-partial
+
+      # meta-wisekiosk/lib/oeqa/runtime's own suite (framework/ and cases/),
+      # gated at 100% coverage (pyproject.toml).
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        if: ${{ !cancelled() }}
+        with:
+          version: "0.12.20"
+
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+        if: ${{ !cancelled() }}
+        with:
+          just-version: "1.58.0"
+
+      - name: Install pinned Python tooling
+        id: uv-sync
+        if: ${{ !cancelled() }}
+        run: uv sync --frozen --group dev
+
+      # Gated on uv-sync's own outcome, not just !cancelled().
+      - name: Run the oeqa framework/cases test suite
+        if: ${{ !cancelled() && steps.uv-sync.outcome == 'success' }}
+        run: just test

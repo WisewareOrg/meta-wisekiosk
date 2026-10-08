@@ -37,3 +37,6 @@ meta-wisekiosk/recipes-wisekiosk/wisekiosk/wisekiosk-frontend/npm-shrinkwrap.jso
 # CPython's own build artifact. tools/cve-tools-test.py imports the CVE tools by
 # path, and .claude/hooks/ is on a hook's import path; neither is source.
 __pycache__/
+
+# Written by `just test`'s coverage run (pyproject.toml addopts); a data file, not source.
+.coverage*
