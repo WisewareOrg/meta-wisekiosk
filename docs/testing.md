@@ -6,9 +6,9 @@ result at that tier does **not** let you conclude.
 | Tier | Guarantees | Runs | What green does not say |
 |---|---|---|---|
 | Static (`just guards`, CI) | Repository invariants hold: no secret or identity reaches a tracked file, shell and YAML parse, every wiring self-test passes. | Every commit (pre-commit hook), every PR and merge-group commit (CI). | Anything about a Yocto build. This tier never invokes bitbake. |
-| Host (`just test`) | `meta-wisekiosk/lib/oeqa/runtime/framework/record.py` (the run record's builders and parsers) and every case package's own `verdict.py` under `cases/` (the render verdict, the applied-page title parser and verdict) behave as their constructed-input tests say, at a 100% line and branch coverage floor. | Every commit (pre-commit hook), every PR and merge-group commit (CI). | That a board actually produces the input these functions expect. That contract is proven separately, by a case's own acceptance runs on bench; `framework/base.py` and each package's `case.py` are transport only and are outside this tier's coverage population by construction. |
+| Host (`just test`) | `meta-wisekiosk/lib/oeqa/runtime/framework/record.py` (the run record's builders and parsers) and every case package's own `verdict.py` under `cases/` (the render verdict, the applied-page title parser and verdict, the browser-restart nonce check, the layout floor/configured-mode check) behave as their constructed-input tests say, at a 100% line and branch coverage floor. | Every commit (pre-commit hook), every PR and merge-group commit (CI). | That a board actually produces the input these functions expect. That contract is proven separately, by a case's own acceptance runs on bench; `framework/base.py` and each package's `case.py`/`selfcheck.py` are transport only and are outside this tier's coverage population by construction. |
 | Build (`just build`) | The kas config resolves and bitbake completes: an image artifact exists. | On demand, locally — never in CI, which does not build. | Whether the image differs from the last one, whether it boots, whether it serves anything. |
-| Device smoke (`testimage` in the pipeline, or `just oe-test <target>` by hand) | The backend unit is active, `/healthz` answers, the page serves, WebKit still composites on the GPU, the page is still painting, and the page is applied as the application designs it — on **one** physical device, one boot. Both run `includes/testimage.yaml`'s own `TEST_SUITES` list of `meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_*.case` modules and write the same run record. | The pipeline, once per queue job, after an OTA install (never a flash). By hand, any time, against any board `local/device-identity.md` names — never prod, which the suite's own hostname check refuses. | The shared boot partition (`config.txt`, `cmdline.txt`, `boot.scr`, and `uboot.env` apart from RAUC's own boot-selection variables) — an OTA writes only the slot rootfs it boots, which does carry the kernel. The RAUC slot layout, which an OTA never touches, or a second boot. |
+| Device smoke (`testimage` in the pipeline, or `just oe-test <target>` by hand) | The backend unit is active, `/healthz` answers, the page serves, WebKit still composites on the GPU, the page is still painting, the page is applied as the application designs it, the browser comes back on its own when it dies, and the display runs at the configured mode, at or above the design floor — on **one** physical device, one boot. Both run `includes/testimage.yaml`'s own `TEST_SUITES` list of `meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_*.case` modules and write the same run record. | The pipeline, once per queue job, after an OTA install (never a flash). By hand, any time, against any board `local/device-identity.md` names — never prod, which the suite's own hostname check refuses. | The shared boot partition (`config.txt`, `cmdline.txt`, `boot.scr`, and `uboot.env` apart from RAUC's own boot-selection variables) — an OTA writes only the slot rootfs it boots, which does carry the kernel. The RAUC slot layout, which an OTA never touches, or a second boot. |
 | OTA/rollback (the queue run) | Install, reboot, and — for a queue run — mark-bad, reboot and land back on the baseline slot all completed, and the device answered again each time. | Every queue job. | Whether the slot rolled back *into* would itself survive a fresh install — it was booted back into, not reinstalled. There are only two slots. |
 
 The Static tier's `docs/requirements/` gate (see [`docs/requirements/README.md`](requirements/README.md))
@@ -252,9 +252,10 @@ against any board already built and booted. It resolves `KIOSK_TARGET_ROLE` and
 `<target-ip>`, and bench's own recorded hostname — the suite refuses any board that is not bench
 regardless), refuses with a message if the HMAC key, the identity file, `sources/poky`, or the
 last build's deploy artifacts are missing, and writes its own run record under gitignored
-`local/oe-test/<timestamp>/`. It never touches RAUC, never installs, never reboots: the only change
-either case makes to the board is `test_page_applied` arming the DOM probe (`copyTo` the script,
-restart `kiosk.service`), which its own teardown removes before the case ends.
+`local/oe-test/<timestamp>/`. It never touches RAUC, never installs, never reboots: of the suite's
+own cases, only two change anything on the board -- `test_page_applied` arms the DOM probe
+(`copyTo` the script, restart `kiosk.service`), which its own teardown removes before the case
+ends, and `test_browser_restart` kills the browser and waits for it to come back.
 
 An optional module list after the address overrides `TEST_SUITES`, running one checker's own
 hand-run self-test instead of the suite —
@@ -307,12 +308,3 @@ A deploy, probe or transport error is retried once; a second one declares the pa
 `error:transport` before raising. `run.sh` reads that declared kind, after rollback (bench is never
 left on the installed slot with the timer disabled), and treats it as an infrastructure failure —
 `abort`, never posted on the candidate — where any other error or failure is the job's own.
-
-`kiosk_browser_restart` reads through this same probe and title-line channel, never a second one,
-through `kiosk_applied.verdict`'s own `parse_title`/`read_sample` rather than a `verdict.py` of its
-own -- it has no pure parsing the browser-restart check needs beyond that. `kiosk_layout` reads the
-mode `DISPLAY=:0 xrandr` reports directly, never through the probe. `framework/probe.py` holds the
-one `MARKER`/`WM_NAME` pair and the `title_lines`/`fields` primitives every probe-reading
-`verdict.py` module parses from -- the shell walk itself (`WiseKioskCase.titles()`) and the
-deploy/restart/applied-wait sequence every one of them repeated (`arm_probe()`, `wait_applied()`)
-live once, on `WiseKioskCase`.

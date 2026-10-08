@@ -403,10 +403,7 @@ def test_pid_from_pgrep_empty_raises():
 
 
 # ------------------------------------------------------------------ hostname_mismatch
-# base.py's own bench-only refusal, extracted unchanged: the exact message below is
-# read verbatim from framework/base.py's current setUpClass, since the brief states
-# the extraction is "unchanged in behavior" -- a rewording here would be a silent
-# behavior change, not a refactor. base.py's own .strip() of the device's hostname
+# base.py's own role/hostname refusal. base.py's own .strip() of the device's hostname
 # happens before this function is called, so no whitespace case belongs to this
 # function's own contract.
 
