@@ -4,22 +4,22 @@ header: |
   Recovery check passes
 level: 1.3
 links:
-- SRS004: t5hA1ffdsd5-wDO-z2imvppiI732ZrILj8uVq3U8Ujo=
+- SRS004: qYC-JKwosDW9TyVItrX0cK6hTAmWOPZz_6JN1QQaE8w=
 normative: true
 rationale: ''
 ref: ''
 references:
 - keyword: def test_recovery
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_recovery/case.py
-  sha: 0a25d2fd9b21106a7e91c325a999402ae82a896c9bf2079be42fdfb61cdd6077
+  sha: 897033f62ca7aca346b091259d29326bd4748bcedbc1375bf8b79117dc1ef41a
   type: file
-reviewed: Iend32pxU0nBWUjwtw6eKQZJML7hG_4I-WSjLDOFz64=
+reviewed: AogKfhIZli_ZhYwLevMSsLfAVYiJZL5AHeCIqtFPwkM=
 status: proposed
 text: |
-  Stop the backend, then start it, and assert the outage report clears and every stood-down
-  module resumes on the same page instance within the deadline.
+  Stop the backend, then start it, and assert the degraded signal clears and the page instance
+  is unchanged within the deadline.
 verification-justification: |
-  Settles that the outage report clears, every stood-down module resumes and the page
-  instance is unchanged within 30 s of starting the backend, on one physical device, one
-  boot. Leaves unproven recovery from a fault whose cause is not a reachability change.
+  Settles that the degraded signal clears and the page instance is unchanged within 30 s of
+  starting the backend, on one physical device, one boot. Leaves unproven recovery from a
+  fault whose cause is not a reachability change.
 verification-method: test

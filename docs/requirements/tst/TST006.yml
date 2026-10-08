@@ -4,24 +4,23 @@ header: |
   Configuration-error check passes
 level: 1.5
 links:
-- SRS006: lwgp-VDDkqunI8LXLC802XpjAzqx1cciCN_HgbN9b4Y=
+- SRS006: EBpIjffu-d5IyRAOSzqrZ97t1exN5LVBq2KsxJNREuU=
 normative: true
 rationale: ''
 ref: ''
 references:
 - keyword: def test_configuration_errors
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_config_errors/case.py
-  sha: c57e96de2b2bd1e16112c48ee14cd151d710b744c6e7f593c63ce1c8a301be83
+  sha: 30744eddb276012e38de6ee2435131539d1adce282c0a3e486952b9bd3779827
   type: file
-reviewed: guaL0K9cBCYJOlsM3hERTE6Q92tmrSyR8Q9MVchafV0=
+reviewed: Vz7-w3AMu-NLWnbGdQlcz78MmOIwY-SSZ1kZ7l9JR3o=
 status: proposed
 text: |
-  Assert the served configuration is read as applied within the deadline on a healthy
-  board, and assert each of the three seeded bad-configuration states is reported distinctly
-  on bench acceptance runs.
+  Break the device's configuration file (unparsable content) and assert a fault is shown
+  within the deadline; restore it and assert the display applies again within the deadline.
 verification-justification: |
-  Settles that a healthy configuration reads as applied within 90 s of the restart, on one
-  physical device, one boot, and that the three bad-configuration states are read back
-  distinctly on bench (acceptance runs, cited in the PR). Leaves unproven whether the
-  operator-facing wording is itself correct.
+  Settles that a fault is shown within 90 s of a broken configuration taking effect, and that
+  applying resumes within 90 s of restoring a valid one, on one physical device, one boot.
+  Leaves unproven the fault's own wording, and distinguishing why the configuration is broken
+  -- the application's own behaviour is its own tier's.
 verification-method: test

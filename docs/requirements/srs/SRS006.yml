@@ -1,19 +1,21 @@
 active: true
 derived: false
 header: |
-  Display reports a bad configuration file
+  Misprovisioned unit shows a fault, never a blank or stale display
 level: 1.5
 links:
 - SYS001: u6hdq6mHTqj4-PFL8YoiEf3ClOIYMUPOHFSXKCbqAtU=
 normative: true
 rationale: ''
 ref: ''
-reviewed: pkpix7olD6E2iAPflOnBdxLq_MOmft2U9jvdquklk-4=
+reviewed: pjD-GsfIaK7MhKw5x4BgU-z1CXwe5b5zRGbzakXMUbA=
 status: proposed
 text: |
-  The display shall report a missing, unparsable or rejected configuration file as such,
-  distinctly for each case, and shall apply once a valid configuration file is in place.
+  The display shall show a fault when its configuration is broken, never a blank or stale
+  display, and shall apply again once a valid configuration is in place.
 verification-justification: |
-  Settles that each of the three states is read back distinctly and that applying resumes once
-  the file is valid. Leaves unproven whether the operator-facing wording is itself correct.
+  Settles that a fault is shown when the configuration is broken, and that applying resumes
+  once a valid configuration is restored. Leaves unproven the fault's own wording, and
+  distinguishing why the configuration is broken -- the application's own behaviour is its own
+  tier's.
 verification-method: test

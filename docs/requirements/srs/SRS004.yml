@@ -1,20 +1,19 @@
 active: true
 derived: false
 header: |
-  Display comes back on its own when the backend does
+  Display recovers on its own when its backend returns
 level: 1.3
 links:
 - SYS002: zmFIlrHJrZoyRwaIPkZz6jw_ePg6MooAQ4XcBvljhx8=
 normative: true
 rationale: ''
 ref: ''
-reviewed: AhfliOP1seHriNTTdrIJLy9-Vfn8VQD8jPzp09SsqBo=
+reviewed: ybsUbMi3xbdt5HC-2yxR-g-OBzJcQcbaRDaUtEA138o=
 status: proposed
 text: |
-  Once the backend is reachable again, the display shall stop reporting the outage and every
-  module it is holding behind one shall draw again, with nobody attending the display.
+  Once the backend is reachable again, the display shall stop signalling that it is degraded,
+  on the same page instance, with nobody attending the display.
 verification-justification: |
-  Settles that the outage report clears and every stood-down module resumes drawing once the
-  backend answers again, on the same page instance. Leaves unproven recovery from a fault whose
-  cause is not a reachability change.
+  Settles that the degraded signal clears once the backend answers again, on the same page
+  instance. Leaves unproven recovery from a fault whose cause is not a reachability change.
 verification-method: test

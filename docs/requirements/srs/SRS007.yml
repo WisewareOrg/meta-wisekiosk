@@ -1,20 +1,19 @@
 active: true
 derived: false
 header: |
-  Designed layout renders correctly at 720p or better
+  Display runs at the configured mode, at or above the design floor
 level: 1.6
 links:
 - SYS001: u6hdq6mHTqj4-PFL8YoiEf3ClOIYMUPOHFSXKCbqAtU=
 normative: true
 rationale: ''
 ref: ''
-reviewed: jdtcXNE6Qx732wFGtEHtu34z3EIMXVN27akxla4lqbU=
+reviewed: DykzEAbmOTagK1Dl5VQecrjILcJ-PS4eDPTEnzCWyAE=
 status: proposed
 text: |
-  At the configured mode, which shall be at least 1280 wide and 720 high, the backend-outage
-  band and every configured region shall keep the configured edge margin from the display's
-  edges, and no region shall overlap the band.
+  The display shall run at a mode at least 1280 wide and 720 high.
 verification-justification: |
-  Settles the floor, the band clearance and region/band overlap at the mode actually set.
-  Leaves unproven anything about layout at a mode below the floor.
+  Settles the floor at the mode actually set. Leaves unproven anything about the display at a
+  mode below the floor, and the application's own screen layout -- the application's own
+  behaviour is its own tier's.
 verification-method: test
