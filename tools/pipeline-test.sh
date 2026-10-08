@@ -183,15 +183,19 @@ else
     bad "includes/testimage.yaml does not carry KIOSK_TARGET_ROLE/KIOSK_TARGET_HOSTNAME through to testimage"
 fi
 
-# --- Every TEST_SUITES token is <pkg>.case for an existing cases/<pkg>/case.py,
-# and every such package is named.
+# --- Every cases/<pkg>/case.py is named, in full, in exactly one of the
+# two TEST_SUITES lists: includes/testimage.yaml's (the device tier) or
+# includes/testimage-image.yaml's (the host-only image-content tier,
+# #206) -- never both, never neither.
+TESTIMAGE_IMAGE_YAML="$HERE/../includes/testimage-image.yaml"
 CASE_PKGS=$(find "$HERE/../meta-wisekiosk/lib/oeqa/runtime/cases" -mindepth 2 -maxdepth 2 -name case.py \
     | sed -E 's#.*/cases/([^/]+)/case\.py#\1.case#' | sort)
-SUITE_PKGS=$(sed -n 's/^\s*TEST_SUITES = "\(.*\)"$/\1/p' "$TESTIMAGE_YAML" | tr ' ' '\n' | sort)
+SUITE_PKGS=$( { sed -n 's/^\s*TEST_SUITES = "\(.*\)"$/\1/p' "$TESTIMAGE_YAML" "$TESTIMAGE_IMAGE_YAML" \
+    | tr ' ' '\n'; } | sort)
 if [ -n "$CASE_PKGS" ] && [ "$CASE_PKGS" = "$SUITE_PKGS" ]; then
-    ok "boundary: TEST_SUITES names exactly the existing cases/*/case.py packages, each in full"
+    ok "boundary: the two TEST_SUITES lists together name exactly the existing cases/*/case.py packages, each in full, each once"
 else
-    bad "TEST_SUITES and cases/*/case.py disagree" "cases: $CASE_PKGS / suite: $SUITE_PKGS"
+    bad "TEST_SUITES (both tiers) and cases/*/case.py disagree" "cases: $CASE_PKGS / suites: $SUITE_PKGS"
 fi
 # --- ssh-quoting regression: ssh joins separate remote-command words
 # with spaces, and the remote shell re-parses the result -- a format

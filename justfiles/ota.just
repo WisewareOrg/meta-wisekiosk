@@ -157,8 +157,17 @@ kiosk-preflight image="build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wi
     IMAGE_B=$(stat -Lc %s "{{image}}")
     BUNDLE_B=$(stat -Lc %s "{{bundle}}")
 
-    # Checks the rootfs, not the bundle -- nothing binds the two (#48).
+    # Checks the rootfs, not the bundle -- #48 bundle-image-tie is the
+    # image-content tier's own job, the next line.
     tools/reproducibility-gate.sh --image "{{image}}" || exit 1
+
+    # #48 bundle-image-tie: the image-content tier (just testimage-image) ties the
+    # bundle's own manifest hash to the deployed rootfs, pinned to the current
+    # build's own datastore paths rather than this recipe's image=/bundle= -- a
+    # kiosk-preflight call against a build other than the one populated in build/
+    # would check the wrong image (flagged for reviewer confirmation; no evidence
+    # in the tree this is ever hit in practice).
+    just testimage-image || exit 1
 
     # Nothing ties the image inside the bundle to the slot that receives it. The
     # two agree only because both derive from AUTONOMOS_ROOTFS_SIZE in the same
@@ -209,7 +218,8 @@ kiosk-send-direct bundle="build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0
     DEST=/data/update.raucb
     test -f "{{bundle}}" || { echo "no bundle at {{bundle}}"; exit 1; }
     # Directly invocable, so it cannot rely on kiosk-preflight having run.
-    # --tree: the argument is a .raucb and nothing binds it to a rootfs (#48).
+    # --tree: the argument is a .raucb, unreadable here -- #48 bundle-image-tie
+    # is verified by kiosk-preflight's own image-content tier call, not this one.
     tools/reproducibility-gate.sh --tree || exit 1
     LOCAL_MD5=$(md5sum "{{bundle}}" | cut -d' ' -f1)
     SIZE=$(stat -Lc%s "{{bundle}}")
