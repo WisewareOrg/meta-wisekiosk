@@ -39,10 +39,10 @@ The case itself never parses or decides.
 `case.py` subclasses `WiseKioskCase` and reads or writes the run record through `record.py`, both in
 [`../framework/`](../framework/README.md) — a library, not a test, made importable the way any other
 layer's own oeqa extension is, by `layer.conf`'s `addpylib`, rather than discovered as a case.
-`framework.base` sources every case's own timing bounds, one spelling each: `POLL_SECONDS` between
-poll attempts, `POLL_ATTEMPT_TIMEOUT_SECONDS` for one remote command's own round trip,
-`RESTART_TIMEOUT_SECONDS` for a `systemctl restart kiosk.service` call, `BOUND_SECONDS` for a case's
-own functional deadline.
+`framework.base` holds the timing bounds shared across packages: `POLL_SECONDS` between poll
+attempts, `POLL_ATTEMPT_TIMEOUT_SECONDS` for one remote command's round trip,
+`RESTART_TIMEOUT_SECONDS` for a `systemctl restart kiosk.service` call, and `BOUND_SECONDS` for the
+backend-unit and `/healthz` deadlines. A package's own deadline is named in that package.
 
 Every function here is certified against constructed or scrubbed board-captured inputs -- never an
 invented device-output shape: the contract between what the device emits and what a function

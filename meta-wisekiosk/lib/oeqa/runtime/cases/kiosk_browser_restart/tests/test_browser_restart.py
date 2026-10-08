@@ -2,8 +2,7 @@
 own sample shape (nonce/state/cards/faulted/unreachable), one test per outcome.
 
 No device, no DOM -- every sample is constructed, shaped like a real read_sample() result: the
-probe's own nonce is performance.timeOrigin, an integer-millisecond string (the 2fc4828 record's
-own page line: nonce=1791490387376).
+probe's own nonce is performance.timeOrigin, an integer-millisecond string.
 """
 
 from oeqa.runtime.cases.kiosk_browser_restart.verdict import verdict
