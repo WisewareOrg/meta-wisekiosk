@@ -12,20 +12,32 @@ The oeqa suite bitbake and `tools/oe-test.sh` both run. [`docs/testing.md`](../.
 - `tests/` — pytest over `verdict.py`, constructed inputs, every branch, held to a 100% line and
   branch coverage floor by `just test`. `case.py` is outside this population by construction: it
   imports `oeqa`, which is not on `sys.path` on the host `just test` runs on.
+- `selfcheck.py` — present only where the package's own checker needs proof it can go red: one
+  `OERuntimeTestCase` subclass holding a hand-run self-test, named for what it exercises (e.g.
+  `test_applied_detects_dead_url`), run by hand on bench as
+  `tools/oe-test.sh <target-ip> kiosk_<name>.selfcheck` whenever that checker changes. Named in
+  full (`kiosk_<name>.case`, never the bare package name) in `includes/testimage.yaml`'s own
+  `TEST_SUITES`, so a `selfcheck` module is never loaded by a job or a bare hand run.
 
 A case's own job is to move bytes and call its verdict: `self.target.run`/`copyTo` collects from the
 device, the package's pure function judges what came back, and the case asserts on that judgement.
 The case itself never parses or decides.
 
-- `kiosk_render/` — `test_render_advancing`, judged by `verdict.py`'s two-frame verdict.
+- `kiosk_render/` — `test_render_advancing`, judged by `verdict.py`'s two-frame verdict;
+  `selfcheck.py` holds `test_render_detects_frozen_process`.
 - `kiosk_applied/` — `test_page_applied`, `probe.js` (the DOM probe surf evaluates; no recipe, the
   case deploys it with `copyTo`), and `verdict.py`'s title parser and verdict. The one probe script
-  every other probe-reading case below reads, never duplicates.
+  every other probe-reading case below reads, never duplicates. `selfcheck.py` holds
+  `test_applied_detects_dead_url`.
 - `kiosk_layout/` — the appliance's own layout-floor need (`docs/requirements/srs/SRS007`), reading
-  the mode `DISPLAY=:0 xrandr` reports directly, never through the probe.
+  the mode `DISPLAY=:0 xrandr` reports directly, never through the probe. `selfcheck.py` holds
+  `test_layout_detects_below_floor_mode`, which seeds a below-floor mode by editing the appliance's
+  own launcher on the board, skipping only when the connected output offers no mode below the floor
+  — [`docs/testing.md`](../../../../../docs/testing.md) §"The render and applied cases" has why.
 - `kiosk_browser_restart/` — the appliance's own need that the browser comes back on its own when it
   dies (`docs/requirements/srs/SRS005`; unit supervision, `Restart=always`), no pure parsing of its
-  own (it reads `kiosk_applied.verdict`'s), so no `verdict.py`.
+  own (it reads `kiosk_applied.verdict`'s), so no `verdict.py`. `selfcheck.py` holds
+  `test_browser_restart_detects_broken_policy`.
 - `kiosk_backend_unit/`, `kiosk_healthz_bound/`, `kiosk_page_serves/`, `kiosk_health_flag/` — one
   pre-existing case apiece; no pure logic of their own to separate out, so no `verdict.py` and no
   `tests/`.
