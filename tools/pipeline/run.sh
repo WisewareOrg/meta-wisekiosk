@@ -392,6 +392,24 @@ else
     [ "$RECORD_RC" -eq 0 ] || SMOKE_TEXT="$SMOKE_TEXT ($RECORD_REASON)"
 fi
 
+# The /data post-suite recompute: the pre-job precondition above is the
+# backstop before the job; this is the backstop after it -- a difference
+# here means a case's own restore did not land, an infrastructure failure,
+# never the candidate's. docs/testing.md § "Running it" has the why.
+POST_KIOSK_CONF_MAC=absent
+if POST_KIOSK_CONF_HEX=$(hex_read "$SSH_HOST" /data/config/kiosk.conf 2>/dev/null); then
+    POST_KIOSK_CONF_MAC=$(printf '%s' "$POST_KIOSK_CONF_HEX" \
+        | python3 "$TOOLS/pipeline/config-mac.py" "$HMAC_KEY")
+fi
+POST_CONFIG_JSON_HEX=$(hex_read "$SSH_HOST" /data/config/config.json)
+POST_CONFIG_MAC=$(printf '%s' "$POST_CONFIG_JSON_HEX" \
+    | python3 "$TOOLS/pipeline/config-mac.py" "$HMAC_KEY")
+
+if [ "$POST_KIOSK_CONF_MAC" != "$EXPECTED_KIOSK_CONF_MAC" ] \
+        || [ "$POST_CONFIG_MAC" != "$EXPECTED_CONFIG_MAC" ]; then
+    abort "bench /data differs from the accepted configuration after the suite; a case's own restore did not land"
+fi
+
 "${TREE_JUST[@]}" kiosk-rollback > "$RUN_DIR/rollback.log" 2>&1 \
     || abort "could not mark the booted slot bad"
 "${TREE_JUST[@]}" kiosk-reboot > "$RUN_DIR/rollback-reboot.log" 2>&1 \

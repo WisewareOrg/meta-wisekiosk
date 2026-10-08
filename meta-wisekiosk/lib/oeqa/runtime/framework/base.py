@@ -76,11 +76,9 @@ class WiseKioskCase(OERuntimeTestCase):
         # The bench-only refusal: the first thing this suite does with the
         # device, before any other collector.
         observed_hostname = target.run("hostname")[1].strip()
-        if observed_hostname != hostname:
-            raise RuntimeError(
-                f"the board's live hostname ({observed_hostname!r}) does not match "
-                f"the expected KIOSK_TARGET_HOSTNAME ({hostname!r}) -- refusing to "
-                "run against a board this suite did not expect")
+        mismatch = record.hostname_mismatch(observed_hostname, hostname)
+        if mismatch:
+            raise RuntimeError(mismatch)
 
         WiseKioskCase.role = role
         WiseKioskCase.hmac_key = hmac_key_path.read_bytes()

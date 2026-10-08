@@ -26,6 +26,7 @@ from framework.record import (
     config_summary,
     decode_hex_dump,
     dirty,
+    hostname_mismatch,
     image_line,
     keyed_hash,
     kiosk_conf_mac,
@@ -399,6 +400,26 @@ def test_pid_from_pgrep_takes_the_first_of_several():
 def test_pid_from_pgrep_empty_raises():
     with pytest.raises(ValueError):
         pid_from_pgrep("")
+
+
+# ------------------------------------------------------------------ hostname_mismatch
+# base.py's own bench-only refusal, extracted unchanged: the exact message below is
+# read verbatim from framework/base.py's current setUpClass, since the brief states
+# the extraction is "unchanged in behavior" -- a rewording here would be a silent
+# behavior change, not a refactor. base.py's own .strip() of the device's hostname
+# happens before this function is called, so no whitespace case belongs to this
+# function's own contract.
+
+def test_hostname_mismatch_matching_returns_none():
+    assert hostname_mismatch("bench-host", "bench-host") is None
+
+
+def test_hostname_mismatch_differing_returns_the_existing_refusal_message():
+    got = hostname_mismatch("rogue-host", "bench-host")
+    assert got == (
+        "the board's live hostname ('rogue-host') does not match "
+        "the expected KIOSK_TARGET_HOSTNAME ('bench-host') -- refusing to "
+        "run against a board this suite did not expect")
 
 
 # --------------------------------------------------------------------- scrub_argv

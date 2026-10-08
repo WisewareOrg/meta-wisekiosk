@@ -43,3 +43,38 @@ class KioskRenderTest(WiseKioskCase):
         if outcome == "frozen":
             self.fail(reason)
         raise RuntimeError(reason)
+
+    def _resume_web_process(self):
+        # Re-resolves the pid rather than trusting a stale one, and
+        # restarts kiosk.service unconditionally as the backstop,
+        # regardless of whether a live process was found to CONT.
+        status, pid = self.target.run("pgrep -f WebKitWebProcess | head -1")
+        if status == 0 and pid.strip():
+            self.target.run(f"kill -CONT {pid.strip()}")
+        self.target.run("systemctl restart kiosk.service")
+
+    def test_render_seeded_fail(self):
+        if WiseKioskCase.role != "bench":
+            raise RuntimeError(
+                f"test_render_seeded_fail requires role=bench, got {WiseKioskCase.role!r}")
+        self.addCleanup(self._resume_web_process)
+
+        status, pid = self.target.run("pgrep -f WebKitWebProcess | head -1")
+        if status != 0 or not pid.strip():
+            raise RuntimeError("no WebKitWebProcess found on the device")
+        pid = pid.strip()
+        stop_status, _ = self.target.run(f"kill -STOP {pid}")
+        if stop_status != 0:
+            raise RuntimeError(f"could not STOP WebKitWebProcess (pid={pid})")
+
+        _status, output = self.target.run(_RENDER_PROBE)
+        outcome, reason = render_verdict(output.splitlines())
+        if outcome != "frozen":
+            self.fail(f"STOPping WebKitWebProcess did not read as frozen -- got {outcome!r} ({reason})")
+
+        self._resume_web_process()
+
+        _status, output = self.target.run(_RENDER_PROBE)
+        outcome, reason = render_verdict(output.splitlines())
+        if outcome != "advancing":
+            self.fail(f"did not return to advancing after CONT -- got {outcome!r} ({reason})")
