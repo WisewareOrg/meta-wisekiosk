@@ -3,10 +3,8 @@ from framework.base import WiseKioskCase
 from .case import _APPLIED_WAIT_SECONDS, _read_current_mode
 from .verdict import pick_below_floor_mode, verdict as layout_verdict
 
-# The appliance's own file (meta-wisekiosk/recipes-core/kiosk-session/files/
-# kiosk-launch's own `xrandr --output HDMI-1 --mode 1280x720` line) -- the
-# appliance seeding its own fault, never a live xrandr call the launcher
-# itself would undo on the very next (re)start.
+# meta-wisekiosk/recipes-core/kiosk-session/files/kiosk-launch's own --mode
+# line, backed up then sed-edited here.
 _LAUNCHER_PATH = "/usr/bin/kiosk-launch"
 _LAUNCHER_BACKUP = "/usr/bin/kiosk-launch.pre-seed"
 

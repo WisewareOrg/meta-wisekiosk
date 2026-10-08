@@ -5,10 +5,7 @@ from framework.base import WiseKioskCase
 
 from .case import _DEADLINE_SECONDS, _deploy_probe, _kill_surf, _wait_applied_or_fail
 
-# The seed that proves the check itself, not the feature: Restart=always is
-# the unit's own shipped policy (test_browser_restart proves it live), so
-# this drop-in exists only to show the check would catch it if that policy
-# were ever broken.
+# Restart=no drop-in; _remove_dropin restores it.
 _DROPIN_DIR = "/etc/systemd/system/kiosk.service.d"
 _DROPIN_PATH = _DROPIN_DIR + "/zz-acceptance-restart.conf"
 _DROPIN_BODY = "[Service]\nRestart=no\n"

@@ -184,7 +184,8 @@ version-going-backwards check never compares against another candidate's leftove
 log, `testresults.json`, and the assembled report body.
 
 **An infrastructure failure** — the device unreachable, the device's live hostname not matching the
-recorded `PIPELINE_TARGET_HOSTNAME` (the address now reaches a different device), the shared
+recorded `PIPELINE_TARGET_HOSTNAME` ([`docs/testing.md`](testing.md) §"The hand-run path" names the
+same refusal for the hand-run suite), the shared
 bitbake-hashserv not answering before a build, the job's base commit not resolving, a baseline build
 failing, the rollback reboot never coming back, the rollback not landing back on the pre-install slot,
 a report or status failing to post, or the process exiting for any other reason while the device sits
@@ -255,11 +256,10 @@ last build's deploy artifacts are missing, and writes its own run record under g
 either case makes to the board is `test_page_applied` arming the DOM probe (`copyTo` the script,
 restart `kiosk.service`), which its own teardown removes before the case ends.
 
-An optional module list after the address overrides `TEST_SUITES`: `just oe-test <target-ip>
-kiosk_<name>.selfcheck` runs one checker's own hand-run self-test instead of the suite — never part
-of `TEST_SUITES`, so never loaded by a job or by a bare `just oe-test <target-ip>`. Run one by
-hand on bench whenever that checker changes; § "The render and applied cases" below names each one
-and what it proves.
+An optional module list after the address overrides `TEST_SUITES`, running one checker's own
+hand-run self-test instead of the suite —
+[`meta-wisekiosk/lib/oeqa/runtime/cases/README.md`](../meta-wisekiosk/lib/oeqa/runtime/cases/README.md)
+names what a `selfcheck.py` is and how to run one.
 
 Its `PYTHONPATH` is exactly testimage's own, nothing broader: `sources/poky/meta/lib` and
 `sources/poky/bitbake/lib`, plus `meta-wisekiosk/lib/oeqa/runtime` — the hand-path twin of
@@ -316,28 +316,3 @@ one `MARKER`/`WM_NAME` pair and the `title_lines`/`fields` primitives every prob
 `verdict.py` module parses from -- the shell walk itself (`WiseKioskCase.titles()`) and the
 deploy/restart/applied-wait sequence every one of them repeated (`arm_probe()`, `wait_applied()`)
 live once, on `WiseKioskCase`.
-
-`kiosk_browser_restart/selfcheck.py` and `kiosk_layout/selfcheck.py` each hold one method
-(`test_browser_restart_detects_broken_policy`, `test_layout_detects_below_floor_mode`) that is a
-hand-run self-test of the *checker*, never the appliance -- proof that the check can go red, run by
-hand on bench as `just oe-test <target-ip> kiosk_<name>.selfcheck` when the checker changes.
-Neither module name is ever in `TEST_SUITES`, so neither loads from a pipeline job or a bare
-`just oe-test <target-ip>`. The browser-restart one drops in `Restart=no` (`Restart=always` is
-the unit's own shipped policy, exercised live by `test_browser_restart`'s own kill), confirming the
-unit stays down for the deadline, then removes the drop-in and asserts applied again. The layout
-one seeds its below-floor mode by editing the appliance's own launcher
-(`meta-wisekiosk/recipes-core/kiosk-session/files/kiosk-launch`'s own `xrandr --output HDMI-1
---mode 1280x720` line) on the board, never by a live `xrandr` call the launcher itself would undo
-on the very next (re)start: it backs up `/usr/bin/kiosk-launch`, `sed`s that line's own mode to the
-largest one `xrandr` lists below the floor for the connector, restarts `kiosk.service`, and asserts
-the mode `xrandr` reports afterward reads a floor failure; the cleanup restores the backed-up
-launcher and restarts the unit, and the method then asserts the floor check reads `ok` again. A
-connector with no mode below the floor skips the method with that reason recorded, rather than
-asserting nothing.
-
-`kiosk_applied/selfcheck.py` and `kiosk_render/selfcheck.py` each hold one method of the same
-hand-run kind (`test_applied_detects_dead_url`, `test_render_detects_frozen_process`): one rewrites
-`kiosk.conf`'s `KIOSK_URL` to an address nothing answers and restarts `kiosk.service`; the other
-sends `WebKitWebProcess` `SIGSTOP`. Each asserts its own failing verdict, restores the stimulus in a
-`finally`, and asserts the passing verdict again in the same method, so a run that failed to
-restore fails its own case rather than the next one.

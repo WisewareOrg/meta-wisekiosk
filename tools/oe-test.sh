@@ -4,9 +4,7 @@
 #
 #   tools/oe-test.sh <target-ip> [module...]
 #
-# With no module given, runs includes/testimage.yaml's own TEST_SUITES list;
-# a module list overrides it, e.g. tools/oe-test.sh <target-ip> kiosk_layout.selfcheck
-# runs one checker's own hand-run self-test instead of the suite.
+# A trailing module list replaces TEST_SUITES.
 #
 # Env: OE_TEST_TESTDATA, OE_TEST_MANIFEST override the last build's own
 # .testdata.json/.manifest symlinks under the deploy directory.
@@ -72,10 +70,7 @@ if [ ! -f "$MANIFEST" ]; then
     exit 1
 fi
 
-# Resolves the role and hostname through tools/device-role.py, then
-# refuses outright on anything but bench: this suite never runs against
-# prod, by direct check here rather than relying only on the base class's
-# live-hostname comparison.
+# Resolves role/hostname via tools/device-role.py; refuses outright if role != bench.
 ROLE_LINE=$(python3 "$ROOT/tools/device-role.py" "$TARGET") || exit 1
 read -r ROLE_KV HOSTNAME_KV <<< "$ROLE_LINE"
 KIOSK_TARGET_ROLE=${ROLE_KV#role=}
