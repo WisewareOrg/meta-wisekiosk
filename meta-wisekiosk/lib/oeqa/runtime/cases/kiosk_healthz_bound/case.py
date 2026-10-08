@@ -1,7 +1,7 @@
 import time
 
 from framework.base import (
-    WiseKioskCase, HEALTHZ_URL, BOUND_SECONDS, POLL_INTERVAL_SECONDS, POLL_ATTEMPT_TIMEOUT_SECONDS,
+    WiseKioskCase, HEALTHZ_URL, BOUND_SECONDS, POLL_SECONDS, POLL_ATTEMPT_TIMEOUT_SECONDS,
 )
 
 
@@ -16,5 +16,5 @@ class KioskHealthzBoundTest(WiseKioskCase):
                 return
             if time.time() >= deadline:
                 break
-            time.sleep(POLL_INTERVAL_SECONDS)
+            time.sleep(POLL_SECONDS)
         self.fail("/healthz did not return within %ss (rc %s): %s" % (BOUND_SECONDS, status, output))
