@@ -212,6 +212,11 @@ testimage ssh_dir=env('PIPELINE_SSH_DIR', ''):
     KAS_RUN_ENV="TEST_TARGET_IP OEQA_JSON_RESULT_DIR KIOSK_TARGET_ROLE KIOSK_TARGET_HOSTNAME" tools/kas-run.sh --ssh-dir {{ssh_dir}} build {{config}}:includes/testimage.yaml -c testimage
 
 [group('audit')]
+[doc("Build with testimage inherited; run the image-content tier over the build's own artifacts -- no board, no network")]
+testimage-image:
+    tools/kas-run.sh build {{config}}:includes/testimage-image.yaml -c testimage
+
+[group('audit')]
 [doc("Run the kiosk oeqa suite, or named modules, by hand against <target-ip>, no bitbake, no OTA")]
 oe-test target *modules:
     tools/oe-test.sh {{target}} {{modules}}

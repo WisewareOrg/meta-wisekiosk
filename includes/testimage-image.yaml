@@ -1,0 +1,16 @@
+# Colon-joined onto the image config by `just testimage-image`.
+header:
+  version: 20
+
+local_conf_header:
+  testimage-image: |
+    IMAGE_CLASSES += "testimage"
+    TEST_TARGET = "simpleremote"
+    TEST_SUITES = "kiosk_image.case"
+
+    # Literal placeholders, never env-sourced: this tier never calls
+    # self.tc.target, so testimage_sanity's non-empty check is satisfied
+    # with nothing ever dialed. `just testimage-image` takes no ssh_dir or
+    # target IP argument.
+    TEST_TARGET_IP = "127.0.0.1"
+    TEST_SERVER_IP = "127.0.0.1"
