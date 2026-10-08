@@ -310,24 +310,25 @@ one `MARKER`/`WM_NAME` pair and the `title_lines`/`fields` primitives every prob
 deploy/restart/applied-wait sequence every one of them repeated (`arm_probe()`, `wait_applied()`)
 live once, on `WiseKioskCase`.
 
-`kiosk_browser_restart` and `kiosk_layout` each carry a second, seeded-fail method
-(`test_browser_restart_seeded_fail`, `test_layout_seeded_fail`). The browser-restart one proves the
-*check*, not the feature -- `Restart=always` is the unit's own shipped policy, exercised live by
-`test_browser_restart`'s own kill -- by dropping in `Restart=no`, confirming the unit stays down for
-the deadline, then removing the drop-in and asserting applied again. The layout one reads the
-connected output's modes from `xrandr`, sets the largest one below the 1280x720 floor if the
-connector offers one, and asserts the mode `xrandr` reports afterward reads a floor failure,
-restoring the original mode in a cleanup; a connector with no mode below the floor skips the method
-with that reason recorded, rather than asserting nothing -- as does a seed that set but never
-survived to the reported mode: `kiosk-launch`'s own `xrandr --output HDMI-1 --mode 1280x720` runs
-unconditionally on every (re)start (the one event that lets the mode be reread after a restart), so
-on this board the seed never survives and the method always takes this second skip path, confirmed
-on bench by three independent mechanisms (a full restart, a live resize with no restart, and a
-kill-and-respawn) all reading back 1280x720.
+`kiosk_browser_restart` and `kiosk_layout` each carry a second method
+(`test_browser_restart_seeded_fail`, `test_layout_seeded_fail`) that is a hand-run self-test of the
+*checker*, never the appliance -- proof that the check can go red, run by hand on bench when the
+checker changes, never by a pipeline job or a `just oe-test` pass. The browser-restart one drops in
+`Restart=no` (`Restart=always` is the unit's own shipped policy, exercised live by
+`test_browser_restart`'s own kill), confirming the unit stays down for the deadline, then removes the
+drop-in and asserts applied again. The layout one reads the connected output's modes from `xrandr`,
+sets the largest one below the 1280x720 floor if the connector offers one, and asserts the mode
+`xrandr` reports afterward reads a floor failure, restoring the original mode in a cleanup; a
+connector with no mode below the floor skips the method with that reason recorded, rather than
+asserting nothing -- as does a below-floor mode that never survived to the reported mode:
+`kiosk-launch`'s own `xrandr --output HDMI-1 --mode 1280x720` runs unconditionally on every
+(re)start (the one event that lets the mode be reread after a restart), so on this board the method
+always takes this second skip path, confirmed on bench by three independent mechanisms (a full
+restart, a live resize with no restart, and a kill-and-respawn) all reading back 1280x720.
 
-`kiosk_applied` and `kiosk_render` each gained a second, self-seeding method
+`kiosk_applied` and `kiosk_render` each carry a second method of the same hand-run kind
 (`test_applied_seeded_fail`, `test_render_seeded_fail`): one rewrites `kiosk.conf`'s `KIOSK_URL` to
 an address nothing answers and restarts `kiosk.service`; the other sends `WebKitWebProcess`
 `SIGSTOP`. Each asserts its own failing verdict, restores the stimulus in a `finally`, and asserts
-the passing verdict again in the same method, so a seed that failed to restore fails its own case
+the passing verdict again in the same method, so a run that failed to restore fails its own case
 rather than the next one.
