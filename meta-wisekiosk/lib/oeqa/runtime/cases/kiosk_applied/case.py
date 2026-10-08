@@ -2,76 +2,93 @@ import time
 from pathlib import Path
 
 from framework import record
-from framework.base import WiseKioskCase, POLL_ATTEMPT_TIMEOUT_SECONDS
+from framework.base import WiseKioskCase, POLL_ATTEMPT_TIMEOUT_SECONDS, POLL_SECONDS
 
 from .verdict import read_sample, verdict as applied_verdict
 
-_PROBE_SRC = Path(__file__).resolve().parent / "probe.js"
+PROBE_SRC = Path(__file__).resolve().parent / "probe.js"
 
 _APPLIED_DEADLINE_SECONDS = 90
-_APPLIED_POLL_SECONDS = 2
 _APPLIED_ATTEMPTS = 2
 
 
-def _read_applied_sample(case):
-    return read_sample(case.titles())
+def deploy_probe(case):
+    """Deploys this package's probe.js (mkdir, copyTo) and registers its
+    own removal as the case's cleanup -- the one deploy sequence every
+    probe-reading case shares."""
+    case.addCleanup(case.target.run, "rm -f /home/root/.surf/script.js")
+    mkdir_status, _ = case.target.run(
+        "mkdir -p /home/root/.surf", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
+    if mkdir_status != 0:
+        raise RuntimeError("could not deploy the probe (mkdir)")
+    case.target.copyTo(str(PROBE_SRC), "/home/root/.surf/script.js")
 
 
-def _applied_attempt(case):
+def wait_applied(case, deadline_s):
+    """Polls case.titles() until some window's probe payload reads
+    state=applied, raising with the last known state if deadline_s
+    elapses first."""
+    deadline = time.monotonic() + deadline_s
+    last = "no probe payload"
+    while True:
+        sample = read_sample(case.titles())
+        if sample is not None:
+            last = sample["state"]
+            if last == "applied":
+                return
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(POLL_SECONDS)
+    raise RuntimeError(f"the page did not apply within {deadline_s}s (last: {last})")
+
+
+def applied_attempt(case):
     # A deploy failure here takes the same retry path as a probe
-    # failure: the caller only ever sees an "error:*" outcome. Deploy
+    # failure: the caller only ever sees an "error" outcome. Deploy
     # (mkdir, copyTo) runs before the clock and is unbounded; the 90 s
-    # deadline starts when the restart is issued, matching the
-    # ticket's "applied within 90 s of the restart" -- the restart's
-    # own duration counts, and the poll gets the remainder.
+    # deadline starts when the restart is issued -- the restart's own
+    # duration counts, and the poll gets the remainder.
     try:
-        mkdir_status, _ = case.target.run(
-            "mkdir -p /home/root/.surf", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
-        if mkdir_status != 0:
-            return "error:deploy", None
-        case.target.copyTo(str(_PROBE_SRC), "/home/root/.surf/script.js")
-        deadline = time.time() + _APPLIED_DEADLINE_SECONDS
+        deploy_probe(case)
+        deadline = time.monotonic() + _APPLIED_DEADLINE_SECONDS
         restart_status, _ = case.target.run(
-            "systemctl restart kiosk.service", timeout=int(max(1, deadline - time.time())))
+            "systemctl restart kiosk.service", timeout=int(max(1, deadline - time.monotonic())))
         if restart_status != 0:
-            return "error:deploy", None
+            return "error", "deploy", None
     except AssertionError:
-        return "error:deploy", None
+        return "error", "deploy", None
 
     samples = []
     while True:
-        samples.append(_read_applied_sample(case))
-        outcome = applied_verdict(samples)
+        samples.append(read_sample(case.titles()))
+        outcome, reason = applied_verdict(samples)
         if outcome == "applied":
-            return outcome, samples[-1]
-        if time.time() >= deadline:
+            return outcome, reason, samples[-1]
+        if time.monotonic() >= deadline:
             break
-        time.sleep(_APPLIED_POLL_SECONDS)
+        time.sleep(POLL_SECONDS)
 
-    outcome = applied_verdict(samples)
+    outcome, reason = applied_verdict(samples)
     real = [sample for sample in samples if sample is not None]
-    return outcome, (real[-1] if real else None)
+    return outcome, reason, (real[-1] if real else None)
 
 
 class KioskAppliedTest(WiseKioskCase):
 
     def test_page_applied(self):
-        if WiseKioskCase.role != "bench":
-            raise RuntimeError(
-                f"test_page_applied requires role=bench, got {WiseKioskCase.role!r}")
         self.addCleanup(self.target.run, "rm -f /home/root/.surf/script.js")
 
-        outcome, sample = None, None
-        for attempt in range(_APPLIED_ATTEMPTS):
-            outcome, sample = _applied_attempt(self)
-            if not outcome.startswith("error:"):
+        outcome, reason, sample = None, None, None
+        for _attempt in range(_APPLIED_ATTEMPTS):
+            outcome, reason, sample = applied_attempt(self)
+            if outcome != "error":
                 break
         else:
             # The declared transport kind: run.sh's own infrastructure-
             # failure path reads this exact state from the page line.
             self.tc.extraresults[record.RECORD_KEY][f"page.{self.id()}"] = record.page_line(
                 nonce="", state=record.TRANSPORT_STATE, cards="-/-", faulted=0, unreachable=0)
-            raise RuntimeError(f"transport: {outcome} after {_APPLIED_ATTEMPTS} attempts")
+            raise RuntimeError(f"transport: {outcome}:{reason} after {_APPLIED_ATTEMPTS} attempts")
 
         self.tc.extraresults[record.RECORD_KEY][f"page.{self.id()}"] = record.page_line(
             nonce=sample["nonce"], state=sample["state"], cards=sample["cards"],
@@ -79,4 +96,4 @@ class KioskAppliedTest(WiseKioskCase):
 
         if outcome == "applied":
             return
-        self.fail(outcome)
+        self.fail(f"{outcome}:{reason}")

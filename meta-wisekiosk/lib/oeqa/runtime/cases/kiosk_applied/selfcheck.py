@@ -2,10 +2,10 @@ import tempfile
 
 from framework.base import WiseKioskCase
 
-from .case import _applied_attempt
+from .case import applied_attempt
 
 _KIOSK_CONF_PATH = "/data/config/kiosk.conf"
-_KIOSK_CONF_BACKUP = "/data/config/kiosk.conf.seeded-fail-bak"
+_KIOSK_CONF_BACKUP = "/data/config/kiosk.conf.selfcheck-bak"
 _KIOSK_URL_KEY = "KIOSK_URL"
 _SEEDED_URL_LINE = f"{_KIOSK_URL_KEY}=http://localhost:1"
 
@@ -18,13 +18,14 @@ class KioskAppliedSelfcheck(WiseKioskCase):
         status, _ = self.target.run(f"test -f {_KIOSK_CONF_BACKUP}")
         if status != 0:
             return
-        self.target.run(f"mv {_KIOSK_CONF_BACKUP} {_KIOSK_CONF_PATH}")
-        self.target.run("systemctl restart kiosk.service")
+        mv_status, _ = self.target.run(f"mv {_KIOSK_CONF_BACKUP} {_KIOSK_CONF_PATH}")
+        if mv_status != 0:
+            raise RuntimeError(f"could not restore {_KIOSK_CONF_PATH} from its backup")
+        restart_status, _ = self.target.run("systemctl restart kiosk.service")
+        if restart_status != 0:
+            raise RuntimeError("could not restart kiosk.service after restoring kiosk.conf")
 
     def test_applied_detects_dead_url(self):
-        if WiseKioskCase.role != "bench":
-            raise RuntimeError(
-                f"test_applied_detects_dead_url requires role=bench, got {WiseKioskCase.role!r}")
         self.addCleanup(self.target.run, "rm -f /home/root/.surf/script.js")
         self.addCleanup(self._restore_kiosk_conf)
 
@@ -44,12 +45,17 @@ class KioskAppliedSelfcheck(WiseKioskCase):
             seeded_file.flush()
             self.target.copyTo(seeded_file.name, _KIOSK_CONF_PATH)
 
-        outcome, _sample = _applied_attempt(self)
-        if outcome != "failed:error:not-app":
-            self.fail(f"seeded KIOSK_URL did not fail as failed:error:not-app -- got {outcome!r}")
+        readback_status, readback = self.target.run(f"cat {_KIOSK_CONF_PATH}")
+        if readback_status != 0 or _SEEDED_URL_LINE not in readback.splitlines():
+            raise RuntimeError(f"the seeded {_KIOSK_URL_KEY} did not land in {_KIOSK_CONF_PATH}")
+
+        outcome, reason, _sample = applied_attempt(self)
+        if (outcome, reason) != ("failed", "error:not-app"):
+            self.fail(
+                f"seeded KIOSK_URL did not fail as failed:error:not-app -- got {outcome}:{reason!r}")
 
         self._restore_kiosk_conf()
 
-        outcome, _sample = _applied_attempt(self)
+        outcome, reason, _sample = applied_attempt(self)
         if outcome != "applied":
-            self.fail(f"did not return to applied after restoring kiosk.conf -- got {outcome!r}")
+            self.fail(f"did not return to applied after restoring kiosk.conf -- got {outcome}:{reason!r}")
