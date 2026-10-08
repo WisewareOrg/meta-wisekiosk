@@ -11,9 +11,9 @@ ref: ''
 references:
 - keyword: def test_recovery
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_recovery/case.py
-  sha: 50c6382f493915a57b431f4d4930dd2e168b610f1ba25824e825bb46b108d416
+  sha: 0a25d2fd9b21106a7e91c325a999402ae82a896c9bf2079be42fdfb61cdd6077
   type: file
-reviewed: 8ydP30qJZOEukfnU9sUIe3mjB-rUBr9v-568TAWLJ6k=
+reviewed: Iend32pxU0nBWUjwtw6eKQZJML7hG_4I-WSjLDOFz64=
 status: proposed
 text: |
   Stop the backend, then start it, and assert the outage report clears and every stood-down

@@ -19,10 +19,25 @@ The case itself never parses or decides.
 
 - `kiosk_render/` — `test_render_advancing`, judged by `verdict.py`'s two-frame verdict.
 - `kiosk_applied/` — `test_page_applied`, `probe.js` (the DOM probe surf evaluates; no recipe, the
-  case deploys it with `copyTo`), and `verdict.py`'s title parser and verdict.
+  case deploys it with `copyTo`), and `verdict.py`'s title parser and verdict. The one probe script
+  every other probe-reading case below reads, never duplicates.
+- `kiosk_backend_unreachable/`, `kiosk_recovery/`, `kiosk_config_errors/`, `kiosk_layout/` — the
+  appliance's own fault, recovery, configuration and layout needs (`docs/requirements/srs/`
+  `SRS003`-`SRS007`), each reading the same probe through `framework.probe`'s `title_lines`/`fields`
+  and `WiseKioskCase`'s `arm_probe`/`titles`/`wait_applied`/`stop_backend`/`start_backend`, never a
+  second probe or a copy of the walk.
+- `kiosk_browser_restart/` — the browser's own recovery from being killed; no pure parsing of its
+  own (it reads `kiosk_applied.verdict`'s), so no `verdict.py`.
 - `kiosk_backend_unit/`, `kiosk_healthz_bound/`, `kiosk_page_serves/`, `kiosk_health_flag/` — one
   pre-existing case apiece; no pure logic of their own to separate out, so no `verdict.py` and no
   `tests/`.
+
+**A `verdict.py` field extractor is deliberately non-validating.** `kiosk_config_errors`'s
+`parse_configuration_error` and `kiosk_backend_unreachable`/`kiosk_layout`'s own field parsers
+return whatever the probe's title carries verbatim, never checked against a known set of values --
+the frontend decides what a field means; the extractor only reads it back. Catching a genuinely
+wrong value is the seeded-fail run's own job (`kiosk_config_errors.test_configuration_errors`'
+three seeds, `kiosk_layout.test_layout_seeded_fail`), not the extractor's.
 
 **The shared base and record parsing are not a case, so they are not here.** Every package's
 `case.py` subclasses `WiseKioskCase` and reads or writes the run record through `record.py`, both in

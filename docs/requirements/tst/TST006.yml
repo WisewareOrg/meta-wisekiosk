@@ -11,9 +11,9 @@ ref: ''
 references:
 - keyword: def test_configuration_errors
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_config_errors/case.py
-  sha: 40459ed315b37de53066d9afe4a75221bb607f4779055195d570fa68dba7ecab
+  sha: c57e96de2b2bd1e16112c48ee14cd151d710b744c6e7f593c63ce1c8a301be83
   type: file
-reviewed: -eTMQBHsajg12mP0M4NYNYwBcouh_4MEbxXBejNDKeI=
+reviewed: guaL0K9cBCYJOlsM3hERTE6Q92tmrSyR8Q9MVchafV0=
 status: proposed
 text: |
   Assert the served configuration is read as applied within the deadline on a healthy

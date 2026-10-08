@@ -308,17 +308,49 @@ The fault, recovery, configuration-error and layout cases (`kiosk_backend_unreac
 `kiosk_recovery/`, `kiosk_browser_restart/`, `kiosk_config_errors/`, `kiosk_layout/`) read through
 this same probe and title-line channel, never a second one: `probe.js` gained `diag=<len>`/
 `rem=<len>` (`[data-diagnosis]`/`[data-remediation]`'s own `textContent.length`, never their text),
-`configuration-error=<state>` (the frontend's own classification, read verbatim), `modules=
-<n-unavailable>/<n-loading>` (module-unavailable and module-loading element counts), and `layout=
-<w>x<h>:<clear|overlap:<id>>` (the viewport size and whether every region clears the banner,
-computed in the probe itself since only the probe has the page's own geometry). Each of these cases
-owns its own `verdict.py`; none of the new fields are parsed by `kiosk_applied.verdict`'s own
-`parse_title`, which stays unchanged.
+`configuration-error=<state>` (the frontend's own classification, read verbatim), a standalone
+`loading=<n>` (the module-loading element count -- `faulted=<n>` already reported
+module-unavailable on its own, so the field never duplicated it as `modules=<faulted>/<loading>`),
+and `layout=<w>x<h>:<clear|overlap:<id>>` beside `edge=<clear|unknown|<id>>` (the viewport size,
+whether every region clears the banner, and whether the banner, the diagnosis, the remediation or
+any region comes within the served `config.json`'s `edge_band` of a viewport edge -- `unknown` when
+that same-origin fetch, issued once by the probe itself, fails; computed in the probe since only the
+probe has the page's own geometry). Each of these cases owns its own `verdict.py`; none of the new
+fields are parsed by `kiosk_applied.verdict`'s own `parse_title`, which stays unchanged.
+`framework/probe.py` holds the one `MARKER`/`WM_NAME` pair and the `title_lines`/`fields` primitives
+every one of these `verdict.py` modules parses from -- the shell walk itself
+(`WiseKioskCase.titles()`) and the deploy/restart/applied-wait sequence every one of them repeated
+(`arm_probe()`, `wait_applied()`, `stop_backend()`/`start_backend()`) live once, on `WiseKioskCase`.
 
-`kiosk_recovery` and `kiosk_layout` are each ordered after `kiosk_backend_unreachable` with
-`OETestDepends`, but neither relies on that ordering to inherit a stopped backend: each test's own
-`addCleanup` runs at that test's own teardown, before the next test starts, so `OETestDepends`
-orders execution only. Both stop the backend themselves before doing their own work.
+`kiosk_recovery` and `kiosk_layout` each stop the backend themselves rather than relying on
+`kiosk_backend_unreachable`'s state surviving into their own run: each test's own `addCleanup` runs
+at that test's own teardown, before the next test starts.
+
+`kiosk_backend_unreachable` and `kiosk_recovery` each gate on their own stimulus already (stopping,
+then starting, the backend); each writes a `page.<case id>` line carrying the before and after
+samples its own run captured, and how many seconds each took to reach, so the run's own record shows
+red-before-green without a separate seeded-fail method.
+
+`kiosk_config_errors` seeds all three of its named bad-configuration states in one method: it backs
+up `config.json`, then in turn moves it aside, replaces it with non-JSON text, and replaces it with
+JSON that fails the frontend's own schema (a module placement naming neither `region` nor `module`),
+restarting `kiosk.service` and asserting `configuration-error=` reads `absent` / `unparsable` /
+`rejected` after each, before restoring the backup and asserting `applied` again.
+
+`kiosk_browser_restart` and `kiosk_layout` each gained a second, seeded-fail method
+(`test_browser_restart_seeded_fail`, `test_layout_seeded_fail`). The browser-restart one proves the
+*check*, not the feature -- `Restart=always` is the unit's own shipped policy, exercised live by
+`test_browser_restart`'s own kill -- by dropping in `Restart=no`, confirming the unit stays down for
+the deadline, then removing the drop-in and asserting applied again. The layout one reads the
+connected output's modes from `xrandr`, sets the largest one below the 1280x720 floor if the
+connector offers one, and asserts the resulting `layout=` field reads a floor failure, restoring the
+original mode in a `finally`; a connector with no mode below the floor skips the method with that
+reason recorded, rather than asserting nothing -- as does a seed that set but never reached the
+browser's own viewport: `kiosk-launch`'s own `xrandr --output HDMI-1 --mode 1280x720` runs
+unconditionally on every (re)start (the one event that produces a fresh probe reading), so on this
+board the seed never survives to surf's window and the method always takes this second skip path,
+confirmed on bench by three independent mechanisms (a full restart, a live resize with no restart,
+and a kill-and-respawn) all reading back 1280x720.
 
 `kiosk_applied` and `kiosk_render` each gained a second, self-seeding method
 (`test_applied_seeded_fail`, `test_render_seeded_fail`): one rewrites `kiosk.conf`'s `KIOSK_URL` to

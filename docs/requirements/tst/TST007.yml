@@ -11,14 +11,18 @@ ref: ''
 references:
 - keyword: def test_layout_floor
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_layout/case.py
-  sha: 02efe0693755e10ab74f33100ca986927637047c1192fa30d87bad5ff2e3f4cb
+  sha: f2bd919b92ff77ee3cb26cde05ebe77f538811ef4d3a1817167c43da05d7a08f
   type: file
-reviewed: eOYP6jJCVtaIqOTqBqkKST9jdd2rkFVcXOee7jk6P4A=
+reviewed: kQwZ72K8_7Umr6YWYdFV_p0NLNPHQcPzSOZB8nD1JUI=
 status: proposed
 text: |
   Read the device's reported viewport size and assert it is at least 1280x720, and assert the
-  band and every region clear each other.
+  band and every region clear each other and the configured edge margin, and assert a mode
+  below the floor is reported as such when the connected output offers one.
 verification-justification: |
-  Settles the floor and band clearance at the viewport observed at test time, on one physical
-  device, one boot. Leaves unproven layout at a mode below the floor.
+  Settles the floor, band clearance and edge-margin clearance at the viewport observed at test
+  time, on one physical device, one boot, and that a seeded below-floor mode is reported as a
+  floor failure where the seed reaches the browser's own viewport (bench acceptance run, cited
+  in the PR). Leaves unproven layout at a mode below the floor on a connector that offers none
+  to seed, or whose display-launch script re-asserts its own mode on every restart.
 verification-method: test
