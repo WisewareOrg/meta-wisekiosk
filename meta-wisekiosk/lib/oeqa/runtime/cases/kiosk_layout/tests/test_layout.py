@@ -1,43 +1,12 @@
 """Specifies cases/kiosk_layout/verdict.py: the mode `DISPLAY=:0 xrandr` reports, judged against
-the 720p floor (the ticket's "Decided": the display runs at the configured mode, at or above the
-design floor).
+the 720p floor and the launcher's own configured mode.
 
 No device, no DOM -- every mode string and xrandr dump is constructed.
 """
 
 import pytest
 
-from oeqa.runtime.cases.kiosk_layout.verdict import pick_below_floor_mode, verdict
-
-
-@pytest.mark.parametrize(
-    ("name", "mode", "want_outcome"),
-    [
-        ("exactly at the floor -- the boundary itself passes", "1280x720", "ok"),
-        ("comfortably above the floor", "1920x1080", "ok"),
-        ("width below the floor", "1279x720", "error"),
-        ("height below the floor", "1280x719", "error"),
-        ("both below the floor", "640x480", "error"),
-    ],
-)
-def test_verdict_outcome(name, mode, want_outcome):
-    outcome, reason = verdict(mode)
-    assert outcome == want_outcome, f"{name}: {reason!r}"
-
-
-def test_verdict_low_width_reason_names_the_dimension():
-    outcome, reason = verdict("1000x720")
-    assert "width" in reason.lower()
-
-
-def test_verdict_low_height_reason_names_the_dimension():
-    outcome, reason = verdict("1280x600")
-    assert "height" in reason.lower()
-
-
-# ------------------------------------------------------------- pick_below_floor_mode
-# A real `DISPLAY=:0 xrandr` capture from bench (round-1 fixes session, no address or
-# other identity in it -- xrandr reports modes, never anything scrubbed elsewhere).
+from oeqa.runtime.cases.kiosk_layout.verdict import current_mode, pick_below_floor_mode, verdict
 
 BENCH_XRANDR = """Screen 0: minimum 320 x 200, current 1280 x 720, maximum 2048 x 2048
 HDMI-1 connected primary 1280x720+0+0 (normal left inverted right x axis y axis) 521mm x 293mm
@@ -55,6 +24,59 @@ HDMI-1 connected primary 1280x720+0+0 (normal left inverted right x axis y axis)
    720x400       70.08
 """
 
+
+def test_current_mode_finds_the_starred_line():
+    assert current_mode(BENCH_XRANDR) == "1280x720"
+
+
+def test_current_mode_none_when_no_line_is_current():
+    assert current_mode("HDMI-1 connected primary 1280x720+0+0\n   1280x720      60.00\n") is None
+
+
+def test_current_mode_skips_a_malformed_marked_line():
+    # Defensive: real xrandr output never emits this shape, but a stray "*"
+    # on a line whose first token is not "<w>x<h>" must not raise.
+    xrandr_output = "   not-a-mode*\n   1280x720      60.00*\n"
+    assert current_mode(xrandr_output) == "1280x720"
+
+
+@pytest.mark.parametrize(
+    ("name", "xrandr_output", "configured_mode", "want_outcome"),
+    [
+        ("exactly at the floor, matching configured -- the boundary itself passes",
+         BENCH_XRANDR, "1280x720", "ok"),
+        ("a width below the floor",
+         "HDMI-1 connected primary 1279x720+0+0\n   1279x720      60.00*\n", "1279x720",
+         "below-floor"),
+        ("a height below the floor",
+         "HDMI-1 connected primary 1280x719+0+0\n   1280x719      60.00*\n", "1280x719",
+         "below-floor"),
+        ("clears the floor but does not match the configured mode",
+         "HDMI-1 connected primary 1920x1080+0+0\n   1920x1080      60.00*\n", "1280x720",
+         "mode-mismatch"),
+        ("no current mode at all",
+         "HDMI-1 connected primary 1280x720+0+0\n", "1280x720", "error"),
+    ],
+)
+def test_verdict_outcome(name, xrandr_output, configured_mode, want_outcome):
+    outcome, reason = verdict(xrandr_output, configured_mode)
+    assert outcome == want_outcome, f"{name}: {reason!r}"
+
+
+def test_verdict_error_reason_names_why():
+    outcome, reason = verdict("HDMI-1 connected primary 1280x720+0+0\n", "1280x720")
+    assert "no current mode" in reason
+
+
+def test_verdict_mode_mismatch_reason_names_both_modes():
+    outcome, reason = verdict(
+        "HDMI-1 connected primary 1920x1080+0+0\n   1920x1080      60.00*\n", "1280x720")
+    assert "1920x1080" in reason and "1280x720" in reason
+
+
+# ------------------------------------------------------------- pick_below_floor_mode
+# A real `DISPLAY=:0 xrandr` capture from bench (no address or other identity in it --
+# xrandr reports modes, never anything scrubbed elsewhere).
 
 def test_pick_below_floor_mode_real_bench_capture():
     # 1024x768 is below the floor (width 1024 < 1280) and the largest by
@@ -80,6 +102,32 @@ def test_pick_below_floor_mode_connector_offers_none():
     assert candidate is None
 
 
+def test_pick_below_floor_mode_a_blank_indented_line_is_skipped():
+    # Defensive: real xrandr output never emits a whitespace-only indented
+    # line, but one must not raise on an empty split().
+    connector, current, candidate = pick_below_floor_mode(
+        "HDMI-1 connected primary 1280x720+0+0\n"
+        "   \n"
+        "   1280x720      60.00*\n"
+    )
+    assert connector == "HDMI-1"
+    assert current == "1280x720"
+    assert candidate is None
+
+
+def test_pick_below_floor_mode_a_non_numeric_mode_token_is_skipped():
+    # Defensive: real xrandr output never emits this shape, but a stray
+    # "<w>x<non-digit>" token must not raise.
+    connector, current, candidate = pick_below_floor_mode(
+        "HDMI-1 connected primary 1280x720+0+0\n"
+        "   100xabc       60.00\n"
+        "   1280x720      60.00*\n"
+    )
+    assert connector == "HDMI-1"
+    assert current == "1280x720"
+    assert candidate is None
+
+
 def test_pick_below_floor_mode_no_connected_output():
     connector, current, candidate = pick_below_floor_mode(
         "Screen 0: minimum 320 x 200, current 1280 x 720, maximum 2048 x 2048\n"
@@ -87,19 +135,4 @@ def test_pick_below_floor_mode_no_connected_output():
     )
     assert connector is None
     assert current is None
-    assert candidate is None
-
-
-def test_pick_below_floor_mode_a_mode_line_with_no_x_is_skipped():
-    # Defensive: real xrandr output never emits either shape, but a stray
-    # line with no "x" in its first token, or an "x"-bearing token that
-    # is not two digit groups, must not raise.
-    connector, current, candidate = pick_below_floor_mode(
-        "HDMI-1 connected primary 1280x720+0+0\n"
-        "   not-a-mode\n"
-        "   100xabc       60.00\n"
-        "   1280x720      60.00*\n"
-    )
-    assert connector == "HDMI-1"
-    assert current == "1280x720"
     assert candidate is None

@@ -1,24 +1,40 @@
-"""Specifies cases/kiosk_layout/verdict.py: the mode `DISPLAY=:0 xrandr` reports, judged against
-the 720p floor (the ticket's "Decided": the display runs at the configured mode, at or above the
-design floor).
-
-Pure: no device, no DOM -- every mode string and xrandr dump is a plain Python value.
+"""The mode `DISPLAY=:0 xrandr` reports, judged against the 720p floor and the launcher's own
+configured mode. Pure: no device, no DOM -- every mode string and xrandr dump is a plain value.
 """
 
 _MIN_WIDTH = 1280
 _MIN_HEIGHT = 720
 
 
-def verdict(mode):
-    """("ok"|"error", reason) against the 720p floor. `mode` is an
-    "<w>x<h>" mode string, the same shape pick_below_floor_mode's own
-    `current`/candidate return values and xrandr's own mode token carry."""
+def current_mode(xrandr_output):
+    """The connected output's current mode ("<w>x<h>"), from `DISPLAY=:0 xrandr`'s own shape: a
+    "<w>x<h> ..." line carrying a "*" against one of its refresh rates names the mode in effect.
+    None if no line carries one."""
+    for line in xrandr_output.splitlines():
+        if "*" not in line:
+            continue
+        parts = line.split()
+        w_str, _, h_str = parts[0].partition("x")
+        if w_str.isdigit() and h_str.isdigit():
+            return parts[0]
+    return None
+
+
+def verdict(xrandr_output, configured_mode):
+    """(outcome, reason) against the 720p floor and `configured_mode` (an "<w>x<h>" string read
+    from the launcher's own --mode argument): "ok" once the current mode clears the floor and
+    matches `configured_mode`; "below-floor" if it is below the floor; "mode-mismatch" if it
+    clears the floor but differs from `configured_mode`; "error" if xrandr reports no current
+    mode at all."""
+    mode = current_mode(xrandr_output)
+    if mode is None:
+        return "error", "xrandr reported no current mode"
     width_str, _, height_str = mode.partition("x")
     width, height = int(width_str), int(height_str)
-    if width < _MIN_WIDTH:
-        return "error", f"width {width} is below the {_MIN_WIDTH} floor"
-    if height < _MIN_HEIGHT:
-        return "error", f"height {height} is below the {_MIN_HEIGHT} floor"
+    if width < _MIN_WIDTH or height < _MIN_HEIGHT:
+        return "below-floor", f"{mode} is below the {_MIN_WIDTH}x{_MIN_HEIGHT} floor"
+    if mode != configured_mode:
+        return "mode-mismatch", f"xrandr reports {mode}, the launcher configures {configured_mode}"
     return "ok", ""
 
 
@@ -39,7 +55,7 @@ def pick_below_floor_mode(xrandr_output):
         if connector is None or not line.startswith(" "):
             continue
         parts = line.split()
-        if not parts or "x" not in parts[0]:
+        if not parts:
             continue
         w_str, _, h_str = parts[0].partition("x")
         if not (w_str.isdigit() and h_str.isdigit()):

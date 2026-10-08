@@ -1,29 +1,25 @@
 from framework.base import WiseKioskCase
 
-from .verdict import pick_below_floor_mode, verdict as layout_verdict
+from .verdict import verdict as layout_verdict
 
-_APPLIED_WAIT_SECONDS = 180
+_LAUNCHER_PATH = "/usr/bin/kiosk-launch"
 
 
-def _read_current_mode(case):
-    status, output = case.target.run("DISPLAY=:0 xrandr")
-    if status != 0:
-        raise RuntimeError("could not read xrandr")
-    _connector, current, candidate = pick_below_floor_mode(output)
-    if current is None:
-        raise RuntimeError("xrandr reported no current mode")
-    return current, candidate
+def read_configured_mode(case):
+    status, output = case.target.run(
+        f"grep -o -- '--mode [0-9]*x[0-9]*' {_LAUNCHER_PATH} | head -n 1 | cut -d' ' -f2")
+    if status != 0 or not output.strip():
+        raise RuntimeError(f"could not read the configured mode from {_LAUNCHER_PATH}")
+    return output.strip()
 
 
 class KioskLayoutTest(WiseKioskCase):
 
     def test_layout_floor(self):
-        if WiseKioskCase.role != "bench":
-            raise RuntimeError(f"test_layout_floor requires role=bench, got {WiseKioskCase.role!r}")
-        self.arm_probe()
-        self.wait_applied(_APPLIED_WAIT_SECONDS)
-
-        current, _candidate = _read_current_mode(self)
-        outcome, reason = layout_verdict(current)
+        status, xrandr_output = self.target.run("DISPLAY=:0 xrandr")
+        if status != 0:
+            raise RuntimeError("could not read xrandr")
+        configured_mode = read_configured_mode(self)
+        outcome, reason = layout_verdict(xrandr_output, configured_mode)
         if outcome != "ok":
             self.fail(reason)

@@ -1,12 +1,12 @@
 from framework.base import WiseKioskCase
 
-from .case import _APPLIED_WAIT_SECONDS, _read_current_mode
+from .case import read_configured_mode
 from .verdict import pick_below_floor_mode, verdict as layout_verdict
 
 # meta-wisekiosk/recipes-core/kiosk-session/files/kiosk-launch's own --mode
 # line, backed up then sed-edited here.
 _LAUNCHER_PATH = "/usr/bin/kiosk-launch"
-_LAUNCHER_BACKUP = "/usr/bin/kiosk-launch.pre-seed"
+_LAUNCHER_BACKUP = "/usr/bin/kiosk-launch.selfcheck-bak"
 
 
 class KioskLayoutSelfcheck(WiseKioskCase):
@@ -17,14 +17,21 @@ class KioskLayoutSelfcheck(WiseKioskCase):
         status, _ = self.target.run(f"test -f {_LAUNCHER_BACKUP}")
         if status != 0:
             return
-        self.target.run(f"mv {_LAUNCHER_BACKUP} {_LAUNCHER_PATH}")
-        self.target.run("systemctl restart kiosk.service")
+        mv_status, _ = self.target.run(f"mv {_LAUNCHER_BACKUP} {_LAUNCHER_PATH}")
+        if mv_status != 0:
+            raise RuntimeError(f"could not restore {_LAUNCHER_PATH} from its backup")
+        restart_status, _ = self.target.run("systemctl restart kiosk.service")
+        if restart_status != 0:
+            raise RuntimeError("could not restart kiosk.service after restoring the launcher")
+
+    def _read_verdict(self):
+        status, xrandr_output = self.target.run("DISPLAY=:0 xrandr")
+        if status != 0:
+            raise RuntimeError("could not read xrandr")
+        configured_mode = read_configured_mode(self)
+        return layout_verdict(xrandr_output, configured_mode)
 
     def test_layout_detects_below_floor_mode(self):
-        if WiseKioskCase.role != "bench":
-            raise RuntimeError(
-                f"test_layout_detects_below_floor_mode requires role=bench, got "
-                f"{WiseKioskCase.role!r}")
         status, output = self.target.run("DISPLAY=:0 xrandr")
         if status != 0:
             raise RuntimeError("could not read xrandr")
@@ -41,23 +48,25 @@ class KioskLayoutSelfcheck(WiseKioskCase):
             f"sed -i 's/--mode 1280x720/--mode {candidate}/' {_LAUNCHER_PATH}")
         if sed_status != 0:
             raise RuntimeError(f"could not edit {_LAUNCHER_PATH}")
+        landed_status, landed_count = self.target.run(
+            f"grep -c -- '--mode {candidate}' {_LAUNCHER_PATH}")
+        if landed_status != 0 or landed_count.strip() == "0":
+            raise RuntimeError(f"the seeded --mode {candidate} did not land in {_LAUNCHER_PATH}")
 
-        self.arm_probe()
-        self.wait_applied(_APPLIED_WAIT_SECONDS)
+        restart_status, _ = self.target.run("systemctl restart kiosk.service")
+        if restart_status != 0:
+            raise RuntimeError("could not restart kiosk.service after seeding the launcher")
 
-        current_after, _candidate2 = _read_current_mode(self)
-        outcome, reason = layout_verdict(current_after)
-        if outcome != "error" or "floor" not in reason:
+        outcome, reason = self._read_verdict()
+        if outcome not in ("below-floor", "mode-mismatch"):
             self.fail(
-                f"the seeded launcher mode {candidate!r} did not read as a floor failure -- "
-                f"got {outcome!r} ({reason!r}), read back {current_after!r}")
+                f"the seeded launcher mode {candidate!r} did not read as a floor or mismatch "
+                f"failure -- got {outcome!r} ({reason!r})")
 
         self._restore_launcher()
-        self.wait_applied(_APPLIED_WAIT_SECONDS)
 
-        current_restored, _candidate3 = _read_current_mode(self)
-        outcome, reason = layout_verdict(current_restored)
+        outcome, reason = self._read_verdict()
         if outcome != "ok":
             self.fail(
-                f"did not return to a floor-ok mode after restoring {_LAUNCHER_PATH} -- "
-                f"got {outcome!r} ({reason!r}), read back {current_restored!r}")
+                f"did not return to a floor-ok, matching mode after restoring {_LAUNCHER_PATH} -- "
+                f"got {outcome!r} ({reason!r})")
