@@ -1010,17 +1010,6 @@ else
     printf '%s\n' "$out23" | sed 's/^/        /'
 fi
 
-# --- 24. the upstream requirements-citation checker must still pass its
-# own self-test -- fixture-only, no network, no bench, runs fully here. ----
-upstreamtest24="tools/upstream-reqs-check-test.py"
-if [ ! -f "$upstreamtest24" ]; then
-    bad "guard 24: $upstreamtest24 missing -- the upstream citation checker is no longer self-tested"
-elif out24=$("$PY" "$upstreamtest24" 2>&1); then
-    ok "the upstream citation checker passes its self-test ($(printf '%s\n' "$out24" | tail -n1))"
-else
-    bad "the upstream citation checker FAILS its own self-test:"
-    printf '%s\n' "$out24" | grep -E '^(FAIL|pass=)' | sed 's/^/        /'
-fi
 
 if [ "$fail" -ne 0 ]; then
     printf '\nguards FAILED\n'

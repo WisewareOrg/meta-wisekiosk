@@ -30,7 +30,6 @@ One owner per fact. Read the owner; do not restate it here or anywhere else.
 | The gates, the conventions, and the review checklist | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 | Every document and the question it answers | [`docs/README.md`](docs/README.md) |
 | The image's own obligations, and which check discharges each | [`docs/requirements/README.md`](docs/requirements/README.md) |
-| Why verification is built this way | [`docs/decisions/0001-verification-architecture.md`](docs/decisions/0001-verification-architecture.md), ADR 0001 rev 1 |
 
 ## What will bite you here
 

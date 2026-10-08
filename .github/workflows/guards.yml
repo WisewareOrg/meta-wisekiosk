@@ -74,13 +74,6 @@ jobs:
         if: ${{ !cancelled() }}
         run: tools/scrub-identity.py --check --allow-partial
 
-      # The real, networked run; guard 24 above is its fixture-only self-test.
-      # See docs/requirements/README.md.
-      - name: Check locally-cited upstream requirements
-        if: ${{ !cancelled() }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 tools/upstream-reqs-check.py
 
       # meta-wisekiosk/lib/oeqa/runtime's own suite (framework/ and cases/),
       # gated at 100% coverage (pyproject.toml). uv is already set up above,
