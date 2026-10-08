@@ -148,12 +148,9 @@ so a later change to the record's shape needs no change to this renderer.
 
 **The `/data` precondition.** Before every job, `run.sh` compares bench's `/data/config/kiosk.conf`
 and `/data/config/config.json` keyed hashes against `just pipeline-accept-bench-config`'s last
-recorded values, and refuses the job on any difference — a seed a prior run's own case left behind,
-or a hand edit, is an environment problem a person accepts, not a silent comparison against a stale
-baseline. `pipeline-accept-bench-config` needs the timer off; it prints both hashes and
-`kiosk.conf`'s key names, never its values. `run.sh` recomputes the same two hashes again after the
-suite returns, before `kiosk-rollback`, and treats a difference there the same way — infrastructure
-failure, same abort — because it means a case's own restore did not land, never the candidate's.
+recorded values, and refuses the job on any difference — a hand edit is an environment problem a
+person accepts, not a silent comparison against a stale baseline. `pipeline-accept-bench-config`
+needs the timer off; it prints both hashes and `kiosk.conf`'s key names, never its values.
 
 **The buildinfo readback.** After the install reboot, `run.sh` reads the booted slot's
 `/etc/buildinfo` back and compares its `meta-wisekiosk` commit to `$SHA`. A mismatch skips
