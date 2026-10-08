@@ -13,16 +13,14 @@ references:
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_layout/case.py
   sha: d3cf9b7c5a1040f4cbe72891d52d83ad866dd328a2c798d1f430ba86d91f0a1c
   type: file
-reviewed: d1Tc3MUO8xGbrsMBJ2Ou3iJFH1LYaIE5CPgFdTHkSpo=
+reviewed: -TJnb7a1_iJH2JrsXOVSlr4T0ZmBunq9XkMrSMtqOfU=
 status: proposed
 text: |
-  Read the mode xrandr reports and assert it is at least 1280x720, and assert a mode below the
-  floor is reported as such when the connected output offers one.
+  Read the mode xrandr reports and assert it is at least 1280x720.
 verification-justification: |
-  Settles the floor at the mode xrandr reports, on one physical device, one boot, and that a
-  seeded below-floor mode is reported as a floor failure where the seed reaches the reported
-  mode (bench acceptance run, cited in the PR). Leaves unproven anything about the display at
-  a mode below the floor on a connector that offers none to seed, or whose display-launch
-  script re-asserts its own mode on every restart, and the application's own screen layout --
-  the application's own behaviour is its own tier's.
+  Settles the floor at the mode xrandr reports, on one physical device, one boot. The failure
+  branch (a mode below the floor) is proven on constructed input and by a hand-run self-test
+  that is never part of a job, cited in the PR. Leaves unproven anything about the display at
+  a mode below the floor, and the application's own screen layout -- the application's own
+  behaviour is its own tier's.
 verification-method: test

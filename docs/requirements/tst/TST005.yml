@@ -13,12 +13,13 @@ references:
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_browser_restart/case.py
   sha: 3fcea6afd398d8213cf08e62f148b1102ebc08ba6322a8c97c13afc7ecbb40ea
   type: file
-reviewed: 1-srwnv-bERDUm3SwcU19JjynZf_i-QlMHkQFTXcWNQ=
+reviewed: rDY4VhOBPkCElg_T6KT7vHIs_qRyYnuycenj5JCPri0=
 status: proposed
 text: |
   Kill the browser process and assert the page is applied again within the deadline.
 verification-justification: |
   Settles that the browser restarts and the page is applied again within 60 s of the kill,
-  on one physical device, one boot. Leaves unproven recovery from any fault other than the
-  browser process itself ending.
+  on one physical device, one boot. The failure branch is proven on constructed input and by
+  a hand-run self-test that is never part of a job, cited in the PR. Leaves unproven recovery
+  from any fault other than the browser process itself ending.
 verification-method: test
