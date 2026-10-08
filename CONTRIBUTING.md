@@ -46,12 +46,11 @@ in the tree (#167 restore pinned Python tooling).
 
 ```sh
 just                # the recipe roster, each beside what it does
-just verify         # every documentation check: cross-references + docs-vs-image,
-                    # plus the requirements tree gate
+just verify         # every documentation check: cross-references + docs-vs-image
 just links          # cross-references only (this is the one CI requires)
 just guards         # repository invariants: secrets, identity, syntax, wiring;
-                    # runs the device guard's, the CVE tools' and the requirements
-                    # tree's self-tests too
+                    # runs the device guard's and the CVE tools' self-tests and the
+                    # requirements tree gate too
 just test           # pytest over meta-wisekiosk/lib/oeqa/runtime (framework/ and cases/), 100% coverage floor
 just install-hooks  # once per clone: point core.hooksPath at .githooks
 bash .claude/hooks/guard-test.sh   # the device guard's self-test on its own

@@ -130,7 +130,6 @@ verify:
     rc=0
     {{py}} tools/doc-links.py || rc=1
     {{py}} tools/doc-image.py check || rc=1
-    tools/check-reqs.sh || rc=1
     if [ $rc -ne 0 ]; then echo; echo "verify FAILED"; fi
     exit $rc
 

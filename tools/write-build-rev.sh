@@ -45,4 +45,3 @@ fi
 } > "$DEST"
 
 printf 'build rev: %s -> %s\n' "$rev" "$DEST"
-

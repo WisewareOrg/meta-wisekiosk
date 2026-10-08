@@ -997,12 +997,13 @@ else
 fi
 
 # --- 23. the requirements tree passes the shared check-reqs gate ---------
-# Fixture-free -- this runs the real tree under docs/requirements/ through
-# tools/check-reqs.sh, which also writes the .doorstop.skip-all markers. ------
-reqs23="tools/check-reqs.sh"
-if [ ! -f "$reqs23" ]; then
-    bad "guard 23: $reqs23 missing -- the requirements tree is no longer gated"
-elif out23=$("$reqs23" 2>&1); then
+# Fixture-free -- the real tree under docs/requirements/. Doorstop walks from
+# the project root; build/ and sources/ are gitignored and skipped by a marker
+# written here once each directory exists. ---------------------------------
+for dir23 in build sources; do
+    [ -d "$dir23" ] && [ ! -f "$dir23/.doorstop.skip-all" ] && : > "$dir23/.doorstop.skip-all"
+done
+if out23=$(uv run --locked check-reqs --root docs/requirements 2>&1); then
     ok "the requirements tree passes check-reqs ($(printf '%s\n' "$out23" | tail -n1))"
 else
     bad "guard 23: the requirements tree FAILS check-reqs:"

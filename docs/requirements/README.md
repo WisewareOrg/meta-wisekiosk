@@ -12,9 +12,12 @@ that deliver a need. They live in the launcher, the recipes and `docs/testing.md
 context in the run record, and this tree never asserts them.
 
 The gate — [`wise-ci`](https://github.com/WisewareOrg/wise-ci)'s shared `check-reqs`, pinned in
-`pyproject.toml`/`uv.lock` — runs through [`tools/check-reqs.sh`](../../tools/check-reqs.sh), called
-from `just verify`, `just guards`, and the CI `guards` job; it reviews the whole tree, not a diff, so
-every run checks every item.
+`pyproject.toml`/`uv.lock` — is guard 23 of [`tools/ci-guards.sh`](../../tools/ci-guards.sh), so
+`just guards`, the pre-commit hook and the CI `guards` job run it; it reviews the whole tree, not a
+diff, so every run checks every item.
+
+The tree holds the appliance's own needs. The application's requirements stay in the application's
+own tree; no item here realises, cites or tracks one of them.
 
 Acceptance runs for a `TST` item live in gitignored `local/`, never under this tree, and are cited
 from the pull request that lands the case.
