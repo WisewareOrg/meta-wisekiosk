@@ -255,9 +255,9 @@ last build's deploy artifacts are missing, and writes its own run record under g
 either case makes to the board is `test_page_applied` arming the DOM probe (`copyTo` the script,
 restart `kiosk.service`), which its own teardown removes before the case ends.
 
-An optional module list after the address overrides `TEST_SUITES`: `tools/oe-test.sh <target-ip>
+An optional module list after the address overrides `TEST_SUITES`: `just oe-test <target-ip>
 kiosk_<name>.selfcheck` runs one checker's own hand-run self-test instead of the suite — never part
-of `TEST_SUITES`, so never loaded by a job or by a bare `tools/oe-test.sh <target-ip>`. Run one by
+of `TEST_SUITES`, so never loaded by a job or by a bare `just oe-test <target-ip>`. Run one by
 hand on bench whenever that checker changes; § "The render and applied cases" below names each one
 and what it proves.
 
@@ -320,9 +320,9 @@ live once, on `WiseKioskCase`.
 `kiosk_browser_restart/selfcheck.py` and `kiosk_layout/selfcheck.py` each hold one method
 (`test_browser_restart_detects_broken_policy`, `test_layout_detects_below_floor_mode`) that is a
 hand-run self-test of the *checker*, never the appliance -- proof that the check can go red, run by
-hand on bench as `tools/oe-test.sh <target-ip> kiosk_<name>.selfcheck` when the checker changes.
+hand on bench as `just oe-test <target-ip> kiosk_<name>.selfcheck` when the checker changes.
 Neither module name is ever in `TEST_SUITES`, so neither loads from a pipeline job or a bare
-`tools/oe-test.sh <target-ip>`. The browser-restart one drops in `Restart=no` (`Restart=always` is
+`just oe-test <target-ip>`. The browser-restart one drops in `Restart=no` (`Restart=always` is
 the unit's own shipped policy, exercised live by `test_browser_restart`'s own kill), confirming the
 unit stays down for the deadline, then removes the drop-in and asserts applied again. The layout
 one seeds its below-floor mode by editing the appliance's own launcher

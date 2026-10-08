@@ -15,7 +15,7 @@ The oeqa suite bitbake and `tools/oe-test.sh` both run. [`docs/testing.md`](../.
 - `selfcheck.py` — present only where the package's own checker needs proof it can go red: one
   `OERuntimeTestCase` subclass holding a hand-run self-test, named for what it exercises (e.g.
   `test_applied_detects_dead_url`), run by hand on bench as
-  `tools/oe-test.sh <target-ip> kiosk_<name>.selfcheck` whenever that checker changes. Named in
+  `just oe-test <target-ip> kiosk_<name>.selfcheck` whenever that checker changes. Named in
   full (`kiosk_<name>.case`, never the bare package name) in `includes/testimage.yaml`'s own
   `TEST_SUITES`, so a `selfcheck` module is never loaded by a job or a bare hand run.
 

@@ -213,8 +213,8 @@ testimage ssh_dir=env('PIPELINE_SSH_DIR', ''):
 
 [group('audit')]
 [doc("Run the kiosk oeqa suite by hand against <target-ip>, no bitbake, no OTA")]
-oe-test target:
-    tools/oe-test.sh {{target}}
+oe-test target *modules:
+    tools/oe-test.sh {{target}} {{modules}}
 
 # Write per-site config to a device's /data. The image carries none of it.
 [group('provision')]
