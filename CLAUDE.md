@@ -29,6 +29,7 @@ One owner per fact. Read the owner; do not restate it here or anywhere else.
 | The RAUC key the fleet trusts | gitignored `local/keys/` |
 | The gates, the conventions, and the review checklist | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 | Every document and the question it answers | [`docs/README.md`](docs/README.md) |
+| The image's own obligations, and which check discharges each | [`docs/requirements/README.md`](docs/requirements/README.md) |
 
 ## What will bite you here
 

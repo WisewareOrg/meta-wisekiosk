@@ -1,0 +1,19 @@
+active: false
+derived: false
+header: |
+  Runs unattended and recovers
+level: 1.1
+links: []
+normative: true
+rationale: |
+  No child obligation exists yet: the fault and recovery decomposition is a later step's
+  scope, not this one's.
+ref: ''
+reviewed: Ockutq6gpte1U6xEAda9_P5eGAHpk-fxC-JAZZ6PylU=
+status: proposed
+text: |
+  The kiosk shall run unattended and recover.
+verification-justification: |
+  Nothing mechanical decides this today; no child obligation has been written yet to decide it
+  at any method.
+verification-method: demonstration

@@ -1,0 +1,18 @@
+active: true
+derived: false
+header: |
+  Display is applied as designed
+level: 1.0
+links:
+- SYS001: u6hdq6mHTqj4-PFL8YoiEf3ClOIYMUPOHFSXKCbqAtU=
+normative: true
+rationale: ''
+ref: ''
+reviewed: CQ6dO428i2PxNvOoLL3YaowGG9aYK7dmfw3AFFa4bOw=
+status: proposed
+text: |
+  The display shall be applied as the application designs it.
+verification-justification: |
+  Settles that the page the application serves is the one on screen. Leaves unproven whether
+  it stays applied, and whether it is still rendering.
+verification-method: test

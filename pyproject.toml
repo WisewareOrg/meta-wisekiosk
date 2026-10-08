@@ -10,6 +10,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "check-reqs",
     "pytest",
     "pytest-cov",
 ]
@@ -38,3 +39,6 @@ omit = [
 
 [tool.coverage.report]
 fail_under = 100
+
+[tool.uv.sources]
+check-reqs = { git = "https://github.com/WisewareOrg/wise-ci", subdirectory = "check-reqs", rev = "224efb4" }
