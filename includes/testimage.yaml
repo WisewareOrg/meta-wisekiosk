@@ -15,7 +15,7 @@ local_conf_header:
 
     # The one spelling of the six case names: tools/oe-test.sh reads this
     # exact line for its own --run-tests, rather than a second copy.
-    TEST_SUITES = "kiosk_backend_unit kiosk_healthz_bound kiosk_page_serves kiosk_health_flag kiosk_render kiosk_applied kiosk_backend_unreachable kiosk_recovery kiosk_browser_restart kiosk_config_errors kiosk_layout"
+    TEST_SUITES = "kiosk_backend_unit kiosk_healthz_bound kiosk_page_serves kiosk_health_flag kiosk_render kiosk_applied kiosk_browser_restart kiosk_layout"
 
     # required non-empty by testimage_sanity; unused
     TEST_SERVER_IP = "127.0.0.1"

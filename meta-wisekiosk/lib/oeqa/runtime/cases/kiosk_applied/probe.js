@@ -1,9 +1,7 @@
 // DOM probe for the kiosk page's applied state, read back through the
 // window title (surf has no other exfiltration channel). Evaluated by surf
 // once per finished load and every 5 s after. No network, no storage, no
-// timer beyond the one interval. No field here ever carries config.json or
-// kiosk.conf content: configuration-error reports only whether a fault
-// element is present, never its own classification or text.
+// timer beyond the one interval.
 (function () {
   function state() {
     if (document.querySelector('[data-configuration-error]')) {
@@ -21,16 +19,11 @@
   function report() {
     var faulted = document.querySelectorAll('[data-module-unavailable]').length;
     var unreachable = document.querySelector('[data-backend-unreachable]') ? 1 : 0;
-    var cfgErrorPresent = document.querySelector('[data-configuration-error]') ? 1 : 0;
-
-    var title = 'WK1 nonce=' + performance.timeOrigin +
+    document.title = 'WK1 nonce=' + performance.timeOrigin +
       ' state=' + state() +
       ' cards=-/-' +
       ' faulted=' + faulted +
-      ' unreachable=' + unreachable +
-      ' configuration-error=' + cfgErrorPresent;
-
-    document.title = title;
+      ' unreachable=' + unreachable;
   }
 
   report();

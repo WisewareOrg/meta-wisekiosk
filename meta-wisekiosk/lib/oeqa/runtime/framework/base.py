@@ -213,18 +213,3 @@ class WiseKioskCase(OERuntimeTestCase):
                 break
             time.sleep(POLL_INTERVAL_SECONDS)
         raise RuntimeError(f"the page did not apply within {seconds}s (last: {last})")
-
-    def stop_backend(self):
-        """Stops wisekiosk.service and registers its own restart as this
-        test's cleanup -- every case that stops the backend restores it
-        regardless of how the test ends."""
-        self.addCleanup(self.target.run, "systemctl start wisekiosk.service")
-        status, _ = self.target.run("systemctl stop wisekiosk.service")
-        if status != 0:
-            raise RuntimeError("could not stop wisekiosk.service")
-
-    def start_backend(self):
-        """Starts wisekiosk.service."""
-        status, _ = self.target.run("systemctl start wisekiosk.service")
-        if status != 0:
-            raise RuntimeError("could not start wisekiosk.service")

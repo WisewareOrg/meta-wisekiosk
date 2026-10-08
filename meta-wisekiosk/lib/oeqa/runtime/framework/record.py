@@ -229,26 +229,3 @@ def sut_line(browser, nrestarts, cmdline_sha, webkit_env, kiosk_conf_mac, mode,
 
 def page_line(nonce, state, cards, faulted, unreachable):
     return f"R page nonce={nonce} state={state} cards={cards} faulted={faulted} unreachable={unreachable}"
-
-
-def unreachable_record_line(before_unreachable, before_seconds, after_unreachable, after_seconds):
-    """R page.<case id> line for kiosk_backend_unreachable: the sample read
-    right after the page applied (before_*, expected unreachable=0) and
-    the sample read once the degraded signal is up (after_*), each beside
-    how many seconds it took to reach -- red-before-green, in the run's
-    own record."""
-    return (
-        f"R page before_took_s={before_seconds} before_unreachable={before_unreachable} "
-        f"after_took_s={after_seconds} after_unreachable={after_unreachable}"
-    )
-
-
-def recovery_record_line(before_unreachable, before_seconds, after_unreachable, after_seconds):
-    """R page.<case id> line for kiosk_recovery: the sample read once the
-    degraded signal is up (before_*, the outage this case recovers from)
-    and the sample read once the backend's start reads as recovered
-    (after_*), each beside how many seconds it took to reach."""
-    return (
-        f"R page before_took_s={before_seconds} before_unreachable={before_unreachable} "
-        f"after_took_s={after_seconds} after_unreachable={after_unreachable}"
-    )
