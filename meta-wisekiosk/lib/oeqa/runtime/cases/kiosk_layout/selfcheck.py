@@ -2,7 +2,7 @@ from framework.base import WiseKioskCase
 from kiosk_applied.case import deploy_probe, wait_applied
 
 from .case import read_configured_mode
-from .verdict import pick_below_floor_mode, verdict as layout_verdict
+from .verdict import current_mode, pick_below_floor_mode, verdict as layout_verdict
 
 # meta-wisekiosk/recipes-core/kiosk-session/files/kiosk-launch's own --mode
 # line, backed up then sed-edited here.
@@ -65,11 +65,18 @@ class KioskLayoutSelfcheck(WiseKioskCase):
             raise RuntimeError("could not restart kiosk.service after seeding the launcher")
         wait_applied(self, _APPLIED_WAIT_SECONDS)
 
-        outcome, reason = self._read_verdict()
-        if outcome not in ("below-floor", "mode-mismatch"):
+        status, xrandr_output = self.target.run("DISPLAY=:0 xrandr")
+        if status != 0:
+            raise RuntimeError("could not read xrandr")
+        landed_mode = current_mode(xrandr_output)
+        if landed_mode != candidate:
+            self.fail(f"seed did not land: xrandr reports {landed_mode!r}")
+        configured_mode = read_configured_mode(self)
+        outcome, reason = layout_verdict(xrandr_output, configured_mode)
+        if outcome != "below-floor":
             self.fail(
-                f"the seeded launcher mode {candidate!r} did not read as a floor or mismatch "
-                f"failure -- got {outcome!r} ({reason!r})")
+                f"the seeded launcher mode {candidate!r} did not read as below-floor -- "
+                f"got {outcome!r} ({reason!r})")
 
         self._restore_launcher()
 
