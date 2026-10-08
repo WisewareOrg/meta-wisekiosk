@@ -9,8 +9,8 @@ two import conventions it requires.
 - `base.py` — `WiseKioskCase`, the once-per-run record (role and hostname refusal, the boot/image/
   app/sut lines) every case inherits, plus the device plumbing every probe-reading case shares:
   `arm_probe()` (deploy `probe.js`, restart `kiosk.service`), `titles()` (the one window-title
-  walk), `wait_applied(seconds)`, `stop_backend()`/`start_backend()`. Imports `oeqa`, like a
-  `case.py`, so it is outside `just test`'s coverage population the same way.
+  walk), `wait_applied(seconds)`. Imports `oeqa`, like a `case.py`, so it is outside `just test`'s
+  coverage population the same way.
 - `probe.py` — the window-title channel's own primitives: `MARKER`, `WM_NAME`, `title_lines`
   (xprop's raw dump to one title per window) and `fields` (a title's `key=value` tokens as a dict).
   Every case's own `verdict.py` parses from these rather than redefining its own marker and regex.
