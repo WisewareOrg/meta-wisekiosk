@@ -1,0 +1,25 @@
+active: true
+derived: false
+header: |
+  Recovery check passes
+level: 1.3
+links:
+- SRS004: t5hA1ffdsd5-wDO-z2imvppiI732ZrILj8uVq3U8Ujo=
+normative: true
+rationale: ''
+ref: ''
+references:
+- keyword: def test_recovery
+  path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_recovery/case.py
+  sha: 955d1a132669ea8a2a132cef319ee89a54d520cbe8a5ad2046c8faea06eab90f
+  type: file
+reviewed: 8W2AfWkzjRtG6tMSXPDiKKhPPHbx5KfzrxlKfuuYY-o=
+status: proposed
+text: |
+  Stop the backend, then start it, and assert the outage report clears and every stood-down
+  module resumes on the same page instance within the deadline.
+verification-justification: |
+  Settles that the outage report clears, every stood-down module resumes and the page
+  instance is unchanged within 30 s of starting the backend, on one physical device, one
+  boot. Leaves unproven recovery from a fault whose cause is not a reachability change.
+verification-method: test

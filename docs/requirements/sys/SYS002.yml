@@ -1,4 +1,4 @@
-active: false
+active: true
 derived: false
 header: |
   Runs unattended and recovers
@@ -6,14 +6,16 @@ level: 1.1
 links: []
 normative: true
 rationale: |
-  No child obligation exists yet: the fault and recovery decomposition is a later step's
-  scope, not this one's.
+  Decomposed by the fault and recovery checks: the display says when the backend is gone,
+  comes back on its own once the backend does, and the browser itself recovers from being
+  killed, all without a person at the panel.
 ref: ''
-reviewed: Ockutq6gpte1U6xEAda9_P5eGAHpk-fxC-JAZZ6PylU=
+reviewed: zmFIlrHJrZoyRwaIPkZz6jw_ePg6MooAQ4XcBvljhx8=
 status: proposed
 text: |
   The kiosk shall run unattended and recover.
 verification-justification: |
-  Nothing mechanical decides this today; no child obligation has been written yet to decide it
-  at any method.
-verification-method: demonstration
+  Settles that the display reports a backend outage, recovers from one on its own, and
+  recovers from the browser itself being killed. Leaves unproven any fault this image's own
+  checks do not inject.
+verification-method: test

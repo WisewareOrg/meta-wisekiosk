@@ -1,0 +1,27 @@
+active: true
+derived: false
+header: |
+  Configuration-error check passes
+level: 1.5
+links:
+- SRS006: lwgp-VDDkqunI8LXLC802XpjAzqx1cciCN_HgbN9b4Y=
+normative: true
+rationale: ''
+ref: ''
+references:
+- keyword: def test_configuration_errors
+  path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_config_errors/case.py
+  sha: 40459ed315b37de53066d9afe4a75221bb607f4779055195d570fa68dba7ecab
+  type: file
+reviewed: -eTMQBHsajg12mP0M4NYNYwBcouh_4MEbxXBejNDKeI=
+status: proposed
+text: |
+  Assert the served configuration is read as applied within the deadline on a healthy
+  board, and assert each of the three seeded bad-configuration states is reported distinctly
+  on bench acceptance runs.
+verification-justification: |
+  Settles that a healthy configuration reads as applied within 90 s of the restart, on one
+  physical device, one boot, and that the three bad-configuration states are read back
+  distinctly on bench (acceptance runs, cited in the PR). Leaves unproven whether the
+  operator-facing wording is itself correct.
+verification-method: test

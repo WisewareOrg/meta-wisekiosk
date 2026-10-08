@@ -1,0 +1,25 @@
+active: true
+derived: false
+header: |
+  Backend-unreachable check passes
+level: 1.2
+links:
+- SRS003: VV5KUtUWGfSVK8i8QvQvYVH4hQH14Gp7zLQ39pbJ1pc=
+normative: true
+rationale: ''
+ref: ''
+references:
+- keyword: def test_backend_unreachable
+  path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_backend_unreachable/case.py
+  sha: d67880c7595511419ca9e737e2c250ccaedf4c26e95310a0725ae2e3db5f6cb9
+  type: file
+reviewed: 33q26aQRmU7Ev8724-2M9WSXgSGKsRGcukqgD7e5Fng=
+status: proposed
+text: |
+  Stop the backend on the device and assert the banner, diagnosis and remediation appear
+  within the deadline.
+verification-justification: |
+  Settles that the banner, a diagnosis and a remediation appear, distinct from each other,
+  within 30 s of stopping the backend, on one physical device, one boot. Leaves unproven
+  whether the remediation is the right advice.
+verification-method: test

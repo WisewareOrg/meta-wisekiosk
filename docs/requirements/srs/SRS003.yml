@@ -1,0 +1,20 @@
+active: true
+derived: false
+header: |
+  Display says when the backend is gone
+level: 1.2
+links:
+- SYS002: zmFIlrHJrZoyRwaIPkZz6jw_ePg6MooAQ4XcBvljhx8=
+normative: true
+rationale: ''
+ref: ''
+reviewed: bihMMIUSbgoItiu0ABw6Y3nf0VqqcCYTLv3TxmAMqi8=
+status: proposed
+text: |
+  The display shall say the backend is unreachable, with a diagnosis and a remediation
+  distinct from each other.
+verification-justification: |
+  Settles that the banner, a diagnosis and a remediation appear, and that the diagnosis and
+  remediation are not the same text. Leaves unproven whether the remediation is the right
+  advice.
+verification-method: test

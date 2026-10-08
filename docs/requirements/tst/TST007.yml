@@ -1,0 +1,24 @@
+active: true
+derived: false
+header: |
+  Layout-floor check passes
+level: 1.6
+links:
+- SRS007: 2vwEx-V8Eki4-PSdYmEAkSxq9yGNI5nDxh3ztxN6zhM=
+normative: true
+rationale: ''
+ref: ''
+references:
+- keyword: def test_layout_floor
+  path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_layout/case.py
+  sha: 3b8bf8d2ee3d238f50c8c0e5ecfc4081d200554d51aeb2f89b864b82d09c9be6
+  type: file
+reviewed: TaNzpQzW0kNkMJe8-2uSQpc9Mvj5gil4903jQ7fBZTk=
+status: proposed
+text: |
+  Read the device's reported viewport size and assert it is at least 1280x720, and assert the
+  band and every region clear each other.
+verification-justification: |
+  Settles the floor and band clearance at the viewport observed at test time, on one physical
+  device, one boot. Leaves unproven layout at a mode below the floor.
+verification-method: test

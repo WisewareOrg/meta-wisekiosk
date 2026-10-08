@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Display reports a bad configuration file
+level: 1.5
+links:
+- SYS001: u6hdq6mHTqj4-PFL8YoiEf3ClOIYMUPOHFSXKCbqAtU=
+normative: true
+rationale: ''
+ref: ''
+reviewed: pkpix7olD6E2iAPflOnBdxLq_MOmft2U9jvdquklk-4=
+status: proposed
+text: |
+  The display shall report a missing, unparsable or rejected configuration file as such,
+  distinctly for each case, and shall apply once a valid configuration file is in place.
+verification-justification: |
+  Settles that each of the three states is read back distinctly and that applying resumes once
+  the file is valid. Leaves unproven whether the operator-facing wording is itself correct.
+verification-method: test
