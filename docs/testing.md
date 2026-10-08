@@ -184,7 +184,7 @@ version-going-backwards check never compares against another candidate's leftove
 log, `testresults.json`, and the assembled report body.
 
 **An infrastructure failure** — the device unreachable, the device's live hostname not matching the
-recorded `PIPELINE_TARGET_HOSTNAME` ([`docs/testing.md`](testing.md) §"The hand-run path" names the
+recorded `PIPELINE_TARGET_HOSTNAME` (§"The hand-run path" names the
 same refusal for the hand-run suite), the shared
 bitbake-hashserv not answering before a build, the job's base commit not resolving, a baseline build
 failing, the rollback reboot never coming back, the rollback not landing back on the pre-install slot,
@@ -257,10 +257,8 @@ own cases, only two change anything on the board -- `test_page_applied` arms the
 (`copyTo` the script, restart `kiosk.service`), which its own teardown removes before the case
 ends, and `test_browser_restart` kills the browser and waits for it to come back.
 
-An optional module list after the address overrides `TEST_SUITES`, running one checker's own
-hand-run self-test instead of the suite —
-[`meta-wisekiosk/lib/oeqa/runtime/cases/README.md`](../meta-wisekiosk/lib/oeqa/runtime/cases/README.md)
-names what a `selfcheck.py` is and how to run one.
+To run one checker's self-test instead of the suite, see the `selfcheck.py` bullet in
+[`cases/README.md`](../meta-wisekiosk/lib/oeqa/runtime/cases/README.md).
 
 Its `PYTHONPATH` is exactly testimage's own, nothing broader: `sources/poky/meta/lib` and
 `sources/poky/bitbake/lib`, plus `meta-wisekiosk/lib/oeqa/runtime` — the hand-path twin of

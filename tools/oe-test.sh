@@ -33,9 +33,6 @@ if [ -z "${1:-}" ]; then
 fi
 TARGET=$1
 shift
-# A module list overrides includes/testimage.yaml's own TEST_SUITES --
-# the array form "$@" reaches --run-tests as separate arguments the same
-# way, never a quoted string that would collapse them into one.
 if [ "$#" -gt 0 ]; then
     TEST_SUITES_ARR=("$@")
 fi
