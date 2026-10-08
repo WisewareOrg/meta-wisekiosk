@@ -46,11 +46,3 @@ fi
 
 printf 'build rev: %s -> %s\n' "$rev" "$DEST"
 
-# The .doorstop.skip-all markers: see docs/testing.md. Written only once the
-# directory it belongs to exists, and only if absent.
-for dir in build sources; do
-    marker="$dir/.doorstop.skip-all"
-    if [ -d "$dir" ] && [ ! -f "$marker" ]; then
-        : > "$marker"
-    fi
-done

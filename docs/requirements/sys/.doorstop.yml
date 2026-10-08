@@ -9,9 +9,7 @@ attributes:
     verification-method: ''
     verification-justification: ''
     rationale: ''
-    upstream-reviewed: ''
   reviewed:
   - rationale
   - verification-method
   - verification-justification
-  - upstream-reviewed

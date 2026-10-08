@@ -13,8 +13,8 @@ result at that tier does **not** let you conclude.
 
 The Static tier's `docs/requirements/` gate (see [`docs/requirements/README.md`](requirements/README.md))
 walks the project root looking for Doorstop documents; `build/` and `sources/` each carry a
-`.doorstop.skip-all` marker for exactly this reason, written by `tools/write-build-rev.sh` once the
-directory exists and the marker is absent, never committed. A fresh checkout has neither directory, so
+`.doorstop.skip-all` marker for exactly this reason, written by `tools/check-reqs.sh` before the gate
+runs, once the directory exists and the marker is absent, never committed. A fresh checkout has neither directory, so
 nothing is written and nothing is walked. A `build/` or `sources/` already populated from a build that
 predates this marker, or large from ordinary use, costs the gate real time regardless of the marker:
 Doorstop's own reference search walks every non-ignored file under the project root once per run, and

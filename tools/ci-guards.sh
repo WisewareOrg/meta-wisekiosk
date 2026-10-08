@@ -997,9 +997,8 @@ else
 fi
 
 # --- 23. the requirements tree passes the shared check-reqs gate ---------
-# Fixture-free -- this runs the real tree under docs/requirements/, the one
-# tools/check-reqs.sh spells out. See docs/testing.md for why build/ and
-# sources/ each need a .doorstop.skip-all marker. ---------------------------
+# Fixture-free -- this runs the real tree under docs/requirements/ through
+# tools/check-reqs.sh, which also writes the .doorstop.skip-all markers. ------
 reqs23="tools/check-reqs.sh"
 if [ ! -f "$reqs23" ]; then
     bad "guard 23: $reqs23 missing -- the requirements tree is no longer gated"
