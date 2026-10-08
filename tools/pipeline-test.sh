@@ -163,9 +163,9 @@ if grep -qF 'record.TRANSPORT_STATE' "$KIOSK_APPLIED_CASE_PY" \
 else
     bad "the declared transport state is not imported consistently"
 fi
-# Reads run.sh's own KIOSK_TARGET_ROLE/KIOSK_TARGET_HOSTNAME exports and
+# --- Reads run.sh's own KIOSK_TARGET_ROLE/KIOSK_TARGET_HOSTNAME exports and
 # includes/testimage.yaml's own env:/TESTIMAGE_UPDATE_VARS entries; a miss
-# means that plumbing has drifted apart. -----------------------------------
+# means that plumbing has drifted apart.
 TESTIMAGE_YAML="$HERE/../includes/testimage.yaml"
 if grep -qE '^\s*export KIOSK_TARGET_ROLE=' "$RUN_SH" \
         && grep -qE '^\s*export KIOSK_TARGET_HOSTNAME=' "$RUN_SH"; then
@@ -173,11 +173,27 @@ if grep -qE '^\s*export KIOSK_TARGET_ROLE=' "$RUN_SH" \
 else
     bad "run.sh does not export both KIOSK_TARGET_ROLE and KIOSK_TARGET_HOSTNAME"
 fi
-if grep -qF 'KIOSK_TARGET_ROLE' "$TESTIMAGE_YAML" && grep -qF 'KIOSK_TARGET_HOSTNAME' "$TESTIMAGE_YAML" \
-        && grep -qF 'TESTIMAGE_UPDATE_VARS:append' "$TESTIMAGE_YAML"; then
+UPDATE_VARS_LINE=$(grep -F 'TESTIMAGE_UPDATE_VARS:append' "$TESTIMAGE_YAML")
+if grep -qE '^  KIOSK_TARGET_ROLE:' "$TESTIMAGE_YAML" \
+        && grep -qE '^  KIOSK_TARGET_HOSTNAME:' "$TESTIMAGE_YAML" \
+        && [[ "$UPDATE_VARS_LINE" == *KIOSK_TARGET_ROLE* ]] \
+        && [[ "$UPDATE_VARS_LINE" == *KIOSK_TARGET_HOSTNAME* ]]; then
     ok "boundary: includes/testimage.yaml's env: and TESTIMAGE_UPDATE_VARS carry both names to the case"
 else
     bad "includes/testimage.yaml does not carry KIOSK_TARGET_ROLE/KIOSK_TARGET_HOSTNAME through to testimage"
+fi
+
+# Every TEST_SUITES token is an existing case package named in full
+# (<pkg>.case); every cases/*/case.py is named. A bare package name would
+# load that package's own selfcheck.py in every job (the Shape ruling); a
+# missing package never runs. -----------------------------------------------
+CASE_PKGS=$(cd "$HERE/.." && ls meta-wisekiosk/lib/oeqa/runtime/cases/*/case.py \
+    | sed -E 's#.*/cases/([^/]+)/case\.py#\1.case#' | sort)
+SUITE_PKGS=$(sed -n 's/^\s*TEST_SUITES = "\(.*\)"$/\1/p' "$TESTIMAGE_YAML" | tr ' ' '\n' | sort)
+if [ -n "$CASE_PKGS" ] && [ "$CASE_PKGS" = "$SUITE_PKGS" ]; then
+    ok "boundary: TEST_SUITES names exactly the existing cases/*/case.py packages, each in full"
+else
+    bad "TEST_SUITES and cases/*/case.py disagree" "cases: $CASE_PKGS / suite: $SUITE_PKGS"
 fi
 # --- ssh-quoting regression: ssh joins separate remote-command words
 # with spaces, and the remote shell re-parses the result -- a format
