@@ -1,5 +1,5 @@
-from framework.base import WiseKioskCase
-from kiosk_applied.case import deploy_probe, wait_applied
+from framework.base import WiseKioskCase, POLL_ATTEMPT_TIMEOUT_SECONDS
+from kiosk_applied.case import APPLIED_WAIT_SECONDS, deploy_probe, wait_applied
 
 from .case import read_configured_mode
 from .verdict import MIN_HEIGHT, MIN_WIDTH, current_mode, pick_below_floor_mode, verdict as layout_verdict
@@ -8,10 +8,6 @@ from .verdict import MIN_HEIGHT, MIN_WIDTH, current_mode, pick_below_floor_mode,
 # line, backed up then sed-edited here.
 _LAUNCHER_PATH = "/usr/bin/kiosk-launch"
 _LAUNCHER_BACKUP = "/usr/bin/kiosk-launch.selfcheck-bak"
-# The launcher sets the mode before surf starts, so an applied page implies
-# the mode xrandr is about to read is already settled -- same deadline
-# kiosk_applied uses for its own restart-to-applied wait.
-_APPLIED_WAIT_SECONDS = 90
 
 
 class KioskLayoutSelfcheck(WiseKioskCase):
@@ -25,10 +21,11 @@ class KioskLayoutSelfcheck(WiseKioskCase):
         mv_status, _ = self.target.run(f"mv {_LAUNCHER_BACKUP} {_LAUNCHER_PATH}")
         if mv_status != 0:
             raise RuntimeError(f"could not restore {_LAUNCHER_PATH} from its backup")
-        restart_status, _ = self.target.run("systemctl restart kiosk.service")
+        restart_status, _ = self.target.run(
+            "systemctl restart kiosk.service", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
         if restart_status != 0:
             raise RuntimeError("could not restart kiosk.service after restoring the launcher")
-        wait_applied(self, _APPLIED_WAIT_SECONDS)
+        wait_applied(self, APPLIED_WAIT_SECONDS)
 
     def _read_verdict(self):
         status, xrandr_output = self.target.run("DISPLAY=:0 xrandr")
@@ -61,10 +58,11 @@ class KioskLayoutSelfcheck(WiseKioskCase):
         if landed_status != 0 or landed_count.strip() == "0":
             raise RuntimeError(f"the seeded --mode {candidate} did not land in {_LAUNCHER_PATH}")
 
-        restart_status, _ = self.target.run("systemctl restart kiosk.service")
+        restart_status, _ = self.target.run(
+            "systemctl restart kiosk.service", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
         if restart_status != 0:
             raise RuntimeError("could not restart kiosk.service after seeding the launcher")
-        wait_applied(self, _APPLIED_WAIT_SECONDS)
+        wait_applied(self, APPLIED_WAIT_SECONDS)
 
         status, xrandr_output = self.target.run("DISPLAY=:0 xrandr")
         if status != 0:

@@ -8,7 +8,7 @@ from .verdict import read_sample, verdict as applied_verdict
 
 PROBE_SRC = Path(__file__).resolve().parent / "probe.js"
 
-_APPLIED_DEADLINE_SECONDS = 90
+APPLIED_WAIT_SECONDS = 90
 _APPLIED_ATTEMPTS = 2
 
 
@@ -50,7 +50,7 @@ def applied_attempt(case):
     # duration counts, and the poll gets the remainder.
     try:
         deploy_probe(case)
-        deadline = time.monotonic() + _APPLIED_DEADLINE_SECONDS
+        deadline = time.monotonic() + APPLIED_WAIT_SECONDS
         restart_status, _ = case.target.run(
             "systemctl restart kiosk.service", timeout=int(max(1, deadline - time.monotonic())))
         if restart_status != 0:

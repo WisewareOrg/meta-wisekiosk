@@ -21,5 +21,7 @@ class KioskLayoutTest(WiseKioskCase):
             raise RuntimeError("could not read xrandr")
         configured_mode = read_configured_mode(self)
         outcome, reason = layout_verdict(xrandr_output, configured_mode)
+        if outcome == "error":
+            raise RuntimeError(reason)
         if outcome != "ok":
             self.fail(reason)

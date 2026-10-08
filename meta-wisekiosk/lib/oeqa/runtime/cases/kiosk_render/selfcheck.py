@@ -1,6 +1,6 @@
 import time
 
-from framework.base import WiseKioskCase
+from framework.base import POLL_ATTEMPT_TIMEOUT_SECONDS, POLL_SECONDS, WiseKioskCase
 
 from .case import RENDER_PROBE
 from .verdict import verdict as render_verdict
@@ -20,7 +20,7 @@ def wait_for_painted(case):
             return
         if time.monotonic() >= deadline:
             raise RuntimeError(f"the page did not paint within {_PAINT_WAIT_SECONDS}s: {reason}")
-        time.sleep(2)
+        time.sleep(POLL_SECONDS)
 
 
 def _is_stopped(case, pid):
@@ -34,7 +34,8 @@ def _is_stopped(case, pid):
 class KioskRenderSelfcheck(WiseKioskCase):
 
     def test_render_detects_frozen_process(self):
-        restart_status, _ = self.target.run("systemctl restart kiosk.service")
+        restart_status, _ = self.target.run(
+            "systemctl restart kiosk.service", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
         if restart_status != 0:
             raise RuntimeError("could not restart kiosk.service")
         wait_for_painted(self)
@@ -46,7 +47,9 @@ class KioskRenderSelfcheck(WiseKioskCase):
 
         def resume_if_stopped():
             if _is_stopped(self, pid):
-                self.target.run(f"kill -CONT {pid}")
+                cont_status, _ = self.target.run(f"kill -CONT {pid}")
+                if cont_status != 0:
+                    raise RuntimeError(f"could not CONT WebKitWebProcess (pid={pid})")
 
         self.addCleanup(resume_if_stopped)
 

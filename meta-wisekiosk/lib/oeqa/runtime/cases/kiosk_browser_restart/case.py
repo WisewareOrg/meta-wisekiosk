@@ -1,12 +1,11 @@
 import time
 
-from framework.base import WiseKioskCase, POLL_SECONDS
-from kiosk_applied.case import deploy_probe, wait_applied
+from framework.base import WiseKioskCase, POLL_ATTEMPT_TIMEOUT_SECONDS, POLL_SECONDS
+from kiosk_applied.case import APPLIED_WAIT_SECONDS, deploy_probe, wait_applied
 from kiosk_applied.verdict import read_sample
 
 from .verdict import verdict as restart_verdict
 
-_ARM_WAIT_SECONDS = 90
 _DEADLINE_SECONDS = 60
 
 
@@ -23,10 +22,11 @@ def restart_attempt(case):
     """Arms the probe, reads the sample just before killing surf, then polls for a restarted
     verdict against it -- deploy/restart/wait live once, through kiosk_applied's own helpers."""
     deploy_probe(case)
-    restart_status, _ = case.target.run("systemctl restart kiosk.service")
+    restart_status, _ = case.target.run(
+        "systemctl restart kiosk.service", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
     if restart_status != 0:
         raise RuntimeError("could not restart kiosk.service to arm the probe")
-    wait_applied(case, _ARM_WAIT_SECONDS)
+    wait_applied(case, APPLIED_WAIT_SECONDS)
     before_sample = read_sample(case.titles())
 
     kill_surf(case)
@@ -45,5 +45,7 @@ class KioskBrowserRestartTest(WiseKioskCase):
 
     def test_browser_restart(self):
         outcome, reason = restart_attempt(self)
+        if outcome == "error":
+            raise RuntimeError(reason)
         if outcome != "restarted":
             self.fail(f"{outcome}: {reason}")

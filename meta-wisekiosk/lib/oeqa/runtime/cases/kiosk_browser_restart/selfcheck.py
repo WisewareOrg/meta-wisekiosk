@@ -29,10 +29,10 @@ class KioskBrowserRestartSelfcheck(WiseKioskCase):
         mkdir_status, _ = self.target.run(f"mkdir -p {_DROPIN_DIR}")
         if mkdir_status != 0:
             raise RuntimeError(f"could not create {_DROPIN_DIR}")
-        with tempfile.NamedTemporaryFile("w", suffix=".conf") as f:
-            f.write(_DROPIN_BODY)
-            f.flush()
-            self.target.copyTo(f.name, _DROPIN_PATH)
+        with tempfile.NamedTemporaryFile("w", suffix=".conf") as dropin_file:
+            dropin_file.write(_DROPIN_BODY)
+            dropin_file.flush()
+            self.target.copyTo(dropin_file.name, _DROPIN_PATH)
         reload_status, _ = self.target.run("systemctl daemon-reload")
         if reload_status != 0:
             raise RuntimeError("could not daemon-reload after writing the drop-in")
