@@ -1,21 +1,19 @@
-active: true
+active: false
 derived: false
 header: |
   Misprovisioned unit shows a fault, never a blank or stale display
 level: 1.5
 links:
-- SYS001: u6hdq6mHTqj4-PFL8YoiEf3ClOIYMUPOHFSXKCbqAtU=
+- SYS002: -ZgnCkhKjlkebQlOvroSopSVF6vX7tOxa_H369NplbA=
 normative: true
 rationale: ''
 ref: ''
-reviewed: pjD-GsfIaK7MhKw5x4BgU-z1CXwe5b5zRGbzakXMUbA=
+reviewed: N1nV8DYZIkow9f3PPWdttGoqAuKcBku0J5jHh4953lg=
 status: proposed
 text: |
-  The display shall show a fault when its configuration is broken, never a blank or stale
-  display, and shall apply again once a valid configuration is in place.
+  A misprovisioned unit shows a fault, never a blank or stale display.
 verification-justification: |
-  Settles that a fault is shown when the configuration is broken, and that applying resumes
-  once a valid configuration is restored. Leaves unproven the fault's own wording, and
-  distinguishing why the configuration is broken -- the application's own behaviour is its own
-  tier's.
+  No appliance-level fault display exists yet to verify this against: the application's own
+  configuration-error page is its own tier's mechanism, not the appliance's. Reactivate once an
+  appliance-level fault display exists to check.
 verification-method: test
