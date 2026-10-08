@@ -8,11 +8,12 @@ links:
 normative: true
 rationale: ''
 ref: ''
-reviewed: JpYoPp7GE5rKkpEe-CaQpBdgkhY30V94RNS0_5JiygA=
+reviewed: jdtcXNE6Qx732wFGtEHtu34z3EIMXVN27akxla4lqbU=
 status: proposed
 text: |
-  At the configured mode, which shall be at least 1280 wide and 720 high, the display's
-  configured regions shall clear the edge band and none shall overlap it.
+  At the configured mode, which shall be at least 1280 wide and 720 high, the backend-outage
+  band and every configured region shall keep the configured edge margin from the display's
+  edges, and no region shall overlap the band.
 verification-justification: |
   Settles the floor, the band clearance and region/band overlap at the mode actually set.
   Leaves unproven anything about layout at a mode below the floor.
