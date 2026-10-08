@@ -10,7 +10,7 @@ PROBE = "WK1 nonce=1 state=applied cards=-/- faulted=0 unreachable=0"
 
 
 def test_marker_and_wm_name_are_the_one_spelling():
-    # Not a behavior test -- just pins the constants every verdict.py now
+    # Not a behavior test -- just pins the constants every verdict.py
     # imports rather than redefines (D2: five copies collapsed to one).
     assert MARKER == "WK1 "
     assert WM_NAME.match('WM_NAME(STRING) = "x"').group(1) == "x"
