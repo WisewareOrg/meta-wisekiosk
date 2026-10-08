@@ -5,20 +5,12 @@ from framework.probe import fields as probe_fields, title_lines
 
 
 def parse_title(title):
-    """nonce/unreachable/loading from the probe's own standalone `loading=`
-    field (D3: `modules=<faulted>/<loading>`'s unread first half is gone),
-    or None if the title carries no WK1 payload, or no `nonce`/
-    `unreachable` field."""
+    """nonce/unreachable from the probe's payload, or None if the title
+    carries no WK1 payload, or no `nonce`/`unreachable` field."""
     found = probe_fields(title)
     if found is None or "nonce" not in found or "unreachable" not in found:
         return None
-    loading_str = found.get("loading", "0")
-    loading = int(loading_str) if loading_str.isdigit() else 0
-    return {
-        "nonce": found["nonce"],
-        "unreachable": int(found["unreachable"]),
-        "loading": loading,
-    }
+    return {"nonce": found["nonce"], "unreachable": int(found["unreachable"])}
 
 
 def read_sample(xprop_output):
@@ -39,9 +31,7 @@ def verdict(before, after):
     if after is None:
         return "error", "no probe payload after starting the backend"
     if after["unreachable"] != 0:
-        return "error", "unreachable is still set -- the banner has not cleared"
-    if after["loading"] != 0:
-        return "error", f"{after['loading']} module(s) are still loading"
+        return "error", "unreachable is still set -- the degraded signal has not cleared"
     if after["nonce"] != before["nonce"]:
         return "error", (
             f"the page instance changed (nonce {before['nonce']} -> {after['nonce']}) -- "

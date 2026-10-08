@@ -44,7 +44,6 @@ class KioskBackendUnreachableTest(WiseKioskCase):
             after_seconds = round(time.time() - stop_start, 1)
             self.tc.extraresults[record.RECORD_KEY][f"page.{self.id()}"] = record.unreachable_record_line(
                 before_unreachable=before.get("unreachable", "?"), before_seconds=before_seconds,
-                after_unreachable=after["unreachable"], after_diag=after["diag"],
-                after_rem=after["rem"], after_seconds=after_seconds)
+                after_unreachable=after["unreachable"], after_seconds=after_seconds)
             return
         self.fail(f"within {_DEADLINE_SECONDS}s of stopping the backend: {reason}")

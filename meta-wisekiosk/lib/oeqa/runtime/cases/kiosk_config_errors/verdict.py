@@ -1,4 +1,4 @@
-"""Extracts the probe's `configuration-error=<state>` title-line field.
+"""Extracts the probe's `configuration-error=<0|1>` title-line field.
 Pure: no device, no DOM -- every title is a plain Python string.
 """
 from framework.probe import fields as probe_fields
@@ -6,11 +6,11 @@ from framework.probe import fields as probe_fields
 _KEY = "configuration-error"
 
 
-def parse_configuration_error(title):
-    """The value following `configuration-error=` in the probe's payload, or
-    None if the field is absent. A pure extractor: whatever string follows
-    the key is returned verbatim, never validated against a known set."""
+def configuration_error_present(title):
+    """Whether the probe's `configuration-error=` field reads `1` in title's
+    payload, or None if the title carries no WK1 payload or no
+    `configuration-error` field at all."""
     found = probe_fields(title)
-    if found is None:
+    if found is None or _KEY not in found:
         return None
-    return found.get(_KEY)
+    return found[_KEY] == "1"

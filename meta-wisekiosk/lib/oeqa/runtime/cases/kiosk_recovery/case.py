@@ -58,8 +58,7 @@ class KioskRecoveryTest(WiseKioskCase):
         if outcome == "ok":
             after_seconds = round(time.time() - start_time, 1)
             self.tc.extraresults[record.RECORD_KEY][f"page.{self.id()}"] = record.recovery_record_line(
-                before_unreachable=before["unreachable"], before_loading=before["loading"],
-                before_seconds=before_seconds, after_unreachable=after["unreachable"],
-                after_loading=after["loading"], after_seconds=after_seconds)
+                before_unreachable=before["unreachable"], before_seconds=before_seconds,
+                after_unreachable=after["unreachable"], after_seconds=after_seconds)
             return
         self.fail(f"within {_DEADLINE_SECONDS}s of starting the backend: {reason}")

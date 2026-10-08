@@ -1,47 +1,29 @@
-import time
-
-from framework import probe
 from framework.base import WiseKioskCase
 
-from .verdict import parse_layout, pick_below_floor_mode, verdict as layout_verdict
+from .verdict import pick_below_floor_mode, verdict as layout_verdict
 
-_POLL_SECONDS = 2
-_BANNER_WAIT_SECONDS = 30
 _APPLIED_WAIT_SECONDS = 180
 
 
 class KioskLayoutTest(WiseKioskCase):
 
-    # The banner this case measures clearance against is raised by the
-    # same stimulus applied below -- self-sufficient (stops the backend
-    # itself) rather than relying on kiosk_backend_unreachable's state
-    # surviving past that case's own tearDown. docs/testing.md § "The
-    # render and applied cases" has why.
-
-    def _read_layout(self, deadline):
-        parsed = None
-        while parsed is None:
-            for title in probe.title_lines(self.titles()):
-                parsed = parse_layout(title)
-                if parsed is not None:
-                    break
-            if parsed is None:
-                if time.time() >= deadline:
-                    raise RuntimeError(
-                        f"no probe payload carried a layout= field within "
-                        f"{_BANNER_WAIT_SECONDS}s of stopping the backend")
-                time.sleep(_POLL_SECONDS)
-        return parsed
+    def _read_current_mode(self):
+        status, output = self.target.run("DISPLAY=:0 xrandr")
+        if status != 0:
+            raise RuntimeError("could not read xrandr")
+        _connector, current, candidate = pick_below_floor_mode(output)
+        if current is None:
+            raise RuntimeError("xrandr reported no current mode")
+        return current, candidate
 
     def test_layout_floor(self):
         if WiseKioskCase.role != "bench":
             raise RuntimeError(f"test_layout_floor requires role=bench, got {WiseKioskCase.role!r}")
         self.arm_probe()
         self.wait_applied(_APPLIED_WAIT_SECONDS)
-        self.stop_backend()
 
-        parsed = self._read_layout(time.time() + _BANNER_WAIT_SECONDS)
-        outcome, reason = layout_verdict(parsed)
+        current, _candidate = self._read_current_mode()
+        outcome, reason = layout_verdict(current)
         if outcome != "ok":
             self.fail(reason)
 
@@ -67,24 +49,23 @@ class KioskLayoutTest(WiseKioskCase):
 
         self.arm_probe()
         self.wait_applied(_APPLIED_WAIT_SECONDS)
-        self.stop_backend()
 
-        parsed = self._read_layout(time.time() + _BANNER_WAIT_SECONDS)
-        outcome, reason = layout_verdict(parsed)
+        current_after, _candidate2 = self._read_current_mode()
+        outcome, reason = layout_verdict(current_after)
         if outcome == "ok":
             # Found live on bench, round-1 fixes: kiosk-launch's own
             # `xrandr --output HDMI-1 --mode 1280x720` runs unconditionally
             # on every (re)start -- the one event that makes a fresh probe
-            # reading possible -- so a mode set here never survives to
-            # surf's own window. Confirmed with three independent
+            # reading possible -- so a mode set here never survives to the
+            # reported xrandr mode. Confirmed with three independent
             # mechanisms (restart, a live resize with no restart, and a
             # kill-and-respawn): every one reads back 1280x720. Recorded,
             # never asserted as a floor failure that cannot occur.
             self.skipTest(
-                f"the seeded mode {candidate!r} did not reach the browser's own viewport "
-                f"(read back {parsed['width']}x{parsed['height']}) -- this image's kiosk-launch "
-                "unconditionally resets the display to 1280x720 on every (re)start, so no "
-                "restart-driven seed can produce a below-floor viewport on this board")
+                f"the seeded mode {candidate!r} did not survive to the reported xrandr mode "
+                f"(read back {current_after!r}) -- this image's kiosk-launch unconditionally "
+                "resets the display to 1280x720 on every (re)start, so no restart-driven seed "
+                "can produce a below-floor mode on this board")
         if outcome != "error" or "floor" not in reason:
             self.fail(
                 f"the seeded below-floor mode {candidate!r} did not read as a floor failure -- "

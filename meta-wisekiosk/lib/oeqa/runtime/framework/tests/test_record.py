@@ -605,21 +605,17 @@ def test_page_line():
 
 def test_unreachable_record_line():
     got = unreachable_record_line(
-        before_unreachable=0, before_seconds=4.2, after_unreachable=1, after_diag=12,
-        after_rem=20, after_seconds=7.1)
+        before_unreachable=0, before_seconds=4.2, after_unreachable=1, after_seconds=7.1)
     assert got == (
-        "R page before_took_s=4.2 before_unreachable=0 after_took_s=7.1 "
-        "after_unreachable=1 after_diag=12 after_rem=20"
+        "R page before_took_s=4.2 before_unreachable=0 after_took_s=7.1 after_unreachable=1"
     )
 
 
 def test_recovery_record_line():
     got = recovery_record_line(
-        before_unreachable=1, before_loading=3, before_seconds=6.5, after_unreachable=0,
-        after_loading=0, after_seconds=9.3)
+        before_unreachable=1, before_seconds=6.5, after_unreachable=0, after_seconds=9.3)
     assert got == (
-        "R page before_took_s=6.5 before_unreachable=1 before_loading=3 after_took_s=9.3 "
-        "after_unreachable=0 after_loading=0"
+        "R page before_took_s=6.5 before_unreachable=1 after_took_s=9.3 after_unreachable=0"
     )
 
 

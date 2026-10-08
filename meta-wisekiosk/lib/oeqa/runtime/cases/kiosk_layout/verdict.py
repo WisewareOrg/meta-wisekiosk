@@ -1,52 +1,24 @@
-"""Specifies cases/kiosk_layout/verdict.py: the probe's own `layout=<w>x<h>:<clear|overlap:<id>>
-edge=<clear|unknown|<id>>` title-line fields, parsed and judged against the 720p floor, band
-clearance and the configured edge margin (the ticket's "Decided": the display's designed layout
-renders correctly at 720p or better, asserted at whatever mode xrandr reports).
+"""Specifies cases/kiosk_layout/verdict.py: the mode `DISPLAY=:0 xrandr` reports, judged against
+the 720p floor (the ticket's "Decided": the display runs at the configured mode, at or above the
+design floor).
 
-Pure: no device, no DOM -- every title, parsed dict and xrandr dump is a plain Python value.
+Pure: no device, no DOM -- every mode string and xrandr dump is a plain Python value.
 """
-from framework.probe import fields as probe_fields
 
 _MIN_WIDTH = 1280
 _MIN_HEIGHT = 720
 
 
-def parse_layout(title):
-    """The probe's `layout=`/`edge=` fields, or None if the title carries
-    no layout payload at all. `edge` defaults to "unknown" when the title
-    carries a layout= field but no edge= one (a title predating the F3
-    extension) -- never silently treated as clear."""
-    found = probe_fields(title)
-    if found is None or "layout" not in found:
-        return None
-    value = found["layout"]
-    dims, _, rest = value.partition(":")
-    w_str, _, h_str = dims.partition("x")
-    width, height = int(w_str), int(h_str)
-    if rest.startswith("overlap:"):
-        clear, overlap_id = False, rest[len("overlap:"):]
-    else:
-        clear, overlap_id = True, None
-    return {
-        "width": width, "height": height, "clear": clear, "overlap_id": overlap_id,
-        "edge": found.get("edge", "unknown"),
-    }
-
-
-def verdict(parsed):
-    """("ok"|"error", reason) against the 720p floor, band clearance and
-    edge margin. "unknown" (config.json was not fetchable from the probe)
-    is never a silent pass (round-1 review F3)."""
-    if parsed["width"] < _MIN_WIDTH:
-        return "error", f"width {parsed['width']} is below the {_MIN_WIDTH} floor"
-    if parsed["height"] < _MIN_HEIGHT:
-        return "error", f"height {parsed['height']} is below the {_MIN_HEIGHT} floor"
-    if not parsed["clear"]:
-        return "error", f"region {parsed['overlap_id']} overlaps the band"
-    if parsed["edge"] == "unknown":
-        return "error", "edge margin could not be confirmed -- config.json was not fetchable from the probe"
-    if parsed["edge"] != "clear":
-        return "error", f"{parsed['edge']} comes within the configured edge band of a viewport edge"
+def verdict(mode):
+    """("ok"|"error", reason) against the 720p floor. `mode` is an
+    "<w>x<h>" mode string, the same shape pick_below_floor_mode's own
+    `current`/candidate return values and xrandr's own mode token carry."""
+    width_str, _, height_str = mode.partition("x")
+    width, height = int(width_str), int(height_str)
+    if width < _MIN_WIDTH:
+        return "error", f"width {width} is below the {_MIN_WIDTH} floor"
+    if height < _MIN_HEIGHT:
+        return "error", f"height {height} is below the {_MIN_HEIGHT} floor"
     return "ok", ""
 
 

@@ -1,120 +1,38 @@
-"""Specifies cases/kiosk_layout/verdict.py: the probe's own `layout=<w>x<h>:<clear|overlap:<id>>
-edge=<clear|unknown|<id>>` title-line fields (format fixed by the step-3 brief's own ruling, F3's
-edge= addition round-1), parsed and judged against the 720p floor, band clearance and the
-configured edge margin (the ticket's "Decided": the display's designed layout renders correctly at
-720p or better, asserted at whatever mode xrandr reports).
+"""Specifies cases/kiosk_layout/verdict.py: the mode `DISPLAY=:0 xrandr` reports, judged against
+the 720p floor (the ticket's "Decided": the display runs at the configured mode, at or above the
+design floor).
 
-parse_layout and verdict are split the same way kiosk_applied's case.py splits
-_read_applied_sample from verdict: parse_layout only ever returns a dict or None, and verdict only
-ever takes a dict -- the case checks for None itself before calling verdict, so verdict's own
-contract never grows a None-handling branch of its own (judgement call, flagged to tree-impl).
-
-No device, no DOM -- every title, parsed dict and xrandr dump is constructed.
+No device, no DOM -- every mode string and xrandr dump is constructed.
 """
 
 import pytest
 
-from oeqa.runtime.cases.kiosk_layout.verdict import parse_layout, pick_below_floor_mode, verdict
+from oeqa.runtime.cases.kiosk_layout.verdict import pick_below_floor_mode, verdict
 
 
 @pytest.mark.parametrize(
-    ("name", "title", "want"),
+    ("name", "mode", "want_outcome"),
     [
-        (
-            "clear, at the floor exactly, edge clear",
-            "sCgdimfFxt:T | WK1 layout=1280x720:clear edge=clear",
-            {"width": 1280, "height": 720, "clear": True, "overlap_id": None, "edge": "clear"},
-        ),
-        (
-            "clear, above the floor",
-            "sCgdimfFxt:T | WK1 layout=1920x1080:clear edge=clear",
-            {"width": 1920, "height": 1080, "clear": True, "overlap_id": None, "edge": "clear"},
-        ),
-        (
-            "a region overlapping the band, overlap_id carries its id",
-            "sCgdimfFxt:T | WK1 layout=1280x720:overlap:top_left edge=clear",
-            {"width": 1280, "height": 720, "clear": False, "overlap_id": "top_left", "edge": "clear"},
-        ),
-        (
-            "a region within the edge band, edge carries its id",
-            "sCgdimfFxt:T | WK1 layout=1280x720:clear edge=bottom_right",
-            {"width": 1280, "height": 720, "clear": True, "overlap_id": None, "edge": "bottom_right"},
-        ),
-        (
-            "config.json not fetchable from the probe -- edge=unknown",
-            "sCgdimfFxt:T | WK1 layout=1280x720:clear edge=unknown",
-            {"width": 1280, "height": 720, "clear": True, "overlap_id": None, "edge": "unknown"},
-        ),
-        (
-            "a layout= field predating the edge= extension defaults to unknown, never clear",
-            "sCgdimfFxt:T | WK1 layout=1280x720:clear",
-            {"width": 1280, "height": 720, "clear": True, "overlap_id": None, "edge": "unknown"},
-        ),
-        ("no layout field at all", "sCgdimfFxt:T | WK1 nonce=1 state=applied", None),
-        ("empty title", "", None),
+        ("exactly at the floor -- the boundary itself passes", "1280x720", "ok"),
+        ("comfortably above the floor", "1920x1080", "ok"),
+        ("width below the floor", "1279x720", "error"),
+        ("height below the floor", "1280x719", "error"),
+        ("both below the floor", "640x480", "error"),
     ],
 )
-def test_parse_layout(name, title, want):
-    assert parse_layout(title) == want, name
-
-
-@pytest.mark.parametrize(
-    ("name", "parsed", "want_outcome"),
-    [
-        ("exactly at the floor, clear, edge clear -- the boundary itself passes",
-         {"width": 1280, "height": 720, "clear": True, "overlap_id": None, "edge": "clear"}, "ok"),
-        ("comfortably above the floor, clear",
-         {"width": 1920, "height": 1080, "clear": True, "overlap_id": None, "edge": "clear"}, "ok"),
-        ("width below the floor",
-         {"width": 1279, "height": 720, "clear": True, "overlap_id": None, "edge": "clear"}, "error"),
-        ("height below the floor",
-         {"width": 1280, "height": 719, "clear": True, "overlap_id": None, "edge": "clear"}, "error"),
-        ("both below the floor",
-         {"width": 640, "height": 480, "clear": True, "overlap_id": None, "edge": "clear"}, "error"),
-        ("at the floor but a region overlaps the band",
-         {"width": 1280, "height": 720, "clear": False, "overlap_id": "top_left", "edge": "clear"},
-         "error"),
-        ("at the floor, no overlap, but a region is within the edge band",
-         {"width": 1280, "height": 720, "clear": True, "overlap_id": None, "edge": "bottom_right"},
-         "error"),
-        ("edge margin unconfirmed -- never a silent pass",
-         {"width": 1280, "height": 720, "clear": True, "overlap_id": None, "edge": "unknown"},
-         "error"),
-    ],
-)
-def test_verdict_outcome(name, parsed, want_outcome):
-    outcome, reason = verdict(parsed)
+def test_verdict_outcome(name, mode, want_outcome):
+    outcome, reason = verdict(mode)
     assert outcome == want_outcome, f"{name}: {reason!r}"
 
 
 def test_verdict_low_width_reason_names_the_dimension():
-    outcome, reason = verdict(
-        {"width": 1000, "height": 720, "clear": True, "overlap_id": None, "edge": "clear"})
+    outcome, reason = verdict("1000x720")
     assert "width" in reason.lower()
 
 
 def test_verdict_low_height_reason_names_the_dimension():
-    outcome, reason = verdict(
-        {"width": 1280, "height": 600, "clear": True, "overlap_id": None, "edge": "clear"})
+    outcome, reason = verdict("1280x600")
     assert "height" in reason.lower()
-
-
-def test_verdict_overlap_reason_names_the_overlapping_region():
-    outcome, reason = verdict(
-        {"width": 1280, "height": 720, "clear": False, "overlap_id": "bottom_right", "edge": "clear"})
-    assert "bottom_right" in reason
-
-
-def test_verdict_edge_reason_names_the_offending_element():
-    outcome, reason = verdict(
-        {"width": 1280, "height": 720, "clear": True, "overlap_id": None, "edge": "diagnosis"})
-    assert "diagnosis" in reason
-
-
-def test_verdict_edge_unknown_reason_names_why():
-    outcome, reason = verdict(
-        {"width": 1280, "height": 720, "clear": True, "overlap_id": None, "edge": "unknown"})
-    assert "config.json" in reason
 
 
 # ------------------------------------------------------------- pick_below_floor_mode
