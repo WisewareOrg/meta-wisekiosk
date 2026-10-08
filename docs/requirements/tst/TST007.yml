@@ -11,9 +11,9 @@ ref: ''
 references:
 - keyword: def test_layout_floor
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_layout/case.py
-  sha: d3cf9b7c5a1040f4cbe72891d52d83ad866dd328a2c798d1f430ba86d91f0a1c
+  sha: de6834557fbde22c21e161d88e4f5f20ce8e5cffccba8a712b930cc5651b1b0c
   type: file
-reviewed: -TJnb7a1_iJH2JrsXOVSlr4T0ZmBunq9XkMrSMtqOfU=
+reviewed: lYIH1A4Jf3xoCmL1HBQd1lDusOAdI2uvh5tCKZFnRrA=
 status: proposed
 text: |
   Read the mode xrandr reports and assert it is at least 1280x720.

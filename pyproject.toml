@@ -27,11 +27,13 @@ pythonpath = ["meta-wisekiosk/lib", "meta-wisekiosk/lib/oeqa/runtime"]
 source = ["meta-wisekiosk/lib/oeqa/runtime"]
 branch = true
 omit = [
-    # Every case.py and framework/base.py imports oeqa, unavailable on the
-    # host: this tier's population is the pure verdict/record modules
-    # beside them, never the oeqa case or base class itself --
-    # meta-wisekiosk/lib/oeqa/runtime/cases/README.md has the why.
+    # Every case.py, selfcheck.py and framework/base.py imports oeqa,
+    # unavailable on the host: this tier's population is the pure
+    # verdict/record modules beside them, never the oeqa case or base
+    # class itself -- meta-wisekiosk/lib/oeqa/runtime/cases/README.md has
+    # the why.
     "meta-wisekiosk/lib/oeqa/runtime/cases/*/case.py",
+    "meta-wisekiosk/lib/oeqa/runtime/cases/*/selfcheck.py",
     "meta-wisekiosk/lib/oeqa/runtime/cases/*/tests/*",
     "meta-wisekiosk/lib/oeqa/runtime/framework/base.py",
     "meta-wisekiosk/lib/oeqa/runtime/framework/tests/*",

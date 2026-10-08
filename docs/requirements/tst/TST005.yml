@@ -11,9 +11,9 @@ ref: ''
 references:
 - keyword: def test_browser_restart
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_browser_restart/case.py
-  sha: 3fcea6afd398d8213cf08e62f148b1102ebc08ba6322a8c97c13afc7ecbb40ea
+  sha: 1bb66d8b83fdae8372153b45e38ccf2e99e352936dee410eb2fbd8e1d594ca6a
   type: file
-reviewed: rDY4VhOBPkCElg_T6KT7vHIs_qRyYnuycenj5JCPri0=
+reviewed: TLw6OKEngBm48p-m-rgIjLTvpHdtBEcxhTv7hDC6lJI=
 status: proposed
 text: |
   Kill the browser process and assert the page is applied again within the deadline.
