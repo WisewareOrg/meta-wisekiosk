@@ -1,0 +1,21 @@
+# run-soak.sh role=S3-32b670c secs=3600
+# harness 786f40548316ead16f2e07862ddb6e44a776026d
+# started 2026-10-05T13:15:21Z
+# probe sha256 local    c3f20aa9fa8fca8264f99279128c54cbc1ec6c2625526595d815412b783166fd
+# buildinfo meta-wisekiosk    = HEAD:32b670c5a4379443aef5ddab9ca0e43cac1c5e96
+# Booted from: rootfs.1 (B)
+# probe sha256 deployed c3f20aa9fa8fca8264f99279128c54cbc1ec6c2625526595d815412b783166fd
+# boot-start 40cb351b-ba78-41a0-9107-e162f5a36706
+# start-epoch 1791206122 NRestarts=0
+# vmstat-start pswpin 0 pswpout 0 
+# restored: kiosk.conf KIOSK_PROBE lines 0, kiosk restarted
+
+# stopped: cache-clear defect -- the pre-restart "rm -rf /home/root/.cache/cog" is a no-op
+# (cog's real cache path is elsewhere, see check-cog-cache-path.sh), so this run would not have
+# counted toward the verdict. Stopped early to save bench time rather than run a full 1h that
+# doesn't test what it was meant to. Process group killed (kill -TERM -- -<pgid>); kiosk.conf
+# restore confirmed via its own EXIT trap, then independently cmp-verified identical to the
+# known-good pre-run state.
+
+# VOID (cache-clear defect, same as the smoothness runs this session) + stopped early to save
+# bench time once the defect was confirmed. Fixed driver at cd916b0; re-run as the new soak.

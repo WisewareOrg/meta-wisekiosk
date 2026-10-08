@@ -1,0 +1,8 @@
+# check-cog-cache-resolver.sh root@<BENCH_ADDRESS>, harness cd916b0, board role: bench
+meta-wisekiosk    = HEAD:32b670c5a4379443aef5ddab9ca0e43cac1c5e96
+Booted from: rootfs.1 (B)
+# check-cog-cache-resolver.sh harness cd916b041fb3a71e6c80495dc278e8baba4918f4
+# buildinfo meta-wisekiosk    = HEAD:32b670c5a4379443aef5ddab9ca0e43cac1c5e96
+# cog pid 15802
+resolved /home/root/.cache/wpe
+entries 24

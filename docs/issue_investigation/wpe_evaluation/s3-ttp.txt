@@ -1,0 +1,50 @@
+# run-time-to-page.sh role=S3-32b670c boots=3 wait=120 READ_AT=115
+# harness 32b670c5a4379443aef5ddab9ca0e43cac1c5e96
+# time-to-page.js sha256 6ea390791ce0a001f4accec091ab1ed86cc1b175bd83b2e6834614ef6480d779
+=== boot 1: reboot at 2026-10-05T03:31:31Z ===
+Failed to set wall message, ignoring: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Warning: Permanently added '<BENCH_ADDRESS>' (ED25519) to the list of known hosts.
+# buildinfo meta-wisekiosk    = HEAD:32b670c5a4379443aef5ddab9ca0e43cac1c5e96
+# Booted from: rootfs.1 (B)
+boot_id:       7da53ce8-4fcb-4161-ad92-b04101f555fd
+read_at_s:     117
+title:         T 1791171118442
+clock_step:    [   55.701304] <BENCH_HOSTNAME> systemd-timesyncd[189]: Contacted time server 216.239.35.8:123 (time3.google.com).
+clock_step:    [   55.706562] <BENCH_HOSTNAME> systemd-timesyncd[189]: Initial clock synchronization to Sun 2026-10-04 23:32:38.170023 EDT.
+frame=pre-step
+boot_epoch_ms: 1791171075084
+RESULT_time_to_page_s: 43.36
+=== boot 2: reboot at 2026-10-05T03:33:42Z ===
+Warning: Permanently added '<BENCH_ADDRESS>' (ED25519) to the list of known hosts.
+Failed to set wall message, ignoring: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Warning: Permanently added '<BENCH_ADDRESS>' (ED25519) to the list of known hosts.
+# buildinfo meta-wisekiosk    = HEAD:32b670c5a4379443aef5ddab9ca0e43cac1c5e96
+# Booted from: rootfs.1 (B)
+boot_id:       02af683c-c5bf-4af3-9d05-074cb697b04e
+read_at_s:     116
+title:         T 1791171246819
+clock_step:    [   55.636422] <BENCH_HOSTNAME> systemd-timesyncd[190]: Contacted time server 216.239.35.8:123 (time3.google.com).
+clock_step:    [   55.643688] <BENCH_HOSTNAME> systemd-timesyncd[190]: Initial clock synchronization to Sun 2026-10-04 23:34:48.713384 EDT.
+frame=pre-step
+boot_epoch_ms: 1791171206037
+RESULT_time_to_page_s: 40.78
+=== boot 3: reboot at 2026-10-05T03:35:51Z ===
+Warning: Permanently added '<BENCH_ADDRESS>' (ED25519) to the list of known hosts.
+Failed to set wall message, ignoring: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Warning: Permanently added '<BENCH_ADDRESS>' (ED25519) to the list of known hosts.
+# buildinfo meta-wisekiosk    = HEAD:32b670c5a4379443aef5ddab9ca0e43cac1c5e96
+# Booted from: rootfs.1 (B)
+boot_id:       40cb351b-ba78-41a0-9107-e162f5a36706
+read_at_s:     117
+title:         T 1791171378551
+clock_step:    [   66.291439] <BENCH_HOSTNAME> systemd-timesyncd[189]: Contacted time server 216.239.35.12:123 (time4.google.com).
+clock_step:    [   66.292837] <BENCH_HOSTNAME> systemd-timesyncd[189]: Initial clock synchronization to Sun 2026-10-04 23:37:08.902220 EDT.
+frame=pre-step
+boot_epoch_ms: 1791171335270
+RESULT_time_to_page_s: 43.28
+Warning: Permanently added '<BENCH_ADDRESS>' (ED25519) to the list of known hosts.
+# restored: kiosk.conf KIOSK_PROBE lines 0, kiosk restarted
+# complete 2026-10-05T03:39:33Z

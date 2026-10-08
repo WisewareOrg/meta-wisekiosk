@@ -1,0 +1,36 @@
+# S2 finding, image 1a8e100: webkit://gpu aborts cog on this hardware
+# board role: bench
+meta-wisekiosk    = HEAD:1a8e100d31cadb6591a7a3bca01d1879dcec8bf5
+Booted from: rootfs.0 (A)
+# journal, this boot, the crash window
+Oct 04 22:16:08 <BENCH_HOSTNAME> systemd[1]: Stopping Kiosk browser: cog on WPE WebKit, straight to DRM, no display server...
+Oct 04 22:16:09 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Main process exited, code=dumped, status=11/SEGV
+Oct 04 22:16:09 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Killing process 367 (erialBackground) with signal SIGKILL.
+Oct 04 22:16:09 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Killing process 374 (eadedCompositor) with signal SIGKILL.
+Oct 04 22:16:09 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Failed with result 'core-dump'.
+Oct 04 22:16:09 <BENCH_HOSTNAME> systemd[1]: Stopped Kiosk browser: cog on WPE WebKit, straight to DRM, no display server.
+Oct 04 22:16:09 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Consumed 15min 57.846s CPU time.
+Oct 04 22:16:09 <BENCH_HOSTNAME> systemd[1]: Started Kiosk browser: cog on WPE WebKit, straight to DRM, no display server.
+Oct 04 22:16:11 <BENCH_HOSTNAME> cog[2259]: Renderer 'modeset' does not support rotation 0 (0 degrees).
+Oct 04 22:16:12 <BENCH_HOSTNAME> kiosk-launch[2259]: error: XDG_RUNTIME_DIR is invalid or not set in the environment.
+Oct 04 22:16:12 <BENCH_HOSTNAME> kiosk-launch[2259]: error: XDG_RUNTIME_DIR is invalid or not set in the environment.
+Oct 04 22:16:12 <BENCH_HOSTNAME> kiosk-launch[2259]: error: XDG_RUNTIME_DIR is invalid or not set in the environment.
+Oct 04 22:16:12 <BENCH_HOSTNAME> kiosk-launch[2259]: EGLDisplay Initialization failed: EGL_NOT_INITIALIZED
+Oct 04 22:16:12 <BENCH_HOSTNAME> kiosk-launch[2259]: Could not determine the accessibility bus address
+Oct 04 22:16:12 <BENCH_HOSTNAME> cog[2259]: <webkit://gpu/> Load started.
+Oct 04 22:16:12 <BENCH_HOSTNAME> kiosk-launch[2259]: Couldn't open libGL.so.1 or libOpenGL.so.0
+Oct 04 22:16:12 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Main process exited, code=dumped, status=6/ABRT
+Oct 04 22:16:12 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Failed with result 'core-dump'.
+Oct 04 22:16:12 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Consumed 3.326s CPU time.
+Oct 04 22:16:15 <BENCH_HOSTNAME> systemd[1]: Stopped Kiosk browser: cog on WPE WebKit, straight to DRM, no display server.
+Oct 04 22:16:15 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Consumed 3.326s CPU time.
+Oct 04 22:16:15 <BENCH_HOSTNAME> systemd[1]: Started Kiosk browser: cog on WPE WebKit, straight to DRM, no display server.
+Oct 04 22:16:17 <BENCH_HOSTNAME> cog[2305]: Renderer 'modeset' does not support rotation 0 (0 degrees).
+Oct 04 22:16:18 <BENCH_HOSTNAME> kiosk-launch[2305]: error: XDG_RUNTIME_DIR is invalid or not set in the environment.
+Oct 04 22:16:18 <BENCH_HOSTNAME> kiosk-launch[2305]: error: XDG_RUNTIME_DIR is invalid or not set in the environment.
+Oct 04 22:16:18 <BENCH_HOSTNAME> kiosk-launch[2305]: error: XDG_RUNTIME_DIR is invalid or not set in the environment.
+Oct 04 22:16:18 <BENCH_HOSTNAME> kiosk-launch[2305]: EGLDisplay Initialization failed: EGL_NOT_INITIALIZED
+Oct 04 22:16:18 <BENCH_HOSTNAME> kiosk-launch[2305]: Could not determine the accessibility bus address
+Oct 04 22:16:19 <BENCH_HOSTNAME> cog[2305]: <http://localhost:8080/> Load started.
+Oct 04 22:16:19 <BENCH_HOSTNAME> cog[2305]: <http://localhost:8080/> Loading...
+Oct 04 22:16:19 <BENCH_HOSTNAME> cog[2305]: <http://localhost:8080/> Loaded successfully.

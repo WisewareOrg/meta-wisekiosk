@@ -151,8 +151,9 @@ def ssh_commands(text):
     for m in SSH_INVOCATION.finditer(text):
         line = text[:m.start()].count("\n") + 1
         script = m.group(1) if m.group(1) is not None else m.group(2)
-        # Split on shell separators, then take the leading word of each piece.
-        for piece in re.split(r"[;&|]+|\$\(|\n", script):
+        # Split on shell separators, then take the leading word of each piece. An
+        # `&` touching `<` or `>` is a redirection (2>&1, >&2, &>), not a separator.
+        for piece in re.split(r"(?:[;|]|(?<![<>])&(?!>))+|\$\(|\n", script):
             piece = piece.strip()
             if not piece:
                 continue

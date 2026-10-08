@@ -1,0 +1,22 @@
+# check-cog-cache-path.sh root@<BENCH_ADDRESS>, board role: bench
+meta-wisekiosk    = HEAD:32b670c5a4379443aef5ddab9ca0e43cac1c5e96
+Booted from: rootfs.1 (B)
+=== getent passwd root ===
+=== systemctl show kiosk -p Environment ===
+Environment=KIOSK_URL=http://localhost:8080
+=== cog's actual environ (HOME/XDG_*) ===
+=== ls -la /root/.cache /home/root/.cache ===
+ls: /root/.cache: No such file or directory
+/home/root/.cache:
+drwx------    3 root     root          4096 Oct  4 23:11 .
+drwx------    4 root     root          4096 Oct  5 09:31 ..
+drwxr-xr-x    5 root     root          4096 Oct  4 23:11 wpe
+=== find / -xdev -type d -name cog ===
+/usr/lib/cog
+=== du -sh of each found dir ===
+132.0K	/usr/lib/cog
+
+# supplementary (getent unavailable on busybox; environ read came back empty, possibly a pid
+# race between pidof calls -- cog restarts on every stop):
+pidof cog: 15802 (separate check, moments after the main script ran)
+du -sh /home/root/.cache/wpe: 280.0K

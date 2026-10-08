@@ -14,9 +14,9 @@
       "minimumReleaseAge": null
     },
     {
-      "description": "A poky or meta-openembedded bump invalidates WebKit's build cache, so both ride one rebuild instead of two.",
+      "description": "A poky, meta-openembedded or meta-webkit bump invalidates WebKit's build cache, so all three ride one rebuild instead of several.",
       "matchFileNames": ["includes/**"],
-      "matchDepNames": ["poky", "meta-openembedded"],
+      "matchDepNames": ["poky", "meta-openembedded", "meta-webkit"],
       "groupName": "webkit-closure pins"
     },
     {

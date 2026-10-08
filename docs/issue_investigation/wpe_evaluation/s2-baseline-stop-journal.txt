@@ -1,0 +1,29 @@
+# check-baseline-stop-journal.sh root@<BENCH_ADDRESS> 44ce604290894ada92bf1734a363a6c0, board role: bench
+# this is the S1 baseline boot (image 20a1f34), confirmed by boot_id match to the S1 reboot record
+Oct 04 16:15:51 <BENCH_HOSTNAME> systemd[1]: Stopping Kiosk browser: surf on bare Xorg, no display manager, no window manager...
+Oct 04 16:15:51 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Main process exited, code=exited, status=1/FAILURE
+Oct 04 16:15:51 <BENCH_HOSTNAME> systemd[1]: Stopped Kiosk browser: surf on bare Xorg, no display manager, no window manager.
+Oct 04 16:25:38 <BENCH_HOSTNAME> systemd[1]: Stopping Kiosk browser: surf on bare Xorg, no display manager, no window manager...
+Oct 04 16:25:38 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Main process exited, code=exited, status=1/FAILURE
+Oct 04 16:25:38 <BENCH_HOSTNAME> systemd[1]: Stopped Kiosk browser: surf on bare Xorg, no display manager, no window manager.
+Oct 04 16:26:15 <BENCH_HOSTNAME> systemd[1]: Stopping Kiosk browser: surf on bare Xorg, no display manager, no window manager...
+Oct 04 16:26:16 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Main process exited, code=exited, status=1/FAILURE
+Oct 04 16:26:16 <BENCH_HOSTNAME> systemd[1]: Stopped Kiosk browser: surf on bare Xorg, no display manager, no window manager.
+Oct 04 16:36:03 <BENCH_HOSTNAME> systemd[1]: Stopping Kiosk browser: surf on bare Xorg, no display manager, no window manager...
+Oct 04 16:36:03 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Main process exited, code=exited, status=1/FAILURE
+Oct 04 16:36:03 <BENCH_HOSTNAME> systemd[1]: Stopped Kiosk browser: surf on bare Xorg, no display manager, no window manager.
+Oct 04 16:44:54 <BENCH_HOSTNAME> systemd[1]: Stopping Kiosk browser: surf on bare Xorg, no display manager, no window manager...
+Oct 04 16:44:54 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Main process exited, code=exited, status=1/FAILURE
+Oct 04 16:44:54 <BENCH_HOSTNAME> systemd[1]: Stopped Kiosk browser: surf on bare Xorg, no display manager, no window manager.
+Oct 04 16:54:41 <BENCH_HOSTNAME> systemd[1]: Stopping Kiosk browser: surf on bare Xorg, no display manager, no window manager...
+Oct 04 16:54:41 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Main process exited, code=exited, status=1/FAILURE
+Oct 04 16:54:41 <BENCH_HOSTNAME> systemd[1]: Stopped Kiosk browser: surf on bare Xorg, no display manager, no window manager.
+Oct 04 16:55:31 <BENCH_HOSTNAME> systemd[1]: Stopping Kiosk browser: surf on bare Xorg, no display manager, no window manager...
+Oct 04 16:55:32 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Main process exited, code=exited, status=1/FAILURE
+Oct 04 16:55:32 <BENCH_HOSTNAME> systemd[1]: Stopped Kiosk browser: surf on bare Xorg, no display manager, no window manager.
+Oct 04 17:56:36 <BENCH_HOSTNAME> systemd[1]: Stopping Kiosk browser: surf on bare Xorg, no display manager, no window manager...
+Oct 04 17:56:36 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Main process exited, code=exited, status=1/FAILURE
+Oct 04 17:56:36 <BENCH_HOSTNAME> systemd[1]: Stopped Kiosk browser: surf on bare Xorg, no display manager, no window manager.
+Oct 04 18:00:49 <BENCH_HOSTNAME> systemd[1]: Stopping Kiosk browser: surf on bare Xorg, no display manager, no window manager...
+Oct 04 18:00:50 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Main process exited, code=exited, status=1/FAILURE
+Oct 04 18:00:50 <BENCH_HOSTNAME> systemd[1]: Stopped Kiosk browser: surf on bare Xorg, no display manager, no window manager.

@@ -1,0 +1,10 @@
+--- backup ---
+KIOSK_INSPECTOR=0
+--- set KIOSK_INSPECTOR=1, restart ---
+active
+Oct 04 22:18:54 <BENCH_HOSTNAME> kiosk-launch[2373]: error: XDG_RUNTIME_DIR is invalid or not set in the environment.
+Oct 04 22:18:54 <BENCH_HOSTNAME> kiosk-launch[2373]: EGLDisplay Initialization failed: EGL_NOT_INITIALIZED
+Oct 04 22:18:54 <BENCH_HOSTNAME> kiosk-launch[2373]: Could not determine the accessibility bus address
+Oct 04 22:18:55 <BENCH_HOSTNAME> cog[2373]: <file:///> Load started.
+Oct 04 22:18:55 <BENCH_HOSTNAME> cog[2373]: <file:///> Loading...
+Oct 04 22:18:56 <BENCH_HOSTNAME> cog[2373]: <file:///> Loaded successfully.

@@ -21,7 +21,7 @@ everything else is convention. Inside it:
 - `recipes-<category>/<name>/<name>_%.bbappend` — a **bbappend**, a fragment that *adds to* a recipe
   someone else's layer defines. It does not replace the recipe; BitBake parses the `.bb` and then
   every `.bbappend` that matches its name, in layer-priority order. The `%` is a wildcard over the
-  version, so `surf_%.bbappend` applies to whatever version of `surf` is in play.
+  version, so `cog_%.bbappend` applies to whatever version of `cog` is in play.
 - `classes/*.bbclass` — reusable logic a recipe can `inherit`.
 - side directories such as `files/` holding the loose files a recipe installs.
 
@@ -107,7 +107,9 @@ patched there.
 Upstream's `autonomos.conf` had `DISTRO_FEATURES:remove = " x11 wayland"`. BitBake applies every
 `:remove` **after** every `:append`, no matter which file or layer they came from. So there is no
 downstream file — not a bbappend, not an image recipe, not `local.conf` — that can put `x11` back.
-A kiosk needs x11. The removal has to become conditional where it is written, which means changing
+The patch stays: libxcb, libpciaccess and consolekit in the build graph require `x11` (#196 WPE
+build-time levers), and `wayland` in `DISTRO_FEATURES` turns on mesa's wayland EGL platform and
+cog's `wl` platform. The removal has to become conditional where it is written, which means changing
 upstream's file, which means a patch.
 
 ### Why patch 0002 cannot be a bbappend

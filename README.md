@@ -1,7 +1,7 @@
 # meta-wisekiosk
 
-A wall-mounted Raspberry Pi Zero W kiosk: `surf` on WebKitGTK against a bare Xorg, no desktop, no
-window manager, no display manager. The unit shows one page and is reached only over WiFi, so
+A wall-mounted Raspberry Pi Zero W kiosk: WPE WebKit 2.54 through `cog`, straight to DRM, no display
+server, no desktop, no window manager. The unit shows one page and is reached only over WiFi, so
 everything here is shaped by the fact that a broken image costs a physical trip to the wall.
 
 Updates are RAUC A/B over U-Boot, delivered over the LAN. Site configuration — SSID, PSK hash, URL,
@@ -282,29 +282,20 @@ Two more fixes belong upstream but did not need a patch, because a downstream la
 
 ## Status
 
-**Working.** Boots, joins WiFi, renders the kiosk page on the real hardware — verified on a Pi Zero W
-(BCM2835, ARMv6, 512 MB). The vc4 display path the table below describes runs on prod and is measured
-there, but it reaches the board as hand-edits rather than out of a build; the cells say which rows
-that qualifies, and "Known gaps" says what closes it.
+**Working.** Boots, joins WiFi, renders the kiosk page on the real hardware — verified on a Pi Zero
+W (BCM2835, ARMv6, 512 MB). The display path the table below describes is cog's DRM platform on vc4
+firmware KMS, out of this tree's build; the cells say which rows carry a qualifier.
 
 | | |
 |---|---|
-| Engine | WebKitGTK 2.44.3, `ENABLE_JIT=OFF`, `USE_WOFF2=ON`, `MinSizeRel` — genuine ARMv6 (`Tag_CPU_arch: v6KZ`) |
-| Browser | `surf` 2.1 + the kiosk patch (milestones, override-redirect, shims) |
-| Display | bare Xorg on vc4 firmware KMS at 1280x720, `xf86-video-modesetting` + mesa for glamor, WebKit painting in software, no display manager, no window manager — **measured on prod, never out of a build** |
+| Engine | WPE WebKit 2.54.0, `jit` off by the recipe on armv6, `woff2` on, `reduce-size` (`MinSizeRel`) — genuine ARMv6 (`Tag_CPU_arch: v6KZ`) |
+| Browser | `cog` 0.18.5 + two carried patches (`--user-script`; exit when a requested platform fails) |
+| Display | cog's DRM platform on vc4 firmware KMS at 1280x720, GPU-composited through mesa's GLES, no display server, no window manager |
 | Update | RAUC A/B over U-Boot — both slots visible, **rollback never exercised** |
-| Memory | 87 MB used of 428; zram present and never touched — **measured on the fbdev image** |
+| Memory | 87 MB used of 428; zram present and never touched — **measured on the fbdev X image; unmeasured on WPE** |
 
 ### Known gaps
 
-- **The display path has never come out of a build.** It runs on prod, and every number for it was
-  measured there, but the overlay and the mode-set reached that board as hand-edits to an image that
-  built neither. This tree is reconciled to what was measured; the build and the delivery that close
-  the gap are
-  [`docs/issue_investigation/gpu_compositing/README.md`](docs/issue_investigation/gpu_compositing/README.md) §"Durable image delivery — pending owner decision".
-  Two of its findings decide the shape and are not open questions: full KMS **boots and presents a
-  black scanout on this panel**, and accelerated compositing measures **5.2x worse than software** —
-  [`docs/issue_investigation/gpu_compositing/README.md`](docs/issue_investigation/gpu_compositing/README.md) §"Engine levers, measured".
 - **Rollback has never been exercised.** RAUC reports healthy slots; that is not the same as proving
   a bad update rolls back, or that a slow-but-healthy boot does *not* trigger one.
 - **Issue #6 RAUC signing private key is committed in this public repository** — closed by rotation;
@@ -313,8 +304,9 @@ that qualifies, and "Known gaps" says what closes it.
 - **Root login is unauthenticated.** The image carries `debug-tweaks`, so root has an empty password.
   Deferred deliberately while a second device still depends on unauthenticated access; tracked as
   issue #7 debug-tweaks empty root password, which carries the detail.
-- **Screen blanking over a long idle is unverified.** `-s 0 -dpms -nocursor` moved from lightdm into
-  the kiosk unit; that failure only appears after ~20 minutes.
+- **Screen blanking over a long idle is unverified.** cog sets no DPMS state and the kernel command
+  line sets no `consoleblank`; that failure only appears after ~20 minutes. cog draws no cursor unless
+  `COG_PLATFORM_DRM_CURSOR` is set, and kiosk-launch does not set it.
 - **The image's packages are scanned for CVEs only when somebody asks.** The scan is a manual opt-in
   audit build on a build host, and nothing detects that the last one was months ago. Deciding which
   finding matters is manual too. [CVE and SBOM](docs/cve-and-sbom.md)
