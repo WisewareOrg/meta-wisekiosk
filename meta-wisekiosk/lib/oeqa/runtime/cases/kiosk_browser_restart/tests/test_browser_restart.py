@@ -42,7 +42,16 @@ def test_verdict_error_with_no_before_sample():
     assert "before the kill" in reason
 
 
-def test_verdict_error_with_no_after_sample_at_all():
+def test_verdict_not_restarted_with_zero_after_samples():
     outcome, reason = verdict(before_sample=_sample("1762000000.1"), after_samples=[None, None])
-    assert outcome == "error"
+    assert outcome == "not-restarted"
     assert "after the kill" in reason
+
+
+def test_verdict_not_restarted_with_only_old_nonce_applied_samples():
+    outcome, reason = verdict(
+        before_sample=_sample("1762000000.1"),
+        after_samples=[None, _sample("1762000000.1"), _sample("1762000000.1", state="loading")],
+    )
+    assert outcome == "not-restarted"
+    assert "nonce" in reason.lower()
