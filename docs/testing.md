@@ -171,24 +171,29 @@ timer off; it installs the CA cert from this host's own `local/keys/replay-ca/ca
 `testimage` and the two device checks — there is no point running the suite against the wrong
 image — but still rolls back, like every other outcome, before `finish failure` names the mismatch.
 
-**Replay mode.** Before `testimage`, `run.sh` can put bench's backend behind the committed replay
-proxy instead of the real upstream data sources — [`tools/replay/README.md`](../tools/replay/README.md)
-owns the proxy, the CA and the set layout. With `PIPELINE_REPLAY_SET=<name>` set, `run.sh` starts
-`tools/replay/proxy.py replay` on loopback, holds a reverse `ssh -R` tunnel to bench for the job's
+**Replay mode.** `run.sh` can put bench's backend behind the committed replay proxy instead of the
+real upstream data sources — [`tools/replay/README.md`](../tools/replay/README.md) owns the proxy,
+the CA and the set layout. With `PIPELINE_REPLAY_SET=<name>` set, before `testimage` runs: `run.sh`
+starts `tools/replay/replay.py` on loopback, holds a reverse `ssh -R` tunnel to bench for the job's
 own duration (never `tools/kiosk-ssh.sh`'s persistent shared master, which would outlive the job),
 seeds bench's `/data/config/wisekiosk.conf` (`HTTPS_PROXY` at the tunnel, `SSL_CERT_FILE`/
 `SSL_CERT_DIR` at the installed CA) and the set's own `config.json`, restarts `wisekiosk.service`
-and reads its `HTTPS_PROXY` back from `/proc/<MainPID>/environ` to confirm the switch landed, then
-restarts `kiosk.service` and checks the page's own `cards=<present>/<live>` against the set's known
-count before `testimage` runs at all. The window closes the same way in reverse, restoring bench's
-own `wisekiosk.conf`/`config.json` and confirming no `HTTPS_PROXY` remains, before the proxy and
-tunnel are stopped. Any void here — a miss, an unmanifested or tampered response, the proxy down
-mid-window, the backend not switching, `cards=` not matching — never calls `abort` directly (that
-would skip the unconditional rollback below); it sets a flag `run.sh` reads only after rollback,
-the same place the dirty-tree and transport checks already read theirs. `PIPELINE_REPLAY_SET` unset
-is a live run: no proxy, no tunnel, no seed. Either way the run record's page line gains
-`replay=<set>@<manifest-hash>` or `replay=live`, appended by `report-build.py --replay` from the
-value `run.sh` itself measured — never something the device-side case could know.
+and reads its mode from `/proc/<MainPID>/environ`, then restarts `kiosk.service` so the page loads
+afresh against replay before `testimage` runs. `PIPELINE_REPLAY_SET` unset is a live run: no proxy,
+no tunnel, no seed, and the mode is still read the same way (absent `HTTPS_PROXY` confirms "live").
+
+After `testimage` — which is where the applied case's own `cards=<present>/<live>` lands in the
+record — `run.sh` re-reads the mode, and, for a replay job, also checks the proxy and tunnel are
+still alive and the access log carries zero `MISS` lines and at least one `HIT` line (the request
+reaching the proxy over the tunnel). It then compares the record's own `cards=` against the set's
+`expect_cards` (`manifest.json`) and restores bench's own `config.json`, confirming no `HTTPS_PROXY`
+remains, before stopping the proxy and tunnel. A mismatched mode, a `MISS`, a dead proxy or tunnel,
+or a `cards=` mismatch each sets a flag; `run.sh` reads every such flag only once execution reaches
+the point below that already reads `DIRTY_RC`/`TRANSPORT_RC` — the same reason a dirty tree never
+calls `abort` before the unconditional rollback runs. The mode run.sh measured — `live` or
+`<set>@<manifest-hash>`, the hash read from the proxy's own startup log line, never recomputed — is
+written into the record itself as a new `replay` key, through `record-check.py --replay`, before
+`report-build.py`'s own unchanged passthrough renders it.
 
 **`pipeline-run-ref <ref>` is a development tool, not a path to `main`.** Run from a branch
 checkout with the timer off, it builds and runs that ref's own head through the same stages as a
