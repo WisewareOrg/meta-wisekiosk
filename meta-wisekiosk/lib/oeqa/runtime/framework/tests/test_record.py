@@ -33,9 +33,7 @@ from framework.record import (
     mode_token,
     page_line,
     parse_buildinfo,
-    parse_cards,
     pid_from_pgrep,
-    replay_line,
     scrub_argv,
     slot_installed_at,
     sut_line,
@@ -594,24 +592,6 @@ def test_sut_line():
 def test_page_line():
     got = page_line(nonce="1699999999.5", state="applied", cards="-/-", faulted=0, unreachable=0)
     assert got == "R page nonce=1699999999.5 state=applied cards=-/- faulted=0 unreachable=0"
-
-
-def test_replay_line():
-    assert replay_line("cards4-live@deadbeef") == "R replay=cards4-live@deadbeef"
-    assert replay_line("live") == "R replay=live"
-
-
-@pytest.mark.parametrize(
-    ("name", "token", "want"),
-    [
-        ("present and live equal", "4/4", (4, 4)),
-        ("present and live differ", "4/2", (4, 2)),
-        ("the no-count placeholder does not parse", "-/-", None),
-        ("a non-digit token does not parse", "abc", None),
-    ],
-)
-def test_parse_cards(name, token, want):
-    assert parse_cards(token) == want, name
 
 
 @pytest.mark.parametrize(

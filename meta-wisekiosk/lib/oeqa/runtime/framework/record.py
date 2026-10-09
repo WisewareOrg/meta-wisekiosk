@@ -231,20 +231,6 @@ def page_line(nonce, state, cards, faulted, unreachable):
     return f"R page nonce={nonce} state={state} cards={cards} faulted={faulted} unreachable={unreachable}"
 
 
-def replay_line(value):
-    return f"R replay={value}"
-
-
-_CARDS_PAIR = re.compile(r'^(\d+)/(\d+)$')
-
-
-def parse_cards(token):
-    """token as a (present, live) int pair if it matches "<digits>/<digits>",
-    else None."""
-    m = _CARDS_PAIR.match(token)
-    return (int(m.group(1)), int(m.group(2))) if m else None
-
-
 def mode_token(environ_text, port):
     """"live" if environ_text (a /proc/<pid>/environ dump, NUL already
     newline) carries no HTTPS_PROXY line; "replay" if it carries exactly
