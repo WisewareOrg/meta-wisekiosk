@@ -36,21 +36,25 @@ def _own_unit_lines(output_text, unit_name):
 class KioskUnitsTest(WiseKioskCase):
     """The appliance's own systemd validating its own shipped units
     (#206): one `systemd-analyze verify` call per unit in SHIPPED_UNITS,
-    on the board over SSH, each scoped to its own unit's output before
-    verdict.systemd_analyze_verdict judges it -- never --root over the
-    build's own rootfs, since the generators (fstab, among others) that
-    the board's own boot already ran are what this check needs live.
-    `--generators=yes` makes verify run those generators itself (data.mount
-    among them), rather than treating a unit that Requires=/Wants= one as
-    unverifiable; it needs the root privileges the SSH target already
-    runs as."""
+    on the board over SSH, each scoped to its own unit's output -- never
+    --root over the build's own rootfs, since the generators (fstab,
+    among others) that the board's own boot already ran are what this
+    check needs live. `data.mount` is one such generated unit, never a
+    file in the image; for every "Unit X not found" name verify reports,
+    the board itself answers `systemctl is-active X` before
+    verdict.verdict judges whether that answer excuses the line."""
 
     def test_units_well_formed(self):
         problems = []
         for unit in SHIPPED_UNITS:
-            status, output = self.target.run(f"systemd-analyze verify --generators=yes {unit}")
+            _status, output = self.target.run(f"systemd-analyze verify {unit}")
             scoped = _own_unit_lines(output, unit)
-            outcome, reason = verdict.systemd_analyze_verdict(status, scoped)
+            not_found = set(verdict.NOT_FOUND.findall(scoped))
+            active_units = {
+                name: self.target.run(f"systemctl is-active {name}")[1].strip()
+                for name in not_found
+            }
+            outcome, reason = verdict.verdict(scoped, active_units)
             if outcome == "error":
                 problems.append(f"{unit}: {reason}")
         if problems:
