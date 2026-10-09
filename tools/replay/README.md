@@ -61,10 +61,10 @@ sets/<name>/
 Each entry's `sha256` is that response file's own hash, checked before every replay; a mismatch is
 a miss, same as an absent file. `expect_cards` is the one owner of what the applied case's own
 `cards=` should read once the set is live (`run.sh` compares it against the run record after
-`testimage`); omit it (or leave it empty) for a set with no park module, such as `weather-only`. The
-run record's own `<manifest-hash>` token (`replay=<name>@<hash>`) is a separate, outer hash —
-`replay.py`'s own `SERVE` line, sha256 of `manifest.json`'s bytes — distinct from any one response's
-integrity hash.
+`testimage`); the key must be present, even if empty for a set with no park module such as
+`weather-only` — a missing key voids every job. The run record's own `<manifest-hash>` token
+(`replay=<name>@<hash>`) is a separate, outer hash — `replay.py`'s own `SERVE` line, sha256 of
+`manifest.json`'s bytes — distinct from any one response's integrity hash.
 
 ## Re-recording
 
@@ -86,5 +86,8 @@ re-record (pipeline timer off throughout):
    line per request, until every expected key has one.
 5. Stop `record.py`, remove bench's `wisekiosk.conf`, restore its own `config.json`, restart
    `wisekiosk.service` then `kiosk.service`, and close the tunnel.
-6. Review the new `sets/<name>/` tree before committing: `tools/scrub-identity.py --check` and a
+6. Add (or confirm) the set's own `expect_cards` in `manifest.json` by hand — `record.py` never
+   writes it. Editing the file this way changes its own bytes, so the run record's own
+   `<manifest-hash>` token changes too; that is expected, not a sign the recording failed.
+7. Review the new `sets/<name>/` tree before committing: `tools/scrub-identity.py --check` and a
    human read confirm `config.json` names only public, non-site coordinates and parks.

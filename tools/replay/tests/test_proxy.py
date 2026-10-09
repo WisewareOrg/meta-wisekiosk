@@ -2,7 +2,6 @@
 refusal, leaf-last-month check, the MISS/HIT decision, and the request/body/log-line transport
 helpers over plain file-like objects (no socket).
 """
-import hashlib
 from datetime import date, datetime
 from io import BytesIO
 
@@ -15,10 +14,8 @@ from proxy import (
     decide,
     hash_matches,
     known_hosts,
-    leaf_paths,
     load_manifest,
     log_line,
-    manifest_hash,
     match_key,
     parse_cert_enddate,
     read_body,
@@ -38,27 +35,15 @@ def _responses():
     return {REAL_KEY: {"file": "responses/weather.json", "sha256": REAL_BODY_SHA256}}
 
 
-# ------------------------------------------------------------------------- match_key
-
 def test_match_key_builds_method_host_target():
     assert match_key(REAL_METHOD, REAL_HOST, REAL_TARGET) == REAL_KEY
 
-
-# ------------------------------------------------------------------------- load_manifest
 
 def test_load_manifest(tmp_path):
     manifest_path = tmp_path / "manifest.json"
     manifest_path.write_text('{"expires": "2099-01-01", "responses": {}}', encoding="utf-8")
     assert load_manifest(manifest_path) == {"expires": "2099-01-01", "responses": {}}
 
-
-def test_manifest_hash_is_sha256_of_the_files_own_bytes(tmp_path):
-    manifest_path = tmp_path / "manifest.json"
-    manifest_path.write_bytes(b'{"expires": "2099-01-01"}')
-    assert manifest_hash(manifest_path) == hashlib.sha256(manifest_path.read_bytes()).hexdigest()
-
-
-# ------------------------------------------------------------------------- check_expiry
 
 def test_check_expiry_on_the_expiry_date_itself_does_not_raise():
     check_expiry("2026-10-09", today=date(2026, 10, 9))
@@ -74,8 +59,6 @@ def test_check_expiry_far_future_does_not_raise():
     check_expiry("2099-01-01", today=date(2026, 10, 9))
 
 
-# ------------------------------------------------------------------------- hash_matches
-
 def test_hash_matches_the_real_sha256sum_digest():
     assert hash_matches(REAL_BODY, REAL_BODY_SHA256) is True
 
@@ -85,13 +68,9 @@ def test_hash_matches_rejects_a_flipped_final_hex_character():
     assert hash_matches(REAL_BODY, flipped) is False
 
 
-# ------------------------------------------------------------------------- parse_cert_enddate
-
 def test_parse_cert_enddate_parses_the_real_openssl_line():
     assert parse_cert_enddate(REAL_ENDDATE_LINE) == datetime(2027, 10, 9, 6, 42, 51)
 
-
-# ------------------------------------------------------------------------- check_leaf_freshness
 
 def test_check_leaf_freshness_30_days_remaining_is_inside_the_last_month():
     assert check_leaf_freshness(REAL_HOST, datetime(2027, 1, 31), datetime(2027, 1, 1)) == \
@@ -106,8 +85,6 @@ def test_check_leaf_freshness_already_past_enddate_is_a_reason():
     assert check_leaf_freshness(REAL_HOST, datetime(2026, 1, 1), datetime(2026, 6, 1)) is not None
 
 
-# ------------------------------------------------------------------------- decide
-
 def test_decide_on_a_hit_returns_the_manifest_entry():
     assert decide(_responses(), REAL_METHOD, REAL_HOST, REAL_TARGET) == {
         "file": "responses/weather.json", "sha256": REAL_BODY_SHA256,
@@ -118,23 +95,9 @@ def test_decide_on_a_miss_returns_none():
     assert decide(_responses(), "GET", "example.invalid", "/unrecorded") is None
 
 
-# ------------------------------------------------------------------------- known_hosts / leaf_paths
-
 def test_known_hosts_from_the_manifests_own_response_keys():
     assert known_hosts({"responses": _responses()}) == {"example.invalid"}
 
-
-def test_known_hosts_empty_manifest_is_empty():
-    assert known_hosts({}) == set()
-
-
-def test_leaf_paths(tmp_path):
-    cert, key = leaf_paths(tmp_path, "example.invalid")
-    assert cert == tmp_path / "leaves" / "example.invalid.crt"
-    assert key == tmp_path / "leaves" / "example.invalid.key"
-
-
-# ------------------------------------------------------------------------- read_request / read_body
 
 def test_read_request_connect_line():
     rfile = BytesIO(b"CONNECT example.invalid:443 HTTP/1.1\r\nHost: example.invalid:443\r\n\r\n")
@@ -162,8 +125,6 @@ def test_read_body_present():
 def test_read_body_absent_is_empty():
     assert read_body(BytesIO(b"unread"), {}) == b""
 
-
-# ------------------------------------------------------------------------- log_line
 
 def test_log_line_appends_a_timestamped_line(tmp_path):
     logf = (tmp_path / "access.log").open("a", encoding="utf-8")

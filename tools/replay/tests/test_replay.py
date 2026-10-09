@@ -4,7 +4,7 @@ ever needs a network: respond() imports nothing that could open one, proven belo
 one primitive that would (socket.create_connection) raise if anything called it.
 """
 import socket
-from io import BytesIO
+from io import BytesIO, StringIO
 
 import pytest
 
@@ -22,31 +22,15 @@ def no_sockets(monkeypatch):
     monkeypatch.setattr(socket, "create_connection", _raise)
 
 
-class _TextLog:
-    """Wraps a BytesIO so proxy.log_line's text .write()/.flush() land in it, readable back out."""
-
-    def __init__(self):
-        self._raw = BytesIO()
-
-    def write(self, text):
-        self._raw.write(text.encode())
-
-    def flush(self):
-        pass
-
-    def text(self):
-        return self._raw.getvalue().decode()
-
-
 def _manifest():
     return {"responses": {KEY: {"file": "weather.json", "sha256": SHA}}}
 
 
 def _call(manifest, set_dir, method="GET", host="example.invalid", target="/weather?lat=1&lon=2"):
     wfile = BytesIO()
-    logf = _TextLog()
+    logf = StringIO()
     respond(manifest, set_dir, method, host, 443, target, {}, b"", wfile, logf)
-    return wfile.getvalue(), logf.text()
+    return wfile.getvalue(), logf.getvalue()
 
 
 def test_respond_hit_writes_the_file_and_logs_hit(tmp_path):

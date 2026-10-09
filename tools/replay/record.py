@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""Records a replay set: forwards every request to its real host and captures the first
-response per key. A hand procedure, pipeline timer off; never invoked by run.sh. The only file
-under tools/replay/ that dials a real host.
+"""tools/replay/README.md owns the facts this tool reads and implements.
 
     tools/replay/record.py --set <dir> --port <n> --ca <dir> --expires YYYY-MM-DD
 """
@@ -20,7 +18,7 @@ import proxy
 _manifest_lock = threading.Lock()
 
 
-def forward(host, port, method, target, headers, body):  # pragma: no cover -- dials a real host; proven by the host-only proof, not pytest
+def forward(host, port, method, target, headers, body):  # pragma: no cover -- dials a real host
     """The real upstream's own response to one request, dialled fresh every time, verified
     against the system's default trust store."""
     conn = http.client.HTTPSConnection(host, port, context=ssl.create_default_context(), timeout=30)

@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""Serves a committed replay set byte for byte. No code path here, nor in proxy.py, ever opens a
-connection to anything but the client already holding the tunnel; tools/replay/README.md owns the
-manifest, response-file and CA facts this tool reads.
+"""tools/replay/README.md owns the facts this tool reads and implements.
 
     tools/replay/replay.py --set <dir> --port <n> --ca <dir> --log <file>
 """
@@ -13,34 +11,34 @@ from pathlib import Path
 import proxy
 
 
+def _miss(wfile, logf, reason):
+    wfile.write(proxy.BAD_GATEWAY)
+    wfile.flush()
+    proxy.log_line(logf, f"MISS {reason}")
+
+
 def respond(manifest, set_dir, method, host, port, target, headers, body, wfile, logf):
     """Writes manifest's committed response for (method, host, target) byte for byte, or a 502
     on any miss: no entry, no response file, or a file whose bytes no longer match its hash."""
     entry = proxy.decide(manifest.get("responses", {}), method, host, target)
     key = proxy.match_key(method, host, target)
     if entry is None:
-        wfile.write(proxy.BAD_GATEWAY)
-        wfile.flush()
-        proxy.log_line(logf, f"MISS {key}")
+        _miss(wfile, logf, key)
         return
     try:
         data = (set_dir / "responses" / entry["file"]).read_bytes()
     except OSError:
-        wfile.write(proxy.BAD_GATEWAY)
-        wfile.flush()
-        proxy.log_line(logf, f"MISS {key} (no response file {entry['file']})")
+        _miss(wfile, logf, f"{key} (no response file {entry['file']})")
         return
     if not proxy.hash_matches(data, entry["sha256"]):
-        wfile.write(proxy.BAD_GATEWAY)
-        wfile.flush()
-        proxy.log_line(logf, f"MISS {key} (manifest hash mismatch)")
+        _miss(wfile, logf, f"{key} (manifest hash mismatch)")
         return
     wfile.write(data)
     wfile.flush()
     proxy.log_line(logf, f"HIT {key} sha256={entry['sha256']}")
 
 
-def main():  # pragma: no cover -- CLI wiring over respond()/proxy.serve(), both proven above and by the host-only proof
+def main():  # pragma: no cover -- CLI wiring over respond()/proxy.serve()
     parser = ArgumentParser(description=__doc__, formatter_class=RawDescriptionHelpFormatter)
     parser.add_argument("--set", required=True)
     parser.add_argument("--port", required=True, type=int)

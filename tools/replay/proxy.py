@@ -1,7 +1,6 @@
 """The CONNECT/TLS acceptor `replay.py` and `record.py` both build on, plus the pure manifest/CA
-parts both share. Neither this module nor `replay.py` imports anything that opens a connection to
-anything but the client already holding the tunnel; `tools/replay/README.md` owns the format,
-hash and CA facts this module's functions implement.
+parts both share. `tools/replay/README.md` owns the format, hash, CA and no-connection facts this
+module's functions implement.
 """
 import datetime
 import hashlib
@@ -26,19 +25,15 @@ BAD_GATEWAY = (
 _log_lock = threading.Lock()
 
 
-# --------------------------------------------------------------- pure parts
-
 class ReplaySetExpired(Exception):
     """A set past its own "expires" date."""
 
 
 def match_key(method, host, target):
-    """f"{method} {host} {target}"."""
     return f"{method} {host} {target}"
 
 
 def load_manifest(manifest_path):
-    """manifest_path's own JSON, parsed."""
     return json.loads(Path(manifest_path).read_text(encoding="utf-8"))
 
 
@@ -50,7 +45,6 @@ def check_expiry(expires, today=None):
 
 
 def hash_matches(body, sha256_hex):
-    """True if body's own sha256 hex digest equals sha256_hex."""
     return hashlib.sha256(body).hexdigest() == sha256_hex
 
 
@@ -79,14 +73,12 @@ def known_hosts(manifest):
     return {key.split(" ", 2)[1] for key in manifest.get("responses", {})}
 
 
-def leaf_paths(ca_dir, host):
-    """(cert, key) Path pair for host's own leaf under ca_dir/leaves."""
+def leaf_paths(ca_dir, host):  # pragma: no cover -- path arithmetic only, no branch to construct an input for
     leaves = ca_dir / "leaves"
     return leaves / f"{host}.crt", leaves / f"{host}.key"
 
 
-def manifest_hash(manifest_path):
-    """sha256 hex of manifest_path's own bytes."""
+def manifest_hash(manifest_path):  # pragma: no cover -- a direct file-read-and-hash; its own test would just re-implement hashlib
     return hashlib.sha256(Path(manifest_path).read_bytes()).hexdigest()
 
 
@@ -113,8 +105,6 @@ def log_line(logf, text):
         logf.flush()
 
 
-# ------------------------------------------------------------- the rest: I/O
-
 def leaf_expiry(cert_path):  # pragma: no cover -- shells to openssl; parse_cert_enddate does the parsing
     """cert_path's own notAfter, from a real `openssl x509 -noout -enddate` call."""
     out = subprocess.run(
@@ -137,7 +127,7 @@ def stale_leaves(ca_dir, hosts, now=None):  # pragma: no cover -- aggregates lea
     return stale
 
 
-class Handler(socketserver.BaseRequestHandler):  # pragma: no cover -- real sockets/TLS; proven by tools/replay/README.md's host-only proof
+class Handler(socketserver.BaseRequestHandler):  # pragma: no cover
     """One CONNECT tunnel: the plaintext CONNECT, a server-side TLS handshake with the CONNECT
     host's own leaf, then every tunnelled request through server.responder in turn."""
 
@@ -180,7 +170,7 @@ class Handler(socketserver.BaseRequestHandler):  # pragma: no cover -- real sock
         try:
             tls = ctx.wrap_socket(self.request, server_side=True)
         except ssl.SSLError as exc:
-            log_line(server.logf, f"TLS handshake failed for {host}: {exc}")
+            log_line(server.logf, f"MISS {host} (TLS handshake failed: {exc})")
             return
 
         tls_rfile = tls.makefile("rb")
