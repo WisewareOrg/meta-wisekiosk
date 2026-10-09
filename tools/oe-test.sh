@@ -58,17 +58,12 @@ if [ ! -f "$MANIFEST" ]; then
     exit 1
 fi
 
-# Resolves role/hostname via tools/device-role.py; refuses outright if role != bench.
-# 127.0.0.1 is the image-content tier's own address (kiosk_image.case, which
-# never touches self.target, self.tc.target, the HMAC key or the identity
-# map): no real board is ever assigned that address in local/device-identity.md,
-# so it can never be confused with prod or bench, and both the map lookup and
-# the key/map existence checks below -- which only a device case ever reads --
-# are skipped in favour of the declared values below. Any other address still
-# goes through the real map and still requires both files.
+# 127.0.0.1 with kiosk_image.case alone: the host-only tier, no identity lookup.
 if [ "$TARGET" = "127.0.0.1" ]; then
-    KIOSK_TARGET_ROLE=bench
-    KIOSK_TARGET_HOSTNAME=localhost
+    if [ "${#TEST_SUITES_ARR[@]}" -ne 1 ] || [ "${TEST_SUITES_ARR[0]}" != "kiosk_image.case" ]; then
+        echo "oe-test.sh: 127.0.0.1 only ever runs kiosk_image.case alone, got '${TEST_SUITES_ARR[*]:-}'" >&2
+        exit 1
+    fi
 else
     if [ ! -f "$KEY" ]; then
         echo "oe-test.sh: no $KEY -- run 'just pipeline-install' first" >&2
@@ -82,13 +77,13 @@ else
     read -r ROLE_KV HOSTNAME_KV <<< "$ROLE_LINE"
     KIOSK_TARGET_ROLE=${ROLE_KV#role=}
     KIOSK_TARGET_HOSTNAME=${HOSTNAME_KV#hostname=}
+    if [ "$KIOSK_TARGET_ROLE" != "bench" ]; then
+        echo "oe-test.sh: $TARGET resolves to role=$KIOSK_TARGET_ROLE -- this suite only ever runs against bench" >&2
+        exit 1
+    fi
+    export KIOSK_TARGET_ROLE KIOSK_TARGET_HOSTNAME
+    export KIOSK_HMAC_KEY="$KEY"
 fi
-if [ "$KIOSK_TARGET_ROLE" != "bench" ]; then
-    echo "oe-test.sh: $TARGET resolves to role=$KIOSK_TARGET_ROLE -- this suite only ever runs against bench" >&2
-    exit 1
-fi
-export KIOSK_TARGET_ROLE KIOSK_TARGET_HOSTNAME
-export KIOSK_HMAC_KEY="$KEY"
 
 # Matching testimage's own resolution exactly: the loader inserts the
 # cases directory itself as each case's own top_level_dir (so kiosk_render
