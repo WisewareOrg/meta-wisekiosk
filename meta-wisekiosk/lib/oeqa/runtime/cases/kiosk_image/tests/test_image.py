@@ -1,4 +1,4 @@
-"""Specifies cases/kiosk_image/verdict.py's two functions: execstart_verdict,
+"""Specifies cases/kiosk_image/verdict.py's three functions: dropin_order, execstart_verdict,
 path_presence_verdict. One parametrized test per function, one row per branch.
 """
 
@@ -6,9 +6,36 @@ import pytest
 
 from oeqa.runtime.cases.kiosk_image.verdict import (
     REQUIRED_DISPLAY_FLAGS,
+    dropin_order,
     execstart_verdict,
     path_presence_verdict,
 )
+
+# ================================================================== dropin_order
+USR_LIB = "usr/lib/systemd/system/kiosk.service.d"
+ETC = "etc/systemd/system/kiosk.service.d"
+
+
+@pytest.mark.parametrize(
+    ("name", "dir_names", "want"),
+    [
+        ("no drop-ins at all", {USR_LIB: [], ETC: []}, []),
+        ("one drop-in in one directory", {USR_LIB: ["10-a.conf"], ETC: []}, [(USR_LIB, "10-a.conf")]),
+        (
+            "etc masks a same-named usr/lib file",
+            {USR_LIB: ["10-a.conf"], ETC: ["10-a.conf"]},
+            [(ETC, "10-a.conf")],
+        ),
+        (
+            "cross-directory order is lexical by filename, not by directory",
+            {USR_LIB: ["20-b.conf"], ETC: ["10-a.conf"]},
+            [(ETC, "10-a.conf"), (USR_LIB, "20-b.conf")],
+        ),
+        ("a non-.conf entry is ignored", {USR_LIB: ["README"], ETC: []}, []),
+    ],
+)
+def test_dropin_order(name, dir_names, want):
+    assert dropin_order(dir_names) == want, name
 
 # ================================================================== execstart_verdict
 KIOSK_SERVICE_UNIT = """[Unit]

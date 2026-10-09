@@ -19,12 +19,23 @@ def _service_section(text):
     return m.group(1) if m else ""
 
 
+def dropin_order(dir_names):
+    """dir_names: {dirpath: [filenames]}, one entry per drop-in directory,
+    in systemd's own precedence order (later overrides earlier on the
+    same filename). Returns [(dirpath, filename), ...] sorted by
+    filename, each name resolved to whichever directory provides it
+    last."""
+    by_name = {}
+    for dirpath, names in dir_names.items():
+        for name in names:
+            if name.endswith(".conf"):
+                by_name[name] = dirpath
+    return [(by_name[name], name) for name in sorted(by_name)]
+
+
 def _effective_execstart(unit_text, dropin_texts):
-    """The merged ExecStart= command list systemd would run: unit_text's
-    own [Service] ExecStart= lines, then each dropin_texts entry in the
-    order given, each bare 'ExecStart=' resetting the accumulated list,
-    any other 'ExecStart=<cmd>' appending <cmd> stripped. A line outside
-    [Service] is ignored."""
+    """unit_text's own ExecStart= lines, then each dropin_texts entry's
+    own, in the order given."""
     commands = []
     for text in (unit_text, *dropin_texts):
         for value in _EXECSTART.findall(_service_section(text)):
@@ -42,10 +53,8 @@ def _contains_token_sequence(tokens, wanted):
 
 
 def execstart_verdict(unit_text, dropin_texts):
-    """Merges unit_text and dropin_texts (_effective_execstart, above),
-    then "ok" if every REQUIRED_DISPLAY_FLAGS token sequence appears in
-    the merged command(s)' own token list; "error" naming exactly which
-    are missing. An empty merge is its own "error"."""
+    """"ok" if every REQUIRED_DISPLAY_FLAGS token sequence is present;
+    "error" naming exactly which are missing."""
     effective = _effective_execstart(unit_text, dropin_texts)
     if not effective:
         return "error", "no ExecStart= remained after merging drop-ins -- nothing to check"

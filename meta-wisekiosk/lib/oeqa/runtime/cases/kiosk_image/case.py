@@ -38,16 +38,12 @@ def _debugfs_ls(ext4_path, dirpath):
 
 
 def _dropin_texts(ext4_path, unit_name):
-    """One text per *.conf drop-in for unit_name, in systemd's own merge
-    order: every directory's own filenames pooled, /etc overriding
-    usr/lib for the same filename, then applied sorted by filename."""
-    by_name = {}
+    dir_names = {}
     for d in _DROPIN_DIRS:
         dropin_dir = f"{d}/{unit_name}.d"
-        for name in _debugfs_ls(ext4_path, dropin_dir):
-            if name.endswith(".conf"):
-                by_name[name] = f"{dropin_dir}/{name}"
-    return [_debugfs_cat(ext4_path, by_name[name]) for name in sorted(by_name)]
+        dir_names[dropin_dir] = _debugfs_ls(ext4_path, dropin_dir)
+    return [_debugfs_cat(ext4_path, f"{dirpath}/{name}")
+            for dirpath, name in verdict.dropin_order(dir_names)]
 
 
 def _unit_text(ext4_path, unit_name):
@@ -56,7 +52,7 @@ def _unit_text(ext4_path, unit_name):
 
 class KioskImageTest(ImageCase):
     """The image-content tier: one case, one method per check, over the
-    build's own deployed `.ext4` and bundle -- no board, no network."""
+    build's own deployed `.ext4` -- no board, no network."""
 
     def test_execstart_flags(self):
         unit_text = _unit_text(ImageCase.ext4_path, "kiosk.service")
