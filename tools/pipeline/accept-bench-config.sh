@@ -65,21 +65,21 @@ fi
 CONFIG_JSON_HEX=$(hex_read /data/config/config.json)
 CONFIG_MAC=$(printf '%s' "$CONFIG_JSON_HEX" | python3 "$HERE/config-mac.py" "$KEY")
 
-# The replay CA cert: pushed from this host's own local/keys/replay-ca --
-# tools/replay/ca.sh's own output -- never read as a pre-existing bench
-# file the way kiosk.conf/config.json are above, since this file is
-# host-managed, not something a person hand-places on bench.
+# The replay CA cert: pushed from this host's own local/keys/replay-ca, host-managed.
 CA_CERT="$ROOT/local/keys/replay-ca/ca.crt"
+BENCH_CA_DIR="/data/config/replay-ca"
+BENCH_CA_CERT="$BENCH_CA_DIR/ca.crt"
 if [ -f "$CA_CERT" ]; then
+    # shellcheck disable=SC2029
     ssh "${SSH_OPTS[@]}" "$SSH_HOST" \
-            'mkdir -p /data/config/replay-ca && cat > /data/config/replay-ca/ca.crt && chmod 644 /data/config/replay-ca/ca.crt' \
+            "mkdir -p $BENCH_CA_DIR && cat > $BENCH_CA_CERT && chmod 644 $BENCH_CA_CERT" \
             < "$CA_CERT" \
         || { echo "accept-bench-config.sh: could not install the replay CA cert on bench" >&2; exit 1; }
-    CA_CERT_HEX=$(hex_read /data/config/replay-ca/ca.crt)
+    CA_CERT_HEX=$(hex_read "$BENCH_CA_CERT")
     CA_CERT_MAC=$(printf '%s' "$CA_CERT_HEX" | python3 "$HERE/config-mac.py" "$KEY")
 else
     CA_CERT_MAC=absent
-    echo "replay CA: no $CA_CERT -- run 'tools/replay/ca.sh <dir> ca' first, or every job will refuse the /data precondition"
+    echo "replay CA: no $CA_CERT -- a replay job will void at proxy start until 'tools/replay/ca.sh <dir> ca' is run"
 fi
 
 echo "kiosk_conf_mac=$KIOSK_CONF_MAC"

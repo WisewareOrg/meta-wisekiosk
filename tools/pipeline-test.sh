@@ -135,75 +135,24 @@ else
     bad "unknown record key dropped" "rc=$rc out=$out"
 fi
 
-# --- report-build.py --replay appends " replay=<value>" to every page.*
-# line before rendering -- the mode tools/replay/proxy.py and run.sh
-# measure from bench's own environment, never something the device-side
-# case that built the line could know (framework/record.py's with_replay). -----
-REPLAY_RESULTS="$TOP/replay-results.json"
-cat > "$REPLAY_RESULTS" <<'EOF'
-{"5678-efgh": {"configuration": {}, "result": {
-    "wisekiosk.record": {
-        "tool": "R tool=oe-test tool_commit=abc dirty=0 argv=x",
-        "image": "R image=abc slot=A",
-        "page.test_page_applied": "R page nonce=1 state=applied cards=4/4 faulted=0 unreachable=0"
-    }
-}}}
-EOF
-capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --results "$REPLAY_RESULTS" --replay "cards4-live@deadbeef"
-if [ "$rc" -eq 0 ] && [[ "$out" == *"cards=4/4 faulted=0 unreachable=0 replay=cards4-live@deadbeef"* ]]; then
-    ok "build: --replay appends replay=<value> to the page line before rendering"
-else
-    bad "--replay page-line append" "rc=$rc out=$out"
-fi
-capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --results "$REPLAY_RESULTS"
-if [ "$rc" -eq 0 ] && [[ "$out" != *"replay="* ]]; then
-    ok "build: no --replay given, no replay= token appears"
-else
-    bad "replay= token appeared with no --replay given" "rc=$rc out=$out"
-fi
-
-# --- record-check.py's dirty/transport parse is unaffected by a page line
-# that already carries a trailing replay=<value> token (the shape
-# report-build.py's own rendering produces -- never written back into
-# testresults.json itself, but record-check.py's regex-based parse must
-# not be confused by it either way). ---------------------------------------
-REPLAY_SUFFIX_RESULTS="$TOP/replay-suffix-results.json"
-cat > "$REPLAY_SUFFIX_RESULTS" <<'EOF'
-{"5678-efgh": {"configuration": {}, "result": {
-    "wisekiosk.record": {
-        "tool": "R tool=oe-test tool_commit=abc dirty=0 argv=x",
-        "image": "R image=abc slot=A",
-        "page.test_page_applied": "R page nonce=1 state=applied cards=4/4 faulted=0 unreachable=0 replay=cards4-live@deadbeef"
-    }
-}}}
-EOF
-capture out rc "$PY" "$RECORD_CHECK_PY" "$REPLAY_SUFFIX_RESULTS" abc
-if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0" ]; then
-    ok "record-check: a page line's trailing replay=<value> token does not confuse the dirty/transport parse"
-else
-    bad "record-check tolerance of a trailing replay= token" "rc=$rc out=$out"
-fi
-
-# --- boundary: tools/replay/proxy.py's replay path has no forwarding code
-# at all -- decide() and respond_replay()'s own bodies, comments stripped,
-# name neither the client class record's own forward() uses nor a direct
-# call to it. --------------------------------------------------------------
+# --- boundary: replay.py and proxy.py (the job's own entry point and the
+# shared acceptor) contain no client-dialling primitive -- record.py is the
+# only forwarder. Seeded once against a scratch copy, never the real file. -
+REPLAY_PY="$HERE/replay/replay.py"
 PROXY_PY="$HERE/replay/proxy.py"
-REPLAY_BODY=$( { sed -n '/^def decide(/,/^def /p' "$PROXY_PY" | sed '$d'
-                  sed -n '/^def respond_replay(/,/^def /p' "$PROXY_PY" | sed '$d'
-                } | grep -v '^[[:space:]]*#')
-if [ -n "$REPLAY_BODY" ] \
-        && ! printf '%s' "$REPLAY_BODY" | grep -qE 'HTTPSConnection|create_connection|forward\('; then
-    ok "boundary: tools/replay/proxy.py's decide/respond_replay have no forwarding code path"
+FORBIDDEN='HTTPSConnection|HTTPConnection|create_connection|urlopen|socket\.socket\('
+if ! grep -qE "$FORBIDDEN" "$REPLAY_PY" "$PROXY_PY"; then
+    ok "boundary: replay.py and proxy.py contain no client-dialling primitive"
 else
-    bad "tools/replay/proxy.py's replay path appears to forward to an upstream host"
+    bad "replay.py or proxy.py names a client-dialling primitive"
 fi
-HTTPS_CONNECTION_USES=$(grep -c 'HTTPSConnection' "$PROXY_PY")
-FORWARD_DEF_HAS_IT=$(sed -n '/^def forward(/,/^def /p' "$PROXY_PY" | grep -c 'HTTPSConnection')
-if [ "$HTTPS_CONNECTION_USES" -eq 1 ] && [ "$FORWARD_DEF_HAS_IT" -eq 1 ]; then
-    ok "boundary: HTTPSConnection (the only outbound dial in the file) lives solely inside forward()"
+SEEDED="$TOP/proxy-seeded.py"
+cp "$PROXY_PY" "$SEEDED"
+printf '\nsocket.create_connection(("x", 1))  # seeded defect\n' >> "$SEEDED"
+if grep -qE "$FORBIDDEN" "$SEEDED"; then
+    ok "boundary check proven able to fail: a seeded create_connection() in a scratch copy is caught"
 else
-    bad "HTTPSConnection appears outside forward(), or not at all" "uses=$HTTPS_CONNECTION_USES in-forward=$FORWARD_DEF_HAS_IT"
+    bad "the no-forwarding boundary check missed a seeded create_connection()"
 fi
 
 capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --log "$LONGLOG"
@@ -334,7 +283,7 @@ EOF
 
 dirty_fixture "dirty=0 "
 capture out rc "$PY" "$RECORD_CHECK_PY" "$TOP/dirty-results.json" abc
-if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0" ]; then
+if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0 -" ]; then
     ok "record-check: dirty=0 reports clean"
 else
     bad "record-check: dirty=0 did not report clean" "rc=$rc out=$out"
@@ -342,10 +291,56 @@ fi
 
 dirty_fixture "dirty=1 "
 capture out rc "$PY" "$RECORD_CHECK_PY" "$TOP/dirty-results.json" abc
-if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 1 0" ]; then
+if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 1 0 -" ]; then
     ok "record-check: dirty=1 still reports OK -- run.sh's own abort path reads the 1"
 else
     bad "record-check: dirty=1 changed shape" "rc=$rc out=$out"
+fi
+
+# --- record-check.py --expect-cards compares the applied case's own
+# cards= token against the set's own expectation (B1: the comparison runs
+# against the record, after testimage, never against a probe nobody armed
+# before it). --------------------------------------------------------------
+CARDS_RESULTS="$TOP/cards-results.json"
+cat > "$CARDS_RESULTS" <<'EOF'
+{"5678-efgh": {"configuration": {}, "result": {
+    "wisekiosk.record": {
+        "tool": "R tool=oe-test tool_commit=abc dirty=0 argv=x",
+        "image": "R image=abc slot=A",
+        "page.test_page_applied": "R page nonce=1 state=applied cards=4/4 faulted=0 unreachable=0"
+    }
+}}}
+EOF
+capture out rc "$PY" "$RECORD_CHECK_PY" "$CARDS_RESULTS" abc --expect-cards "4/4"
+if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0 0" ]; then
+    ok "record-check: --expect-cards matching the record's own cards= reports clean"
+else
+    bad "record-check --expect-cards match" "rc=$rc out=$out"
+fi
+capture out rc "$PY" "$RECORD_CHECK_PY" "$CARDS_RESULTS" abc --expect-cards "4/2"
+if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0 1" ]; then
+    ok "record-check: --expect-cards mismatching the record's own cards= flags it"
+else
+    bad "record-check --expect-cards mismatch" "rc=$rc out=$out"
+fi
+capture out rc "$PY" "$RECORD_CHECK_PY" "$CARDS_RESULTS" abc
+if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0 -" ]; then
+    ok "record-check: no --expect-cards given, the cards field is -"
+else
+    bad "record-check cards field with no --expect-cards" "rc=$rc out=$out"
+fi
+
+# --- record-check.py --replay writes "R replay=<value>" into the record
+# dict and persists testresults.json -- B4: the record of record gains the
+# field, not only the rendered report. --------------------------------------
+REPLAY_WRITE_JSON="$TOP/replay-write-results.json"
+cp "$CARDS_RESULTS" "$REPLAY_WRITE_JSON"
+capture out rc "$PY" "$RECORD_CHECK_PY" "$REPLAY_WRITE_JSON" abc --replay "cards4-live@deadbeef"
+if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0 -" ] \
+        && grep -qF '"replay": "R replay=cards4-live@deadbeef"' "$REPLAY_WRITE_JSON"; then
+    ok "record-check: --replay writes R replay=<value> into testresults.json's own record"
+else
+    bad "record-check --replay write-back" "rc=$rc out=$out $(cat "$REPLAY_WRITE_JSON")"
 fi
 
 dirty_fixture ""

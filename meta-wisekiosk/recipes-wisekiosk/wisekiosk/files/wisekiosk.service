@@ -12,8 +12,6 @@ Type=simple
 # uid/gid 10001, created by this package.
 User=kiosk
 Group=kiosk
-# systemd applies these in file order; the image carries no such file, so
-# this is a provisioning hook only -- never a default.
 EnvironmentFile=-/data/config/wisekiosk.conf
 ExecStart=/usr/bin/wisekiosk -static-root /srv/kiosk
 Restart=always
