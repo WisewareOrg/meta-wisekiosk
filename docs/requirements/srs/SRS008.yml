@@ -1,0 +1,21 @@
+active: true
+derived: false
+header: |
+  Display starts as designed
+level: 1.7
+links:
+- SYS001: u6hdq6mHTqj4-PFL8YoiEf3ClOIYMUPOHFSXKCbqAtU=
+normative: true
+rationale: ''
+ref: ''
+reviewed: huS9vLjJUj5Z0kZJOwj1GnD4fpX3bfl1_QGDHKigsBo=
+status: proposed
+text: |
+  The kiosk shall start its display as designed: screen blanking off, the cursor hidden, and
+  every unit meta-wisekiosk's own recipes ship is well-formed.
+verification-justification: |
+  Settles that the built image's own display-launch unit and every unit meta-wisekiosk's own
+  recipes ship are configured and well-formed as designed, read from the build's own artifacts.
+  Leaves unproven whether a runtime override later changes any of this once the image is
+  deployed, and anything about units this layer does not own.
+verification-method: test

@@ -1,0 +1,25 @@
+active: true
+derived: false
+header: |
+  Device unit-well-formedness check passes
+level: 1.7.1
+links:
+- SRS008: zs9A7WxaOJimnsjkTKczkKR5YajQFRAvDD6aCNGi9UU=
+normative: true
+rationale: ''
+ref: ''
+references:
+- keyword: def test_units_well_formed
+  path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_units/case.py
+  sha: 0594f74b7107d6b4b7c502a46f10924a98991982e03b9443b31bbd031a984c0a
+  type: file
+reviewed: 7lsdI691Vf23F8A2kPMpmdbd-q4qdUeD3u_99gNNvCg=
+status: proposed
+text: |
+  Run the device suite's unit-well-formedness check against the booted appliance's own
+  shipped units and assert it passes.
+verification-justification: |
+  Settles that every unit meta-wisekiosk's own recipes ship is well-formed, as the board's own
+  systemd resolves it, on one physical device, one boot. Leaves unproven anything about units
+  this layer does not own, or whether a later change breaks a unit that passed today.
+verification-method: test

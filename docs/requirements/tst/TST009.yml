@@ -1,0 +1,29 @@
+active: true
+derived: false
+header: |
+  Bundle-image tie check passes
+level: 1.8
+links:
+- SRS009: BfB6mi0dIW7R2ls2FTG3a5YPDD1sfAsHNmMDPug6xLo=
+normative: true
+rationale: ''
+ref: ''
+references:
+- keyword: def test_bundle_image_tie
+  path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_image/case.py
+  sha: 9e0c3d00195770cc67d3886d0df0c65d02976c3299d2a70178bb21f5c79c73ad
+  type: file
+- keyword: def test_display_files_present
+  path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_image/case.py
+  sha: 9e0c3d00195770cc67d3886d0df0c65d02976c3299d2a70178bb21f5c79c73ad
+  type: file
+reviewed: _1tv_GPiOxWhqpH9PODiHTH49a3thDPT2qp6agheGas=
+status: proposed
+text: |
+  Run the image-content tier's bundle-image-tie and display-files-present checks against the
+  built rootfs and bundle and assert both pass.
+verification-justification: |
+  Settles that the bundle's own manifest names the deployed rootfs by hash and that the
+  display's served entry point is present in it, read from this build's own artifacts. Leaves
+  unproven whether the served files are themselves correct once applied.
+verification-method: test

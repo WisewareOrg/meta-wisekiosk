@@ -1,0 +1,26 @@
+active: true
+derived: false
+header: |
+  Image-content display check passes
+level: 1.7
+links:
+- SRS008: zs9A7WxaOJimnsjkTKczkKR5YajQFRAvDD6aCNGi9UU=
+normative: true
+rationale: ''
+ref: ''
+references:
+- keyword: def test_execstart_flags
+  path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_image/case.py
+  sha: 9e0c3d00195770cc67d3886d0df0c65d02976c3299d2a70178bb21f5c79c73ad
+  type: file
+reviewed: PL5xE_1U2I5s8dQN3IpKcN6fvCDv9aB8xwevRWDajWQ=
+status: proposed
+text: |
+  Run the image-content tier's display-launch check against the built rootfs and assert it
+  passes.
+verification-justification: |
+  Settles that the built rootfs's own display-launch unit carries the designed flags, read
+  from this build's own artifacts. Leaves unproven whether a runtime override later changes
+  any of this once the image is deployed, and whether every shipped unit is itself well-formed
+  (TST010, the same obligation's device-tier check).
+verification-method: test
