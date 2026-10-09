@@ -1,19 +1,20 @@
-"""Specifies cases/kiosk_units/verdict.py: verdict(status, output, active_units) and
-not_found_names(output). One parametrized test, one row per branch.
+"""Specifies cases/kiosk_units/verdict.py: verdict(status, output, active_units),
+not_found_names(output), shipped_units_verdict(units). One parametrized test per function, one row
+per branch.
 """
 
 import pytest
 
-from oeqa.runtime.cases.kiosk_units.verdict import not_found_names, verdict
+from oeqa.runtime.cases.kiosk_units.verdict import not_found_names, shipped_units_verdict, verdict
 
-# The real line from the pipeline's own kiosk.service/kiosk-provision.service failures.
+# The real line from the pipeline's own kiosk.service failure.
 KIOSK_DATA_MOUNT_NOT_FOUND = "kiosk.service: Failed to create kiosk.service/start: Unit data.mount not found."
-PROVISION_DATA_MOUNT_NOT_FOUND = "kiosk-provision.service: Failed to create kiosk-provision.service/start: Unit data.mount not found."
 
 EXECSTART_MISSING = "kiosk.service: Service has no ExecStart=, ExecStop=, or SuccessAction=. Refusing."
 
-# The real shapes a missing systemd-analyze package or an unreachable board produce.
-COMMAND_NOT_FOUND = "bash: line 1: systemd-analyze: command not found"
+# The real shapes a missing systemd-analyze package or an unreachable board produce. The board's
+# own shell is busybox's `sh`, not bash.
+COMMAND_NOT_FOUND = "sh: systemd-analyze: not found"
 CONNECTION_REFUSED = "ssh: connect to host 192.0.2.1 port 22: Connection refused"
 
 
@@ -50,15 +51,6 @@ CONNECTION_REFUSED = "ssh: connect to host 192.0.2.1 port 22: Connection refused
             (),
         ),
         (
-            "several excused not-found lines together, still ok",
-            1,
-            KIOSK_DATA_MOUNT_NOT_FOUND + "\n" + PROVISION_DATA_MOUNT_NOT_FOUND,
-            {"data.mount": "active"},
-            "ok",
-            (),
-            (),
-        ),
-        (
             "an excused line beside a genuine one names only the genuine one",
             1,
             KIOSK_DATA_MOUNT_NOT_FOUND + "\n" + EXECSTART_MISSING,
@@ -67,7 +59,7 @@ CONNECTION_REFUSED = "ssh: connect to host 192.0.2.1 port 22: Connection refused
             ("Refusing",),
             ("data.mount",),
         ),
-        ("the package is missing, named verbatim", 127, COMMAND_NOT_FOUND, {}, "error", ("command not found",), ()),
+        ("the package is missing, named verbatim", 127, COMMAND_NOT_FOUND, {}, "error", ("not found",), ()),
         ("the board is unreachable, named verbatim", 255, CONNECTION_REFUSED, {}, "error", ("Connection refused",), ()),
         ("non-zero status with no diagnostic at all, status named", 137, "", {}, "error", ("137",), ()),
     ],
@@ -84,3 +76,17 @@ def test_verdict_outcome(name, status, output, active_units, want_outcome, want_
 def test_not_found_names_extracts_every_name():
     names = not_found_names(KIOSK_DATA_MOUNT_NOT_FOUND + "\n" + EXECSTART_MISSING)
     assert names == {"data.mount"}
+
+
+@pytest.mark.parametrize(
+    ("name", "units", "want_outcome", "want_reason_contains"),
+    [
+        ("no units found is error, never a pass", (), "error", ("no shipped units",)),
+        ("a non-empty list is ok", ("kiosk.service",), "ok", ()),
+    ],
+)
+def test_shipped_units_verdict_outcome(name, units, want_outcome, want_reason_contains):
+    outcome, reason = shipped_units_verdict(units)
+    assert outcome == want_outcome, f"{name}: {reason!r}"
+    for token in want_reason_contains:
+        assert token in reason, f"{name}: {token!r} not in {reason!r}"

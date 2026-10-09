@@ -1,12 +1,9 @@
-"""The device-side unit-wellformedness tier's own judgement: `systemd-analyze verify`'s own
-outcome, and the extraction of every unit name it reports missing. `data.mount` is produced at
-boot by systemd's fstab generator, never a unit file in the image; `verify` never sees it, and a
-"Unit X not found" line is excused -- not a defect -- exactly when the board's own
-`systemctl is-active X` says X is running.
+"""The device-side unit-wellformedness tier's own judgement. `data.mount` is produced at boot by
+systemd's fstab generator, never a unit file in the image; `verify` never sees it, and a "Unit X
+not found" line is excused -- not a defect -- exactly when the board's own `systemctl is-active X`
+says X is running.
 
-Pure: a returncode, verify's own text, and a {name: is-active answer} map in, an (outcome, reason)
-tuple or a name set out -- no self.target, no subprocess, no network. case.py collects every input;
-this module only judges what came back.
+Pure -- no self.target, no subprocess, no network. case.py collects every input.
 """
 import re
 
@@ -18,15 +15,17 @@ def not_found_names(output):
     return set(NOT_FOUND.findall(output))
 
 
+def shipped_units_verdict(units):
+    """"error" when units is empty -- nothing was verified, never a pass;
+    "ok" otherwise."""
+    if not units:
+        return "error", "no shipped units found under meta-wisekiosk/recipes-*/**/*.service, *.timer"
+    return "ok", f"{len(units)} shipped unit(s) found"
+
+
 def verdict(status, output, active_units):
-    """status: systemd-analyze verify's own exit code. output: its
-    combined stdout/stderr. active_units: {name: systemctl is-active's
-    own answer} for every name not_found_names(output) reports. A
-    "Unit X not found" line is dropped (excused) when active_units maps
-    that name to "active"; every other line survives. "error" naming
-    whatever survives, if anything; else "error" naming the bare status
-    when status is non-zero and nothing was excused either (a silent
-    failure with no diagnostic to excuse); else "ok"."""
+    """"ok" iff status == 0 and every line is absent or excused; "error"
+    naming what survives, or the bare status if nothing does."""
     remaining = []
     excused_any = False
     for line in output.splitlines():

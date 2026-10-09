@@ -25,6 +25,9 @@ class KioskUnitsTest(WiseKioskCase):
     over SSH."""
 
     def test_units_well_formed(self):
+        outcome, reason = verdict.shipped_units_verdict(SHIPPED_UNITS)
+        if outcome != "ok":
+            self.fail(reason)
         problems = []
         for unit in SHIPPED_UNITS:
             status, output = self.target.run(f"systemd-analyze verify {unit}")
