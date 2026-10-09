@@ -11,13 +11,13 @@ ref: ''
 references:
 - keyword: the bundle ties to the image
   path: tools/reproducibility-gate.sh
-  sha: e6ca56117ffa57c1cf7c8f1f6a095c1cb65067f6edbf1ffbc1f4fce7421463a8
+  sha: f91541c38e508dd74c0f9e0291192436655e12ae65bbaeae5662c14d9cee37db
   type: file
 - keyword: def test_display_files_present
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_image/case.py
   sha: bded8f4da70bebf1e42dbb7417685cd0142b8d977239f4cb07cbf348682d3213
   type: file
-reviewed: tO1YoNB6f308QVIySDBUDTRhD4wUjJjkTm-HFd7a0bQ=
+reviewed: 3n5kpbokGOuTuSPk6cMMHjwf1sRh_-4Wtj0wVqdDHC8=
 status: proposed
 text: |
   Hash the deployed rootfs and compare it to the bundle's own digest, and assert the

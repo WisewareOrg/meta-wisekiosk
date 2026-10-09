@@ -97,8 +97,9 @@ behind those changes are indexed in **[docs/README.md](docs/README.md)**.
 ## Quick start
 
 `kas-container` runs the build inside a container, so a working **Docker** is a
-prerequisite. The flash and OTA paths additionally need `git`, `debugfs` (`e2fsprogs`) and `openssl`,
-and the repository guards (`just guards` and the pre-commit hook) and the layer-currency recipes
+prerequisite. The flash and OTA paths additionally need `git`, `debugfs` (`e2fsprogs`),
+`unsquashfs` (`squashfs-tools`) and `openssl`, and the repository guards (`just guards` and the
+pre-commit hook) and the layer-currency recipes
 (`just currency`, `just gap`) need **PyYAML** to read the kas YAML — all of them refuse rather than
 skip when one is missing. `uv sync` installs PyYAML, pinned in `pyproject.toml`/`uv.lock`, into
 `.venv/` at the repository root — the single install path, no PEP-668 workaround needed.

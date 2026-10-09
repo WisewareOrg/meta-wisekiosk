@@ -160,22 +160,22 @@ fi
 if [ "$mode" = "image" ] && [ -n "$bundle" ]; then
     if [ ! -f "$bundle" ]; then
         refuse "no bundle at $bundle -- nothing to tie to $image"
-    elif ! command -v rauc > /dev/null 2>&1; then
-        refuse "rauc missing -- cannot read $bundle; install rauc"
+    elif ! command -v unsquashfs > /dev/null 2>&1; then
+        refuse "unsquashfs missing -- cannot read $bundle; install squashfs-tools"
     elif ! command -v sha256sum > /dev/null 2>&1; then
         refuse "sha256sum missing -- cannot hash $image"
     else
-        # `rauc info --output-format=shell` single-quotes every value.
-        bundle_shell=$(rauc info --no-verify --output-format=shell "$bundle" 2>/dev/null)
-        rootfs_idx=$(printf '%s\n' "$bundle_shell" \
-            | sed -n "s/^RAUC_IMAGE_CLASS_\([0-9][0-9]*\)='rootfs'\$/\1/p" | head -1)
-        bundle_digest=""
-        [ -n "$rootfs_idx" ] \
-            && bundle_digest=$(printf '%s\n' "$bundle_shell" \
-                | sed -n "s/^RAUC_IMAGE_DIGEST_${rootfs_idx}='\\(.*\\)'\$/\\1/p")
+        # A bundle is squashfs with an appended signature; unsquashfs reads
+        # from the front and needs no key to cat one named file.
+        manifest=$(unsquashfs -cat "$bundle" manifest.raucm 2>/dev/null)
+        bundle_digest=$(awk '
+            /^\[image\.rootfs\]/ { in_section = 1; next }
+            /^\[/ { in_section = 0 }
+            in_section && /^sha256=/ { sub(/^sha256=/, ""); print; exit }
+        ' <<< "$manifest")
         image_digest=$(sha256sum "$image" | awk '{print $1}')
         if [ -z "$bundle_digest" ]; then
-            refuse "no rootfs image digest in $bundle's own \`rauc info\` output -- cannot tie it to $image"
+            refuse "no [image.rootfs] sha256= in $bundle's own manifest.raucm -- cannot tie it to $image"
         elif [ "$bundle_digest" != "$image_digest" ]; then
             refuse "the bundle does not tie to this image:"
             printf '        bundle rootfs digest: %s\n' "$bundle_digest" >&2
