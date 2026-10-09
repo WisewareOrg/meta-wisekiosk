@@ -65,10 +65,28 @@ fi
 CONFIG_JSON_HEX=$(hex_read /data/config/config.json)
 CONFIG_MAC=$(printf '%s' "$CONFIG_JSON_HEX" | python3 "$HERE/config-mac.py" "$KEY")
 
+# The replay CA cert: pushed from this host's own local/keys/replay-ca --
+# tools/replay/ca.sh's own output -- never read as a pre-existing bench
+# file the way kiosk.conf/config.json are above, since this file is
+# host-managed, not something a person hand-places on bench.
+CA_CERT="$ROOT/local/keys/replay-ca/ca.crt"
+if [ -f "$CA_CERT" ]; then
+    ssh "${SSH_OPTS[@]}" "$SSH_HOST" \
+            'mkdir -p /data/config/replay-ca && cat > /data/config/replay-ca/ca.crt && chmod 644 /data/config/replay-ca/ca.crt' \
+            < "$CA_CERT" \
+        || { echo "accept-bench-config.sh: could not install the replay CA cert on bench" >&2; exit 1; }
+    CA_CERT_HEX=$(hex_read /data/config/replay-ca/ca.crt)
+    CA_CERT_MAC=$(printf '%s' "$CA_CERT_HEX" | python3 "$HERE/config-mac.py" "$KEY")
+else
+    CA_CERT_MAC=absent
+    echo "replay CA: no $CA_CERT -- run 'tools/replay/ca.sh <dir> ca' first, or every job will refuse the /data precondition"
+fi
+
 echo "kiosk_conf_mac=$KIOSK_CONF_MAC"
 echo "config_mac=$CONFIG_MAC"
+echo "ca_cert_mac=$CA_CERT_MAC"
 
 MAC_FILE="$PIPELINE_DRIVER/local/pipeline/bench-config.mac"
 mkdir -p "$(dirname "$MAC_FILE")"
-printf 'kiosk_conf_mac=%s\nconfig_mac=%s\n' "$KIOSK_CONF_MAC" "$CONFIG_MAC" > "$MAC_FILE"
+printf 'kiosk_conf_mac=%s\nconfig_mac=%s\nca_cert_mac=%s\n' "$KIOSK_CONF_MAC" "$CONFIG_MAC" "$CA_CERT_MAC" > "$MAC_FILE"
 echo "recorded: $MAC_FILE"

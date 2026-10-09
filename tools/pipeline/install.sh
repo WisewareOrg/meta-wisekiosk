@@ -87,6 +87,9 @@ SSH_DIR="$CONF_DIR/pipeline-ssh"
     printf 'PIPELINE_TARGET="%s"\n' "$TARGET"
     printf 'PIPELINE_TARGET_ROLE="%s"\n' "$ROLE"
     printf 'PIPELINE_LOCK="%s"\n' "$PIPELINE_LOCK"
+    # The replay proxy's own loopback port, both ends of the job's reverse
+    # tunnel -- tools/replay/README.md names the default.
+    printf 'PIPELINE_REPLAY_PORT="%s"\n' "${PIPELINE_REPLAY_PORT:-18443}"
 } > "$CONF_DIR/pipeline.env"
 
 mkdir -p "$SSH_DIR"

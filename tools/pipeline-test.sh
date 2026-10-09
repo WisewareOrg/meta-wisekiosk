@@ -135,6 +135,77 @@ else
     bad "unknown record key dropped" "rc=$rc out=$out"
 fi
 
+# --- report-build.py --replay appends " replay=<value>" to every page.*
+# line before rendering -- the mode tools/replay/proxy.py and run.sh
+# measure from bench's own environment, never something the device-side
+# case that built the line could know (framework/record.py's with_replay). -----
+REPLAY_RESULTS="$TOP/replay-results.json"
+cat > "$REPLAY_RESULTS" <<'EOF'
+{"5678-efgh": {"configuration": {}, "result": {
+    "wisekiosk.record": {
+        "tool": "R tool=oe-test tool_commit=abc dirty=0 argv=x",
+        "image": "R image=abc slot=A",
+        "page.test_page_applied": "R page nonce=1 state=applied cards=4/4 faulted=0 unreachable=0"
+    }
+}}}
+EOF
+capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --results "$REPLAY_RESULTS" --replay "cards4-live@deadbeef"
+if [ "$rc" -eq 0 ] && [[ "$out" == *"cards=4/4 faulted=0 unreachable=0 replay=cards4-live@deadbeef"* ]]; then
+    ok "build: --replay appends replay=<value> to the page line before rendering"
+else
+    bad "--replay page-line append" "rc=$rc out=$out"
+fi
+capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --results "$REPLAY_RESULTS"
+if [ "$rc" -eq 0 ] && [[ "$out" != *"replay="* ]]; then
+    ok "build: no --replay given, no replay= token appears"
+else
+    bad "replay= token appeared with no --replay given" "rc=$rc out=$out"
+fi
+
+# --- record-check.py's dirty/transport parse is unaffected by a page line
+# that already carries a trailing replay=<value> token (the shape
+# report-build.py's own rendering produces -- never written back into
+# testresults.json itself, but record-check.py's regex-based parse must
+# not be confused by it either way). ---------------------------------------
+REPLAY_SUFFIX_RESULTS="$TOP/replay-suffix-results.json"
+cat > "$REPLAY_SUFFIX_RESULTS" <<'EOF'
+{"5678-efgh": {"configuration": {}, "result": {
+    "wisekiosk.record": {
+        "tool": "R tool=oe-test tool_commit=abc dirty=0 argv=x",
+        "image": "R image=abc slot=A",
+        "page.test_page_applied": "R page nonce=1 state=applied cards=4/4 faulted=0 unreachable=0 replay=cards4-live@deadbeef"
+    }
+}}}
+EOF
+capture out rc "$PY" "$RECORD_CHECK_PY" "$REPLAY_SUFFIX_RESULTS" abc
+if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0" ]; then
+    ok "record-check: a page line's trailing replay=<value> token does not confuse the dirty/transport parse"
+else
+    bad "record-check tolerance of a trailing replay= token" "rc=$rc out=$out"
+fi
+
+# --- boundary: tools/replay/proxy.py's replay path has no forwarding code
+# at all -- decide() and respond_replay()'s own bodies, comments stripped,
+# name neither the client class record's own forward() uses nor a direct
+# call to it. --------------------------------------------------------------
+PROXY_PY="$HERE/replay/proxy.py"
+REPLAY_BODY=$( { sed -n '/^def decide(/,/^def /p' "$PROXY_PY" | sed '$d'
+                  sed -n '/^def respond_replay(/,/^def /p' "$PROXY_PY" | sed '$d'
+                } | grep -v '^[[:space:]]*#')
+if [ -n "$REPLAY_BODY" ] \
+        && ! printf '%s' "$REPLAY_BODY" | grep -qE 'HTTPSConnection|create_connection|forward\('; then
+    ok "boundary: tools/replay/proxy.py's decide/respond_replay have no forwarding code path"
+else
+    bad "tools/replay/proxy.py's replay path appears to forward to an upstream host"
+fi
+HTTPS_CONNECTION_USES=$(grep -c 'HTTPSConnection' "$PROXY_PY")
+FORWARD_DEF_HAS_IT=$(sed -n '/^def forward(/,/^def /p' "$PROXY_PY" | grep -c 'HTTPSConnection')
+if [ "$HTTPS_CONNECTION_USES" -eq 1 ] && [ "$FORWARD_DEF_HAS_IT" -eq 1 ]; then
+    ok "boundary: HTTPSConnection (the only outbound dial in the file) lives solely inside forward()"
+else
+    bad "HTTPSConnection appears outside forward(), or not at all" "uses=$HTTPS_CONNECTION_USES in-forward=$FORWARD_DEF_HAS_IT"
+fi
+
 capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --log "$LONGLOG"
 if [ "$rc" -eq 0 ] && [[ "$out" == *"## Log — long.log"* ]] \
         && [[ "$out" == *$'\n1\n'* ]] && [[ "$out" == *$'\n250'* ]]; then
