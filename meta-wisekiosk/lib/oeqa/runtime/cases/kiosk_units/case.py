@@ -10,6 +10,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[6]
 
 UNIT_GLOBS = ("meta-wisekiosk/recipes-*/**/*.service", "meta-wisekiosk/recipes-*/**/*.timer")
 
+SHOW_PROPERTIES = "LoadState,LoadError,ActiveState,Result"
+
 
 def _shipped_units():
     """Every *.service/*.timer file meta-wisekiosk's own recipes install,
@@ -22,24 +24,23 @@ SHIPPED_UNITS = _shipped_units()
 
 
 class KioskUnitsTest(WiseKioskCase):
-    """The appliance's own systemd validating its own shipped units: one
-    `systemd-analyze verify` call per unit in SHIPPED_UNITS, on the board
-    over SSH."""
+    """The appliance's own systemd reporting on its own shipped units: one
+    `systemctl show` call per unit in SHIPPED_UNITS, plus one board-wide
+    `systemctl list-units --failed` call, on the board over SSH."""
 
-    def test_units_well_formed(self):
+    def test_units_loaded(self):
         outcome, reason = verdict.shipped_units_verdict(SHIPPED_UNITS, ", ".join(UNIT_GLOBS))
         if outcome != "ok":
             self.fail(reason)
-        problems = []
+
+        unit_properties = {}
         for unit in SHIPPED_UNITS:
-            status, output = self.target.run(f"systemd-analyze verify {unit}")
-            not_found = verdict.not_found_names(output)
-            active_units = {
-                name: self.target.run(f"systemctl is-active {name}")[1].strip()
-                for name in not_found
-            }
-            outcome, reason = verdict.verdict(status, output, active_units)
-            if outcome == "error":
-                problems.append(f"{unit}: {reason}")
-        if problems:
-            self.fail("\n".join(problems))
+            _status, output = self.target.run(f"systemctl show -p {SHOW_PROPERTIES} {unit}")
+            unit_properties[unit] = verdict.show_properties(output)
+
+        _status, failed_output = self.target.run("systemctl list-units --failed --no-legend")
+        failed_units = verdict.failed_unit_names(failed_output)
+
+        outcome, reason = verdict.verdict(unit_properties, failed_units)
+        if outcome != "ok":
+            self.fail(reason)

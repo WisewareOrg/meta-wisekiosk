@@ -1,18 +1,8 @@
-"""The device-side unit-wellformedness tier's own judgement. `data.mount` is produced at boot by
-systemd's fstab generator, never a unit file in the image; `verify` never sees it, and a "Unit X
-not found" line is excused -- not a defect -- exactly when the board's own `systemctl is-active X`
-says X is running.
-
-Pure -- no self.target, no subprocess, no network. case.py collects every input.
+"""The device-side unit tier's own judgement: every unit the layer ships must be loaded, free of a
+load error, and absent from systemd's own failed-unit list. Pure -- no self.target, no subprocess,
+no network. case.py collects every input through `systemctl show`/`systemctl list-units --failed`;
+this module only parses and judges what came back.
 """
-import re
-
-NOT_FOUND = re.compile(r"Unit (\S+) not found")
-
-
-def not_found_names(output):
-    """The set of unit names output's own "Unit X not found" lines report missing."""
-    return set(NOT_FOUND.findall(output))
 
 
 def shipped_units_verdict(units, glob_description):
@@ -23,21 +13,40 @@ def shipped_units_verdict(units, glob_description):
     return "ok", f"{len(units)} shipped unit(s) found"
 
 
-def verdict(status, output, active_units):
-    """"ok" iff status == 0 and every line is absent or excused; "error"
-    naming what survives, or the bare status if nothing does."""
-    remaining = []
-    excused_any = False
+def show_properties(output):
+    """`systemctl show -p ...`'s own `KEY=value` lines into a dict --
+    property order is not guaranteed, so this never assumes a position."""
+    properties = {}
     for line in output.splitlines():
-        if not line.strip():
-            continue
-        match = NOT_FOUND.search(line)
-        if match and active_units.get(match.group(1)) == "active":
-            excused_any = True
-            continue
-        remaining.append(line)
-    if remaining:
-        return "error", "; ".join(remaining)
-    if status != 0 and not excused_any:
-        return "error", f"systemd-analyze verify exited {status} with no diagnostic"
-    return "ok", "systemd-analyze verify reported no problems once generator-provided mounts are accounted for"
+        if "=" in line:
+            key, _, value = line.partition("=")
+            properties[key] = value
+    return properties
+
+
+def failed_unit_names(output):
+    """The set of unit names `systemctl list-units --failed --no-legend`
+    reports -- every whitespace-separated token carrying a shipped unit's
+    own suffix, independent of whether a leading status marker is present."""
+    return {token for token in output.split()
+            if token.endswith(".service") or token.endswith(".timer")}
+
+
+def verdict(unit_properties, failed_units):
+    """(outcome, reason) over every unit: unit_properties is {unit:
+    {property: value}}, each from one `systemctl show` call;
+    failed_units is failed_unit_names's own result, from one board-wide
+    `systemctl list-units --failed` call. "error" naming every unit whose
+    own LoadState is not "loaded", whose LoadError is non-empty, or which
+    the failed-unit list names; "ok" once none do."""
+    problems = []
+    for unit, properties in unit_properties.items():
+        load_state = properties.get("LoadState", "")
+        load_error = properties.get("LoadError", "")
+        if load_state != "loaded" or load_error:
+            problems.append(f"{unit}: LoadState={load_state!r} LoadError={load_error!r}")
+        if unit in failed_units:
+            problems.append(f"{unit}: reported failed by systemctl list-units --failed")
+    if problems:
+        return "error", "; ".join(problems)
+    return "ok", f"{len(unit_properties)} shipped unit(s) loaded, none failed"

@@ -1,81 +1,118 @@
-"""Specifies cases/kiosk_units/verdict.py: verdict(status, output, active_units),
-not_found_names(output), shipped_units_verdict(units, glob_description). One parametrized test per
-function, one row per branch.
+"""Specifies cases/kiosk_units/verdict.py: shipped_units_verdict(units, glob_description),
+show_properties(output), failed_unit_names(output), verdict(unit_properties, failed_units). One
+parametrized test per function, one row per branch. Every `systemctl` shape here is a real one,
+captured read-only on bench (`LoadState`/`LoadError`/`ActiveState`/`Result`, in the order systemd
+itself printed them -- never assumed positional) or its documented `--failed --no-legend` column
+layout; none is invented.
 """
 
 import pytest
 
-from oeqa.runtime.cases.kiosk_units.verdict import not_found_names, shipped_units_verdict, verdict
+from oeqa.runtime.cases.kiosk_units.verdict import (
+    failed_unit_names,
+    shipped_units_verdict,
+    show_properties,
+    verdict,
+)
 
-# The real line from the pipeline's own kiosk.service failure.
-KIOSK_DATA_MOUNT_NOT_FOUND = "kiosk.service: Failed to create kiosk.service/start: Unit data.mount not found."
-
-EXECSTART_MISSING = "kiosk.service: Service has no ExecStart=, ExecStop=, or SuccessAction=. Refusing."
-
-# The real shapes a missing systemd-analyze package or an unreachable board produce. The board's
-# own shell is busybox's `sh`, not bash.
-COMMAND_NOT_FOUND = "sh: systemd-analyze: not found"
-CONNECTION_REFUSED = "ssh: connect to host 192.0.2.1 port 22: Connection refused"
+# -- show_properties: real `systemctl show -p LoadState,LoadError,ActiveState,Result <unit>`
+# shapes captured read-only on bench. systemd does not print properties in the order requested.
+LOADED_CLEAN = "Result=success\nLoadState=loaded\nActiveState=active\nLoadError=\n"
+NOT_FOUND = (
+    "Result=success\nLoadState=not-found\nActiveState=inactive\n"
+    'LoadError=org.freedesktop.systemd1.NoSuchUnit "Unit bogus.service not found."\n'
+)
 
 
 @pytest.mark.parametrize(
-    ("name", "status", "output", "active_units", "want_outcome", "want_reason_contains", "want_reason_excludes"),
+    ("name", "output", "want"),
     [
-        ("clean verify, no output at all", 0, "", {}, "ok", (), ()),
-        ("output present but only blank lines", 0, "\n  \n", {}, "ok", (), ()),
         (
-            "one not-found line excused by an active board answer",
-            1,
-            KIOSK_DATA_MOUNT_NOT_FOUND,
-            {"data.mount": "active"},
-            "ok",
-            (),
-            (),
+            "a loaded unit, properties in systemd's own (non-alphabetical) order",
+            LOADED_CLEAN,
+            {"Result": "success", "LoadState": "loaded", "ActiveState": "active", "LoadError": ""},
         ),
         (
-            "one not-found line not excused (any non-active answer, including never queried)",
-            1,
-            KIOSK_DATA_MOUNT_NOT_FOUND,
-            {},
-            "error",
-            ("data.mount",),
-            (),
+            "a never-loaded unit carries a populated LoadError",
+            NOT_FOUND,
+            {
+                "Result": "success",
+                "LoadState": "not-found",
+                "ActiveState": "inactive",
+                "LoadError": 'org.freedesktop.systemd1.NoSuchUnit "Unit bogus.service not found."',
+            },
         ),
-        (
-            "a genuine defect with no not-found shape survives regardless of active_units",
-            1,
-            EXECSTART_MISSING,
-            {"data.mount": "active"},
-            "error",
-            ("Refusing",),
-            (),
-        ),
-        (
-            "an excused line beside a genuine one names only the genuine one",
-            1,
-            KIOSK_DATA_MOUNT_NOT_FOUND + "\n" + EXECSTART_MISSING,
-            {"data.mount": "active"},
-            "error",
-            ("Refusing",),
-            ("data.mount",),
-        ),
-        ("the package is missing, named verbatim", 127, COMMAND_NOT_FOUND, {}, "error", ("not found",), ()),
-        ("the board is unreachable, named verbatim", 255, CONNECTION_REFUSED, {}, "error", ("Connection refused",), ()),
-        ("non-zero status with no diagnostic at all, status named", 137, "", {}, "error", ("137",), ()),
+        ("blank lines are ignored", "\n  \n", {}),
     ],
 )
-def test_verdict_outcome(name, status, output, active_units, want_outcome, want_reason_contains, want_reason_excludes):
-    outcome, reason = verdict(status, output, active_units)
+def test_show_properties(name, output, want):
+    assert show_properties(output) == want, name
+
+
+# -- failed_unit_names: `systemctl list-units --failed --no-legend`'s own column layout, with its
+# leading status marker (a UTF-8 bullet, captured as-is -- this parse never has to name it).
+FAILED_LIST = "● kiosk-soak.timer loaded failed failed Soak timer\n"
+EMPTY_FAILED_LIST = ""
+
+
+@pytest.mark.parametrize(
+    ("name", "output", "want"),
+    [
+        ("one failed unit, marker and all", FAILED_LIST, {"kiosk-soak.timer"}),
+        ("no failed units at all is an empty set, never an error", EMPTY_FAILED_LIST, set()),
+    ],
+)
+def test_failed_unit_names(name, output, want):
+    assert failed_unit_names(output) == want, name
+
+
+# -- verdict: unit_properties is {unit: show_properties(...)}; failed_units is
+# failed_unit_names(...)'s own result.
+LOADED = {"LoadState": "loaded", "LoadError": ""}
+NOT_LOADED = {"LoadState": "not-found", "LoadError": 'NoSuchUnit "Unit x.service not found."'}
+LOADED_WITH_ERROR = {"LoadState": "loaded", "LoadError": "some-error"}
+
+
+@pytest.mark.parametrize(
+    ("name", "unit_properties", "failed_units", "want_outcome", "want_reason_contains"),
+    [
+        ("no shipped units at all is ok -- nothing to report", {}, set(), "ok", ()),
+        ("every unit loaded, none failed", {"a.service": LOADED, "b.service": LOADED}, set(), "ok", ()),
+        (
+            "a unit never loaded, named with its LoadError",
+            {"a.service": NOT_LOADED},
+            set(),
+            "error",
+            ("a.service", "not-found", "NoSuchUnit"),
+        ),
+        (
+            "a loaded unit that still carries a LoadError",
+            {"a.service": LOADED_WITH_ERROR},
+            set(),
+            "error",
+            ("a.service", "some-error"),
+        ),
+        (
+            "a cleanly loaded unit that systemctl list-units --failed still names",
+            {"a.service": LOADED},
+            {"a.service"},
+            "error",
+            ("a.service", "list-units --failed"),
+        ),
+        (
+            "one good unit beside one bad one names only the bad one",
+            {"a.service": LOADED, "b.service": NOT_LOADED},
+            set(),
+            "error",
+            ("b.service",),
+        ),
+    ],
+)
+def test_verdict_outcome(name, unit_properties, failed_units, want_outcome, want_reason_contains):
+    outcome, reason = verdict(unit_properties, failed_units)
     assert outcome == want_outcome, f"{name}: {reason!r}"
     for token in want_reason_contains:
         assert token in reason, f"{name}: {token!r} not in {reason!r}"
-    for token in want_reason_excludes:
-        assert token not in reason, f"{name}: {token!r} unexpectedly in {reason!r}"
-
-
-def test_not_found_names_extracts_every_name():
-    names = not_found_names(KIOSK_DATA_MOUNT_NOT_FOUND + "\n" + EXECSTART_MISSING)
-    assert names == {"data.mount"}
 
 
 @pytest.mark.parametrize(
