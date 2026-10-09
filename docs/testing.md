@@ -158,16 +158,37 @@ itself, however malformed the record: the device sits mid-OTA by then, and a scr
 `report-build.py` renders the record's lines verbatim under their own heading, never as case rows,
 so a later change to the record's shape needs no change to this renderer.
 
-**The `/data` precondition.** Before every job, `run.sh` compares bench's `/data/config/kiosk.conf`
-and `/data/config/config.json` keyed hashes against `just pipeline-accept-bench-config`'s last
-recorded values, and refuses the job on any difference — a hand edit is an environment problem a
-person accepts, not a silent comparison against a stale baseline. `pipeline-accept-bench-config`
-needs the timer off; it prints both hashes and `kiosk.conf`'s key names, never its values.
+**The `/data` precondition.** Before every job, `run.sh` compares bench's `/data/config/kiosk.conf`,
+`/data/config/config.json` and `/data/config/replay-ca/ca.crt` keyed hashes against `just
+pipeline-accept-bench-config`'s last recorded values, confirms `/data/config/wisekiosk.conf` is
+absent, and refuses the job on any difference — a hand edit is an environment problem a person
+accepts, not a silent comparison against a stale baseline. `pipeline-accept-bench-config` needs the
+timer off; it installs the CA cert from this host's own `local/keys/replay-ca/ca.crt`
+([`tools/replay/README.md`](../tools/replay/README.md)) and prints every hash, never a value.
 
 **The buildinfo readback.** After the install reboot, `run.sh` reads the booted slot's
 `/etc/buildinfo` back and compares its `meta-wisekiosk` commit to `$SHA`. A mismatch skips
 `testimage` and the two device checks — there is no point running the suite against the wrong
 image — but still rolls back, like every other outcome, before `finish failure` names the mismatch.
+
+**Replay mode.** Before `testimage`, `run.sh` can put bench's backend behind the committed replay
+proxy instead of the real upstream data sources — [`tools/replay/README.md`](../tools/replay/README.md)
+owns the proxy, the CA and the set layout. With `PIPELINE_REPLAY_SET=<name>` set, `run.sh` starts
+`tools/replay/proxy.py replay` on loopback, holds a reverse `ssh -R` tunnel to bench for the job's
+own duration (never `tools/kiosk-ssh.sh`'s persistent shared master, which would outlive the job),
+seeds bench's `/data/config/wisekiosk.conf` (`HTTPS_PROXY` at the tunnel, `SSL_CERT_FILE`/
+`SSL_CERT_DIR` at the installed CA) and the set's own `config.json`, restarts `wisekiosk.service`
+and reads its `HTTPS_PROXY` back from `/proc/<MainPID>/environ` to confirm the switch landed, then
+restarts `kiosk.service` and checks the page's own `cards=<present>/<live>` against the set's known
+count before `testimage` runs at all. The window closes the same way in reverse, restoring bench's
+own `wisekiosk.conf`/`config.json` and confirming no `HTTPS_PROXY` remains, before the proxy and
+tunnel are stopped. Any void here — a miss, an unmanifested or tampered response, the proxy down
+mid-window, the backend not switching, `cards=` not matching — never calls `abort` directly (that
+would skip the unconditional rollback below); it sets a flag `run.sh` reads only after rollback,
+the same place the dirty-tree and transport checks already read theirs. `PIPELINE_REPLAY_SET` unset
+is a live run: no proxy, no tunnel, no seed. Either way the run record's page line gains
+`replay=<set>@<manifest-hash>` or `replay=live`, appended by `report-build.py --replay` from the
+value `run.sh` itself measured — never something the device-side case could know.
 
 **`pipeline-run-ref <ref>` is a development tool, not a path to `main`.** Run from a branch
 checkout with the timer off, it builds and runs that ref's own head through the same stages as a
