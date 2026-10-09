@@ -293,7 +293,7 @@ JOB_BH=$(git -C "$PIPELINE_BUILD_DIR/buildhistory" rev-parse HEAD) \
 [ "$JOB_BH" != "$BASELINE_BH" ] || abort "buildhistory did not commit for $SHA"
 
 run_or_fail bundle "$RUN_DIR/bundle.log" "${TREE_JUST[@]}" kiosk-bundle
-run_or_fail image-content "$RUN_DIR/image-content.log" "${TREE_JUST[@]}" testimage-image
+run_or_fail image-content "$RUN_DIR/image-content.log" "${TREE_JUST[@]}" oe-test 127.0.0.1 kiosk_image.case
 run_or_fail preflight "$RUN_DIR/preflight.log" "${TREE_JUST[@]}" kiosk-preflight
 run_or_fail send "$RUN_DIR/send.log" "${TREE_JUST[@]}" kiosk-send-direct
 MUTATED=1

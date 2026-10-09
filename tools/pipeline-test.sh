@@ -183,19 +183,20 @@ else
     bad "includes/testimage.yaml does not carry KIOSK_TARGET_ROLE/KIOSK_TARGET_HOSTNAME through to testimage"
 fi
 
-# --- Every cases/<pkg>/case.py is named, in full, in exactly one of the
-# two TEST_SUITES lists: includes/testimage.yaml's (the device tier) or
-# includes/testimage-image.yaml's (the host-only image-content tier) --
-# never both, never neither.
-TESTIMAGE_IMAGE_YAML="$HERE/../includes/testimage-image.yaml"
+# --- Every cases/<pkg>/case.py is named, in full, in includes/testimage.yaml's
+# own TEST_SUITES (the device tier) -- except kiosk_image, which is never
+# listed there: tools/oe-test.sh's own image-content invocation
+# (tools/pipeline/run.sh) names it directly as a module-list override, never
+# through TEST_SUITES. One list plus one declared exception, never both,
+# never neither.
 CASE_PKGS=$(find "$HERE/../meta-wisekiosk/lib/oeqa/runtime/cases" -mindepth 2 -maxdepth 2 -name case.py \
     | sed -E 's#.*/cases/([^/]+)/case\.py#\1.case#' | sort)
-SUITE_PKGS=$( { sed -n 's/^\s*TEST_SUITES = "\(.*\)"$/\1/p' "$TESTIMAGE_YAML" "$TESTIMAGE_IMAGE_YAML" \
-    | tr ' ' '\n'; } | sort)
+SUITE_PKGS=$( { sed -n 's/^\s*TEST_SUITES = "\(.*\)"$/\1/p' "$TESTIMAGE_YAML"; echo kiosk_image.case; } \
+    | tr ' ' '\n' | sort)
 if [ -n "$CASE_PKGS" ] && [ "$CASE_PKGS" = "$SUITE_PKGS" ]; then
-    ok "boundary: the two TEST_SUITES lists together name exactly the existing cases/*/case.py packages, each in full, each once"
+    ok "boundary: includes/testimage.yaml's TEST_SUITES plus the declared kiosk_image exception name exactly the existing cases/*/case.py packages, each once"
 else
-    bad "TEST_SUITES (both tiers) and cases/*/case.py disagree" "cases: $CASE_PKGS / suites: $SUITE_PKGS"
+    bad "TEST_SUITES (device tier) plus kiosk_image and cases/*/case.py disagree" "cases: $CASE_PKGS / suites: $SUITE_PKGS"
 fi
 # --- ssh-quoting regression: ssh joins separate remote-command words
 # with spaces, and the remote shell re-parses the result -- a format

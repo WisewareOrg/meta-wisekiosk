@@ -173,19 +173,3 @@ class WiseKioskCase(OERuntimeTestCase):
         _status, output = self.target.run(
             _WINDOW_TITLES_PROBE, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
         return output
-
-
-class ImageCase(OERuntimeTestCase):
-    """The image-content tier's own base class: resolves the build's own
-    deployed rootfs `.ext4` path from the datastore before any case's own
-    assertions run. Never touches self.tc.target or self.target."""
-
-    @classmethod
-    def setUpClass(cls):
-        machine = cls.td["MACHINE"]
-        deploy_dir = Path(cls.td["DEPLOY_DIR_IMAGE"])
-
-        ImageCase.ext4_path = deploy_dir / f"core-image-base-{machine}.rootfs.ext4"
-
-        if not ImageCase.ext4_path.is_file():
-            raise RuntimeError(f"no rootfs image at {ImageCase.ext4_path}")

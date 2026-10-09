@@ -35,18 +35,21 @@ what came back, and the case asserts on that judgement. The case itself never pa
   pre-existing case apiece; no pure logic of their own to separate out, so no `verdict.py` and no
   `tests/`.
 - `kiosk_image/` — the host-only image-content tier, over the deployed `.ext4`. Subclasses
-  `framework.base.ImageCase`, not `WiseKioskCase`. Three methods: the display-launch unit's
-  effective `ExecStart` (`docs/requirements/srs/SRS008`, `docs/requirements/tst/TST008`); the
-  display's served `index.html` is in the rootfs (`docs/requirements/srs/SRS009`,
-  `docs/requirements/tst/TST009`); and the required binaries later checks need are present (a
-  guard, no item of its own).
-- `kiosk_units/` — every shipped unit loads with its dependencies satisfied
-  (`docs/requirements/tst/TST010`, child of `SRS008`): `systemd-analyze verify` on the board, one
-  call per unit in `SHIPPED_UNITS`.
+  `oeqa.runtime.case.OERuntimeTestCase` directly, not `WiseKioskCase`: it never touches a board, so
+  it resolves its own rootfs path from `MACHINE` and its own on-disk location rather than sharing
+  anything board-facing. Runs through `tools/oe-test.sh 127.0.0.1 kiosk_image.case`, never
+  `includes/testimage.yaml`'s own `TEST_SUITES`. Three methods: the display-launch unit's effective
+  `ExecStart` and the display's served `index.html` is in the rootfs (both
+  `docs/requirements/srs/SRS008`, `docs/requirements/tst/TST008`); and the required binaries later
+  checks need are present (a guard, no item of its own).
+- `kiosk_units/` — every shipped unit loads with no load error and none failed
+  (`docs/requirements/tst/TST010`, child of `SRS008`): the board's own `systemctl show` per unit in
+  `SHIPPED_UNITS`, plus one `systemctl list-units --failed` call.
 
 **The shared base and record parsing are not a case, so they are not here.** Every device package's
 `case.py` subclasses `WiseKioskCase` and reads or writes the run record through `record.py`
-(`kiosk_image` subclasses `ImageCase` instead), both in
+(`kiosk_image` subclasses `oeqa.runtime.case.OERuntimeTestCase` directly instead, writing no
+record — it never runs against a board), both in
 [`../framework/`](../framework/README.md) — a library, not a test, made importable the way any other
 layer's own oeqa extension is, by `layer.conf`'s `addpylib`, rather than discovered as a case.
 `framework.base` holds the timing bounds shared across packages: `POLL_SECONDS` between poll
