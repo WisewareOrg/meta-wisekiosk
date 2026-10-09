@@ -44,6 +44,8 @@ CHECKS="$PIPELINE_TREE/tools"
 SSH_OPTS=(-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
 SSH_HOST="root@$PIPELINE_TARGET"
 export KIOSK_HOST="$SSH_HOST"
+BENCH_CA_DIR="/data/config/replay-ca"
+BENCH_CA_CERT="$BENCH_CA_DIR/ca.crt"
 
 # A ref run posts no status and tags no baseline: docs/testing.md names it
 # a development tool, never something the merge gate can wait on.
@@ -57,8 +59,7 @@ write_disabled() {
     printf '%s\n%s\n' "$(date -Is)" "$1" > "$PIPELINE_DRIVER/local/pipeline/DISABLED"
     systemctl --user disable --now wisekiosk-pipeline.timer 2>/dev/null || true
 }
-# cleanup_replay -- stops the replay proxy and kills the reverse tunnel,
-# best effort; a no-op on a live run (PROXY_PID/TUNNEL_PID unset).
+# cleanup_replay -- stops the replay proxy and kills the reverse tunnel, best effort.
 cleanup_replay() {
     [ -n "${PROXY_PID:-}" ] && kill "$PROXY_PID" 2>/dev/null
     [ -n "${TUNNEL_PID:-}" ] && kill "$TUNNEL_PID" 2>/dev/null
@@ -90,8 +91,7 @@ hex_read() {
     ssh "${SSH_OPTS[@]}" "$1" "hexdump -ve '1/1 \"%02x\"' $2"
 }
 
-# backend_env HOST -- wisekiosk.service's own MainPID environment, one
-# newline-separated dump, one ssh round trip (the ticket's own one-liner).
+# backend_env HOST -- wisekiosk.service's own MainPID environment, one ssh round trip.
 BACKEND_ENV_PROBE=$(cat <<'PROBE'
 tr '\0' '\n' < /proc/$(systemctl show -p MainPID --value wisekiosk.service)/environ
 PROBE
@@ -101,8 +101,7 @@ backend_env() {
     ssh "${SSH_OPTS[@]}" "$1" "$BACKEND_ENV_PROBE"
 }
 
-# mode_token HOST -- "live"/"replay"/"void", through framework/record.py's
-# mode_token (imported, never a second parse of the same rule).
+# mode_token HOST -- "live"/"replay"/"void", through framework/record.py.
 mode_token() {
     backend_env "$1" | python3 "$TOOLS/pipeline/mode-check.py" "$PIPELINE_REPLAY_PORT"
 }
@@ -121,33 +120,34 @@ wait_active() {
     return 1
 }
 
-# replay_void REASON -- the first void wins; always returns 0 (docs/testing.md
-# § "Running it" has the why this never calls abort directly).
+# replay_void REASON -- the first void wins; always returns 0.
 REPLAY_RC=0
 REPLAY_REASON=""
 replay_void() {
     [ "$REPLAY_RC" -ne 0 ] || { REPLAY_RC=1; REPLAY_REASON="$1"; }
 }
 
-# start_replay_window -- if PIPELINE_REPLAY_SET names a set, starts the
-# proxy and its reverse tunnel, seeds bench's /data, restarts the backend
-# and reads MODE_START. A live run just reads MODE_START directly.
+# start_replay_window -- for PIPELINE_REPLAY_SET, starts the proxy and tunnel, seeds bench's /data, restarts the backend and reads MODE_START; a live run reads MODE_START directly.
 MODE_START=""
 start_replay_window() {
     if [ -z "${PIPELINE_REPLAY_SET:-}" ]; then
-        MODE_START=$(mode_token "$SSH_HOST")
+        MODE_START=$(mode_token "$SSH_HOST") || MODE_START=void
+        [ "$MODE_START" = live ] \
+            || replay_void "bench's backend was not live before the window started: mode=$MODE_START"
         return 0
     fi
     SET_DIR="$TOOLS/replay/sets/$PIPELINE_REPLAY_SET"
     CA_DIR="$PIPELINE_KEYS_DIR/replay-ca"
     [ -d "$SET_DIR" ] || { replay_void "no replay set at $SET_DIR"; return 1; }
+    rm -f "$RUN_DIR/replay.log" "$RUN_DIR/replay.stderr" "$RUN_DIR/bench-config.json.saved"
 
     python3 "$TOOLS/replay/replay.py" --set "$SET_DIR" --port "$PIPELINE_REPLAY_PORT" \
         --ca "$CA_DIR" --log "$RUN_DIR/replay.log" 2> "$RUN_DIR/replay.stderr" &
     PROXY_PID=$!
     sleep 1
     if ! kill -0 "$PROXY_PID" 2>/dev/null; then
-        replay_void "$(tail -n1 "$RUN_DIR/replay.stderr" 2>/dev/null || echo "replay proxy failed to start for $PIPELINE_REPLAY_SET")"
+        PROXY_START_REASON=$(tail -n1 "$RUN_DIR/replay.stderr" 2>/dev/null)
+        replay_void "${PROXY_START_REASON:-replay proxy failed to start for $PIPELINE_REPLAY_SET}"
         return 1
     fi
 
@@ -161,8 +161,8 @@ start_replay_window() {
     ssh "${SSH_OPTS[@]}" "$SSH_HOST" cat /data/config/config.json > "$RUN_DIR/bench-config.json.saved" \
         || { replay_void "could not save bench's own config.json before seeding $PIPELINE_REPLAY_SET"; return 1; }
 
-    printf 'HTTPS_PROXY=http://127.0.0.1:%s\nSSL_CERT_FILE=/data/config/replay-ca/ca.crt\nSSL_CERT_DIR=/data/config/replay-ca\n' \
-            "$PIPELINE_REPLAY_PORT" \
+    printf 'HTTPS_PROXY=http://127.0.0.1:%s\nSSL_CERT_FILE=%s\nSSL_CERT_DIR=%s\n' \
+            "$PIPELINE_REPLAY_PORT" "$BENCH_CA_CERT" "$BENCH_CA_DIR" \
         | ssh "${SSH_OPTS[@]}" "$SSH_HOST" 'cat > /data/config/wisekiosk.conf' \
         || { replay_void "could not seed bench's wisekiosk.conf for $PIPELINE_REPLAY_SET"; return 1; }
     ssh "${SSH_OPTS[@]}" "$SSH_HOST" 'cat > /data/config/config.json' < "$SET_DIR/config.json" \
@@ -172,7 +172,7 @@ start_replay_window() {
         || { replay_void "wisekiosk.service did not restart for $PIPELINE_REPLAY_SET"; return 1; }
     wait_active "$SSH_HOST" wisekiosk.service \
         || { replay_void "wisekiosk.service did not reach active for $PIPELINE_REPLAY_SET"; return 1; }
-    MODE_START=$(mode_token "$SSH_HOST")
+    MODE_START=$(mode_token "$SSH_HOST") || MODE_START=void
     [ "$MODE_START" = "replay" ] \
         || { replay_void "wisekiosk.service did not come up in replay mode for $PIPELINE_REPLAY_SET"; return 1; }
 
@@ -180,17 +180,17 @@ start_replay_window() {
         || { replay_void "kiosk.service did not restart for $PIPELINE_REPLAY_SET"; return 1; }
 }
 
-# check_replay_window_end -- window-end voids: mode still matches the
-# start, proxy and tunnel still alive, zero MISS lines, at least one HIT
-# line; sets REPLAY_VALUE from the proxy's own SERVE <set>@<hash> line. A
-# live run leaves REPLAY_VALUE at "live".
+# check_replay_window_end -- the mode end-read runs on every job; a replay job also checks the proxy, the tunnel, and the access log, and reads REPLAY_VALUE from it.
 REPLAY_VALUE=live
 check_replay_window_end() {
-    [ -n "${PIPELINE_REPLAY_SET:-}" ] || return 0
-    MODE_END=$(mode_token "$SSH_HOST")
-    if [ "$MODE_END" != "$MODE_START" ] || [ "$MODE_END" = "void" ]; then
+    MODE_END=$(mode_token "$SSH_HOST") || MODE_END=void
+    if [ "$MODE_END" != "$MODE_START" ] || [ "$MODE_END" = void ]; then
         replay_void "mode changed or unreadable across the window: start=$MODE_START end=$MODE_END"
     fi
+    if [ "$MODE_START" = live ] && [ "$MODE_END" = live ]; then
+        REPLAY_VALUE=live
+    fi
+    [ -n "${PIPELINE_REPLAY_SET:-}" ] || return 0
     if [ -z "${PROXY_PID:-}" ] || ! kill -0 "$PROXY_PID" 2>/dev/null; then
         replay_void "replay proxy died mid-window for $PIPELINE_REPLAY_SET"
     fi
@@ -207,10 +207,7 @@ check_replay_window_end() {
     [ -n "$REPLAY_VALUE" ] || replay_void "replay.log carries no SERVE <set>@<hash> line for $PIPELINE_REPLAY_SET"
 }
 
-# stop_replay_window -- the reverse of start_replay_window: restores
-# bench's own config.json, restarts backend then browser, confirms no
-# HTTPS_PROXY remains, stops the proxy and tunnel. Best effort past the
-# first failure. A live run is a no-op.
+# stop_replay_window -- the reverse of start_replay_window, best effort past the first failure.
 stop_replay_window() {
     [ -n "${PIPELINE_REPLAY_SET:-}" ] || return 0
     ssh "${SSH_OPTS[@]}" "$SSH_HOST" rm -f /data/config/wisekiosk.conf || true
@@ -221,9 +218,8 @@ stop_replay_window() {
 
     if ssh "${SSH_OPTS[@]}" "$SSH_HOST" systemctl restart wisekiosk.service \
             && wait_active "$SSH_HOST" wisekiosk.service; then
-        case "$(backend_env "$SSH_HOST" 2>/dev/null)" in
-            *HTTPS_PROXY=*) replay_void "bench still carries HTTPS_PROXY after restoring from $PIPELINE_REPLAY_SET" ;;
-        esac
+        [ "$(mode_token "$SSH_HOST" || echo void)" = live ] \
+            || replay_void "bench did not return to live after restoring from $PIPELINE_REPLAY_SET"
     else
         replay_void "wisekiosk.service did not restart (or reach active) while restoring bench after $PIPELINE_REPLAY_SET"
     fi
@@ -402,11 +398,7 @@ OBSERVED_HOSTNAME=$(ssh "${SSH_OPTS[@]}" "$SSH_HOST" hostname 2>/dev/null || tru
 [ "$OBSERVED_HOSTNAME" = "$PIPELINE_TARGET_HOSTNAME" ] \
     || abort "PIPELINE_TARGET's live hostname does not match PIPELINE_TARGET_HOSTNAME"
 
-# The /data precondition: bench's /data/config/{kiosk.conf,config.json,
-# replay-ca/ca.crt} keyed hashes must match the values `just
-# pipeline-accept-bench-config` recorded, and /data/config/wisekiosk.conf
-# must be absent -- only start_replay_window writes it, for this job's own
-# window. docs/testing.md § "Running it" has the why.
+# The /data precondition. docs/testing.md § "Running it" has the why.
 MAC_FILE="$PIPELINE_DRIVER/local/pipeline/bench-config.mac"
 [ -f "$MAC_FILE" ] \
     || abort "bench /data differs from the accepted configuration; run just pipeline-accept-bench-config"
@@ -424,7 +416,7 @@ OBSERVED_CONFIG_JSON_HEX=$(hex_read "$SSH_HOST" /data/config/config.json)
 OBSERVED_CONFIG_MAC=$(printf '%s' "$OBSERVED_CONFIG_JSON_HEX" \
     | python3 "$TOOLS/pipeline/config-mac.py" "$HMAC_KEY")
 OBSERVED_CA_CERT_MAC=absent
-if OBSERVED_CA_CERT_HEX=$(hex_read "$SSH_HOST" /data/config/replay-ca/ca.crt 2>/dev/null); then
+if OBSERVED_CA_CERT_HEX=$(hex_read "$SSH_HOST" "$BENCH_CA_CERT" 2>/dev/null); then
     OBSERVED_CA_CERT_MAC=$(printf '%s' "$OBSERVED_CA_CERT_HEX" \
         | python3 "$TOOLS/pipeline/config-mac.py" "$HMAC_KEY")
 fi
@@ -510,17 +502,6 @@ else
     check_replay_window_end
     stop_replay_window
 
-    # The set's own expect_cards, per S5's one owner: manifest.json. Empty
-    # for a live job, for weather-only (no park module), or before a set
-    # exists at all -- any of those skips the comparison below.
-    EXPECT_CARDS=""
-    if [ -n "${PIPELINE_REPLAY_SET:-}" ] && [ -f "${SET_DIR:-}/manifest.json" ]; then
-        EXPECT_CARDS=$(python3 -c '
-import json, sys
-print(json.load(open(sys.argv[1], encoding="utf-8")).get("expect_cards", ""))
-' "$SET_DIR/manifest.json")
-    fi
-
     RESULTS_JSON="$PIPELINE_TREE/local/pipeline/runs/$SHA/smoke/testresults.json"
     RECORD_RC=0
     RECORD_REASON=""
@@ -528,15 +509,11 @@ print(json.load(open(sys.argv[1], encoding="utf-8")).get("expect_cards", ""))
         cp "$RESULTS_JSON" "$RUN_DIR/testresults.json"
         RESULTSARG=(--results "$RUN_DIR/testresults.json")
 
-        # The record precondition: testresults.json must carry the
-        # wisekiosk.record extraresults entry naming $SHA, and names
-        # whether the tree was dirty, any page.* line declares a transport
-        # error, or (B1) the applied case's own cards= does not match the
-        # set's expect_cards -- one line, one read. --replay writes the
-        # mode this job actually measured into the record itself (B4).
-        # docs/testing.md § "Running it" has the why.
+        # The record precondition. docs/testing.md § "Running it" has the why.
         RECORD_CHECK_ARGS=("$RUN_DIR/testresults.json" "$SHA" --replay "$REPLAY_VALUE")
-        [ -z "$EXPECT_CARDS" ] || RECORD_CHECK_ARGS+=(--expect-cards "$EXPECT_CARDS")
+        if [ -n "${PIPELINE_REPLAY_SET:-}" ] && [ -f "${SET_DIR:-}/manifest.json" ]; then
+            RECORD_CHECK_ARGS+=(--manifest "$SET_DIR/manifest.json")
+        fi
         RECORD_CHECK=$(python3 "$TOOLS/pipeline/record-check.py" "${RECORD_CHECK_ARGS[@]}")
         read -r RECORD_STATUS _ RECORD_DIRTY RECORD_TRANSPORT RECORD_CARDS RECORD_REASON <<< "$RECORD_CHECK"
         [ "$RECORD_TRANSPORT" = "1" ] && TRANSPORT_RC=1

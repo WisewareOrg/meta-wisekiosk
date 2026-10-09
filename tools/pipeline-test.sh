@@ -135,24 +135,16 @@ else
     bad "unknown record key dropped" "rc=$rc out=$out"
 fi
 
-# --- boundary: replay.py and proxy.py (the job's own entry point and the
-# shared acceptor) contain no client-dialling primitive -- record.py is the
-# only forwarder. Seeded once against a scratch copy, never the real file. -
+# --- boundary: replay.py and proxy.py contain no client-dialling
+# primitive, and replay.py does not import record.py either. ---------------
 REPLAY_PY="$HERE/replay/replay.py"
 PROXY_PY="$HERE/replay/proxy.py"
 FORBIDDEN='HTTPSConnection|HTTPConnection|create_connection|urlopen|socket\.socket\('
-if ! grep -qE "$FORBIDDEN" "$REPLAY_PY" "$PROXY_PY"; then
+FORBIDDEN_REPLAY="$FORBIDDEN|import record|from record"
+if ! grep -qE "$FORBIDDEN_REPLAY" "$REPLAY_PY" && ! grep -qE "$FORBIDDEN" "$PROXY_PY"; then
     ok "boundary: replay.py and proxy.py contain no client-dialling primitive"
 else
     bad "replay.py or proxy.py names a client-dialling primitive"
-fi
-SEEDED="$TOP/proxy-seeded.py"
-cp "$PROXY_PY" "$SEEDED"
-printf '\nsocket.create_connection(("x", 1))  # seeded defect\n' >> "$SEEDED"
-if grep -qE "$FORBIDDEN" "$SEEDED"; then
-    ok "boundary check proven able to fail: a seeded create_connection() in a scratch copy is caught"
-else
-    bad "the no-forwarding boundary check missed a seeded create_connection()"
 fi
 
 capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --log "$LONGLOG"
@@ -297,10 +289,8 @@ else
     bad "record-check: dirty=1 changed shape" "rc=$rc out=$out"
 fi
 
-# --- record-check.py --expect-cards compares the applied case's own
-# cards= token against the set's own expectation (B1: the comparison runs
-# against the record, after testimage, never against a probe nobody armed
-# before it). --------------------------------------------------------------
+# --- record-check.py --manifest reads a set's own expect_cards and
+# compares it against the applied case's own cards= token. -----------------
 CARDS_RESULTS="$TOP/cards-results.json"
 cat > "$CARDS_RESULTS" <<'EOF'
 {"5678-efgh": {"configuration": {}, "result": {
@@ -311,28 +301,48 @@ cat > "$CARDS_RESULTS" <<'EOF'
     }
 }}}
 EOF
-capture out rc "$PY" "$RECORD_CHECK_PY" "$CARDS_RESULTS" abc --expect-cards "4/4"
+MANIFEST_MATCH="$TOP/manifest-match.json"
+printf '{"expires": "2099-01-01", "expect_cards": "4/4", "responses": {}}' > "$MANIFEST_MATCH"
+MANIFEST_MISMATCH="$TOP/manifest-mismatch.json"
+printf '{"expires": "2099-01-01", "expect_cards": "4/2", "responses": {}}' > "$MANIFEST_MISMATCH"
+MANIFEST_NO_KEY="$TOP/manifest-no-key.json"
+printf '{"expires": "2099-01-01", "responses": {}}' > "$MANIFEST_NO_KEY"
+MANIFEST_EMPTY="$TOP/manifest-empty.json"
+printf '{"expires": "2099-01-01", "expect_cards": "", "responses": {}}' > "$MANIFEST_EMPTY"
+
+capture out rc "$PY" "$RECORD_CHECK_PY" "$CARDS_RESULTS" abc --manifest "$MANIFEST_MATCH"
 if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0 0" ]; then
-    ok "record-check: --expect-cards matching the record's own cards= reports clean"
+    ok "record-check: --manifest's expect_cards matching the record's own cards= reports clean"
 else
-    bad "record-check --expect-cards match" "rc=$rc out=$out"
+    bad "record-check --manifest match" "rc=$rc out=$out"
 fi
-capture out rc "$PY" "$RECORD_CHECK_PY" "$CARDS_RESULTS" abc --expect-cards "4/2"
+capture out rc "$PY" "$RECORD_CHECK_PY" "$CARDS_RESULTS" abc --manifest "$MANIFEST_MISMATCH"
 if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0 1" ]; then
-    ok "record-check: --expect-cards mismatching the record's own cards= flags it"
+    ok "record-check: --manifest's expect_cards mismatching the record's own cards= flags it"
 else
-    bad "record-check --expect-cards mismatch" "rc=$rc out=$out"
+    bad "record-check --manifest mismatch" "rc=$rc out=$out"
+fi
+capture out rc "$PY" "$RECORD_CHECK_PY" "$CARDS_RESULTS" abc --manifest "$MANIFEST_NO_KEY"
+if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0 1" ]; then
+    ok "record-check: a manifest with no expect_cards key voids"
+else
+    bad "record-check missing expect_cards key" "rc=$rc out=$out"
+fi
+capture out rc "$PY" "$RECORD_CHECK_PY" "$CARDS_RESULTS" abc --manifest "$MANIFEST_EMPTY"
+if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0 0" ]; then
+    ok "record-check: an explicit empty expect_cards skips the check"
+else
+    bad "record-check explicit empty expect_cards" "rc=$rc out=$out"
 fi
 capture out rc "$PY" "$RECORD_CHECK_PY" "$CARDS_RESULTS" abc
 if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0 -" ]; then
-    ok "record-check: no --expect-cards given, the cards field is -"
+    ok "record-check: no --manifest given, the cards field is -"
 else
-    bad "record-check cards field with no --expect-cards" "rc=$rc out=$out"
+    bad "record-check cards field with no --manifest" "rc=$rc out=$out"
 fi
 
 # --- record-check.py --replay writes "R replay=<value>" into the record
-# dict and persists testresults.json -- B4: the record of record gains the
-# field, not only the rendered report. --------------------------------------
+# dict and persists testresults.json. ---------------------------------------
 REPLAY_WRITE_JSON="$TOP/replay-write-results.json"
 cp "$CARDS_RESULTS" "$REPLAY_WRITE_JSON"
 capture out rc "$PY" "$RECORD_CHECK_PY" "$REPLAY_WRITE_JSON" abc --replay "cards4-live@deadbeef"

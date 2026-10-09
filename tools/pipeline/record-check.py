@@ -3,26 +3,28 @@
 exactly as config-mac.py does.
 
     python3 tools/pipeline/record-check.py <testresults.json> <sha>
-        [--expect-cards <token>] [--replay <value>]
+        [--manifest <path>] [--replay <value>]
         -- print one line run.sh reads whole with a single `read`:
            "<status> <image> <dirty> <transport> <cards> <reason...>"
 
 status is OK or ERROR. image and dirty are the record's own tool/image
 fields ("-" if the record could not be read at all); dirty, transport and
-cards are "0"/"1", or "-" for cards when --expect-cards was not given.
+cards are "0"/"1", or "-" for cards when --manifest was not given.
+
+--manifest reads that replay set's own manifest.json and compares its
+"expect_cards" against the record's own cards= token (the applied case's
+page.<case id> line): a missing expect_cards key is a void (cards=1); an
+explicit empty value skips the comparison (cards=0). --replay writes
+"R replay=<value>" into the record as a new "replay" key and persists
+testresults.json with it, before this script's own stdout line is printed
+-- the record of record gains the field, not only the report.
+
 reason is empty on a clean OK, the rest of the line otherwise (may contain
 spaces -- it is always the last field).
-
---expect-cards compares the record's own cards= token (the applied case's
-page.<case id> line) against <token>; a mismatch sets cards=1. --replay
-writes "R replay=<value>" into the record as a new "replay" key and
-persists testresults.json with it, before this script's own stdout line is
-printed -- the record of record gains the field, not only the report.
 
 Always exits 0: the record's own malformed-ness is the caller's decision,
 this script only reports it.
 """
-import argparse
 import json
 import re
 import sys
@@ -51,7 +53,22 @@ def _observed_cards(rec):
     return None
 
 
-def check(results_path, sha, expect_cards=None, replay=None):
+def _cards_check(rec, manifest_path):
+    if manifest_path is None:
+        return "-"
+    try:
+        manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return "1"
+    if "expect_cards" not in manifest:
+        return "1"
+    expect_cards = manifest["expect_cards"]
+    if expect_cards == "":
+        return "0"
+    return "0" if _observed_cards(rec) == expect_cards else "1"
+
+
+def check(results_path, sha, manifest_path=None, replay=None):
     try:
         data = json.loads(Path(results_path).read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -72,15 +89,10 @@ def check(results_path, sha, expect_cards=None, replay=None):
     transport = "1" if any(
         key.startswith("page.") and isinstance(value, str) and record.TRANSPORT_STATE in value
         for key, value in rec.items()) else "0"
-
-    cards = "-"
-    if expect_cards:
-        observed = _observed_cards(rec)
-        cards = "0" if observed is not None and record.parse_cards(observed) == record.parse_cards(expect_cards) \
-            else "1"
+    cards = _cards_check(rec, manifest_path)
 
     if replay is not None:
-        rec["replay"] = record.replay_line(replay)
+        rec["replay"] = f"R replay={replay}"
         Path(results_path).write_text(json.dumps(data), encoding="utf-8")
 
     if image != sha:
@@ -89,18 +101,21 @@ def check(results_path, sha, expect_cards=None, replay=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument("results_path")
-    parser.add_argument("sha")
-    parser.add_argument("--expect-cards", default=None)
-    parser.add_argument("--replay", default=None)
-    try:
-        args = parser.parse_args(sys.argv[1:])
-    except SystemExit:
-        print("usage: record-check.py <testresults.json> <sha> [--expect-cards <token>] [--replay <value>]",
+    argv = sys.argv[1:]
+    if len(argv) < 2:
+        print("usage: record-check.py <testresults.json> <sha> [--manifest <path>] [--replay <value>]",
               file=sys.stderr)
         return 0
-    print(check(args.results_path, args.sha, args.expect_cards, args.replay))
+    results_path, sha, rest = argv[0], argv[1], argv[2:]
+    manifest_path = replay = None
+    i = 0
+    while i < len(rest) - 1:
+        if rest[i] == "--manifest":
+            manifest_path = rest[i + 1]
+        elif rest[i] == "--replay":
+            replay = rest[i + 1]
+        i += 2
+    print(check(results_path, sha, manifest_path, replay))
     return 0
 
 
