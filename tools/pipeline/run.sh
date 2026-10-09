@@ -499,8 +499,21 @@ else
     else
         TESTIMAGE_RC=1
     fi
+
+    RENDER_RC=0
+    "$CHECKS/kiosk-render-check.sh" "$SSH_HOST" > "$RUN_DIR/render.log" 2>&1 || RENDER_RC=$?
+    GPU_RC=0
+    "$CHECKS/kiosk-gpu-check.sh" "$SSH_HOST" > "$RUN_DIR/gpu.log" 2>&1 || GPU_RC=$?
+    if [ "$RENDER_RC" -ne 0 ]; then
+        tail -n 200 "$RUN_DIR/render.log" > "$RUN_DIR/render.tail.log"
+        LOGARGS+=(--log "$RUN_DIR/render.tail.log")
+    fi
+    if [ "$GPU_RC" -ne 0 ]; then
+        tail -n 200 "$RUN_DIR/gpu.log" > "$RUN_DIR/gpu.tail.log"
+        LOGARGS+=(--log "$RUN_DIR/gpu.tail.log")
+    fi
+
     check_replay_window_end
-    stop_replay_window
 
     RESULTS_JSON="$PIPELINE_TREE/local/pipeline/runs/$SHA/smoke/testresults.json"
     RECORD_RC=0
@@ -527,18 +540,7 @@ else
     fi
     [ "$RECORD_RC" -eq 0 ] || stage_logargs testimage "$RUN_DIR/testimage.log"
 
-    RENDER_RC=0
-    "$CHECKS/kiosk-render-check.sh" "$SSH_HOST" > "$RUN_DIR/render.log" 2>&1 || RENDER_RC=$?
-    GPU_RC=0
-    "$CHECKS/kiosk-gpu-check.sh" "$SSH_HOST" > "$RUN_DIR/gpu.log" 2>&1 || GPU_RC=$?
-    if [ "$RENDER_RC" -ne 0 ]; then
-        tail -n 200 "$RUN_DIR/render.log" > "$RUN_DIR/render.tail.log"
-        LOGARGS+=(--log "$RUN_DIR/render.tail.log")
-    fi
-    if [ "$GPU_RC" -ne 0 ]; then
-        tail -n 200 "$RUN_DIR/gpu.log" > "$RUN_DIR/gpu.tail.log"
-        LOGARGS+=(--log "$RUN_DIR/gpu.tail.log")
-    fi
+    stop_replay_window
 
     if [ "$TESTIMAGE_RC" -eq 0 ] && [ "$RENDER_RC" -eq 0 ] && [ "$GPU_RC" -eq 0 ] && [ "$RECORD_RC" -eq 0 ]; then
         SMOKE_STATE=success
