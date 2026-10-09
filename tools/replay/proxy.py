@@ -73,12 +73,12 @@ def known_hosts(manifest):
     return {key.split(" ", 2)[1] for key in manifest.get("responses", {})}
 
 
-def leaf_paths(ca_dir, host):  # pragma: no cover -- path arithmetic only, no branch to construct an input for
+def leaf_paths(ca_dir, host):
     leaves = ca_dir / "leaves"
     return leaves / f"{host}.crt", leaves / f"{host}.key"
 
 
-def manifest_hash(manifest_path):  # pragma: no cover -- a direct file-read-and-hash; its own test would just re-implement hashlib
+def manifest_hash(manifest_path):
     return hashlib.sha256(Path(manifest_path).read_bytes()).hexdigest()
 
 

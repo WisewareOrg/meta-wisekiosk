@@ -4,6 +4,7 @@ helpers over plain file-like objects (no socket).
 """
 from datetime import date, datetime
 from io import BytesIO
+from pathlib import Path
 
 import pytest
 
@@ -14,8 +15,10 @@ from proxy import (
     decide,
     hash_matches,
     known_hosts,
+    leaf_paths,
     load_manifest,
     log_line,
+    manifest_hash,
     match_key,
     parse_cert_enddate,
     read_body,
@@ -97,6 +100,18 @@ def test_decide_on_a_miss_returns_none():
 
 def test_known_hosts_from_the_manifests_own_response_keys():
     assert known_hosts({"responses": _responses()}) == {"example.invalid"}
+
+
+def test_leaf_paths():
+    assert leaf_paths(Path("/ca"), "example.invalid") == (
+        Path("/ca/leaves/example.invalid.crt"), Path("/ca/leaves/example.invalid.key"))
+
+
+def test_manifest_hash_is_the_real_sha256sum_of_the_file(tmp_path):
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_bytes(b"abc")
+    assert manifest_hash(manifest_path) == \
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
 
 
 def test_read_request_connect_line():
