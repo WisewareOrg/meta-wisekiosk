@@ -180,12 +180,14 @@ seeds bench's `/data/config/wisekiosk.conf` (`HTTPS_PROXY` at the tunnel, `SSL_C
 `SSL_CERT_DIR` at the installed CA) and the set's own `config.json`, restarts `wisekiosk.service`
 and reads its mode from `/proc/<MainPID>/environ`, then restarts `kiosk.service` so the page loads
 afresh against replay before `testimage` runs. `PIPELINE_REPLAY_SET` unset is a live run: no proxy,
-no tunnel, no seed, and the mode is still read the same way (absent `HTTPS_PROXY` confirms "live").
+no tunnel, no seed, and the mode is still read the same way (absent `HTTPS_PROXY` confirms "live"),
+voiding the job if it reads anything else.
 
 After `testimage` — which is where the applied case's own `cards=<present>/<live>` lands in the
-record — `run.sh` re-reads the mode, and, for a replay job, also checks the proxy and tunnel are
-still alive and the access log carries zero `MISS` lines and at least one `HIT` line (the request
-reaching the proxy over the tunnel). It then compares the record's own `cards=` against the set's
+record — `run.sh` re-reads the mode on every job, live or replay, and voids if it no longer matches
+the start; a replay job also checks the proxy and tunnel are still alive and the access log carries
+zero `MISS` lines and at least one `HIT` line (the request reaching the proxy over the tunnel). It
+then compares the record's own `cards=` against the set's
 `expect_cards` (`manifest.json`) and restores bench's own `config.json`, confirming no `HTTPS_PROXY`
 remains, before stopping the proxy and tunnel. A mismatched mode, a `MISS`, a dead proxy or tunnel,
 or a `cards=` mismatch each sets a flag; `run.sh` reads every such flag only once execution reaches
