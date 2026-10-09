@@ -44,8 +44,6 @@ shortening it does not invalidate comparison against arms measured earlier.
   4.8h. It is recorded but unusable over boot-length windows; `iowait %` and `rd_ms`/`wr_ms` are the
   I/O figures to read.
 - **No PSI.** `/proc/pressure/` does not exist (`CONFIG_PSI` is off), so pressure stalls are not
-  available as a cross-check. `systemd-analyze blame`/`critical-chain` needs its own package
-  (`systemd-analyze`, not in `kiosk-zero-w.yaml`'s own `IMAGE_INSTALL`) added to a one-off debug
-  build; neither cross-check is available on the shipped image.
+  available as a cross-check. `systemd-analyze blame`/`critical-chain` is.
 - **An instrumented boot runs ~1s longer in wall-clock than an uninstrumented one.** Compare
   profiled boots against profiled boots.

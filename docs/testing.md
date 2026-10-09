@@ -106,16 +106,8 @@ with a hand build.
 in the image — its queue job builds, installs on bench, reboots, runs the smoke test and rolls
 back.
 
-**The image-content tier (`just oe-test 127.0.0.1 kiosk_image.case`) runs once per queue job, before
-`send`.** Its own `kiosk_image` oeqa package runs through the same `tools/oe-test.sh` the hand-run
-path uses — never bitbake's own `do_testimage` task — naming its one module explicitly, since
-`kiosk_image.case` is never listed in `includes/testimage.yaml`'s own `TEST_SUITES` (the device
-tier's list). `127.0.0.1` is never a real board's address, so `tools/oe-test.sh` declares it
-`role=bench` without consulting `local/device-identity.md` — see its own header comment. The case
-reads the build's own deployed `.ext4` directly (its `MACHINE` from the datastore, its path from
-`case.py`'s own on-disk location, the same arithmetic `tools/oe-test.sh`'s own `$DEPLOY` uses) and
-never calls `self.target` — no board, no network, in seconds. The stage's own log is this tier's
-record.
+**The image-content tier runs once per queue job, before `send`, through `just oe-test 127.0.0.1
+kiosk_image.case`.** The stage's own log is this tier's record.
 
 **`kiosk-preflight` ties the bundle to the image on every install that runs it** — the pipeline
 job, `kiosk-ota`, and both installs of a key rotation (`tools/rauc-rotate.sh`) — by handing both to
@@ -278,12 +270,6 @@ own cases, only two change anything on the board — `test_page_applied` arms th
 (`copyTo` the script, restart `kiosk.service`), which its own teardown removes before the case
 ends, and `test_browser_restart` arms the same probe, restarts `kiosk.service` to take its
 baseline, then kills the browser and waits for it to come back.
-
-Naming `kiosk_image.case` in place of a target's module list runs no board at all. `127.0.0.1` is
-the one declared exception to everything above: no board is ever assigned that address, so it is
-never looked up against `local/device-identity.md`, and `kiosk_image.case` — the only module ever
-run against it — needs neither the HMAC key nor the identity file, since it never touches
-`self.target` and writes no run record.
 
 To run one checker's self-test instead of the suite, see the `selfcheck.py` bullet in
 [`cases/README.md`](../meta-wisekiosk/lib/oeqa/runtime/cases/README.md).
