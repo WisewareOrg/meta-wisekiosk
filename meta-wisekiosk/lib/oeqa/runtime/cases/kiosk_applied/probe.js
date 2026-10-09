@@ -16,15 +16,12 @@
     return 'applied';
   }
 
-  // present is every [data-pwt-card]/[data-pwt-leaderboard] element; live
-  // is the subset holding at least one [data-pwt-tour-row] descendant.
+  // present is every [data-pwt-card] element; live is the subset without
+  // [data-pwt-closed].
   function cards() {
-    var all = document.querySelectorAll('[data-pwt-card], [data-pwt-leaderboard]');
-    var live = 0;
-    for (var i = 0; i < all.length; i++) {
-      if (all[i].querySelector('[data-pwt-tour-row]')) live++;
-    }
-    return all.length + '/' + live;
+    var present = document.querySelectorAll('[data-pwt-card]').length;
+    var live = document.querySelectorAll('[data-pwt-card]:not([data-pwt-closed])').length;
+    return present + '/' + live;
   }
 
   function report() {
