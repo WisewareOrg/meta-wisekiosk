@@ -1,7 +1,7 @@
 import time
 
 from framework.base import (
-    WiseKioskCase, BOUND_SECONDS, POLL_INTERVAL_SECONDS, POLL_ATTEMPT_TIMEOUT_SECONDS,
+    WiseKioskCase, BOUND_SECONDS, POLL_SECONDS, POLL_ATTEMPT_TIMEOUT_SECONDS,
 )
 
 
@@ -17,5 +17,5 @@ class KioskBackendUnitTest(WiseKioskCase):
                 return
             if time.time() >= deadline:
                 break
-            time.sleep(POLL_INTERVAL_SECONDS)
+            time.sleep(POLL_SECONDS)
         self.fail("wisekiosk.service was not active within %ss (rc %s): %s" % (BOUND_SECONDS, status, output))

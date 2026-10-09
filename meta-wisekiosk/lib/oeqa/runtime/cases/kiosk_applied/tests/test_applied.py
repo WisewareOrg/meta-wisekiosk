@@ -1,6 +1,6 @@
-"""Specifies cases/kiosk_applied/verdict.py: parse_title over surf's window-title shape, and
-verdict over a sequence of parsed samples (docs/testing.md section "Running it": the run record's
-page.<case id> line and its no-leak guarantee).
+"""Specifies cases/kiosk_applied/verdict.py: parse_title over surf's window-title shape, read_sample
+over xprop's own per-window dump, and verdict over a sequence of parsed samples (docs/testing.md
+section "Running it": the run record's page.<case id> line and its no-leak guarantee).
 
 surf's updatetitle() (vendored surf.c) renders "[<progress>%] <toggles>:<pagestats> | <title>"
 while progress != 100, and drops the leading "[NN%] " bracket once progress reaches 100 --
@@ -18,6 +18,8 @@ from oeqa.runtime.cases.kiosk_applied.verdict import parse_title, read_sample, v
 
 PROBE = "WK1 nonce=1699999999.5 state=applied cards=-/- faulted=0 unreachable=0"
 
+
+# ----------------------------------------------------------------- parse_title
 
 @pytest.mark.parametrize(
     ("name", "title", "want"),
@@ -107,9 +109,9 @@ def test_read_sample_skips_a_line_with_no_wm_name_property():
 
 # ---------------------------------------------------------------------------- verdict
 # samples is the sequence of parse_title results collected over the 90 s window: a dict for a
-# found-and-parsed probe sample, None for a sample whose title carried no payload. The case's own
-# poll loop always appends at least one sample before calling verdict, so an empty list is
-# unreachable from production and is not a case here.
+# found-and-parsed probe sample, None for a read with no probe payload. The case's own poll loop
+# always appends at least one sample before calling verdict, so an empty list is unreachable from
+# production and is not a case here.
 
 def _sample(state):
     return {"nonce": "1", "state": state, "cards": "-/-", "faulted": 0, "unreachable": 0}
@@ -121,27 +123,27 @@ def _sample(state):
         (
             "the first applied sample wins",
             [_sample("loading"), _sample("applied"), _sample("loading")],
-            "applied",
+            ("applied", ""),
         ),
         (
             "a deadline with only loading samples fails with that state",
             [_sample("loading"), _sample("loading")],
-            "failed:loading",
+            ("failed", "loading"),
         ),
         (
             "a per-sample error:not-app state at the deadline fails with that state",
             [_sample("error:not-app")],
-            "failed:error:not-app",
+            ("failed", "error:not-app"),
         ),
         (
             "no payload in any sample is a probe error, not a failure",
             [None, None],
-            "error:no-probe",
+            ("error", "no-probe"),
         ),
         (
             "a no-payload sample beside a real state does not change the outcome",
             [None, _sample("loading"), None],
-            "failed:loading",
+            ("failed", "loading"),
         ),
     ],
 )

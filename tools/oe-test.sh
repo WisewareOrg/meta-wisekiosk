@@ -2,7 +2,9 @@
 # Hand-run path for the kiosk oeqa suite, against any reachable target --
 # no bitbake, no OTA. docs/testing.md § "The hand-run path" has the why.
 #
-#   tools/oe-test.sh <target-ip>
+#   tools/oe-test.sh <target-ip> [module...]
+#
+# A trailing module list replaces TEST_SUITES.
 #
 # Env: OE_TEST_TESTDATA, OE_TEST_MANIFEST override the last build's own
 # .testdata.json/.manifest symlinks under the deploy directory.
@@ -13,7 +15,7 @@ ROOT="$(cd "$HERE/.." && pwd)"
 
 # One list, one home: includes/testimage.yaml's own TEST_SUITES, read the
 # same way pipeline-test.sh reads a Python assignment's quoted value,
-# rather than a second copy of the six names that could drift from it
+# rather than a second copy of the module list that could drift from it
 # silently.
 TEST_SUITES=$(sed -n 's/^[[:space:]]*TEST_SUITES = "\(.*\)"$/\1/p' "$ROOT/includes/testimage.yaml")
 if [ -z "$TEST_SUITES" ]; then
@@ -21,15 +23,19 @@ if [ -z "$TEST_SUITES" ]; then
     exit 1
 fi
 # An array, not a quoted string: the space-separated names are meant to
-# reach --run-tests as six separate arguments (its own nargs='+'), which
+# reach --run-tests as separate arguments (its own nargs='+'), which
 # quoting would collapse into one.
 read -r -a TEST_SUITES_ARR <<< "$TEST_SUITES"
 
 if [ -z "${1:-}" ]; then
-    echo "usage: oe-test.sh <target-ip>" >&2
+    echo "usage: oe-test.sh <target-ip> [module...]" >&2
     exit 2
 fi
 TARGET=$1
+shift
+if [ "$#" -gt 0 ]; then
+    TEST_SUITES_ARR=("$@")
+fi
 
 KEY="$ROOT/local/keys/hmac.key"
 if [ ! -f "$KEY" ]; then
@@ -61,10 +67,7 @@ if [ ! -f "$MANIFEST" ]; then
     exit 1
 fi
 
-# Resolves the role and hostname through tools/device-role.py, then
-# refuses outright on anything but bench: this suite never runs against
-# prod, by direct check here rather than relying only on the base class's
-# live-hostname comparison.
+# Resolves role/hostname via tools/device-role.py; refuses outright if role != bench.
 ROLE_LINE=$(python3 "$ROOT/tools/device-role.py" "$TARGET") || exit 1
 read -r ROLE_KV HOSTNAME_KV <<< "$ROLE_LINE"
 KIOSK_TARGET_ROLE=${ROLE_KV#role=}

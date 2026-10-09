@@ -1,0 +1,18 @@
+active: false
+derived: false
+header: |
+  Misprovisioned unit shows a fault, never a blank or stale display
+level: 1.5
+links:
+- SYS002: -ZgnCkhKjlkebQlOvroSopSVF6vX7tOxa_H369NplbA=
+normative: true
+rationale: ''
+ref: ''
+reviewed: TNa9nIc3zRAxW0xP0tYB4kihgUMXHWXqZrOjts02tr4=
+status: proposed
+text: |
+  A misprovisioned unit shows a fault, never a blank or stale display.
+verification-justification: |
+  No appliance-level fault display exists yet to verify this against: the application's own
+  configuration-error page is its own tier's mechanism, not the appliance's.
+verification-method: test

@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Browser comes back on its own when it dies
+level: 1.4
+links:
+- SYS002: -ZgnCkhKjlkebQlOvroSopSVF6vX7tOxa_H369NplbA=
+normative: true
+rationale: ''
+ref: ''
+reviewed: u3L2kBJJP3q7Ew-2tYxl-wgwBDWmbThVpPWJQVjb0hw=
+status: proposed
+text: |
+  The browser shall come back on its own, and the display be applied again, when it dies, with
+  nobody attending the display.
+verification-justification: |
+  Settles that the browser comes back and the page is applied again after a kill. Leaves
+  unproven recovery from any fault other than the browser process itself ending.
+verification-method: test

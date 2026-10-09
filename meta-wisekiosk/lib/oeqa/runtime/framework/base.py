@@ -14,8 +14,16 @@ from . import record
 HEALTHZ_URL = "http://127.0.0.1:8080/healthz"
 INDEX_URL = "http://127.0.0.1:8080/"
 BOUND_SECONDS = 60
-POLL_INTERVAL_SECONDS = 2
+POLL_SECONDS = 2
 POLL_ATTEMPT_TIMEOUT_SECONDS = 10
+RESTART_TIMEOUT_SECONDS = 10
+
+# Walks the root's whole tree and reads every window's WM_NAME.
+_WINDOW_TITLES_PROBE = (
+    "for id in $(DISPLAY=:0 xwininfo -root -tree 2>/dev/null | "
+    "awk '/^ +0x/ { print $1 }'); do "
+    'DISPLAY=:0 xprop -id "$id" WM_NAME 2>/dev/null; done'
+)
 
 
 def _now_iso():
@@ -60,6 +68,9 @@ class WiseKioskCase(OERuntimeTestCase):
                 "by hand, tools/oe-test.sh resolves them from local/device-identity.md and "
                 "<repo>/local/keys/hmac.key")
 
+        if role != "bench":
+            raise RuntimeError(f"this suite only ever runs against bench, got role={role!r}")
+
         # The key's path is an input, like role and hostname, never
         # derived from __file__: inside kas-container that resolves to
         # the /repo mount, a different one from PIPELINE_KEYS_DIR's
@@ -76,11 +87,9 @@ class WiseKioskCase(OERuntimeTestCase):
         # The bench-only refusal: the first thing this suite does with the
         # device, before any other collector.
         observed_hostname = target.run("hostname")[1].strip()
-        if observed_hostname != hostname:
-            raise RuntimeError(
-                f"the board's live hostname ({observed_hostname!r}) does not match "
-                f"the expected KIOSK_TARGET_HOSTNAME ({hostname!r}) -- refusing to "
-                "run against a board this suite did not expect")
+        mismatch = record.hostname_mismatch(observed_hostname, hostname)
+        if mismatch:
+            raise RuntimeError(mismatch)
 
         WiseKioskCase.role = role
         WiseKioskCase.hmac_key = hmac_key_path.read_bytes()
@@ -157,3 +166,10 @@ class WiseKioskCase(OERuntimeTestCase):
         super().tearDown()
         self.tc.extraresults[record.RECORD_KEY]["board"] = record.board_line(
             end=_now_iso(), **WiseKioskCase.board_fields)
+
+    def titles(self):
+        """The device's window titles, through xprop's WM_NAME walk --
+        transport only, raw text. Each case's own verdict module parses it."""
+        _status, output = self.target.run(
+            _WINDOW_TITLES_PROBE, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
+        return output

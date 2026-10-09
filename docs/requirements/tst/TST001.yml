@@ -11,13 +11,15 @@ ref: ''
 references:
 - keyword: def test_page_applied
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_applied/case.py
-  sha: 44f6e3ec38517d7e98117f04de89cc9cbe7ce92337eb50a1a013f77b6098431b
+  sha: daa84f99fa3708d4027c464c2e4f7592a454dc5f9887f6398acd5e2b62e01a06
   type: file
-reviewed: u5B6-OEEv6ww8SsN56O7BCUrkkFkyeBFtO1mmfgB4tM=
+reviewed: nUama3dYOAyrrJysh51TjX19y4PmNht-bX6Cg1Tklkc=
 status: proposed
 text: |
   Run the device oeqa suite's applied-page case against the booted image and assert it passes.
 verification-justification: |
   Settles that the page the application serves is the one reported applied on screen, on one
-  physical device, one boot. Leaves unproven whether it stays applied, and whether it renders.
+  physical device, one boot. The failure branch is proven on constructed input and was watched
+  failing on bench when the check was built. Leaves unproven whether it stays applied, and
+  whether it renders.
 verification-method: test

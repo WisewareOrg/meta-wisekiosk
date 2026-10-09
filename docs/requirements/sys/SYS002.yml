@@ -1,4 +1,4 @@
-active: false
+active: true
 derived: false
 header: |
   Runs unattended and recovers
@@ -6,14 +6,16 @@ level: 1.1
 links: []
 normative: true
 rationale: |
-  No child obligation exists yet: the fault and recovery decomposition is a later step's
-  scope, not this one's.
+  Decomposed by the browser's own recovery from being killed, without a person at the panel.
+  A misprovisioned unit's own fault display is a decomposed need too, inactive until an
+  appliance-level fault display exists to verify it against.
 ref: ''
-reviewed: Ockutq6gpte1U6xEAda9_P5eGAHpk-fxC-JAZZ6PylU=
+reviewed: -ZgnCkhKjlkebQlOvroSopSVF6vX7tOxa_H369NplbA=
 status: proposed
 text: |
   The kiosk shall run unattended and recover.
 verification-justification: |
-  Nothing mechanical decides this today; no child obligation has been written yet to decide it
-  at any method.
-verification-method: demonstration
+  Settles that the browser recovers from being killed, without a person at the panel. Leaves
+  unproven a misprovisioned unit's own fault display, and any fault this image's own checks do
+  not inject.
+verification-method: test

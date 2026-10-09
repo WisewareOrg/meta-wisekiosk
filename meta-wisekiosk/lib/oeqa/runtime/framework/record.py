@@ -189,6 +189,16 @@ def pid_from_pgrep(output):
     return lines[0]
 
 
+def hostname_mismatch(observed, expected):
+    """The bench-only refusal message when observed != expected, else None."""
+    if observed == expected:
+        return None
+    return (
+        f"the board's live hostname ({observed!r}) does not match "
+        f"the expected KIOSK_TARGET_HOSTNAME ({expected!r}) -- refusing to "
+        "run against a board this suite did not expect")
+
+
 def tool_line(name, tool_commit, dirty, argv):
     return f"R tool={name} tool_commit={tool_commit} dirty={dirty} argv={argv}"
 

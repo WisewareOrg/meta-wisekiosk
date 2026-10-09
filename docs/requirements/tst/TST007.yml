@@ -1,0 +1,26 @@
+active: true
+derived: false
+header: |
+  Layout-floor check passes
+level: 1.6
+links:
+- SRS007: T-nC5q_Q5j3MsS-QuwZtwmqkYRXJMuY93HF44R0BNwA=
+normative: true
+rationale: ''
+ref: ''
+references:
+- keyword: def test_layout_floor
+  path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_layout/case.py
+  sha: b24a2c8578f60db47e1877edaf3713d2198f46d065ef911d28db821e66221f8d
+  type: file
+reviewed: SHT9lveoeXg7lKS5_fQB9Hf7p61GG3jqSw-lglhLNCE=
+status: proposed
+text: |
+  Read the mode xrandr reports and the launcher's own configured mode, and assert the former is
+  at least 1280x720 and matches the latter.
+verification-justification: |
+  Settles the floor and the configured-mode match at the mode xrandr reports, on one physical
+  device, one boot. The failure branch is proven on constructed input and was watched failing
+  on bench when the check was built. Leaves unproven anything about the display at a mode below
+  the floor, and the application's screen layout, which is the application's own tier's.
+verification-method: test

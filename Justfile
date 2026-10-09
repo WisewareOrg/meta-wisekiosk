@@ -212,9 +212,9 @@ testimage ssh_dir=env('PIPELINE_SSH_DIR', ''):
     KAS_RUN_ENV="TEST_TARGET_IP OEQA_JSON_RESULT_DIR KIOSK_TARGET_ROLE KIOSK_TARGET_HOSTNAME" tools/kas-run.sh --ssh-dir {{ssh_dir}} build {{config}}:includes/testimage.yaml -c testimage
 
 [group('audit')]
-[doc("Run the kiosk oeqa suite by hand against <target-ip>, no bitbake, no OTA")]
-oe-test target:
-    tools/oe-test.sh {{target}}
+[doc("Run the kiosk oeqa suite, or named modules, by hand against <target-ip>, no bitbake, no OTA")]
+oe-test target *modules:
+    tools/oe-test.sh {{target}} {{modules}}
 
 # Write per-site config to a device's /data. The image carries none of it.
 [group('provision')]

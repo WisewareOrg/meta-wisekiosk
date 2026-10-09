@@ -5,7 +5,7 @@ from .verdict import verdict as render_verdict
 # The render check's default crop, ported from tools/kiosk-render-check.sh --
 # docs/testing.md § "The render and applied cases" has the why.
 _RENDER_CROP = "560x300+220+20"
-_RENDER_PROBE = (
+RENDER_PROBE = (
     'if ! command -v import > /dev/null 2>&1; then echo "cap import=0"; exit 0; fi\n'
     "F=/tmp/render-check.$$\n"
     "grab() {\n"
@@ -36,7 +36,7 @@ _RENDER_PROBE = (
 class KioskRenderTest(WiseKioskCase):
 
     def test_render_advancing(self):
-        _status, output = self.target.run(_RENDER_PROBE)
+        _status, output = self.target.run(RENDER_PROBE)
         outcome, reason = render_verdict(output.splitlines())
         if outcome == "advancing":
             return
