@@ -11,9 +11,9 @@ ref: ''
 references:
 - keyword: def test_units_well_formed
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_units/case.py
-  sha: 0594f74b7107d6b4b7c502a46f10924a98991982e03b9443b31bbd031a984c0a
+  sha: 2427af6614945509d29f0994a62013b76caf633460753ce8a7a497c3414b0021
   type: file
-reviewed: 7lsdI691Vf23F8A2kPMpmdbd-q4qdUeD3u_99gNNvCg=
+reviewed: 9ZSJa0V5sELSNvbqyoNmuUY0mj8GMPzf0JuqO9ZkQrw=
 status: proposed
 text: |
   Run the device suite's unit-well-formedness check against the booted appliance's own

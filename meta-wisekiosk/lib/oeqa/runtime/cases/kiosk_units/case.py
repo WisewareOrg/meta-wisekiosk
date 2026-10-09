@@ -39,12 +39,16 @@ class KioskUnitsTest(WiseKioskCase):
     on the board over SSH, each scoped to its own unit's output before
     verdict.systemd_analyze_verdict judges it -- never --root over the
     build's own rootfs, since the generators (fstab, among others) that
-    the board's own boot already ran are what this check needs live."""
+    the board's own boot already ran are what this check needs live.
+    `--generators=yes` makes verify run those generators itself (data.mount
+    among them), rather than treating a unit that Requires=/Wants= one as
+    unverifiable; it needs the root privileges the SSH target already
+    runs as."""
 
     def test_units_well_formed(self):
         problems = []
         for unit in SHIPPED_UNITS:
-            status, output = self.target.run(f"systemd-analyze verify {unit}")
+            status, output = self.target.run(f"systemd-analyze verify --generators=yes {unit}")
             scoped = _own_unit_lines(output, unit)
             outcome, reason = verdict.systemd_analyze_verdict(status, scoped)
             if outcome == "error":
