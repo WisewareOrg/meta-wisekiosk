@@ -274,9 +274,8 @@ unless:
   rather than assuming — offline is not distinguishable from never-pushed.
 - where the caller holds the rootfs (`flash`, `kiosk-preflight`), `/etc/buildinfo` names a 40-hex sha
   equal to HEAD. The bundle-shipping recipes cannot check this directly — a `.raucb` is not readable
-  with `debugfs` — so they enforce only the first two; `kiosk-preflight` instead ties the bundle to
-  the rootfs through its own image-content tier call (#48 bundle-image-tie), which reads the bundle
-  manifest's own hash rather than `debugfs`.
+  with `debugfs` — so they enforce only the first two; `kiosk-preflight` ties the bundle to the
+  rootfs separately ([`docs/testing.md`](testing.md) "Image content").
 
 The rotation path is gated positionally — every install in
 [`tools/rauc-rotate.sh`](../tools/rauc-rotate.sh) is preceded by `kiosk-preflight`.

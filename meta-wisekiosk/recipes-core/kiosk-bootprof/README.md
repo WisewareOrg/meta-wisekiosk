@@ -43,8 +43,7 @@ shortening it does not invalidate comparison against arms measured earlier.
 - **`io_ticks` is not populated by this kernel's mmc driver** — 0 at 3 minutes of uptime, 4050 at
   4.8h. It is recorded but unusable over boot-length windows; `iowait %` and `rd_ms`/`wr_ms` are the
   I/O figures to read.
-- **No PSI, no `systemd-analyze`.** `/proc/pressure/` does not exist (`CONFIG_PSI` is off) and
-  `systemd-analyze` is not on the image, so neither pressure stalls nor `blame`/`critical-chain` is
-  available as a cross-check.
+- **No PSI.** `/proc/pressure/` does not exist (`CONFIG_PSI` is off), so pressure stalls are not
+  available as a cross-check. `systemd-analyze blame`/`critical-chain` is.
 - **An instrumented boot runs ~1s longer in wall-clock than an uninstrumented one.** Compare
   profiled boots against profiled boots.

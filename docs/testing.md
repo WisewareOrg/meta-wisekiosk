@@ -6,9 +6,9 @@ result at that tier does **not** let you conclude.
 | Tier | Guarantees | Runs | What green does not say |
 |---|---|---|---|
 | Static (`just guards`, CI) | Repository invariants hold: no secret or identity reaches a tracked file, shell and YAML parse, every wiring self-test passes. | Every commit (pre-commit hook), every PR and merge-group commit (CI). | Anything about a Yocto build. This tier never invokes bitbake. |
-| Host (`just test`) | `meta-wisekiosk/lib/oeqa/runtime/framework/record.py` (the run record's builders and parsers) and every case package's own `verdict.py` under `cases/` (the render verdict, the applied-page title parser and verdict, the browser-restart nonce check, the layout floor/configured-mode check) behave as their constructed-input tests say, at a 100% line and branch coverage floor. | Every commit (pre-commit hook), every PR and merge-group commit (CI). | That a board actually produces the input these functions expect. That contract is proven separately, by a case's own acceptance runs on bench; `framework/base.py` and each package's `case.py`/`selfcheck.py` are transport only and are outside this tier's coverage population by construction. |
+| Host (`just test`) | `meta-wisekiosk/lib/oeqa/runtime/framework/record.py` and every case package's own `verdict.py` under `cases/` behave as their constructed-input tests say, at a 100% line and branch coverage floor. | Every commit (pre-commit hook), every PR and merge-group commit (CI). | That a board actually produces the input these functions expect. That contract is proven separately, by a case's own acceptance runs on bench; `framework/base.py` and each package's `case.py`/`selfcheck.py` are transport only and are outside this tier's coverage population by construction. |
 | Build (`just build`) | The kas config resolves and bitbake completes: an image artifact exists. | On demand, locally — never in CI, which does not build. | Whether the image differs from the last one, whether it boots, whether it serves anything. |
-| Image content (`just testimage-image`) | The built rootfs's display-launch unit carries its designed flags (`-s 0 -dpms -nocursor`, drop-ins merged as systemd merges them), the required binaries later checks need are present, and the shipped bundle's own manifest names the deployed rootfs by hash and carries the display's served `index.html`. Reads the build's own rootfs, deployed `.ext4` and bundle through the datastore — no board, no network, in seconds. | The pipeline, once per queue job, after `kiosk-bundle` and before `kiosk-preflight`. By hand, any time a `build/` tree exists, via `kiosk-preflight` or directly. | Whether the image boots, whether the display actually renders, whether its units are well-formed, or anything the device smoke tier below settles. |
+| Image content (`just testimage-image`) | The built rootfs's display-launch unit carries its designed flags (`-s 0 -dpms -nocursor`, drop-ins merged as systemd merges them), the required binaries later checks need are present, and the display's served `index.html` is in the rootfs. Reads the build's own deployed `.ext4` through the datastore — no board, no network, in seconds. | The pipeline, once per queue job, before `send`. | Whether the bundle ties to this image (`reproducibility-gate.sh`'s own job, below), whether the image boots, whether the display actually renders, whether its units are well-formed, or anything the device smoke tier below settles. |
 | Device smoke (`testimage` in the pipeline, or `just oe-test <target>` by hand) | The backend unit is active, `/healthz` answers, the page serves, WebKit still composites on the GPU, the page is still painting, the page is applied as the application designs it, the browser comes back on its own when it dies, the display runs at the configured mode, at or above the design floor, and every unit meta-wisekiosk's own recipes ship is well-formed (`systemd-analyze verify`, against the board's own systemd) — on **one** physical device, one boot. Both run `includes/testimage.yaml`'s own `TEST_SUITES` list of `meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_*.case` modules and write the same run record. | The pipeline, once per queue job, after an OTA install (never a flash). By hand, any time, against any board `local/device-identity.md` names — never prod, which the suite's own hostname check refuses. | The shared boot partition (`config.txt`, `cmdline.txt`, `boot.scr`, and `uboot.env` apart from RAUC's own boot-selection variables) — an OTA writes only the slot rootfs it boots, which does carry the kernel. The RAUC slot layout, which an OTA never touches, or a second boot. |
 | OTA/rollback (the queue run) | Install, reboot, and — for a queue run — mark-bad, reboot and land back on the baseline slot all completed, and the device answered again each time. | Every queue job. | Whether the slot rolled back *into* would itself survive a fresh install — it was booted back into, not reinstalled. There are only two slots. |
 
@@ -106,17 +106,20 @@ with a hand build.
 in the image — its queue job builds, installs on bench, reboots, runs the smoke test and rolls
 back.
 
-**The image-content tier (`just testimage-image`) runs after `kiosk-bundle` and before
-`kiosk-preflight`, both in the pipeline and by hand** — `kiosk-preflight` calls it, so the hand OTA
-path is tied the same way the pipeline is (#48 bundle-image-tie). Its own `kiosk_image` oeqa
-package, selected by `includes/testimage-image.yaml` (`TEST_SUITES = "kiosk_image"`, a literal
-loopback `TEST_TARGET_IP`/`TEST_SERVER_IP` so `testimage_sanity` is satisfied with nothing ever
-dialed), reads the build's own rootfs directory, deployed `.ext4` and bundle through the datastore
+**The image-content tier (`just testimage-image`) runs once per queue job, before `send`.** Its own
+`kiosk_image` oeqa package, selected by `includes/testimage-image.yaml` (`TEST_SUITES =
+"kiosk_image.case"`, a literal loopback `TEST_TARGET_IP`/`TEST_SERVER_IP` so `testimage_sanity` is
+satisfied with nothing ever dialed), reads the build's own deployed `.ext4` through the datastore
 (`self.td`) and never calls `self.target` — no board, no network, in seconds, so a failure here is
 a candidate failure (`run_or_fail`/`finish failure`), never an infrastructure one, and never aborts
-a device already mid-OTA (the tier sits before `send`/`install`). `framework.base.ImageCase`
-resolves those paths and writes no record line of its own — the stage's own log and
-`testresults.json` are this tier's record.
+a device already mid-OTA. `framework.base.ImageCase` resolves that path; the stage's own log is
+this tier's record.
+
+**`kiosk-preflight` ties the bundle to the image on every install** — the pipeline's and a hand
+OTA's alike, and every rotation's two installs (`tools/rauc-rotate.sh`) — by handing both to
+`tools/reproducibility-gate.sh --image <ext4> --bundle <raucb>`, which compares the bundle's own
+`rauc info` digest against a fresh `sha256sum` of the image and refuses on a mismatch, closing #48
+(nothing previously bound a bundle to the rootfs inside it). No bitbake runs in `kiosk-preflight`.
 
 **The run record.** The suite's own inputs -- `KIOSK_TARGET_ROLE`, `KIOSK_TARGET_HOSTNAME` and
 `KIOSK_HMAC_KEY` -- arrive through `testimage`'s `env:` passthrough under the pipeline, or

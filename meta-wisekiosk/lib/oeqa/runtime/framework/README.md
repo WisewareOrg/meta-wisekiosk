@@ -7,9 +7,10 @@ test, so it is not discovered as one. Made importable as bare `framework` by `la
 two import conventions it requires.
 
 - `base.py` — `WiseKioskCase`, the once-per-run record (role and hostname refusal, the boot/image/
-  app/sut lines) every case inherits, plus `titles()` (the one window-title walk every
-  probe-reading case shares). Imports `oeqa`, like a `case.py`, so it is outside `just test`'s
-  coverage population the same way.
+  app/sut lines) every device case inherits, plus `titles()` (the one window-title walk every
+  probe-reading case shares); and `ImageCase`, the host-only image-content tier's own base, which
+  resolves the build's deployed `.ext4`/bundle paths and writes no record. Imports `oeqa`, like a
+  `case.py`, so it is outside `just test`'s coverage population the same way.
 - `record.py` — the run record's own parsers, scrubbers and R-line builders, plus
   `hostname_mismatch`, which builds the refusal message from the observed and recorded hostnames.
   Pure: no `self.target.run`, no `subprocess`, nothing that touches a device or the network.
