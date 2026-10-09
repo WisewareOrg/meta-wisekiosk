@@ -45,7 +45,10 @@ recorded) gets a 502, logged `MISS <key>`; a served hit is logged `HIT <key> sha
 for `tools/scrub-identity.py`'s own scan) and drops the upstream's own `Content-Length` in favour of
 one computed from the stored body, and writes the **first** response per key only — a repeat
 request still forwards and relays, never overwritten. `record.py` refuses a CONNECT to any host
-with no leaf (`MISS CONNECT <host> (no leaf)`), the same as `replay.py`.
+with no leaf (`MISS CONNECT <host> (no leaf)`), the same as `replay.py`. It also drops every
+response header named `CF-RAY` or starting `cf-` before writing the file: that header names the
+Cloudflare edge that served the recording host, a coarse identity of the site's own network that
+`tools/scrub-identity.py` has no pattern for — `record.py` is the one owner of this rule.
 
 ## The set layout
 
@@ -72,8 +75,10 @@ cited in the PR.
 
 ## Re-recording
 
-A set past its `expires` date refuses to serve at all (`replay set expired: re-record`). To
-re-record (pipeline timer off throughout):
+A set past its `expires` date refuses to serve at all (`replay set expired: re-record`). `expires`
+is the last date in the set's own recorded park schedules; for a set with no schedule at all (such
+as `weather-only`), it is the forecast's own last day instead. To re-record (pipeline timer off
+throughout):
 
 1. Mint a leaf for every upstream host the set's own `config.json` will call, if none already
    exists or any is within its last month: `tools/replay/ca.sh local/keys/replay-ca leaf <host>`.
@@ -84,7 +89,7 @@ re-record (pipeline timer off throughout):
    restart `wisekiosk.service`. `tools/kiosk-ssh.sh` may hold the tunnel for this.
 3. On the pipeline host, open the same reverse tunnel `run.sh` uses (`ssh -R
    127.0.0.1:<port>:127.0.0.1:<port>`) and run `tools/replay/record.py --set sets/<name> --port
-   <port> --ca local/keys/replay-ca --expires <the last date in the recorded schedule>`.
+   <port> --ca local/keys/replay-ca --expires <this set's own expiry, per the rule above>`.
 4. Restart `kiosk.service` so the page issues every request the config implies (one weather call, a
    live and a schedule call per park); watch `record.py`'s own stderr for a `RECORD <key> -> <file>`
    line per request, until every expected key has one.

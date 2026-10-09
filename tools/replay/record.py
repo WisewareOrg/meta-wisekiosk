@@ -18,6 +18,14 @@ import proxy
 _manifest_lock = threading.Lock()
 
 
+def _skip_response_header(name):
+    """True if a response header must be dropped before the recorded file is written: the
+    hop-by-hop headers this tool recomputes itself, and any Cloudflare cf-* header (CF-RAY names
+    the CDN edge that served the recording host -- coarse identity of the site's own network)."""
+    lower = name.lower()
+    return lower in ("connection", "transfer-encoding", "content-length") or lower.startswith("cf-")
+
+
 def forward(host, port, method, target, headers, body):  # pragma: no cover -- dials a real host
     """The real upstream's own response to one request, dialled fresh every time, verified
     against the system's default trust store."""
@@ -32,7 +40,7 @@ def forward(host, port, method, target, headers, body):  # pragma: no cover -- d
         response_body = response.read()
         lines = [f"HTTP/1.1 {response.status} {response.reason}".encode("iso-8859-1")]
         for k, v in response.getheaders():
-            if k.lower() in ("connection", "transfer-encoding", "content-length"):
+            if _skip_response_header(k):
                 continue
             lines.append(f"{k}: {v}".encode("iso-8859-1"))
         lines.append(f"Content-Length: {len(response_body)}".encode("iso-8859-1"))

@@ -36,9 +36,6 @@ omit = [
     "meta-wisekiosk/lib/oeqa/runtime/framework/base.py",
     "meta-wisekiosk/lib/oeqa/runtime/framework/tests/*",
     "tools/replay/tests/*",
-    # Every function in record.py is pragma'd I/O (it dials a real host);
-    # the import alone has nothing left for a dedicated test to cover.
-    "tools/replay/record.py",
 ]
 
 [tool.coverage.report]
