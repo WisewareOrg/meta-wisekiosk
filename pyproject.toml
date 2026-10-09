@@ -20,11 +20,11 @@ dev = [
 # defined in one place. :skip-covered collapses a fully-covered file to the summary line instead
 # of listing it; a file under 100% still lists its missing lines.
 addopts = ["--cov", "--cov-report=term-missing:skip-covered"]
-testpaths = ["meta-wisekiosk/lib/oeqa/runtime"]
-pythonpath = ["meta-wisekiosk/lib", "meta-wisekiosk/lib/oeqa/runtime"]
+testpaths = ["meta-wisekiosk/lib/oeqa/runtime", "tools/replay/tests"]
+pythonpath = ["meta-wisekiosk/lib", "meta-wisekiosk/lib/oeqa/runtime", "tools/replay"]
 
 [tool.coverage.run]
-source = ["meta-wisekiosk/lib/oeqa/runtime"]
+source = ["meta-wisekiosk/lib/oeqa/runtime", "tools/replay"]
 branch = true
 omit = [
     # case.py, selfcheck.py and framework/base.py import oeqa, unavailable
@@ -35,6 +35,7 @@ omit = [
     "meta-wisekiosk/lib/oeqa/runtime/cases/*/tests/*",
     "meta-wisekiosk/lib/oeqa/runtime/framework/base.py",
     "meta-wisekiosk/lib/oeqa/runtime/framework/tests/*",
+    "tools/replay/tests/*",
 ]
 
 [tool.coverage.report]

@@ -11,9 +11,9 @@ ref: ''
 references:
 - keyword: def test_page_applied
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_applied/case.py
-  sha: daa84f99fa3708d4027c464c2e4f7592a454dc5f9887f6398acd5e2b62e01a06
+  sha: eec59b77699fdb0880f9d8ed550e8a3115dad1a7c0493a8e8a66cabb49ace9c5
   type: file
-reviewed: nUama3dYOAyrrJysh51TjX19y4PmNht-bX6Cg1Tklkc=
+reviewed: cdbGKfdfDRRuiiYpQu5SadYVhWrJlWxMmPOEyBmMw-w=
 status: proposed
 text: |
   Run the device oeqa suite's applied-page case against the booted image and assert it passes.
