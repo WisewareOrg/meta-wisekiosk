@@ -542,17 +542,22 @@ else
     }
 
     unwired10=""
-    # <justfile>:<recipe>:<required mode>
+    # <justfile>:<recipe>:<required mode>:<required extra substring, or empty>
+    # The extra field holds kiosk-preflight's own --bundle "{{bundle}}" --
+    # deleting it keeps every other guard green and silently drops TST009's
+    # whole bundle-image tie.
     for spec in \
-        "justfiles/deploy.just:flash:--image" \
-        "justfiles/ota.just:kiosk-preflight:--image" \
-        "justfiles/ota.just:kiosk-send-direct:--tree" \
-        "justfiles/device.just:rauc-install:--tree"
+        "justfiles/deploy.just:flash:--image:" \
+        "justfiles/ota.just:kiosk-preflight:--image:--bundle \"{{bundle}}\"" \
+        "justfiles/ota.just:kiosk-send-direct:--tree:" \
+        "justfiles/device.just:rauc-install:--tree:"
     do
         jf10=${spec%%:*}
         rest10=${spec#*:}
         rn10=${rest10%%:*}
-        mode10=${rest10#*:}
+        rest10=${rest10#*:}
+        mode10=${rest10%%:*}
+        extra10=${rest10#*:}
         body10=$(recipe_body10 "$jf10" "$rn10")
         if [ -z "$body10" ]; then
             unwired10="$unwired10 $jf10:$rn10(recipe-gone)"
@@ -560,6 +565,10 @@ else
         fi
         calls10=$(grep -cF -- "$gate10 $mode10" <<< "$body10")
         [ "$calls10" -eq 0 ] && unwired10="$unwired10 $jf10:$rn10($mode10)"
+        if [ -n "$extra10" ]; then
+            extra_calls10=$(grep -cF -- "$extra10" <<< "$body10")
+            [ "$extra_calls10" -eq 0 ] && unwired10="$unwired10 $jf10:$rn10($extra10)"
+        fi
     done
     if [ -n "$unwired10" ]; then
         bad "a recipe that puts an image on a board does not call the reproducibility gate:"

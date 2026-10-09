@@ -11,20 +11,22 @@ ref: ''
 references:
 - keyword: the bundle ties to the image
   path: tools/reproducibility-gate.sh
-  sha: f91541c38e508dd74c0f9e0291192436655e12ae65bbaeae5662c14d9cee37db
+  sha: 45d2aa4b46c7150a325832940c787f7fce28a29b8ebb487c3d03250381229de9
   type: file
 - keyword: def test_display_files_present
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_image/case.py
-  sha: bded8f4da70bebf1e42dbb7417685cd0142b8d977239f4cb07cbf348682d3213
+  sha: b1e1b56f0d3572160ccea8a041e2f1dfa3080c0ec1118287236308aeb394674c
   type: file
-reviewed: 3n5kpbokGOuTuSPk6cMMHjwf1sRh_-4Wtj0wVqdDHC8=
+reviewed: PZL8EojLDnmf3aHGTWkJ67ERt9qOBmIfCWAghapgP6s=
 status: proposed
 text: |
   Hash the deployed rootfs and compare it to the bundle's own digest, and assert the
   display's served entry point is present in the rootfs.
 verification-justification: |
   Settles that the bundle ties to the deployed rootfs by hash (tools/reproducibility-gate.sh,
-  run by every install path) and that the display's served entry point is present in it, read
-  from this build's own artifacts. Leaves unproven whether the served files are themselves
-  correct once applied.
+  run by every install kiosk-preflight gates) and that the display's served entry point is
+  present in it, read from this build's own artifacts. The failure branch is proven on
+  constructed input and was watched failing on a mutated copy of the artefacts when the check
+  was built. Leaves unproven whether the served files are themselves correct once applied, and
+  anything installed by a recipe kiosk-preflight does not gate (docs/testing.md names them).
 verification-method: test

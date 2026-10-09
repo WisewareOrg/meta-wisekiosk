@@ -185,8 +185,8 @@ fi
 
 # --- Every cases/<pkg>/case.py is named, in full, in exactly one of the
 # two TEST_SUITES lists: includes/testimage.yaml's (the device tier) or
-# includes/testimage-image.yaml's (the host-only image-content tier,
-# #206) -- never both, never neither.
+# includes/testimage-image.yaml's (the host-only image-content tier) --
+# never both, never neither.
 TESTIMAGE_IMAGE_YAML="$HERE/../includes/testimage-image.yaml"
 CASE_PKGS=$(find "$HERE/../meta-wisekiosk/lib/oeqa/runtime/cases" -mindepth 2 -maxdepth 2 -name case.py \
     | sed -E 's#.*/cases/([^/]+)/case\.py#\1.case#' | sort)

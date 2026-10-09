@@ -208,7 +208,7 @@ kiosk-send-direct bundle="build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0
     DEST=/data/update.raucb
     test -f "{{bundle}}" || { echo "no bundle at {{bundle}}"; exit 1; }
     # Directly invocable, so it cannot rely on kiosk-preflight having run.
-    # --tree: the argument is a .raucb, unreadable here.
+    # --tree: no rootfs image is in hand here, only the bundle argument.
     tools/reproducibility-gate.sh --tree || exit 1
     LOCAL_MD5=$(md5sum "{{bundle}}" | cut -d' ' -f1)
     SIZE=$(stat -Lc%s "{{bundle}}")

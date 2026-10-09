@@ -21,6 +21,7 @@ usage() {
 mode=""
 image=""
 bundle=""
+bundle_given=0
 # One mode, never two: last-wins would let `--image X --tree` run the weaker
 # check while still reading as --image to tools/ci-guards.sh guard 10.
 set_mode() {
@@ -35,7 +36,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --tree)  set_mode "$1" ;;
         --image) set_mode "$1"; shift; image=${1-} ;;
-        --bundle) shift; bundle=${1-} ;;
+        --bundle) bundle_given=1; shift; bundle=${1-} ;;
         -h|--help) usage; exit 0 ;;
         *) printf 'unknown argument: %s\n\n' "$1" >&2; usage >&2; exit 2 ;;
     esac
@@ -47,7 +48,7 @@ done
 # check -- that failure would look identical to a passing gate.
 case "$mode" in
     tree)
-        if [ -n "$bundle" ]; then
+        if [ "$bundle_given" -eq 1 ]; then
             printf 'REFUSING: --bundle given with --tree -- --bundle needs --image\n' >&2
             exit 2
         fi
@@ -55,6 +56,10 @@ case "$mode" in
     image)
         if [ -z "$image" ]; then
             printf 'REFUSING: --image was given an empty path\n' >&2
+            exit 1
+        fi
+        if [ "$bundle_given" -eq 1 ] && [ -z "$bundle" ]; then
+            printf 'REFUSING: --bundle was given an empty path\n' >&2
             exit 1
         fi
         ;;
@@ -118,8 +123,8 @@ else
 fi
 
 # --- (c) the image names HEAD ---------------------------------------------
-# Only where a rootfs is in hand: a .raucb is unreadable here, so the
-# bundle-shipping recipes run --tree.
+# Only where a rootfs is in hand: the bundle-shipping recipes hold no rootfs
+# to check /etc/buildinfo against, so they run --tree.
 if [ "$mode" = "image" ]; then
     if [ ! -f "$image" ]; then
         refuse "no image artifact at $image -- nothing to attribute; build first"
@@ -155,9 +160,7 @@ if [ "$mode" = "image" ]; then
 fi
 
 # --- (d) the bundle ties to the image --------------------------------------
-# Closes #48: a mismatch means the bundle would install a rootfs other than
-# the one this gate just checked.
-if [ "$mode" = "image" ] && [ -n "$bundle" ]; then
+if [ "$mode" = "image" ] && [ "$bundle_given" -eq 1 ]; then
     if [ ! -f "$bundle" ]; then
         refuse "no bundle at $bundle -- nothing to tie to $image"
     elif ! command -v unsquashfs > /dev/null 2>&1; then

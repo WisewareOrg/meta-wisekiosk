@@ -11,16 +11,17 @@ ref: ''
 references:
 - keyword: def test_units_well_formed
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_units/case.py
-  sha: ec7c170096e1a330c9154ba1baac31b569f11cb45b4d1e11940be55f19532581
+  sha: d6ba56e156d36957a99c5c4979fe5ee67014b09c764c9e97cd62bd7a2c79db0a
   type: file
-reviewed: B_etao8AF8PKeOpWkk5YgRsIgjPlYCM-8P9WtmcPYNc=
+reviewed: apMZyTBvIYuqR8nDmmkBVyIQwamU7SZioSpHMGbdjP8=
 status: proposed
 text: |
   Run `systemd-analyze verify` against every unit the layer ships, on the booted board, and
   assert each loads with its dependencies satisfied.
 verification-justification: |
   Settles that every unit meta-wisekiosk's own recipes ship loads with its dependencies
-  satisfied, as the board's own systemd resolves it, on one physical device, one boot. Leaves
-  unproven anything about units this layer does not own, or whether a later change breaks a
-  unit that passed today.
+  satisfied, as the board's own systemd resolves it, on one physical device, one boot. The
+  failure branch is proven on constructed input, grounded on the real failure observed on
+  bench when the check was built. Leaves unproven anything about units this layer does not
+  own, or whether a later change breaks a unit that currently passes.
 verification-method: test
