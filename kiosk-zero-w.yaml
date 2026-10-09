@@ -172,9 +172,7 @@ local_conf_header:
     # See docs/issue_investigation/screenshot_capture_fbgrab/README.md.
     IMAGE_INSTALL:append = " surf kiosk-session kiosk-soak kiosk-journal kiosk-timesync-persist kiosk-hardware kiosk-netcheck kiosk-bootprof zram wpa-supplicant-service packagegroup-core-x11 xwininfo xprop ttf-roboto imagemagick tzdata-core tzdata-americas"
 
-    # systemd-analyze is test-only: cases/kiosk_units runs `systemd-analyze
-    # verify` on the board over the shipped units. systemd splits it into
-    # its own package.
+    # systemd-analyze is test-only (cases/kiosk_units); systemd splits it into its own package.
     IMAGE_INSTALL:append = " systemd-analyze"
 
     # kiosk-provision: applies /data/config over the image defaults at boot --

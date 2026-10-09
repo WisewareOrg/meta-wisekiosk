@@ -30,14 +30,6 @@ def _now_iso():
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
-def _abspath(topdir, value):
-    """value, or topdir/value if value is not itself absolute -- the
-    build datastore's own paths are absolute at runtime, but this
-    tolerates a relative one defensively rather than assuming."""
-    path = Path(value)
-    return path if path.is_absolute() else topdir / path
-
-
 def _tool_commit_and_dirty(repo):
     commit = subprocess.run(
         ["git", "-C", str(repo), "rev-parse", "HEAD"],
@@ -184,34 +176,16 @@ class WiseKioskCase(OERuntimeTestCase):
 
 
 class ImageCase(OERuntimeTestCase):
-    """The image-content tier's own base class (#206): resolves the
-    build's own artifact paths from the datastore before any case's own
-    assertions run -- the deployed rootfs .ext4 and RAUC bundle under
-    DEPLOY_DIR_IMAGE, and the pre-image rootfs directory under WORKDIR
-    (the ticket's own named alternate input, already proven by
-    tools/doc-image.py's own equivalent binary-presence scan). Never
-    touches self.tc.target or self.target: this tier never touches a
-    device. Writes no record line -- the stage's own log and
-    testresults.json are this tier's record (docs/testing.md names the
-    mechanism)."""
+    """The image-content tier's own base class: resolves the build's own
+    deployed rootfs `.ext4` path from the datastore before any case's own
+    assertions run. Never touches self.tc.target or self.target."""
 
     @classmethod
     def setUpClass(cls):
-        if hasattr(ImageCase, "rootfs_dir"):
-            return
+        machine = cls.td["MACHINE"]
+        deploy_dir = Path(cls.td["DEPLOY_DIR_IMAGE"])
 
-        td = cls.td or {}
-        topdir = Path(td["TOPDIR"])
-        machine = td["MACHINE"]
-
-        ImageCase.deploy_dir = _abspath(topdir, td["DEPLOY_DIR_IMAGE"])
-        ImageCase.rootfs_dir = _abspath(topdir, td["WORKDIR"]) / "rootfs"
-        ImageCase.ext4_path = ImageCase.deploy_dir / f"core-image-base-{machine}.rootfs.ext4"
-        ImageCase.bundle_path = ImageCase.deploy_dir / f"update-bundle-{machine}.raucb"
+        ImageCase.ext4_path = deploy_dir / f"core-image-base-{machine}.rootfs.ext4"
 
         if not ImageCase.ext4_path.is_file():
             raise RuntimeError(f"no rootfs image at {ImageCase.ext4_path}")
-        if not ImageCase.bundle_path.is_file():
-            raise RuntimeError(f"no bundle at {ImageCase.bundle_path}")
-        if not ImageCase.rootfs_dir.is_dir():
-            raise RuntimeError(f"no rootfs directory at {ImageCase.rootfs_dir}")

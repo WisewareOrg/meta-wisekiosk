@@ -8,9 +8,6 @@ local_conf_header:
     TEST_TARGET = "simpleremote"
     TEST_SUITES = "kiosk_image.case"
 
-    # Literal placeholders, never env-sourced: this tier never calls
-    # self.tc.target, so testimage_sanity's non-empty check is satisfied
-    # with nothing ever dialed. `just testimage-image` takes no ssh_dir or
-    # target IP argument.
+    # required non-empty by testimage_sanity; this tier never dials either.
     TEST_TARGET_IP = "127.0.0.1"
     TEST_SERVER_IP = "127.0.0.1"
