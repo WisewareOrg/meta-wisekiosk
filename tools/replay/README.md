@@ -52,19 +52,23 @@ with no leaf (`MISS CONNECT <host> (no leaf)`), the same as `replay.py`.
 ```
 sets/<name>/
   config.json       -- public coordinates/parks only; installed to bench's /data for the window
-  manifest.json      {"expires": "YYYY-MM-DD", "expect_cards": "<present>/<live>",
+  manifest.json      {"expires": "YYYY-MM-DD",
                        "responses": {"<method> <host> <path?query>": {"file": ..., "sha256": ...}}}
   responses/*.http   -- one file per response: the full HTTP/1.1 message (status line, headers,
                         blank line, body), written back byte for byte, nothing recomputed
 ```
 
 Each entry's `sha256` is that response file's own hash, checked before every replay; a mismatch is
-a miss, same as an absent file. `expect_cards` is the one owner of what the applied case's own
-`cards=` should read once the set is live (`run.sh` compares it against the run record after
-`testimage`); the key must be present, even if empty for a set with no park module such as
-`weather-only` — a missing key voids every job. The run record's own `<manifest-hash>` token
+a miss, same as an absent file. The run record's own `<manifest-hash>` token
 (`replay=<name>@<hash>`) is a separate, outer hash — `replay.py`'s own `SERVE` line, sha256 of
 `manifest.json`'s bytes — distinct from any one response's integrity hash.
+
+The applied case's own `cards=<present>/<live>` is a recorded field only — `run.sh` never compares
+it against anything, since the sample lands before the park modules' own fetch fills the cards
+(`card-fill-is-app-timeout`). A job's own voids are the mode reads and the proxy's access log
+(`SERVE`, at least one `HIT`, zero `MISS`, the proxy and tunnel both still answering); whether a
+set's own cards actually came up live is read by hand, from a title taken after the fill, and
+cited in the PR.
 
 ## Re-recording
 
@@ -86,8 +90,5 @@ re-record (pipeline timer off throughout):
    line per request, until every expected key has one.
 5. Stop `record.py`, remove bench's `wisekiosk.conf`, restore its own `config.json`, restart
    `wisekiosk.service` then `kiosk.service`, and close the tunnel.
-6. Add (or confirm) the set's own `expect_cards` in `manifest.json` by hand — `record.py` never
-   writes it. Editing the file this way changes its own bytes, so the run record's own
-   `<manifest-hash>` token changes too; that is expected, not a sign the recording failed.
-7. Review the new `sets/<name>/` tree before committing: `tools/scrub-identity.py --check` and a
+6. Review the new `sets/<name>/` tree before committing: `tools/scrub-identity.py --check` and a
    human read confirm `config.json` names only public, non-site coordinates and parks.

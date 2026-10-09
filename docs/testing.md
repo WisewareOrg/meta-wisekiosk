@@ -184,18 +184,19 @@ no tunnel, no seed, and the mode is still read the same way (absent `HTTPS_PROXY
 voiding the job if it reads anything else.
 
 After `testimage` — which is where the applied case's own `cards=<present>/<live>` lands in the
-record — `run.sh` re-reads the mode on every job, live or replay, and voids if it no longer matches
-the start; a replay job also checks the proxy and tunnel are still alive and the access log carries
-zero `MISS` lines and at least one `HIT` line (the request reaching the proxy over the tunnel). It
-then compares the record's own `cards=` against the set's
-`expect_cards` (`manifest.json`) and restores bench's own `config.json`, confirming no `HTTPS_PROXY`
-remains, before stopping the proxy and tunnel. A mismatched mode, a `MISS`, a dead proxy or tunnel,
-or a `cards=` mismatch each sets a flag; `run.sh` reads every such flag only once execution reaches
-the point below that already reads `DIRTY_RC`/`TRANSPORT_RC` — the same reason a dirty tree never
-calls `abort` before the unconditional rollback runs. The mode run.sh measured — `live` or
-`<set>@<manifest-hash>`, the hash read from the proxy's own startup log line, never recomputed — is
-written into the record itself as a new `replay` key, through `record-check.py --replay`, before
-`report-build.py`'s own unchanged passthrough renders it.
+record, as a recorded field only, never a comparison (the sample is taken at `state=applied`,
+before the park modules' own fetch fills the cards, so comparing it against a set's expectation
+would void good jobs) — `run.sh` re-reads the mode on every job, live or replay, and voids if it no
+longer matches the start; a replay job also checks the proxy and tunnel are still alive and the
+access log carries zero `MISS` lines and at least one `HIT` line (the request reaching the proxy
+over the tunnel). It then restores bench's own `config.json`, confirming no `HTTPS_PROXY` remains,
+before stopping the proxy and tunnel. A mismatched mode, a `MISS`, or a dead proxy or tunnel each
+sets a flag; `run.sh` reads every such flag only once execution reaches the point below that
+already reads `DIRTY_RC`/`TRANSPORT_RC` — the same reason a dirty tree never calls `abort` before
+the unconditional rollback runs. The mode run.sh measured — `live` or `<set>@<manifest-hash>`, the
+hash read from the proxy's own startup log line, never recomputed — is written into the record
+itself as a new `replay` key, through `record-check.py --replay`, before `report-build.py`'s own
+unchanged passthrough renders it.
 
 **`pipeline-run-ref <ref>` is a development tool, not a path to `main`.** Run from a branch
 checkout with the timer off, it builds and runs that ref's own head through the same stages as a
