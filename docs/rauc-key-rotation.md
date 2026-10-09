@@ -50,9 +50,10 @@ two full builds. Commit and push before starting. The generated overrides and bu
 `build/rotation/` and the keys in `local/`, both gitignored, so a rotation never dirties the tree by
 running. A rotation build overlays only the four `AUTONOMOS_RAUC_*` signing variables onto the
 working tree at HEAD — no checkout, no worktree, no pin — which is why the gate's `--image` check is
-satisfiable during a rotation. The gate's `--bundle` argument ties the bundle to the image on every
-install this way — `kiosk-preflight` passes both, so each of a rotation's two installs checks the
-exact pair it is about to send, not the deploy directory's own, possibly different, pair.
+satisfiable during a rotation. `kiosk-preflight` passes both image and bundle to the gate
+([`docs/testing.md`](testing.md) "Running it" names what that ties), so each of a rotation's two
+installs checks the exact pair it is about to send, not the deploy directory's own, possibly
+different, pair.
 
 ## The ordering constraint
 

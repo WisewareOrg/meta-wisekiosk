@@ -107,19 +107,18 @@ in the image — its queue job builds, installs on bench, reboots, runs the smok
 back.
 
 **The image-content tier (`just testimage-image`) runs once per queue job, before `send`.** Its own
-`kiosk_image` oeqa package, selected by `includes/testimage-image.yaml` (`TEST_SUITES =
-"kiosk_image.case"`, a literal loopback `TEST_TARGET_IP`/`TEST_SERVER_IP` so `testimage_sanity` is
-satisfied with nothing ever dialed), reads the build's own deployed `.ext4` through the datastore
-(`self.td`) and never calls `self.target` — no board, no network, in seconds, so a failure here is
-a candidate failure (`run_or_fail`/`finish failure`), never an infrastructure one, and never aborts
-a device already mid-OTA. `framework.base.ImageCase` resolves that path; the stage's own log is
-this tier's record.
+`kiosk_image` oeqa package, selected by `includes/testimage-image.yaml`, reads the build's own
+deployed `.ext4` through the datastore (`self.td`) and never calls `self.target` — no board, no
+network, in seconds. `framework.base.ImageCase` resolves that path; the stage's own log is this
+tier's record.
 
-**`kiosk-preflight` ties the bundle to the image on every install** — the pipeline's and a hand
-OTA's alike, and every rotation's two installs (`tools/rauc-rotate.sh`) — by handing both to
-`tools/reproducibility-gate.sh --image <ext4> --bundle <raucb>`, which compares the bundle's own
-`rauc info` digest against a fresh `sha256sum` of the image and refuses on a mismatch, closing #48
-(nothing previously bound a bundle to the rootfs inside it). No bitbake runs in `kiosk-preflight`.
+**`kiosk-preflight` ties the bundle to the image on every install it gates** — the pipeline's
+`kiosk-ota` and both installs of the rotation path (`tools/rauc-rotate.sh`) — by handing both to
+`tools/reproducibility-gate.sh --image <ext4> --bundle <raucb>`, which compares the bundle manifest's
+own `[image.rootfs]` `sha256=` against a fresh `sha256sum` of the image and refuses on a mismatch.
+No bitbake runs in `kiosk-preflight`. Two recipes bypass it and ship an untied bundle: `just
+rauc-install` (any `.raucb`, checked only `--tree`) and `just kiosk-send-direct` followed by `just
+kiosk-install` (the capped-board delivery path).
 
 **The run record.** The suite's own inputs -- `KIOSK_TARGET_ROLE`, `KIOSK_TARGET_HOSTNAME` and
 `KIOSK_HMAC_KEY` -- arrive through `testimage`'s `env:` passthrough under the pipeline, or
@@ -210,7 +209,8 @@ the driver with the reason and disables the timer. Nothing loops silently. Fix t
 pipeline-on` -- it prints the DISABLED reason and clears the file itself, as an explicit
 acknowledgement, before re-enabling.
 
-A job's own build, bundle, preflight, send or install failing, or the device not booting the new slot,
+A job's own build, bundle, image-content, preflight, send or install failing, or the device not
+booting the new slot,
 are not infrastructure failures: each posts its own status (`failure`) on the job's commit with a PR
 comment carrying the failing logs, and the timer stays on for the next job. An install failure
 additionally waits for the installer to go idle, then marks the other slot bad, over ssh before

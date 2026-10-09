@@ -34,24 +34,19 @@ what came back, and the case asserts on that judgement. The case itself never pa
 - `kiosk_backend_unit/`, `kiosk_healthz_bound/`, `kiosk_page_serves/`, `kiosk_health_flag/` — one
   pre-existing case apiece; no pure logic of their own to separate out, so no `verdict.py` and no
   `tests/`.
-- `kiosk_image/` — the image-content tier, reads the deployed `.ext4` through the build's own
-  datastore, never a device. Subclasses `framework.base.ImageCase`, not `WiseKioskCase`, and writes
-  no record line. Three methods: the display-launch unit's effective `ExecStart` carries its
-  designed flags (`docs/requirements/srs/SRS008`, `docs/requirements/tst/TST008`); the display's
-  served `index.html` is in the rootfs (`docs/requirements/srs/SRS009`,
+- `kiosk_image/` — the host-only image-content tier, over the deployed `.ext4`. Subclasses
+  `framework.base.ImageCase`, not `WiseKioskCase`. Three methods: the display-launch unit's
+  effective `ExecStart` (`docs/requirements/srs/SRS008`, `docs/requirements/tst/TST008`); the
+  display's served `index.html` is in the rootfs (`docs/requirements/srs/SRS009`,
   `docs/requirements/tst/TST009`); and the required binaries later checks need are present (a
-  guard, no item of its own). The bundle-image hash tie is `tools/reproducibility-gate.sh`'s own
-  job, not this package's.
-- `kiosk_units/` — every unit `meta-wisekiosk`'s own recipes ship loads with its dependencies
-  satisfied (`docs/requirements/tst/TST010`, child of `SRS008`): `systemd-analyze verify` on the
-  board, one call per shipped unit, derived from the layer's own `recipes-*/**/*.service`/`*.timer`
-  files rather than hand-kept. Runs on the board, the appliance's own systemd validating its own
-  units, not a host-side artefact read; needs the `systemd-analyze` package, added to the image
-  alongside its siblings in `kiosk-zero-w.yaml`'s own `IMAGE_INSTALL:append`.
+  guard, no item of its own).
+- `kiosk_units/` — every shipped unit loads with its dependencies satisfied
+  (`docs/requirements/tst/TST010`, child of `SRS008`): `systemd-analyze verify` on the board, one
+  call per unit in `SHIPPED_UNITS`.
 
 **The shared base and record parsing are not a case, so they are not here.** Every device package's
 `case.py` subclasses `WiseKioskCase` and reads or writes the run record through `record.py`
-(`kiosk_image` subclasses `ImageCase` instead and writes no record), both in
+(`kiosk_image` subclasses `ImageCase` instead), both in
 [`../framework/`](../framework/README.md) — a library, not a test, made importable the way any other
 layer's own oeqa extension is, by `layer.conf`'s `addpylib`, rather than discovered as a case.
 `framework.base` holds the timing bounds shared across packages: `POLL_SECONDS` between poll

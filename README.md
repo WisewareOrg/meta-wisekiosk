@@ -209,8 +209,8 @@ the one now on the bench. An explicit `host` argument still wins over both.
 `kiosk-preflight` refuses a delivery that cannot work — wrong slot size, stale bundle, no room on
 `/data` — before the transfer. Every recipe that puts software on a board also refuses, with no
 override, a build from a dirty or unpushed tree, so a build shipped from this host is always one
-someone else can check out; `kiosk-preflight` also runs the image-content tier
-([`docs/testing.md`](docs/testing.md) "Image content" has what that settles).
+someone else can check out; `kiosk-preflight` also ties the bundle to the rootfs inside it
+([`docs/testing.md`](docs/testing.md) "Running it" has what that settles).
 Delivery is a single md5-verified `scp` (`kiosk-send-direct`, ~45s for the ~114MB bundle): the
 sustained-transfer wedge that once forced chunking was top-OPP memory corruption, fixed by the
 clock cap in
