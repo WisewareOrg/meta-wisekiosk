@@ -510,15 +510,9 @@ else
         RESULTSARG=(--results "$RUN_DIR/testresults.json")
 
         # The record precondition. docs/testing.md § "Running it" has the why.
-        RECORD_CHECK_ARGS=("$RUN_DIR/testresults.json" "$SHA" --replay "$REPLAY_VALUE")
-        if [ -n "${PIPELINE_REPLAY_SET:-}" ] && [ -f "${SET_DIR:-}/manifest.json" ]; then
-            RECORD_CHECK_ARGS+=(--manifest "$SET_DIR/manifest.json")
-        fi
-        RECORD_CHECK=$(python3 "$TOOLS/pipeline/record-check.py" "${RECORD_CHECK_ARGS[@]}")
-        read -r RECORD_STATUS _ RECORD_DIRTY RECORD_TRANSPORT RECORD_CARDS RECORD_REASON <<< "$RECORD_CHECK"
+        RECORD_CHECK=$(python3 "$TOOLS/pipeline/record-check.py" "$RUN_DIR/testresults.json" "$SHA" --replay "$REPLAY_VALUE")
+        read -r RECORD_STATUS _ RECORD_DIRTY RECORD_TRANSPORT RECORD_REASON <<< "$RECORD_CHECK"
         [ "$RECORD_TRANSPORT" = "1" ] && TRANSPORT_RC=1
-        [ "$RECORD_CARDS" = "1" ] \
-            && replay_void "the applied case's own cards= does not match $PIPELINE_REPLAY_SET's expect_cards"
         if [ "$RECORD_STATUS" != "OK" ]; then
             RECORD_RC=1
         elif [ "$RECORD_DIRTY" = "1" ]; then

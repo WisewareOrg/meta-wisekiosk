@@ -275,7 +275,7 @@ EOF
 
 dirty_fixture "dirty=0 "
 capture out rc "$PY" "$RECORD_CHECK_PY" "$TOP/dirty-results.json" abc
-if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0 -" ]; then
+if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0" ]; then
     ok "record-check: dirty=0 reports clean"
 else
     bad "record-check: dirty=0 did not report clean" "rc=$rc out=$out"
@@ -283,16 +283,16 @@ fi
 
 dirty_fixture "dirty=1 "
 capture out rc "$PY" "$RECORD_CHECK_PY" "$TOP/dirty-results.json" abc
-if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 1 0 -" ]; then
+if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 1 0" ]; then
     ok "record-check: dirty=1 still reports OK -- run.sh's own abort path reads the 1"
 else
     bad "record-check: dirty=1 changed shape" "rc=$rc out=$out"
 fi
 
-# --- record-check.py --manifest reads a set's own expect_cards and
-# compares it against the applied case's own cards= token. -----------------
-CARDS_RESULTS="$TOP/cards-results.json"
-cat > "$CARDS_RESULTS" <<'EOF'
+# --- record-check.py --replay writes "R replay=<value>" into the record
+# dict and persists testresults.json. ---------------------------------------
+REPLAY_RESULTS="$TOP/replay-results.json"
+cat > "$REPLAY_RESULTS" <<'EOF'
 {"5678-efgh": {"configuration": {}, "result": {
     "wisekiosk.record": {
         "tool": "R tool=oe-test tool_commit=abc dirty=0 argv=x",
@@ -301,56 +301,12 @@ cat > "$CARDS_RESULTS" <<'EOF'
     }
 }}}
 EOF
-MANIFEST_MATCH="$TOP/manifest-match.json"
-printf '{"expires": "2099-01-01", "expect_cards": "4/4", "responses": {}}' > "$MANIFEST_MATCH"
-MANIFEST_MISMATCH="$TOP/manifest-mismatch.json"
-printf '{"expires": "2099-01-01", "expect_cards": "4/2", "responses": {}}' > "$MANIFEST_MISMATCH"
-MANIFEST_NO_KEY="$TOP/manifest-no-key.json"
-printf '{"expires": "2099-01-01", "responses": {}}' > "$MANIFEST_NO_KEY"
-MANIFEST_EMPTY="$TOP/manifest-empty.json"
-printf '{"expires": "2099-01-01", "expect_cards": "", "responses": {}}' > "$MANIFEST_EMPTY"
-
-capture out rc "$PY" "$RECORD_CHECK_PY" "$CARDS_RESULTS" abc --manifest "$MANIFEST_MATCH"
-if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0 0" ]; then
-    ok "record-check: --manifest's expect_cards matching the record's own cards= reports clean"
-else
-    bad "record-check --manifest match" "rc=$rc out=$out"
-fi
-capture out rc "$PY" "$RECORD_CHECK_PY" "$CARDS_RESULTS" abc --manifest "$MANIFEST_MISMATCH"
-if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0 1" ]; then
-    ok "record-check: --manifest's expect_cards mismatching the record's own cards= flags it"
-else
-    bad "record-check --manifest mismatch" "rc=$rc out=$out"
-fi
-capture out rc "$PY" "$RECORD_CHECK_PY" "$CARDS_RESULTS" abc --manifest "$MANIFEST_NO_KEY"
-if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0 1" ]; then
-    ok "record-check: a manifest with no expect_cards key voids"
-else
-    bad "record-check missing expect_cards key" "rc=$rc out=$out"
-fi
-capture out rc "$PY" "$RECORD_CHECK_PY" "$CARDS_RESULTS" abc --manifest "$MANIFEST_EMPTY"
-if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0 0" ]; then
-    ok "record-check: an explicit empty expect_cards skips the check"
-else
-    bad "record-check explicit empty expect_cards" "rc=$rc out=$out"
-fi
-capture out rc "$PY" "$RECORD_CHECK_PY" "$CARDS_RESULTS" abc
-if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0 -" ]; then
-    ok "record-check: no --manifest given, the cards field is -"
-else
-    bad "record-check cards field with no --manifest" "rc=$rc out=$out"
-fi
-
-# --- record-check.py --replay writes "R replay=<value>" into the record
-# dict and persists testresults.json. ---------------------------------------
-REPLAY_WRITE_JSON="$TOP/replay-write-results.json"
-cp "$CARDS_RESULTS" "$REPLAY_WRITE_JSON"
-capture out rc "$PY" "$RECORD_CHECK_PY" "$REPLAY_WRITE_JSON" abc --replay "cards4-live@deadbeef"
-if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0 -" ] \
-        && grep -qF '"replay": "R replay=cards4-live@deadbeef"' "$REPLAY_WRITE_JSON"; then
+capture out rc "$PY" "$RECORD_CHECK_PY" "$REPLAY_RESULTS" abc --replay "cards4-live@deadbeef"
+if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0" ] \
+        && grep -qF '"replay": "R replay=cards4-live@deadbeef"' "$REPLAY_RESULTS"; then
     ok "record-check: --replay writes R replay=<value> into testresults.json's own record"
 else
-    bad "record-check --replay write-back" "rc=$rc out=$out $(cat "$REPLAY_WRITE_JSON")"
+    bad "record-check --replay write-back" "rc=$rc out=$out $(cat "$REPLAY_RESULTS")"
 fi
 
 dirty_fixture ""
