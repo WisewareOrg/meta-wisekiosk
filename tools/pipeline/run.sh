@@ -130,6 +130,7 @@ replay_void() {
 # start_replay_window -- for PIPELINE_REPLAY_SET, starts the proxy and tunnel, seeds bench's /data, restarts the backend and reads MODE_START; a live run reads MODE_START directly.
 MODE_START=""
 start_replay_window() {
+    rm -f "$RUN_DIR/replay.log" "$RUN_DIR/replay.stderr" "$RUN_DIR/bench-config.json.saved"
     if [ -z "${PIPELINE_REPLAY_SET:-}" ]; then
         MODE_START=$(mode_token "$SSH_HOST") || MODE_START=void
         [ "$MODE_START" = live ] \
@@ -139,7 +140,6 @@ start_replay_window() {
     SET_DIR="$TOOLS/replay/sets/$PIPELINE_REPLAY_SET"
     CA_DIR="$PIPELINE_KEYS_DIR/replay-ca"
     [ -d "$SET_DIR" ] || { replay_void "no replay set at $SET_DIR"; return 1; }
-    rm -f "$RUN_DIR/replay.log" "$RUN_DIR/replay.stderr" "$RUN_DIR/bench-config.json.saved"
 
     python3 "$TOOLS/replay/replay.py" --set "$SET_DIR" --port "$PIPELINE_REPLAY_PORT" \
         --ca "$CA_DIR" --log "$RUN_DIR/replay.log" 2> "$RUN_DIR/replay.stderr" &
@@ -504,14 +504,6 @@ else
     "$CHECKS/kiosk-render-check.sh" "$SSH_HOST" > "$RUN_DIR/render.log" 2>&1 || RENDER_RC=$?
     GPU_RC=0
     "$CHECKS/kiosk-gpu-check.sh" "$SSH_HOST" > "$RUN_DIR/gpu.log" 2>&1 || GPU_RC=$?
-    if [ "$RENDER_RC" -ne 0 ]; then
-        tail -n 200 "$RUN_DIR/render.log" > "$RUN_DIR/render.tail.log"
-        LOGARGS+=(--log "$RUN_DIR/render.tail.log")
-    fi
-    if [ "$GPU_RC" -ne 0 ]; then
-        tail -n 200 "$RUN_DIR/gpu.log" > "$RUN_DIR/gpu.tail.log"
-        LOGARGS+=(--log "$RUN_DIR/gpu.tail.log")
-    fi
 
     check_replay_window_end
 
@@ -539,6 +531,15 @@ else
         RECORD_REASON="no run record"
     fi
     [ "$RECORD_RC" -eq 0 ] || stage_logargs testimage "$RUN_DIR/testimage.log"
+
+    if [ "$RENDER_RC" -ne 0 ]; then
+        tail -n 200 "$RUN_DIR/render.log" > "$RUN_DIR/render.tail.log"
+        LOGARGS+=(--log "$RUN_DIR/render.tail.log")
+    fi
+    if [ "$GPU_RC" -ne 0 ]; then
+        tail -n 200 "$RUN_DIR/gpu.log" > "$RUN_DIR/gpu.tail.log"
+        LOGARGS+=(--log "$RUN_DIR/gpu.tail.log")
+    fi
 
     stop_replay_window
 
