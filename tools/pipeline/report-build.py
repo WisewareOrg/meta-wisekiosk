@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
 """Render one pipeline run's report body.
 
-    report-build.py --verdict <file> [--results <file>] [--replay <value>]
+    report-build.py --verdict <file> [--results <file>]
                      [--log <path> ...]
         -- assemble the run's Markdown body on stdout
-
---replay appends " replay=<value>" to every page.<case id> line in
---results's own run record, before rendering: the live/replay distinction
-run.sh reads from bench's own environment after the window closes, never
-from the device-side case that built the line.
 
 Each --log is a path already tailed by the caller; its label is the file's
 own basename. Each test case's own log, embedded in --results, is tailed to
@@ -62,22 +57,13 @@ def render_record(record):
     return "\n".join(["## Run record", "", "```", *lines, "```", ""])
 
 
-def render_results(path, replay=None):
-    """render_record's own body, plus the case table -- replay, when given,
-    is appended as " replay=<replay>" to every page.<case id> line before
-    rendering: run.sh's own bench read, never something the device-side
-    case that built the line could know."""
+def render_results(path):
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError):
         return "## Test results\n\n(could not read the results file)\n"
     cases = result_dict(data)
     record = cases.pop(_record.RECORD_KEY, None)
-    if record and replay is not None:
-        record = {
-            key: (_record.with_replay(value, replay) if key.startswith("page.") else value)
-            for key, value in record.items()
-        }
     parts = [render_record(record)] if record else []
     if not cases:
         parts.append("## Test results\n\n(no cases in the results file)\n")
@@ -116,7 +102,6 @@ def main():
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--verdict", required=True)
     parser.add_argument("--results")
-    parser.add_argument("--replay", help="appended to every page.<case id> line as replay=<value>")
     parser.add_argument("--log", action="append", default=[], dest="logs", metavar="PATH")
     args = parser.parse_args(sys.argv[1:])
 
@@ -128,7 +113,7 @@ def main():
 
     parts = ["## Verdict", "", verdict, ""]
     if args.results:
-        parts.append(render_results(args.results, replay=args.replay))
+        parts.append(render_results(args.results))
     if args.logs:
         parts.append(render_logs(args.logs))
 

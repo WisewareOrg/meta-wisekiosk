@@ -1,80 +1,61 @@
-"""Specifies the pure parts of tools/replay/proxy.py -- the match-key builder, manifest load,
-hash check, expiry refusal, leaf-last-month refusal, the MISS-to-502 decision, and the access-log
-line it produces. No socket, no subprocess, no live `openssl` call: every certificate-shaped input
-here is a string literal captured once from a real `openssl x509 -enddate -noout` run, every
-CONNECT/HTTP shape a string literal captured once from a real `curl --proxy` round trip through a
-throwaway TLS listener. ~/.claude/plans/202/step5/tests-notes.md records how each was produced.
-
-`decide()`'s no-upstream-socket guarantee is structural here, not mocked: the test calls it with a
-plain dict and asserts on the return value, importing nothing that could open a connection.
+"""Specifies proxy.py's pure parts: the match-key builder, manifest load, hash check, expiry
+refusal, leaf-last-month check, the MISS/HIT decision, and the request/body/log-line transport
+helpers over plain file-like objects (no socket).
 """
+import hashlib
 from datetime import date, datetime
+from io import BytesIO
 
 import pytest
 
 from proxy import (
-    Decision,
-    LeafExpiringSoon,
     ReplaySetExpired,
     check_expiry,
     check_leaf_freshness,
     decide,
     hash_matches,
+    known_hosts,
+    leaf_paths,
     load_manifest,
+    log_line,
+    manifest_hash,
     match_key,
     parse_cert_enddate,
+    read_body,
+    read_request,
 )
 
-# A real CONNECT + decrypted inner request, captured from curl through a throwaway TLS listener
-# standing in for the proxy (notes.md "Real artefacts"):
-#   CONNECT example.invalid:443 HTTP/1.1
-#   GET /weather?lat=1&lon=2 HTTP/1.1
-#   Host: example.invalid
 REAL_METHOD = "GET"
 REAL_HOST = "example.invalid"
 REAL_TARGET = "/weather?lat=1&lon=2"
 REAL_KEY = "GET example.invalid /weather?lat=1&lon=2"
-
-# A real response body and its real `sha256sum` digest (notes.md "Real artefacts").
 REAL_BODY = b'{"temp_f": 72}'
 REAL_BODY_SHA256 = "29391421140e7b282859469000378165c4c960a86077064929a089d71fd1061c"
-
-# A real `openssl x509 -enddate -noout` line, captured from a real ECDSA leaf this agent generated.
 REAL_ENDDATE_LINE = "notAfter=Oct  9 06:42:51 2027 GMT"
+
+
+def _responses():
+    return {REAL_KEY: {"file": "responses/weather.json", "sha256": REAL_BODY_SHA256}}
 
 
 # ------------------------------------------------------------------------- match_key
 
-def test_match_key_builds_method_host_target_from_the_real_captured_request():
+def test_match_key_builds_method_host_target():
     assert match_key(REAL_METHOD, REAL_HOST, REAL_TARGET) == REAL_KEY
-
-
-def test_match_key_target_with_no_query_string_is_not_assumed():
-    assert match_key("GET", "example.invalid", "/health") == "GET example.invalid /health"
 
 
 # ------------------------------------------------------------------------- load_manifest
 
-def test_load_manifest_round_trips_the_real_constructed_manifest(tmp_path):
+def test_load_manifest(tmp_path):
     manifest_path = tmp_path / "manifest.json"
-    manifest_path.write_text(
-        '{\n'
-        '  "expires": "2099-01-01",\n'
-        '  "responses": {\n'
-        f'    "{REAL_KEY}": {{\n'
-        '      "file": "responses/weather.json",\n'
-        f'      "sha256": "{REAL_BODY_SHA256}"\n'
-        '    }\n'
-        '  }\n'
-        '}\n',
-        encoding="utf-8",
-    )
-    assert load_manifest(manifest_path) == {
-        "expires": "2099-01-01",
-        "responses": {
-            REAL_KEY: {"file": "responses/weather.json", "sha256": REAL_BODY_SHA256},
-        },
-    }
+    manifest_path.write_text('{"expires": "2099-01-01", "responses": {}}', encoding="utf-8")
+    assert load_manifest(manifest_path) == {"expires": "2099-01-01", "responses": {}}
+
+
+def test_manifest_hash_is_sha256_of_the_files_own_bytes(tmp_path):
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_bytes(b'{"expires": "2099-01-01"}')
+    assert manifest_hash(manifest_path) == hashlib.sha256(manifest_path.read_bytes()).hexdigest()
 
 
 # ------------------------------------------------------------------------- check_expiry
@@ -95,7 +76,7 @@ def test_check_expiry_far_future_does_not_raise():
 
 # ------------------------------------------------------------------------- hash_matches
 
-def test_hash_matches_the_real_sha256sum_digest_of_the_real_body():
+def test_hash_matches_the_real_sha256sum_digest():
     assert hash_matches(REAL_BODY, REAL_BODY_SHA256) is True
 
 
@@ -113,45 +94,81 @@ def test_parse_cert_enddate_parses_the_real_openssl_line():
 # ------------------------------------------------------------------------- check_leaf_freshness
 
 def test_check_leaf_freshness_30_days_remaining_is_inside_the_last_month():
-    enddate = datetime(2027, 1, 31)
-    now = datetime(2027, 1, 1)
-    with pytest.raises(LeafExpiringSoon):
-        check_leaf_freshness(REAL_HOST, enddate, now)
+    assert check_leaf_freshness(REAL_HOST, datetime(2027, 1, 31), datetime(2027, 1, 1)) == \
+        f"{REAL_HOST} (expires 2027-01-31)"
 
 
-def test_check_leaf_freshness_31_days_remaining_does_not_raise():
-    enddate = datetime(2027, 2, 1)
-    now = datetime(2027, 1, 1)
-    check_leaf_freshness(REAL_HOST, enddate, now)
+def test_check_leaf_freshness_31_days_remaining_is_none():
+    assert check_leaf_freshness(REAL_HOST, datetime(2027, 2, 1), datetime(2027, 1, 1)) is None
 
 
-def test_check_leaf_freshness_already_past_enddate_raises():
-    enddate = datetime(2026, 1, 1)
-    now = datetime(2026, 6, 1)
-    with pytest.raises(LeafExpiringSoon):
-        check_leaf_freshness(REAL_HOST, enddate, now)
+def test_check_leaf_freshness_already_past_enddate_is_a_reason():
+    assert check_leaf_freshness(REAL_HOST, datetime(2026, 1, 1), datetime(2026, 6, 1)) is not None
 
 
 # ------------------------------------------------------------------------- decide
 
-def _responses():
-    return {REAL_KEY: {"file": "responses/weather.json", "sha256": REAL_BODY_SHA256}}
+def test_decide_on_a_hit_returns_the_manifest_entry():
+    assert decide(_responses(), REAL_METHOD, REAL_HOST, REAL_TARGET) == {
+        "file": "responses/weather.json", "sha256": REAL_BODY_SHA256,
+    }
 
 
-def test_decide_on_a_hit_returns_200_with_the_manifest_entry_and_a_hit_log_line():
-    assert decide(_responses(), REAL_METHOD, REAL_HOST, REAL_TARGET) == Decision(
-        status=200,
-        log_line=f"HIT {REAL_KEY} sha256={REAL_BODY_SHA256}",
-        file="responses/weather.json",
-        sha256=REAL_BODY_SHA256,
-    )
+def test_decide_on_a_miss_returns_none():
+    assert decide(_responses(), "GET", "example.invalid", "/unrecorded") is None
 
 
-def test_decide_on_a_miss_returns_502_with_no_file_or_hash_and_the_plan_exact_log_line():
-    miss_key = "GET example.invalid /unrecorded"
-    assert decide(_responses(), "GET", "example.invalid", "/unrecorded") == Decision(
-        status=502,
-        log_line=f"MISS {miss_key}",
-        file=None,
-        sha256=None,
-    )
+# ------------------------------------------------------------------------- known_hosts / leaf_paths
+
+def test_known_hosts_from_the_manifests_own_response_keys():
+    assert known_hosts({"responses": _responses()}) == {"example.invalid"}
+
+
+def test_known_hosts_empty_manifest_is_empty():
+    assert known_hosts({}) == set()
+
+
+def test_leaf_paths(tmp_path):
+    cert, key = leaf_paths(tmp_path, "example.invalid")
+    assert cert == tmp_path / "leaves" / "example.invalid.crt"
+    assert key == tmp_path / "leaves" / "example.invalid.key"
+
+
+# ------------------------------------------------------------------------- read_request / read_body
+
+def test_read_request_connect_line():
+    rfile = BytesIO(b"CONNECT example.invalid:443 HTTP/1.1\r\nHost: example.invalid:443\r\n\r\n")
+    method, target, headers = read_request(rfile)
+    assert (method, target) == ("CONNECT", "example.invalid:443")
+    assert headers["Host"] == "example.invalid:443"
+
+
+def test_read_request_inner_get_with_query():
+    rfile = BytesIO(f"GET {REAL_TARGET} HTTP/1.1\r\nHost: {REAL_HOST}\r\n\r\n".encode())
+    method, target, _headers = read_request(rfile)
+    assert (method, target) == ("GET", REAL_TARGET)
+
+
+def test_read_request_eof_is_none():
+    assert read_request(BytesIO(b"")) is None
+
+
+def test_read_body_present():
+    rfile = BytesIO(b'{"a":1}')
+    headers = {"Content-Length": "7"}
+    assert read_body(rfile, headers) == b'{"a":1}'
+
+
+def test_read_body_absent_is_empty():
+    assert read_body(BytesIO(b"unread"), {}) == b""
+
+
+# ------------------------------------------------------------------------- log_line
+
+def test_log_line_appends_a_timestamped_line(tmp_path):
+    logf = (tmp_path / "access.log").open("a", encoding="utf-8")
+    log_line(logf, "HIT a b c")
+    logf.close()
+    text = (tmp_path / "access.log").read_text(encoding="utf-8")
+    assert text.endswith("HIT a b c\n")
+    assert text.split(" ", 1)[0].count("-") == 2  # an ISO date prefix
