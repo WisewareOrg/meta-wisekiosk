@@ -1,0 +1,238 @@
+HTTP/1.1 200 OK
+Date: Fri, 09 Oct 2026 13:03:34 GMT
+Content-Type: application/json; charset=utf-8
+access-control-allow-origin: *
+access-control-expose-headers: RateLimit-Limit,RateLimit-Policy,RateLimit-Remaining,RateLimit-Reset,RateLimit-History-Limit,RateLimit-History-Policy,RateLimit-History-Remaining,RateLimit-History-Reset,Retry-After
+cache-control: public, max-age=60, s-maxage=60
+content-security-policy: default-src 'self';style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;font-src 'self' https://cdn.jsdelivr.net;connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net;img-src 'self' data: https:;base-uri 'self';form-action 'self';frame-ancestors 'self';object-src 'none';script-src-attr 'none';upgrade-insecure-requests
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+etag: W/"18cb-ty7tYYolfJPVn6qDOUhKLw1Nsx8"
+nel: {"report_to":"heroku-nel","response_headers":["Via"],"max_age":3600,"success_fraction":0.01,"failure_fraction":0.1}
+origin-agent-cluster: ?1
+ratelimit-limit: 300
+ratelimit-policy: 300;w=60
+ratelimit-remaining: 299
+ratelimit-reset: 60
+referrer-policy: no-referrer
+report-to: {"group":"heroku-nel","endpoints":[{"url":"https://nel.heroku.com/reports?s=noI52UBT0mE0G6%2FNFu6zZ4UVYHHeqfs8OIuzEyfD0n8%3D\u0026sid=c4c9725f-1ab0-44d8-820f-430df2718e11\u0026ts=1791530528"}],"max_age":3600}
+reporting-endpoints: heroku-nel="https://nel.heroku.com/reports?s=noI52UBT0mE0G6%2FNFu6zZ4UVYHHeqfs8OIuzEyfD0n8%3D&sid=c4c9725f-1ab0-44d8-820f-430df2718e11&ts=1791530528"
+Server: cloudflare
+strict-transport-security: max-age=2592000
+vary: Accept-Encoding
+via: 2.0 heroku-router
+x-content-type-options: nosniff
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: SAMEORIGIN
+x-permitted-cross-domain-policies: none
+x-request-id: ae07acb8-2e1e-c671-3774-06028a9b2a5e
+x-xss-protection: 0
+cf-cache-status: HIT
+CF-RAY: a47d9610ce73da99-MIA
+alt-svc: h3=":443"; ma=86400
+Content-Length: 6347
+
+{
+  "id": "ead53ea5-22e5-4095-9a83-8c29300d7c63",
+  "name": "Disney's Blizzard Beach Water Park",
+  "entityType": "PARK",
+  "timezone": "America/New_York",
+  "liveData": [
+    {
+      "id": "161f82e8-eaf8-4401-811b-fe2b45cccd0e",
+      "name": "Slush Gusher",
+      "entityType": "ATTRACTION",
+      "parkId": "ead53ea5-22e5-4095-9a83-8c29300d7c63",
+      "externalId": "80010186;entityType=Attraction",
+      "status": "REFURBISHMENT",
+      "operatingHours": [],
+      "lastUpdated": "2026-08-10T12:30:07.753Z"
+    },
+    {
+      "id": "2b3e5eeb-0cbc-4d19-a46e-07b5ddf8a700",
+      "name": "Cross Country Creek",
+      "entityType": "ATTRACTION",
+      "parkId": "ead53ea5-22e5-4095-9a83-8c29300d7c63",
+      "externalId": "80010122;entityType=Attraction",
+      "status": "CLOSED",
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T17:00:00-04:00",
+          "startTime": "2026-10-09T10:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T07:21:56.518Z"
+    },
+    {
+      "id": "310d5c7e-433c-46bb-91ee-da8bc39edf32",
+      "name": "Melt-Away Bay",
+      "entityType": "ATTRACTION",
+      "parkId": "ead53ea5-22e5-4095-9a83-8c29300d7c63",
+      "externalId": "80010168;entityType=Attraction",
+      "status": "CLOSED",
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T17:00:00-04:00",
+          "startTime": "2026-10-09T10:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T07:21:56.555Z"
+    },
+    {
+      "id": "6f427ef0-9c56-4041-8f78-357ad2fcf390",
+      "name": "Teamboat Springs",
+      "entityType": "ATTRACTION",
+      "parkId": "ead53ea5-22e5-4095-9a83-8c29300d7c63",
+      "externalId": "80010198;entityType=Attraction",
+      "status": "CLOSED",
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T17:00:00-04:00",
+          "startTime": "2026-10-09T10:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T07:21:56.594Z"
+    },
+    {
+      "id": "849728c7-0043-4bbe-af64-e65679679e09",
+      "name": "Toboggan Racers",
+      "entityType": "ATTRACTION",
+      "parkId": "ead53ea5-22e5-4095-9a83-8c29300d7c63",
+      "externalId": "80010219;entityType=Attraction",
+      "status": "CLOSED",
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T17:00:00-04:00",
+          "startTime": "2026-10-09T10:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T07:21:56.617Z"
+    },
+    {
+      "id": "896053f3-55e7-40f9-9473-208d4bc43d33",
+      "name": "Snow Stormers",
+      "entityType": "ATTRACTION",
+      "parkId": "ead53ea5-22e5-4095-9a83-8c29300d7c63",
+      "externalId": "80010187;entityType=Attraction",
+      "status": "CLOSED",
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T17:00:00-04:00",
+          "startTime": "2026-10-09T10:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T07:21:56.578Z"
+    },
+    {
+      "id": "97011c19-a864-4922-b63b-6519ca9e6ed0",
+      "name": "Chairlift",
+      "entityType": "ATTRACTION",
+      "parkId": "ead53ea5-22e5-4095-9a83-8c29300d7c63",
+      "externalId": "80010116;entityType=Attraction",
+      "status": "CLOSED",
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T17:00:00-04:00",
+          "startTime": "2026-10-09T10:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T07:21:56.504Z"
+    },
+    {
+      "id": "ada6a611-31ef-426a-a1f4-bfce8503f4a6",
+      "name": "Runoff Rapids",
+      "entityType": "ATTRACTION",
+      "parkId": "ead53ea5-22e5-4095-9a83-8c29300d7c63",
+      "externalId": "80010183;entityType=Attraction",
+      "status": "CLOSED",
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T17:00:00-04:00",
+          "startTime": "2026-10-09T10:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T07:21:56.562Z"
+    },
+    {
+      "id": "b218c3de-0f7f-436c-be44-2f5112d5d139",
+      "name": "Ski Patrol Training Camp",
+      "entityType": "ATTRACTION",
+      "parkId": "ead53ea5-22e5-4095-9a83-8c29300d7c63",
+      "externalId": "24750;entityType=Attraction",
+      "status": "CLOSED",
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T17:00:00-04:00",
+          "startTime": "2026-10-09T10:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T07:21:56.415Z"
+    },
+    {
+      "id": "b9516054-a8b4-4d4c-aa0b-a60f3c3dc360",
+      "name": "Summit Plummet",
+      "entityType": "ATTRACTION",
+      "parkId": "ead53ea5-22e5-4095-9a83-8c29300d7c63",
+      "externalId": "80010195;entityType=Attraction",
+      "status": "CLOSED",
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T17:00:00-04:00",
+          "startTime": "2026-10-09T10:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T07:21:56.587Z"
+    },
+    {
+      "id": "bd408ea5-efba-47da-84cc-e304ac0ee974",
+      "name": "Tike's Peak",
+      "entityType": "ATTRACTION",
+      "parkId": "ead53ea5-22e5-4095-9a83-8c29300d7c63",
+      "externalId": "71;entityType=Attraction",
+      "status": "CLOSED",
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T17:00:00-04:00",
+          "startTime": "2026-10-09T10:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T07:21:56.496Z"
+    },
+    {
+      "id": "ead53ea5-22e5-4095-9a83-8c29300d7c63",
+      "name": "Disney's Blizzard Beach Water Park",
+      "entityType": "PARK",
+      "parkId": null,
+      "externalId": "80007834;entityType=water-park",
+      "status": "CLOSED",
+      "lastUpdated": "2024-06-07T15:15:37.734Z"
+    },
+    {
+      "id": "fdc8e386-4fc9-4d0f-ba0d-d3df695df071",
+      "name": "Downhill Double Dipper",
+      "entityType": "ATTRACTION",
+      "parkId": "ead53ea5-22e5-4095-9a83-8c29300d7c63",
+      "externalId": "80010128;entityType=Attraction",
+      "status": "CLOSED",
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T17:00:00-04:00",
+          "startTime": "2026-10-09T10:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T07:21:56.533Z"
+    }
+  ]
+}

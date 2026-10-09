@@ -1,0 +1,167 @@
+HTTP/1.1 200 OK
+Date: Fri, 09 Oct 2026 13:03:34 GMT
+Content-Type: application/json; charset=utf-8
+access-control-allow-origin: *
+access-control-expose-headers: RateLimit-Limit,RateLimit-Policy,RateLimit-Remaining,RateLimit-Reset,RateLimit-History-Limit,RateLimit-History-Policy,RateLimit-History-Remaining,RateLimit-History-Reset,Retry-After
+cache-control: public, max-age=60, s-maxage=60
+content-security-policy: default-src 'self';style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;font-src 'self' https://cdn.jsdelivr.net;connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net;img-src 'self' data: https:;base-uri 'self';form-action 'self';frame-ancestors 'self';object-src 'none';script-src-attr 'none';upgrade-insecure-requests
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+etag: W/"1137-eBbvcn0Qb5yeXWlloukicRPI1/4"
+nel: {"report_to":"heroku-nel","response_headers":["Via"],"max_age":3600,"success_fraction":0.01,"failure_fraction":0.1}
+origin-agent-cluster: ?1
+ratelimit-limit: 300
+ratelimit-policy: 300;w=60
+ratelimit-remaining: 299
+ratelimit-reset: 60
+referrer-policy: no-referrer
+report-to: {"group":"heroku-nel","endpoints":[{"url":"https://nel.heroku.com/reports?s=Du6j0ZTuh8Z2E0VMxdrRrgqe5cxvWf6u7uk0YDV%2Ft4Q%3D\u0026sid=c4c9725f-1ab0-44d8-820f-430df2718e11\u0026ts=1791097093"}],"max_age":3600}
+reporting-endpoints: heroku-nel="https://nel.heroku.com/reports?s=Du6j0ZTuh8Z2E0VMxdrRrgqe5cxvWf6u7uk0YDV%2Ft4Q%3D&sid=c4c9725f-1ab0-44d8-820f-430df2718e11&ts=1791097093"
+Server: cloudflare
+strict-transport-security: max-age=2592000
+vary: Accept-Encoding
+via: 2.0 heroku-router
+x-content-type-options: nosniff
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: SAMEORIGIN
+x-permitted-cross-domain-policies: none
+x-request-id: d7201e45-6371-1362-54af-5365ac087f51
+x-xss-protection: 0
+cf-cache-status: HIT
+CF-RAY: a47d9610ce9bac19-MIA
+alt-svc: h3=":443"; ma=86400
+Content-Length: 4407
+
+{
+  "id": "b070cbc5-feaa-4b87-a8c1-f94cca037a18",
+  "name": "Disney's Typhoon Lagoon Water Park",
+  "entityType": "PARK",
+  "timezone": "America/New_York",
+  "liveData": [
+    {
+      "id": "0164bf43-29ab-4528-8052-98befbe81bcb",
+      "name": "Mayday Falls",
+      "entityType": "ATTRACTION",
+      "parkId": "b070cbc5-feaa-4b87-a8c1-f94cca037a18",
+      "externalId": "80010167;entityType=Attraction",
+      "status": "CLOSED",
+      "operatingHours": [],
+      "lastUpdated": "2026-06-03T11:34:07.131Z"
+    },
+    {
+      "id": "185c53bc-7153-4bf1-a582-5c03d18c90ee",
+      "name": "Ketchakiddee Creek",
+      "entityType": "ATTRACTION",
+      "parkId": "b070cbc5-feaa-4b87-a8c1-f94cca037a18",
+      "externalId": "80010156;entityType=Attraction",
+      "status": "REFURBISHMENT",
+      "operatingHours": [],
+      "lastUpdated": "2026-09-09T04:17:04.993Z"
+    },
+    {
+      "id": "1b39b2bc-8bf3-4482-b0cf-9ad7329dc42f",
+      "name": "Bay Slides",
+      "entityType": "ATTRACTION",
+      "parkId": "b070cbc5-feaa-4b87-a8c1-f94cca037a18",
+      "externalId": "20534;entityType=Attraction",
+      "status": "REFURBISHMENT",
+      "operatingHours": [],
+      "lastUpdated": "2026-09-09T04:17:04.672Z"
+    },
+    {
+      "id": "5327448f-463d-4567-8c5d-f1a169f4c14f",
+      "name": "Castaway Creek",
+      "entityType": "ATTRACTION",
+      "parkId": "b070cbc5-feaa-4b87-a8c1-f94cca037a18",
+      "externalId": "80010115;entityType=Attraction",
+      "status": "REFURBISHMENT",
+      "operatingHours": [],
+      "lastUpdated": "2026-09-09T04:17:04.842Z"
+    },
+    {
+      "id": "7dec8e5f-e082-4453-8fb3-f2f1da8b8aca",
+      "name": "Humunga Kowabunga",
+      "entityType": "ATTRACTION",
+      "parkId": "b070cbc5-feaa-4b87-a8c1-f94cca037a18",
+      "externalId": "80010143;entityType=Attraction",
+      "status": "REFURBISHMENT",
+      "operatingHours": [],
+      "lastUpdated": "2026-09-09T04:17:04.965Z"
+    },
+    {
+      "id": "7e4402eb-0f0b-41d3-8713-3e57b7b58af8",
+      "name": "Typhoon Lagoon Surf Pool",
+      "entityType": "ATTRACTION",
+      "parkId": "b070cbc5-feaa-4b87-a8c1-f94cca037a18",
+      "externalId": "13602;entityType=Attraction",
+      "status": "REFURBISHMENT",
+      "operatingHours": [],
+      "lastUpdated": "2026-09-09T04:17:04.574Z"
+    },
+    {
+      "id": "9fd9c4e3-2fbc-4705-975e-67abe45c4281",
+      "name": "Crush 'n' Gusher",
+      "entityType": "ATTRACTION",
+      "parkId": "b070cbc5-feaa-4b87-a8c1-f94cca037a18",
+      "externalId": "14200;entityType=Attraction",
+      "status": "REFURBISHMENT",
+      "operatingHours": [],
+      "lastUpdated": "2026-09-09T04:17:04.584Z"
+    },
+    {
+      "id": "a3886522-e19f-4154-8cdf-1ca7160e4e2b",
+      "name": "Keelhaul Falls",
+      "entityType": "ATTRACTION",
+      "parkId": "b070cbc5-feaa-4b87-a8c1-f94cca037a18",
+      "externalId": "80010155;entityType=Attraction",
+      "status": "REFURBISHMENT",
+      "operatingHours": [],
+      "lastUpdated": "2026-09-09T04:17:04.983Z"
+    },
+    {
+      "id": "b070cbc5-feaa-4b87-a8c1-f94cca037a18",
+      "name": "Disney's Typhoon Lagoon Water Park",
+      "entityType": "PARK",
+      "parkId": null,
+      "externalId": "80007981;entityType=water-park",
+      "queue": {
+        "STANDBY": {
+          "waitTime": null
+        }
+      },
+      "status": "CLOSED",
+      "lastUpdated": "2024-07-26T14:03:05.320Z"
+    },
+    {
+      "id": "d298e9e5-cb62-40f7-803a-5e8500023474",
+      "name": "Miss Adventure Falls",
+      "entityType": "ATTRACTION",
+      "parkId": "b070cbc5-feaa-4b87-a8c1-f94cca037a18",
+      "externalId": "18628633;entityType=Attraction",
+      "status": "REFURBISHMENT",
+      "operatingHours": [],
+      "lastUpdated": "2026-09-09T04:17:04.643Z"
+    },
+    {
+      "id": "f61c4451-d0d6-440a-bdc7-cf059b5ffbc3",
+      "name": "Storm Slides",
+      "entityType": "ATTRACTION",
+      "parkId": "b070cbc5-feaa-4b87-a8c1-f94cca037a18",
+      "externalId": "80010194;entityType=Attraction",
+      "status": "REFURBISHMENT",
+      "operatingHours": [],
+      "lastUpdated": "2026-09-09T04:17:05.057Z"
+    },
+    {
+      "id": "f8f36470-ca60-4072-ba2c-9d186a337cac",
+      "name": "Gangplank Falls",
+      "entityType": "ATTRACTION",
+      "parkId": "b070cbc5-feaa-4b87-a8c1-f94cca037a18",
+      "externalId": "80010138;entityType=Attraction",
+      "status": "REFURBISHMENT",
+      "operatingHours": [],
+      "lastUpdated": "2026-09-09T04:17:04.955Z"
+    }
+  ]
+}

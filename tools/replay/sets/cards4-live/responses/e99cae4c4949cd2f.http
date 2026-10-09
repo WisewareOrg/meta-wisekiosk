@@ -1,0 +1,1240 @@
+HTTP/1.1 200 OK
+Date: Fri, 09 Oct 2026 13:02:25 GMT
+Content-Type: application/json; charset=utf-8
+access-control-allow-origin: *
+access-control-expose-headers: RateLimit-Limit,RateLimit-Policy,RateLimit-Remaining,RateLimit-Reset,RateLimit-History-Limit,RateLimit-History-Policy,RateLimit-History-Remaining,RateLimit-History-Reset,Retry-After
+cache-control: public, max-age=300, s-maxage=3600
+content-security-policy: default-src 'self';style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;font-src 'self' https://cdn.jsdelivr.net;connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net;img-src 'self' data: https:;base-uri 'self';form-action 'self';frame-ancestors 'self';object-src 'none';script-src-attr 'none';upgrade-insecure-requests
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+etag: W/"81dd-IM42md4G7q0FNTJ8jMcR6B582P0"
+nel: {"report_to":"heroku-nel","response_headers":["Via"],"max_age":3600,"success_fraction":0.01,"failure_fraction":0.1}
+origin-agent-cluster: ?1
+ratelimit-limit: 300
+ratelimit-policy: 300;w=60
+ratelimit-remaining: 299
+ratelimit-reset: 60
+referrer-policy: no-referrer
+report-to: {"group":"heroku-nel","endpoints":[{"url":"https://nel.heroku.com/reports?s=16AptyXmYtETAwrxA99CEOoZFNlSae2f7DF8uJA8oJs%3D\u0026sid=c4c9725f-1ab0-44d8-820f-430df2718e11\u0026ts=1791529558"}],"max_age":3600}
+reporting-endpoints: heroku-nel="https://nel.heroku.com/reports?s=16AptyXmYtETAwrxA99CEOoZFNlSae2f7DF8uJA8oJs%3D&sid=c4c9725f-1ab0-44d8-820f-430df2718e11&ts=1791529558"
+Server: cloudflare
+strict-transport-security: max-age=2592000
+vary: Accept-Encoding
+via: 2.0 heroku-router
+x-content-type-options: nosniff
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: SAMEORIGIN
+x-permitted-cross-domain-policies: none
+x-request-id: f642ab04-eff9-ad1e-5506-b7b19a91e5f4
+x-xss-protection: 0
+cf-cache-status: HIT
+Age: 3382
+CF-RAY: a47d9460e8cfbd73-MIA
+alt-svc: h3=":443"; ma=86400
+Content-Length: 33245
+
+{
+  "id": "1c84a229-8862-4648-9c71-378ddd2c7693",
+  "name": "Disney's Animal Kingdom Theme Park",
+  "entityType": "PARK",
+  "timezone": "America/New_York",
+  "schedule": [
+    {
+      "date": "2026-10-09",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-09T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-09T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-09",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1900,
+            "currency": "USD",
+            "formatted": "$19.00"
+          },
+          "available": false
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2500,
+            "currency": "USD",
+            "formatted": "$25.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007823",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 19900,
+            "currency": "USD",
+            "formatted": "$199.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-09T19:00:00-04:00",
+      "openingTime": "2026-10-09T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-10",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-10T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-10T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-10",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1900,
+            "currency": "USD",
+            "formatted": "$19.00"
+          },
+          "available": false
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2900,
+            "currency": "USD",
+            "formatted": "$29.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-10T19:00:00-04:00",
+      "openingTime": "2026-10-10T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-11",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-11T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-11T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-11",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1900,
+            "currency": "USD",
+            "formatted": "$19.00"
+          },
+          "available": false
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2900,
+            "currency": "USD",
+            "formatted": "$29.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-11T19:00:00-04:00",
+      "openingTime": "2026-10-11T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-12",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-12T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-12T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-12",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1900,
+            "currency": "USD",
+            "formatted": "$19.00"
+          },
+          "available": false
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2900,
+            "currency": "USD",
+            "formatted": "$29.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007823",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 19900,
+            "currency": "USD",
+            "formatted": "$199.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-12T18:00:00-04:00",
+      "openingTime": "2026-10-12T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-13",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-13T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-13T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-13",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1900,
+            "currency": "USD",
+            "formatted": "$19.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2500,
+            "currency": "USD",
+            "formatted": "$25.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007823",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 17900,
+            "currency": "USD",
+            "formatted": "$179.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-13T18:00:00-04:00",
+      "openingTime": "2026-10-13T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-14",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-14T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-14T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-14",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1800,
+            "currency": "USD",
+            "formatted": "$18.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007823",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 17900,
+            "currency": "USD",
+            "formatted": "$179.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-14T18:00:00-04:00",
+      "openingTime": "2026-10-14T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-15",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-15T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-15T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-15",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1700,
+            "currency": "USD",
+            "formatted": "$17.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007823",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 17900,
+            "currency": "USD",
+            "formatted": "$179.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-15T18:00:00-04:00",
+      "openingTime": "2026-10-15T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-16",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-16T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-16T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-16",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1900,
+            "currency": "USD",
+            "formatted": "$19.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2900,
+            "currency": "USD",
+            "formatted": "$29.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007823",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 19900,
+            "currency": "USD",
+            "formatted": "$199.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-16T19:00:00-04:00",
+      "openingTime": "2026-10-16T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-17",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-17T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-17T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-17",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1900,
+            "currency": "USD",
+            "formatted": "$19.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2900,
+            "currency": "USD",
+            "formatted": "$29.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007823",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 19900,
+            "currency": "USD",
+            "formatted": "$199.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-17T20:00:00-04:00",
+      "openingTime": "2026-10-17T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-18",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-18T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-18T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-18",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1800,
+            "currency": "USD",
+            "formatted": "$18.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007823",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 19900,
+            "currency": "USD",
+            "formatted": "$199.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-18T19:00:00-04:00",
+      "openingTime": "2026-10-18T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-19",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-19T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-19T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-19",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1800,
+            "currency": "USD",
+            "formatted": "$18.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 1900,
+            "currency": "USD",
+            "formatted": "$19.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007823",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 17900,
+            "currency": "USD",
+            "formatted": "$179.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-19T18:00:00-04:00",
+      "openingTime": "2026-10-19T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-20",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-20T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-20T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-20",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1700,
+            "currency": "USD",
+            "formatted": "$17.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 1700,
+            "currency": "USD",
+            "formatted": "$17.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007823",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 15900,
+            "currency": "USD",
+            "formatted": "$159.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-20T18:00:00-04:00",
+      "openingTime": "2026-10-20T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-20",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-20T20:00:00-04:00",
+      "description": "Extended Evening",
+      "openingTime": "2026-10-20T18:00:00-04:00"
+    },
+    {
+      "date": "2026-10-21",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-21T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-21T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-21",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1700,
+            "currency": "USD",
+            "formatted": "$17.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 1700,
+            "currency": "USD",
+            "formatted": "$17.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007823",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 15900,
+            "currency": "USD",
+            "formatted": "$159.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-21T18:00:00-04:00",
+      "openingTime": "2026-10-21T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-22",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-22T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-22T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-22",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1800,
+            "currency": "USD",
+            "formatted": "$18.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 1900,
+            "currency": "USD",
+            "formatted": "$19.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007823",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 17900,
+            "currency": "USD",
+            "formatted": "$179.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-22T18:00:00-04:00",
+      "openingTime": "2026-10-22T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-23",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-23T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-23T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-23",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1900,
+            "currency": "USD",
+            "formatted": "$19.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007823",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 18900,
+            "currency": "USD",
+            "formatted": "$189.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-23T18:00:00-04:00",
+      "openingTime": "2026-10-23T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-24",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-24T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-24T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-24",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1900,
+            "currency": "USD",
+            "formatted": "$19.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2500,
+            "currency": "USD",
+            "formatted": "$25.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007823",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 19900,
+            "currency": "USD",
+            "formatted": "$199.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-24T20:00:00-04:00",
+      "openingTime": "2026-10-24T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-25",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-25T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-25T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-25",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1800,
+            "currency": "USD",
+            "formatted": "$18.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007823",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 18900,
+            "currency": "USD",
+            "formatted": "$189.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-25T18:00:00-04:00",
+      "openingTime": "2026-10-25T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-26",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-26T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-26T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-26",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1800,
+            "currency": "USD",
+            "formatted": "$18.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 1900,
+            "currency": "USD",
+            "formatted": "$19.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007823",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 17900,
+            "currency": "USD",
+            "formatted": "$179.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-26T18:00:00-04:00",
+      "openingTime": "2026-10-26T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-26",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-26T20:00:00-04:00",
+      "description": "Extended Evening",
+      "openingTime": "2026-10-26T18:00:00-04:00"
+    },
+    {
+      "date": "2026-10-27",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-27T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-27T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-27",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1700,
+            "currency": "USD",
+            "formatted": "$17.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 1700,
+            "currency": "USD",
+            "formatted": "$17.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007823",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 15900,
+            "currency": "USD",
+            "formatted": "$159.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-27T18:00:00-04:00",
+      "openingTime": "2026-10-27T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-28",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-28T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-28T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-28",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1700,
+            "currency": "USD",
+            "formatted": "$17.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 1700,
+            "currency": "USD",
+            "formatted": "$17.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007823",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 15900,
+            "currency": "USD",
+            "formatted": "$159.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-28T18:00:00-04:00",
+      "openingTime": "2026-10-28T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-29",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-29T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-29T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-29",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1800,
+            "currency": "USD",
+            "formatted": "$18.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 1900,
+            "currency": "USD",
+            "formatted": "$19.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007823",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 15900,
+            "currency": "USD",
+            "formatted": "$159.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-29T18:00:00-04:00",
+      "openingTime": "2026-10-29T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-30",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-30T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-30T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-30",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1800,
+            "currency": "USD",
+            "formatted": "$18.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007823",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 17900,
+            "currency": "USD",
+            "formatted": "$179.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-30T18:00:00-04:00",
+      "openingTime": "2026-10-30T08:00:00-04:00"
+    },
+    {
+      "date": "2026-10-31",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-31T08:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-31T07:30:00-04:00"
+    },
+    {
+      "date": "2026-10-31",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_18665186",
+          "name": "Lightning Lane for Avatar Flight of Passage",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 1900,
+            "currency": "USD",
+            "formatted": "$19.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007823",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-31T18:00:00-04:00",
+      "openingTime": "2026-10-31T08:00:00-04:00"
+    },
+    {
+      "date": "2026-11-01",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-11-01T08:00:00-05:00",
+      "description": "Early Entry",
+      "openingTime": "2026-11-01T07:30:00-05:00"
+    },
+    {
+      "date": "2026-11-01",
+      "type": "OPERATING",
+      "closingTime": "2026-11-01T18:00:00-05:00",
+      "openingTime": "2026-11-01T08:00:00-05:00"
+    },
+    {
+      "date": "2026-11-02",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-11-02T08:00:00-05:00",
+      "description": "Early Entry",
+      "openingTime": "2026-11-02T07:30:00-05:00"
+    },
+    {
+      "date": "2026-11-02",
+      "type": "OPERATING",
+      "closingTime": "2026-11-02T18:00:00-05:00",
+      "openingTime": "2026-11-02T08:00:00-05:00"
+    },
+    {
+      "date": "2026-11-03",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-11-03T08:00:00-05:00",
+      "description": "Early Entry",
+      "openingTime": "2026-11-03T07:30:00-05:00"
+    },
+    {
+      "date": "2026-11-03",
+      "type": "OPERATING",
+      "closingTime": "2026-11-03T18:00:00-05:00",
+      "openingTime": "2026-11-03T08:00:00-05:00"
+    },
+    {
+      "date": "2026-11-04",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-11-04T08:00:00-05:00",
+      "description": "Early Entry",
+      "openingTime": "2026-11-04T07:30:00-05:00"
+    },
+    {
+      "date": "2026-11-04",
+      "type": "OPERATING",
+      "closingTime": "2026-11-04T18:00:00-05:00",
+      "openingTime": "2026-11-04T08:00:00-05:00"
+    },
+    {
+      "date": "2026-11-04",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-11-04T20:00:00-05:00",
+      "description": "Extended Evening",
+      "openingTime": "2026-11-04T18:00:00-05:00"
+    },
+    {
+      "date": "2026-11-05",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-11-05T08:00:00-05:00",
+      "description": "Early Entry",
+      "openingTime": "2026-11-05T07:30:00-05:00"
+    },
+    {
+      "date": "2026-11-05",
+      "type": "OPERATING",
+      "closingTime": "2026-11-05T18:00:00-05:00",
+      "openingTime": "2026-11-05T08:00:00-05:00"
+    },
+    {
+      "date": "2026-11-06",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-11-06T08:00:00-05:00",
+      "description": "Early Entry",
+      "openingTime": "2026-11-06T07:30:00-05:00"
+    },
+    {
+      "date": "2026-11-06",
+      "type": "OPERATING",
+      "closingTime": "2026-11-06T18:00:00-05:00",
+      "openingTime": "2026-11-06T08:00:00-05:00"
+    },
+    {
+      "date": "2026-11-07",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-11-07T08:00:00-05:00",
+      "description": "Early Entry",
+      "openingTime": "2026-11-07T07:30:00-05:00"
+    },
+    {
+      "date": "2026-11-07",
+      "type": "OPERATING",
+      "closingTime": "2026-11-07T18:00:00-05:00",
+      "openingTime": "2026-11-07T08:00:00-05:00"
+    },
+    {
+      "date": "2026-11-08",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-11-08T08:00:00-05:00",
+      "description": "Early Entry",
+      "openingTime": "2026-11-08T07:30:00-05:00"
+    },
+    {
+      "date": "2026-11-08",
+      "type": "OPERATING",
+      "closingTime": "2026-11-08T18:00:00-05:00",
+      "openingTime": "2026-11-08T08:00:00-05:00"
+    }
+  ]
+}

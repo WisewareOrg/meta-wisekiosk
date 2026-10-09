@@ -1,0 +1,1218 @@
+HTTP/1.1 200 OK
+Date: Fri, 09 Oct 2026 13:02:25 GMT
+Content-Type: application/json; charset=utf-8
+access-control-allow-origin: *
+access-control-expose-headers: RateLimit-Limit,RateLimit-Policy,RateLimit-Remaining,RateLimit-Reset,RateLimit-History-Limit,RateLimit-History-Policy,RateLimit-History-Remaining,RateLimit-History-Reset,Retry-After
+Cache-Control: public, max-age=300, s-maxage=3600
+content-security-policy: default-src 'self';style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;font-src 'self' https://cdn.jsdelivr.net;connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net;img-src 'self' data: https:;base-uri 'self';form-action 'self';frame-ancestors 'self';object-src 'none';script-src-attr 'none';upgrade-insecure-requests
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+etag: W/"80ca-Kkj/JUnqwT2li3CevXB/5w9Vjik"
+nel: {"report_to":"heroku-nel","response_headers":["Via"],"max_age":3600,"success_fraction":0.01,"failure_fraction":0.1}
+origin-agent-cluster: ?1
+ratelimit-limit: 300
+ratelimit-policy: 300;w=60
+ratelimit-remaining: 299
+ratelimit-reset: 60
+referrer-policy: no-referrer
+report-to: {"group":"heroku-nel","endpoints":[{"url":"https://nel.heroku.com/reports?s=BhEt1ay6nkALJ%2B7YQdWpm%2FMvuqu6uWGvdhMwEY0H07w%3D\u0026sid=c4c9725f-1ab0-44d8-820f-430df2718e11\u0026ts=1791550769"}],"max_age":3600}
+reporting-endpoints: heroku-nel="https://nel.heroku.com/reports?s=BhEt1ay6nkALJ%2B7YQdWpm%2FMvuqu6uWGvdhMwEY0H07w%3D&sid=c4c9725f-1ab0-44d8-820f-430df2718e11&ts=1791550769"
+Server: cloudflare
+strict-transport-security: max-age=2592000
+vary: Accept-Encoding
+via: 2.0 heroku-router
+x-content-type-options: nosniff
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: SAMEORIGIN
+x-permitted-cross-domain-policies: none
+x-request-id: bf88b5c8-3ebf-782f-5f78-c7631954f5e1
+x-xss-protection: 0
+cf-cache-status: HIT
+Age: 176
+CF-RAY: a47d94628ef87c8b-MIA
+alt-svc: h3=":443"; ma=86400
+Content-Length: 32970
+
+{
+  "id": "47f90d2c-e191-4239-a466-5892ef59a88b",
+  "name": "EPCOT",
+  "entityType": "PARK",
+  "timezone": "America/New_York",
+  "schedule": [
+    {
+      "date": "2026-10-09",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-09T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-09T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-09",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": false
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 3200,
+            "currency": "USD",
+            "formatted": "$32.00"
+          },
+          "available": false
+        }
+      ],
+      "closingTime": "2026-10-09T21:00:00-04:00",
+      "openingTime": "2026-10-09T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-10",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-10T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-10T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-10",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": false
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 3200,
+            "currency": "USD",
+            "formatted": "$32.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-10T21:00:00-04:00",
+      "openingTime": "2026-10-10T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-11",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-11T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-11T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-11",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": false
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 3200,
+            "currency": "USD",
+            "formatted": "$32.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-11T21:00:00-04:00",
+      "openingTime": "2026-10-11T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-12",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-12T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-12T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-12",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": false
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 3200,
+            "currency": "USD",
+            "formatted": "$32.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-12T21:00:00-04:00",
+      "openingTime": "2026-10-12T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-12",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-12T23:00:00-04:00",
+      "description": "Extended Evening",
+      "openingTime": "2026-10-12T21:00:00-04:00"
+    },
+    {
+      "date": "2026-10-13",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-13T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-13T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-13",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2600,
+            "currency": "USD",
+            "formatted": "$26.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007838",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 23900,
+            "currency": "USD",
+            "formatted": "$239.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-13T21:00:00-04:00",
+      "openingTime": "2026-10-13T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-14",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-14T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-14T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-14",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2600,
+            "currency": "USD",
+            "formatted": "$26.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007838",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 22900,
+            "currency": "USD",
+            "formatted": "$229.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-14T21:00:00-04:00",
+      "openingTime": "2026-10-14T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-15",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-15T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-15T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-15",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2800,
+            "currency": "USD",
+            "formatted": "$28.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007838",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 22900,
+            "currency": "USD",
+            "formatted": "$229.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-15T21:00:00-04:00",
+      "openingTime": "2026-10-15T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-16",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-16T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-16T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-16",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 3200,
+            "currency": "USD",
+            "formatted": "$32.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007838",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 23900,
+            "currency": "USD",
+            "formatted": "$239.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-16T21:00:00-04:00",
+      "openingTime": "2026-10-16T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-17",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-17T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-17T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-17",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 3200,
+            "currency": "USD",
+            "formatted": "$32.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007838",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 24900,
+            "currency": "USD",
+            "formatted": "$249.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-17T21:00:00-04:00",
+      "openingTime": "2026-10-17T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-18",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-18T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-18T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-18",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2100,
+            "currency": "USD",
+            "formatted": "$21.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2800,
+            "currency": "USD",
+            "formatted": "$28.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007838",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 23900,
+            "currency": "USD",
+            "formatted": "$239.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-18T21:00:00-04:00",
+      "openingTime": "2026-10-18T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-19",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-19T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-19T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-19",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2600,
+            "currency": "USD",
+            "formatted": "$26.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007838",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 22900,
+            "currency": "USD",
+            "formatted": "$229.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-19T21:00:00-04:00",
+      "openingTime": "2026-10-19T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-19",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-19T23:00:00-04:00",
+      "description": "Extended Evening",
+      "openingTime": "2026-10-19T21:00:00-04:00"
+    },
+    {
+      "date": "2026-10-20",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-20T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-20T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-20",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2100,
+            "currency": "USD",
+            "formatted": "$21.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2600,
+            "currency": "USD",
+            "formatted": "$26.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007838",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 18900,
+            "currency": "USD",
+            "formatted": "$189.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-20T21:00:00-04:00",
+      "openingTime": "2026-10-20T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-21",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-21T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-21T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-21",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2100,
+            "currency": "USD",
+            "formatted": "$21.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2600,
+            "currency": "USD",
+            "formatted": "$26.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007838",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 18900,
+            "currency": "USD",
+            "formatted": "$189.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-21T21:00:00-04:00",
+      "openingTime": "2026-10-21T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-22",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-22T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-22T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-22",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2100,
+            "currency": "USD",
+            "formatted": "$21.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2600,
+            "currency": "USD",
+            "formatted": "$26.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007838",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 22900,
+            "currency": "USD",
+            "formatted": "$229.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-22T21:00:00-04:00",
+      "openingTime": "2026-10-22T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-23",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-23T10:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-23T09:30:00-04:00"
+    },
+    {
+      "date": "2026-10-23",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2800,
+            "currency": "USD",
+            "formatted": "$28.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007838",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 23900,
+            "currency": "USD",
+            "formatted": "$239.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-23T21:00:00-04:00",
+      "openingTime": "2026-10-23T10:00:00-04:00"
+    },
+    {
+      "date": "2026-10-24",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-24T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-24T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-24",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 3200,
+            "currency": "USD",
+            "formatted": "$32.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007838",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 24900,
+            "currency": "USD",
+            "formatted": "$249.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-24T21:00:00-04:00",
+      "openingTime": "2026-10-24T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-25",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-25T10:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-25T09:30:00-04:00"
+    },
+    {
+      "date": "2026-10-25",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2800,
+            "currency": "USD",
+            "formatted": "$28.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007838",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 22900,
+            "currency": "USD",
+            "formatted": "$229.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-25T21:00:00-04:00",
+      "openingTime": "2026-10-25T10:00:00-04:00"
+    },
+    {
+      "date": "2026-10-26",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-26T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-26T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-26",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2100,
+            "currency": "USD",
+            "formatted": "$21.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2600,
+            "currency": "USD",
+            "formatted": "$26.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007838",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 21900,
+            "currency": "USD",
+            "formatted": "$219.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-26T21:00:00-04:00",
+      "openingTime": "2026-10-26T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-27",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-27T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-27T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-27",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2100,
+            "currency": "USD",
+            "formatted": "$21.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2600,
+            "currency": "USD",
+            "formatted": "$26.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007838",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 18900,
+            "currency": "USD",
+            "formatted": "$189.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-27T21:00:00-04:00",
+      "openingTime": "2026-10-27T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-28",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-28T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-28T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-28",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2100,
+            "currency": "USD",
+            "formatted": "$21.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2600,
+            "currency": "USD",
+            "formatted": "$26.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007838",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 18900,
+            "currency": "USD",
+            "formatted": "$189.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-28T21:00:00-04:00",
+      "openingTime": "2026-10-28T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-29",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-29T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-29T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-29",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2600,
+            "currency": "USD",
+            "formatted": "$26.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007838",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 22900,
+            "currency": "USD",
+            "formatted": "$229.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-29T21:00:00-04:00",
+      "openingTime": "2026-10-29T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-30",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-30T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-30T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-30",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2800,
+            "currency": "USD",
+            "formatted": "$28.00"
+          },
+          "available": true
+        },
+        {
+          "id": "premierpass_80007838",
+          "name": "Lightning Lane Premier Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 24900,
+            "currency": "USD",
+            "formatted": "$249.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-30T21:00:00-04:00",
+      "openingTime": "2026-10-30T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-31",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-31T09:00:00-04:00",
+      "description": "Early Entry",
+      "openingTime": "2026-10-31T08:30:00-04:00"
+    },
+    {
+      "date": "2026-10-31",
+      "type": "OPERATING",
+      "purchases": [
+        {
+          "id": "lightninglane_411499845",
+          "name": "Lightning Lane for Guardians of the Galaxy: Cosmic Rewind",
+          "type": "ATTRACTION",
+          "price": {
+            "amount": 2200,
+            "currency": "USD",
+            "formatted": "$22.00"
+          },
+          "available": true
+        },
+        {
+          "id": "lightninglanemultipass_80007838",
+          "name": "Lightning Lane Multi Pass",
+          "type": "PACKAGE",
+          "price": {
+            "amount": 2800,
+            "currency": "USD",
+            "formatted": "$28.00"
+          },
+          "available": true
+        }
+      ],
+      "closingTime": "2026-10-31T21:00:00-04:00",
+      "openingTime": "2026-10-31T09:00:00-04:00"
+    },
+    {
+      "date": "2026-11-01",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-11-01T09:00:00-05:00",
+      "description": "Early Entry",
+      "openingTime": "2026-11-01T08:30:00-05:00"
+    },
+    {
+      "date": "2026-11-01",
+      "type": "OPERATING",
+      "closingTime": "2026-11-01T21:00:00-05:00",
+      "openingTime": "2026-11-01T09:00:00-05:00"
+    },
+    {
+      "date": "2026-11-02",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-11-02T09:00:00-05:00",
+      "description": "Early Entry",
+      "openingTime": "2026-11-02T08:30:00-05:00"
+    },
+    {
+      "date": "2026-11-02",
+      "type": "OPERATING",
+      "closingTime": "2026-11-02T21:00:00-05:00",
+      "openingTime": "2026-11-02T09:00:00-05:00"
+    },
+    {
+      "date": "2026-11-02",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-11-02T23:00:00-05:00",
+      "description": "Extended Evening",
+      "openingTime": "2026-11-02T21:00:00-05:00"
+    },
+    {
+      "date": "2026-11-03",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-11-03T09:00:00-05:00",
+      "description": "Early Entry",
+      "openingTime": "2026-11-03T08:30:00-05:00"
+    },
+    {
+      "date": "2026-11-03",
+      "type": "OPERATING",
+      "closingTime": "2026-11-03T21:00:00-05:00",
+      "openingTime": "2026-11-03T09:00:00-05:00"
+    },
+    {
+      "date": "2026-11-04",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-11-04T09:00:00-05:00",
+      "description": "Early Entry",
+      "openingTime": "2026-11-04T08:30:00-05:00"
+    },
+    {
+      "date": "2026-11-04",
+      "type": "OPERATING",
+      "closingTime": "2026-11-04T21:00:00-05:00",
+      "openingTime": "2026-11-04T09:00:00-05:00"
+    },
+    {
+      "date": "2026-11-05",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-11-05T09:00:00-05:00",
+      "description": "Early Entry",
+      "openingTime": "2026-11-05T08:30:00-05:00"
+    },
+    {
+      "date": "2026-11-05",
+      "type": "OPERATING",
+      "closingTime": "2026-11-05T21:00:00-05:00",
+      "openingTime": "2026-11-05T09:00:00-05:00"
+    },
+    {
+      "date": "2026-11-06",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-11-06T09:00:00-05:00",
+      "description": "Early Entry",
+      "openingTime": "2026-11-06T08:30:00-05:00"
+    },
+    {
+      "date": "2026-11-06",
+      "type": "OPERATING",
+      "closingTime": "2026-11-06T21:00:00-05:00",
+      "openingTime": "2026-11-06T09:00:00-05:00"
+    },
+    {
+      "date": "2026-11-07",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-11-07T09:00:00-05:00",
+      "description": "Early Entry",
+      "openingTime": "2026-11-07T08:30:00-05:00"
+    },
+    {
+      "date": "2026-11-07",
+      "type": "OPERATING",
+      "closingTime": "2026-11-07T21:00:00-05:00",
+      "openingTime": "2026-11-07T09:00:00-05:00"
+    },
+    {
+      "date": "2026-11-08",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-11-08T09:00:00-05:00",
+      "description": "Early Entry",
+      "openingTime": "2026-11-08T08:30:00-05:00"
+    },
+    {
+      "date": "2026-11-08",
+      "type": "OPERATING",
+      "closingTime": "2026-11-08T21:00:00-05:00",
+      "openingTime": "2026-11-08T09:00:00-05:00"
+    }
+  ]
+}

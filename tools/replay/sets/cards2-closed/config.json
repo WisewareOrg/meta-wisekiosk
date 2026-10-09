@@ -1,0 +1,38 @@
+{
+  "edge_band": 8,
+  "modules": [
+    {
+      "region": "top_left",
+      "module": "clock",
+      "options": {
+        "twenty_four_hour": false,
+        "show_seconds": true,
+        "show_date": true
+      }
+    },
+    {
+      "region": "top_right",
+      "module": "weather",
+      "options": {
+        "location": {
+          "lat": 28.5383,
+          "lon": -81.3792
+        }
+      }
+    },
+    {
+      "region": "bottom_left",
+      "module": "park_wait_times",
+      "options": {
+        "parks": [
+          "75ea578a-adc8-4116-a54d-dccb60765ef9",
+          "47f90d2c-e191-4239-a466-5892ef59a88b",
+          "b070cbc5-feaa-4b87-a8c1-f94cca037a18",
+          "ead53ea5-22e5-4095-9a83-8c29300d7c63"
+        ],
+        "columns": 2,
+        "rows": 2
+      }
+    }
+  ]
+}

@@ -1,0 +1,1519 @@
+HTTP/1.1 200 OK
+Date: Fri, 09 Oct 2026 13:02:24 GMT
+Content-Type: application/json; charset=utf-8
+access-control-allow-origin: *
+access-control-expose-headers: RateLimit-Limit,RateLimit-Policy,RateLimit-Remaining,RateLimit-Reset,RateLimit-History-Limit,RateLimit-History-Policy,RateLimit-History-Remaining,RateLimit-History-Reset,Retry-After
+Cache-Control: public, max-age=60, s-maxage=60
+content-security-policy: default-src 'self';style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;font-src 'self' https://cdn.jsdelivr.net;connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net;img-src 'self' data: https:;base-uri 'self';form-action 'self';frame-ancestors 'self';object-src 'none';script-src-attr 'none';upgrade-insecure-requests
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+etag: W/"a593-+UGB133jCoO/i+v+1TawpzDrM90"
+nel: {"report_to":"heroku-nel","response_headers":["Via"],"max_age":3600,"success_fraction":0.01,"failure_fraction":0.1}
+origin-agent-cluster: ?1
+ratelimit-limit: 300
+ratelimit-policy: 300;w=60
+ratelimit-remaining: 207
+ratelimit-reset: 13
+referrer-policy: no-referrer
+report-to: {"group":"heroku-nel","endpoints":[{"url":"https://nel.heroku.com/reports?s=0m9zyWsrFIIWkxC21CxuLeDQW1N18TOsDMHsP5LZOm8%3D\u0026sid=c4c9725f-1ab0-44d8-820f-430df2718e11\u0026ts=1791550915"}],"max_age":3600}
+reporting-endpoints: heroku-nel="https://nel.heroku.com/reports?s=0m9zyWsrFIIWkxC21CxuLeDQW1N18TOsDMHsP5LZOm8%3D&sid=c4c9725f-1ab0-44d8-820f-430df2718e11&ts=1791550915"
+Server: cloudflare
+strict-transport-security: max-age=2592000
+vary: Accept-Encoding
+via: 2.0 heroku-router
+x-content-type-options: nosniff
+x-dns-prefetch-control: off
+x-download-options: noopen
+x-frame-options: SAMEORIGIN
+x-permitted-cross-domain-policies: none
+x-request-id: 626e153a-53f5-b75a-4d2f-6fe74547b435
+x-xss-protection: 0
+Age: 29
+cf-cache-status: HIT
+CF-RAY: a47d945c7eb93f1e-MIA
+alt-svc: h3=":443"; ma=86400
+Content-Length: 42387
+
+{
+  "id": "1c84a229-8862-4648-9c71-378ddd2c7693",
+  "name": "Disney's Animal Kingdom Theme Park",
+  "entityType": "PARK",
+  "timezone": "America/New_York",
+  "liveData": [
+    {
+      "id": "13d7c9d1-a785-403d-9ba8-71fee2f02d55",
+      "name": "Meet Favorite Disney Pals at Adventurers Outpost",
+      "entityType": "SHOW",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "17421326;entityType=Entertainment",
+      "queue": {
+        "STANDBY": {
+          "waitTime": 35
+        }
+      },
+      "status": "OPERATING",
+      "showtimes": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T18:00:00-04:00",
+          "startTime": "2026-10-09T08:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T12:55:06.149Z"
+    },
+    {
+      "id": "1a8ea967-229a-42a0-8290-59b036c84e14",
+      "name": "Maharajah Jungle Trek",
+      "entityType": "ATTRACTION",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "80010164;entityType=Attraction",
+      "queue": {
+        "STANDBY": {
+          "waitTime": null
+        }
+      },
+      "status": "OPERATING",
+      "forecast": [
+        {
+          "time": "2026-10-09T08:00:00-04:00",
+          "waitTime": 0,
+          "percentage": 0
+        },
+        {
+          "time": "2026-10-09T09:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T10:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T11:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T12:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T13:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T14:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T15:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T16:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T17:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T18:00:00-04:00",
+          "waitTime": 0,
+          "percentage": 0
+        }
+      ],
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T18:00:00-04:00",
+          "startTime": "2026-10-09T09:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T13:01:10.783Z"
+    },
+    {
+      "id": "1b15c77b-0311-4171-8e59-7f38e6d60754",
+      "name": "Zootopia: Better Zoogether!",
+      "entityType": "ATTRACTION",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "412430582;entityType=Attraction",
+      "queue": {
+        "STANDBY": {
+          "waitTime": 10
+        },
+        "RETURN_TIME": {
+          "state": "AVAILABLE",
+          "returnEnd": "2026-10-09T11:40:00-04:00",
+          "returnStart": "2026-10-09T10:40:00-04:00"
+        }
+      },
+      "status": "OPERATING",
+      "operatingHours": [
+        {
+          "type": "Early Entry",
+          "endTime": "2026-10-09T08:00:00-04:00",
+          "startTime": "2026-10-09T07:30:00-04:00"
+        },
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T19:00:00-04:00",
+          "startTime": "2026-10-09T08:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T12:59:26.297Z"
+    },
+    {
+      "id": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "name": "Disney's Animal Kingdom Theme Park",
+      "entityType": "PARK",
+      "parkId": null,
+      "externalId": "80007823;entityType=theme-park",
+      "queue": {
+        "STANDBY": {
+          "waitTime": null
+        }
+      },
+      "status": "OPERATING",
+      "lastUpdated": "2024-05-14T13:36:03.947Z"
+    },
+    {
+      "id": "224d803c-cd7a-45d8-bfab-d843f2030983",
+      "name": "Rainforest Cafe® at Disney's Animal Kingdom",
+      "entityType": "RESTAURANT",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "90002440;entityType=restaurant",
+      "status": "OPERATING",
+      "diningAvailability": [
+        {
+          "waitTime": 50,
+          "partySize": 1
+        },
+        {
+          "waitTime": 50,
+          "partySize": 2
+        },
+        {
+          "waitTime": 50,
+          "partySize": 3
+        },
+        {
+          "waitTime": 10,
+          "partySize": 4
+        },
+        {
+          "waitTime": 10,
+          "partySize": 5
+        },
+        {
+          "waitTime": 10,
+          "partySize": 6
+        },
+        {
+          "waitTime": 10,
+          "partySize": 7
+        },
+        {
+          "waitTime": 10,
+          "partySize": 8
+        }
+      ],
+      "lastUpdated": "2026-10-09T13:01:44.580Z"
+    },
+    {
+      "id": "24cf863c-b6ba-4826-a056-0b698989cbf7",
+      "name": "Avatar Flight of Passage",
+      "entityType": "ATTRACTION",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "18665186;entityType=Attraction",
+      "queue": {
+        "STANDBY": {
+          "waitTime": 95
+        },
+        "PAID_RETURN_TIME": {
+          "price": {
+            "amount": 1900,
+            "currency": "USD",
+            "formatted": "$19.00"
+          },
+          "state": "FINISHED",
+          "returnEnd": null,
+          "returnStart": null
+        }
+      },
+      "status": "OPERATING",
+      "forecast": [
+        {
+          "time": "2026-10-09T08:00:00-04:00",
+          "waitTime": 105,
+          "percentage": 69
+        },
+        {
+          "time": "2026-10-09T09:00:00-04:00",
+          "waitTime": 100,
+          "percentage": 66
+        },
+        {
+          "time": "2026-10-09T10:00:00-04:00",
+          "waitTime": 105,
+          "percentage": 69
+        },
+        {
+          "time": "2026-10-09T11:00:00-04:00",
+          "waitTime": 105,
+          "percentage": 69
+        },
+        {
+          "time": "2026-10-09T12:00:00-04:00",
+          "waitTime": 100,
+          "percentage": 66
+        },
+        {
+          "time": "2026-10-09T13:00:00-04:00",
+          "waitTime": 95,
+          "percentage": 62
+        },
+        {
+          "time": "2026-10-09T14:00:00-04:00",
+          "waitTime": 75,
+          "percentage": 49
+        },
+        {
+          "time": "2026-10-09T15:00:00-04:00",
+          "waitTime": 75,
+          "percentage": 49
+        },
+        {
+          "time": "2026-10-09T16:00:00-04:00",
+          "waitTime": 75,
+          "percentage": 49
+        },
+        {
+          "time": "2026-10-09T17:00:00-04:00",
+          "waitTime": 65,
+          "percentage": 43
+        },
+        {
+          "time": "2026-10-09T18:00:00-04:00",
+          "waitTime": 55,
+          "percentage": 36
+        }
+      ],
+      "operatingHours": [
+        {
+          "type": "Early Entry",
+          "endTime": "2026-10-09T08:00:00-04:00",
+          "startTime": "2026-10-09T07:30:00-04:00"
+        },
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T19:00:00-04:00",
+          "startTime": "2026-10-09T08:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T12:59:26.229Z"
+    },
+    {
+      "id": "2a55aee6-c87a-4bda-a3d4-b022693a62a3",
+      "name": "Tree of Life Awakenings",
+      "entityType": "SHOW",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "18447293;entityType=Entertainment",
+      "status": "CLOSED",
+      "showtimes": [],
+      "lastUpdated": "2026-06-03T11:34:07.601Z"
+    },
+    {
+      "id": "32e01181-9a5f-4936-8a77-0dace1de836c",
+      "name": "Kilimanjaro Safaris",
+      "entityType": "ATTRACTION",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "80010157;entityType=Attraction",
+      "queue": {
+        "STANDBY": {
+          "waitTime": 75
+        },
+        "RETURN_TIME": {
+          "state": "AVAILABLE",
+          "returnEnd": "2026-10-09T13:50:00-04:00",
+          "returnStart": "2026-10-09T12:50:00-04:00"
+        }
+      },
+      "status": "OPERATING",
+      "forecast": [
+        {
+          "time": "2026-10-09T08:00:00-04:00",
+          "waitTime": 35,
+          "percentage": 29
+        },
+        {
+          "time": "2026-10-09T09:00:00-04:00",
+          "waitTime": 60,
+          "percentage": 50
+        },
+        {
+          "time": "2026-10-09T10:00:00-04:00",
+          "waitTime": 70,
+          "percentage": 58
+        },
+        {
+          "time": "2026-10-09T11:00:00-04:00",
+          "waitTime": 80,
+          "percentage": 66
+        },
+        {
+          "time": "2026-10-09T12:00:00-04:00",
+          "waitTime": 60,
+          "percentage": 50
+        },
+        {
+          "time": "2026-10-09T13:00:00-04:00",
+          "waitTime": 55,
+          "percentage": 45
+        },
+        {
+          "time": "2026-10-09T14:00:00-04:00",
+          "waitTime": 40,
+          "percentage": 33
+        },
+        {
+          "time": "2026-10-09T15:00:00-04:00",
+          "waitTime": 30,
+          "percentage": 25
+        },
+        {
+          "time": "2026-10-09T16:00:00-04:00",
+          "waitTime": 15,
+          "percentage": 12
+        },
+        {
+          "time": "2026-10-09T17:00:00-04:00",
+          "waitTime": 10,
+          "percentage": 8
+        },
+        {
+          "time": "2026-10-09T18:00:00-04:00",
+          "waitTime": 10,
+          "percentage": 8
+        }
+      ],
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T18:30:00-04:00",
+          "startTime": "2026-10-09T08:15:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T12:55:06.140Z"
+    },
+    {
+      "id": "3a4e0f49-f9ff-4481-a95b-d4952cdf6097",
+      "name": "Festival of the Lion King",
+      "entityType": "SHOW",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "12432;entityType=Entertainment",
+      "queue": {
+        "RETURN_TIME": {
+          "state": "AVAILABLE",
+          "returnEnd": "2026-10-09T12:30:00-04:00",
+          "returnStart": "2026-10-09T11:30:00-04:00"
+        }
+      },
+      "status": "OPERATING",
+      "showtimes": [
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T10:00:00-04:00",
+          "startTime": "2026-10-09T10:00:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T11:00:00-04:00",
+          "startTime": "2026-10-09T11:00:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T12:00:00-04:00",
+          "startTime": "2026-10-09T12:00:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T13:00:00-04:00",
+          "startTime": "2026-10-09T13:00:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T14:00:00-04:00",
+          "startTime": "2026-10-09T14:00:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T15:00:00-04:00",
+          "startTime": "2026-10-09T15:00:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T16:00:00-04:00",
+          "startTime": "2026-10-09T16:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T12:49:55.321Z"
+    },
+    {
+      "id": "4d27b0d7-2b0a-4569-90fa-e79f117ec7ef",
+      "name": "Discovery Island Trails",
+      "entityType": "ATTRACTION",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "80010126;entityType=Attraction",
+      "status": "OPERATING",
+      "forecast": [
+        {
+          "time": "2026-10-09T08:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T09:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T10:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T11:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T12:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T13:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T14:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T15:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T16:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T17:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T18:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        }
+      ],
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T19:00:00-04:00",
+          "startTime": "2026-10-09T08:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T12:00:02.875Z"
+    },
+    {
+      "id": "4f391f0e-52be-4f9d-99d6-b3ae0373b43c",
+      "name": "Wildlife Express Train",
+      "entityType": "ATTRACTION",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "80010235;entityType=Attraction",
+      "queue": {
+        "STANDBY": {
+          "waitTime": 10
+        }
+      },
+      "status": "OPERATING",
+      "forecast": [
+        {
+          "time": "2026-10-09T08:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T09:00:00-04:00",
+          "waitTime": 10,
+          "percentage": 8
+        },
+        {
+          "time": "2026-10-09T10:00:00-04:00",
+          "waitTime": 15,
+          "percentage": 12
+        },
+        {
+          "time": "2026-10-09T11:00:00-04:00",
+          "waitTime": 15,
+          "percentage": 12
+        },
+        {
+          "time": "2026-10-09T12:00:00-04:00",
+          "waitTime": 15,
+          "percentage": 12
+        },
+        {
+          "time": "2026-10-09T13:00:00-04:00",
+          "waitTime": 15,
+          "percentage": 12
+        },
+        {
+          "time": "2026-10-09T14:00:00-04:00",
+          "waitTime": 15,
+          "percentage": 12
+        },
+        {
+          "time": "2026-10-09T15:00:00-04:00",
+          "waitTime": 15,
+          "percentage": 12
+        },
+        {
+          "time": "2026-10-09T16:00:00-04:00",
+          "waitTime": 10,
+          "percentage": 8
+        },
+        {
+          "time": "2026-10-09T17:00:00-04:00",
+          "waitTime": 0,
+          "percentage": 0
+        },
+        {
+          "time": "2026-10-09T18:00:00-04:00",
+          "waitTime": 0,
+          "percentage": 0
+        }
+      ],
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T16:15:00-04:00",
+          "startTime": "2026-10-09T09:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T13:01:10.842Z"
+    },
+    {
+      "id": "52be1d78-e0b4-433f-b1ce-0be4f7053813",
+      "name": "Beats and Strings",
+      "entityType": "SHOW",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "412226163;entityType=Entertainment",
+      "status": "CLOSED",
+      "showtimes": [],
+      "lastUpdated": "2026-10-08T04:02:12.502Z"
+    },
+    {
+      "id": "64a6915f-a835-4226-ba5c-8389fc4cade3",
+      "name": "Expedition Everest - Legend of the Forbidden Mountain",
+      "entityType": "ATTRACTION",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "26068;entityType=Attraction",
+      "queue": {
+        "STANDBY": {
+          "waitTime": null
+        },
+        "RETURN_TIME": {
+          "state": "FINISHED",
+          "returnEnd": null,
+          "returnStart": null
+        },
+        "SINGLE_RIDER": {
+          "waitTime": null
+        }
+      },
+      "status": "DOWN",
+      "operatingHours": [
+        {
+          "type": "Early Entry",
+          "endTime": "2026-10-09T08:00:00-04:00",
+          "startTime": "2026-10-09T07:30:00-04:00"
+        },
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T19:00:00-04:00",
+          "startTime": "2026-10-09T08:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T11:34:28.245Z"
+    },
+    {
+      "id": "6ef1b126-5b0b-46a1-8608-4fcf98ab92c8",
+      "name": "Wilderness Explorers",
+      "entityType": "ATTRACTION",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "17396838;entityType=Attraction",
+      "status": "OPERATING",
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T18:00:00-04:00",
+          "startTime": "2026-10-09T09:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T13:00:00.719Z"
+    },
+    {
+      "id": "6fbe6d02-4057-43bb-80a3-047b1e8a50ca",
+      "name": "Animal Care at Conservation Station",
+      "entityType": "ATTRACTION",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "80010119;entityType=Attraction",
+      "status": "OPERATING",
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T17:00:00-04:00",
+          "startTime": "2026-10-09T09:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T13:00:00.810Z"
+    },
+    {
+      "id": "7a5af3b7-9bc1-4962-92d0-3ea9c9ce35f0",
+      "name": "Na'vi River Journey",
+      "entityType": "ATTRACTION",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "18665185;entityType=Attraction",
+      "queue": {
+        "STANDBY": {
+          "waitTime": 30
+        },
+        "RETURN_TIME": {
+          "state": "AVAILABLE",
+          "returnEnd": "2026-10-09T18:30:00-04:00",
+          "returnStart": "2026-10-09T17:30:00-04:00"
+        }
+      },
+      "status": "OPERATING",
+      "forecast": [
+        {
+          "time": "2026-10-09T08:00:00-04:00",
+          "waitTime": 30,
+          "percentage": 25
+        },
+        {
+          "time": "2026-10-09T09:00:00-04:00",
+          "waitTime": 50,
+          "percentage": 41
+        },
+        {
+          "time": "2026-10-09T10:00:00-04:00",
+          "waitTime": 65,
+          "percentage": 54
+        },
+        {
+          "time": "2026-10-09T11:00:00-04:00",
+          "waitTime": 70,
+          "percentage": 58
+        },
+        {
+          "time": "2026-10-09T12:00:00-04:00",
+          "waitTime": 70,
+          "percentage": 58
+        },
+        {
+          "time": "2026-10-09T13:00:00-04:00",
+          "waitTime": 50,
+          "percentage": 41
+        },
+        {
+          "time": "2026-10-09T14:00:00-04:00",
+          "waitTime": 50,
+          "percentage": 41
+        },
+        {
+          "time": "2026-10-09T15:00:00-04:00",
+          "waitTime": 50,
+          "percentage": 41
+        },
+        {
+          "time": "2026-10-09T16:00:00-04:00",
+          "waitTime": 50,
+          "percentage": 41
+        },
+        {
+          "time": "2026-10-09T17:00:00-04:00",
+          "waitTime": 50,
+          "percentage": 41
+        },
+        {
+          "time": "2026-10-09T18:00:00-04:00",
+          "waitTime": 45,
+          "percentage": 37
+        }
+      ],
+      "operatingHours": [
+        {
+          "type": "Early Entry",
+          "endTime": "2026-10-09T08:00:00-04:00",
+          "startTime": "2026-10-09T07:30:00-04:00"
+        },
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T19:00:00-04:00",
+          "startTime": "2026-10-09T08:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T12:59:26.222Z"
+    },
+    {
+      "id": "91237556-7557-4b18-88a8-581254de96c6",
+      "name": "Jumping Junction",
+      "entityType": "ATTRACTION",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "412606840;entityType=Attraction",
+      "status": "OPERATING",
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T17:00:00-04:00",
+          "startTime": "2026-10-09T09:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T13:00:00.763Z"
+    },
+    {
+      "id": "93d3c183-737f-4e26-98f9-b18a3e190393",
+      "name": "Animal Encounters: Winged Encounters – The Kingdom Takes Flight",
+      "entityType": "SHOW",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "17821434;entityType=Entertainment",
+      "status": "OPERATING",
+      "showtimes": [
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T08:15:00-04:00",
+          "startTime": "2026-10-09T08:15:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T09:15:00-04:00",
+          "startTime": "2026-10-09T09:15:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T10:15:00-04:00",
+          "startTime": "2026-10-09T10:15:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T11:15:00-04:00",
+          "startTime": "2026-10-09T11:15:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T12:15:00-04:00",
+          "startTime": "2026-10-09T12:15:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T04:04:21.198Z"
+    },
+    {
+      "id": "95712b31-ceed-4f7d-be3e-3d5e6badac5c",
+      "name": "Finding Nemo: The Big Blue... and Beyond!",
+      "entityType": "SHOW",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "411550125;entityType=Entertainment",
+      "queue": {
+        "RETURN_TIME": {
+          "state": "AVAILABLE",
+          "returnEnd": "2026-10-09T11:30:00-04:00",
+          "returnStart": "2026-10-09T10:30:00-04:00"
+        }
+      },
+      "status": "OPERATING",
+      "showtimes": [
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T11:00:00-04:00",
+          "startTime": "2026-10-09T11:00:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T12:00:00-04:00",
+          "startTime": "2026-10-09T12:00:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T13:00:00-04:00",
+          "startTime": "2026-10-09T13:00:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T14:30:00-04:00",
+          "startTime": "2026-10-09T14:30:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T15:30:00-04:00",
+          "startTime": "2026-10-09T15:30:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T16:30:00-04:00",
+          "startTime": "2026-10-09T16:30:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T04:04:21.317Z"
+    },
+    {
+      "id": "a08d9f84-fbdf-45f3-9b68-645d296de307",
+      "name": "DiVine",
+      "entityType": "SHOW",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "432709;entityType=Entertainment",
+      "status": "OPERATING",
+      "showtimes": [
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T13:55:00-04:00",
+          "startTime": "2026-10-09T08:35:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T04:04:21.422Z"
+    },
+    {
+      "id": "a349429a-5ef8-41c4-9a28-84ed4f7a0465",
+      "name": "Viva Gaia Street Band!",
+      "entityType": "SHOW",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "16629705;entityType=Entertainment",
+      "status": "OPERATING",
+      "showtimes": [
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T10:45:00-04:00",
+          "startTime": "2026-10-09T10:45:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T11:45:00-04:00",
+          "startTime": "2026-10-09T11:45:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T12:45:00-04:00",
+          "startTime": "2026-10-09T12:45:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T14:00:00-04:00",
+          "startTime": "2026-10-09T14:00:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T15:00:00-04:00",
+          "startTime": "2026-10-09T15:00:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T16:00:00-04:00",
+          "startTime": "2026-10-09T16:00:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T17:00:00-04:00",
+          "startTime": "2026-10-09T17:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T04:04:21.172Z"
+    },
+    {
+      "id": "a8781403-1344-4c06-89ef-b7a39b99ae59",
+      "name": "Harambe Village Street Band – Burudika",
+      "entityType": "SHOW",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "16235871;entityType=Entertainment",
+      "status": "OPERATING",
+      "showtimes": [
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T13:10:00-04:00",
+          "startTime": "2026-10-09T13:10:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T14:10:00-04:00",
+          "startTime": "2026-10-09T14:10:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T15:10:00-04:00",
+          "startTime": "2026-10-09T15:10:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T16:10:00-04:00",
+          "startTime": "2026-10-09T16:10:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T17:10:00-04:00",
+          "startTime": "2026-10-09T17:10:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T04:04:21.164Z"
+    },
+    {
+      "id": "b81bf8f4-3d43-47eb-8e27-9e6156112167",
+      "name": "Adventures with Kevin on Discovery Island",
+      "entityType": "SHOW",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "19205476;entityType=Entertainment",
+      "status": "CLOSED",
+      "showtimes": [],
+      "lastUpdated": "2026-10-07T15:01:50.969Z"
+    },
+    {
+      "id": "bc1ffa86-9b1a-4ce9-84a5-b479dfa3cb53",
+      "name": "Tree of Life",
+      "entityType": "ATTRACTION",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "80010217;entityType=Attraction",
+      "status": "OPERATING",
+      "lastUpdated": "2022-09-30T04:06:02.016Z"
+    },
+    {
+      "id": "bc997600-fcc0-4f6f-b908-a1419b26cfd8",
+      "name": "The Oasis Exhibits",
+      "entityType": "ATTRACTION",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "80010214;entityType=Attraction",
+      "status": "OPERATING",
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T19:00:00-04:00",
+          "startTime": "2026-10-09T08:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T12:00:03.120Z"
+    },
+    {
+      "id": "cea213d9-bf4f-408a-ac61-768e7709ab7d",
+      "name": "Yak & Yeti™ Restaurant",
+      "entityType": "RESTAURANT",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "215686;entityType=restaurant",
+      "status": "OPERATING",
+      "lastUpdated": "2026-10-08T21:40:05.167Z"
+    },
+    {
+      "id": "d58d9262-ec95-4161-80a0-07ca43b2f5f3",
+      "name": "Kali River Rapids",
+      "entityType": "ATTRACTION",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "80010154;entityType=Attraction",
+      "queue": {
+        "STANDBY": {
+          "waitTime": null
+        },
+        "RETURN_TIME": {
+          "state": "AVAILABLE",
+          "returnEnd": "2026-10-09T11:40:00-04:00",
+          "returnStart": "2026-10-09T10:40:00-04:00"
+        }
+      },
+      "status": "OPERATING",
+      "forecast": [
+        {
+          "time": "2026-10-09T08:00:00-04:00",
+          "waitTime": 0,
+          "percentage": 0
+        },
+        {
+          "time": "2026-10-09T09:00:00-04:00",
+          "waitTime": 10,
+          "percentage": 8
+        },
+        {
+          "time": "2026-10-09T10:00:00-04:00",
+          "waitTime": 50,
+          "percentage": 41
+        },
+        {
+          "time": "2026-10-09T11:00:00-04:00",
+          "waitTime": 60,
+          "percentage": 50
+        },
+        {
+          "time": "2026-10-09T12:00:00-04:00",
+          "waitTime": 60,
+          "percentage": 50
+        },
+        {
+          "time": "2026-10-09T13:00:00-04:00",
+          "waitTime": 65,
+          "percentage": 54
+        },
+        {
+          "time": "2026-10-09T14:00:00-04:00",
+          "waitTime": 65,
+          "percentage": 54
+        },
+        {
+          "time": "2026-10-09T15:00:00-04:00",
+          "waitTime": 55,
+          "percentage": 45
+        },
+        {
+          "time": "2026-10-09T16:00:00-04:00",
+          "waitTime": 60,
+          "percentage": 50
+        },
+        {
+          "time": "2026-10-09T17:00:00-04:00",
+          "waitTime": 55,
+          "percentage": 45
+        },
+        {
+          "time": "2026-10-09T18:00:00-04:00",
+          "waitTime": 0,
+          "percentage": 0
+        }
+      ],
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T18:00:00-04:00",
+          "startTime": "2026-10-09T09:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T13:01:10.763Z"
+    },
+    {
+      "id": "d58db4d0-3bad-4655-937b-1cbc9ed0e880",
+      "name": "Tusker House Restaurant",
+      "entityType": "RESTAURANT",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "90002686;entityType=restaurant",
+      "status": "OPERATING",
+      "lastUpdated": "2026-10-09T13:00:05.693Z"
+    },
+    {
+      "id": "d5dfc051-f951-40ac-8774-3e9961331ab9",
+      "name": "Bluey's Wild World at Conservation Station",
+      "entityType": "ATTRACTION",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "412862995;entityType=Attraction",
+      "queue": {
+        "STANDBY": {
+          "waitTime": null
+        }
+      },
+      "status": "CLOSED",
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-08T12:30:00-04:00",
+          "startTime": "2026-10-08T09:15:00-04:00"
+        },
+        {
+          "type": "Operating",
+          "endTime": "2026-10-08T16:30:00-04:00",
+          "startTime": "2026-10-08T13:30:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-08T20:31:03.068Z"
+    },
+    {
+      "id": "d8214ba6-22a7-4a92-8977-bae3779d5c4c",
+      "name": "Feathered Friends in Flight!",
+      "entityType": "SHOW",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "19581372;entityType=Entertainment",
+      "queue": {
+        "RETURN_TIME": {
+          "state": "AVAILABLE",
+          "returnEnd": "2026-10-09T11:15:00-04:00",
+          "returnStart": "2026-10-09T10:15:00-04:00"
+        }
+      },
+      "status": "OPERATING",
+      "showtimes": [
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T10:45:00-04:00",
+          "startTime": "2026-10-09T10:45:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T11:45:00-04:00",
+          "startTime": "2026-10-09T11:45:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T13:45:00-04:00",
+          "startTime": "2026-10-09T13:45:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T14:45:00-04:00",
+          "startTime": "2026-10-09T14:45:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T15:45:00-04:00",
+          "startTime": "2026-10-09T15:45:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T04:04:21.284Z"
+    },
+    {
+      "id": "d8497541-53a2-4206-b95f-39cb238ae511",
+      "name": "Tam Tam Drummers of Harambe",
+      "entityType": "SHOW",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "72877;entityType=Entertainment",
+      "status": "OPERATING",
+      "showtimes": [
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T08:10:00-04:00",
+          "startTime": "2026-10-09T08:10:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T09:10:00-04:00",
+          "startTime": "2026-10-09T09:10:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T10:10:00-04:00",
+          "startTime": "2026-10-09T10:10:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T11:10:00-04:00",
+          "startTime": "2026-10-09T11:10:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T12:10:00-04:00",
+          "startTime": "2026-10-09T12:10:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T04:04:21.435Z"
+    },
+    {
+      "id": "dd142c0b-622a-4b44-8e22-c0facb2b20a8",
+      "name": "Kora Tinga Tinga",
+      "entityType": "SHOW",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "18435910;entityType=Entertainment",
+      "status": "OPERATING",
+      "showtimes": [
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T10:45:00-04:00",
+          "startTime": "2026-10-09T10:45:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T11:45:00-04:00",
+          "startTime": "2026-10-09T11:45:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T12:45:00-04:00",
+          "startTime": "2026-10-09T12:45:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T13:45:00-04:00",
+          "startTime": "2026-10-09T13:45:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T14:45:00-04:00",
+          "startTime": "2026-10-09T14:45:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T15:45:00-04:00",
+          "startTime": "2026-10-09T15:45:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T04:04:21.233Z"
+    },
+    {
+      "id": "e12fb6d6-0985-44e5-bdd3-65ff74433063",
+      "name": "Tiffins Restaurant",
+      "entityType": "RESTAURANT",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "18069632;entityType=restaurant",
+      "status": "OPERATING",
+      "lastUpdated": "2026-10-08T21:50:27.897Z"
+    },
+    {
+      "id": "e7976e25-4322-4587-8ded-fb1d9dcbb83c",
+      "name": "Gorilla Falls Exploration Trail",
+      "entityType": "ATTRACTION",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "80010175;entityType=Attraction",
+      "queue": {
+        "STANDBY": {
+          "waitTime": 5
+        }
+      },
+      "status": "OPERATING",
+      "forecast": [
+        {
+          "time": "2026-10-09T08:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T09:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T10:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T11:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T12:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T13:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T14:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T15:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T16:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T17:00:00-04:00",
+          "waitTime": 5,
+          "percentage": 4
+        },
+        {
+          "time": "2026-10-09T18:00:00-04:00",
+          "waitTime": 0,
+          "percentage": 0
+        }
+      ],
+      "operatingHours": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T18:00:00-04:00",
+          "startTime": "2026-10-09T08:30:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T12:48:08.802Z"
+    },
+    {
+      "id": "f210842b-8c9b-4088-9f48-6284e9ce389a",
+      "name": "Nomad Lounge",
+      "entityType": "RESTAURANT",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "18377778;entityType=restaurant",
+      "status": "OPERATING",
+      "lastUpdated": "2026-10-08T21:50:20.708Z"
+    },
+    {
+      "id": "f526f3ab-190b-4576-8c79-e2968d171b4e",
+      "name": "Meet Moana at Character Landing",
+      "entityType": "SHOW",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "411921961;entityType=Entertainment",
+      "queue": {
+        "STANDBY": {
+          "waitTime": null
+        }
+      },
+      "status": "OPERATING",
+      "showtimes": [
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T12:15:00-04:00",
+          "startTime": "2026-10-09T08:30:00-04:00"
+        },
+        {
+          "type": "Operating",
+          "endTime": "2026-10-09T15:45:00-04:00",
+          "startTime": "2026-10-09T13:45:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T12:31:20.527Z"
+    },
+    {
+      "id": "f7830bfd-3d25-4ba2-8021-b0d429ef0193",
+      "name": "Eco-Rhythmics",
+      "entityType": "SHOW",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "412303521;entityType=Entertainment",
+      "status": "OPERATING",
+      "showtimes": [
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T08:35:00-04:00",
+          "startTime": "2026-10-09T08:35:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T09:35:00-04:00",
+          "startTime": "2026-10-09T09:35:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T10:30:00-04:00",
+          "startTime": "2026-10-09T10:30:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T11:30:00-04:00",
+          "startTime": "2026-10-09T11:30:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T12:30:00-04:00",
+          "startTime": "2026-10-09T12:30:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T14:00:00-04:00",
+          "startTime": "2026-10-09T14:00:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T15:00:00-04:00",
+          "startTime": "2026-10-09T15:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T04:04:21.374Z"
+    },
+    {
+      "id": "fdf62904-8125-4735-81ae-8648dd607399",
+      "name": "Zoogether Day Gathering Spot",
+      "entityType": "SHOW",
+      "parkId": "1c84a229-8862-4648-9c71-378ddd2c7693",
+      "externalId": "412499185;entityType=Entertainment",
+      "status": "OPERATING",
+      "showtimes": [
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T09:00:00-04:00",
+          "startTime": "2026-10-09T09:00:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T09:30:00-04:00",
+          "startTime": "2026-10-09T09:30:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T10:00:00-04:00",
+          "startTime": "2026-10-09T10:00:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T10:30:00-04:00",
+          "startTime": "2026-10-09T10:30:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T11:00:00-04:00",
+          "startTime": "2026-10-09T11:00:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T11:30:00-04:00",
+          "startTime": "2026-10-09T11:30:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T12:00:00-04:00",
+          "startTime": "2026-10-09T12:00:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T12:30:00-04:00",
+          "startTime": "2026-10-09T12:30:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T13:00:00-04:00",
+          "startTime": "2026-10-09T13:00:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T13:30:00-04:00",
+          "startTime": "2026-10-09T13:30:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T14:00:00-04:00",
+          "startTime": "2026-10-09T14:00:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T14:30:00-04:00",
+          "startTime": "2026-10-09T14:30:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T15:00:00-04:00",
+          "startTime": "2026-10-09T15:00:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T15:30:00-04:00",
+          "startTime": "2026-10-09T15:30:00-04:00"
+        },
+        {
+          "type": "Performance Time",
+          "endTime": "2026-10-09T16:00:00-04:00",
+          "startTime": "2026-10-09T16:00:00-04:00"
+        }
+      ],
+      "lastUpdated": "2026-10-09T04:04:21.396Z"
+    }
+  ]
+}
