@@ -46,6 +46,16 @@ PROBE = "WK1 nonce=1699999999.5 state=applied cards=-/- faulted=0 unreachable=0"
             "sCgdimfFxt:T | WK1 nonce=1 state=loading cards=-/- faulted=3 unreachable=1",
             {"nonce": "1", "state": "loading", "cards": "-/-", "faulted": 3, "unreachable": 1},
         ),
+        (
+            "a live cards pair parses to an int/int tuple, present then live",
+            "sCgdimfFxt:T | WK1 nonce=1 state=applied cards=4/4 faulted=0 unreachable=0",
+            {"nonce": "1", "state": "applied", "cards": (4, 4), "faulted": 0, "unreachable": 0},
+        ),
+        (
+            "a live cards pair preserves present/live order when they differ",
+            "sCgdimfFxt:T | WK1 nonce=1 state=applied cards=4/2 faulted=0 unreachable=0",
+            {"nonce": "1", "state": "applied", "cards": (4, 2), "faulted": 0, "unreachable": 0},
+        ),
     ],
 )
 def test_parse_title_finds_the_payload(name, title, want):

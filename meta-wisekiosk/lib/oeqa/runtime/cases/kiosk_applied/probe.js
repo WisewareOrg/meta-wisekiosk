@@ -16,12 +16,25 @@
     return 'applied';
   }
 
+  // #194: present is every [data-pwt-card]/[data-pwt-leaderboard] element;
+  // live is the subset holding at least one [data-pwt-tour-row] descendant
+  // (a closed park's card renders no tour row -- meta-wisekiosk #100's own
+  // rotation probe already reads this attribute the same way).
+  function cards() {
+    var all = document.querySelectorAll('[data-pwt-card], [data-pwt-leaderboard]');
+    var live = 0;
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].querySelector('[data-pwt-tour-row]')) live++;
+    }
+    return all.length + '/' + live;
+  }
+
   function report() {
     var faulted = document.querySelectorAll('[data-module-unavailable]').length;
     var unreachable = document.querySelector('[data-backend-unreachable]') ? 1 : 0;
     document.title = 'WK1 nonce=' + performance.timeOrigin +
       ' state=' + state() +
-      ' cards=-/-' +
+      ' cards=' + cards() +
       ' faulted=' + faulted +
       ' unreachable=' + unreachable;
   }

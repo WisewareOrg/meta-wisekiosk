@@ -229,3 +229,21 @@ def sut_line(browser, nrestarts, cmdline_sha, webkit_env, kiosk_conf_mac, mode,
 
 def page_line(nonce, state, cards, faulted, unreachable):
     return f"R page nonce={nonce} state={state} cards={cards} faulted={faulted} unreachable={unreachable}"
+
+
+def cards_token(cards):
+    """The page line's own cards= token: "<present>/<live>" when cards is a
+    (present, live) int pair (kiosk_applied.verdict.parse_title's own
+    shape), the value unchanged for the "-/-" no-count placeholder or any
+    other shape that parser did not convert."""
+    if isinstance(cards, tuple):
+        return f"{cards[0]}/{cards[1]}"
+    return cards
+
+
+def with_replay(page_line_text, replay_value):
+    """page_line_text with " replay=<replay_value>" appended -- the
+    live/replay distinction tools/replay/proxy.py and run.sh measure from
+    bench's own environment after the window closes, never something the
+    device-side case that built page_line_text could know."""
+    return f"{page_line_text} replay={replay_value}"

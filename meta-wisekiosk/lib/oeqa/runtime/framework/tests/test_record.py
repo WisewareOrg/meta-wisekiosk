@@ -23,6 +23,7 @@ from framework.record import (
     board_line,
     boot_ordinal,
     booted_slot,
+    cards_token,
     config_summary,
     decode_hex_dump,
     dirty,
@@ -40,6 +41,7 @@ from framework.record import (
     tool_name,
     uptime_seconds,
     webkit_env,
+    with_replay,
 )
 
 SHA = "deadbeef" * 5  # 40 hex chars, the shape image-buildinfo and git both require
@@ -591,6 +593,30 @@ def test_sut_line():
 def test_page_line():
     got = page_line(nonce="1699999999.5", state="applied", cards="-/-", faulted=0, unreachable=0)
     assert got == "R page nonce=1699999999.5 state=applied cards=-/- faulted=0 unreachable=0"
+
+
+@pytest.mark.parametrize(
+    ("name", "cards", "want"),
+    [
+        ("a (present, live) pair renders present/live", (4, 4), "4/4"),
+        ("present and live may differ", (4, 2), "4/2"),
+        ("the no-count placeholder passes through unchanged", "-/-", "-/-"),
+    ],
+)
+def test_cards_token(name, cards, want):
+    assert cards_token(cards) == want, name
+
+
+def test_with_replay_appends_the_token():
+    line = page_line(nonce="1", state="applied", cards="4/4", faulted=0, unreachable=0)
+    assert with_replay(line, "cards4-live@deadbeef") == (
+        "R page nonce=1 state=applied cards=4/4 faulted=0 unreachable=0 replay=cards4-live@deadbeef")
+
+
+def test_with_replay_live():
+    line = page_line(nonce="1", state="applied", cards="-/-", faulted=0, unreachable=0)
+    assert with_replay(line, "live") == (
+        "R page nonce=1 state=applied cards=-/- faulted=0 unreachable=0 replay=live")
 
 
 # ------------------------------------------------------------ the whole record
