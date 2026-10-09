@@ -1,5 +1,5 @@
 HTTP/1.1 200 OK
-Date: Fri, 09 Oct 2026 13:02:25 GMT
+Date: Fri, 09 Oct 2026 18:05:18 GMT
 Content-Type: application/json; charset=utf-8
 access-control-allow-origin: *
 access-control-expose-headers: RateLimit-Limit,RateLimit-Policy,RateLimit-Remaining,RateLimit-Reset,RateLimit-History-Limit,RateLimit-History-Policy,RateLimit-History-Remaining,RateLimit-History-Reset,Retry-After
@@ -28,9 +28,7 @@ x-frame-options: SAMEORIGIN
 x-permitted-cross-domain-policies: none
 x-request-id: f642ab04-eff9-ad1e-5506-b7b19a91e5f4
 x-xss-protection: 0
-cf-cache-status: HIT
-Age: 3382
-CF-RAY: a47d9460e8cfbd73-MIA
+Age: 3550
 alt-svc: h3=":443"; ma=86400
 Content-Length: 33245
 

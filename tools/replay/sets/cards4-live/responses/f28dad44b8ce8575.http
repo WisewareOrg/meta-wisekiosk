@@ -1,22 +1,22 @@
 HTTP/1.1 200 OK
-Date: Fri, 09 Oct 2026 13:02:25 GMT
+Date: Fri, 09 Oct 2026 18:05:18 GMT
 Content-Type: application/json; charset=utf-8
 access-control-allow-origin: *
 access-control-expose-headers: RateLimit-Limit,RateLimit-Policy,RateLimit-Remaining,RateLimit-Reset,RateLimit-History-Limit,RateLimit-History-Policy,RateLimit-History-Remaining,RateLimit-History-Reset,Retry-After
-Cache-Control: public, max-age=300, s-maxage=3600
+cache-control: public, max-age=300, s-maxage=3600
 content-security-policy: default-src 'self';style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;font-src 'self' https://cdn.jsdelivr.net;connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net;img-src 'self' data: https:;base-uri 'self';form-action 'self';frame-ancestors 'self';object-src 'none';script-src-attr 'none';upgrade-insecure-requests
 cross-origin-opener-policy: same-origin
 cross-origin-resource-policy: same-origin
-etag: W/"80ca-Kkj/JUnqwT2li3CevXB/5w9Vjik"
+etag: W/"81a6-mlAwvQhY/EbRvY3END+OsXIQ2ak"
 nel: {"report_to":"heroku-nel","response_headers":["Via"],"max_age":3600,"success_fraction":0.01,"failure_fraction":0.1}
 origin-agent-cluster: ?1
 ratelimit-limit: 300
 ratelimit-policy: 300;w=60
-ratelimit-remaining: 299
-ratelimit-reset: 60
+ratelimit-remaining: 298
+ratelimit-reset: 47
 referrer-policy: no-referrer
-report-to: {"group":"heroku-nel","endpoints":[{"url":"https://nel.heroku.com/reports?s=BhEt1ay6nkALJ%2B7YQdWpm%2FMvuqu6uWGvdhMwEY0H07w%3D\u0026sid=c4c9725f-1ab0-44d8-820f-430df2718e11\u0026ts=1791550769"}],"max_age":3600}
-reporting-endpoints: heroku-nel="https://nel.heroku.com/reports?s=BhEt1ay6nkALJ%2B7YQdWpm%2FMvuqu6uWGvdhMwEY0H07w%3D&sid=c4c9725f-1ab0-44d8-820f-430df2718e11&ts=1791550769"
+report-to: {"group":"heroku-nel","endpoints":[{"url":"https://nel.heroku.com/reports?s=hmvCO%2BCZPFYCqrMrgG2P1C7gzJHG8P49jTzXGYzNG2Y%3D\u0026sid=c4c9725f-1ab0-44d8-820f-430df2718e11\u0026ts=1791565175"}],"max_age":3600}
+reporting-endpoints: heroku-nel="https://nel.heroku.com/reports?s=hmvCO%2BCZPFYCqrMrgG2P1C7gzJHG8P49jTzXGYzNG2Y%3D&sid=c4c9725f-1ab0-44d8-820f-430df2718e11&ts=1791565175"
 Server: cloudflare
 strict-transport-security: max-age=2592000
 vary: Accept-Encoding
@@ -26,13 +26,11 @@ x-dns-prefetch-control: off
 x-download-options: noopen
 x-frame-options: SAMEORIGIN
 x-permitted-cross-domain-policies: none
-x-request-id: bf88b5c8-3ebf-782f-5f78-c7631954f5e1
+x-request-id: 2ade5e57-9a25-d727-2971-c6a763d4974a
 x-xss-protection: 0
-cf-cache-status: HIT
-Age: 176
-CF-RAY: a47d94628ef87c8b-MIA
+Age: 340
 alt-svc: h3=":443"; ma=86400
-Content-Length: 32970
+Content-Length: 33190
 
 {
   "id": "47f90d2c-e191-4239-a466-5892ef59a88b",
@@ -182,7 +180,7 @@ Content-Length: 32970
             "currency": "USD",
             "formatted": "$32.00"
           },
-          "available": true
+          "available": false
         }
       ],
       "closingTime": "2026-10-12T21:00:00-04:00",
@@ -338,6 +336,13 @@ Content-Length: 32970
       ],
       "closingTime": "2026-10-15T21:00:00-04:00",
       "openingTime": "2026-10-15T09:00:00-04:00"
+    },
+    {
+      "date": "2026-10-15",
+      "type": "TICKETED_EVENT",
+      "closingTime": "2026-10-16T00:30:00-04:00",
+      "description": "Special Ticketed Event",
+      "openingTime": "2026-10-15T21:30:00-04:00"
     },
     {
       "date": "2026-10-16",

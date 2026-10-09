@@ -1,5 +1,5 @@
 HTTP/1.1 200 OK
-Date: Fri, 09 Oct 2026 13:02:24 GMT
+Date: Fri, 09 Oct 2026 18:05:17 GMT
 Content-Type: application/json; charset=utf-8
 access-control-allow-origin: *
 access-control-expose-headers: RateLimit-Limit,RateLimit-Policy,RateLimit-Remaining,RateLimit-Reset,RateLimit-History-Limit,RateLimit-History-Policy,RateLimit-History-Remaining,RateLimit-History-Reset,Retry-After
@@ -7,16 +7,16 @@ Cache-Control: public, max-age=60, s-maxage=60
 content-security-policy: default-src 'self';style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;font-src 'self' https://cdn.jsdelivr.net;connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net;img-src 'self' data: https:;base-uri 'self';form-action 'self';frame-ancestors 'self';object-src 'none';script-src-attr 'none';upgrade-insecure-requests
 cross-origin-opener-policy: same-origin
 cross-origin-resource-policy: same-origin
-etag: W/"12e6d-VZoLQODVtWvQq0nQqAHJfzVnnyM"
+etag: W/"13f23-Ajpo3teafUXiiPHzncpfQHmgA3Y"
 nel: {"report_to":"heroku-nel","response_headers":["Via"],"max_age":3600,"success_fraction":0.01,"failure_fraction":0.1}
 origin-agent-cluster: ?1
 ratelimit-limit: 300
 ratelimit-policy: 300;w=60
-ratelimit-remaining: 217
-ratelimit-reset: 33
+ratelimit-remaining: 257
+ratelimit-reset: 20
 referrer-policy: no-referrer
-report-to: {"group":"heroku-nel","endpoints":[{"url":"https://nel.heroku.com/reports?s=hJXcyCrb1mVRo2FrSdteqSPoESgb4HzRenZoo02QddM%3D\u0026sid=c4c9725f-1ab0-44d8-820f-430df2718e11\u0026ts=1791550895"}],"max_age":3600}
-reporting-endpoints: heroku-nel="https://nel.heroku.com/reports?s=hJXcyCrb1mVRo2FrSdteqSPoESgb4HzRenZoo02QddM%3D&sid=c4c9725f-1ab0-44d8-820f-430df2718e11&ts=1791550895"
+report-to: {"group":"heroku-nel","endpoints":[{"url":"https://nel.heroku.com/reports?s=%2FQ%2BUMCftr1ZxLsxraEzCWQzxOg%2B3VXPzsWrjB%2BLrFs8%3D\u0026sid=c4c9725f-1ab0-44d8-820f-430df2718e11\u0026ts=1791569113"}],"max_age":3600}
+reporting-endpoints: heroku-nel="https://nel.heroku.com/reports?s=%2FQ%2BUMCftr1ZxLsxraEzCWQzxOg%2B3VXPzsWrjB%2BLrFs8%3D&sid=c4c9725f-1ab0-44d8-820f-430df2718e11&ts=1791569113"
 Server: cloudflare
 strict-transport-security: max-age=2592000
 vary: Accept-Encoding
@@ -26,13 +26,11 @@ x-dns-prefetch-control: off
 x-download-options: noopen
 x-frame-options: SAMEORIGIN
 x-permitted-cross-domain-policies: none
-x-request-id: 7c07725f-ad32-824a-fc52-1db7af6bc88d
+x-request-id: c54d24cb-c174-d2b5-e3ea-249cf5f82b83
 x-xss-protection: 0
-Age: 49
-cf-cache-status: HIT
-CF-RAY: a47d945c6ccc6890-MIA
+Age: 3
 alt-svc: h3=":443"; ma=86400
-Content-Length: 77421
+Content-Length: 81699
 
 {
   "id": "47f90d2c-e191-4239-a466-5892ef59a88b",
@@ -61,7 +59,7 @@ Content-Length: 77421
           "waitTime": null
         }
       },
-      "status": "OPERATING",
+      "status": "CLOSED",
       "forecast": [
         {
           "time": "2026-10-09T09:00:00-04:00",
@@ -136,7 +134,7 @@ Content-Length: 77421
           "startTime": "2026-10-09T19:00:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-09T13:01:10.731Z"
+      "lastUpdated": "2026-10-09T13:31:13.332Z"
     },
     {
       "id": "07263f57-0431-4da2-a8b6-77d2965a6f83",
@@ -145,7 +143,25 @@ Content-Length: 77421
       "parkId": "47f90d2c-e191-4239-a466-5892ef59a88b",
       "externalId": "90002100;entityType=restaurant",
       "status": "OPERATING",
-      "lastUpdated": "2026-10-08T23:28:35.777Z"
+      "diningAvailability": [
+        {
+          "waitTime": 20,
+          "partySize": 1
+        },
+        {
+          "waitTime": 20,
+          "partySize": 2
+        },
+        {
+          "waitTime": 25,
+          "partySize": 3
+        },
+        {
+          "waitTime": 25,
+          "partySize": 4
+        }
+      ],
+      "lastUpdated": "2026-10-09T18:01:46.714Z"
     },
     {
       "id": "07dbeaea-85fa-45f2-872f-02f9e7510419",
@@ -243,12 +259,12 @@ Content-Length: 77421
       "externalId": "19497835;entityType=Attraction",
       "queue": {
         "STANDBY": {
-          "waitTime": 40
+          "waitTime": 65
         },
         "RETURN_TIME": {
-          "state": "AVAILABLE",
-          "returnEnd": "2026-10-09T19:50:00-04:00",
-          "returnStart": "2026-10-09T18:50:00-04:00"
+          "state": "FINISHED",
+          "returnEnd": null,
+          "returnStart": null
         },
         "SINGLE_RIDER": {
           "waitTime": null
@@ -329,7 +345,7 @@ Content-Length: 77421
           "startTime": "2026-10-09T09:00:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-09T12:59:26.263Z"
+      "lastUpdated": "2026-10-09T17:51:16.931Z"
     },
     {
       "id": "1f542745-cda1-4786-a536-5fff373e5964",
@@ -337,7 +353,7 @@ Content-Length: 77421
       "entityType": "ATTRACTION",
       "parkId": "47f90d2c-e191-4239-a466-5892ef59a88b",
       "externalId": "80010200;entityType=Attraction",
-      "status": "CLOSED",
+      "status": "OPERATING",
       "operatingHours": [
         {
           "type": "Performance Time",
@@ -390,7 +406,7 @@ Content-Length: 77421
           "startTime": "2026-10-09T19:30:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-09T07:21:56.602Z"
+      "lastUpdated": "2026-10-09T14:45:00.371Z"
     },
     {
       "id": "22f48b73-01df-460e-8969-9eb2b4ae836c",
@@ -400,7 +416,7 @@ Content-Length: 77421
       "externalId": "207395;entityType=Attraction",
       "queue": {
         "STANDBY": {
-          "waitTime": null
+          "waitTime": 25
         }
       },
       "status": "OPERATING",
@@ -473,7 +489,7 @@ Content-Length: 77421
           "startTime": "2026-10-09T09:00:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-09T13:01:10.697Z"
+      "lastUpdated": "2026-10-09T17:13:26.316Z"
     },
     {
       "id": "296d164a-8b9a-49d3-a285-637b86731260",
@@ -615,7 +631,33 @@ Content-Length: 77421
       "parkId": "47f90d2c-e191-4239-a466-5892ef59a88b",
       "externalId": "90001798;entityType=restaurant",
       "status": "OPERATING",
-      "lastUpdated": "2026-10-08T22:19:05.078Z"
+      "diningAvailability": [
+        {
+          "waitTime": 55,
+          "partySize": 1
+        },
+        {
+          "waitTime": 35,
+          "partySize": 2
+        },
+        {
+          "waitTime": 35,
+          "partySize": 3
+        },
+        {
+          "waitTime": 35,
+          "partySize": 4
+        },
+        {
+          "waitTime": 60,
+          "partySize": 5
+        },
+        {
+          "waitTime": 60,
+          "partySize": 6
+        }
+      ],
+      "lastUpdated": "2026-10-09T18:05:04.264Z"
     },
     {
       "id": "33bd3bad-6803-4c5e-97ac-f7e31261a604",
@@ -625,18 +667,18 @@ Content-Length: 77421
       "externalId": "17564219;entityType=Entertainment",
       "queue": {
         "STANDBY": {
-          "waitTime": null
+          "waitTime": 35
         }
       },
-      "status": "CLOSED",
+      "status": "OPERATING",
       "showtimes": [
         {
           "type": "Operating",
-          "endTime": "2026-10-08T18:30:00-04:00",
-          "startTime": "2026-10-08T09:15:00-04:00"
+          "endTime": "2026-10-09T18:30:00-04:00",
+          "startTime": "2026-10-09T09:15:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-08T22:31:01.888Z"
+      "lastUpdated": "2026-10-09T17:39:09.972Z"
     },
     {
       "id": "35ed719b-f7f0-488f-8346-4fbf8055d373",
@@ -649,20 +691,82 @@ Content-Length: 77421
           "waitTime": null
         },
         "RETURN_TIME": {
-          "state": "FINISHED",
-          "returnEnd": null,
-          "returnStart": null
+          "state": "AVAILABLE",
+          "returnEnd": "2026-10-09T15:10:00-04:00",
+          "returnStart": "2026-10-09T14:10:00-04:00"
         }
       },
-      "status": "CLOSED",
+      "status": "OPERATING",
+      "forecast": [
+        {
+          "time": "2026-10-09T09:00:00-04:00",
+          "waitTime": 25,
+          "percentage": 20
+        },
+        {
+          "time": "2026-10-09T10:00:00-04:00",
+          "waitTime": 25,
+          "percentage": 20
+        },
+        {
+          "time": "2026-10-09T11:00:00-04:00",
+          "waitTime": 25,
+          "percentage": 20
+        },
+        {
+          "time": "2026-10-09T12:00:00-04:00",
+          "waitTime": 25,
+          "percentage": 20
+        },
+        {
+          "time": "2026-10-09T13:00:00-04:00",
+          "waitTime": 25,
+          "percentage": 20
+        },
+        {
+          "time": "2026-10-09T14:00:00-04:00",
+          "waitTime": 25,
+          "percentage": 20
+        },
+        {
+          "time": "2026-10-09T15:00:00-04:00",
+          "waitTime": 25,
+          "percentage": 20
+        },
+        {
+          "time": "2026-10-09T16:00:00-04:00",
+          "waitTime": 25,
+          "percentage": 20
+        },
+        {
+          "time": "2026-10-09T17:00:00-04:00",
+          "waitTime": 25,
+          "percentage": 20
+        },
+        {
+          "time": "2026-10-09T18:00:00-04:00",
+          "waitTime": 25,
+          "percentage": 20
+        },
+        {
+          "time": "2026-10-09T19:00:00-04:00",
+          "waitTime": 25,
+          "percentage": 20
+        },
+        {
+          "time": "2026-10-09T20:00:00-04:00",
+          "waitTime": 25,
+          "percentage": 20
+        }
+      ],
       "operatingHours": [
         {
           "type": "Operating",
-          "endTime": "2026-10-08T21:00:00-04:00",
-          "startTime": "2026-10-08T09:00:00-04:00"
+          "endTime": "2026-10-09T21:00:00-04:00",
+          "startTime": "2026-10-09T09:00:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-09T01:01:05.316Z"
+      "lastUpdated": "2026-10-09T18:03:30.759Z"
     },
     {
       "id": "37ae57c5-feaf-4e47-8f27-4b385be200f0",
@@ -672,7 +776,7 @@ Content-Length: 77421
       "externalId": "80010199;entityType=Attraction",
       "queue": {
         "STANDBY": {
-          "waitTime": 75
+          "waitTime": 80
         },
         "RETURN_TIME": {
           "state": "FINISHED",
@@ -758,7 +862,7 @@ Content-Length: 77421
           "startTime": "2026-10-09T09:00:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-09T13:01:10.832Z"
+      "lastUpdated": "2026-10-09T17:57:16.281Z"
     },
     {
       "id": "38892221-f69c-4913-97c9-7473c88854fa",
@@ -775,7 +879,7 @@ Content-Length: 77421
       "entityType": "ATTRACTION",
       "parkId": "47f90d2c-e191-4239-a466-5892ef59a88b",
       "externalId": "91245;entityType=Attraction",
-      "status": "CLOSED",
+      "status": "OPERATING",
       "operatingHours": [
         {
           "type": "Operating",
@@ -783,7 +887,7 @@ Content-Length: 77421
           "startTime": "2026-10-09T10:00:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-09T07:21:56.641Z"
+      "lastUpdated": "2026-10-09T14:00:00.720Z"
     },
     {
       "id": "3beaa9a5-6404-4446-bfd1-e0d0eea65e85",
@@ -837,7 +941,7 @@ Content-Length: 77421
       "entityType": "ATTRACTION",
       "parkId": "47f90d2c-e191-4239-a466-5892ef59a88b",
       "externalId": "3831;entityType=Attraction",
-      "status": "CLOSED",
+      "status": "OPERATING",
       "operatingHours": [
         {
           "type": "Operating",
@@ -845,7 +949,7 @@ Content-Length: 77421
           "startTime": "2026-10-09T12:00:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-09T07:21:56.432Z"
+      "lastUpdated": "2026-10-09T16:00:01.003Z"
     },
     {
       "id": "3dbf1ff2-eee0-44a9-8cd9-22bf920e81e9",
@@ -942,15 +1046,15 @@ Content-Length: 77421
       "externalId": "80010191;entityType=Attraction",
       "queue": {
         "STANDBY": {
-          "waitTime": null
+          "waitTime": 15
         },
         "RETURN_TIME": {
           "state": "AVAILABLE",
-          "returnEnd": "2026-10-09T13:00:00-04:00",
-          "returnStart": "2026-10-09T12:00:00-04:00"
+          "returnEnd": "2026-10-09T18:10:00-04:00",
+          "returnStart": "2026-10-09T17:10:00-04:00"
         }
       },
-      "status": "DOWN",
+      "status": "OPERATING",
       "operatingHours": [
         {
           "type": "Early Entry",
@@ -963,7 +1067,7 @@ Content-Length: 77421
           "startTime": "2026-10-09T09:00:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-09T12:59:26.352Z"
+      "lastUpdated": "2026-10-09T18:03:30.848Z"
     },
     {
       "id": "482169b9-2889-4747-8aef-f9d13a37d940",
@@ -1072,23 +1176,85 @@ Content-Length: 77421
       "externalId": "62992;entityType=Attraction",
       "queue": {
         "STANDBY": {
-          "waitTime": null
+          "waitTime": 15
         },
         "RETURN_TIME": {
-          "state": "FINISHED",
-          "returnEnd": null,
-          "returnStart": null
+          "state": "AVAILABLE",
+          "returnEnd": "2026-10-09T15:40:00-04:00",
+          "returnStart": "2026-10-09T14:40:00-04:00"
         }
       },
-      "status": "CLOSED",
+      "status": "OPERATING",
+      "forecast": [
+        {
+          "time": "2026-10-09T09:00:00-04:00",
+          "waitTime": 20,
+          "percentage": 16
+        },
+        {
+          "time": "2026-10-09T10:00:00-04:00",
+          "waitTime": 20,
+          "percentage": 16
+        },
+        {
+          "time": "2026-10-09T11:00:00-04:00",
+          "waitTime": 20,
+          "percentage": 16
+        },
+        {
+          "time": "2026-10-09T12:00:00-04:00",
+          "waitTime": 20,
+          "percentage": 16
+        },
+        {
+          "time": "2026-10-09T13:00:00-04:00",
+          "waitTime": 20,
+          "percentage": 16
+        },
+        {
+          "time": "2026-10-09T14:00:00-04:00",
+          "waitTime": 20,
+          "percentage": 16
+        },
+        {
+          "time": "2026-10-09T15:00:00-04:00",
+          "waitTime": 20,
+          "percentage": 16
+        },
+        {
+          "time": "2026-10-09T16:00:00-04:00",
+          "waitTime": 20,
+          "percentage": 16
+        },
+        {
+          "time": "2026-10-09T17:00:00-04:00",
+          "waitTime": 20,
+          "percentage": 16
+        },
+        {
+          "time": "2026-10-09T18:00:00-04:00",
+          "waitTime": 20,
+          "percentage": 16
+        },
+        {
+          "time": "2026-10-09T19:00:00-04:00",
+          "waitTime": 20,
+          "percentage": 16
+        },
+        {
+          "time": "2026-10-09T20:00:00-04:00",
+          "waitTime": 20,
+          "percentage": 16
+        }
+      ],
       "operatingHours": [
         {
           "type": "Operating",
-          "endTime": "2026-10-08T20:40:00-04:00",
-          "startTime": "2026-10-08T09:40:00-04:00"
+          "endTime": "2026-10-09T20:40:00-04:00",
+          "startTime": "2026-10-09T09:40:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-09T01:00:00.922Z"
+      "lastUpdated": "2026-10-09T17:57:16.192Z"
     },
     {
       "id": "5b6475ad-4e9a-4793-b841-501aa382c9c0",
@@ -1098,12 +1264,12 @@ Content-Length: 77421
       "externalId": "80010173;entityType=Attraction",
       "queue": {
         "STANDBY": {
-          "waitTime": 15
+          "waitTime": 25
         },
         "RETURN_TIME": {
           "state": "AVAILABLE",
-          "returnEnd": "2026-10-09T15:10:00-04:00",
-          "returnStart": "2026-10-09T14:10:00-04:00"
+          "returnEnd": "2026-10-09T20:00:00-04:00",
+          "returnStart": "2026-10-09T19:00:00-04:00"
         }
       },
       "status": "OPERATING",
@@ -1181,7 +1347,7 @@ Content-Length: 77421
           "startTime": "2026-10-09T09:00:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-09T12:56:10.995Z"
+      "lastUpdated": "2026-10-09T18:03:30.824Z"
     },
     {
       "id": "5b7cf10a-763b-45ba-9049-87140270826f",
@@ -1370,18 +1536,18 @@ Content-Length: 77421
       "externalId": "412126613;entityType=Entertainment",
       "queue": {
         "STANDBY": {
-          "waitTime": null
+          "waitTime": 20
         }
       },
-      "status": "CLOSED",
+      "status": "OPERATING",
       "showtimes": [
         {
           "type": "Performance Time",
-          "endTime": "2026-10-08T21:00:00-04:00",
-          "startTime": "2026-10-08T09:00:00-04:00"
+          "endTime": "2026-10-09T21:00:00-04:00",
+          "startTime": "2026-10-09T09:00:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-09T01:01:05.600Z"
+      "lastUpdated": "2026-10-09T17:03:19.571Z"
     },
     {
       "id": "6e70f3fb-faab-41b1-8d26-b85d1c5cfa26",
@@ -1452,12 +1618,12 @@ Content-Length: 77421
       "externalId": "80010152;entityType=Attraction",
       "queue": {
         "STANDBY": {
-          "waitTime": null
+          "waitTime": 15
         },
         "RETURN_TIME": {
           "state": "AVAILABLE",
-          "returnEnd": "2026-10-09T12:05:00-04:00",
-          "returnStart": "2026-10-09T11:05:00-04:00"
+          "returnEnd": "2026-10-09T16:15:00-04:00",
+          "returnStart": "2026-10-09T15:15:00-04:00"
         }
       },
       "status": "OPERATING",
@@ -1530,7 +1696,7 @@ Content-Length: 77421
           "startTime": "2026-10-09T09:00:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-09T13:01:10.742Z"
+      "lastUpdated": "2026-10-09T18:03:30.795Z"
     },
     {
       "id": "76eadac1-cdfa-45e5-a25c-54ed4c3a604f",
@@ -1602,12 +1768,12 @@ Content-Length: 77421
       "externalId": "412577054;entityType=Attraction",
       "queue": {
         "STANDBY": {
-          "waitTime": 5
+          "waitTime": 35
         },
         "RETURN_TIME": {
           "state": "AVAILABLE",
-          "returnEnd": "2026-10-09T19:25:00-04:00",
-          "returnStart": "2026-10-09T18:25:00-04:00"
+          "returnEnd": "2026-10-09T21:30:00-04:00",
+          "returnStart": "2026-10-09T20:30:00-04:00"
         }
       },
       "status": "OPERATING",
@@ -1623,7 +1789,7 @@ Content-Length: 77421
           "startTime": "2026-10-09T09:00:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-09T12:57:56.376Z"
+      "lastUpdated": "2026-10-09T18:01:54.780Z"
     },
     {
       "id": "83fed9d1-c25f-497c-ab8e-21e4dd7ce655",
@@ -1679,68 +1845,68 @@ Content-Length: 77421
       "externalId": "19463785;entityType=Attraction",
       "queue": {
         "STANDBY": {
-          "waitTime": null
+          "waitTime": 15
         }
       },
-      "status": "CLOSED",
+      "status": "OPERATING",
       "forecast": [
         {
-          "time": "2026-10-08T09:00:00-04:00",
+          "time": "2026-10-09T09:00:00-04:00",
           "waitTime": 0,
           "percentage": 0
         },
         {
-          "time": "2026-10-08T10:00:00-04:00",
+          "time": "2026-10-09T10:00:00-04:00",
           "waitTime": 15,
           "percentage": 12
         },
         {
-          "time": "2026-10-08T11:00:00-04:00",
+          "time": "2026-10-09T11:00:00-04:00",
           "waitTime": 15,
           "percentage": 12
         },
         {
-          "time": "2026-10-08T12:00:00-04:00",
+          "time": "2026-10-09T12:00:00-04:00",
           "waitTime": 15,
           "percentage": 12
         },
         {
-          "time": "2026-10-08T13:00:00-04:00",
+          "time": "2026-10-09T13:00:00-04:00",
           "waitTime": 15,
           "percentage": 12
         },
         {
-          "time": "2026-10-08T14:00:00-04:00",
+          "time": "2026-10-09T14:00:00-04:00",
           "waitTime": 15,
           "percentage": 12
         },
         {
-          "time": "2026-10-08T15:00:00-04:00",
+          "time": "2026-10-09T15:00:00-04:00",
           "waitTime": 15,
           "percentage": 12
         },
         {
-          "time": "2026-10-08T16:00:00-04:00",
+          "time": "2026-10-09T16:00:00-04:00",
           "waitTime": 15,
           "percentage": 12
         },
         {
-          "time": "2026-10-08T17:00:00-04:00",
+          "time": "2026-10-09T17:00:00-04:00",
           "waitTime": 15,
           "percentage": 12
         },
         {
-          "time": "2026-10-08T18:00:00-04:00",
+          "time": "2026-10-09T18:00:00-04:00",
           "waitTime": 15,
           "percentage": 12
         },
         {
-          "time": "2026-10-08T19:00:00-04:00",
+          "time": "2026-10-09T19:00:00-04:00",
           "waitTime": 0,
           "percentage": 0
         },
         {
-          "time": "2026-10-08T20:00:00-04:00",
+          "time": "2026-10-09T20:00:00-04:00",
           "waitTime": 0,
           "percentage": 0
         }
@@ -1748,11 +1914,11 @@ Content-Length: 77421
       "operatingHours": [
         {
           "type": "Operating",
-          "endTime": "2026-10-08T18:30:00-04:00",
-          "startTime": "2026-10-08T10:00:00-04:00"
+          "endTime": "2026-10-09T18:30:00-04:00",
+          "startTime": "2026-10-09T10:00:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-08T22:31:01.417Z"
+      "lastUpdated": "2026-10-09T14:04:04.837Z"
     },
     {
       "id": "8d7ccdb1-a22b-4e26-8dc8-65b1938ed5f0",
@@ -1762,12 +1928,12 @@ Content-Length: 77421
       "externalId": "18375495;entityType=Attraction",
       "queue": {
         "STANDBY": {
-          "waitTime": 40
+          "waitTime": 80
         },
         "RETURN_TIME": {
-          "state": "AVAILABLE",
-          "returnEnd": "2026-10-09T20:55:00-04:00",
-          "returnStart": "2026-10-09T19:55:00-04:00"
+          "state": "FINISHED",
+          "returnEnd": null,
+          "returnStart": null
         }
       },
       "status": "OPERATING",
@@ -1845,7 +2011,7 @@ Content-Length: 77421
           "startTime": "2026-10-09T09:00:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-09T13:01:10.677Z"
+      "lastUpdated": "2026-10-09T18:03:30.766Z"
     },
     {
       "id": "8e1a9a60-9311-4f79-b6a8-1b5172e4f7c9",
@@ -1896,12 +2062,12 @@ Content-Length: 77421
       "externalId": "80010161;entityType=Attraction",
       "queue": {
         "STANDBY": {
-          "waitTime": 5
+          "waitTime": 25
         },
         "RETURN_TIME": {
           "state": "AVAILABLE",
-          "returnEnd": "2026-10-09T11:55:00-04:00",
-          "returnStart": "2026-10-09T10:55:00-04:00"
+          "returnEnd": "2026-10-09T15:30:00-04:00",
+          "returnStart": "2026-10-09T14:30:00-04:00"
         }
       },
       "status": "OPERATING",
@@ -1974,7 +2140,7 @@ Content-Length: 77421
           "startTime": "2026-10-09T09:00:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-09T13:01:10.773Z"
+      "lastUpdated": "2026-10-09T17:59:13.851Z"
     },
     {
       "id": "8f8746cb-c714-4c60-848d-e2dc4e6f586b",
@@ -2122,15 +2288,6 @@ Content-Length: 77421
       "parkId": "47f90d2c-e191-4239-a466-5892ef59a88b",
       "externalId": "90001292;entityType=restaurant",
       "status": "OPERATING",
-      "lastUpdated": "2026-10-08T23:50:17.897Z"
-    },
-    {
-      "id": "d4179c4c-eb08-4559-aa7c-f9802fda641b",
-      "name": "Garden Grill Restaurant",
-      "entityType": "RESTAURANT",
-      "parkId": "47f90d2c-e191-4239-a466-5892ef59a88b",
-      "externalId": "90002237;entityType=restaurant",
-      "status": "OPERATING",
       "diningAvailability": [
         {
           "waitTime": 10,
@@ -2149,11 +2306,66 @@ Content-Length: 77421
           "partySize": 4
         },
         {
-          "waitTime": 35,
+          "waitTime": 10,
           "partySize": 5
+        },
+        {
+          "waitTime": 10,
+          "partySize": 6
+        },
+        {
+          "waitTime": 10,
+          "partySize": 7
+        },
+        {
+          "waitTime": 10,
+          "partySize": 8
         }
       ],
-      "lastUpdated": "2026-10-09T13:00:19.334Z"
+      "lastUpdated": "2026-10-09T17:20:40.067Z"
+    },
+    {
+      "id": "d4179c4c-eb08-4559-aa7c-f9802fda641b",
+      "name": "Garden Grill Restaurant",
+      "entityType": "RESTAURANT",
+      "parkId": "47f90d2c-e191-4239-a466-5892ef59a88b",
+      "externalId": "90002237;entityType=restaurant",
+      "status": "OPERATING",
+      "diningAvailability": [
+        {
+          "waitTime": 35,
+          "partySize": 1
+        },
+        {
+          "waitTime": 10,
+          "partySize": 2
+        },
+        {
+          "waitTime": 10,
+          "partySize": 3
+        },
+        {
+          "waitTime": 10,
+          "partySize": 4
+        },
+        {
+          "waitTime": 10,
+          "partySize": 5
+        },
+        {
+          "waitTime": 35,
+          "partySize": 6
+        },
+        {
+          "waitTime": 60,
+          "partySize": 7
+        },
+        {
+          "waitTime": 60,
+          "partySize": 8
+        }
+      ],
+      "lastUpdated": "2026-10-09T18:03:34.929Z"
     },
     {
       "id": "d6bb186c-382f-4ae6-bc76-fde8f141ed69",
@@ -2286,7 +2498,7 @@ Content-Length: 77421
       "externalId": "411499845;entityType=Attraction",
       "queue": {
         "STANDBY": {
-          "waitTime": 105
+          "waitTime": 85
         },
         "PAID_RETURN_TIME": {
           "price": {
@@ -2374,7 +2586,7 @@ Content-Length: 77421
           "startTime": "2026-10-09T09:00:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-09T12:58:11.026Z"
+      "lastUpdated": "2026-10-09T17:14:06.745Z"
     },
     {
       "id": "e48629ab-939f-4fe0-9e6a-6ad29b8added",
@@ -2422,16 +2634,6 @@ Content-Length: 77421
       "showtimes": [
         {
           "type": "Performance Time",
-          "endTime": "2026-10-09T10:45:00-04:00",
-          "startTime": "2026-10-09T10:45:00-04:00"
-        },
-        {
-          "type": "Performance Time",
-          "endTime": "2026-10-09T11:55:00-04:00",
-          "startTime": "2026-10-09T11:55:00-04:00"
-        },
-        {
-          "type": "Performance Time",
           "endTime": "2026-10-09T13:50:00-04:00",
           "startTime": "2026-10-09T13:50:00-04:00"
         },
@@ -2441,7 +2643,7 @@ Content-Length: 77421
           "startTime": "2026-10-09T15:00:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-09T04:04:21.147Z"
+      "lastUpdated": "2026-10-09T13:55:37.339Z"
     },
     {
       "id": "ea730d0c-7723-429d-89a4-9e76f053f5ac",
@@ -2506,7 +2708,7 @@ Content-Length: 77421
       "externalId": "80010180;entityType=Attraction",
       "queue": {
         "STANDBY": {
-          "waitTime": null
+          "waitTime": 15
         }
       },
       "status": "OPERATING",
@@ -2579,7 +2781,7 @@ Content-Length: 77421
           "startTime": "2026-10-09T09:00:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-09T13:01:10.822Z"
+      "lastUpdated": "2026-10-09T15:38:08.360Z"
     },
     {
       "id": "f3bb21e6-e843-4c31-834f-b87f60c2ab3e",
@@ -2599,12 +2801,12 @@ Content-Length: 77421
       "externalId": "107785;entityType=Attraction",
       "queue": {
         "STANDBY": {
-          "waitTime": 5
+          "waitTime": 10
         },
         "RETURN_TIME": {
           "state": "AVAILABLE",
-          "returnEnd": "2026-10-09T12:20:00-04:00",
-          "returnStart": "2026-10-09T11:20:00-04:00"
+          "returnEnd": "2026-10-09T15:05:00-04:00",
+          "returnStart": "2026-10-09T14:05:00-04:00"
         }
       },
       "status": "OPERATING",
@@ -2682,7 +2884,7 @@ Content-Length: 77421
           "startTime": "2026-10-09T09:00:00-04:00"
         }
       ],
-      "lastUpdated": "2026-10-09T12:43:47.152Z"
+      "lastUpdated": "2026-10-09T18:03:30.727Z"
     },
     {
       "id": "fb1e45fc-a2bb-4e3c-951d-3a4e2130b79d",

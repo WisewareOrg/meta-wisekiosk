@@ -1,13 +1,13 @@
 HTTP/1.1 200 OK
-Date: Fri, 09 Oct 2026 13:02:25 GMT
+Date: Fri, 09 Oct 2026 18:05:18 GMT
 Content-Type: application/json; charset=utf-8
 access-control-allow-origin: *
 access-control-expose-headers: RateLimit-Limit,RateLimit-Policy,RateLimit-Remaining,RateLimit-Reset,RateLimit-History-Limit,RateLimit-History-Policy,RateLimit-History-Remaining,RateLimit-History-Reset,Retry-After
-Cache-Control: public, max-age=300, s-maxage=3600
+cache-control: public, max-age=300, s-maxage=3600
 content-security-policy: default-src 'self';style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;font-src 'self' https://cdn.jsdelivr.net;connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net;img-src 'self' data: https:;base-uri 'self';form-action 'self';frame-ancestors 'self';object-src 'none';script-src-attr 'none';upgrade-insecure-requests
 cross-origin-opener-policy: same-origin
 cross-origin-resource-policy: same-origin
-etag: W/"800f-qgaIRz5qnnAauyRMXdnYeAA7kT0"
+etag: W/"800e-osRN0x7AHnDXnOvzblAXU0i99FY"
 nel: {"report_to":"heroku-nel","response_headers":["Via"],"max_age":3600,"success_fraction":0.01,"failure_fraction":0.1}
 origin-agent-cluster: ?1
 ratelimit-limit: 300
@@ -15,8 +15,8 @@ ratelimit-policy: 300;w=60
 ratelimit-remaining: 299
 ratelimit-reset: 60
 referrer-policy: no-referrer
-report-to: {"group":"heroku-nel","endpoints":[{"url":"https://nel.heroku.com/reports?s=UekkfUsceGmbpQ9DIDRpnF4Z38mi1jVSmDTvm6I1mg0%3D\u0026sid=c4c9725f-1ab0-44d8-820f-430df2718e11\u0026ts=1791550032"}],"max_age":3600}
-reporting-endpoints: heroku-nel="https://nel.heroku.com/reports?s=UekkfUsceGmbpQ9DIDRpnF4Z38mi1jVSmDTvm6I1mg0%3D&sid=c4c9725f-1ab0-44d8-820f-430df2718e11&ts=1791550032"
+report-to: {"group":"heroku-nel","endpoints":[{"url":"https://nel.heroku.com/reports?s=np3yv3ubgIYkHwJkOA67CNVEZdtA9A40JVMpFEAyWKs%3D\u0026sid=c4c9725f-1ab0-44d8-820f-430df2718e11\u0026ts=1791564451"}],"max_age":3600}
+reporting-endpoints: heroku-nel="https://nel.heroku.com/reports?s=np3yv3ubgIYkHwJkOA67CNVEZdtA9A40JVMpFEAyWKs%3D&sid=c4c9725f-1ab0-44d8-820f-430df2718e11&ts=1791564451"
 Server: cloudflare
 strict-transport-security: max-age=2592000
 vary: Accept-Encoding
@@ -26,13 +26,11 @@ x-dns-prefetch-control: off
 x-download-options: noopen
 x-frame-options: SAMEORIGIN
 x-permitted-cross-domain-policies: none
-x-request-id: 296ba67c-6077-a27b-00de-6f1f10dbbdfc
+x-request-id: 66a9f4a1-90a1-1c9b-a6fa-75be4f46f8fd
 x-xss-protection: 0
-cf-cache-status: HIT
-Age: 913
-CF-RAY: a47d94609adbe74a-MIA
+Age: 1065
 alt-svc: h3=":443"; ma=86400
-Content-Length: 32783
+Content-Length: 32782
 
 {
   "id": "288747d1-8b4f-4a64-867e-ea7c9b27bad8",
@@ -60,7 +58,7 @@ Content-Length: 32783
             "currency": "USD",
             "formatted": "$25.00"
           },
-          "available": false
+          "available": true
         },
         {
           "id": "lightninglanemultipass_80007998",
