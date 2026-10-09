@@ -13,7 +13,8 @@ rauc-status host:
 [script('bash')]
 rauc-install host bundle:
     # Bypasses the OTA chain, so it carries the gate itself.
-    # --tree: a .raucb is not readable and binds to no rootfs (#48).
+    # --tree: a .raucb is not readable here -- #48 bundle-image-tie is verified
+    # by kiosk-preflight's own image-content tier call, which this path bypasses.
     # No set -e -- `|| exit 1` is load-bearing.
     tools/reproducibility-gate.sh --tree || exit 1
     echo "Copying bundle to device..."

@@ -109,8 +109,9 @@ else
 fi
 
 # --- (c) the image names HEAD ---------------------------------------------
-# Only where a rootfs is in hand: a .raucb is unreadable here and binds to no
-# rootfs (#48), so the bundle-shipping recipes run --tree.
+# Only where a rootfs is in hand: a .raucb is unreadable here, so the
+# bundle-shipping recipes run --tree -- #48 bundle-image-tie is verified
+# separately, by kiosk-preflight's own image-content tier call.
 if [ "$mode" = "image" ]; then
     if [ ! -f "$image" ]; then
         refuse "no image artifact at $image -- nothing to attribute; build first"

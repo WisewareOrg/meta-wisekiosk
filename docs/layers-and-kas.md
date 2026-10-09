@@ -273,8 +273,10 @@ unless:
 - HEAD is reachable from some ref on `origin`. It never fetches, and an unreachable `origin` refuses
   rather than assuming — offline is not distinguishable from never-pushed.
 - where the caller holds the rootfs (`flash`, `kiosk-preflight`), `/etc/buildinfo` names a 40-hex sha
-  equal to HEAD. The bundle-shipping recipes cannot check this — a `.raucb` is not readable with
-  `debugfs` and nothing binds one to a rootfs (#48 bundle-image-tie) — so they enforce the first two.
+  equal to HEAD. The bundle-shipping recipes cannot check this directly — a `.raucb` is not readable
+  with `debugfs` — so they enforce only the first two; `kiosk-preflight` instead ties the bundle to
+  the rootfs through its own image-content tier call (#48 bundle-image-tie), which reads the bundle
+  manifest's own hash rather than `debugfs`.
 
 The rotation path is gated positionally — every install in
 [`tools/rauc-rotate.sh`](../tools/rauc-rotate.sh) is preceded by `kiosk-preflight`.
