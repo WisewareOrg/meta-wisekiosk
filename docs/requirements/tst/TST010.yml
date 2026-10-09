@@ -1,27 +1,29 @@
 active: true
 derived: false
 header: |
-  Device unit-well-formedness check passes
+  Shipped units load on the board
 level: 1.9
 links:
-- SRS008: WEgSNtzq2nQOOqq0j37eYTSTIMpm0HShvSzvkrwf17U=
+- SRS008: PROwpNaUKF4M9hlDL2OfVlLPiOSpXauVAa9veXV3cXg=
 normative: true
 rationale: ''
 ref: ''
 references:
-- keyword: def test_units_well_formed
+- keyword: def test_units_loaded
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_units/case.py
-  sha: f53c5b0b47f2bf012ccefc9a87a48572bc2b40d6edc3355395a39ef272471366
+  sha: 33a9d712c7db24478438b77421c31849f6ae3fb7467e848a9da1d778d6a653b4
   type: file
-reviewed: CeHdtUoDSUb7PWpONMSBXkzTozGOISgH2M5aU60Bbuw=
+reviewed: CMo-qiIAaLzfQ54c0T7bXHROz0rhfdaAABSKK6GA6ek=
 status: proposed
 text: |
-  Run `systemd-analyze verify` against every unit the layer ships, on the booted board, and
-  assert each loads with its dependencies satisfied.
+  On the booted board, for every unit the layer ships, assert systemd reports it loaded
+  with no load error and none failed.
 verification-justification: |
-  Settles that every unit meta-wisekiosk's own recipes ship loads with its dependencies
-  satisfied, as the board's own systemd resolves it, on one physical device, one boot. The
-  failure branch is proven on constructed input, grounded on the real failure observed on
-  bench when the check was built. Leaves unproven anything about units this layer does not
-  own, or whether a later change breaks a unit that currently passes.
+  Settles that every unit meta-wisekiosk's own recipes ship is loaded with no load error, and
+  that none of them appears in systemd's own failed-unit list, as the board's own systemd
+  reports it, on one physical device, one boot. The failure branch is proven on constructed
+  input, shaped from real `systemctl show`/`systemctl list-units --failed` output captured on
+  bench, and was watched failing once, read-only, against a unit name no recipe ships, when
+  the check was built. Leaves unproven anything about units this layer does not own, or
+  whether a later change breaks a unit that currently passes.
 verification-method: test

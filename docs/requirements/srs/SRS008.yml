@@ -1,21 +1,21 @@
 active: true
 derived: false
 header: |
-  Display starts as designed
+  Comes back showing its display after an update
 level: 1.7
 links:
-- SYS001: u6hdq6mHTqj4-PFL8YoiEf3ClOIYMUPOHFSXKCbqAtU=
+- SYS002: HHqTcaBAP5Z81Zrs_ZcK_qnYu038O8jwtB-qo4d-3ZM=
 normative: true
 rationale: ''
 ref: ''
-reviewed: 8yDheqVfrkrlRLw7qqd2DmIf-TE4JiOHa-6wMlar3FQ=
+reviewed: vTSJ6wg_Z5vvbmiUIpX7mYRUvvsgiGKwWjccnk-SZ1g=
 status: proposed
 text: |
-  The kiosk shall start its display as designed and every service it ships shall be loadable
-  with its dependencies met.
+  After an update, the kiosk shall come back showing its display without anyone attending it.
 verification-justification: |
-  TST008 settles the display half, read from the build's own deployed artifacts; TST010 settles
-  the loadability half, on the booted board. Together they leave unproven whether a runtime
-  override changes either once the image is deployed, and anything about units this layer does
-  not own.
+  Settled by two decompositions of how an update can fail to do that: the image's display
+  service is set to show the display as designed (TST008, read from the shipped image itself);
+  the services the image ships load on the booted board (TST010, as the board's own systemd
+  reports). Leaves unproven what the display shows once up (SRS001, SRS007) and an install that
+  bypasses kiosk-preflight.
 verification-method: test

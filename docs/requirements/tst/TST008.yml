@@ -1,28 +1,32 @@
 active: true
 derived: false
 header: |
-  Image-content display check passes
+  Display service set as designed in the shipped image
 level: 1.7
 links:
-- SRS008: WEgSNtzq2nQOOqq0j37eYTSTIMpm0HShvSzvkrwf17U=
+- SRS008: PROwpNaUKF4M9hlDL2OfVlLPiOSpXauVAa9veXV3cXg=
 normative: true
 rationale: ''
 ref: ''
 references:
 - keyword: def test_execstart_flags
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_image/case.py
-  sha: b1e1b56f0d3572160ccea8a041e2f1dfa3080c0ec1118287236308aeb394674c
+  sha: af3d44530ed7c8ee4d5e8d72cc1227db6139babc5e21c1e27fb213389ed3b762
   type: file
-reviewed: iz4yOKvly89Y4iWB54wxuO-X28beFTYwRjMbf8jdcW4=
+- keyword: def test_display_files_present
+  path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_image/case.py
+  sha: af3d44530ed7c8ee4d5e8d72cc1227db6139babc5e21c1e27fb213389ed3b762
+  type: file
+reviewed: sLWv9egMehJFBhbp6bblrdjLntsIMdG1q4c49A-h86k=
 status: proposed
 text: |
-  Read the display-launch unit's effective ExecStart from the built image and assert it
-  carries the designed flags.
+  Read the display service's effective ExecStart and the display's served entry point from
+  the shipped rootfs; assert blanking off, cursor hidden, entry point present.
 verification-justification: |
-  Settles that the built rootfs's own display-launch unit carries the designed flags, read
-  from this build's own artifacts. The failure branch is proven on constructed input and was
-  watched failing on a mutated copy of the artefact when the check was built. Leaves unproven
-  whether a runtime override later changes any of this once the image is deployed, and whether
-  every shipped unit is itself loadable (TST010, *Device unit-well-formedness check passes*,
-  the same obligation's device-tier check).
+  Settles that the built rootfs's own display-launch unit carries the designed flags and that
+  its served entry point is present, read from this build's own artifacts. Both failure
+  branches are proven on constructed input and were watched failing on a mutated copy of the
+  artefact when the check was built. Leaves unproven whether a runtime override later changes
+  any of this once the image is deployed, and whether every shipped unit is itself loadable
+  (TST010, *Shipped units load on the board*, the same obligation's device-tier check).
 verification-method: test

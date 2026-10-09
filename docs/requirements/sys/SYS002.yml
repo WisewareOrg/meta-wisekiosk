@@ -6,16 +6,18 @@ level: 1.1
 links: []
 normative: true
 rationale: |
-  Decomposed by the browser's own recovery from being killed, without a person at the panel.
-  A misprovisioned unit's own fault display is a decomposed need too, inactive until an
-  appliance-level fault display exists to verify it against.
+  Decomposed by the browser's own recovery from being killed, without a person at the panel,
+  and by the kiosk coming back showing its display after an update, without anyone attending
+  it (SRS008). A misprovisioned unit's own fault display is a decomposed need too, inactive
+  until an appliance-level fault display exists to verify it against.
 ref: ''
-reviewed: -ZgnCkhKjlkebQlOvroSopSVF6vX7tOxa_H369NplbA=
+reviewed: HHqTcaBAP5Z81Zrs_ZcK_qnYu038O8jwtB-qo4d-3ZM=
 status: proposed
 text: |
   The kiosk shall run unattended and recover.
 verification-justification: |
-  Settles that the browser recovers from being killed, without a person at the panel. Leaves
-  unproven a misprovisioned unit's own fault display, and any fault this image's own checks do
-  not inject.
+  Settles that the browser recovers from being killed, without a person at the panel, and
+  that the kiosk comes back showing its display after an update (SRS008). Leaves unproven a
+  misprovisioned unit's own fault display, and any fault this image's own checks do not
+  inject.
 verification-method: test
