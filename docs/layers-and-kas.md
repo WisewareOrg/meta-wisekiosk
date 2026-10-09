@@ -275,7 +275,7 @@ unless:
 - where the caller holds the rootfs (`flash`, `kiosk-preflight`), `/etc/buildinfo` names a 40-hex sha
   equal to HEAD. The bundle-shipping recipes cannot check this directly — a `.raucb` is not readable
   with `debugfs` — so they enforce only the first two; `kiosk-preflight` ties the bundle to the
-  rootfs separately ([`docs/testing.md`](testing.md) "Image content").
+  rootfs separately ([`docs/testing.md`](testing.md) §"Running it").
 
 The rotation path is gated positionally — every install in
 [`tools/rauc-rotate.sh`](../tools/rauc-rotate.sh) is preceded by `kiosk-preflight`.

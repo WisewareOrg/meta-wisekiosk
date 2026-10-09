@@ -112,13 +112,13 @@ deployed `.ext4` through the datastore (`self.td`) and never calls `self.target`
 network, in seconds. `framework.base.ImageCase` resolves that path; the stage's own log is this
 tier's record.
 
-**`kiosk-preflight` ties the bundle to the image on every install it gates** — the pipeline's
-`kiosk-ota` and both installs of the rotation path (`tools/rauc-rotate.sh`) — by handing both to
+**`kiosk-preflight` ties the bundle to the image on every install that runs it** — the pipeline
+job, `kiosk-ota`, and both installs of a key rotation (`tools/rauc-rotate.sh`) — by handing both to
 `tools/reproducibility-gate.sh --image <ext4> --bundle <raucb>`, which compares the bundle manifest's
 own `[image.rootfs]` `sha256=` against a fresh `sha256sum` of the image and refuses on a mismatch.
-No bitbake runs in `kiosk-preflight`. Two recipes bypass it and ship an untied bundle: `just
-rauc-install` (any `.raucb`, checked only `--tree`) and `just kiosk-send-direct` followed by `just
-kiosk-install` (the capped-board delivery path).
+No bitbake runs in `kiosk-preflight`. Two paths bypass it and ship an untied bundle: `just
+rauc-install` (any `.raucb`, checked only `--tree`), and `just kiosk-send-direct` followed by `just
+kiosk-install` run by hand.
 
 **The run record.** The suite's own inputs -- `KIOSK_TARGET_ROLE`, `KIOSK_TARGET_HOSTNAME` and
 `KIOSK_HMAC_KEY` -- arrive through `testimage`'s `env:` passthrough under the pipeline, or
