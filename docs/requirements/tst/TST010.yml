@@ -11,9 +11,9 @@ ref: ''
 references:
 - keyword: def test_units_well_formed
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_units/case.py
-  sha: d6ba56e156d36957a99c5c4979fe5ee67014b09c764c9e97cd62bd7a2c79db0a
+  sha: f53c5b0b47f2bf012ccefc9a87a48572bc2b40d6edc3355395a39ef272471366
   type: file
-reviewed: apMZyTBvIYuqR8nDmmkBVyIQwamU7SZioSpHMGbdjP8=
+reviewed: CeHdtUoDSUb7PWpONMSBXkzTozGOISgH2M5aU60Bbuw=
 status: proposed
 text: |
   Run `systemd-analyze verify` against every unit the layer ships, on the booted board, and

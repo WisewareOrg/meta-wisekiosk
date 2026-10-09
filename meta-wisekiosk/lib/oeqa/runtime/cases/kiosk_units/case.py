@@ -8,11 +8,13 @@ from . import verdict
 _REPO_ROOT = Path(__file__).resolve().parents[6]
 
 
+UNIT_GLOBS = ("meta-wisekiosk/recipes-*/**/*.service", "meta-wisekiosk/recipes-*/**/*.timer")
+
+
 def _shipped_units():
     """Every *.service/*.timer file meta-wisekiosk's own recipes install,
     derived from the layer rather than hand-kept."""
-    paths = (*_REPO_ROOT.glob("meta-wisekiosk/recipes-*/**/*.service"),
-             *_REPO_ROOT.glob("meta-wisekiosk/recipes-*/**/*.timer"))
+    paths = [p for pattern in UNIT_GLOBS for p in _REPO_ROOT.glob(pattern)]
     return tuple(sorted(p.name for p in paths))
 
 
@@ -25,7 +27,7 @@ class KioskUnitsTest(WiseKioskCase):
     over SSH."""
 
     def test_units_well_formed(self):
-        outcome, reason = verdict.shipped_units_verdict(SHIPPED_UNITS)
+        outcome, reason = verdict.shipped_units_verdict(SHIPPED_UNITS, ", ".join(UNIT_GLOBS))
         if outcome != "ok":
             self.fail(reason)
         problems = []

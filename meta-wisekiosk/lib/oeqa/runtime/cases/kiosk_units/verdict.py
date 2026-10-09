@@ -15,11 +15,11 @@ def not_found_names(output):
     return set(NOT_FOUND.findall(output))
 
 
-def shipped_units_verdict(units):
+def shipped_units_verdict(units, glob_description):
     """"error" when units is empty -- nothing was verified, never a pass;
     "ok" otherwise."""
     if not units:
-        return "error", "no shipped units found under meta-wisekiosk/recipes-*/**/*.service, *.timer"
+        return "error", f"no shipped units found under {glob_description}"
     return "ok", f"{len(units)} shipped unit(s) found"
 
 

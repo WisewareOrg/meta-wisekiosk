@@ -543,9 +543,6 @@ else
 
     unwired10=""
     # <justfile>:<recipe>:<required mode>:<required extra substring, or empty>
-    # The extra field holds kiosk-preflight's own --bundle "{{bundle}}" --
-    # deleting it keeps every other guard green and silently drops TST009's
-    # whole bundle-image tie.
     for spec in \
         "justfiles/deploy.just:flash:--image:" \
         "justfiles/ota.just:kiosk-preflight:--image:--bundle \"{{bundle}}\"" \

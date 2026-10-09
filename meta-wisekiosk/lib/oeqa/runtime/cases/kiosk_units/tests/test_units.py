@@ -1,6 +1,6 @@
 """Specifies cases/kiosk_units/verdict.py: verdict(status, output, active_units),
-not_found_names(output), shipped_units_verdict(units). One parametrized test per function, one row
-per branch.
+not_found_names(output), shipped_units_verdict(units, glob_description). One parametrized test per
+function, one row per branch.
 """
 
 import pytest
@@ -81,12 +81,12 @@ def test_not_found_names_extracts_every_name():
 @pytest.mark.parametrize(
     ("name", "units", "want_outcome", "want_reason_contains"),
     [
-        ("no units found is error, never a pass", (), "error", ("no shipped units",)),
+        ("no units found is error, naming the caller's own glob description", (), "error", ("*.service",)),
         ("a non-empty list is ok", ("kiosk.service",), "ok", ()),
     ],
 )
 def test_shipped_units_verdict_outcome(name, units, want_outcome, want_reason_contains):
-    outcome, reason = shipped_units_verdict(units)
+    outcome, reason = shipped_units_verdict(units, "*.service, *.timer")
     assert outcome == want_outcome, f"{name}: {reason!r}"
     for token in want_reason_contains:
         assert token in reason, f"{name}: {token!r} not in {reason!r}"
