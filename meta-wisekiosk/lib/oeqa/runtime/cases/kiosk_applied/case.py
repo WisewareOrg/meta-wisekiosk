@@ -88,7 +88,7 @@ class KioskAppliedTest(WiseKioskCase):
             raise RuntimeError(f"transport: {outcome}:{reason} after {_APPLIED_ATTEMPTS} attempts")
 
         self.tc.extraresults[record.RECORD_KEY][f"page.{self.id()}"] = record.page_line(
-            nonce=sample["nonce"], state=sample["state"], cards=record.cards_token(sample["cards"]),
+            nonce=sample["nonce"], state=sample["state"], cards=sample["cards"],
             faulted=sample["faulted"], unreachable=sample["unreachable"])
 
         if outcome == "applied":

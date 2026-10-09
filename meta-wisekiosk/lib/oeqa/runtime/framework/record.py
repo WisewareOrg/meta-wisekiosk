@@ -231,19 +231,28 @@ def page_line(nonce, state, cards, faulted, unreachable):
     return f"R page nonce={nonce} state={state} cards={cards} faulted={faulted} unreachable={unreachable}"
 
 
-def cards_token(cards):
-    """The page line's own cards= token: "<present>/<live>" when cards is a
-    (present, live) int pair (kiosk_applied.verdict.parse_title's own
-    shape), the value unchanged for the "-/-" no-count placeholder or any
-    other shape that parser did not convert."""
-    if isinstance(cards, tuple):
-        return f"{cards[0]}/{cards[1]}"
-    return cards
+def replay_line(value):
+    return f"R replay={value}"
 
 
-def with_replay(page_line_text, replay_value):
-    """page_line_text with " replay=<replay_value>" appended -- the
-    live/replay distinction tools/replay/proxy.py and run.sh measure from
-    bench's own environment after the window closes, never something the
-    device-side case that built page_line_text could know."""
-    return f"{page_line_text} replay={replay_value}"
+_CARDS_PAIR = re.compile(r'^(\d+)/(\d+)$')
+
+
+def parse_cards(token):
+    """token as a (present, live) int pair if it matches "<digits>/<digits>",
+    else None."""
+    m = _CARDS_PAIR.match(token)
+    return (int(m.group(1)), int(m.group(2))) if m else None
+
+
+def mode_token(environ_text, port):
+    """"live" if environ_text (a /proc/<pid>/environ dump, NUL already
+    newline) carries no HTTPS_PROXY line; "replay" if it carries exactly
+    one line equal to this job's own proxy; None for anything else -- an
+    unexpected or missing-vs-present mismatch, always a void."""
+    lines = [line for line in environ_text.splitlines() if line.startswith("HTTPS_PROXY=")]
+    if not lines:
+        return "live"
+    if lines == [f"HTTPS_PROXY=http://127.0.0.1:{port}"]:
+        return "replay"
+    return None

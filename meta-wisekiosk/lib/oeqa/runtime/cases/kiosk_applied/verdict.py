@@ -8,16 +8,6 @@ _WM_NAME = re.compile(r'WM_NAME\(\w+\) = "(.*)"$')
 
 _FIELDS = ("nonce", "state", "cards", "faulted", "unreachable")
 _INT_FIELDS = ("faulted", "unreachable")
-_CARDS_PAIR = re.compile(r'^(\d+)/(\d+)$')
-
-
-def _cards_value(value):
-    """value as a (present, live) int pair if it matches "<present>/<live>",
-    else value unchanged -- the no-count placeholder "-/-" (no replay set
-    active, or a declared transport failure) passes through as the raw
-    string."""
-    m = _CARDS_PAIR.match(value)
-    return (int(m.group(1)), int(m.group(2))) if m else value
 
 
 def _title_lines(xprop_output):
@@ -53,15 +43,7 @@ def parse_title(title):
     found = _fields(title)
     if found is None or not all(key in found for key in _FIELDS):
         return None
-    result = {}
-    for key in _FIELDS:
-        if key in _INT_FIELDS:
-            result[key] = int(found[key])
-        elif key == "cards":
-            result[key] = _cards_value(found[key])
-        else:
-            result[key] = found[key]
-    return result
+    return {key: (int(found[key]) if key in _INT_FIELDS else found[key]) for key in _FIELDS}
 
 
 def read_sample(xprop_output):

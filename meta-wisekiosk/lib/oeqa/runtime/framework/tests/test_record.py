@@ -23,7 +23,6 @@ from framework.record import (
     board_line,
     boot_ordinal,
     booted_slot,
-    cards_token,
     config_summary,
     decode_hex_dump,
     dirty,
@@ -31,9 +30,12 @@ from framework.record import (
     image_line,
     keyed_hash,
     kiosk_conf_mac,
+    mode_token,
     page_line,
     parse_buildinfo,
+    parse_cards,
     pid_from_pgrep,
+    replay_line,
     scrub_argv,
     slot_installed_at,
     sut_line,
@@ -41,7 +43,6 @@ from framework.record import (
     tool_name,
     uptime_seconds,
     webkit_env,
-    with_replay,
 )
 
 SHA = "deadbeef" * 5  # 40 hex chars, the shape image-buildinfo and git both require
@@ -595,28 +596,38 @@ def test_page_line():
     assert got == "R page nonce=1699999999.5 state=applied cards=-/- faulted=0 unreachable=0"
 
 
+def test_replay_line():
+    assert replay_line("cards4-live@deadbeef") == "R replay=cards4-live@deadbeef"
+    assert replay_line("live") == "R replay=live"
+
+
 @pytest.mark.parametrize(
-    ("name", "cards", "want"),
+    ("name", "token", "want"),
     [
-        ("a (present, live) pair renders present/live", (4, 4), "4/4"),
-        ("present and live may differ", (4, 2), "4/2"),
-        ("the no-count placeholder passes through unchanged", "-/-", "-/-"),
+        ("present and live equal", "4/4", (4, 4)),
+        ("present and live differ", "4/2", (4, 2)),
+        ("the no-count placeholder does not parse", "-/-", None),
+        ("a non-digit token does not parse", "abc", None),
     ],
 )
-def test_cards_token(name, cards, want):
-    assert cards_token(cards) == want, name
+def test_parse_cards(name, token, want):
+    assert parse_cards(token) == want, name
 
 
-def test_with_replay_appends_the_token():
-    line = page_line(nonce="1", state="applied", cards="4/4", faulted=0, unreachable=0)
-    assert with_replay(line, "cards4-live@deadbeef") == (
-        "R page nonce=1 state=applied cards=4/4 faulted=0 unreachable=0 replay=cards4-live@deadbeef")
-
-
-def test_with_replay_live():
-    line = page_line(nonce="1", state="applied", cards="-/-", faulted=0, unreachable=0)
-    assert with_replay(line, "live") == (
-        "R page nonce=1 state=applied cards=-/- faulted=0 unreachable=0 replay=live")
+@pytest.mark.parametrize(
+    ("name", "environ_text", "port", "want"),
+    [
+        ("no HTTPS_PROXY line at all is live", "PATH=/usr/bin\nHOME=/root", 18443, "live"),
+        ("HTTPS_PROXY equal to this job's own proxy is replay",
+         "PATH=/usr/bin\nHTTPS_PROXY=http://127.0.0.1:18443", 18443, "replay"),
+        ("a different port is a void", "HTTPS_PROXY=http://127.0.0.1:9999", 18443, None),
+        ("a trailing path on the value is a void, not a substring match",
+         "HTTPS_PROXY=http://127.0.0.1:18443/x", 18443, None),
+        ("two HTTPS_PROXY lines is a void", "HTTPS_PROXY=http://127.0.0.1:18443\nHTTPS_PROXY=x", 18443, None),
+    ],
+)
+def test_mode_token(name, environ_text, port, want):
+    assert mode_token(environ_text, port) == want, name
 
 
 # ------------------------------------------------------------ the whole record

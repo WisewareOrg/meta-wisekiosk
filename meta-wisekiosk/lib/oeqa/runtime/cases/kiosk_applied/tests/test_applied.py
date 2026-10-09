@@ -47,14 +47,14 @@ PROBE = "WK1 nonce=1699999999.5 state=applied cards=-/- faulted=0 unreachable=0"
             {"nonce": "1", "state": "loading", "cards": "-/-", "faulted": 3, "unreachable": 1},
         ),
         (
-            "a live cards pair parses to an int/int tuple, present then live",
+            "a real cards count passes through as the raw string, present/live",
             "sCgdimfFxt:T | WK1 nonce=1 state=applied cards=4/4 faulted=0 unreachable=0",
-            {"nonce": "1", "state": "applied", "cards": (4, 4), "faulted": 0, "unreachable": 0},
+            {"nonce": "1", "state": "applied", "cards": "4/4", "faulted": 0, "unreachable": 0},
         ),
         (
-            "a live cards pair preserves present/live order when they differ",
+            "present and live may differ",
             "sCgdimfFxt:T | WK1 nonce=1 state=applied cards=4/2 faulted=0 unreachable=0",
-            {"nonce": "1", "state": "applied", "cards": (4, 2), "faulted": 0, "unreachable": 0},
+            {"nonce": "1", "state": "applied", "cards": "4/2", "faulted": 0, "unreachable": 0},
         ),
     ],
 )

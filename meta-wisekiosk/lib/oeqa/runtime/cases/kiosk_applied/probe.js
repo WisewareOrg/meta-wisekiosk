@@ -16,10 +16,8 @@
     return 'applied';
   }
 
-  // #194: present is every [data-pwt-card]/[data-pwt-leaderboard] element;
-  // live is the subset holding at least one [data-pwt-tour-row] descendant
-  // (a closed park's card renders no tour row -- meta-wisekiosk #100's own
-  // rotation probe already reads this attribute the same way).
+  // present is every [data-pwt-card]/[data-pwt-leaderboard] element; live
+  // is the subset holding at least one [data-pwt-tour-row] descendant.
   function cards() {
     var all = document.querySelectorAll('[data-pwt-card], [data-pwt-leaderboard]');
     var live = 0;
