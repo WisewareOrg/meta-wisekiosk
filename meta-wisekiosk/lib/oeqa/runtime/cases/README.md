@@ -34,6 +34,20 @@ The case itself never parses or decides.
 - `kiosk_backend_unit/`, `kiosk_healthz_bound/`, `kiosk_page_serves/`, `kiosk_health_flag/` — one
   pre-existing case apiece; no pure logic of their own to separate out, so no `verdict.py` and no
   `tests/`.
+- `kiosk_image/` — the image-content tier (#206), reduced to the appliance's own needs: reads the
+  built rootfs and bundle through the build's own datastore, never a device. Four methods: the
+  display-launch unit's effective `ExecStart` carries its designed flags
+  (`docs/requirements/srs/SRS008`, `docs/requirements/tst/TST008`); the shipped bundle's own
+  manifest names the deployed rootfs by hash (`docs/requirements/srs/SRS009`); the display's served
+  `index.html` is in the rootfs (same `SRS009`); and the required binaries later checks need are
+  present (a guard, no item of its own). Subclasses `framework.base.ImageCase`, not `WiseKioskCase`
+  — it writes no record line; the stage's own log and `testresults.json` are this tier's record.
+- `kiosk_units/` — every unit `meta-wisekiosk`'s own recipes ship is well-formed
+  (`docs/requirements/tst/TST010`, child of `SRS008`): `systemd-analyze verify` on the board, over
+  each of ten shipped units, one call apiece. Runs on the board rather than `kiosk_image` because
+  this is the appliance's own systemd validating its own units, not a host-side artefact read; needs
+  the `systemd-analyze` package, added to the image alongside its siblings in `kiosk-zero-w.yaml`'s
+  own `IMAGE_INSTALL:append`.
 
 **The shared base and record parsing are not a case, so they are not here.** Every package's
 `case.py` subclasses `WiseKioskCase` and reads or writes the run record through `record.py`, both in
