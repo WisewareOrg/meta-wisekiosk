@@ -2,23 +2,22 @@ active: true
 derived: false
 header: |
   Device unit-well-formedness check passes
-level: 1.7.1
+level: 1.9
 links:
-- SRS008: zs9A7WxaOJimnsjkTKczkKR5YajQFRAvDD6aCNGi9UU=
+- SRS008: WEgSNtzq2nQOOqq0j37eYTSTIMpm0HShvSzvkrwf17U=
 normative: true
 rationale: ''
 ref: ''
 references:
 - keyword: def test_units_well_formed
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_units/case.py
-  sha: c8045f0cda51f4f0205c4dc9a383ec0e2531405e0136afe5ed21e2890a07b9d1
+  sha: ec7c170096e1a330c9154ba1baac31b569f11cb45b4d1e11940be55f19532581
   type: file
-reviewed: irGXhohrWPZE1uSpLrbK-m9cEdFoXbPTGCTUT7bNxOA=
+reviewed: B_etao8AF8PKeOpWkk5YgRsIgjPlYCM-8P9WtmcPYNc=
 status: proposed
 text: |
-  Run the device suite's unit-well-formedness check against the booted appliance's own
-  shipped units and assert it passes: every shipped unit loads with its dependencies
-  satisfied on the board.
+  Run `systemd-analyze verify` against every unit the layer ships, on the booted board, and
+  assert each loads with its dependencies satisfied.
 verification-justification: |
   Settles that every unit meta-wisekiosk's own recipes ship loads with its dependencies
   satisfied, as the board's own systemd resolves it, on one physical device, one boot. Leaves

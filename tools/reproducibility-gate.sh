@@ -2,8 +2,10 @@
 # Refuse to put an image on a board unless the software on it can be rebuilt
 # from what is published (#46).
 #
-#   tools/reproducibility-gate.sh --tree                 -- clean + pushed
-#   tools/reproducibility-gate.sh --image <rootfs.ext4>  -- ... and the image names HEAD
+#   tools/reproducibility-gate.sh --tree                                      -- clean + pushed
+#   tools/reproducibility-gate.sh --image <rootfs.ext4> [--bundle <bundle.raucb>]
+#                                                        -- ... and the image names HEAD,
+#                                                           and (with --bundle) the bundle ties to it
 #
 # No override flag, by design -- see docs/layers-and-kas.md.
 #
@@ -13,11 +15,12 @@
 set -uo pipefail
 
 usage() {
-    sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 mode=""
 image=""
+bundle=""
 # One mode, never two: last-wins would let `--image X --tree` run the weaker
 # check while still reading as --image to tools/ci-guards.sh guard 10.
 set_mode() {
@@ -32,6 +35,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         --tree)  set_mode "$1" ;;
         --image) set_mode "$1"; shift; image=${1-} ;;
+        --bundle) shift; bundle=${1-} ;;
         -h|--help) usage; exit 0 ;;
         *) printf 'unknown argument: %s\n\n' "$1" >&2; usage >&2; exit 2 ;;
     esac
@@ -42,7 +46,12 @@ done
 # out empty must land here, not silently downgrade to the weaker tree-only
 # check -- that failure would look identical to a passing gate.
 case "$mode" in
-    tree) ;;
+    tree)
+        if [ -n "$bundle" ]; then
+            printf 'REFUSING: --bundle given with --tree -- --bundle needs --image\n' >&2
+            exit 2
+        fi
+        ;;
     image)
         if [ -z "$image" ]; then
             printf 'REFUSING: --image was given an empty path\n' >&2
@@ -110,8 +119,7 @@ fi
 
 # --- (c) the image names HEAD ---------------------------------------------
 # Only where a rootfs is in hand: a .raucb is unreadable here, so the
-# bundle-shipping recipes run --tree -- #48 bundle-image-tie is verified
-# separately, by kiosk-preflight's own image-content tier call.
+# bundle-shipping recipes run --tree.
 if [ "$mode" = "image" ]; then
     if [ ! -f "$image" ]; then
         refuse "no image artifact at $image -- nothing to attribute; build first"
@@ -142,6 +150,38 @@ if [ "$mode" = "image" ]; then
             printf '        Or check out the commit the image came from.\n' >&2
         else
             pass "image names HEAD ($commit)"
+        fi
+    fi
+fi
+
+# --- (d) the bundle ties to the image --------------------------------------
+# Closes #48: a mismatch means the bundle would install a rootfs other than
+# the one this gate just checked.
+if [ "$mode" = "image" ] && [ -n "$bundle" ]; then
+    if [ ! -f "$bundle" ]; then
+        refuse "no bundle at $bundle -- nothing to tie to $image"
+    elif ! command -v rauc > /dev/null 2>&1; then
+        refuse "rauc missing -- cannot read $bundle; install rauc"
+    elif ! command -v sha256sum > /dev/null 2>&1; then
+        refuse "sha256sum missing -- cannot hash $image"
+    else
+        # `rauc info --output-format=shell` single-quotes every value.
+        bundle_shell=$(rauc info --no-verify --output-format=shell "$bundle" 2>/dev/null)
+        rootfs_idx=$(printf '%s\n' "$bundle_shell" \
+            | sed -n "s/^RAUC_IMAGE_CLASS_\([0-9][0-9]*\)='rootfs'\$/\1/p" | head -1)
+        bundle_digest=""
+        [ -n "$rootfs_idx" ] \
+            && bundle_digest=$(printf '%s\n' "$bundle_shell" \
+                | sed -n "s/^RAUC_IMAGE_DIGEST_${rootfs_idx}='\\(.*\\)'\$/\\1/p")
+        image_digest=$(sha256sum "$image" | awk '{print $1}')
+        if [ -z "$bundle_digest" ]; then
+            refuse "no rootfs image digest in $bundle's own \`rauc info\` output -- cannot tie it to $image"
+        elif [ "$bundle_digest" != "$image_digest" ]; then
+            refuse "the bundle does not tie to this image:"
+            printf '        bundle rootfs digest: %s\n' "$bundle_digest" >&2
+            printf '        image sha256:         %s\n' "$image_digest" >&2
+        else
+            pass "bundle ties to the image (sha256=$image_digest)"
         fi
     fi
 fi

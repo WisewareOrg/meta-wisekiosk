@@ -9,21 +9,22 @@ normative: true
 rationale: ''
 ref: ''
 references:
-- keyword: def test_bundle_image_tie
-  path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_image/case.py
-  sha: 9e0c3d00195770cc67d3886d0df0c65d02976c3299d2a70178bb21f5c79c73ad
+- keyword: the bundle ties to the image
+  path: tools/reproducibility-gate.sh
+  sha: e6ca56117ffa57c1cf7c8f1f6a095c1cb65067f6edbf1ffbc1f4fce7421463a8
   type: file
 - keyword: def test_display_files_present
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_image/case.py
-  sha: 9e0c3d00195770cc67d3886d0df0c65d02976c3299d2a70178bb21f5c79c73ad
+  sha: bded8f4da70bebf1e42dbb7417685cd0142b8d977239f4cb07cbf348682d3213
   type: file
-reviewed: _1tv_GPiOxWhqpH9PODiHTH49a3thDPT2qp6agheGas=
+reviewed: tO1YoNB6f308QVIySDBUDTRhD4wUjJjkTm-HFd7a0bQ=
 status: proposed
 text: |
-  Run the image-content tier's bundle-image-tie and display-files-present checks against the
-  built rootfs and bundle and assert both pass.
+  Hash the deployed rootfs and compare it to the bundle's own digest, and assert the
+  display's served entry point is present in the rootfs.
 verification-justification: |
-  Settles that the bundle's own manifest names the deployed rootfs by hash and that the
-  display's served entry point is present in it, read from this build's own artifacts. Leaves
-  unproven whether the served files are themselves correct once applied.
+  Settles that the bundle ties to the deployed rootfs by hash (tools/reproducibility-gate.sh,
+  run by every install path) and that the display's served entry point is present in it, read
+  from this build's own artifacts. Leaves unproven whether the served files are themselves
+  correct once applied.
 verification-method: test

@@ -8,14 +8,14 @@ links:
 normative: true
 rationale: ''
 ref: ''
-reviewed: huS9vLjJUj5Z0kZJOwj1GnD4fpX3bfl1_QGDHKigsBo=
+reviewed: 8yDheqVfrkrlRLw7qqd2DmIf-TE4JiOHa-6wMlar3FQ=
 status: proposed
 text: |
-  The kiosk shall start its display as designed: screen blanking off, the cursor hidden, and
-  every unit meta-wisekiosk's own recipes ship is well-formed.
+  The kiosk shall start its display as designed and every service it ships shall be loadable
+  with its dependencies met.
 verification-justification: |
-  Settles that the built image's own display-launch unit and every unit meta-wisekiosk's own
-  recipes ship are configured and well-formed as designed, read from the build's own artifacts.
-  Leaves unproven whether a runtime override later changes any of this once the image is
-  deployed, and anything about units this layer does not own.
+  TST008 settles the display half, read from the build's own deployed artifacts; TST010 settles
+  the loadability half, on the booted board. Together they leave unproven whether a runtime
+  override changes either once the image is deployed, and anything about units this layer does
+  not own.
 verification-method: test
