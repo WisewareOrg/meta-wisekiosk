@@ -11,9 +11,9 @@ ref: ''
 references:
 - keyword: def test_units_loaded
   path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_units/case.py
-  sha: 33a9d712c7db24478438b77421c31849f6ae3fb7467e848a9da1d778d6a653b4
+  sha: c194bbe8e86ac6a84384092d0c3c8d3e3d541a0f0ef64430b0ae793af393e5fe
   type: file
-reviewed: CMo-qiIAaLzfQ54c0T7bXHROz0rhfdaAABSKK6GA6ek=
+reviewed: ypx5evi_hJhyijOTPM0kHhaFMrbDjeJQWuo-HPOJ5Yg=
 status: proposed
 text: |
   On the booted board, for every unit the layer ships, assert systemd reports it loaded

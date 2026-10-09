@@ -11,8 +11,6 @@ _DROPIN_DIRS = (UNIT_DIR, "etc/systemd/system")
 DISPLAY_FILES = ("/srv/kiosk/index.html",)
 _BINARY_PATHS = {name: f"/usr/bin/{name}" for name in verdict.REQUIRED_BINARIES}
 
-# The repo root, resolved the same way kiosk_units/case.py resolves it (same
-# nesting depth): cases/kiosk_image/case.py to the checkout's own root.
 _REPO_ROOT = Path(__file__).resolve().parents[6]
 
 
@@ -56,21 +54,14 @@ def _unit_text(ext4_path, unit_name):
 
 
 class KioskImageTest(OERuntimeTestCase):
-    """The image-content tier: one case, one method per check, over the
-    build's own deployed `.ext4` -- no board, no network. Runs through
-    `tools/oe-test.sh 127.0.0.1 kiosk_image.case` (docs/testing.md §"Running
-    it"), never bitbake's own do_testimage task, so the datastore's own
-    DEPLOY_DIR_IMAGE/TOPDIR (container paths, not host-real ones) are never
-    read for the rootfs location: MACHINE plus this file's own on-disk
-    location give the real path, the same arithmetic tools/oe-test.sh's own
-    $DEPLOY already uses.
-    """
+    """The image-content tier: one case, one method per check, over the build's own deployed
+    `.ext4` -- no board, no network."""
 
     @classmethod
     def setUpClass(cls):
-        machine = cls.td["MACHINE"]
-        deploy_dir = _REPO_ROOT / "build" / f"tmp-{machine}" / "deploy" / "images" / machine
-        KioskImageTest.ext4_path = deploy_dir / f"core-image-base-{machine}.rootfs.ext4"
+        td = cls.td
+        deploy_dir = _REPO_ROOT / "build" / td["DEPLOY_DIR_IMAGE"]
+        KioskImageTest.ext4_path = deploy_dir / f'{td["IMAGE_LINK_NAME"]}.ext4'
 
         if not KioskImageTest.ext4_path.is_file():
             raise RuntimeError(f"no rootfs image at {KioskImageTest.ext4_path}")

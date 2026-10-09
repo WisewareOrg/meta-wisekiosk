@@ -1,45 +1,27 @@
-"""Specifies cases/kiosk_units/verdict.py: shipped_units_verdict(units, glob_description),
-show_properties(output), failed_unit_names(output), verdict(unit_properties, failed_units). One
-parametrized test per function, one row per branch. Every `systemctl` shape here is a real one,
-captured read-only on bench (`LoadState`/`LoadError`/`ActiveState`/`Result`, in the order systemd
-itself printed them -- never assumed positional) or its documented `--failed --no-legend` column
-layout; none is invented.
+"""Specifies cases/kiosk_units/verdict.py: show_properties(output), failed_unit_names(output),
+verdict(unit_properties, failed_units). One parametrized test per function, one row per branch.
 """
 
 import pytest
 
-from oeqa.runtime.cases.kiosk_units.verdict import (
-    failed_unit_names,
-    shipped_units_verdict,
-    show_properties,
-    verdict,
-)
+from oeqa.runtime.cases.kiosk_units.verdict import failed_unit_names, show_properties, verdict
 
-# -- show_properties: real `systemctl show -p LoadState,LoadError,ActiveState,Result <unit>`
-# shapes captured read-only on bench. systemd does not print properties in the order requested.
-LOADED_CLEAN = "Result=success\nLoadState=loaded\nActiveState=active\nLoadError=\n"
-NOT_FOUND = (
-    "Result=success\nLoadState=not-found\nActiveState=inactive\n"
-    'LoadError=org.freedesktop.systemd1.NoSuchUnit "Unit bogus.service not found."\n'
-)
+# -- show_properties: real `systemctl show -p LoadState,LoadError <unit>` shapes captured
+# read-only on bench. systemd does not print properties in the order requested.
+LOADED_CLEAN = "LoadState=loaded\nLoadError=\n"
+NOT_FOUND = 'LoadError=org.freedesktop.systemd1.NoSuchUnit "Unit bogus.service not found."\nLoadState=not-found\n'
 
 
 @pytest.mark.parametrize(
     ("name", "output", "want"),
     [
+        ("a loaded unit", LOADED_CLEAN, {"LoadState": "loaded", "LoadError": ""}),
         (
-            "a loaded unit, properties in systemd's own (non-alphabetical) order",
-            LOADED_CLEAN,
-            {"Result": "success", "LoadState": "loaded", "ActiveState": "active", "LoadError": ""},
-        ),
-        (
-            "a never-loaded unit carries a populated LoadError",
+            "a never-loaded unit carries a populated LoadError, properties in reverse order",
             NOT_FOUND,
             {
-                "Result": "success",
-                "LoadState": "not-found",
-                "ActiveState": "inactive",
                 "LoadError": 'org.freedesktop.systemd1.NoSuchUnit "Unit bogus.service not found."',
+                "LoadState": "not-found",
             },
         ),
         ("blank lines are ignored", "\n  \n", {}),
@@ -50,16 +32,26 @@ def test_show_properties(name, output, want):
 
 
 # -- failed_unit_names: `systemctl list-units --failed --no-legend`'s own column layout, with its
-# leading status marker (a UTF-8 bullet, captured as-is -- this parse never has to name it).
-FAILED_LIST = "● kiosk-soak.timer loaded failed failed Soak timer\n"
+# leading status marker (a UTF-8 bullet) -- any unit type, not only one this layer ships.
+FAILED_LIST = "● kiosk-soak.timer loaded failed failed Soak timer v1.2\n"
+FAILED_LIST_NO_MARKER = "data.mount loaded failed failed /data\n"
+FAILED_LIST_WITH_UNDOTTED_NOISE_LINE = (
+    "resetting\n● kiosk-soak.timer loaded failed failed Soak timer v1.2\n"
+)
 EMPTY_FAILED_LIST = ""
 
 
 @pytest.mark.parametrize(
     ("name", "output", "want"),
     [
-        ("one failed unit, marker and all", FAILED_LIST, {"kiosk-soak.timer"}),
-        ("no failed units at all is an empty set, never an error", EMPTY_FAILED_LIST, set()),
+        ("one failed unit, marker and a dotted description word", FAILED_LIST, ["kiosk-soak.timer"]),
+        ("a non-service/timer unit type, no marker present", FAILED_LIST_NO_MARKER, ["data.mount"]),
+        (
+            "a line with no dotted token at all is skipped, not mistaken for a unit",
+            FAILED_LIST_WITH_UNDOTTED_NOISE_LINE,
+            ["kiosk-soak.timer"],
+        ),
+        ("no failed units at all is an empty list, never an error", EMPTY_FAILED_LIST, []),
     ],
 )
 def test_failed_unit_names(name, output, want):
@@ -74,56 +66,53 @@ LOADED_WITH_ERROR = {"LoadState": "loaded", "LoadError": "some-error"}
 
 
 @pytest.mark.parametrize(
-    ("name", "unit_properties", "failed_units", "want_outcome", "want_reason_contains"),
+    (
+        "name", "unit_properties", "failed_units", "want_outcome",
+        "want_reason_contains", "want_reason_excludes",
+    ),
     [
-        ("no shipped units at all is ok -- nothing to report", {}, set(), "ok", ()),
-        ("every unit loaded, none failed", {"a.service": LOADED, "b.service": LOADED}, set(), "ok", ()),
+        ("no shipped units at all is an error -- nothing was checked", {}, [], "error", ("no shipped units",), ()),
+        ("every unit loaded, none failed", {"a.service": LOADED, "b.service": LOADED}, [], "ok", (), ()),
         (
             "a unit never loaded, named with its LoadError",
             {"a.service": NOT_LOADED},
-            set(),
+            [],
             "error",
             ("a.service", "not-found", "NoSuchUnit"),
+            (),
         ),
         (
             "a loaded unit that still carries a LoadError",
             {"a.service": LOADED_WITH_ERROR},
-            set(),
+            [],
             "error",
             ("a.service", "some-error"),
+            (),
         ),
         (
-            "a cleanly loaded unit that systemctl list-units --failed still names",
+            "a failed unit of a type this layer does not even ship still fails the check",
             {"a.service": LOADED},
-            {"a.service"},
+            ["data.mount"],
             "error",
-            ("a.service", "list-units --failed"),
+            ("data.mount", "list-units --failed"),
+            ("a.service",),
         ),
         (
             "one good unit beside one bad one names only the bad one",
             {"a.service": LOADED, "b.service": NOT_LOADED},
-            set(),
+            [],
             "error",
             ("b.service",),
+            ("a.service",),
         ),
     ],
 )
-def test_verdict_outcome(name, unit_properties, failed_units, want_outcome, want_reason_contains):
+def test_verdict_outcome(
+    name, unit_properties, failed_units, want_outcome, want_reason_contains, want_reason_excludes,
+):
     outcome, reason = verdict(unit_properties, failed_units)
     assert outcome == want_outcome, f"{name}: {reason!r}"
     for token in want_reason_contains:
         assert token in reason, f"{name}: {token!r} not in {reason!r}"
-
-
-@pytest.mark.parametrize(
-    ("name", "units", "want_outcome", "want_reason_contains"),
-    [
-        ("no units found is error, naming the caller's own glob description", (), "error", ("*.service",)),
-        ("a non-empty list is ok", ("kiosk.service",), "ok", ()),
-    ],
-)
-def test_shipped_units_verdict_outcome(name, units, want_outcome, want_reason_contains):
-    outcome, reason = shipped_units_verdict(units, "*.service, *.timer")
-    assert outcome == want_outcome, f"{name}: {reason!r}"
-    for token in want_reason_contains:
-        assert token in reason, f"{name}: {token!r} not in {reason!r}"
+    for token in want_reason_excludes:
+        assert token not in reason, f"{name}: {token!r} unexpectedly in {reason!r}"
