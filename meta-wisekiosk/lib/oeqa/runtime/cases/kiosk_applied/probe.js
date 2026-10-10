@@ -16,12 +16,15 @@
     return 'applied';
   }
 
-  // present is every [data-pwt-card] element; live is the subset without
-  // [data-pwt-closed].
+  // present is every [data-pwt-card] element; live is each card without a
+  // [data-pwt-closed] descendant (the app marks a closed card inside it).
   function cards() {
-    var present = document.querySelectorAll('[data-pwt-card]').length;
-    var live = document.querySelectorAll('[data-pwt-card]:not([data-pwt-closed])').length;
-    return present + '/' + live;
+    var all = document.querySelectorAll('[data-pwt-card]');
+    var live = 0;
+    for (var i = 0; i < all.length; i++) {
+      if (!all[i].querySelector('[data-pwt-closed]')) { live++; }
+    }
+    return all.length + '/' + live;
   }
 
   function report() {
