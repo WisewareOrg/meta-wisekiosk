@@ -16,10 +16,8 @@
     return 'applied';
   }
 
-  // present is every [data-pwt-card] element.
-  // live holds a [data-pwt-leaderboard] descendant (the app's open branch).
-  // closed holds [data-pwt-closed].
-  // unavailable holds [data-pwt-unavailable]; neither closed nor unavailable is live.
+  // present is every [data-pwt-card]; live is each card holding a
+  // [data-pwt-leaderboard].
   function cards() {
     var all = document.querySelectorAll('[data-pwt-card]');
     var live = 0;
