@@ -6,7 +6,7 @@ header:
 repos:
   meta-raspberrypi:
     url: "https://github.com/agherzan/meta-raspberrypi.git"
-    commit: 6ca1f75017cc5d5acdb8bb05634c4bc01fa049fd
+    commit: 018d44467c4f09eb63f8ea5e86e85d755250cf89
     path: "sources/meta-raspberrypi"
     patches:
       01-parselogs:
