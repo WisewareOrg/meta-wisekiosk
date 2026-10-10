@@ -45,10 +45,10 @@ recorded) gets a 502, logged `MISS <key>`; a served hit is logged `HIT <key> sha
 for `tools/scrub-identity.py`'s own scan) and drops the upstream's own `Content-Length` in favour of
 one computed from the stored body, and writes the **first** response per key only — a repeat
 request still forwards and relays, never overwritten. `record.py` refuses a CONNECT to any host
-with no leaf (`MISS CONNECT <host> (no leaf)`), the same as `replay.py`. It also drops every
-response header named `CF-RAY` or starting `cf-` before writing the file: that header names the
-Cloudflare edge that served the recording host, a coarse identity of the site's own network that
-`tools/scrub-identity.py` has no pattern for — `record.py` is the one owner of this rule.
+with no leaf (`MISS CONNECT <host> (no leaf)`), the same as `replay.py`. `record.py` also drops
+every response header named `CF-RAY` or starting `cf-` before writing the file: that header names
+the Cloudflare edge that served the recording host, a coarse identity of the site's own network
+that `tools/scrub-identity.py` has no pattern for.
 
 ## The set layout
 

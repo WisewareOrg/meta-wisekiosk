@@ -1,6 +1,4 @@
-"""Specifies record.py's own pure header filter -- forward()/respond()/main() all dial a real
-host or parse argv, proven by the host-only proof rather than a constructed input.
-"""
+"""Specifies record.py's own pure header filter."""
 import pytest
 
 from record import _skip_response_header

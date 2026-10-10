@@ -19,9 +19,7 @@ _manifest_lock = threading.Lock()
 
 
 def _skip_response_header(name):
-    """True if a response header must be dropped before the recorded file is written: the
-    hop-by-hop headers this tool recomputes itself, and any Cloudflare cf-* header (CF-RAY names
-    the CDN edge that served the recording host -- coarse identity of the site's own network)."""
+    """True for a hop-by-hop header this tool recomputes, or any header named cf-* (case-insensitive)."""
     lower = name.lower()
     return lower in ("connection", "transfer-encoding", "content-length") or lower.startswith("cf-")
 
