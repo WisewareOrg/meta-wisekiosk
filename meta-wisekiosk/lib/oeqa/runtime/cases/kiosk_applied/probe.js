@@ -16,13 +16,15 @@
     return 'applied';
   }
 
-  // present is every [data-pwt-card] element; live is each card without a
-  // [data-pwt-closed] descendant (the app marks a closed card inside it).
+  // present is every [data-pwt-card] element.
+  // live holds a [data-pwt-leaderboard] descendant (the app's open branch).
+  // closed holds [data-pwt-closed].
+  // unavailable holds [data-pwt-unavailable]; neither closed nor unavailable is live.
   function cards() {
     var all = document.querySelectorAll('[data-pwt-card]');
     var live = 0;
     for (var i = 0; i < all.length; i++) {
-      if (!all[i].querySelector('[data-pwt-closed]')) { live++; }
+      if (all[i].querySelector('[data-pwt-leaderboard]')) { live++; }
     }
     return all.length + '/' + live;
   }
