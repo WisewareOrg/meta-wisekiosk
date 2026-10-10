@@ -15,7 +15,7 @@ local_conf_header:
 
     # Full module names: oeqa's _filterModule also loads every module of a
     # bare package name, selfcheck.py included.
-    TEST_SUITES = "kiosk_backend_unit.case kiosk_healthz_bound.case kiosk_page_serves.case kiosk_health_flag.case kiosk_render.case kiosk_applied.case kiosk_browser_restart.case kiosk_layout.case"
+    TEST_SUITES = "kiosk_backend_unit.case kiosk_healthz_bound.case kiosk_page_serves.case kiosk_health_flag.case kiosk_render.case kiosk_applied.case kiosk_browser_restart.case kiosk_layout.case kiosk_units.case"
 
     # required non-empty by testimage_sanity; unused
     TEST_SERVER_IP = "127.0.0.1"

@@ -97,8 +97,9 @@ behind those changes are indexed in **[docs/README.md](docs/README.md)**.
 ## Quick start
 
 `kas-container` runs the build inside a container, so a working **Docker** is a
-prerequisite. The flash and OTA paths additionally need `git`, `debugfs` (`e2fsprogs`) and `openssl`,
-and the repository guards (`just guards` and the pre-commit hook) and the layer-currency recipes
+prerequisite. The flash and OTA paths additionally need `git`, `debugfs` (`e2fsprogs`),
+`unsquashfs` (`squashfs-tools`) and `openssl`, and the repository guards (`just guards` and the
+pre-commit hook) and the layer-currency recipes
 (`just currency`, `just gap`) need **PyYAML** to read the kas YAML — all of them refuse rather than
 skip when one is missing. `uv sync` installs PyYAML, pinned in `pyproject.toml`/`uv.lock`, into
 `.venv/` at the repository root — the single install path, no PEP-668 workaround needed.
@@ -208,7 +209,8 @@ the one now on the bench. An explicit `host` argument still wins over both.
 `kiosk-preflight` refuses a delivery that cannot work — wrong slot size, stale bundle, no room on
 `/data` — before the transfer. Every recipe that puts software on a board also refuses, with no
 override, a build from a dirty or unpushed tree, so a build shipped from this host is always one
-someone else can check out; tying a bundle to the rootfs inside it is #48 bundle-image-tie.
+someone else can check out; `kiosk-preflight` also ties the bundle to the rootfs inside it
+([`docs/testing.md`](docs/testing.md) §"Running it" has what that settles).
 Delivery is a single md5-verified `scp` (`kiosk-send-direct`, ~45s for the ~114MB bundle): the
 sustained-transfer wedge that once forced chunking was top-OPP memory corruption, fixed by the
 clock cap in

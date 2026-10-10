@@ -1,0 +1,29 @@
+active: true
+derived: false
+header: |
+  Shipped units load on the board
+level: 1.9
+links:
+- SRS008: PROwpNaUKF4M9hlDL2OfVlLPiOSpXauVAa9veXV3cXg=
+normative: true
+rationale: ''
+ref: ''
+references:
+- keyword: def test_units_loaded
+  path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_units/case.py
+  sha: c194bbe8e86ac6a84384092d0c3c8d3e3d541a0f0ef64430b0ae793af393e5fe
+  type: file
+reviewed: ypx5evi_hJhyijOTPM0kHhaFMrbDjeJQWuo-HPOJ5Yg=
+status: proposed
+text: |
+  On the booted board, for every unit the layer ships, assert systemd reports it loaded
+  with no load error and none failed.
+verification-justification: |
+  Settles that every unit meta-wisekiosk's own recipes ship is loaded with no load error, and
+  that none of them appears in systemd's own failed-unit list, as the board's own systemd
+  reports it, on one physical device, one boot. The failure branch is proven on constructed
+  input, shaped from real `systemctl show`/`systemctl list-units --failed` output captured on
+  bench, and was watched failing once, read-only, against a unit name no recipe ships, when
+  the check was built. Leaves unproven anything about units this layer does not own, or
+  whether a later change breaks a unit that currently passes.
+verification-method: test

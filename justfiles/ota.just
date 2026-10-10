@@ -157,8 +157,7 @@ kiosk-preflight image="build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wi
     IMAGE_B=$(stat -Lc %s "{{image}}")
     BUNDLE_B=$(stat -Lc %s "{{bundle}}")
 
-    # Checks the rootfs, not the bundle -- nothing binds the two (#48).
-    tools/reproducibility-gate.sh --image "{{image}}" || exit 1
+    tools/reproducibility-gate.sh --image "{{image}}" --bundle "{{bundle}}" || exit 1
 
     # Nothing ties the image inside the bundle to the slot that receives it. The
     # two agree only because both derive from AUTONOMOS_ROOTFS_SIZE in the same
@@ -209,7 +208,7 @@ kiosk-send-direct bundle="build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0
     DEST=/data/update.raucb
     test -f "{{bundle}}" || { echo "no bundle at {{bundle}}"; exit 1; }
     # Directly invocable, so it cannot rely on kiosk-preflight having run.
-    # --tree: the argument is a .raucb and nothing binds it to a rootfs (#48).
+    # --tree: no rootfs image is in hand here, only the bundle argument.
     tools/reproducibility-gate.sh --tree || exit 1
     LOCAL_MD5=$(md5sum "{{bundle}}" | cut -d' ' -f1)
     SIZE=$(stat -Lc%s "{{bundle}}")

@@ -38,16 +38,7 @@ if [ "$#" -gt 0 ]; then
 fi
 
 KEY="$ROOT/local/keys/hmac.key"
-if [ ! -f "$KEY" ]; then
-    echo "oe-test.sh: no $KEY -- run 'just pipeline-install' first" >&2
-    exit 1
-fi
-
 MAP="$ROOT/local/device-identity.md"
-if [ ! -f "$MAP" ]; then
-    echo "oe-test.sh: no $MAP -- see CONTRIBUTING.md" >&2
-    exit 1
-fi
 
 POKY="$ROOT/sources/poky"
 if [ ! -d "$POKY" ]; then
@@ -67,17 +58,32 @@ if [ ! -f "$MANIFEST" ]; then
     exit 1
 fi
 
-# Resolves role/hostname via tools/device-role.py; refuses outright if role != bench.
-ROLE_LINE=$(python3 "$ROOT/tools/device-role.py" "$TARGET") || exit 1
-read -r ROLE_KV HOSTNAME_KV <<< "$ROLE_LINE"
-KIOSK_TARGET_ROLE=${ROLE_KV#role=}
-KIOSK_TARGET_HOSTNAME=${HOSTNAME_KV#hostname=}
-if [ "$KIOSK_TARGET_ROLE" != "bench" ]; then
-    echo "oe-test.sh: $TARGET resolves to role=$KIOSK_TARGET_ROLE -- this suite only ever runs against bench" >&2
-    exit 1
+# 127.0.0.1 with kiosk_image.case alone: the host-only tier, no identity lookup.
+if [ "$TARGET" = "127.0.0.1" ]; then
+    if [ "${#TEST_SUITES_ARR[@]}" -ne 1 ] || [ "${TEST_SUITES_ARR[0]}" != "kiosk_image.case" ]; then
+        echo "oe-test.sh: 127.0.0.1 only ever runs kiosk_image.case alone, got '${TEST_SUITES_ARR[*]:-}'" >&2
+        exit 1
+    fi
+else
+    if [ ! -f "$KEY" ]; then
+        echo "oe-test.sh: no $KEY -- run 'just pipeline-install' first" >&2
+        exit 1
+    fi
+    if [ ! -f "$MAP" ]; then
+        echo "oe-test.sh: no $MAP -- see CONTRIBUTING.md" >&2
+        exit 1
+    fi
+    ROLE_LINE=$(python3 "$ROOT/tools/device-role.py" "$TARGET") || exit 1
+    read -r ROLE_KV HOSTNAME_KV <<< "$ROLE_LINE"
+    KIOSK_TARGET_ROLE=${ROLE_KV#role=}
+    KIOSK_TARGET_HOSTNAME=${HOSTNAME_KV#hostname=}
+    if [ "$KIOSK_TARGET_ROLE" != "bench" ]; then
+        echo "oe-test.sh: $TARGET resolves to role=$KIOSK_TARGET_ROLE -- this suite only ever runs against bench" >&2
+        exit 1
+    fi
+    export KIOSK_TARGET_ROLE KIOSK_TARGET_HOSTNAME
+    export KIOSK_HMAC_KEY="$KEY"
 fi
-export KIOSK_TARGET_ROLE KIOSK_TARGET_HOSTNAME
-export KIOSK_HMAC_KEY="$KEY"
 
 # Matching testimage's own resolution exactly: the loader inserts the
 # cases directory itself as each case's own top_level_dir (so kiosk_render

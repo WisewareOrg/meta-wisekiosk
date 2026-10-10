@@ -3,7 +3,7 @@
 The oeqa suite bitbake and `tools/oe-test.sh` both run. [`docs/testing.md`](../../../../../docs/testing.md)
 §"The hand-run path" has how the loader finds and selects a package here by name.
 
-**One folder per device test, named for the test.** Each is a package:
+**One folder per test, named for the test.** Each is a package:
 
 - `case.py`, and `selfcheck.py` where present — each an `oeqa.runtime.case.OERuntimeTestCase`
   subclass; the only modules in the package that import `oeqa`. `selfcheck.py` holds a hand-run
@@ -18,9 +18,9 @@ The oeqa suite bitbake and `tools/oe-test.sh` both run. [`docs/testing.md`](../.
   branch coverage floor by `just test`. `case.py` and `selfcheck.py` are outside this population by
   construction: both import `oeqa`, which is not on `sys.path` on the host `just test` runs on.
 
-A case's own job is to move bytes and call its verdict: `self.target.run`/`copyTo` collects from the
-device, the package's pure function judges what came back, and the case asserts on that judgement.
-The case itself never parses or decides.
+A case's own job is to move bytes and call its verdict: it collects (`self.target.run`/`copyTo` for
+a device case, `debugfs`/a host subprocess for `kiosk_image`), the package's pure function judges
+what came back, and the case asserts on that judgement. The case itself never parses or decides.
 
 - `kiosk_render/` — `test_render_advancing`, judged by `verdict.py`'s two-frame verdict.
 - `kiosk_applied/` — `test_page_applied`, `probe.js` (the DOM probe surf evaluates; no recipe, the
@@ -34,8 +34,16 @@ The case itself never parses or decides.
 - `kiosk_backend_unit/`, `kiosk_healthz_bound/`, `kiosk_page_serves/`, `kiosk_health_flag/` — one
   pre-existing case apiece; no pure logic of their own to separate out, so no `verdict.py` and no
   `tests/`.
+- `kiosk_image/` — the host-only image-content tier, over the deployed `.ext4`. Subclasses
+  `oeqa.runtime.case.OERuntimeTestCase` directly, not `WiseKioskCase`. Three methods: the
+  display-launch unit's effective `ExecStart` and the display's served `index.html` is in the
+  rootfs (both `docs/requirements/srs/SRS008`, `docs/requirements/tst/TST008`); and the required
+  binaries later checks need are present (a guard, no item of its own).
+- `kiosk_units/` — every shipped unit loads with no load error and none failed
+  (`docs/requirements/tst/TST010`, child of `SRS008`): the board's own `systemctl show` per unit in
+  `SHIPPED_UNITS`, plus one `systemctl list-units --failed` call.
 
-**The shared base and record parsing are not a case, so they are not here.** Every package's
+**The shared base and record parsing are not a case, so they are not here.** Every device package's
 `case.py` subclasses `WiseKioskCase` and reads or writes the run record through `record.py`, both in
 [`../framework/`](../framework/README.md) — a library, not a test, made importable the way any other
 layer's own oeqa extension is, by `layer.conf`'s `addpylib`, rather than discovered as a case.

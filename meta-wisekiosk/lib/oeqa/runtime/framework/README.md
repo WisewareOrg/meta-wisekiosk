@@ -7,7 +7,7 @@ test, so it is not discovered as one. Made importable as bare `framework` by `la
 two import conventions it requires.
 
 - `base.py` — `WiseKioskCase`, the once-per-run record (role and hostname refusal, the boot/image/
-  app/sut lines) every case inherits, plus `titles()` (the one window-title walk every
+  app/sut lines) every device case inherits, plus `titles()` (the one window-title walk every
   probe-reading case shares). Imports `oeqa`, like a `case.py`, so it is outside `just test`'s
   coverage population the same way.
 - `record.py` — the run record's own parsers, scrubbers and R-line builders, plus

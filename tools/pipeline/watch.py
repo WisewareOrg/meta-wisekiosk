@@ -83,6 +83,7 @@ STAGES = (
     ("checkout", "checkout.log", "checkout", ()),
     ("build", "build.log", "build", ("build failed",)),
     ("bundle", "bundle.log", "bundle", ("bundle failed",)),
+    ("image-content", "image-content.log", "image-content", ("image-content failed",)),
     ("preflight", "preflight.log", "preflight", ("preflight failed",)),
     ("send", "send.log", "send", ("send failed",)),
     ("install", "install.log", "install", ("install failed",)),

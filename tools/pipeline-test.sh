@@ -183,15 +183,20 @@ else
     bad "includes/testimage.yaml does not carry KIOSK_TARGET_ROLE/KIOSK_TARGET_HOSTNAME through to testimage"
 fi
 
-# --- Every TEST_SUITES token is <pkg>.case for an existing cases/<pkg>/case.py,
-# and every such package is named.
+# --- Every cases/<pkg>/case.py is named in includes/testimage.yaml's TEST_SUITES or
+# run.sh's own "oe-test 127.0.0.1 <module>" line, read from that line, not a second literal.
+IMAGE_TIER_MODULE=$(grep -oE 'oe-test 127\.0\.0\.1 [A-Za-z0-9_.]+' "$RUN_SH" | awk '{print $3}')
+if [ -z "$IMAGE_TIER_MODULE" ]; then
+    bad "run.sh has no 'oe-test 127.0.0.1 <module>' image-content stage line"
+fi
 CASE_PKGS=$(find "$HERE/../meta-wisekiosk/lib/oeqa/runtime/cases" -mindepth 2 -maxdepth 2 -name case.py \
     | sed -E 's#.*/cases/([^/]+)/case\.py#\1.case#' | sort)
-SUITE_PKGS=$(sed -n 's/^\s*TEST_SUITES = "\(.*\)"$/\1/p' "$TESTIMAGE_YAML" | tr ' ' '\n' | sort)
+SUITE_PKGS=$( { sed -n 's/^\s*TEST_SUITES = "\(.*\)"$/\1/p' "$TESTIMAGE_YAML"; echo "$IMAGE_TIER_MODULE"; } \
+    | tr ' ' '\n' | sort)
 if [ -n "$CASE_PKGS" ] && [ "$CASE_PKGS" = "$SUITE_PKGS" ]; then
-    ok "boundary: TEST_SUITES names exactly the existing cases/*/case.py packages, each in full"
+    ok "boundary: includes/testimage.yaml's TEST_SUITES plus run.sh's own image-content module name exactly the existing cases/*/case.py packages, each once"
 else
-    bad "TEST_SUITES and cases/*/case.py disagree" "cases: $CASE_PKGS / suite: $SUITE_PKGS"
+    bad "TEST_SUITES (device tier) plus run.sh's image-content module and cases/*/case.py disagree" "cases: $CASE_PKGS / suites: $SUITE_PKGS"
 fi
 # --- ssh-quoting regression: ssh joins separate remote-command words
 # with spaces, and the remote shell re-parses the result -- a format
