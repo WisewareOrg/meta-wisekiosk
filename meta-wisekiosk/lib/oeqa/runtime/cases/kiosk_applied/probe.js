@@ -16,12 +16,23 @@
     return 'applied';
   }
 
+  // present is every [data-pwt-card]; live is each card holding a
+  // [data-pwt-leaderboard].
+  function cards() {
+    var all = document.querySelectorAll('[data-pwt-card]');
+    var live = 0;
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].querySelector('[data-pwt-leaderboard]')) { live++; }
+    }
+    return all.length + '/' + live;
+  }
+
   function report() {
     var faulted = document.querySelectorAll('[data-module-unavailable]').length;
     var unreachable = document.querySelector('[data-backend-unreachable]') ? 1 : 0;
     document.title = 'WK1 nonce=' + performance.timeOrigin +
       ' state=' + state() +
-      ' cards=-/-' +
+      ' cards=' + cards() +
       ' faulted=' + faulted +
       ' unreachable=' + unreachable;
   }

@@ -9,6 +9,7 @@
 | [`testing.md`](testing.md) | What does each testing tier prove, what does a green result at that tier not say, and how do you run the device pipeline? |
 | [`requirements/README.md`](requirements/README.md) | What does the image own as an obligation, and which check discharges each one? |
 | [`../meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md`](../meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md) | How do you bump the WiseKiosk app pin, and why does the build regenerate its API client and types instead of committing them? |
+| [`../tools/replay/README.md`](../tools/replay/README.md) | How does the pipeline replay committed upstream data instead of the real sources, and how is a replay set recorded or re-recorded? |
 | [`issue_investigation/TEMPLATE.md`](issue_investigation/TEMPLATE.md) | What shape must an issue investigation take, and what must every test run in it name? |
 | [`issue_investigation/boot_cpu_saturation/`](issue_investigation/boot_cpu_saturation/README.md) | Across a boot, is the single core doing work, waiting on hardware, or queued behind something else? |
 | [`issue_investigation/wlan0_udev_queue/`](issue_investigation/wlan0_udev_queue/README.md) | What occupies the gap between the WiFi chip appearing on the bus and `wlan0` existing, and what is removing it worth? |

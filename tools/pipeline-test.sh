@@ -135,6 +135,26 @@ else
     bad "unknown record key dropped" "rc=$rc out=$out"
 fi
 
+# --- boundary: replay.py and proxy.py contain no client-dialling
+# primitive, and replay.py does not import record.py either. ---------------
+REPLAY_PY="$HERE/replay/replay.py"
+PROXY_PY="$HERE/replay/proxy.py"
+FORBIDDEN='HTTPSConnection|HTTPConnection|create_connection|urlopen|socket\.socket\('
+FORBIDDEN_REPLAY="$FORBIDDEN|import record|from record"
+if [ ! -f "$REPLAY_PY" ] || [ ! -f "$PROXY_PY" ]; then
+    bad "replay.py or proxy.py is missing -- cannot check for a client-dialling primitive" \
+        "REPLAY_PY=$REPLAY_PY PROXY_PY=$PROXY_PY"
+else
+    grep -qE "$FORBIDDEN_REPLAY" "$REPLAY_PY"; REPLAY_GREP_RC=$?
+    grep -qE "$FORBIDDEN" "$PROXY_PY"; PROXY_GREP_RC=$?
+    if [ "$REPLAY_GREP_RC" -eq 1 ] && [ "$PROXY_GREP_RC" -eq 1 ]; then
+        ok "boundary: replay.py and proxy.py contain no client-dialling primitive"
+    else
+        bad "replay.py or proxy.py names a client-dialling primitive, or a grep could not read its file" \
+            "replay_grep_rc=$REPLAY_GREP_RC proxy_grep_rc=$PROXY_GREP_RC"
+    fi
+fi
+
 capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --log "$LONGLOG"
 if [ "$rc" -eq 0 ] && [[ "$out" == *"## Log — long.log"* ]] \
         && [[ "$out" == *$'\n1\n'* ]] && [[ "$out" == *$'\n250'* ]]; then
@@ -241,6 +261,113 @@ for f in "$RUN_SH" "$ACCEPT_SH"; do
     fi
 done
 
+# --- both scripts refuse while bench is still seeded by a replay
+# window (a leftover wisekiosk.conf from a job that died mid-window),
+# checked before any hash read -- a leftover must be restored, never
+# accepted as the new baseline. -----------------------------------------
+WISEKIOSK_REFUSAL_LINE=$(grep -n 'bench is still seeded by a replay window; restore' "$RUN_SH" | head -n1 | cut -d: -f1)
+# The single quotes are the point: this is a literal fragment to match
+# in the target file, not an expression to expand here.
+# shellcheck disable=SC2016
+MAC_FILE_LINE=$(grep -n '^MAC_FILE="\$PIPELINE_DRIVER' "$RUN_SH" | head -n1 | cut -d: -f1)
+if [ -n "$WISEKIOSK_REFUSAL_LINE" ] && [ -n "$MAC_FILE_LINE" ] && [ "$WISEKIOSK_REFUSAL_LINE" -lt "$MAC_FILE_LINE" ]; then
+    ok "boundary: run.sh's wisekiosk.conf refusal runs before the keyed-hash comparison, not after"
+else
+    bad "run.sh's wisekiosk.conf refusal is missing or runs after the hash comparison" \
+        "refusal_line=$WISEKIOSK_REFUSAL_LINE mac_file_line=$MAC_FILE_LINE"
+fi
+
+ACCEPT_REFUSAL_LINE=$(grep -n 'bench is still seeded by a replay window; restore' "$ACCEPT_SH" | head -n1 | cut -d: -f1)
+# shellcheck disable=SC2016
+ACCEPT_HEX_LINE=$(grep -n 'KIOSK_CONF_HEX=\$(hex_read' "$ACCEPT_SH" | head -n1 | cut -d: -f1)
+if [ -n "$ACCEPT_REFUSAL_LINE" ] && [ -n "$ACCEPT_HEX_LINE" ] && [ "$ACCEPT_REFUSAL_LINE" -lt "$ACCEPT_HEX_LINE" ]; then
+    ok "boundary: accept-bench-config.sh refuses while wisekiosk.conf is present, before any hash read"
+else
+    bad "accept-bench-config.sh's wisekiosk.conf refusal is missing or runs after a hash read" \
+        "refusal_line=$ACCEPT_REFUSAL_LINE hex_line=$ACCEPT_HEX_LINE"
+fi
+
+# --- check_replay_window_end's three access-log decisions (MISS
+# count, HIT >= 1, SERVE extraction) run from run.sh's own text, extracted
+# by sed between its header and closing brace and evaled with mode_token
+# and replay_void stubbed. --------------------------------------------
+CHECK_WINDOW_END_FN=$(sed -n '/^check_replay_window_end() {/,/^}/p' "$RUN_SH")
+if [ -z "$CHECK_WINDOW_END_FN" ]; then
+    bad "check_replay_window_end() extraction from run.sh came back empty"
+fi
+
+# run_window_end LOG_CONTENT -- evaluates run.sh's own check_replay_window_end
+# with MODE_START=MODE_END=live (the mode check itself never voids), a live
+# PROXY_PID/TUNNEL_PID, and RUN_DIR/replay.log holding LOG_CONTENT (omitted
+# if LOG_CONTENT is "-"). Prints "REASON=<reason>" and "VALUE=<REPLAY_VALUE>".
+# The vars below are read only by the eval'd check_replay_window_end text,
+# and the stubs only by indirect calls from inside it.
+# shellcheck disable=SC2034,SC2317
+run_window_end() {
+    local log_content=$1 win_dir proxy_pid tunnel_pid
+    win_dir=$(mktemp -d "$TOP/window.XXXXXX")
+    [ "$log_content" = "-" ] || printf '%s\n' "$log_content" > "$win_dir/replay.log"
+    sleep 300 &
+    proxy_pid=$!
+    sleep 300 &
+    tunnel_pid=$!
+    (
+        eval "$CHECK_WINDOW_END_FN"
+        mode_token() { printf 'live'; }
+        REASON=""
+        replay_void() { [ -n "$REASON" ] || REASON=$1; }
+        MODE_START=live
+        SSH_HOST=test-host
+        PIPELINE_REPLAY_SET=test-set
+        PROXY_PID=$proxy_pid
+        TUNNEL_PID=$tunnel_pid
+        RUN_DIR=$win_dir
+        check_replay_window_end
+        printf 'REASON=%s\n' "$REASON"
+        printf 'VALUE=%s\n' "$REPLAY_VALUE"
+    )
+    kill "$proxy_pid" "$tunnel_pid" 2>/dev/null
+    wait "$proxy_pid" "$tunnel_pid" 2>/dev/null
+    rm -rf "$win_dir"
+}
+
+CLEAN_LOG=$'2026-10-10T00:00:00+00:00 SERVE cards4-live@abcd1234\n2026-10-10T00:00:01+00:00 HIT GET host /a sha256=aa\n2026-10-10T00:00:02+00:00 HIT GET host /b sha256=bb'
+WINDOW_OUT=$(run_window_end "$CLEAN_LOG")
+WINDOW_REASON=$(printf '%s\n' "$WINDOW_OUT" | sed -n 's/^REASON=//p')
+WINDOW_VALUE=$(printf '%s\n' "$WINDOW_OUT" | sed -n 's/^VALUE=//p')
+if [ -z "$WINDOW_REASON" ] && [ "$WINDOW_VALUE" = "cards4-live@abcd1234" ]; then
+    ok "window-end: a clean log (SERVE, 2 HIT, 0 MISS) voids nothing and REPLAY_VALUE is the SERVE value"
+else
+    bad "window-end: the clean-log case did not read as expected" "REASON=$WINDOW_REASON VALUE=$WINDOW_VALUE"
+fi
+
+MISS_LOG="$CLEAN_LOG"$'\n2026-10-10T00:00:03+00:00 MISS GET host /c (no leaf)'
+WINDOW_OUT=$(run_window_end "$MISS_LOG")
+WINDOW_REASON=$(printf '%s\n' "$WINDOW_OUT" | sed -n 's/^REASON=//p')
+if [ "$WINDOW_REASON" = "replay.log carries 1 MISS line(s) for test-set" ]; then
+    ok "window-end: one MISS line voids with the exact MISS-count reason"
+else
+    bad "window-end: a MISS line did not void as expected" "REASON=$WINDOW_REASON"
+fi
+
+NO_HIT_LOG='2026-10-10T00:00:00+00:00 SERVE cards4-live@abcd1234'
+WINDOW_OUT=$(run_window_end "$NO_HIT_LOG")
+WINDOW_REASON=$(printf '%s\n' "$WINDOW_OUT" | sed -n 's/^REASON=//p')
+if [ "$WINDOW_REASON" = "replay.log carries no HIT line for test-set" ]; then
+    ok "window-end: a SERVE line with no HIT voids with the exact no-HIT reason"
+else
+    bad "window-end: no-HIT log did not void as expected" "REASON=$WINDOW_REASON"
+fi
+
+NO_SERVE_LOG='2026-10-10T00:00:00+00:00 HIT GET host /a sha256=aa'
+WINDOW_OUT=$(run_window_end "$NO_SERVE_LOG")
+WINDOW_REASON=$(printf '%s\n' "$WINDOW_OUT" | sed -n 's/^REASON=//p')
+if [ "$WINDOW_REASON" = "replay.log carries no SERVE <set>@<hash> line for test-set" ]; then
+    ok "window-end: a HIT line with no SERVE voids with the exact no-SERVE reason"
+else
+    bad "window-end: no-SERVE log did not void as expected" "REASON=$WINDOW_REASON"
+fi
+
 # --- record-check.py posts only on an exact dirty=0. dirty=1 is left to
 # run.sh's existing, unchanged abort path (STATUS stays OK; run.sh's own
 # "= 1" check fires on the value). A missing or malformed dirty is a
@@ -277,6 +404,26 @@ else
     bad "record-check: dirty=1 changed shape" "rc=$rc out=$out"
 fi
 
+# --- record-check.py --replay writes "R replay=<value>" into the record
+# dict and persists testresults.json. ---------------------------------------
+REPLAY_RESULTS="$TOP/replay-results.json"
+cat > "$REPLAY_RESULTS" <<'EOF'
+{"5678-efgh": {"configuration": {}, "result": {
+    "wisekiosk.record": {
+        "tool": "R tool=oe-test tool_commit=abc dirty=0 argv=x",
+        "image": "R image=abc slot=A",
+        "page.test_page_applied": "R page nonce=1 state=applied cards=4/4 faulted=0 unreachable=0"
+    }
+}}}
+EOF
+capture out rc "$PY" "$RECORD_CHECK_PY" "$REPLAY_RESULTS" abc --replay "cards4-live@deadbeef"
+if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0" ] \
+        && grep -qF '"replay": "R replay=cards4-live@deadbeef"' "$REPLAY_RESULTS"; then
+    ok "record-check: --replay writes R replay=<value> into testresults.json's own record"
+else
+    bad "record-check --replay write-back" "rc=$rc out=$out $(cat "$REPLAY_RESULTS")"
+fi
+
 dirty_fixture ""
 capture out rc "$PY" "$RECORD_CHECK_PY" "$TOP/dirty-results.json" abc
 if [ "$rc" -eq 0 ] && [[ "$out" == ERROR\ * ]] && [[ "$out" == *dirty* ]]; then
@@ -291,6 +438,13 @@ if [ "$rc" -eq 0 ] && [[ "$out" == ERROR\ * ]] && [[ "$out" == *dirty* ]] && [[ 
     ok "record-check: a malformed dirty=yes is a malformed record, not clean"
 else
     bad "record-check: a malformed dirty value did not report malformed" "rc=$rc out=$out"
+fi
+
+capture out rc "$PY" "$RECORD_CHECK_PY" "$REPLAY_RESULTS" abc --replay
+if [ "$rc" -eq 0 ] && [ -z "$out" ] && grep -qF "usage: record-check.py" "$TOP/stderr"; then
+    ok "record-check: a malformed --replay (no value) prints the usage line, not a dropped flag"
+else
+    bad "record-check: malformed --replay was not rejected" "rc=$rc out=$out stderr=$(cat "$TOP/stderr")"
 fi
 
 # --- the shell path (hexdump | config-mac.py) agrees with hashing the

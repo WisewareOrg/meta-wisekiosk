@@ -30,6 +30,7 @@ from framework.record import (
     image_line,
     keyed_hash,
     kiosk_conf_mac,
+    mode_token,
     page_line,
     parse_buildinfo,
     pid_from_pgrep,
@@ -591,6 +592,23 @@ def test_sut_line():
 def test_page_line():
     got = page_line(nonce="1699999999.5", state="applied", cards="-/-", faulted=0, unreachable=0)
     assert got == "R page nonce=1699999999.5 state=applied cards=-/- faulted=0 unreachable=0"
+
+
+@pytest.mark.parametrize(
+    ("name", "environ_text", "proxy_url", "want"),
+    [
+        ("no HTTPS_PROXY line at all is live", "PATH=/usr/bin\nHOME=/root", "http://127.0.0.1:18443", "live"),
+        ("HTTPS_PROXY equal to this job's own proxy is replay",
+         "PATH=/usr/bin\nHTTPS_PROXY=http://127.0.0.1:18443", "http://127.0.0.1:18443", "replay"),
+        ("a different port is a void", "HTTPS_PROXY=http://127.0.0.1:9999", "http://127.0.0.1:18443", None),
+        ("a trailing path on the value is a void, not a substring match",
+         "HTTPS_PROXY=http://127.0.0.1:18443/x", "http://127.0.0.1:18443", None),
+        ("two HTTPS_PROXY lines is a void",
+         "HTTPS_PROXY=http://127.0.0.1:18443\nHTTPS_PROXY=x", "http://127.0.0.1:18443", None),
+    ],
+)
+def test_mode_token(name, environ_text, proxy_url, want):
+    assert mode_token(environ_text, proxy_url) == want, name
 
 
 # ------------------------------------------------------------ the whole record

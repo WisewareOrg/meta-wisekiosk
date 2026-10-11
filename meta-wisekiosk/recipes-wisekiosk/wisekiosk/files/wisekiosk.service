@@ -12,6 +12,7 @@ Type=simple
 # uid/gid 10001, created by this package.
 User=kiosk
 Group=kiosk
+EnvironmentFile=-/data/config/wisekiosk.conf
 ExecStart=/usr/bin/wisekiosk -static-root /srv/kiosk
 Restart=always
 RestartSec=10

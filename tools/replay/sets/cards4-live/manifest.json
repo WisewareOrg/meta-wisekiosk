@@ -1,0 +1,40 @@
+{
+  "responses": {
+    "GET api.open-meteo.com /v1/forecast?current=temperature_2m%2Capparent_temperature%2Crelative_humidity_2m%2Cwind_speed_10m%2Cweather_code%2Cis_day&daily=weather_code%2Ctemperature_2m_max%2Ctemperature_2m_min%2Cprecipitation_probability_max&forecast_days=6&forecast_hours=13&hourly=temperature_2m%2Cweather_code%2Cprecipitation_probability%2Cis_day&latitude=28.5383&longitude=-81.3792&precipitation_unit=inch&temperature_unit=fahrenheit&timezone=auto&wind_speed_unit=mph": {
+      "file": "8e6c4f752a61a481.http",
+      "sha256": "6beeb125e325afea7c972cbff4c1b3bec1ecc19952324acd54cab4371c0346e7"
+    },
+    "GET api.themeparks.wiki /v1/entity/1c84a229-8862-4648-9c71-378ddd2c7693/live": {
+      "file": "fdc3261b7fe42e57.http",
+      "sha256": "122d3b97b3a6b4e25d550ecf01b84798b623dc05dd7ddb1a4a4cced0b4f7d82a"
+    },
+    "GET api.themeparks.wiki /v1/entity/1c84a229-8862-4648-9c71-378ddd2c7693/schedule": {
+      "file": "e99cae4c4949cd2f.http",
+      "sha256": "1243d43ed1cffc748ba3f72170d7792678fc5144546c0cffc45a9301ca454826"
+    },
+    "GET api.themeparks.wiki /v1/entity/288747d1-8b4f-4a64-867e-ea7c9b27bad8/live": {
+      "file": "bcfa58f2582b5b5c.http",
+      "sha256": "9f65b2519e05a4f163a9ecb617cae4f048a09acdb7125486ff12303cdf6c17bc"
+    },
+    "GET api.themeparks.wiki /v1/entity/288747d1-8b4f-4a64-867e-ea7c9b27bad8/schedule": {
+      "file": "c1e86f99b6f428ad.http",
+      "sha256": "a8ac4ede64dd6c1c2d995aa20b8ae58f3092b935ed8f8c21eb6770cdb6d8a6ca"
+    },
+    "GET api.themeparks.wiki /v1/entity/47f90d2c-e191-4239-a466-5892ef59a88b/live": {
+      "file": "0c4b36485c7f8b58.http",
+      "sha256": "f8abaf837818284f97bf1ec1c138c1353488cd247715cc5dd7a90ffb8d856db2"
+    },
+    "GET api.themeparks.wiki /v1/entity/47f90d2c-e191-4239-a466-5892ef59a88b/schedule": {
+      "file": "f28dad44b8ce8575.http",
+      "sha256": "225b477cea95a272f55c89503d807a3c0f7742894dc2e3d86347be31cba160a0"
+    },
+    "GET api.themeparks.wiki /v1/entity/75ea578a-adc8-4116-a54d-dccb60765ef9/live": {
+      "file": "36ccb5b6832408ad.http",
+      "sha256": "fc847a7dae382e7aa6c29c9868be185e37dc5618f358ee4dcd9cdc8b314b573f"
+    },
+    "GET api.themeparks.wiki /v1/entity/75ea578a-adc8-4116-a54d-dccb60765ef9/schedule": {
+      "file": "e738e695d5012868.http",
+      "sha256": "1250817bd1335e5ee9a0207cc600c00410712dc5f9eb4c83f37c4bd7ac9f0c27"
+    }
+  }
+}
