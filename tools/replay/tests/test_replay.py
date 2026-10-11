@@ -1,7 +1,6 @@
 """Specifies replay.py's own respond(): every branch of the hit/miss decision, writing to a
-plain BytesIO instead of a real socket and reading a real tmp_path response file. No test here
-ever needs a network: respond() imports nothing that could open one, proven below by making the
-one primitive that would (socket.create_connection) raise if anything called it.
+plain BytesIO instead of a real socket and reading a real tmp_path response file. An autouse
+fixture makes socket.create_connection raise, proving these calls never reach it.
 """
 import socket
 from io import BytesIO, StringIO
