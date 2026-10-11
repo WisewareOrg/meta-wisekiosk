@@ -1,8 +1,0 @@
-{
-  "responses": {
-    "GET api.open-meteo.com /v1/forecast?current=temperature_2m%2Capparent_temperature%2Crelative_humidity_2m%2Cwind_speed_10m%2Cweather_code%2Cis_day&daily=weather_code%2Ctemperature_2m_max%2Ctemperature_2m_min%2Cprecipitation_probability_max&forecast_days=6&forecast_hours=13&hourly=temperature_2m%2Cweather_code%2Cprecipitation_probability%2Cis_day&latitude=28.5383&longitude=-81.3792&precipitation_unit=inch&temperature_unit=fahrenheit&timezone=auto&wind_speed_unit=mph": {
-      "file": "8e6c4f752a61a481.http",
-      "sha256": "c0d16a0dc0b5510954aa9c0d7a6b2f14e1482fae76a1d3756975e8f3d37211c4"
-    }
-  }
-}
