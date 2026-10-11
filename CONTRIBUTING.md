@@ -59,7 +59,7 @@ bash .claude/hooks/guard-test.sh   # the device guard's self-test on its own
 CI runs [`tools/ci-guards.sh`](tools/ci-guards.sh) (requirements tree gate included — see
 [`docs/requirements/README.md`](docs/requirements/README.md)),
 [`tools/scrub-identity.py`](tools/scrub-identity.py) `--check`, [`tools/doc-links.py`](tools/doc-links.py)
-and `just test`. The pre-commit hook runs the same four, so a commit cannot pass locally and fail there. `just image` and `just verify`'s doc-vs-image half need a
+and `just test`. The pre-commit hook runs the first three; `just test` is CI's job, not the hook's. `just image` and `just verify`'s doc-vs-image half need a
 populated `build/` and are local-only: CI never builds, and a required check that skips on every run
 is noise rather than a gate.
 
