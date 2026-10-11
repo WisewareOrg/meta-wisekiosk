@@ -24,9 +24,8 @@ for v in PIPELINE_DRIVER PIPELINE_TREE PIPELINE_SSH_DIR \
     [ -n "${!v:-}" ] || { echo "run.sh: $v not set" >&2; exit 2; }
 done
 
-# The one definition of the replay proxy's URL: seeded into bench's
-# wisekiosk.conf and passed to mode-check.py as the value it compares
-# HTTPS_PROXY against, so the two never drift apart.
+# The replay proxy's URL: seeded into bench's wisekiosk.conf and passed
+# to mode-check.py as the value it compares HTTPS_PROXY against.
 REPLAY_PROXY_URL="http://127.0.0.1:$PIPELINE_REPLAY_PORT"
 
 if [ -n "$REF" ]; then
