@@ -231,6 +231,13 @@ def page_line(nonce, state, cards, faulted, unreachable):
     return f"R page nonce={nonce} state={state} cards={cards} faulted={faulted} unreachable={unreachable}"
 
 
+def perf_line(fps, p50, stall, maxstall, ttp, rss, idle, thermal, cost):
+    return (
+        f"R perf fps={fps} p50={p50} stall={stall} maxstall={maxstall} ttp={ttp} "
+        f"rss={rss} idle={idle} thermal={thermal} cost={cost}"
+    )
+
+
 def mode_token(environ_text, port):
     """"live" if environ_text (a /proc/<pid>/environ dump, NUL already
     newline) carries no HTTPS_PROXY line; "replay" if it carries exactly

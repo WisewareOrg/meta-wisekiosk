@@ -43,19 +43,29 @@ def parse_title(title):
     found = _fields(title)
     if found is None or not all(key in found for key in _FIELDS):
         return None
+    return _typed(found)
+
+
+def _typed(found):
     return {key: (int(found[key]) if key in _INT_FIELDS else found[key]) for key in _FIELDS}
 
 
-def read_sample(xprop_output):
-    """The applied-page sample from xprop's raw per-window dump (one
-    WM_NAME(<type>) = "<title>" line per window xwininfo -tree found) --
-    the first window whose title parses to a probe payload, or None if no
-    window carries one."""
+def read_fields(xprop_output):
+    """Every key=value token of the first window whose title parses to a
+    probe payload, from xprop's raw per-window dump (one WM_NAME(<type>) =
+    "<title>" line per window xwininfo -tree found), as a dict of strings;
+    None if no window carries one."""
     for title in _title_lines(xprop_output):
-        sample = parse_title(title)
-        if sample is not None:
-            return sample
+        if parse_title(title) is not None:
+            return _fields(title)
     return None
+
+
+def read_sample(xprop_output):
+    """The applied-page sample (parse_title's five fields) of read_fields'
+    window, or None if no window carries a probe payload."""
+    fields = read_fields(xprop_output)
+    return None if fields is None else _typed(fields)
 
 
 def verdict(samples):

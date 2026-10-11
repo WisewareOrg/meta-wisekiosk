@@ -14,7 +14,7 @@ No device, no DOM -- every title and every sample list is constructed.
 
 import pytest
 
-from oeqa.runtime.cases.kiosk_applied.verdict import parse_title, read_sample, verdict
+from oeqa.runtime.cases.kiosk_applied.verdict import parse_title, read_fields, read_sample, verdict
 
 PROBE = "WK1 nonce=1699999999.5 state=applied cards=-/- faulted=0 unreachable=0"
 
@@ -105,6 +105,31 @@ def test_read_sample_skips_a_line_with_no_wm_name_property():
         "nonce": "1699999999.5", "state": "applied", "cards": "-/-", "faulted": 0,
         "unreachable": 0,
     }
+
+
+# ----------------------------------------------------------------------- read_fields
+# kiosk_perf's own case reads the same title through this function, never through read_sample
+# (which types and narrows to parse_title's own five fields) -- the contract it relies on is that
+# every token past the WK1 marker comes back, unfiltered and untyped, perf fields included.
+
+def test_read_fields_returns_every_token_unfiltered_including_the_perf_fields():
+    extended = (
+        "WK1 nonce=1699999999.5 state=applied cards=4/4 faulted=0 unreachable=0 "
+        "t0=1200 el=316200 ttp=16500 changes=3 frames=15100 isum=302345 maxstall=185 "
+        "bt=42 hist=12080,1510,305,103,21,11,2 tour=3,180500 weather=1,45000 cost=320"
+    )
+    xprop_output = f'WM_NAME(STRING) = "{extended}"\n'
+    assert read_fields(xprop_output) == {
+        "nonce": "1699999999.5", "state": "applied", "cards": "4/4", "faulted": "0",
+        "unreachable": "0", "t0": "1200", "el": "316200", "ttp": "16500", "changes": "3",
+        "frames": "15100", "isum": "302345", "maxstall": "185", "bt": "42",
+        "hist": "12080,1510,305,103,21,11,2", "tour": "3,180500", "weather": "1,45000",
+        "cost": "320",
+    }
+
+
+def test_read_fields_none_when_no_window_carries_a_payload():
+    assert read_fields('WM_NAME(STRING) = "sCgdimfFxt:T | WiseKiosk"\n') is None
 
 
 # ---------------------------------------------------------------------------- verdict

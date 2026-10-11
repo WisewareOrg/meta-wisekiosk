@@ -33,6 +33,7 @@ from framework.record import (
     mode_token,
     page_line,
     parse_buildinfo,
+    perf_line,
     pid_from_pgrep,
     scrub_argv,
     slot_installed_at,
@@ -592,6 +593,29 @@ def test_sut_line():
 def test_page_line():
     got = page_line(nonce="1699999999.5", state="applied", cards="-/-", faulted=0, unreachable=0)
     assert got == "R page nonce=1699999999.5 state=applied cards=-/- faulted=0 unreachable=0"
+
+
+def test_perf_line():
+    got = perf_line(
+        fps=50.0, p50=80.0, stall=86.4, maxstall=185, ttp=16500, rss=98765, idle=84.51,
+        thermal="ok", cost=220,
+    )
+    assert got == (
+        "R perf fps=50.0 p50=80.0 stall=86.4 maxstall=185 ttp=16500 rss=98765 idle=84.51 "
+        "thermal=ok cost=220"
+    )
+
+
+def test_perf_line_carries_an_excluded_thermal_cause_unchanged():
+    # The builder interprets nothing: a thermal="excluded:<cause>" value passes straight through.
+    got = perf_line(
+        fps=12.3, p50=40.0, stall=200.0, maxstall=4000, ttp="-", rss=150000, idle=10.0,
+        thermal="excluded:temp=85.0", cost=5,
+    )
+    assert got == (
+        "R perf fps=12.3 p50=40.0 stall=200.0 maxstall=4000 ttp=- rss=150000 idle=10.0 "
+        "thermal=excluded:temp=85.0 cost=5"
+    )
 
 
 @pytest.mark.parametrize(
