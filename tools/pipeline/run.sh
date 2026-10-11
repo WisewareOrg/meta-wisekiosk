@@ -24,6 +24,11 @@ for v in PIPELINE_DRIVER PIPELINE_TREE PIPELINE_SSH_DIR \
     [ -n "${!v:-}" ] || { echo "run.sh: $v not set" >&2; exit 2; }
 done
 
+# The one definition of the replay proxy's URL: seeded into bench's
+# wisekiosk.conf and passed to mode-check.py as the value it compares
+# HTTPS_PROXY against, so the two never drift apart.
+REPLAY_PROXY_URL="http://127.0.0.1:$PIPELINE_REPLAY_PORT"
+
 if [ -n "$REF" ]; then
     if [ "$(systemctl --user is-enabled wisekiosk-pipeline.timer 2>/dev/null || true)" = "enabled" ] \
             || systemctl --user is-active --quiet wisekiosk-pipeline.service; then
@@ -103,7 +108,7 @@ backend_env() {
 
 # mode_token HOST -- "live"/"replay"/"void", through framework/record.py.
 mode_token() {
-    backend_env "$1" | python3 "$TOOLS/pipeline/mode-check.py" "$PIPELINE_REPLAY_PORT"
+    backend_env "$1" | python3 "$TOOLS/pipeline/mode-check.py" "$REPLAY_PROXY_URL"
 }
 
 # wait_active HOST UNIT -- polls `systemctl is-active`, 1s apart, up to 30s.
@@ -161,8 +166,8 @@ start_replay_window() {
     ssh "${SSH_OPTS[@]}" "$SSH_HOST" cat /data/config/config.json > "$RUN_DIR/bench-config.json.saved" \
         || { replay_void "could not save bench's own config.json before seeding $PIPELINE_REPLAY_SET"; return 1; }
 
-    printf 'HTTPS_PROXY=http://127.0.0.1:%s\nSSL_CERT_FILE=%s\nSSL_CERT_DIR=%s\n' \
-            "$PIPELINE_REPLAY_PORT" "$BENCH_CA_CERT" "$BENCH_CA_DIR" \
+    printf 'HTTPS_PROXY=%s\nSSL_CERT_FILE=%s\nSSL_CERT_DIR=%s\n' \
+            "$REPLAY_PROXY_URL" "$BENCH_CA_CERT" "$BENCH_CA_DIR" \
         | ssh "${SSH_OPTS[@]}" "$SSH_HOST" 'cat > /data/config/wisekiosk.conf' \
         || { replay_void "could not seed bench's wisekiosk.conf for $PIPELINE_REPLAY_SET"; return 1; }
     ssh "${SSH_OPTS[@]}" "$SSH_HOST" 'cat > /data/config/config.json' < "$SET_DIR/config.json" \

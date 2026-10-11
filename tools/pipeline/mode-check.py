@@ -2,7 +2,7 @@
 """Prints the live/replay mode token for one backend environ dump,
 importing the package exactly as config-mac.py does.
 
-    python3 tools/pipeline/mode-check.py <port>
+    python3 tools/pipeline/mode-check.py <proxy-url>
         -- reads a /proc/<pid>/environ dump (NUL already newline) on stdin,
            prints "live", "replay" or "void"
 """
@@ -15,9 +15,9 @@ from framework import record  # noqa: E402
 
 def main():
     if len(sys.argv) != 2:
-        print("usage: mode-check.py <port>", file=sys.stderr)
+        print("usage: mode-check.py <proxy-url>", file=sys.stderr)
         return 2
-    print(record.mode_token(sys.stdin.read(), int(sys.argv[1])) or "void")
+    print(record.mode_token(sys.stdin.read(), sys.argv[1]) or "void")
     return 0
 
 

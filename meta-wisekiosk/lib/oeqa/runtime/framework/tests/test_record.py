@@ -595,19 +595,20 @@ def test_page_line():
 
 
 @pytest.mark.parametrize(
-    ("name", "environ_text", "port", "want"),
+    ("name", "environ_text", "proxy_url", "want"),
     [
-        ("no HTTPS_PROXY line at all is live", "PATH=/usr/bin\nHOME=/root", 18443, "live"),
+        ("no HTTPS_PROXY line at all is live", "PATH=/usr/bin\nHOME=/root", "http://127.0.0.1:18443", "live"),
         ("HTTPS_PROXY equal to this job's own proxy is replay",
-         "PATH=/usr/bin\nHTTPS_PROXY=http://127.0.0.1:18443", 18443, "replay"),
-        ("a different port is a void", "HTTPS_PROXY=http://127.0.0.1:9999", 18443, None),
+         "PATH=/usr/bin\nHTTPS_PROXY=http://127.0.0.1:18443", "http://127.0.0.1:18443", "replay"),
+        ("a different port is a void", "HTTPS_PROXY=http://127.0.0.1:9999", "http://127.0.0.1:18443", None),
         ("a trailing path on the value is a void, not a substring match",
-         "HTTPS_PROXY=http://127.0.0.1:18443/x", 18443, None),
-        ("two HTTPS_PROXY lines is a void", "HTTPS_PROXY=http://127.0.0.1:18443\nHTTPS_PROXY=x", 18443, None),
+         "HTTPS_PROXY=http://127.0.0.1:18443/x", "http://127.0.0.1:18443", None),
+        ("two HTTPS_PROXY lines is a void",
+         "HTTPS_PROXY=http://127.0.0.1:18443\nHTTPS_PROXY=x", "http://127.0.0.1:18443", None),
     ],
 )
-def test_mode_token(name, environ_text, port, want):
-    assert mode_token(environ_text, port) == want, name
+def test_mode_token(name, environ_text, proxy_url, want):
+    assert mode_token(environ_text, proxy_url) == want, name
 
 
 # ------------------------------------------------------------ the whole record

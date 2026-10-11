@@ -231,14 +231,14 @@ def page_line(nonce, state, cards, faulted, unreachable):
     return f"R page nonce={nonce} state={state} cards={cards} faulted={faulted} unreachable={unreachable}"
 
 
-def mode_token(environ_text, port):
+def mode_token(environ_text, proxy_url):
     """"live" if environ_text (a /proc/<pid>/environ dump, NUL already
     newline) carries no HTTPS_PROXY line; "replay" if it carries exactly
-    one line equal to this job's own proxy; None for anything else -- an
-    unexpected or missing-vs-present mismatch, always a void."""
+    one line equal to "HTTPS_PROXY=<proxy_url>"; None for anything else --
+    an unexpected or missing-vs-present mismatch, always a void."""
     lines = [line for line in environ_text.splitlines() if line.startswith("HTTPS_PROXY=")]
     if not lines:
         return "live"
-    if lines == [f"HTTPS_PROXY=http://127.0.0.1:{port}"]:
+    if lines == [f"HTTPS_PROXY={proxy_url}"]:
         return "replay"
     return None
