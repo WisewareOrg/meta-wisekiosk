@@ -8,7 +8,7 @@ links:
 normative: true
 rationale: ''
 ref: ''
-reviewed: vTSJ6wg_Z5vvbmiUIpX7mYRUvvsgiGKwWjccnk-SZ1g=
+reviewed: pLOpvFSwoV1bTGvU548Zxa8C-h5rljVb-elvzD7QR50=
 status: proposed
 text: |
   After an update, the kiosk shall come back showing its display without anyone attending it.
@@ -16,6 +16,8 @@ verification-justification: |
   Settled by two decompositions of how an update can fail to do that: the image's display
   service is set to show the display as designed (TST008, read from the shipped image itself);
   the services the image ships load on the booted board (TST010, as the board's own systemd
-  reports). Leaves unproven what the display shows once up (SRS001, SRS007) and an install that
-  bypasses kiosk-preflight.
+  reports). The time from the page's load to its first full sample, on the boot after an update,
+  is recorded (TST014), with no bound asserted until the baseline campaign derives one. Leaves
+  unproven what the display shows once up (SRS001, SRS007), how soon is soon enough, and an
+  install that bypasses kiosk-preflight.
 verification-method: test

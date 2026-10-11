@@ -5,13 +5,18 @@ header: |
 level: 1.2
 links: []
 normative: true
-rationale: ''
+rationale: |
+  Decomposed by the display continuing to render rather than freeze (SRS002), and by its
+  motion showing no visible stutter (SRS010), whose bounds the baseline campaign derives.
 ref: ''
-reviewed: O7BFoXulC0cki2CUcyVGjbUBULpNp1h7JjThAwwTZPw=
+reviewed: oRhmrI1ntVgTWGM1ljmKS2d6WXXJLcrjjXwUTa13Bp0=
 status: proposed
 text: |
   The kiosk shall perform smoothly on this hardware.
 verification-justification: |
-  Settles that the display keeps rendering rather than freezing. Leaves unproven whether a
-  frame is visually correct, and whether the display is applied as designed in the first place.
+  Settles that the display keeps rendering rather than freezing (SRS002), and records its
+  frame rate, late frames, longest freeze and freeze rate over one window (SRS010). Leaves
+  unproven whether a frame is visually correct, whether the display is applied as designed in
+  the first place, and any smoothness bound, none asserted until the baseline campaign derives
+  them.
 verification-method: test
