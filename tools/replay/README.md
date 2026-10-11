@@ -12,7 +12,9 @@ serves it back byte for byte on every later job, with no code path that ever dia
 `record.py` is the opposite and separate entry point that makes the recording — a hand procedure,
 pipeline timer off, never invoked by `run.sh`. Both build on `proxy.py`, the shared CONNECT/TLS
 acceptor; only `record.py` ever opens a connection to anything but the client already holding the
-tunnel.
+tunnel. This no-forwarding property is structural and grep-checked, not merely asserted:
+`tools/pipeline-test.sh`'s own boundary row fails if `replay.py` or `proxy.py` ever names a
+client-dialling primitive, or if `replay.py` imports `record.py`.
 
 ## The CA
 
@@ -65,12 +67,11 @@ a miss, same as an absent file. The run record's own `<manifest-hash>` token
 (`replay=<name>@<hash>`) is a separate, outer hash — `replay.py`'s own `SERVE` line, sha256 of
 `manifest.json`'s bytes — distinct from any one response's integrity hash.
 
-The applied case's own `cards=<present>/<live>` is a recorded field only — `run.sh` never compares
-it against anything, since the sample lands before the park modules' own fetch fills the cards. A
-job's own voids are the mode reads and the proxy's access log
-(`SERVE`, at least one `HIT`, zero `MISS`, the proxy and tunnel both still answering); whether a
-set's own cards actually came up live is read by hand, from a title taken after the fill, and
-cited in the PR.
+The applied case's own `cards=<present>/<live>` is a recorded field only — [docs/testing.md](../../docs/testing.md)
+§"Running it" has why it is never compared. A job's own voids are the mode reads and the proxy's
+access log (`SERVE`, at least one `HIT`, zero `MISS`, the proxy and tunnel both still answering);
+whether a set's own cards actually came up live is read by hand, from a title taken after the
+fill, and cited in the PR.
 
 ## Re-recording
 
