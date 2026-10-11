@@ -283,6 +283,85 @@ else
         "refusal_line=$ACCEPT_REFUSAL_LINE hex_line=$ACCEPT_HEX_LINE"
 fi
 
+# --- T3: check_replay_window_end's three access-log decisions (MISS
+# count, HIT >= 1, SERVE extraction) run from run.sh's own text, extracted
+# by sed between its header and closing brace and evaled with mode_token
+# and replay_void stubbed -- a row keyed on a retyped copy cannot fail
+# when run.sh drifts. ----------------------------------------------------
+CHECK_WINDOW_END_FN=$(sed -n '/^check_replay_window_end() {/,/^}/p' "$RUN_SH")
+if [ -z "$CHECK_WINDOW_END_FN" ]; then
+    bad "check_replay_window_end() extraction from run.sh came back empty"
+fi
+
+# run_window_end LOG_CONTENT -- evaluates run.sh's own check_replay_window_end
+# with MODE_START=MODE_END=live (the mode check itself never voids), a live
+# PROXY_PID/TUNNEL_PID, and RUN_DIR/replay.log holding LOG_CONTENT (omitted
+# if LOG_CONTENT is "-"). Prints "REASON=<reason>" and "VALUE=<REPLAY_VALUE>".
+run_window_end() {
+    local log_content=$1 win_dir proxy_pid tunnel_pid
+    win_dir=$(mktemp -d "$TOP/window.XXXXXX")
+    [ "$log_content" = "-" ] || printf '%s\n' "$log_content" > "$win_dir/replay.log"
+    sleep 5 &
+    proxy_pid=$!
+    sleep 5 &
+    tunnel_pid=$!
+    (
+        eval "$CHECK_WINDOW_END_FN"
+        mode_token() { printf 'live'; }
+        REASON=""
+        replay_void() { [ -n "$REASON" ] || REASON=$1; }
+        MODE_START=live
+        SSH_HOST=test-host
+        PIPELINE_REPLAY_SET=test-set
+        PROXY_PID=$proxy_pid
+        TUNNEL_PID=$tunnel_pid
+        RUN_DIR=$win_dir
+        check_replay_window_end
+        printf 'REASON=%s\n' "$REASON"
+        printf 'VALUE=%s\n' "$REPLAY_VALUE"
+    )
+    kill "$proxy_pid" "$tunnel_pid" 2>/dev/null
+    wait "$proxy_pid" "$tunnel_pid" 2>/dev/null
+    rm -rf "$win_dir"
+}
+
+CLEAN_LOG=$'2026-10-10T00:00:00+00:00 SERVE cards4-live@abcd1234\n2026-10-10T00:00:01+00:00 HIT GET host /a sha256=aa\n2026-10-10T00:00:02+00:00 HIT GET host /b sha256=bb'
+WINDOW_OUT=$(run_window_end "$CLEAN_LOG")
+WINDOW_REASON=$(printf '%s\n' "$WINDOW_OUT" | sed -n 's/^REASON=//p')
+WINDOW_VALUE=$(printf '%s\n' "$WINDOW_OUT" | sed -n 's/^VALUE=//p')
+if [ -z "$WINDOW_REASON" ] && [ "$WINDOW_VALUE" = "cards4-live@abcd1234" ]; then
+    ok "window-end: a clean log (SERVE, 2 HIT, 0 MISS) voids nothing and REPLAY_VALUE is the SERVE value"
+else
+    bad "window-end: the clean-log case did not read as expected" "REASON=$WINDOW_REASON VALUE=$WINDOW_VALUE"
+fi
+
+MISS_LOG="$CLEAN_LOG"$'\n2026-10-10T00:00:03+00:00 MISS GET host /c (no leaf)'
+WINDOW_OUT=$(run_window_end "$MISS_LOG")
+WINDOW_REASON=$(printf '%s\n' "$WINDOW_OUT" | sed -n 's/^REASON=//p')
+if [ "$WINDOW_REASON" = "replay.log carries 1 MISS line(s) for test-set" ]; then
+    ok "window-end: one MISS line voids with the exact MISS-count reason"
+else
+    bad "window-end: a MISS line did not void as expected" "REASON=$WINDOW_REASON"
+fi
+
+NO_HIT_LOG='2026-10-10T00:00:00+00:00 SERVE cards4-live@abcd1234'
+WINDOW_OUT=$(run_window_end "$NO_HIT_LOG")
+WINDOW_REASON=$(printf '%s\n' "$WINDOW_OUT" | sed -n 's/^REASON=//p')
+if [ "$WINDOW_REASON" = "replay.log carries no HIT line for test-set" ]; then
+    ok "window-end: a SERVE line with no HIT voids with the exact no-HIT reason"
+else
+    bad "window-end: no-HIT log did not void as expected" "REASON=$WINDOW_REASON"
+fi
+
+NO_SERVE_LOG='2026-10-10T00:00:00+00:00 HIT GET host /a sha256=aa'
+WINDOW_OUT=$(run_window_end "$NO_SERVE_LOG")
+WINDOW_REASON=$(printf '%s\n' "$WINDOW_OUT" | sed -n 's/^REASON=//p')
+if [ "$WINDOW_REASON" = "replay.log carries no SERVE <set>@<hash> line for test-set" ]; then
+    ok "window-end: a HIT line with no SERVE voids with the exact no-SERVE reason"
+else
+    bad "window-end: no-SERVE log did not void as expected" "REASON=$WINDOW_REASON"
+fi
+
 # --- record-check.py posts only on an exact dirty=0. dirty=1 is left to
 # run.sh's existing, unchanged abort path (STATUS stays OK; run.sh's own
 # "= 1" check fires on the value). A missing or malformed dirty is a
