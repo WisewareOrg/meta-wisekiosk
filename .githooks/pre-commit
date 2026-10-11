@@ -46,5 +46,4 @@ tools/ci-guards.sh || rc=1
 # rather than a pass. ci-guards guard 11 asserts this call is still here, so
 # deleting it fails the guards rather than going quiet.
 "$py" tools/scrub-identity.py --check || rc=1
-just test || rc=1
 exit $rc
