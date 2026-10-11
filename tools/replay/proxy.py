@@ -25,23 +25,12 @@ BAD_GATEWAY = (
 _log_lock = threading.Lock()
 
 
-class ReplaySetExpired(Exception):
-    """A set past its own "expires" date."""
-
-
 def match_key(method, host, target):
     return f"{method} {host} {target}"
 
 
 def load_manifest(manifest_path):
     return json.loads(Path(manifest_path).read_text(encoding="utf-8"))
-
-
-def check_expiry(expires, today=None):
-    """Raises ReplaySetExpired if expires (an ISO date string) is before today."""
-    today = today or datetime.date.today()
-    if today > datetime.date.fromisoformat(expires):
-        raise ReplaySetExpired("replay set expired: re-record")
 
 
 def hash_matches(body, sha256_hex):

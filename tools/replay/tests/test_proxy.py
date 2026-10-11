@@ -1,16 +1,12 @@
-"""Specifies proxy.py's pure parts: the match-key builder, manifest load, hash check, expiry
-refusal, leaf-last-month check, the MISS/HIT decision, and the request/body/log-line transport
+"""Specifies proxy.py's pure parts: the match-key builder, manifest load, hash check,
+the leaf-last-month check, the MISS/HIT decision, and the request/body/log-line transport
 helpers over plain file-like objects (no socket).
 """
-from datetime import date, datetime
+from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 
-import pytest
-
 from proxy import (
-    ReplaySetExpired,
-    check_expiry,
     check_leaf_freshness,
     decide,
     hash_matches,
@@ -44,22 +40,8 @@ def test_match_key_builds_method_host_target():
 
 def test_load_manifest(tmp_path):
     manifest_path = tmp_path / "manifest.json"
-    manifest_path.write_text('{"expires": "2099-01-01", "responses": {}}', encoding="utf-8")
-    assert load_manifest(manifest_path) == {"expires": "2099-01-01", "responses": {}}
-
-
-def test_check_expiry_on_the_expiry_date_itself_does_not_raise():
-    check_expiry("2026-10-09", today=date(2026, 10, 9))
-
-
-def test_check_expiry_one_day_past_raises_the_plan_exact_message():
-    with pytest.raises(ReplaySetExpired) as exc_info:
-        check_expiry("2026-10-09", today=date(2026, 10, 10))
-    assert str(exc_info.value) == "replay set expired: re-record"
-
-
-def test_check_expiry_far_future_does_not_raise():
-    check_expiry("2099-01-01", today=date(2026, 10, 9))
+    manifest_path.write_text('{"responses": {}}', encoding="utf-8")
+    assert load_manifest(manifest_path) == {"responses": {}}
 
 
 def test_hash_matches_the_real_sha256sum_digest():

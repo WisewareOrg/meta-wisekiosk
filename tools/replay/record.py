@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """tools/replay/README.md owns the facts this tool reads and implements.
 
-    tools/replay/record.py --set <dir> --port <n> --ca <dir> --expires YYYY-MM-DD
+    tools/replay/record.py --set <dir> --port <n> --ca <dir>
 """
 import functools
 import hashlib
@@ -73,7 +73,6 @@ def main():  # pragma: no cover -- CLI wiring over respond()/proxy.serve()
     parser.add_argument("--set", required=True)
     parser.add_argument("--port", required=True, type=int)
     parser.add_argument("--ca", required=True)
-    parser.add_argument("--expires", required=True, help="ISO date, the last date in the recorded schedule")
     args = parser.parse_args(sys.argv[1:])
 
     set_dir = Path(args.set)
@@ -83,8 +82,7 @@ def main():  # pragma: no cover -- CLI wiring over respond()/proxy.serve()
         manifest = proxy.load_manifest(manifest_path)
     else:
         set_dir.mkdir(parents=True, exist_ok=True)
-        manifest = {"expires": args.expires, "responses": {}}
-    manifest["expires"] = args.expires
+        manifest = {"responses": {}}
 
     proxy.serve(args.port, ca_dir, None, sys.stderr, functools.partial(respond, manifest, set_dir))
     return 0

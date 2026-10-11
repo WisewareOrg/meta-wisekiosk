@@ -51,8 +51,7 @@ def main():  # pragma: no cover -- CLI wiring over respond()/proxy.serve()
     manifest_path = set_dir / proxy.MANIFEST_NAME
     try:
         manifest = proxy.load_manifest(manifest_path)
-        proxy.check_expiry(manifest["expires"])
-    except (OSError, ValueError, KeyError, proxy.ReplaySetExpired) as exc:
+    except (OSError, ValueError) as exc:
         sys.exit(str(exc))
     stale = proxy.stale_leaves(ca_dir, proxy.known_hosts(manifest))
     if stale:

@@ -31,12 +31,12 @@ key and every leaf's key stay on the pipeline host.
 
 ```sh
 tools/replay/replay.py --set sets/<name> --port <n> --ca local/keys/replay-ca --log <file>
-tools/replay/record.py --set sets/<name> --port <n> --ca local/keys/replay-ca --expires YYYY-MM-DD
+tools/replay/record.py --set sets/<name> --port <n> --ca local/keys/replay-ca
 ```
 
 Both terminate TLS themselves (a CONNECT-then-server-handshake proxy), presenting whichever leaf
-the CONNECT's own host names. `replay.py` refuses to start if the set is past its own `expires`
-date, or any host it names has no leaf or one expiring within 30 days; its own access log's first
+the CONNECT's own host names. `replay.py` refuses to start if any host the set names has no leaf
+or one expiring within 30 days; its own access log's first
 line is `SERVE <name>@<manifest-hash>`, the proxy's own measurement of which recording it is
 serving. A request outside the set (an unknown host, or a method+host+target the manifest never
 recorded) gets a 502, logged `MISS <key>`; a served hit is logged `HIT <key> sha256=<hash>`.
@@ -55,8 +55,7 @@ that `tools/scrub-identity.py` has no pattern for.
 ```
 sets/<name>/
   config.json       -- public coordinates/parks only; installed to bench's /data for the window
-  manifest.json      {"expires": "YYYY-MM-DD",
-                       "responses": {"<method> <host> <path?query>": {"file": ..., "sha256": ...}}}
+  manifest.json      {"responses": {"<method> <host> <path?query>": {"file": ..., "sha256": ...}}}
   responses/*.http   -- one file per response: the full HTTP/1.1 message (status line, headers,
                         blank line, body), written back byte for byte, nothing recomputed
 ```
@@ -75,9 +74,7 @@ cited in the PR.
 
 ## Re-recording
 
-A set past its `expires` date refuses to serve at all (`replay set expired: re-record`). `expires`
-is the last date in the set's own recorded park schedules; for a set with no schedule at all (such
-as `weather-only`), it is the forecast's own last day instead. To re-record (pipeline timer off
+A recorded set never expires; re-record one only to change what it holds (pipeline timer off
 throughout):
 
 1. Mint a leaf for every upstream host the set's own `config.json` will call, if none already
@@ -89,7 +86,7 @@ throughout):
    restart `wisekiosk.service`. `tools/kiosk-ssh.sh` may hold the tunnel for this.
 3. On the pipeline host, open the same reverse tunnel `run.sh` uses (`ssh -R
    127.0.0.1:<port>:127.0.0.1:<port>`) and run `tools/replay/record.py --set sets/<name> --port
-   <port> --ca local/keys/replay-ca --expires <this set's own expiry, per the rule above>`.
+   <port> --ca local/keys/replay-ca`.
 4. Restart `kiosk.service` so the page issues every request the config implies (one weather call, a
    live and a schedule call per park); watch `record.py`'s own stderr for a `RECORD <key> -> <file>`
    line per request, until every expected key has one.
