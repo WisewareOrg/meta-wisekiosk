@@ -180,8 +180,8 @@ start_replay_window() {
         || { replay_void "kiosk.service did not restart for $PIPELINE_REPLAY_SET"; return 1; }
 }
 
-# check_replay_window_end -- the mode end-read runs on every job; a replay job also checks the proxy, the tunnel, and the access log, and reads REPLAY_VALUE from it.
-REPLAY_VALUE=live
+# check_replay_window_end -- the mode end-read runs on every job; a replay job also checks the proxy, the tunnel, and the access log, and reads REPLAY_VALUE from it. Empty means unmeasured.
+REPLAY_VALUE=""
 check_replay_window_end() {
     MODE_END=$(mode_token "$SSH_HOST") || MODE_END=void
     if [ "$MODE_END" != "$MODE_START" ] || [ "$MODE_END" = void ]; then
@@ -515,7 +515,9 @@ else
         RESULTSARG=(--results "$RUN_DIR/testresults.json")
 
         # The record precondition. docs/testing.md § "Running it" has the why.
-        RECORD_CHECK=$(python3 "$TOOLS/pipeline/record-check.py" "$RUN_DIR/testresults.json" "$SHA" --replay "$REPLAY_VALUE")
+        RECORD_CHECK_ARGS=("$RUN_DIR/testresults.json" "$SHA")
+        [ -n "$REPLAY_VALUE" ] && RECORD_CHECK_ARGS+=(--replay "$REPLAY_VALUE")
+        RECORD_CHECK=$(python3 "$TOOLS/pipeline/record-check.py" "${RECORD_CHECK_ARGS[@]}")
         read -r RECORD_STATUS _ RECORD_DIRTY RECORD_TRANSPORT RECORD_REASON <<< "$RECORD_CHECK"
         [ "$RECORD_TRANSPORT" = "1" ] && TRANSPORT_RC=1
         if [ "$RECORD_STATUS" != "OK" ]; then
