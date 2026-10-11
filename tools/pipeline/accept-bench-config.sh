@@ -38,6 +38,13 @@ KEY="$ROOT/local/keys/hmac.key"
 SSH_OPTS=(-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
 SSH_HOST="root@$PIPELINE_TARGET"
 
+ssh "${SSH_OPTS[@]}" "$SSH_HOST" test -e /data/config/wisekiosk.conf && {
+    SAVED=$(find "$PIPELINE_DRIVER/local/pipeline/runs" -maxdepth 2 -name bench-config.json.saved \
+        -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -n1 | cut -d' ' -f2-)
+    echo "accept-bench-config.sh: bench is still seeded by a replay window; restore /data/config/config.json from ${SAVED:-the RUN_DIR/bench-config.json.saved of the job that left it}, do not accept this as the new baseline" >&2
+    exit 1
+}
+
 # hex_read PATH -- PATH's bytes on SSH_HOST as a hexdump -ve '1/1 "%02x"'
 # dump: busybox has no base64 applet and no long-option od, and hex is
 # the byte-safe transport the keyed hash needs. One pre-assembled

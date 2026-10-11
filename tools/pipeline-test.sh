@@ -261,6 +261,28 @@ for f in "$RUN_SH" "$ACCEPT_SH"; do
     fi
 done
 
+# --- E1: both scripts refuse while bench is still seeded by a replay
+# window (a leftover wisekiosk.conf from a job that died mid-window),
+# checked before any hash read -- a leftover must be restored, never
+# accepted as the new baseline. -----------------------------------------
+WISEKIOSK_REFUSAL_LINE=$(grep -n 'bench is still seeded by a replay window; restore' "$RUN_SH" | head -n1 | cut -d: -f1)
+MAC_FILE_LINE=$(grep -n '^MAC_FILE="\$PIPELINE_DRIVER' "$RUN_SH" | head -n1 | cut -d: -f1)
+if [ -n "$WISEKIOSK_REFUSAL_LINE" ] && [ -n "$MAC_FILE_LINE" ] && [ "$WISEKIOSK_REFUSAL_LINE" -lt "$MAC_FILE_LINE" ]; then
+    ok "boundary: run.sh's wisekiosk.conf refusal runs before the keyed-hash comparison, not after"
+else
+    bad "run.sh's wisekiosk.conf refusal is missing or runs after the hash comparison" \
+        "refusal_line=$WISEKIOSK_REFUSAL_LINE mac_file_line=$MAC_FILE_LINE"
+fi
+
+ACCEPT_REFUSAL_LINE=$(grep -n 'bench is still seeded by a replay window; restore' "$ACCEPT_SH" | head -n1 | cut -d: -f1)
+ACCEPT_HEX_LINE=$(grep -n 'KIOSK_CONF_HEX=\$(hex_read' "$ACCEPT_SH" | head -n1 | cut -d: -f1)
+if [ -n "$ACCEPT_REFUSAL_LINE" ] && [ -n "$ACCEPT_HEX_LINE" ] && [ "$ACCEPT_REFUSAL_LINE" -lt "$ACCEPT_HEX_LINE" ]; then
+    ok "boundary: accept-bench-config.sh refuses while wisekiosk.conf is present, before any hash read"
+else
+    bad "accept-bench-config.sh's wisekiosk.conf refusal is missing or runs after a hash read" \
+        "refusal_line=$ACCEPT_REFUSAL_LINE hex_line=$ACCEPT_HEX_LINE"
+fi
+
 # --- record-check.py posts only on an exact dirty=0. dirty=1 is left to
 # run.sh's existing, unchanged abort path (STATUS stays OK; run.sh's own
 # "= 1" check fires on the value). A missing or malformed dirty is a

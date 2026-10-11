@@ -399,6 +399,8 @@ OBSERVED_HOSTNAME=$(ssh "${SSH_OPTS[@]}" "$SSH_HOST" hostname 2>/dev/null || tru
     || abort "PIPELINE_TARGET's live hostname does not match PIPELINE_TARGET_HOSTNAME"
 
 # The /data precondition. docs/testing.md § "Running it" has the why.
+ssh "${SSH_OPTS[@]}" "$SSH_HOST" test -e /data/config/wisekiosk.conf \
+    && abort "bench is still seeded by a replay window; restore /data/config/config.json from the window's saved copy, do not run pipeline-accept-bench-config"
 MAC_FILE="$PIPELINE_DRIVER/local/pipeline/bench-config.mac"
 [ -f "$MAC_FILE" ] \
     || abort "bench /data differs from the accepted configuration; run just pipeline-accept-bench-config"
@@ -426,8 +428,6 @@ if [ "$OBSERVED_KIOSK_CONF_MAC" != "$EXPECTED_KIOSK_CONF_MAC" ] \
         || [ "$OBSERVED_CA_CERT_MAC" != "$EXPECTED_CA_CERT_MAC" ]; then
     abort "bench /data differs from the accepted configuration; run just pipeline-accept-bench-config"
 fi
-ssh "${SSH_OPTS[@]}" "$SSH_HOST" test -e /data/config/wisekiosk.conf \
-    && abort "bench carries a /data/config/wisekiosk.conf outside a replay window; remove it by hand"
 
 git checkout --detach "$SHA" > "$RUN_DIR/checkout.log" 2>&1 \
     || abort "could not check out $SHA in $PIPELINE_TREE"
