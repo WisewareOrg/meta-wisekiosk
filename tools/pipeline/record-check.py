@@ -62,7 +62,10 @@ def check(results_path, sha, replay=None):
 
     if replay is not None:
         rec["replay"] = f"R replay={replay}"
-        Path(results_path).write_text(json.dumps(data), encoding="utf-8")
+        try:
+            Path(results_path).write_text(json.dumps(data), encoding="utf-8")
+        except OSError as exc:
+            return f"ERROR {image} {dirty} {transport} could not write the replay value: {exc}"
 
     if image != sha:
         return f"ERROR {image} {dirty} {transport} run record names image={image}, not {sha}"
@@ -71,16 +74,15 @@ def check(results_path, sha, replay=None):
 
 def main():
     argv = sys.argv[1:]
+    usage = "usage: record-check.py <testresults.json> <sha> [--replay <value>]"
     if len(argv) < 2:
-        print("usage: record-check.py <testresults.json> <sha> [--replay <value>]", file=sys.stderr)
+        print(usage, file=sys.stderr)
         return 0
     results_path, sha, rest = argv[0], argv[1], argv[2:]
-    replay = None
-    i = 0
-    while i < len(rest) - 1:
-        if rest[i] == "--replay":
-            replay = rest[i + 1]
-        i += 2
+    if rest and (len(rest) != 2 or rest[0] != "--replay"):
+        print(usage, file=sys.stderr)
+        return 0
+    replay = rest[1] if rest else None
     print(check(results_path, sha, replay))
     return 0
 

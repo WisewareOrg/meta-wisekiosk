@@ -325,6 +325,13 @@ else
     bad "record-check: a malformed dirty value did not report malformed" "rc=$rc out=$out"
 fi
 
+capture out rc "$PY" "$RECORD_CHECK_PY" "$REPLAY_RESULTS" abc --replay
+if [ "$rc" -eq 0 ] && [ -z "$out" ] && grep -qF "usage: record-check.py" "$TOP/stderr"; then
+    ok "record-check: a malformed --replay (no value) prints the usage line, not a dropped flag"
+else
+    bad "record-check: malformed --replay was not rejected" "rc=$rc out=$out stderr=$(cat "$TOP/stderr")"
+fi
+
 # --- the shell path (hexdump | config-mac.py) agrees with hashing the
 # file's bytes directly in Python, for real LF/CRLF/trailing-space content --
 HEXKEY="$TOP/hexkey"
