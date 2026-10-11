@@ -290,8 +290,7 @@ fi
 # --- check_replay_window_end's three access-log decisions (MISS
 # count, HIT >= 1, SERVE extraction) run from run.sh's own text, extracted
 # by sed between its header and closing brace and evaled with mode_token
-# and replay_void stubbed -- a row keyed on a retyped copy cannot fail
-# when run.sh drifts. ----------------------------------------------------
+# and replay_void stubbed. --------------------------------------------
 CHECK_WINDOW_END_FN=$(sed -n '/^check_replay_window_end() {/,/^}/p' "$RUN_SH")
 if [ -z "$CHECK_WINDOW_END_FN" ]; then
     bad "check_replay_window_end() extraction from run.sh came back empty"
@@ -308,9 +307,9 @@ run_window_end() {
     local log_content=$1 win_dir proxy_pid tunnel_pid
     win_dir=$(mktemp -d "$TOP/window.XXXXXX")
     [ "$log_content" = "-" ] || printf '%s\n' "$log_content" > "$win_dir/replay.log"
-    sleep 5 &
+    sleep 300 &
     proxy_pid=$!
-    sleep 5 &
+    sleep 300 &
     tunnel_pid=$!
     (
         eval "$CHECK_WINDOW_END_FN"
