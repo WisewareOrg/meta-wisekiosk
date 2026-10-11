@@ -266,6 +266,9 @@ done
 # checked before any hash read -- a leftover must be restored, never
 # accepted as the new baseline. -----------------------------------------
 WISEKIOSK_REFUSAL_LINE=$(grep -n 'bench is still seeded by a replay window; restore' "$RUN_SH" | head -n1 | cut -d: -f1)
+# The single quotes are the point: this is a literal fragment to match
+# in the target file, not an expression to expand here.
+# shellcheck disable=SC2016
 MAC_FILE_LINE=$(grep -n '^MAC_FILE="\$PIPELINE_DRIVER' "$RUN_SH" | head -n1 | cut -d: -f1)
 if [ -n "$WISEKIOSK_REFUSAL_LINE" ] && [ -n "$MAC_FILE_LINE" ] && [ "$WISEKIOSK_REFUSAL_LINE" -lt "$MAC_FILE_LINE" ]; then
     ok "boundary: run.sh's wisekiosk.conf refusal runs before the keyed-hash comparison, not after"
@@ -275,6 +278,7 @@ else
 fi
 
 ACCEPT_REFUSAL_LINE=$(grep -n 'bench is still seeded by a replay window; restore' "$ACCEPT_SH" | head -n1 | cut -d: -f1)
+# shellcheck disable=SC2016
 ACCEPT_HEX_LINE=$(grep -n 'KIOSK_CONF_HEX=\$(hex_read' "$ACCEPT_SH" | head -n1 | cut -d: -f1)
 if [ -n "$ACCEPT_REFUSAL_LINE" ] && [ -n "$ACCEPT_HEX_LINE" ] && [ "$ACCEPT_REFUSAL_LINE" -lt "$ACCEPT_HEX_LINE" ]; then
     ok "boundary: accept-bench-config.sh refuses while wisekiosk.conf is present, before any hash read"
@@ -297,6 +301,9 @@ fi
 # with MODE_START=MODE_END=live (the mode check itself never voids), a live
 # PROXY_PID/TUNNEL_PID, and RUN_DIR/replay.log holding LOG_CONTENT (omitted
 # if LOG_CONTENT is "-"). Prints "REASON=<reason>" and "VALUE=<REPLAY_VALUE>".
+# The vars below are read only by the eval'd check_replay_window_end text,
+# and the stubs only by indirect calls from inside it.
+# shellcheck disable=SC2034,SC2317
 run_window_end() {
     local log_content=$1 win_dir proxy_pid tunnel_pid
     win_dir=$(mktemp -d "$TOP/window.XXXXXX")
