@@ -26,6 +26,11 @@ what came back, and the case asserts on that judgement. The case itself never pa
 - `kiosk_applied/` — `test_page_applied`, `probe.js` (the DOM probe surf evaluates; no recipe, the
   case deploys it with `copyTo`), and `verdict.py`'s title parser and verdict. The one probe script
   every other probe-reading case below reads, never duplicates.
+- `kiosk_perf/` — `test_perf_window`, the performance window (`docs/requirements/srs/SRS010`;
+  `docs/requirements/tst/TST011`-`TST014`), run by `oe-test` alone on the second boot, never in
+  `TEST_SUITES` ([`docs/testing.md`](../../../../../docs/testing.md) §"Running it"). It reads
+  the probe at the window's start and end, never between, and `verdict.py` differences the two
+  reads. The window's only assertion is its validity against the replay set's `expected.json`.
 - `kiosk_layout/` — the appliance's own layout-floor need (`docs/requirements/srs/SRS007`), reading
   the mode `DISPLAY=:0 xrandr` reports directly, never through the probe.
 - `kiosk_browser_restart/` — the appliance's own need that the browser comes back on its own when it

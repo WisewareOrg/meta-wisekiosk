@@ -55,6 +55,7 @@ that `tools/scrub-identity.py` has no pattern for.
 ```
 sets/<name>/
   config.json       -- public coordinates/parks only; installed to bench's /data for the window
+  expected.json     -- the page state the set produces once filled (below)
   manifest.json      {"responses": {"<method> <host> <path?query>": {"file": ..., "sha256": ...}}}
   responses/*.http   -- one file per response: the full HTTP/1.1 message (status line, headers,
                         blank line, body), written back byte for byte, nothing recomputed
@@ -65,12 +66,15 @@ a miss, same as an absent file. The run record's own `<manifest-hash>` token
 (`replay=<name>@<hash>`) is a separate, outer hash — `replay.py`'s own `SERVE` line, sha256 of
 `manifest.json`'s bytes — distinct from any one response's integrity hash.
 
-The applied case's own `cards=<present>/<live>` is a recorded field only — `run.sh` never compares
-it against anything, since the sample lands before the park modules' own fetch fills the cards. A
-job's own voids are the mode reads and the proxy's access log
-(`SERVE`, at least one `HIT`, zero `MISS`, the proxy and tunnel both still answering); whether a
-set's own cards actually came up live is read by hand, from a title taken after the fill, and
-cited in the PR.
+Each set's `expected.json` is the page state the set produces once its fetches have filled the
+page: `{"cards": "<present>/<live>", "faulted": <n>, "unreachable": <0|1>}`, in the probe's own
+units. `kiosk_perf` voids its window unless both of its probe reads equal it and the page counts
+no state change between them. The window starts 15 s after the page loads, and the fill lands
+within about 6 s of `state=applied`. The applied case's own `cards=` is a recorded field only,
+because that sample lands at `state=applied`, before the park modules' fetch fills the cards. A
+job's other voids are the mode reads and the proxy's access log (`SERVE`, at least one `HIT`, zero
+`MISS`, the proxy and tunnel both still answering). A set re-recorded into a different page state gets its
+`expected.json` rewritten in the same commit, from a title read after the fill.
 
 ## Re-recording
 

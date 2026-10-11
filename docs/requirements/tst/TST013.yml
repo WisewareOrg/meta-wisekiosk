@@ -1,0 +1,27 @@
+active: true
+derived: false
+header: |
+  Freeze rate over the window
+level: 1.12
+links:
+- SRS010: 398ANkdsf49YF4jlD-GrNkzSBlp3qpCsDoX-bEJ7nAs=
+normative: true
+rationale: ''
+ref: ''
+references:
+- keyword: def test_perf_window
+  path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_perf/case.py
+  sha: edf12cb123a9dc204f8dfc46a5dbe3286528e721ec346a458df494f82d7a3621
+  type: file
+reviewed: gm9og_dNWzvFb42W6RZZd6NvDkisvxilpYl6Lba-MH4=
+status: proposed
+text: |
+  On the second boot of the updated slot, over the 300 s window starting 15 s after the page
+  loads, record the number of frame intervals of 100 ms or more per minute.
+verification-justification: |
+  Records the metric over one 300 s window on the replayed page, on one physical device,
+  one boot, the window voided unless both reads show the replay set's expected page state and
+  the page counts no state change between them. Asserts no bound until the baseline campaign derives one, so until then a value
+  is recorded, never failed.
+  Leaves unproven the length of the longest freeze (TST012) and the frame rate (TST011).
+verification-method: test

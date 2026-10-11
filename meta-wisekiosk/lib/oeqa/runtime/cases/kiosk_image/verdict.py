@@ -67,7 +67,7 @@ def execstart_verdict(unit_text, dropin_texts):
 
 
 # -- path presence --
-REQUIRED_BINARIES = ("xprop", "xrandr", "xset", "import")
+REQUIRED_BINARIES = ("xprop", "xrandr", "xset", "import", "vcgencmd")
 
 
 def path_presence_verdict(present, required):

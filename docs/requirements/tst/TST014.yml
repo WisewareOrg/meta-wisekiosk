@@ -1,0 +1,28 @@
+active: true
+derived: false
+header: |
+  Time to page after boot
+level: 1.13
+links:
+- SRS008: yr9Y0fXes5pflVN3ra5eP0XLpuiNqAxWcdacAz7RgXU=
+normative: true
+rationale: ''
+ref: ''
+references:
+- keyword: def test_perf_window
+  path: meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_perf/case.py
+  sha: edf12cb123a9dc204f8dfc46a5dbe3286528e721ec346a458df494f82d7a3621
+  type: file
+reviewed: 0K81EhN2MG5tygQ5okiObf7cVs5lrKcRlEHTTIi2XgM=
+status: proposed
+text: |
+  On the second boot of the updated slot, record the time from the page's load to the first
+  probe sample showing the display's frame, nothing loading, the weather present and the
+  replay set's expected cards.
+verification-justification: |
+  Records the time read at the window's start, on the replayed page, on one physical device,
+  one boot, the window voided unless both reads show the replay set's expected page state and
+  the page counts no state change between them. Asserts no bound until the baseline campaign derives one, so until then a value
+  is recorded, never failed. Leaves unproven how long the board takes to start the browser,
+  which the page's own load clock does not see.
+verification-method: test

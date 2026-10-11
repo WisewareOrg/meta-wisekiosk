@@ -9,8 +9,8 @@ S = "${WORKDIR}"
 
 inherit systemd
 
-# busybox supplies every tool the sampler calls; vcgencmd comes from the
-# firmware package that is already in the image.
+# busybox supplies every tool the sampler calls but vcgencmd, which comes from
+# raspi-utils in the kiosk block's IMAGE_INSTALL.
 RDEPENDS:${PN} = "busybox"
 
 # Only the timer carries an [Install] section. Enabling the oneshot service

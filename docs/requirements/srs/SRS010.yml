@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Display moves without visible stutter
+level: 1.8
+links:
+- SYS003: oRhmrI1ntVgTWGM1ljmKS2d6WXXJLcrjjXwUTa13Bp0=
+normative: true
+rationale: |
+  Decomposed by the ways motion on the panel fails: frames arriving late (TST011), one long
+  freeze (TST012), and freezes that recur (TST013).
+ref: ''
+reviewed: jjsEVmc1qfxhQW29ustWUTuPzl8wrp6jBzrNI0zmQfY=
+status: proposed
+text: |
+  The kiosk shall show its display in motion without visible stutter.
+verification-justification: |
+  Settles the frame rate, the share of late frames, the longest freeze and the freeze rate over
+  one window on the replayed page, recorded on one physical device, one boot. Leaves unproven
+  any bound: none is asserted until the baseline campaign derives them, so until then a
+  stuttering display is recorded, never failed.
+verification-method: test

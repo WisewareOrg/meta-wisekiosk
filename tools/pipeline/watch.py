@@ -75,7 +75,8 @@ QUEUE_ROWS_MAX = 10
 #                       verdict.txt for this stage's own failure --
 #                       "bundle"/"preflight"/"send"/"install"/"build"
 #                       failed via run_or_fail()'s "<name> failed", and
-#                       "reboot" via "new slot did not boot"; () for a
+#                       "reboot" via "new slot did not boot", "reboot 2"
+#                       via "new slot did not survive boot 2"; () for a
 #                       stage whose failure is read a different way
 #                       (smoke via testresults.json, render/gpu via their
 #                       own tail log) or not attributed by text at all
@@ -88,6 +89,8 @@ STAGES = (
     ("send", "send.log", "send", ("send failed",)),
     ("install", "install.log", "install", ("install failed",)),
     ("reboot", "reboot.log", "reboot", ("did not boot",)),
+    ("reboot-2", "reboot-2.log", "reboot 2", ("did not survive boot 2",)),
+    ("perf", "perf.log", "perf", ()),
     ("testimage", "testimage.log", "smoke", ()),
     ("render", "render.log", "render", ()),
     ("gpu", "gpu.log", "gpu", ()),

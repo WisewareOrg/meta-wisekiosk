@@ -196,19 +196,25 @@ else
 fi
 
 # --- Every cases/<pkg>/case.py is named in includes/testimage.yaml's TEST_SUITES or
-# run.sh's own "oe-test 127.0.0.1 <module>" line, read from that line, not a second literal.
+# one of run.sh's own "oe-test <target> <module>" stage lines, read from those lines, not a
+# second literal.
 IMAGE_TIER_MODULE=$(grep -oE 'oe-test 127\.0\.0\.1 [A-Za-z0-9_.]+' "$RUN_SH" | awk '{print $3}')
 if [ -z "$IMAGE_TIER_MODULE" ]; then
     bad "run.sh has no 'oe-test 127.0.0.1 <module>' image-content stage line"
 fi
+# shellcheck disable=SC2016
+PERF_MODULE=$(grep -oE 'oe-test "\$PIPELINE_TARGET" [A-Za-z0-9_.]+' "$RUN_SH" | awk '{print $3}')
+if [ -z "$PERF_MODULE" ]; then
+    bad "run.sh has no 'oe-test \"\$PIPELINE_TARGET\" <module>' performance-window stage line"
+fi
 CASE_PKGS=$(find "$HERE/../meta-wisekiosk/lib/oeqa/runtime/cases" -mindepth 2 -maxdepth 2 -name case.py \
     | sed -E 's#.*/cases/([^/]+)/case\.py#\1.case#' | sort)
-SUITE_PKGS=$( { sed -n 's/^\s*TEST_SUITES = "\(.*\)"$/\1/p' "$TESTIMAGE_YAML"; echo "$IMAGE_TIER_MODULE"; } \
+SUITE_PKGS=$( { sed -n 's/^\s*TEST_SUITES = "\(.*\)"$/\1/p' "$TESTIMAGE_YAML"; echo "$IMAGE_TIER_MODULE"; echo "$PERF_MODULE"; } \
     | tr ' ' '\n' | sort)
 if [ -n "$CASE_PKGS" ] && [ "$CASE_PKGS" = "$SUITE_PKGS" ]; then
-    ok "boundary: includes/testimage.yaml's TEST_SUITES plus run.sh's own image-content module name exactly the existing cases/*/case.py packages, each once"
+    ok "boundary: includes/testimage.yaml's TEST_SUITES plus run.sh's own image-content and performance-window modules name exactly the existing cases/*/case.py packages, each once"
 else
-    bad "TEST_SUITES (device tier) plus run.sh's image-content module and cases/*/case.py disagree" "cases: $CASE_PKGS / suites: $SUITE_PKGS"
+    bad "TEST_SUITES (device tier) plus run.sh's image-content and performance-window modules and cases/*/case.py disagree" "cases: $CASE_PKGS / suites: $SUITE_PKGS"
 fi
 # --- ssh-quoting regression: ssh joins separate remote-command words
 # with spaces, and the remote shell re-parses the result -- a format
@@ -252,6 +258,49 @@ for f in "$RUN_SH" "$ACCEPT_SH"; do
             "hex_read definitions=$HEX_READ_DEFS"
     fi
 done
+
+# --- Each literal `finish failure "<text>"` in run.sh lights exactly one watch.py stage. ---
+WATCH_PY="$HERE/pipeline/watch.py"
+capture out rc "$PY" -c '
+import importlib.util, re, sys
+spec = importlib.util.spec_from_file_location("watch", sys.argv[1])
+watch = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(watch)
+texts = re.findall(r"finish failure \"([^\"$]+)\"", open(sys.argv[2]).read())
+for text in texts:
+    hits = [d for d, subs in watch.FAILURE_PATTERNS.items() if any(s in text for s in subs)]
+    if len(hits) != 1:
+        print(f"{text!r} -> {hits}")
+print(len(texts))
+' "$WATCH_PY" "$RUN_SH"
+if [ "$rc" -eq 0 ] && [[ "$out" =~ ^[0-9]+$ ]] && [ "$out" -gt 0 ]; then
+    ok "watch: each of run.sh's $out literal finish-failure texts lights exactly one stage"
+else
+    bad "watch: a run.sh finish-failure text lights no stage or more than one" "rc=$rc out=$out"
+fi
+
+# --- install.sh writes every PIPELINE_* name run.sh requires, read from run.sh's own list. ---
+INSTALL_SH="$HERE/pipeline/install.sh"
+REQUIRED_NAMES=$(sed -n '/^for v in PIPELINE_DRIVER/,/; do$/p' "$RUN_SH" | grep -oE 'PIPELINE_[A-Z_]+' | sort -u)
+UNWRITTEN=""
+for name in $REQUIRED_NAMES; do
+    grep -qE "^\s*printf '$name=" "$INSTALL_SH" || UNWRITTEN="$UNWRITTEN $name"
+done
+if [ -n "$REQUIRED_NAMES" ] && [ -z "$UNWRITTEN" ]; then
+    ok "install: pipeline.env carries every PIPELINE_* name run.sh requires ($(echo "$REQUIRED_NAMES" | wc -w))"
+else
+    bad "install: pipeline.env misses names run.sh requires" "missing:${UNWRITTEN:- (no names read)}"
+fi
+
+# --- oe-test.sh with only two of the three identity variables set still resolves through the map. ---
+capture out rc env -u KIOSK_HMAC_KEY KIOSK_TARGET_ROLE=bench KIOSK_TARGET_HOSTNAME=x \
+    "$HERE/oe-test.sh" 192.0.2.1 kiosk_perf.case
+err=$(cat "$TOP/stderr")
+if [ "$rc" -ne 0 ] && [[ "$err" == *"pipeline-install"* || "$err" == *"CONTRIBUTING.md"* || "$err" == *"device-role.py:"* ]]; then
+    ok "oe-test: two of the three identity variables set still resolves through the identity map"
+else
+    bad "oe-test: a partial identity skipped the identity map" "rc=$rc err=$err"
+fi
 
 # --- record-check.py posts only on an exact dirty=0. dirty=1 is left to
 # run.sh's existing, unchanged abort path (STATUS stays OK; run.sh's own
@@ -307,6 +356,18 @@ if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0" ] \
     ok "record-check: --replay writes R replay=<value> into testresults.json's own record"
 else
     bad "record-check --replay write-back" "rc=$rc out=$out $(cat "$REPLAY_RESULTS")"
+fi
+
+PERF_RESULTS="$TOP/perf-results.json"
+echo '{"r": {"result": {"wisekiosk.record": {"perf": "R perf fps=29.9 cost=310"}}}}' > "$PERF_RESULTS"
+capture out rc "$PY" "$RECORD_CHECK_PY" "$REPLAY_RESULTS" abc --perf "$PERF_RESULTS" \
+    --perf-set "cards4-live@deadbeef"
+if [ "$rc" -eq 0 ] && [ "$out" = "OK abc 0 0" ] \
+        && grep -qF '"perf": "R perf fps=29.9' "$REPLAY_RESULTS" \
+        && grep -qF 'cost=310 set=cards4-live@deadbeef"' "$REPLAY_RESULTS"; then
+    ok "record-check: --perf copies the oe-test record's perf line, with --perf-set's set=, into testresults.json's own record"
+else
+    bad "record-check --perf write-back" "rc=$rc out=$out $(cat "$REPLAY_RESULTS")"
 fi
 
 dirty_fixture ""

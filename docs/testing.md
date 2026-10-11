@@ -9,7 +9,8 @@ result at that tier does **not** let you conclude.
 | Host (`just test`) | `meta-wisekiosk/lib/oeqa/runtime/framework/record.py` and every case package's own `verdict.py` under `cases/` behave as their constructed-input tests say, at a 100% line and branch coverage floor. | Every PR and merge-group commit (CI). | That a board actually produces the input these functions expect. That contract is proven separately, by a case's own acceptance runs on bench; `framework/base.py` and each package's `case.py`/`selfcheck.py` are transport only and are outside this tier's coverage population by construction. |
 | Build (`just build`) | The kas config resolves and bitbake completes: an image artifact exists. | On demand, locally — never in CI, which does not build. | Whether the image differs from the last one, whether it boots, whether it serves anything. |
 | Image content (`just oe-test 127.0.0.1 kiosk_image.case`) | The built rootfs's display-launch unit carries its designed flags (`-s 0 -dpms -nocursor`, drop-ins merged as systemd merges them), the required binaries later checks need are present, and the display's served `index.html` is in the rootfs. Reads the build's own deployed `.ext4` directly — no board, no network, in seconds. | The pipeline, once per queue job, before `send`. | Whether the bundle ties to this image (`reproducibility-gate.sh`'s own job, below), whether the image boots, whether the display actually renders, whether its units are well-formed, or anything the device smoke tier below settles. |
-| Device smoke (`testimage` in the pipeline, or `just oe-test <target>` by hand) | The backend unit is active, `/healthz` answers, the page serves, WebKit still composites on the GPU, the page is still painting, the page is applied as the application designs it, the browser comes back on its own when it dies, the display runs at the configured mode, at or above the design floor, and every unit meta-wisekiosk's own recipes ship is loaded with no load error and none failed (`systemctl show`/`systemctl list-units --failed`, against the board's own systemd) — on **one** physical device, one boot. Both run `includes/testimage.yaml`'s own `TEST_SUITES` list of `meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_*.case` modules and write the same run record. | The pipeline, once per queue job, after an OTA install (never a flash). By hand, any time, against any board `local/device-identity.md` names — never prod, which the suite's own hostname check refuses. | The shared boot partition (`config.txt`, `cmdline.txt`, `boot.scr`, and `uboot.env` apart from RAUC's own boot-selection variables) — an OTA writes only the slot rootfs it boots, which does carry the kernel. The RAUC slot layout, which an OTA never touches, or a second boot. |
+| Device smoke (`testimage` in the pipeline, or `just oe-test <target>` by hand) | The backend unit is active, `/healthz` answers, the page serves, WebKit still composites on the GPU, the page is still painting, the page is applied as the application designs it, the browser comes back on its own when it dies, the display runs at the configured mode, at or above the design floor, and every unit meta-wisekiosk's own recipes ship is loaded with no load error and none failed (`systemctl show`/`systemctl list-units --failed`, against the board's own systemd) — on **one** physical device, one boot. Both run `includes/testimage.yaml`'s own `TEST_SUITES` list of `meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_*.case` modules and write the same run record. | The pipeline, once per queue job, after an OTA install (never a flash). By hand, any time, against any board `local/device-identity.md` names — never prod, which the suite's own hostname check refuses. | The shared boot partition (`config.txt`, `cmdline.txt`, `boot.scr`, and `uboot.env` apart from RAUC's own boot-selection variables) — an OTA writes only the slot rootfs it boots, which does carry the kernel. The RAUC slot layout, which an OTA never touches. |
+| Performance window (`just oe-test <target> kiosk_perf.case`, in the pipeline or by hand) | On the second boot of the installed slot, over a 300 s window starting 15 s after the page loads: the page's frame rate, share of frame intervals under 50 ms, freeze rate and longest freeze, its time to page, and the browser family's RSS, CPU idle and thermal state, recorded as the run record's `perf` line. The window runs in replay on `PIPELINE_PERF_SET` and is void unless both of its reads show the set's expected page state ([`tools/replay/README.md`](../tools/replay/README.md)) and the page counts no state change between them. | The pipeline, once per queue job, after the second boot and before the device smoke suite. | Any bound: none is asserted until a baseline campaign derives them, so a stuttering display is recorded, never failed. A page state that comes and goes between two of the probe's 5 s title writes. |
 | OTA/rollback (the queue run) | Install, reboot, and — for a queue run — mark-bad, reboot and land back on the baseline slot all completed, and the device answered again each time. | Every queue job. | Whether the slot rolled back *into* would itself survive a fresh install — it was booted back into, not reinstalled. There are only two slots. |
 
 The Static tier's `docs/requirements/` gate (see [`docs/requirements/README.md`](requirements/README.md))
@@ -171,30 +172,37 @@ timer off; it installs the CA cert from this host's own `local/keys/replay-ca/ca
 `testimage` and the two device checks — there is no point running the suite against the wrong
 image — but still rolls back, like every other outcome, before `finish failure` names the mismatch.
 
+**Boot 2 and the performance window.** After the install reboot and the buildinfo readback,
+`run.sh` reboots the installed slot a second time; a device that does not come back on it is a
+candidate failure, `new slot did not survive boot 2`, posted like the first boot's. Once it
+answers, `run.sh` opens a replay window (below) on `PIPELINE_PERF_SET` (`cards4-live` unless
+`pipeline.env` names another), deploys the probe, and with `kiosk-soak.timer` stopped runs `just
+oe-test <target> kiosk_perf.case`, writing its record under the run directory's `perf/`.
+`record-check.py --perf` copies that record's `perf` line into the job's record, ending
+`set=<set>@<manifest-hash>`. A void or unread window aborts the job the way a replay void does.
+
 **Replay mode.** `run.sh` can put bench's backend behind the committed replay proxy instead of the
 real upstream data sources — [`tools/replay/README.md`](../tools/replay/README.md) owns the proxy,
-the CA and the set layout. With `PIPELINE_REPLAY_SET=<name>` set, before `testimage` runs: `run.sh`
-starts `tools/replay/replay.py` on loopback, holds a reverse `ssh -R` tunnel to bench for the job's
-own duration (never `tools/kiosk-ssh.sh`'s persistent shared master, which would outlive the job),
+the CA, the set layout and each set's expected page state. For a window's set — always
+`PIPELINE_PERF_SET` for the performance window, and `PIPELINE_REPLAY_SET=<name>` for `testimage`
+when set — before the stage runs: `run.sh` starts `tools/replay/replay.py` on loopback, holds a
+reverse `ssh -R` tunnel to bench for the window's duration (never `tools/kiosk-ssh.sh`'s persistent shared master, which would outlive the job),
 seeds bench's `/data/config/wisekiosk.conf` (`HTTPS_PROXY` at the tunnel, `SSL_CERT_FILE`/
 `SSL_CERT_DIR` at the installed CA) and the set's own `config.json`, restarts `wisekiosk.service`
 and reads its mode from `/proc/<MainPID>/environ`, then restarts `kiosk.service` so the page loads
-afresh against replay before `testimage` runs. `PIPELINE_REPLAY_SET` unset is a live run: no proxy,
+afresh against replay. `PIPELINE_REPLAY_SET` unset runs `testimage` live: no proxy,
 no tunnel, no seed, and the mode is still read the same way (absent `HTTPS_PROXY` confirms "live"),
 voiding the job if it reads anything else.
 
-After `testimage` — which is where the applied case's own `cards=<present>/<live>` lands in the
-record, as a recorded field only, never a comparison (the sample is taken at `state=applied`,
-before the park modules' own fetch fills the cards, so comparing it against a set's expectation
-would void good jobs) — `run.sh` re-reads the mode on every job, live or replay, and voids if it no
+After each window's stage, `run.sh` re-reads the mode, live or replay, and voids if it no
 longer matches the start; a replay job also checks the proxy and tunnel are still alive and the
 access log carries zero `MISS` lines and at least one `HIT` line (the request reaching the proxy
 over the tunnel). It then restores bench's own `config.json`, confirming no `HTTPS_PROXY` remains,
 before stopping the proxy and tunnel. A mismatched mode, a `MISS`, or a dead proxy or tunnel each
 sets a flag; `run.sh` reads every such flag only once execution reaches the point below that
 already reads `DIRTY_RC`/`TRANSPORT_RC` — the same reason a dirty tree never calls `abort` before
-the unconditional rollback runs. The mode run.sh measured — `live` or `<set>@<manifest-hash>`, the
-hash read from the proxy's own startup log line, never recomputed — is written into the record
+the unconditional rollback runs. `testimage`'s mode as run.sh measured it — `live` or
+`<set>@<manifest-hash>`, the hash read from the proxy's own startup log line, never recomputed — is written into the record
 itself as a new `replay` key, through `record-check.py --replay`, before `report-build.py`'s own
 unchanged passthrough renders it.
 
@@ -292,9 +300,11 @@ list of `meta-wisekiosk/lib/oeqa/runtime/cases/kiosk_*.case` modules, each with 
 against any board already built and booted. It resolves `KIOSK_TARGET_ROLE` and
 `KIOSK_TARGET_HOSTNAME` from `local/device-identity.md` (the role whose recorded address is
 `<target-ip>`, and bench's own recorded hostname — the suite refuses any board that is not bench
-regardless), refuses with a message if the HMAC key, the identity file, `sources/poky`, or the
-last build's deploy artifacts are missing, and writes its own run record under gitignored
-`local/oe-test/<timestamp>/`. It never touches RAUC, never installs, never reboots: of the suite's
+regardless), unless `KIOSK_TARGET_ROLE`, `KIOSK_TARGET_HOSTNAME` and `KIOSK_HMAC_KEY` are all
+already set, as `run.sh` sets them for testimage, in which case it takes those and skips the map.
+It refuses with a message if the HMAC key, the identity file, `sources/poky`, or the last build's
+deploy artifacts are missing, and writes its own run record under gitignored
+`local/oe-test/<timestamp>/`, or under `OE_TEST_RESULT_DIR` when set. It never touches RAUC, never installs, never reboots: of the suite's
 own cases, only two change anything on the board — `test_page_applied` arms the DOM probe
 (`copyTo` the script, restart `kiosk.service`), which its own teardown removes before the case
 ends, and `test_browser_restart` arms the same probe, restarts `kiosk.service` to take its
