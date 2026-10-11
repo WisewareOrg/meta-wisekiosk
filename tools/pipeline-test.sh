@@ -261,7 +261,7 @@ for f in "$RUN_SH" "$ACCEPT_SH"; do
     fi
 done
 
-# --- E1: both scripts refuse while bench is still seeded by a replay
+# --- both scripts refuse while bench is still seeded by a replay
 # window (a leftover wisekiosk.conf from a job that died mid-window),
 # checked before any hash read -- a leftover must be restored, never
 # accepted as the new baseline. -----------------------------------------
@@ -287,7 +287,7 @@ else
         "refusal_line=$ACCEPT_REFUSAL_LINE hex_line=$ACCEPT_HEX_LINE"
 fi
 
-# --- T3: check_replay_window_end's three access-log decisions (MISS
+# --- check_replay_window_end's three access-log decisions (MISS
 # count, HIT >= 1, SERVE extraction) run from run.sh's own text, extracted
 # by sed between its header and closing brace and evaled with mode_token
 # and replay_void stubbed -- a row keyed on a retyped copy cannot fail
