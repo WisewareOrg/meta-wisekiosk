@@ -102,7 +102,7 @@ def leaf_expiry(cert_path):  # pragma: no cover -- shells to openssl; parse_cert
     return parse_cert_enddate(out)
 
 
-def stale_leaves(ca_dir, hosts, now=None):  # pragma: no cover -- aggregates leaf_expiry (I/O); check_leaf_freshness proven above
+def stale_leaves(ca_dir, hosts, now=None):
     """Every host in hosts whose own leaf is missing or expiring soon."""
     stale = []
     for host in sorted(hosts):

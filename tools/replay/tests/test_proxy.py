@@ -6,6 +6,7 @@ from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 
+import proxy
 from proxy import (
     check_leaf_freshness,
     decide,
@@ -19,6 +20,7 @@ from proxy import (
     parse_cert_enddate,
     read_body,
     read_request,
+    stale_leaves,
 )
 
 REAL_METHOD = "GET"
@@ -94,6 +96,42 @@ def test_manifest_hash_is_the_real_sha256sum_of_the_file(tmp_path):
     manifest_path.write_bytes(b"abc")
     assert manifest_hash(manifest_path) == \
         "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+
+
+def test_stale_leaves_no_crt_is_reported_as_no_leaf(tmp_path):
+    ca_dir = tmp_path / "ca"
+    cert, _key = leaf_paths(ca_dir, REAL_HOST)
+    assert stale_leaves(ca_dir, {REAL_HOST}) == [f"{REAL_HOST} (no leaf at {cert})"]
+
+
+def test_stale_leaves_crt_without_key_is_reported_as_no_leaf(tmp_path):
+    ca_dir = tmp_path / "ca"
+    cert, key = leaf_paths(ca_dir, REAL_HOST)
+    cert.parent.mkdir(parents=True)
+    cert.write_bytes(b"cert")
+    assert not key.is_file()
+    assert stale_leaves(ca_dir, {REAL_HOST}) == [f"{REAL_HOST} (no leaf at {cert})"]
+
+
+def test_stale_leaves_fresh_leaf_is_empty(tmp_path, monkeypatch):
+    ca_dir = tmp_path / "ca"
+    cert, key = leaf_paths(ca_dir, REAL_HOST)
+    cert.parent.mkdir(parents=True)
+    cert.write_bytes(b"cert")
+    key.write_bytes(b"key")
+    monkeypatch.setattr(proxy, "leaf_expiry", lambda _cert: datetime(2027, 6, 1))
+    assert stale_leaves(ca_dir, {REAL_HOST}, now=datetime(2027, 1, 1)) == []
+
+
+def test_stale_leaves_leaf_inside_its_last_month_is_reported(tmp_path, monkeypatch):
+    ca_dir = tmp_path / "ca"
+    cert, key = leaf_paths(ca_dir, REAL_HOST)
+    cert.parent.mkdir(parents=True)
+    cert.write_bytes(b"cert")
+    key.write_bytes(b"key")
+    monkeypatch.setattr(proxy, "leaf_expiry", lambda _cert: datetime(2027, 1, 20))
+    assert stale_leaves(ca_dir, {REAL_HOST}, now=datetime(2027, 1, 1)) == \
+        [f"{REAL_HOST} (expires 2027-01-20)"]
 
 
 def test_read_request_connect_line():
