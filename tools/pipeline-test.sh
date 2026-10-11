@@ -141,10 +141,18 @@ REPLAY_PY="$HERE/replay/replay.py"
 PROXY_PY="$HERE/replay/proxy.py"
 FORBIDDEN='HTTPSConnection|HTTPConnection|create_connection|urlopen|socket\.socket\('
 FORBIDDEN_REPLAY="$FORBIDDEN|import record|from record"
-if ! grep -qE "$FORBIDDEN_REPLAY" "$REPLAY_PY" && ! grep -qE "$FORBIDDEN" "$PROXY_PY"; then
-    ok "boundary: replay.py and proxy.py contain no client-dialling primitive"
+if [ ! -f "$REPLAY_PY" ] || [ ! -f "$PROXY_PY" ]; then
+    bad "replay.py or proxy.py is missing -- cannot check for a client-dialling primitive" \
+        "REPLAY_PY=$REPLAY_PY PROXY_PY=$PROXY_PY"
 else
-    bad "replay.py or proxy.py names a client-dialling primitive"
+    grep -qE "$FORBIDDEN_REPLAY" "$REPLAY_PY"; REPLAY_GREP_RC=$?
+    grep -qE "$FORBIDDEN" "$PROXY_PY"; PROXY_GREP_RC=$?
+    if [ "$REPLAY_GREP_RC" -eq 1 ] && [ "$PROXY_GREP_RC" -eq 1 ]; then
+        ok "boundary: replay.py and proxy.py contain no client-dialling primitive"
+    else
+        bad "replay.py or proxy.py names a client-dialling primitive, or a grep could not read its file" \
+            "replay_grep_rc=$REPLAY_GREP_RC proxy_grep_rc=$PROXY_GREP_RC"
+    fi
 fi
 
 capture out rc "$PY" "$REPORT" --verdict "$VERDICT" --log "$LONGLOG"
