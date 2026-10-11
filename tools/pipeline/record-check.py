@@ -3,6 +3,7 @@
 exactly as config-mac.py does.
 
     python3 tools/pipeline/record-check.py <testresults.json> <sha> [--replay <value>]
+        [--perf <oe-test testresults.json> [--perf-set <set>@<hash>]]
         -- print one line run.sh reads whole with a single `read`:
            "<status> <image> <dirty> <transport> <reason...>"
 
@@ -15,6 +16,11 @@ are "0"/"1". reason is empty on a clean OK, the rest of the line otherwise
 and persists testresults.json with it, before this script's own stdout
 line is printed -- the record of record gains the field, not only the
 report.
+
+--perf copies the "perf" line of the named oe-test run's own record
+(the performance window, run before testimage) into this record the
+same way, when that file carries one; --perf-set appends
+"set=<set>@<hash>" (the window's own replay set) to that line.
 
 Always exits 0: the record's own malformed-ness is the caller's decision,
 this script only reports it.
@@ -38,7 +44,15 @@ def _find_record(data):
     return None
 
 
-def check(results_path, sha, replay=None):
+def _perf_line(perf_path):
+    try:
+        rec = _find_record(json.loads(Path(perf_path).read_text(encoding="utf-8")))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    return rec.get("perf") if isinstance(rec, dict) else None
+
+
+def check(results_path, sha, replay=None, perf=None, perf_set=None):
     try:
         data = json.loads(Path(results_path).read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -60,8 +74,12 @@ def check(results_path, sha, replay=None):
         key.startswith("page.") and isinstance(value, str) and record.TRANSPORT_STATE in value
         for key, value in rec.items()) else "0"
 
+    perf_line = _perf_line(perf) if perf is not None else None
+    if perf_line is not None:
+        rec["perf"] = perf_line if perf_set is None else f"{perf_line} set={perf_set}"
     if replay is not None:
         rec["replay"] = f"R replay={replay}"
+    if replay is not None or perf_line is not None:
         Path(results_path).write_text(json.dumps(data), encoding="utf-8")
 
     if image != sha:
@@ -75,13 +93,13 @@ def main():
         print("usage: record-check.py <testresults.json> <sha> [--replay <value>]", file=sys.stderr)
         return 0
     results_path, sha, rest = argv[0], argv[1], argv[2:]
-    replay = None
+    options = {"--replay": None, "--perf": None, "--perf-set": None}
     i = 0
     while i < len(rest) - 1:
-        if rest[i] == "--replay":
-            replay = rest[i + 1]
+        if rest[i] in options:
+            options[rest[i]] = rest[i + 1]
         i += 2
-    print(check(results_path, sha, replay))
+    print(check(results_path, sha, options["--replay"], options["--perf"], options["--perf-set"]))
     return 0
 
 

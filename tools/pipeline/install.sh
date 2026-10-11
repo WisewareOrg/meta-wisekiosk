@@ -88,6 +88,7 @@ SSH_DIR="$CONF_DIR/pipeline-ssh"
     printf 'PIPELINE_TARGET_ROLE="%s"\n' "$ROLE"
     printf 'PIPELINE_LOCK="%s"\n' "$PIPELINE_LOCK"
     printf 'PIPELINE_REPLAY_PORT="%s"\n' "${PIPELINE_REPLAY_PORT:-18443}"
+    printf 'PIPELINE_PERF_SET="%s"\n' "${PIPELINE_PERF_SET:-cards4-live}"
 } > "$CONF_DIR/pipeline.env"
 
 mkdir -p "$SSH_DIR"
