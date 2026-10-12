@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from tenacity import Retrying, stop_after_delay, wait_fixed
 
 from framework.record import decode_hex_dump, keyed_hash
 from probe import Probe
@@ -24,6 +25,8 @@ from verdicts.context import (
 from verdicts.layout import current_mode
 
 _REPLAY_SETS_DIR = Path(__file__).resolve().parents[1] / "replay" / "sets"
+_FACTS_SETTLE_SECONDS = 120
+_FACTS_POLL_SECONDS = 5
 
 
 def pytest_generate_tests(metafunc):
@@ -117,13 +120,41 @@ def _device_facts(target):
     autouse `device_context` fixture below attaches these facts, plus a fresh `end`, to every
     test's own report.
 
+    Session-scoped and autouse together mean this runs before whichever test happens to be
+    collected first, which may be moments after an OTA reboot -- before `surf`/`wisekiosk` have
+    necessarily finished starting. Retried for up to `_FACTS_SETTLE_SECONDS` rather than read
+    once, so a test with no connection of its own to app readiness (`test_00_provenance`,
+    `test_units_loaded`) does not fail on a boot race that is not its own concern.
+
     Args:
         target: labgrid Target fixture, bound to the `main` target `bench.yaml` names.
 
     Returns:
         dict: One key per fact, named for the old record's own field names.
+
+    Raises:
+        Exception: the last exception raised by a read, once `_FACTS_SETTLE_SECONDS` elapses
+            without every read succeeding.
     """
     driver = target.get_driver("SSHDriver")
+    for attempt in Retrying(
+        stop=stop_after_delay(_FACTS_SETTLE_SECONDS),
+        wait=wait_fixed(_FACTS_POLL_SECONDS),
+        reraise=True,
+    ):
+        with attempt:
+            return _gather_device_facts(driver)
+
+
+def _gather_device_facts(driver):
+    """One attempt at reading every fact `_device_facts` returns.
+
+    Args:
+        driver: A labgrid SSHDriver.
+
+    Returns:
+        dict: One key per fact, named for the old record's own field names.
+    """
     start = datetime.now(timezone.utc).isoformat()
 
     hostname = _run_text(driver, "hostname").strip()
