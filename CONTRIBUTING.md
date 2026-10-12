@@ -52,7 +52,8 @@ just guards         # repository invariants: secrets, identity, syntax, wiring;
                     # runs the device guard's and the CVE tools' self-tests too,
                     # and the requirements tree gate
 just install-hooks  # once per clone: point core.hooksPath at .githooks
-just test           # pytest over meta-wisekiosk/lib/oeqa/runtime/framework, 100% coverage floor
+just test           # pytest over tests/host_unit (the verdict modules) and the record helpers'
+                    # tests (meta-wisekiosk/lib/oeqa/runtime/framework/tests), 100% coverage floor
 bash .claude/hooks/guard-test.sh   # the device guard's self-test on its own
 ```
 
