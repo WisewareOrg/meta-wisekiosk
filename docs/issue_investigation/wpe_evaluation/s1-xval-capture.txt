@@ -1,0 +1,10 @@
+# xval-capture.sh role=S1-baseline-20a1f34 started 2026-10-04T20:01:51Z
+# buildinfo meta-wisekiosk    = HEAD:20a1f342580a10a0b32f26f4bcb804223ca068b1
+# kiosk-drmgrab sha256 cd2784ed8f3bd6b4889492527e81f0bbcf6dd26b11c285b144ad9a465d12cb64
+A drmgrab start 16:01:52
+A drmgrab rc=0 end 16:01:52
+A import rc=0 end 16:01:58
+B drmgrab start 16:03:02
+B drmgrab rc=0 end 16:03:02
+B import rc=0 end 16:03:09
+# complete 2026-10-04T20:03:12Z

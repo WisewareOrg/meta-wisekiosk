@@ -1,0 +1,22 @@
+# run-smoothness.sh role=S3-32b670c probe=p7_min.js sleep=585
+# harness 32b670c5a4379443aef5ddab9ca0e43cac1c5e96
+# started 2026-10-05T03:28:43Z
+# pre-run screenshot local/wpe-pre-s3-smoothness-run1.png
+# probe sha256 local    3d0e0c23a7b4012630c9c1870ffe44b6dd1eaa05518fa371e1e08e18b46a1248
+# buildinfo meta-wisekiosk    = HEAD:32b670c5a4379443aef5ddab9ca0e43cac1c5e96
+# Booted from: rootfs.1 (B)
+# config.json sha256 767e3d1afa72b855ce16cd451782c8395e71e8e3f589f12c6e6edeb90eb8ec48
+# kiosk.conf KIOSK_INSPECTOR=0
+# park_wait_times.rotation_interval_seconds ABSENT (schema default)
+# mode-before 	mode: "1280x720": 60 74250 1280 1390 1430 1650 720 725 730 750 0x40 0x5
+# probe sha256 deployed 3d0e0c23a7b4012630c9c1870ffe44b6dd1eaa05518fa371e1e08e18b46a1248
+# capture start 2026-10-05T03:28:44Z
+restarted, sleeping 585
+# restored: kiosk.conf KIOSK_PROBE lines 0, kiosk restarted
+
+# VOID (owner ruling on #185, 2026-10-04): wrong page state for comparison against
+# the S1 baseline runs. Pre-run screenshot (11:28 PM) shows only 1 of 4 cards (card 1,
+# top-left) with live data; the other 3 are legitimately CLOSED at this hour. S1's
+# baseline runs 1/2 had all 4 cards with live data (afternoon). Killed mid-capture
+# (interrupted before any MP| payload); kiosk.conf restored and cmp-verified against
+# the known-good pre-run state. Held pending all 4 cards showing live data again.

@@ -12,10 +12,7 @@
 # iteration, collation, charset mappings. Dropping feature categories is where
 # text rendering breaks, and text is the entire product here.
 #
-# WebKit build-depends on ICU, so this is a webkitgtk3-class rebuild. It is
-# deliberately batched with the enchant removal and NOTHING else: mixing the
-# gstreamer removal in would make a regression unattributable, and gstreamer is
-# a hard DEPENDS rather than a PACKAGECONFIG so it is a different kind of change.
+# WebKit build-depends on ICU, so this is a wpewebkit-class rebuild.
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 

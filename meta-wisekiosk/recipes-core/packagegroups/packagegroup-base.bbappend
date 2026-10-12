@@ -14,8 +14,8 @@
 #      Removing zeroconf therefore RE-ENABLES systemd-resolved's own mDNS and
 #      LLMNR responders -- trading avahi for a daemon that starts 2.6s earlier
 #      and costs ~4x the CPU. The win would have partly cancelled itself.
-#   2. It re-hashes systemd:do_configure. systemd reaches webkitgtk3 via
-#      dbus -> at-spi2-core (PROVIDES atk) -> webkitgtk3, and bitbake's hash
+#   2. It re-hashes systemd:do_configure. systemd reaches wpewebkit via
+#      dbus -> at-spi2-core (PROVIDES atk) -> wpewebkit, and bitbake's hash
 #      equivalence cannot rule the cascade out until systemd has actually
 #      rebuilt. `bitbake -S printdiff` reports a lower bound, not a guarantee.
 #

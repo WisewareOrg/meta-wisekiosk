@@ -1,0 +1,82 @@
+# harness: driver run-time-to-page.sh 09b36c2, time-to-page-x.sh 072ea3e
+# run-time-to-page.sh role=bench boots=3 wait=120 READ_AT=115
+# time-to-page.js sha256 6ea390791ce0a001f4accec091ab1ed86cc1b175bd83b2e6834614ef6480d779
+=== boot 1: reboot at 2026-10-04T23:14:45Z ===
+Failed to set wall message, ignoring: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+# buildinfo meta-wisekiosk    = HEAD:20a1f342580a10a0b32f26f4bcb804223ca068b1
+# Booted from: rootfs.1 (B)
+boot_id:       6a619022-8449-4d10-8467-889d24d913fe
+read_at_s:     115
+title:         T 1791155719411
+clock_step:    [   57.912860] <BENCH_HOSTNAME> systemd-timesyncd[189]: Contacted time server 216.239.35.8:123 (time3.google.com).
+clock_step:    [   57.923572] <BENCH_HOSTNAME> systemd-timesyncd[189]: Initial clock synchronization to Sun 2026-10-04 19:15:53.991185 EDT.
+SUSPECT: the wall clock changed after the beacon fired
+boot_epoch_ms: 1791155696070
+RESULT_time_to_page_s: 23.34
+=== boot 1-rerun: reboot at 2026-10-04T23:16:53Z ===
+Failed to set wall message, ignoring: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+# buildinfo meta-wisekiosk    = HEAD:20a1f342580a10a0b32f26f4bcb804223ca068b1
+# Booted from: rootfs.1 (B)
+boot_id:       a433ea26-6f78-4ba7-a526-2efc01cb0a1f
+read_at_s:     116
+title:         T 1791155845246
+clock_step:    [   55.821469] <BENCH_HOSTNAME> systemd-timesyncd[190]: Contacted time server 216.239.35.8:123 (time3.google.com).
+clock_step:    [   55.827062] <BENCH_HOSTNAME> systemd-timesyncd[190]: Initial clock synchronization to Sun 2026-10-04 19:17:59.750630 EDT.
+SUSPECT: the wall clock changed after the beacon fired
+boot_epoch_ms: 1791155823890
+RESULT_time_to_page_s: 21.36
+=== boot 2: reboot at 2026-10-04T23:19:01Z ===
+Failed to set wall message, ignoring: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+# buildinfo meta-wisekiosk    = HEAD:20a1f342580a10a0b32f26f4bcb804223ca068b1
+# Booted from: rootfs.1 (B)
+boot_id:       f9779dc7-586e-48f5-a4c2-e2055fd37a20
+read_at_s:     116
+title:         T 1791155972760
+clock_step:    [   55.332903] <BENCH_HOSTNAME> systemd-timesyncd[189]: Contacted time server 216.239.35.8:123 (time3.google.com).
+clock_step:    [   55.337813] <BENCH_HOSTNAME> systemd-timesyncd[189]: Initial clock synchronization to Sun 2026-10-04 19:20:07.794639 EDT.
+SUSPECT: the wall clock changed after the beacon fired
+boot_epoch_ms: 1791155952440
+RESULT_time_to_page_s: 20.32
+=== boot 2-rerun: reboot at 2026-10-04T23:21:10Z ===
+Failed to set wall message, ignoring: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+# buildinfo meta-wisekiosk    = HEAD:20a1f342580a10a0b32f26f4bcb804223ca068b1
+# Booted from: rootfs.1 (B)
+boot_id:       947787ac-eacd-42c8-a08c-a8e8902c8014
+read_at_s:     116
+title:         T 1791156101393
+clock_step:    [   65.858860] <BENCH_HOSTNAME> systemd-timesyncd[188]: Contacted time server 216.239.35.12:123 (time4.google.com).
+clock_step:    [   65.861590] <BENCH_HOSTNAME> systemd-timesyncd[188]: Initial clock synchronization to Sun 2026-10-04 19:22:26.636792 EDT.
+SUSPECT: the wall clock changed after the beacon fired
+boot_epoch_ms: 1791156080760
+RESULT_time_to_page_s: 20.63
+=== boot 3: reboot at 2026-10-04T23:23:18Z ===
+Failed to set wall message, ignoring: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+# buildinfo meta-wisekiosk    = HEAD:20a1f342580a10a0b32f26f4bcb804223ca068b1
+# Booted from: rootfs.1 (B)
+boot_id:       86bf8446-a3eb-4594-97ae-572c0da8d321
+read_at_s:     115
+title:         T 1791156231860
+clock_step:    [   57.720447] <BENCH_HOSTNAME> systemd-timesyncd[189]: Contacted time server 216.239.35.8:123 (time3.google.com).
+clock_step:    [   57.740213] <BENCH_HOSTNAME> systemd-timesyncd[189]: Initial clock synchronization to Sun 2026-10-04 19:24:26.754902 EDT.
+SUSPECT: the wall clock changed after the beacon fired
+boot_epoch_ms: 1791156209020
+RESULT_time_to_page_s: 22.84
+=== boot 3-rerun: reboot at 2026-10-04T23:25:26Z ===
+Failed to set wall message, ignoring: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+# buildinfo meta-wisekiosk    = HEAD:20a1f342580a10a0b32f26f4bcb804223ca068b1
+# Booted from: rootfs.1 (B)
+boot_id:       7a96080e-e7e7-46f8-a012-83f93b097060
+read_at_s:     117
+title:         T 1791156357795
+clock_step:    [   56.044388] <BENCH_HOSTNAME> systemd-timesyncd[190]: Contacted time server 216.239.35.8:123 (time3.google.com).
+clock_step:    [   56.049868] <BENCH_HOSTNAME> systemd-timesyncd[190]: Initial clock synchronization to Sun 2026-10-04 19:26:32.958694 EDT.
+SUSPECT: the wall clock changed after the beacon fired
+boot_epoch_ms: 1791156336900
+RESULT_time_to_page_s: 20.89
+# complete 2026-10-04T23:27:35Z

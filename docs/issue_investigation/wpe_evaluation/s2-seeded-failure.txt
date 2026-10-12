@@ -1,0 +1,41 @@
+--- backup ---
+KIOSK_INSPECTOR=0
+--- NRestarts before ---
+NRestarts=0
+--- seed bogus mode, restart ---
+--- status after seed ---
+activating
+Result=exit-code
+NRestarts=1
+Oct 04 22:21:35 <BENCH_HOSTNAME> cog[2647]: <http://localhost:8080/> Loading...
+Oct 04 22:21:35 <BENCH_HOSTNAME> cog[2647]: <http://localhost:8080/> Loaded successfully.
+Oct 04 22:22:18 <BENCH_HOSTNAME> systemd[1]: Stopping Kiosk browser: cog on WPE WebKit, straight to DRM, no display server...
+Oct 04 22:22:18 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Main process exited, code=dumped, status=11/SEGV
+Oct 04 22:22:18 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Killing process 2661 (EventDispatcher) with signal SIGKILL.
+Oct 04 22:22:18 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Killing process 2668 (erialBackground) with signal SIGKILL.
+Oct 04 22:22:19 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Failed with result 'core-dump'.
+Oct 04 22:22:19 <BENCH_HOSTNAME> systemd[1]: Stopped Kiosk browser: cog on WPE WebKit, straight to DRM, no display server.
+Oct 04 22:22:19 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Consumed 18.130s CPU time.
+Oct 04 22:22:19 <BENCH_HOSTNAME> systemd[1]: Started Kiosk browser: cog on WPE WebKit, straight to DRM, no display server.
+Oct 04 22:22:20 <BENCH_HOSTNAME> kiosk-launch[2709]: Platform setup failed: Failed to initialize DRM
+Oct 04 22:22:20 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Main process exited, code=exited, status=1/FAILURE
+Oct 04 22:22:20 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Failed with result 'exit-code'.
+Oct 04 22:22:20 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Consumed 1.695s CPU time.
+Oct 04 22:22:31 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Scheduled restart job, restart counter is at 1.
+Oct 04 22:22:31 <BENCH_HOSTNAME> systemd[1]: Started Kiosk browser: cog on WPE WebKit, straight to DRM, no display server.
+Oct 04 22:22:32 <BENCH_HOSTNAME> kiosk-launch[2722]: Platform setup failed: Failed to initialize DRM
+Oct 04 22:22:32 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Main process exited, code=exited, status=1/FAILURE
+Oct 04 22:22:33 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Failed with result 'exit-code'.
+Oct 04 22:22:33 <BENCH_HOSTNAME> systemd[1]: kiosk.service: Consumed 1.782s CPU time.
+--- restore ---
+RESTORE_IDENTICAL
+--- render-check after restore ---
+  cap=1
+  cap identify=1
+  crop 560x300+220+20
+  frame 1 rc=0 at=22:22:40 bytes=504015 md5=da518fb9a662557a731876bd698cafd2
+  frame 2 rc=0 at=22:22:43 bytes=504015 md5=48aa556660ec3173395da7c4dfcba07a
+  blank min=0 max=255 mean=17.0386
+advancing: the two frames differ (da518fb9a662557a731876bd698cafd2 / 48aa556660ec3173395da7c4dfcba07a), so the
+render repainted within the interval.
+render-check_rc=0

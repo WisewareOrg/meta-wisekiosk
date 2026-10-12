@@ -1,0 +1,6 @@
+# bench /data/config/config.json modules by region, 2026-10-04, baseline 20a1f34
+# counts only -- no module options, URLs or site values
+top_left: 1
+top_right: 1
+bottom_left: 1
+total: 3

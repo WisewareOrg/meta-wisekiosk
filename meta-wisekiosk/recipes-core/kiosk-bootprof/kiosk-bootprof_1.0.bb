@@ -11,7 +11,8 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda
 
 SRC_URI = " \
     file://kiosk-bootprof.c \
-    file://measure-surf.sh \
+    file://measure-page.sh \
+    file://time-to-page.js \
     file://kiosk-bootprofile.service \
 "
 # scarthgap unpacks file:// SRC_URI straight into WORKDIR.
@@ -33,7 +34,9 @@ do_compile() {
 do_install() {
     install -d ${D}${bindir}
     install -m 0755 kiosk-bootprof ${D}${bindir}/kiosk-bootprof
-    install -m 0755 ${S}/measure-surf.sh ${D}${bindir}/measure-surf.sh
+    install -m 0755 ${S}/measure-page.sh ${D}${bindir}/measure-page.sh
+    install -d ${D}${datadir}/kiosk-bootprof
+    install -m 0644 ${S}/time-to-page.js ${D}${datadir}/kiosk-bootprof/time-to-page.js
 
     install -d ${D}${systemd_system_unitdir}
     install -m 0644 ${S}/kiosk-bootprofile.service ${D}${systemd_system_unitdir}/
@@ -41,11 +44,7 @@ do_install() {
 
 FILES:${PN} = " \
     ${bindir}/kiosk-bootprof \
-    ${bindir}/measure-surf.sh \
+    ${bindir}/measure-page.sh \
+    ${datadir}/kiosk-bootprof/time-to-page.js \
     ${systemd_system_unitdir}/kiosk-bootprofile.service \
 "
-
-# xprop/xwininfo for measure-surf.sh; they are already in the image via
-# packagegroup-core-x11, named here so the dependency is explicit rather than
-# incidental.
-RDEPENDS:${PN} = "xprop xwininfo"

@@ -1,0 +1,13 @@
+--- backup kiosk.conf ---
+KIOSK_INSPECTOR=0
+--- append KIOSK_URL line ---
+KIOSK_INSPECTOR=0
+KIOSK_URL=http://localhost:8080
+--- gpu-check --capture ---
+kiosk-drmgrab: unsupported format RG16 (0x36314752)
+capture failed on the device
+capture failed
+kiosk.conf restored from its backup; kiosk restarted
+gpucapture_rc=1
+--- restore kiosk.conf byte-identical ---
+RESTORE_IDENTICAL

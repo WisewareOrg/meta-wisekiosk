@@ -68,6 +68,14 @@ repos:
       meta-networking:
       meta-python:
 
+  # wpewebkit and cog, which neither poky nor meta-oe carries, and the libwpe
+  # and wpebackend-fdo versions they build against.
+  meta-webkit:
+    url: "https://github.com/Igalia/meta-webkit.git"
+    branch: scarthgap-latest
+    commit: c9d5d52a8cb91d530557930e2e46e9c53576b7c8
+    path: "sources/meta-webkit"
+
   meta-arm:
     url: "https://git.yoctoproject.org/meta-arm"
     commit: 0a4b911d9fd63ab29c4532a907fae3282dbdcfe4

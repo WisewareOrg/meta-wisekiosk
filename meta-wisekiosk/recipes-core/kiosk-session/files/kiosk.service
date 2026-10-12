@@ -1,5 +1,5 @@
 [Unit]
-Description=Kiosk browser: surf on bare Xorg, no display manager, no window manager
+Description=Kiosk browser: cog on WPE WebKit, straight to DRM, no display server
 After=network-online.target data.mount
 Wants=network-online.target
 Requires=data.mount
@@ -11,11 +11,7 @@ Type=simple
 # leading dash makes the file optional.
 Environment=KIOSK_URL=http://localhost:8080
 EnvironmentFile=-/data/config/kiosk.conf
-# -s 0 -dpms -nocursor live on the X server command line, not in a config file.
-# On the Raspbian kiosk these were supplied by lightdm; dropping the display
-# manager drops them with it, and the failure shows up days later as a screen
-# that blanks when nobody is watching.
-ExecStart=/usr/bin/xinit /usr/bin/kiosk-launch -- :0 vt1 -s 0 -dpms -nocursor
+ExecStart=/usr/bin/kiosk-launch
 Restart=always
 RestartSec=10
 

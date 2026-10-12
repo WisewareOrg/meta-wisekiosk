@@ -1,4 +1,4 @@
-SUMMARY = "Kiosk session: bare Xorg, no window manager, surf under systemd"
+SUMMARY = "Kiosk session: cog on WPE WebKit, DRM platform, under systemd"
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
@@ -9,10 +9,7 @@ S = "${WORKDIR}"
 
 inherit systemd
 
-# xrandr sets the kiosk's 1280x720 mode in kiosk-launch. packagegroup-core-x11
-# pulls it too, so this adds no bytes -- it keeps the launcher's mode-set from
-# depending on an image-level package list it does not own.
-RDEPENDS:${PN} = "surf xinit xserver-xorg xserver-xorg-module-exa xrandr"
+RDEPENDS:${PN} = "cog"
 
 SYSTEMD_SERVICE:${PN} = "kiosk.service"
 SYSTEMD_AUTO_ENABLE = "enable"

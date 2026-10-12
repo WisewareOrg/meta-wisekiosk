@@ -1,0 +1,5 @@
+# check-core-pattern.sh root@<BENCH_ADDRESS>, board role: bench
+meta-wisekiosk    = HEAD:32b670c5a4379443aef5ddab9ca0e43cac1c5e96
+Booted from: rootfs.1 (B)
+|/bin/false
+unlimited

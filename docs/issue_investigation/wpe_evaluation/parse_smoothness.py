@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""Parse gpu_compositing/p7_min.js's MP| payload into the #185 smoothness statistics.
+
+  python3 parse_smoothness.py <capture>   report the last MP| line in a capture
+
+Payload, statistics and their definitions: parse_smoothness_test.py's header.
+"""
+import re
+import sys
+
+import journal_extract
+
+PAT = re.compile(r"MP\|(\d+)\|f(\d+)\|av(\d+)\|mx(\d+)\|BT(\d+)\|H(\d+(?:\.\d+){6})\|B([\d.:,]*)")
+BIG = re.compile(r"^(\d+(?:\.\d+)?):(\d+)$")
+
+
+def parse(line):
+    """One MP| payload line -> dict, or None if the line holds no complete payload."""
+    m = PAT.search(line)
+    if not m:
+        return None
+    big = []
+    for e in filter(None, m.group(7).split(",")):
+        b = BIG.match(e)
+        if not b:
+            return None
+        big.append((float(b.group(1)), int(b.group(2))))
+    sec, frames, avg, mx, bt = (int(m.group(i)) for i in range(1, 6))
+    return {"sec": sec, "frames": frames, "avg": avg, "max": mx, "bt": bt,
+            "hist": [int(x) for x in m.group(6).split(".")], "big": big}
+
+
+def pct_under_50ms(d):
+    return 100.0 * d["hist"][0] / sum(d["hist"])
+
+
+def mean_fps(d):
+    return d["frames"] / d["sec"]
+
+
+def steady_stall_rate(d, steady_from=15.0):
+    return sum(1 for t, _ in d["big"] if t >= steady_from) / (d["sec"] - steady_from)
+
+
+def steady_stall_bounds(d, steady_from=15.0):
+    """Exact unless big[] has evicted entries and every retained one is already steady-state;
+    big[] drops its oldest first, so a retained pre-steady entry means every evicted one was too."""
+    lower = sum(1 for t, _ in d["big"] if t >= steady_from)
+    bounded = d["bt"] > len(d["big"]) and lower == len(d["big"])
+    upper = d["bt"] if bounded else lower
+    span = d["sec"] - steady_from
+    return {"bounded": bounded, "lower": lower, "upper": upper,
+            "lower_rate": lower / span, "upper_rate": upper / span}
+
+
+def steady_stall_from_series(lines, steady_from=15.0):
+    """Steady count from the whole MP| series: final bt minus bt at the last line before
+    steady_from (else the first line), whose t is ref_t; one parseable line falls back to
+    steady_stall_bounds, none raises ValueError."""
+    parsed = [d for d in map(parse, lines) if d is not None]
+    if not parsed:
+        raise ValueError("no MP| samples")
+    if len(parsed) == 1:
+        return steady_stall_bounds(parsed[0], steady_from)
+    pre = [d for d in parsed if d["sec"] < steady_from]
+    ref = pre[-1] if pre else parsed[0]
+    final = parsed[-1]
+    count = final["bt"] - ref["bt"]
+    rate = count / (final["sec"] - steady_from)
+    return {"count": count, "rate": rate, "exact": True, "ref_t": ref["sec"]}
+
+
+def clusters(d, gap=1.0):
+    out = []
+    for e in d["big"]:
+        if out and e[0] - out[-1][-1][0] <= gap:
+            out[-1].append(e)
+        else:
+            out.append([e])
+    return out
+
+
+def main(path):
+    d = journal_extract.last_parseable(open(path).read().splitlines(), parse)
+    if d is None:
+        sys.exit(f"no complete MP| payload in {path}")
+    print(f"window {d['sec']} s  frames {d['frames']}  bt {d['bt']}  big[] {len(d['big'])}")
+    print(f"mean fps          {mean_fps(d):.2f}")
+    print(f"% frames <50 ms   {pct_under_50ms(d):.1f}")
+    b = steady_stall_bounds(d)
+    if b["bounded"]:
+        print(f"stall rate t>=15  BOUNDED {b['lower_rate']:.4f}-{b['upper_rate']:.4f}/s "
+              f"({b['lower']}-{b['upper']} stalls)")
+    else:
+        print(f"stall rate t>=15  {b['lower_rate']:.4f}/s")
+    print(f"clusters          {[len(c) for c in clusters(d)]}")
+
+
+if __name__ == "__main__":
+    main(sys.argv[1])

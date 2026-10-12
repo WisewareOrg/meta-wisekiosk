@@ -1,0 +1,8 @@
+--- backup ---
+KIOSK_INSPECTOR=0
+--- set KIOSK_INSPECTOR=1, restart ---
+--- confirm dashboard loaded (not file:///) ---
+Oct 04 23:24:38 <BENCH_HOSTNAME> kiosk-launch[695]: Could not determine the accessibility bus address
+Oct 04 23:24:39 <BENCH_HOSTNAME> cog[695]: <http://localhost:8080/> Load started.
+Oct 04 23:24:39 <BENCH_HOSTNAME> cog[695]: <http://localhost:8080/> Loading...
+Oct 04 23:24:39 <BENCH_HOSTNAME> cog[695]: <http://localhost:8080/> Loaded successfully.

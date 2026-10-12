@@ -1,0 +1,4 @@
+could not stage the probe URL on root@<BENCH_ADDRESS> (exit 3 means kiosk.conf has
+no KIOSK_URL line at all, so there is nothing to put back).
+no backup on the device -- kiosk.conf was never swapped
+gpucapture_rc=2

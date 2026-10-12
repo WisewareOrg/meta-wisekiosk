@@ -1,0 +1,41 @@
+# harness: driver run-time-to-page.sh 09b36c2, time-to-page-x.sh 70b03c7 (pre-step frame)
+# run-time-to-page.sh role=bench boots=3 wait=120 READ_AT=115
+# time-to-page.js sha256 6ea390791ce0a001f4accec091ab1ed86cc1b175bd83b2e6834614ef6480d779
+=== boot 1: reboot at 2026-10-05T00:56:39Z ===
+Failed to set wall message, ignoring: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+# buildinfo meta-wisekiosk    = HEAD:20a1f342580a10a0b32f26f4bcb804223ca068b1
+# Booted from: rootfs.1 (B)
+boot_id:       4e35f062-4a74-478a-a362-528038cf6b01
+read_at_s:     116
+title:         T 1791161830387
+clock_step:    [   55.782375] <BENCH_HOSTNAME> systemd-timesyncd[189]: Contacted time server 216.239.35.8:123 (time3.google.com).
+clock_step:    [   55.791674] <BENCH_HOSTNAME> systemd-timesyncd[189]: Initial clock synchronization to Sun 2026-10-04 20:57:45.169979 EDT.
+frame=pre-step
+boot_epoch_ms: 1791161782385
+RESULT_time_to_page_s: 48.00
+=== boot 2: reboot at 2026-10-05T00:58:47Z ===
+Failed to set wall message, ignoring: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+# buildinfo meta-wisekiosk    = HEAD:20a1f342580a10a0b32f26f4bcb804223ca068b1
+# Booted from: rootfs.1 (B)
+boot_id:       c986bfec-0a93-4c17-a9a2-7728e0eedf3e
+read_at_s:     117
+title:         T 1791161997448
+frame=post-step
+boot_epoch_ms: 1791161937820
+RESULT_time_to_page_s: 59.63
+=== boot 3: reboot at 2026-10-05T01:00:56Z ===
+Failed to set wall message, ignoring: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+Call to Reboot failed: Unit dbus-org.freedesktop.login1.service failed to load properly, please adjust/correct and reload service manager: File exists
+# buildinfo meta-wisekiosk    = HEAD:20a1f342580a10a0b32f26f4bcb804223ca068b1
+# Booted from: rootfs.1 (B)
+boot_id:       ccbb5f9d-dc4e-4b62-9b67-9317ca0c9ce5
+read_at_s:     116
+title:         T 1791162090795
+clock_step:    [   55.813635] <BENCH_HOSTNAME> systemd-timesyncd[189]: Contacted time server 216.239.35.8:123 (time3.google.com).
+clock_step:    [   55.821945] <BENCH_HOSTNAME> systemd-timesyncd[189]: Initial clock synchronization to Sun 2026-10-04 21:02:02.859717 EDT.
+frame=pre-step
+boot_epoch_ms: 1791162039993
+RESULT_time_to_page_s: 50.80
+# complete 2026-10-05T01:03:06Z

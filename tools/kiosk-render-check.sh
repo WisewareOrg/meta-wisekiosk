@@ -9,8 +9,9 @@
 # browser whose compositor stopped an hour ago satisfies all three. Every one of
 # those reads the machinery around the render; none reads the render advancing.
 #
-# HOW IT DECIDES. Capture the X root window twice a few seconds apart and compare
-# the bytes. Frames identical -> nothing repainted in that window -> FROZEN.
+# HOW IT DECIDES. Capture the scanout twice a few seconds apart with
+# kiosk-drmgrab and compare the bytes. Frames identical -> nothing repainted in
+# that window -> FROZEN.
 #
 # THE ASSUMPTION THIS RESTS ON, stated because it is the whole load-bearing
 # claim: identical frames are ambiguous between "correctly static" and "frozen",
@@ -21,11 +22,11 @@
 # FROZEN verdict here false. If that ever becomes possible, this tool is wrong
 # and needs a different signal, not a wider crop.
 #
-# WHY A CROP, NOT THE WHOLE SCREEN. A full 1920x1080 `import -window root` costs
-# about 8 s per frame on this board; a small crop costs roughly 1.4-2.4 s. Two
-# full frames plus the interval is most of half a minute of a 1 GHz ARM11 core
-# that the browser is also rendering on -- the probe becomes load on the thing it
-# is measuring.
+# WHY A CROP, NOT THE WHOLE SCREEN. kiosk-drmgrab reads the framebuffer through an
+# uncached mapping, on the 1 GHz ARM11 core the browser is also rendering on; a
+# crop reads and writes a fraction of the frame, so the probe is less load on the
+# thing it is measuring. The STALE series below reads the full frame: a stale
+# region can sit anywhere on the panel.
 #
 # THE DEFAULT CROP IS LAYOUT-SENSITIVE, AND THAT IS ITS SHARPEST EDGE. The region
 # has to contain the moving element in EVERY layout the page can take, not just
@@ -44,34 +45,45 @@
 #
 # TWO TRAPS, BOTH FOUND THE EXPENSIVE WAY.
 #
-#   (a) A FAILED CAPTURE LOOKS EXACTLY LIKE A FROZEN ONE. `import` that cannot
-#       open the display writes nothing, and md5sum of empty input is the
-#       constant d41d8cd98f00b204e9800998ecf8427e -- so two failures hash
-#       identically and read as "unchanged", forever, on a board that may be
-#       perfectly healthy. Three guards, all of them, not any one: import's exit
-#       status, a minimum byte count on the file it produced, and an explicit
-#       match against that constant. Every one of them lands on rc2.
+#   (a) A FAILED CAPTURE LOOKS EXACTLY LIKE A FROZEN ONE. A capture that writes
+#       nothing hashes to md5sum of empty input, the constant
+#       d41d8cd98f00b204e9800998ecf8427e -- so two failures hash identically and
+#       read as "unchanged", forever, on a board that may be perfectly healthy.
+#       Three guards, all of them, not any one: the capture's exit status, a
+#       minimum byte count on the file it produced, and an explicit match against
+#       that constant. Every one of them lands on rc2.
 #
 #   (b) /dev/fb0 IS A DECOY ON THIS BOARD. It holds the console login buffer,
-#       not the kiosk: under fkms, X renders to its own buffer and never touches
-#       fb0. Reading fb0 gives a stable hash from a surface the kiosk does not
-#       draw to, which is a FROZEN verdict that is true of the framebuffer and
-#       says nothing at all about the browser. Capture is `import -window root`
-#       and must stay that way.
+#       not the kiosk: under fkms the browser's frames go to the CRTC's own
+#       framebuffer and never touch fb0. Reading fb0 gives a stable hash from a
+#       surface the kiosk does not draw to, which is a FROZEN verdict that is true
+#       of the framebuffer and says nothing at all about the browser. Capture is
+#       kiosk-drmgrab, which reads the framebuffer bound to the active CRTC, and
+#       must stay that way.
 #
-# THE EXIT CODE, three-valued like kiosk-gpu-check.sh:
+# STALE, checked only once the render is advancing: a region left over from an
+# older frame survives a repainting clock. It shows when the scanout alternates
+# buffers, each fb holding the region steady and the two disagreeing. 30
+# full-frame `kiosk-drmgrab --report` captures about 2 s apart, fetched in
+# batches of 5, go to tools/kiosk-render-check-stale.py on this host, which
+# holds the rule.
 #
-#   0  advancing -- the two frames differ
+# THE EXIT CODE:
+#
+#   0  advancing -- the two frames differ, and no region is stale
 #   1  FROZEN -- the two frames are byte-identical and both captures verified good
-#   2  could not tell -- capture failed, empty or short output, no import, no
-#      display, a uniform capture region, or a misinvocation
+#   2  could not tell -- capture failed, empty or short output, no capture tool,
+#      a uniform capture region, a failed series capture or fetch, or a
+#      misinvocation
+#   3  STALE -- advancing, but at least one tile is steady in each of two
+#      scanout buffers and differs between them
 #
 # rc2 is never a quiet rc1. "I could not photograph the screen" and "the screen
 # has not changed in five seconds" send a person to two different places, and on
 # a wall-mounted panel one of those places is a ladder.
 #
-# Read-only on the device: one `import` of the root window into tmpfs, hashed and
-# removed. It injects no input, forces no redraw, and does not perturb a frozen
+# Read-only on the device: two kiosk-drmgrab captures into tmpfs, hashed and
+# removed, then the series, at most 5 full frames in tmpfs at a time. It injects no input, forces no redraw, and does not perturb a frozen
 # board -- a frozen kiosk stays frozen across a run, which is what makes this
 # safe to point at prod.
 #
@@ -80,14 +92,14 @@
 # and the SSH failure modes.
 set -uo pipefail
 
-# The hash of nothing. Trap (a) in one constant: `import` failing and `import`
+# The hash of nothing. Trap (a) in one constant: a capture failing and a capture
 # succeeding on an unchanged screen produce the same comparison result unless
 # this value is named and rejected.
 EMPTY_MD5=d41d8cd98f00b204e9800998ecf8427e
 
-# Below this, a PNG did not come back. A 520x140 mostly-black grayscale crop
-# encodes to roughly 1-2 kB and an all-black one to a few hundred bytes, so this
-# is an order of magnitude under the smallest real frame and cannot reject one.
+# Below this, a frame did not come back. kiosk-drmgrab writes uncompressed PPM, so
+# a real crop is tens of kilobytes; this cannot reject one and catches an empty
+# or truncated file.
 MIN_BYTES=100
 
 # ---------------------------------------------------------------- the verdict
@@ -104,10 +116,9 @@ render_verdict() {
     # first match, the producer dies of SIGPIPE at 141, and the condition reads
     # FALSE exactly when the pattern matched.
 
-    if [ "$(printf '%s\n' "$probe" | grep -c '^cap import=0')" -ne 0 ]; then
-        echo "cannot tell: no 'import' on the device, so no frame could be captured." >&2
-        echo "imagemagick is the only capture path this image carries -- see" >&2
-        echo "docs/issue_investigation/screenshot_capture_fbgrab/README.md." >&2
+    if [ "$(printf '%s\n' "$probe" | grep -c '^cap=0')" -ne 0 ]; then
+        echo "cannot tell: no capture tool on the device, so no frame could be captured." >&2
+        echo "kiosk-drmgrab is the capture path (meta-wisekiosk/recipes-graphics/kiosk-drmgrab)." >&2
         return 2
     fi
 
@@ -121,23 +132,23 @@ render_verdict() {
         return 2
     fi
 
-    # Trap (a), guard one: import's own exit status.
+    # Trap (a), guard one: the capture's own exit status.
     rc_bad=$(printf '%s\n' "$probe" | grep -c '^frame [0-9] rc=[^0]')
     if [ "$rc_bad" -ne 0 ]; then
-        echo "cannot tell: 'import' exited non-zero on at least one frame (see the rc=" >&2
+        echo "cannot tell: the capture exited non-zero on at least one frame (see the rc=" >&2
         echo "fields above, and any 'err' lines). A capture that did not happen is not" >&2
         echo "a frozen screen -- two failed captures hash identically and would" >&2
         echo "otherwise read as FROZEN on a healthy board." >&2
         return 2
     fi
 
-    # Trap (a), guard two: the file import claimed to write is too small to be a
-    # PNG at all. Catches the case where import exits 0 having produced nothing.
+    # Trap (a), guard two: the file the capture claimed to write is too small to
+    # be a frame. Catches a capture that exits 0 having produced nothing.
     short=$(printf '%s\n' "$probe" | awk -v min="$MIN_BYTES" \
         '/^frame /{for(i=1;i<=NF;i++) if($i ~ /^bytes=/){split($i,a,"="); if(a[2]+0 < min) n++}} END{print n+0}')
     if [ "$short" -ne 0 ]; then
         echo "cannot tell: a captured frame is under $MIN_BYTES bytes -- too small to be a" >&2
-        echo "PNG. import returned success without producing an image." >&2
+        echo "frame. The capture returned success without producing an image." >&2
         return 2
     fi
 
@@ -209,15 +220,15 @@ if [ "${1:-}" = "" ]; then
 fi
 HOST=$1
 
-# Covers the clock's seconds field on a 1920x1080 panel in both layouts the page
-# takes: banner absent, and banner present with everything below it pushed down
-# ~95 px. Margin to the left carries the shift a one-digit hour causes. Verified
+# Covers the clock's seconds field at 1280x720 in both layouts the page takes:
+# banner absent, and banner present with everything below it pushed down ~95 px.
+# Margin to the left carries the shift a one-digit hour causes. Verified
 # by cropping a capture of each layout to this geometry and looking at it -- see
 # the header on why "there is something in the region" is not the test.
 CROP=${2:-560x300+220+20}
 
-# Validated here rather than on the device: a malformed geometry makes import
-# fail, which this tool would correctly report as rc2 "capture failed" and send
+# Validated here rather than on the device: a malformed geometry makes the
+# capture fail, which this tool would correctly report as rc2 "capture failed" and send
 # someone looking at the board instead of at their own argument.
 # `[[ =~ ]]`, not a pipe into `grep -q`: under pipefail a -q exits on the first
 # match, the producer dies of SIGPIPE at 141, and the test reads false exactly
@@ -237,7 +248,7 @@ HERE=$(dirname "$0")
 # `sh`, not `bash`: busybox userland, no bash. Nothing here uses `head -20`,
 # `date +%N` or `ss`, all of which busybox refuses.
 #
-# The staged PNG goes in /tmp, not /data. kiosk-screenshot.sh uses /data because
+# The staged frame goes in /tmp, not /data. kiosk-screenshot.sh uses /data because
 # its capture has to survive a reboot racing the scp; this one lives for
 # milliseconds and never leaves the device, so tmpfs is the lighter choice --
 # no flash write, and nothing persists if the run dies.
@@ -246,26 +257,26 @@ HERE=$(dirname "$0")
 # run validated.
 # shellcheck disable=SC2029
 PROBE=$("$HERE/kiosk-ssh.sh" "$HOST" "CROP='$CROP' sh -s" <<'REMOTE'
-if command -v import > /dev/null 2>&1; then
-    echo "cap import=1"
+if command -v kiosk-drmgrab > /dev/null 2>&1; then
+    echo "cap=1"
 else
-    echo "cap import=0"
+    echo "cap=0"
     exit 0
 fi
 if command -v identify > /dev/null 2>&1; then echo "cap identify=1"; else echo "cap identify=0"; fi
 echo "crop $CROP"
 
 F=/tmp/render-check.$$
-# stderr is kept and emitted as evidence, never discarded: "unable to open X
-# server" is the difference between a broken probe and a broken kiosk, and
-# 2>/dev/null makes those two identical.
+# stderr is kept and emitted as evidence, never discarded: kiosk-drmgrab names
+# the format, modifier or ioctl that failed, which is the difference between a
+# broken probe and a broken kiosk, and 2>/dev/null makes those two identical.
 grab() {
     n=$1
-    err=$(DISPLAY=:0 import -window root -crop "$CROP" +repage "$F.$n.png" 2>&1)
+    err=$(kiosk-drmgrab "$F.$n.ppm" "$CROP" 2>&1)
     rc=$?
-    if [ -f "$F.$n.png" ]; then
-        b=$(wc -c < "$F.$n.png")
-        m=$(md5sum < "$F.$n.png" | cut -d' ' -f1)
+    if [ -f "$F.$n.ppm" ]; then
+        b=$(wc -c < "$F.$n.ppm")
+        m=$(md5sum < "$F.$n.ppm" | cut -d' ' -f1)
     else
         b=0
         m=none
@@ -275,8 +286,8 @@ grab() {
 }
 
 grab 1
-# Long enough that a one-second clock has ticked several times, and the capture
-# itself adds another 1.4-2.4 s on top. Integer seconds: busybox sleep.
+# Long enough that a one-second clock has ticked several times. Integer seconds:
+# busybox sleep.
 sleep 3
 grab 2
 
@@ -284,11 +295,11 @@ grab 2
 # could-not-tell, not as a failure of the board. Measured on the SECOND frame,
 # the one nearest the verdict. Normalised to 0-255 so the numbers read the same
 # as kiosk-screenshot.sh's, whose quantum range is 65535.
-if command -v identify > /dev/null 2>&1 && [ -f "$F.2.png" ]; then
-    identify -format 'blank min=%[fx:minima*255] max=%[fx:maxima*255] mean=%[fx:mean*255]\n' "$F.2.png" 2>/dev/null
+if command -v identify > /dev/null 2>&1 && [ -f "$F.2.ppm" ]; then
+    identify -format 'blank min=%[fx:minima*255] max=%[fx:maxima*255] mean=%[fx:mean*255]\n' "$F.2.ppm" 2>/dev/null
 fi
 
-rm -f "$F.1.png" "$F.2.png"
+rm -f "$F.1.ppm" "$F.2.ppm"
 REMOTE
 )
 rc=$?
@@ -297,4 +308,79 @@ rc=$?
 printf '%s\n' "$PROBE" | sed 's/^/  /'
 
 render_verdict "$PROBE"
-exit $?
+rc=$?
+[ $rc -eq 0 ] || exit $rc
+
+# ---------------------------------------------------------------- the series
+SERIES=30
+BATCH=5
+LOCAL=$(mktemp -d) || { echo "cannot tell: no local directory for the series" >&2; exit 2; }
+REMOTE=/tmp/render-check-series.$$
+# shellcheck disable=SC2317  # runs from the EXIT trap
+cleanup() {
+    rm -rf "$LOCAL"
+    # shellcheck disable=SC2029  # $REMOTE expands here, on the client
+    "$HERE/kiosk-ssh.sh" "$HOST" "rm -rf $REMOTE" > /dev/null 2>&1
+}
+trap cleanup EXIT
+
+: > "$LOCAL/manifest.txt"
+for ((first = 1; first <= SERIES; first += BATCH)); do
+    last=$((first + BATCH - 1))
+    # shellcheck disable=SC2029  # $REMOTE, $first and $last expand here, on the client
+    out=$("$HERE/kiosk-ssh.sh" "$HOST" "R=$REMOTE FIRST=$first LAST=$last sh -s" <<'SERIES'
+mkdir -p "$R" || exit 1
+i=$FIRST
+while [ "$i" -le "$LAST" ]; do
+    [ "$i" -gt 1 ] && sleep 2
+    rep=$(kiosk-drmgrab --report "$R/$i.ppm" 2>&1)
+    rc=$?
+    echo "series $i rc=$rc $(printf '%s' "$rep" | tr '\n' ' ')"
+    i=$((i + 1))
+done
+SERIES
+)
+    rc=$?
+    printf '%s\n' "$out" | sed 's/^/  /'
+    [ $rc -eq 0 ] || { echo "cannot tell: series batch $first-$last: ssh exited $rc" >&2; exit 2; }
+
+    names=()
+    for ((i = first; i <= last; i++)); do
+        line=$(printf '%s\n' "$out" | grep "^series $i rc=")
+        if ! [[ $line =~ ^series\ $i\ rc=0\ fb_before=([0-9]+)\ fb_after=([0-9]+)\ copy_ms=[0-9]+\ ?$ ]]; then
+            echo "cannot tell: series capture $i failed: ${line:-no line returned}" >&2
+            exit 2
+        fi
+        echo "fb_before=${BASH_REMATCH[1]} fb_after=${BASH_REMATCH[2]} ppm=$LOCAL/$i.ppm" >> "$LOCAL/manifest.txt"
+        names+=("$i.ppm")
+    done
+
+    # shellcheck disable=SC2029  # the batch's names expand here, on the client
+    "$HERE/kiosk-ssh.sh" "$HOST" "cd $REMOTE && tar cf - ${names[*]} && rm -f ${names[*]}" |
+        tar xf - -C "$LOCAL"
+    fetch=("${PIPESTATUS[@]}")
+    if [ "${fetch[0]}" -ne 0 ] || [ "${fetch[1]}" -ne 0 ]; then
+        echo "cannot tell: series batch $first-$last fetch failed (ssh ${fetch[0]}, tar ${fetch[1]})" >&2
+        exit 2
+    fi
+done
+
+stale=$(python3 "$HERE/kiosk-render-check-stale.py" "$LOCAL/manifest.txt")
+rc=$?
+printf '%s\n' "$stale" | sed 's/^/  /'
+case $rc in
+0)
+    echo "no stale region: no tile is steady in two scanout buffers yet different between them."
+    exit 0
+    ;;
+3)
+    echo "STALE: $stale -- steady within each of two scanout buffers and different" >&2
+    echo "between them. The render advances, but those regions alternate between an" >&2
+    echo "up-to-date frame and an older one at scanout." >&2
+    exit 3
+    ;;
+*)
+    echo "cannot tell: the stale check exited $rc, so no series verdict was reached." >&2
+    exit 2
+    ;;
+esac

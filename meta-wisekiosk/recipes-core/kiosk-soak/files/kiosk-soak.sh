@@ -11,7 +11,7 @@
 #   * busybox has no `ps -eo`, no `df --output`, and its `free -m` reports KB
 #     regardless of the flag. Memory is divided to MB explicitly so the line
 #     format stays byte-comparable with the old log.
-#   * the launcher runs a bare `surf`, not an absolute path, so the browser is
+#   * the launcher runs a bare `cog`, not an absolute path, so the browser is
 #     resolved with command -v rather than by grepping for a path. The principle
 #     is unchanged: ask the launcher, never hardcode. A sampler that names one
 #     browser records zeros for the other and calls it data.
@@ -21,12 +21,12 @@
 #              samples either side are not one series
 #   pid        main browser pid. A change means the browser restarted; `none`
 #              means it was not running at that sample
-#   nproc      processes in the browser family (surf plus its WebKit children)
+#   nproc      processes in the browser family (cog plus its WPE processes)
 #   rss_total  RSS across that whole family, and the memory number that matters
 #              -- the renderer is a separate process and holds most of it
 #   thr        vcgencmd get_throttled. Anything but 0x0 means it throttled at
 #              some point SINCE BOOT, not that it is throttling now
-#   ent        entropy pool. Low is expected; rngd is deliberately off for surf
+#   ent        entropy pool. Low is expected; rngd is deliberately off
 #
 # Read a --summary in this order, weakest evidence last:
 #   1. reboots and browser restarts. Non-zero means the memory series is really
@@ -39,6 +39,22 @@
 # Why the order is that way, and why the endpoint delta is labelled NOT a rate:
 # docs/issue_investigation/surf_memory_soak/README.md.
 set -u
+
+# A browser-family process, by its /proc comm (at most 15 characters, so a
+# prefix): cog and the WPE processes it spawns.
+is_browser_proc() {
+  case "$1" in
+    WPE*|cog) return 0 ;;
+  esac
+  return 1
+}
+
+# Sourced as a library by kiosk-soak-test.sh: define the predicate and stop.
+if [ "${KIOSK_SOAK_LIB:-0}" = "1" ]; then
+  # shellcheck disable=SC2317  # the `||` arm runs when this file is executed, not sourced
+  return 0 2>/dev/null || exit 0
+fi
+
 LOG=${KIOSK_SOAK_LOG:-/data/kiosk-soak.log}
 LAUNCHER=${KIOSK_LAUNCHER:-/usr/bin/kiosk-launch}
 MAXLINES=${KIOSK_SOAK_MAXLINES:-20000}
@@ -92,7 +108,7 @@ fi
 # resolve it on PATH rather than looking for an absolute path.
 CMD=$(grep -oE '^[[:space:]]*exec[[:space:]]+[A-Za-z0-9._-]+' "$LAUNCHER" 2>/dev/null \
       | head -n1 | awk '{print $2}')
-BIN=$(command -v "${CMD:-surf}" 2>/dev/null)
+BIN=$(command -v "${CMD:-cog}" 2>/dev/null)
 COMM=$(basename "${BIN:-unknown}" | cut -c1-15)
 
 PID=$(pgrep -x "$COMM" 2>/dev/null | head -n1)
@@ -103,11 +119,10 @@ PID=$(pgrep -x "$COMM" 2>/dev/null | head -n1)
 NPROC=0; RSS_TOTAL=0
 for d in /proc/[0-9]*; do
   c=$(cat "$d/comm" 2>/dev/null) || continue
-  case "$c" in
-    WebKit*|webkit*|"$COMM")
-      r=$(awk '/^VmRSS/{print $2}' "$d/status" 2>/dev/null)
-      [ -n "$r" ] && { NPROC=$((NPROC + 1)); RSS_TOTAL=$((RSS_TOTAL + r)); } ;;
-  esac
+  if is_browser_proc "$c"; then
+    r=$(awk '/^VmRSS/{print $2}' "$d/status" 2>/dev/null)
+    [ -n "$r" ] && { NPROC=$((NPROC + 1)); RSS_TOTAL=$((RSS_TOTAL + r)); }
+  fi
 done
 
 RSS_MAIN=0

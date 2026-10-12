@@ -14,16 +14,20 @@ The operational form of [`SKILL.md`](SKILL.md), which holds the reasoning behind
 4. **Frontend change?** Edit, then rebuild the mirror detached
    (`docker compose -f compose.dev.yaml up -d --build`, in a subagent) and note the served bundle
    hash. Run `svelte-check` separately; the container build does not type-check.
-5. **Deploy the probe** to `~/.surf/script.js`.
-6. **Clear `~/.surf/cache`, then restart the kiosk.** In that order — the restart re-fetches.
+5. **Deploy the probe** to `/home/root/kiosk-probe.js` (or the path `KIOSK_PROBE_SCRIPT` names) and
+   set `KIOSK_PROBE=1` in `/data/config/kiosk.conf`.
+6. **Clear cog's cache (`/home/root/.cache/wpe`), then restart the kiosk.** In that order — the
+   restart re-fetches.
 7. **Verify the intended bundle actually loaded** — grep the board's WebKit cache for the hash —
    before trusting anything the capture produces.
 8. **Capture**, long enough that the warm-up block is a discard rather than a fraction of an arm.
-9. **Read the payload back with `xprop`** and assert it is non-empty. An empty read fails the run;
+9. **Read the payload back from the kiosk journal's `TITLE` lines** (`journalctl -u kiosk`) and
+   assert it is non-empty. An empty read fails the run;
    it never scores as a null.
 10. **Parse.** Drop every block whose landing check failed; an arm with no landed blocks is
     unmeasured, not unchanged.
-11. **Clean the board**: `: > ~/.surf/script.js`, restart, confirm it renders.
+11. **Clean the board**: remove the `KIOSK_PROBE` lines from `/data/config/kiosk.conf`, restart,
+    confirm it renders.
 12. **Record under R1-R3**: board role, image commit, bundle hash, one board × one build × one
     test per table.
 

@@ -1,0 +1,37 @@
+--- buildinfo + rauc ---
+meta-wisekiosk    = HEAD:32b670c5a4379443aef5ddab9ca0e43cac1c5e96
+=== System Info ===
+Compatible:  autonomos-raspberrypi0-wifi
+Variant:     
+Booted from: rootfs.1 (B)
+
+=== Bootloader ===
+Activated: rootfs.1 (B)
+
+=== Slot States ===
+[1mx[0m [32m[32m[1m[rootfs.1][0m (/dev/mmcblk0p3, ext4, [1mbooted[0m)
+      bootname: [34mB[0m
+      mounted: /
+      boot status: [32mgood[0m
+
+o [1m[rootfs.0][0m (/dev/mmcblk0p2, ext4, inactive[0m)
+      bootname: [34mA[0m
+      boot status: [32mgood[0m
+--- render-check ---
+  cap=1
+  cap identify=1
+  crop 560x300+220+20
+  frame 1 rc=0 at=23:23:59 bytes=504015 md5=fa8c0b28f3f9dfeb6a15cb583af6b7d9
+  frame 2 rc=0 at=23:24:02 bytes=504015 md5=e2f9933e80e34377882bd721d3a43374
+  blank min=0 max=255 mean=20.1394
+advancing: the two frames differ (fa8c0b28f3f9dfeb6a15cb583af6b7d9 / e2f9933e80e34377882bd721d3a43374), so the
+render repainted within the interval.
+render-check_rc=0
+--- screenshot ---
+device clock at capture: 23:24:05
+wrote /tmp/claude-1000/-home-tjwise-meta-wisekiosk/76635847-5247-4809-8402-e1fe41739c68/scratchpad/s2-shot-32b670c.png
+min=0 max=255 mean=13.0182
+not blank. Now read the rendered clock against the device clock above,
+and the fetched data against its live source -- a frozen render passes
+every other check there is.
+screenshot_rc=0
