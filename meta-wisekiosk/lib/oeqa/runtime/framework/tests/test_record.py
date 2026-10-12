@@ -1,16 +1,77 @@
-"""Specifies oeqa/runtime/framework/record.py: keyed_hash and decode_hex_dump, the two functions
-tools/pipeline/config-mac.py calls to agree with the board's own accept step on a boundary value
-by construction, not by copy.
+"""Specifies oeqa/runtime/framework/record.py: parse_buildinfo (the provenance test's own parser),
+keyed_hash and decode_hex_dump (the two functions tools/pipeline/config-mac.py calls to agree with
+the board's own accept step on a boundary value by construction, not by copy).
 
 Every case is a constructed string or bytes value -- no board, no subprocess, no network.
 """
 
 import hashlib
 import hmac
+import re
+import subprocess
+from pathlib import Path
 
 import pytest
 
-from framework.record import decode_hex_dump, keyed_hash
+from framework.record import decode_hex_dump, keyed_hash, parse_buildinfo
+
+# --------------------------------------------------------------- parse_buildinfo
+# image-buildinfo writes one line per layer as "%-17s = %s:%s%s"; ported from
+# tools/reproducibility-gate.sh's own awk/sed.
+
+SHA = "deadbeef" * 5  # 40 hex chars, the shape image-buildinfo and git both require
+
+BUILDINFO_OTHER_LAYERS = (
+    "meta               = master:1111111111111111111111111111111111111111\n"
+    "meta-raspberrypi   = master:2222222222222222222222222222222222222222\n"
+)
+
+NORMAL_BUILDINFO = BUILDINFO_OTHER_LAYERS + f"meta-wisekiosk     = main:{SHA}\n"
+
+BUILDINFO_CASES = [
+    ("normal line among other layers", NORMAL_BUILDINFO, SHA),
+    ("modified suffix dropped by field-splitting, not specially matched",
+     BUILDINFO_OTHER_LAYERS + f"meta-wisekiosk     = main:{SHA} -- modified\n", SHA),
+    ("image-buildinfo's own <unknown> sha passes through unchanged",
+     "meta-wisekiosk     = main:<unknown>\n", "<unknown>"),
+    ("no meta-wisekiosk line at all", BUILDINFO_OTHER_LAYERS, ""),
+    ("empty buildinfo", "", ""),
+    ("CRLF line endings are stripped before matching",
+     NORMAL_BUILDINFO.replace("\n", "\r\n"), SHA),
+]
+
+
+@pytest.mark.parametrize(("name", "text", "want"), BUILDINFO_CASES, ids=[c[0] for c in BUILDINFO_CASES])
+def test_parse_buildinfo(name, text, want):
+    assert parse_buildinfo(text) == want, name
+
+
+GATE_PATH = Path(__file__).resolve().parents[6] / "tools" / "reproducibility-gate.sh"
+_GATE_AWK_LINE = re.compile(r"rev=\$\(awk '([^']*)' <<< \"\$info\"\)")
+
+
+def _gate_commit(text):
+    """Runs the exact awk program extracted from the live tools/reproducibility-gate.sh (never a
+    copy) against text, after the same tr -d '\\r' preprocessing the gate applies first."""
+    m = _GATE_AWK_LINE.search(GATE_PATH.read_text())
+    assert m, "the gate's awk line has changed shape -- update this extraction"
+    info = text.replace("\r", "")
+    rev = subprocess.run(
+        ["awk", m.group(1)], input=info, capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    return rev.rsplit(":", 1)[-1] if rev else ""
+
+
+AGREEMENT_CASES = [(c[0], c[1]) for c in BUILDINFO_CASES] + [
+    ("unspaced 'meta-wisekiosk=main:<sha>' disagrees without this test",
+     f"meta-wisekiosk=main:{SHA}\n"),
+]
+
+
+@pytest.mark.parametrize(("name", "text"), AGREEMENT_CASES, ids=[c[0] for c in AGREEMENT_CASES])
+def test_parse_buildinfo_agrees_with_the_gates_own_awk(name, text):
+    assert parse_buildinfo(text) == _gate_commit(text), name
+
 
 # ------------------------------------------------------------------------- keyed_hash
 # RFC 4231 test case 1 (HMAC-SHA256), a known-answer vector independent of this tree, plus an
