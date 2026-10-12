@@ -8,7 +8,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
-from tenacity import Retrying, stop_after_delay, wait_fixed
 
 from framework.record import decode_hex_dump, keyed_hash
 from probe import Probe
@@ -24,42 +23,45 @@ from verdicts.context import (
 from verdicts.layout import current_mode
 
 _REPLAY_SETS_DIR = Path(__file__).resolve().parents[1] / "replay" / "sets"
-_FACTS_SETTLE_SECONDS = 120
-_FACTS_POLL_SECONDS = 5
+_HMAC_KEY_PATH = Path(__file__).resolve().parents[2] / "local" / "keys" / "hmac.key"
 
 
 def pytest_generate_tests(metafunc):
     """Indirectly parametrize the runner's `proxy` fixture with this run's replay set.
 
     `BENCH_SET` names the set directory under `tests/replay/sets/`; which set to replay is this
-    layer's own choice, never the runner's.
+    layer's own choice, never the runner's. Required whenever this session collects
+    `test_perf_window` -- `docs/testing.md` §"Running a candidate through bench test" states so.
 
     Args:
         metafunc: pytest's own hook argument; supplies the fixtures a test item requests.
+
+    Raises:
+        KeyError: `BENCH_SET` is unset and this session collects `test_perf_window`.
     """
     if "proxy" not in metafunc.fixturenames:
         return
-    har = _REPLAY_SETS_DIR / os.environ.get("BENCH_SET", "") / "flows.har"
-    metafunc.parametrize("proxy", [str(har)], indirect=True)
+    har = _REPLAY_SETS_DIR / os.environ["BENCH_SET"] / "flows.har"
+    metafunc.parametrize("proxy", [str(har)], indirect=True, ids=[os.environ["BENCH_SET"]])
 
 
 @pytest.fixture
 def probe(target):
-    """Deploy `probe.js`, restart the browser, and yield a reader for its latest sample.
+    """Deploy `probe.js`, restart the browser, and yield a reader for its latest window titles.
 
     Args:
         target: labgrid Target fixture, bound to the `main` target `bench.yaml` names.
 
     Yields:
-        Callable[[], dict | None]: Call it to read the latest parsed probe sample, or None if no
-            window carries one.
+        Callable[[], str]: Call it to read the board's current window titles, raw
+            (`Probe.titles`'s own result) -- each test parses what it needs from it.
     """
     driver = target.get_driver("SSHDriver")
     deployed = Probe(driver)
     deployed.deploy()
     deployed.restart_browser()
     try:
-        yield deployed.read
+        yield deployed.titles
     finally:
         deployed.remove()
 
@@ -69,10 +71,8 @@ def replay_window(target, proxy):
     """Switch the board into replay mode for this test's duration, then restore it.
 
     Opens the reverse forward on the `proxy` fixture's own port, installs the replay CA if
-    needed, performs the switch, and restores the board to live mode on teardown -- the board is
-    left live with its own `config.json` restored even if the test itself fails, *or if the
-    switch into replay mode itself fails partway through* (`enter`'s own steps run in an order
-    where an early step's effect must still be undone by `exit` if a later step raises).
+    needed, performs the switch, and restores the board to live mode on teardown, including
+    when `enter` itself fails partway through.
 
     Args:
         target: labgrid Target fixture, bound to the `main` target `bench.yaml` names.
@@ -125,41 +125,13 @@ def _device_facts(target):
     autouse `device_context` fixture below attaches these facts, plus a fresh `end`, to every
     test's own report.
 
-    Session-scoped and autouse together mean this runs before whichever test happens to be
-    collected first, which may be moments after an OTA reboot -- before `surf`/`wisekiosk` have
-    necessarily finished starting. Retried for up to `_FACTS_SETTLE_SECONDS` rather than read
-    once, so a test with no connection of its own to app readiness (`test_00_provenance`,
-    `test_units_loaded`) does not fail on a boot race that is not its own concern.
-
     Args:
         target: labgrid Target fixture, bound to the `main` target `bench.yaml` names.
 
     Returns:
         dict: One key per fact, named for the old record's own field names.
-
-    Raises:
-        Exception: the last exception raised by a read, once `_FACTS_SETTLE_SECONDS` elapses
-            without every read succeeding.
     """
     driver = target.get_driver("SSHDriver")
-    for attempt in Retrying(
-        stop=stop_after_delay(_FACTS_SETTLE_SECONDS),
-        wait=wait_fixed(_FACTS_POLL_SECONDS),
-        reraise=True,
-    ):
-        with attempt:
-            return _gather_device_facts(driver)
-
-
-def _gather_device_facts(driver):
-    """One attempt at reading every fact `_device_facts` returns.
-
-    Args:
-        driver: A labgrid SSHDriver.
-
-    Returns:
-        dict: One key per fact, named for the old record's own field names.
-    """
     start = datetime.now(timezone.utc).isoformat()
 
     boot_id = _run_text(driver, "cat /proc/sys/kernel/random/boot_id").strip()
@@ -168,7 +140,7 @@ def _gather_device_facts(driver):
     index_html = _run_text(driver, "wget -qO- http://127.0.0.1:8080/")
     bundle = ",".join(asset_hashes(index_html))
 
-    hmac_key = (Path(os.environ["BENCH_TREE"]) / "local" / "keys" / "hmac.key").read_bytes()
+    hmac_key = _HMAC_KEY_PATH.read_bytes()
     config_hex = _run_text(driver, 'hexdump -ve \'1/1 "%02x"\' /data/config/config.json')
     config_json = decode_hex_dump(config_hex).decode()
     config_mac = keyed_hash(hmac_key, config_json.encode())

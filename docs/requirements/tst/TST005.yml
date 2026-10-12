@@ -11,9 +11,9 @@ ref: ''
 references:
 - keyword: def test_browser_restart
   path: tests/target_suite/test_browser_restart.py
-  sha: b5d27360b96bd2c68769c44ae789103e914afeebe6254ccecfb6dc71778c00ec
+  sha: 88634c12723f474d0b89d8fb62da2a7622f6d71dcd799cee0e070822482e51b1
   type: file
-reviewed: xDbJxiRM1bVA3czkoZNucBVww_KRYZwAQyBvyD1qavU=
+reviewed: abbW7dRFGe96yqZNRI7ZXtGZo9O6HS_br0D7aUtvK1A=
 status: proposed
 text: |
   Kill the browser process and assert the page is applied again within 60 s.

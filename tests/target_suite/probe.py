@@ -1,8 +1,9 @@
 """Deploys the DOM probe to the board and reads its latest window-title payload."""
 
+import time
 from pathlib import Path
 
-from verdicts.applied import read_fields
+from verdicts.applied import read_sample, verdict
 
 _SCRIPT_PATH = "/home/root/.surf/script.js"
 _PROBE_SRC = Path(__file__).resolve().parent / "probe.js"
@@ -12,6 +13,9 @@ _TITLES_PROBE = (
     "awk '/^ +0x/ { print $1 }'); do "
     'DISPLAY=:0 xprop -id "$id" WM_NAME 2>/dev/null; done'
 )
+
+APPLIED_WAIT_SECONDS = 90
+_POLL_SECONDS = 2
 
 
 class Probe:
@@ -64,14 +68,28 @@ class Probe:
         stdout, _stderr, _rc = self._driver.run(_TITLES_PROBE)
         return "\n".join(stdout)
 
-    def read(self):
-        """The first window's own probe payload, untyped, or None if no window carries one.
 
-        Every token past the probe's own marker, unfiltered and unconverted -- the shape every
-        test here needs, including the performance window's own extra fields that the
-        narrower, typed `read_sample` does not carry.
+def wait_applied(titles_reader, deadline_s=APPLIED_WAIT_SECONDS):
+    """Poll `titles_reader` until a sample reads state=applied, or raise at the deadline.
 
-        Returns:
-            dict | None: `verdicts.applied.read_fields`'s own result over `self.titles()`.
-        """
-        return read_fields(self.titles())
+    Args:
+        titles_reader: A `probe` fixture's own reader callable (raw `titles()` text in, per
+            call).
+        deadline_s (float): Seconds to keep polling.
+
+    Returns:
+        dict: `read_sample`'s typed result for the first sample whose state is "applied".
+
+    Raises:
+        RuntimeError: `deadline_s` elapsed with no applied sample.
+    """
+    deadline = time.monotonic() + deadline_s
+    samples = []
+    while True:
+        samples.append(read_sample(titles_reader()))
+        outcome, reason = verdict(samples)
+        if outcome == "applied":
+            return samples[-1]
+        if time.monotonic() >= deadline:
+            raise RuntimeError(f"the page did not apply within {deadline_s}s ({outcome}:{reason})")
+        time.sleep(_POLL_SECONDS)

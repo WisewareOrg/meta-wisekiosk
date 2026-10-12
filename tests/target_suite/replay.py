@@ -1,14 +1,13 @@
 """Switches the board between live and replay mode for one test's duration."""
 
-import json
 import os
 import tempfile
 from pathlib import Path
 
 from tenacity import Retrying, stop_after_delay, wait_fixed
 
-from verdicts.context import pid_from_pgrep
 from verdicts.mode import mode_token
+from verdicts.perf import expected_state
 
 _CONFIG_PATH = "/data/config/config.json"
 _ENV_PATH = "/data/config/wisekiosk.conf"
@@ -23,9 +22,9 @@ class Replay:
     """Switches the board into replay mode against one recorded set, then restores it.
 
     Holds the labgrid SSHDriver, the set's own directory and the proxy's loopback port. Every
-    method is transport plus the pure `mode_token` judgement. `enter`/`exit` are a matched pair
-    -- `exit` undoes exactly what `enter` did, best effort past the first failure, like the
-    pipeline's own `stop_replay_window` it replaces.
+    method is transport plus the pure `mode_token` judgement. `exit` undoes exactly what `enter`
+    did, best effort past the first failure: every step runs even if an earlier one raised, and
+    the first exception is re-raised once every step has run.
     """
 
     def __init__(self, driver, set_dir, port):
@@ -44,8 +43,13 @@ class Replay:
 
     @property
     def expected(self):
-        """dict: the set's own `expected.json`, as a plain dict."""
-        return json.loads((self._set_dir / "expected.json").read_text())
+        """dict: the set's own `expected.json`, as `verdicts.perf.expected_state` validates it.
+
+        Raises:
+            ValueError: `expected.json` does not carry exactly `cards`, `faulted` and
+                `unreachable`.
+        """
+        return expected_state((self._set_dir / "expected.json").read_text())
 
     def install_ca_if_needed(self):
         """Install the host's mitmproxy CA on the board, if absent or different.
@@ -62,7 +66,9 @@ class Replay:
         if rc != 0:
             raise RuntimeError(f"could not create {_CA_DIR}: {stderr}")
         self._driver.put(str(_HOST_CA), _CA_PATH)
-        self._driver.run(f"chmod 0644 {_CA_PATH}")
+        _stdout, stderr, rc = self._driver.run(f"chmod 0644 {_CA_PATH}")
+        if rc != 0:
+            raise RuntimeError(f"could not chmod {_CA_PATH}: {stderr}")
 
     def enter(self):
         """Save the board's own `config.json`, switch it into replay mode, and confirm the switch.
@@ -84,12 +90,15 @@ class Replay:
     def exit(self):
         """Remove the env file, restore the saved `config.json`, and confirm the board is live.
 
-        Best effort past the first failure, like the pipeline's own `stop_replay_window`: every
-        step is attempted even if an earlier one raised; the first exception raised is re-raised
-        once every step has run.
+        Best effort past the first failure: every step is attempted even if an earlier one
+        raised; the first exception raised is re-raised once every step has run. The host-side
+        saved copy of `config.json` is only deleted once it has actually been restored to the
+        board -- if any step raised, the copy is kept and its path is named in the raised error,
+        so the board can still be recovered by hand from it.
 
         Raises:
-            Exception: the first exception any step raised, if any did.
+            Exception: the first exception any step raised, if any did. Its message names the
+                kept host-side copy of `config.json` when one of the other steps is what failed.
         """
         steps = [
             lambda: self._driver.run(f"rm -f {_ENV_PATH}"),
@@ -103,10 +112,14 @@ class Replay:
             except Exception as exc:  # noqa: BLE001 -- collected, not swallowed
                 if first_error is None:
                     first_error = exc
-        if self._saved_config_path is not None:
-            self._saved_config_path.unlink(missing_ok=True)
-        if first_error is not None:
-            raise first_error
+        if first_error is None:
+            if self._saved_config_path is not None:
+                self._saved_config_path.unlink(missing_ok=True)
+        else:
+            raise RuntimeError(
+                f"{first_error} (the board's saved config.json is kept at "
+                f"{self._saved_config_path})"
+            ) from first_error
 
     def _restart_into(self, want_mode):
         """Restart the backend, confirm it reached `want_mode`, then restart the browser.
@@ -131,31 +144,20 @@ class Replay:
             raise RuntimeError(f"could not restart kiosk.service: {stderr}")
 
     def _read_mode(self):
-        """The backend's own replay-mode token.
-
-        `pgrep -x wisekiosk` never matches this process on bench's own busybox build. Measured
-        on the board: busybox's `pgrep -x` compares PATTERN against `/proc/<pid>/cmdline`'s own
-        first (argv[0]) token, not the kernel's `/proc/<pid>/comm` (comm reads "wisekiosk",
-        10 bytes with its own trailing newline -- well under the 16-byte kernel limit, so this
-        is not a truncation case). `wisekiosk.service`'s own `ExecStart=/usr/bin/wisekiosk ...`
-        passes the absolute path as argv[0] (`cmdline` reads `/usr/bin/wisekiosk\0-static-root
-        \0/srv/kiosk\0`), which an exact match against the bare name `wisekiosk` cannot equal;
-        `surf`'s own argv[0] carries no path (`cmdline` reads plain `surf\0...`), which is why
-        `pgrep -x surf` (used elsewhere in this suite) and `pgrep -x systemd` both succeed on the
-        same board. Plain `pgrep wisekiosk` (no `-x`) substring-matches the path and succeeds;
-        `wisekiosk` is a unique enough name on this image that the unanchored match carries no
-        risk of matching anything else.
+        """The backend's own replay-mode token, read from `wisekiosk.service`'s own MainPID.
 
         Returns:
             str | None: `verdicts.mode.mode_token`'s own result.
 
         Raises:
-            RuntimeError: no `wisekiosk` process is running, or its environ could not be read.
+            RuntimeError: `wisekiosk.service` has no MainPID, or its environ could not be read.
         """
-        stdout, stderr, rc = self._driver.run("pgrep wisekiosk")
-        if rc != 0:
-            raise RuntimeError(f"no running wisekiosk process: {stderr}")
-        pid = pid_from_pgrep("\n".join(stdout))
+        stdout, stderr, rc = self._driver.run(
+            "systemctl show -p MainPID --value wisekiosk.service"
+        )
+        pid = "\n".join(stdout).strip()
+        if rc != 0 or not pid or pid == "0":
+            raise RuntimeError(f"wisekiosk.service has no MainPID: {stderr}")
         stdout, stderr, rc = self._driver.run(f"tr '\\0' '\\n' < /proc/{pid}/environ")
         if rc != 0:
             raise RuntimeError(f"could not read /proc/{pid}/environ: {stderr}")
@@ -179,7 +181,14 @@ class Replay:
                     raise RuntimeError(f"{unit} not active yet")
 
     def _try_get(self, path):
-        """The remote file's bytes, or None if it could not be read (e.g. absent)."""
+        """The remote file's bytes, or None if it could not be read (e.g. absent).
+
+        Args:
+            path (str): The remote file's path on the board.
+
+        Returns:
+            bytes | None: `path`'s contents, or None if `path` could not be fetched.
+        """
         with tempfile.TemporaryDirectory() as tmp:
             local = Path(tmp) / "f"
             try:
@@ -189,7 +198,14 @@ class Replay:
             return local.read_bytes()
 
     def _save(self, path):
-        """scp `path` to a new host-side temp file and return that file's own path."""
+        """scp `path` to a new host-side temp file and return that file's own path.
+
+        Args:
+            path (str): The remote file's path on the board.
+
+        Returns:
+            pathlib.Path: The new host-side temp file's own path, holding `path`'s contents.
+        """
         fd, name = tempfile.mkstemp()
         os.close(fd)
         local = Path(name)
@@ -197,7 +213,12 @@ class Replay:
         return local
 
     def _write_text(self, path, text):
-        """Write `text` to `path` on the board, via a host-side temp file and `put`."""
+        """Write `text` to `path` on the board, via a host-side temp file and `put`.
+
+        Args:
+            path (str): The remote destination path on the board.
+            text (str): The content to write.
+        """
         with tempfile.TemporaryDirectory() as tmp:
             local = Path(tmp) / "f"
             local.write_text(text)

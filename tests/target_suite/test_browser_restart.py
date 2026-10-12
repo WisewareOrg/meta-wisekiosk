@@ -2,37 +2,12 @@
 
 import time
 
-from verdicts.applied import verdict as applied_verdict
+from probe import APPLIED_WAIT_SECONDS, wait_applied
+from verdicts.applied import read_sample
 from verdicts.browser_restart import verdict
 
-_APPLIED_WAIT_SECONDS = 90
 _DEADLINE_SECONDS = 60
 _POLL_SECONDS = 2
-
-
-def _wait_applied(probe, deadline_s):
-    """Poll `probe` until a sample reads state=applied, or raise at the deadline.
-
-    Args:
-        probe: The `probe` fixture's own reader callable.
-        deadline_s (float): Seconds to keep polling.
-
-    Returns:
-        dict: The first sample whose state is "applied".
-
-    Raises:
-        RuntimeError: `deadline_s` elapsed with no applied sample.
-    """
-    deadline = time.monotonic() + deadline_s
-    samples = []
-    while True:
-        samples.append(probe())
-        outcome, reason = applied_verdict(samples)
-        if outcome == "applied":
-            return samples[-1]
-        if time.monotonic() >= deadline:
-            raise RuntimeError(f"the page did not apply within {deadline_s}s ({outcome}:{reason})")
-        time.sleep(_POLL_SECONDS)
 
 
 def test_browser_restart(target, probe):
@@ -40,11 +15,11 @@ def test_browser_restart(target, probe):
 
     Args:
         target: labgrid Target fixture, bound to the `main` target `bench.yaml` names.
-        probe: deploys `probe.js` and restarts the browser; yields a reader for its latest
-            sample.
+        probe: deploys `probe.js` and restarts the browser; yields a reader for the board's
+            current window titles, raw.
     """
     driver = target.get_driver("SSHDriver")
-    before_sample = _wait_applied(probe, _APPLIED_WAIT_SECONDS)
+    before_sample = wait_applied(probe, APPLIED_WAIT_SECONDS)
 
     stdout, stderr, rc = driver.run("pgrep -x surf")
     if rc != 0 or not stdout:
@@ -56,7 +31,7 @@ def test_browser_restart(target, probe):
     deadline = time.monotonic() + _DEADLINE_SECONDS
     after_samples = []
     while True:
-        after_samples.append(probe())
+        after_samples.append(read_sample(probe()))
         outcome, reason = verdict(before_sample, after_samples)
         if outcome == "restarted" or time.monotonic() >= deadline:
             break

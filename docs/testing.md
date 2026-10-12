@@ -160,8 +160,11 @@ bench test <ref> --set cards4-live
 ```
 
 `--set <name>` names a replay set under `tests/replay/sets/` for `test_perf_window`, the only
-target-suite test that uses one; every other target-suite test runs the same way whether or not
-`--set` is given.
+target-suite test that uses one -- but it is required for any session that collects
+`test_perf_window`: with no `--set`, `BENCH_SET` is unset, and the setup that computes
+`test_perf_window`'s own replay HAR path (`conftest.py`'s `pytest_generate_tests`) raises
+before the session's first test runs, so `test_render.py`/`test_units.py` (collected after
+`test_perf.py`) never run either.
 
 Records land under `records/<UTC start time>/` in the checkout `bench test` runs from
 (`report.jsonl`, pytest-reportlog's own report; `run.json`, the runner's own per-run summary) —
@@ -172,12 +175,15 @@ the board's own context to every test's own report line, one `record_property` k
 `timesync`, `start` and `end`. `test_perf_window` additionally records its own window's metrics
 under `fps`, `p50`, `stall`, `maxstall`, `ttp`, `cost`, `rss`, `idle` and `thermal`.
 
-Running the target suite against any already-installed board, with no new install, needs an
-interpreter with `labgrid` on it (the runner's own venv has one; this layer's does not),
-`BENCH_SHA` set by hand to that board's own currently-installed commit (read its `/etc/buildinfo`),
-and `-o addopts=` to clear this checkout's own `--cov`, which the target suite does not carry:
+Running the target suite against any already-installed board, with no new install, needs the
+runner's own interpreter (it carries `labgrid` and `tenacity`; this layer's own interpreter has
+neither), `BENCH_SHA` set by hand to that board's own currently-installed commit (read its
+`/etc/buildinfo`), `BENCH_SET` naming a replay set under `tests/replay/sets/` (required whenever
+the run collects `test_perf_window`, per above), and `-o addopts=` to clear this checkout's own
+`--cov`, which the target suite does not carry:
 
 ```sh
 BENCH_SHA=<the board's own currently-installed commit> \
-/path/to/an/interpreter/with/labgrid -m pytest tests/target_suite -o addopts= --lg-env bench.yaml
+BENCH_SET=<a replay set under tests/replay/sets/> \
+/path/to/WiseBenchManager/.venv/bin/python -m pytest tests/target_suite -o addopts= --lg-env bench.yaml
 ```

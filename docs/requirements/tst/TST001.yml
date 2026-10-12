@@ -11,9 +11,9 @@ ref: ''
 references:
 - keyword: def test_page_applied
   path: tests/target_suite/test_applied.py
-  sha: fad18e45eb91bf94d3d2c4077fd700c7164e5178bf91bdec0385946ca6002653
+  sha: f3746523cf57c13c219d82127ab9d88f0e672ef3da5127cc6a095b9261ae1827
   type: file
-reviewed: 9x5Mvi8gwHq-907pXSvG_pxgK61AXsCQiJ7nfdrtYV8=
+reviewed: rsi_j7DI13rTaCcRfOVaIYULdoYhBFfvFDc2bf5JxwI=
 status: proposed
 text: |
   Run the target suite's applied-page check against the booted image and assert it passes.

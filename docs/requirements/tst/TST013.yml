@@ -11,13 +11,13 @@ ref: ''
 references:
 - keyword: def test_perf_window
   path: tests/target_suite/test_perf.py
-  sha: 0f76bf76e1d401c566064397f3df8163005557c38b60d2953f2eb96d6a5d6ce0
+  sha: 9dfaa38961a6b1c36e26e67731bc71bf702a846183ad0d10f094e3e3cfb86925
   type: file
-reviewed: RnVQHMwnQqqcTRMfxbQ_6x0wZX_18ZwFiQeKBCExDHc=
+reviewed: obPK5Us5a3MmPo9GZe2vh34LoJjmHIq-_qOwdO_vKoA=
 status: proposed
 text: |
-  On the second boot of the updated slot, over the 300 s window starting 15 s after the page
-  loads, record the number of frame intervals of 100 ms or more per minute.
+  Over the 300 s window starting 15 s after the page loads, record the number of frame
+  intervals of 100 ms or more per minute.
 verification-justification: |
   Records the metric over one 300 s window on the replayed page, on one physical device,
   one boot, the window voided unless both reads show the replay set's expected page state and

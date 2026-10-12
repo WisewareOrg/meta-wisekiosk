@@ -11,13 +11,13 @@ ref: ''
 references:
 - keyword: def test_perf_window
   path: tests/target_suite/test_perf.py
-  sha: 0f76bf76e1d401c566064397f3df8163005557c38b60d2953f2eb96d6a5d6ce0
+  sha: 9dfaa38961a6b1c36e26e67731bc71bf702a846183ad0d10f094e3e3cfb86925
   type: file
-reviewed: vPzKuAIu4jX7QEToUOPsYS9brST4FIMzJqS1gq91CMQ=
+reviewed: xBYGcxQJU-iU3ZBFFCYdkjm2ulyOhFZ1ebqzMlBPwGk=
 status: proposed
 text: |
-  On the second boot of the updated slot, over the 300 s window starting 15 s after the page
-  loads, record the longest interval between two frames.
+  Over the 300 s window starting 15 s after the page loads, record the longest interval
+  between two frames.
 verification-justification: |
   Records the metric over one 300 s window on the replayed page, on one physical device,
   one boot, the window voided unless both reads show the replay set's expected page state and

@@ -1,7 +1,6 @@
 """Pure parsers for the device context `conftest.py`'s `device_context` fixture attaches to
 every test's report. Every function here is pure -- text or bytes in, a plain value out, no
-board, no file, no network. Ported from the pre-#224 `framework/record.py` (not carried onto
-this stack by #224, which kept only `parse_buildinfo`/`keyed_hash`/`decode_hex_dump`).
+board, no file, no network.
 """
 
 import json

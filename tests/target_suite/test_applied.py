@@ -2,7 +2,7 @@
 
 import time
 
-from verdicts.applied import verdict
+from verdicts.applied import read_sample, verdict
 
 _WAIT_SECONDS = 90
 _POLL_SECONDS = 2
@@ -12,13 +12,13 @@ def test_page_applied(probe):
     """TST001: within 90 s of a restart, the page reaches state=applied.
 
     Args:
-        probe: deploys `probe.js` and restarts the browser; yields a reader for its latest
-            sample.
+        probe: deploys `probe.js` and restarts the browser; yields a reader for the board's
+            current window titles, raw.
     """
     deadline = time.monotonic() + _WAIT_SECONDS
     samples = []
     while True:
-        samples.append(probe())
+        samples.append(read_sample(probe()))
         outcome, reason = verdict(samples)
         if outcome == "applied" or time.monotonic() >= deadline:
             break

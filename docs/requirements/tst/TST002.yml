@@ -11,9 +11,9 @@ ref: ''
 references:
 - keyword: def test_render_advancing
   path: tests/target_suite/test_render.py
-  sha: 7a2155736fa8590879190fd860cb0c0172cbb898bc17bbb977036ebc180bcbc4
+  sha: 02aedfb468ba8f3ac106f3242e87a2b5c686352830d90aba336c0114baff68f4
   type: file
-reviewed: 0jZEv-i8Nl1A8u0xuftrbbOkpagC21WlfLaiklXtc1A=
+reviewed: yikcuL7Xjkdr4e3GU9IcXURBo1lEIfWMuq4YKuGu-Mo=
 status: proposed
 text: |
   Run the target suite's render-advancing check against the booted image and assert it passes.
