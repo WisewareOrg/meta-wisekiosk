@@ -1,6 +1,12 @@
 """TST002: the render-advancing check, judged by `verdicts.render`."""
 
+import time
+
+from verdicts.applied import verdict as applied_verdict
 from verdicts.render import verdict
+
+_APPLIED_WAIT_SECONDS = 90
+_POLL_SECONDS = 2
 
 # docs/testing.md section "Running it" has the why for this default crop.
 _CROP = "560x300+220+20"
@@ -32,12 +38,32 @@ _RENDER_PROBE = (
 ) % _CROP
 
 
-def test_render_advancing(target):
+def test_render_advancing(target, probe):
     """TST002: two screenshots 3 s apart differ, so the render repainted within the interval.
+
+    Waits for the probe to report state=applied first. Measured on bench: from a
+    `kiosk.service` restart, the probe reports nothing for ~13s, `error:not-app` for the next
+    ~8s, then `applied` around 20-28s -- capturing before that point measures a loading screen,
+    not rendering, which is what made this check depend on what ran immediately before it in
+    the same session (nothing in the old, per-stage pipeline needed this wait, since nothing
+    there ran a render capture right after a browser restart).
 
     Args:
         target: labgrid Target fixture, bound to the `main` target `bench.yaml` names.
+        probe: deploys `probe.js` and restarts the browser; yields a reader for its latest
+            sample.
     """
+    deadline = time.monotonic() + _APPLIED_WAIT_SECONDS
+    samples = []
+    while True:
+        samples.append(probe())
+        applied_outcome, applied_reason = applied_verdict(samples)
+        if applied_outcome == "applied" or time.monotonic() >= deadline:
+            break
+        time.sleep(_POLL_SECONDS)
+    if applied_outcome != "applied":
+        raise RuntimeError(f"page did not apply before the render check: {applied_outcome}:{applied_reason}")
+
     driver = target.get_driver("SSHDriver")
     stdout, _stderr, _rc = driver.run(_RENDER_PROBE)
     outcome, reason = verdict(stdout)
