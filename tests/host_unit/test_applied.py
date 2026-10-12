@@ -1,6 +1,6 @@
 """Specifies tests/verdicts/applied.py: parse_title over surf's window-title shape, read_sample
-over xprop's own per-window dump, and verdict over a sequence of parsed samples (docs/testing.md
-section "Running it": the run record's page.<case id> line and its no-leak guarantee).
+over xprop's own per-window dump, and verdict over a sequence of parsed samples -- the judgement
+behind the applied-page check's own pass/fail outcome.
 
 surf's updatetitle() (vendored surf.c) renders "[<progress>%] <toggles>:<pagestats> | <title>"
 while progress != 100, and drops the leading "[NN%] " bracket once progress reaches 100 --

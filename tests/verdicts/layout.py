@@ -36,36 +36,3 @@ def verdict(xrandr_output, configured_mode):
     if mode != configured_mode:
         return "mode-mismatch", f"xrandr reports {mode}, the launcher configures {configured_mode}"
     return "ok", ""
-
-
-def pick_below_floor_mode(xrandr_output):
-    """The connected output's own name, its current mode, and the largest
-    mode (by area) that output offers below the 720p floor (None if it
-    offers none) -- from `DISPLAY=:0 xrandr`'s own shape: a "<name>
-    connected ..." header line names the active connector, and each
-    following indented "<w>x<h> ..." line names one of its modes, the
-    current one carrying a "*" against one of its refresh rates."""
-    connector = None
-    current = None
-    below_floor = []
-    for line in xrandr_output.splitlines():
-        if " connected " in line:
-            connector = line.split()[0]
-            continue
-        if connector is None or not line.startswith(" "):
-            continue
-        parts = line.split()
-        w_str, _, h_str = parts[0].partition("x")
-        if not (w_str.isdigit() and h_str.isdigit()):
-            continue
-        width, height = int(w_str), int(h_str)
-        if "*" in line:
-            current = parts[0]
-        if width < MIN_WIDTH or height < MIN_HEIGHT:
-            below_floor.append((width, height))
-
-    candidate = None
-    if below_floor:
-        best = max(below_floor, key=lambda mode: mode[0] * mode[1])
-        candidate = f"{best[0]}x{best[1]}"
-    return connector, current, candidate

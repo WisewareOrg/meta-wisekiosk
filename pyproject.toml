@@ -21,8 +21,7 @@ dev = [
 # of listing it; a file under 100% still lists its missing lines.
 addopts = ["--cov", "--cov-report=term-missing:skip-covered"]
 testpaths = ["meta-wisekiosk/lib/oeqa/runtime/framework/tests", "tests/host_unit"]
-# "tests" makes tests/verdicts importable as `verdicts.<name>`, by this suite and (via
-# WiseBenchManager's own pythonpath passthrough) the target suite.
+# "tests" makes tests/verdicts importable as `verdicts.<name>`.
 pythonpath = ["meta-wisekiosk/lib/oeqa/runtime", "tests"]
 
 [tool.coverage.run]
@@ -30,7 +29,6 @@ source = ["meta-wisekiosk/lib/oeqa/runtime/framework", "tests/verdicts"]
 branch = true
 omit = [
     "meta-wisekiosk/lib/oeqa/runtime/framework/tests/*",
-    "tests/host_unit/*",
 ]
 
 [tool.coverage.report]

@@ -6,7 +6,7 @@ No device, no DOM -- every mode string and xrandr dump is constructed.
 
 import pytest
 
-from verdicts.layout import current_mode, pick_below_floor_mode, verdict
+from verdicts.layout import current_mode, verdict
 
 BENCH_XRANDR = """Screen 0: minimum 320 x 200, current 1280 x 720, maximum 2048 x 2048
 HDMI-1 connected primary 1280x720+0+0 (normal left inverted right x axis y axis) 521mm x 293mm
@@ -63,55 +63,3 @@ def test_verdict_outcome(name, xrandr_output, configured_mode, want_outcome, wan
     outcome, reason = verdict(xrandr_output, configured_mode)
     assert outcome == want_outcome, f"{name}: {reason!r}"
     assert want_reason_substring in reason, f"{name}: {reason!r}"
-
-
-# ------------------------------------------------------------- pick_below_floor_mode
-# A real `DISPLAY=:0 xrandr` capture from bench (no address or other identity in it --
-# xrandr reports modes, never anything scrubbed elsewhere).
-
-def test_pick_below_floor_mode_real_bench_capture():
-    # 1024x768 is below the floor (width 1024 < 1280) and the largest by
-    # area among this connector's below-floor modes (786432 vs 832x624's
-    # 519168 and smaller) -- not the one nearest 1280x720 textually.
-    connector, current, candidate = pick_below_floor_mode(BENCH_XRANDR)
-    assert connector == "HDMI-1"
-    assert current == "1280x720"
-    assert candidate == "1024x768"
-
-
-NO_BELOW_FLOOR_XRANDR = """Screen 0: minimum 320 x 200, current 1920 x 1080, maximum 2048 x 2048
-HDMI-1 connected primary 1920x1080+0+0 (normal left inverted right x axis y axis) 521mm x 293mm
-   1920x1080     60.00*+  59.94
-   1680x1050     59.88
-"""
-
-
-def test_pick_below_floor_mode_connector_offers_none():
-    connector, current, candidate = pick_below_floor_mode(NO_BELOW_FLOOR_XRANDR)
-    assert connector == "HDMI-1"
-    assert current == "1920x1080"
-    assert candidate is None
-
-
-def test_pick_below_floor_mode_skips_an_interlaced_mode():
-    # Real xrandr shape: an interlaced mode's token carries a trailing "i"
-    # (e.g. "720x480i"); isdigit() correctly excludes it from the candidates.
-    connector, current, candidate = pick_below_floor_mode(
-        "HDMI-1 connected primary 1280x720+0+0\n"
-        "   720x480i      60.00\n"
-        "   1024x768      75.03\n"
-        "   1280x720      60.00*\n"
-    )
-    assert connector == "HDMI-1"
-    assert current == "1280x720"
-    assert candidate == "1024x768"
-
-
-def test_pick_below_floor_mode_no_connected_output():
-    connector, current, candidate = pick_below_floor_mode(
-        "Screen 0: minimum 320 x 200, current 1280 x 720, maximum 2048 x 2048\n"
-        "HDMI-1 disconnected (normal left inverted right x axis y axis)\n"
-    )
-    assert connector is None
-    assert current is None
-    assert candidate is None

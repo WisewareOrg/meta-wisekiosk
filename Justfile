@@ -148,7 +148,7 @@ links:
     {{py}} tools/doc-links.py
 
 [group('check')]
-[doc("Run the pytest suite over meta-wisekiosk/lib/oeqa/runtime/framework and tests/verdicts, 100% coverage floor")]
+[doc("Run the pytest suite over tests/host_unit and the record helpers' tests, 100% coverage floor")]
 test:
     uv run --frozen --group dev pytest
 
