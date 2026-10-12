@@ -106,7 +106,7 @@ EXPECTED = {"cards": "4/4", "faulted": 0, "unreachable": 0}
 
 
 def _sample(el, changes=2, state="applied", cards="4/4", faulted=0, unreachable=0):
-    """Build a perf_sample-shaped sample for `validity`'s own five fields.
+    """Build a perf_sample-shaped sample for `validity`'s own six fields.
 
     Args:
         el (int): The sample's `el` field (elapsed ms since the probe's t0).
