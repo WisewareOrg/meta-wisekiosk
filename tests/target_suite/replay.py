@@ -113,19 +113,43 @@ class Replay:
         if rc != 0:
             raise RuntimeError(f"could not restart wisekiosk.service: {stderr}")
         self._wait_active("wisekiosk.service")
-        stdout, stderr, rc = self._driver.run("pgrep -x wisekiosk")
+        mode = self._read_mode()
+        if mode != want_mode:
+            raise RuntimeError(f"wisekiosk.service entered mode={mode!r}, expected {want_mode!r}")
+        _stdout, stderr, rc = self._driver.run("systemctl restart kiosk.service")
+        if rc != 0:
+            raise RuntimeError(f"could not restart kiosk.service: {stderr}")
+
+    def _read_mode(self):
+        """The backend's own replay-mode token.
+
+        `pgrep -x wisekiosk` never matches this process on bench's own busybox build. Measured
+        on the board: busybox's `pgrep -x` compares PATTERN against `/proc/<pid>/cmdline`'s own
+        first (argv[0]) token, not the kernel's `/proc/<pid>/comm` (comm reads "wisekiosk",
+        10 bytes with its own trailing newline -- well under the 16-byte kernel limit, so this
+        is not a truncation case). `wisekiosk.service`'s own `ExecStart=/usr/bin/wisekiosk ...`
+        passes the absolute path as argv[0] (`cmdline` reads `/usr/bin/wisekiosk\0-static-root
+        \0/srv/kiosk\0`), which an exact match against the bare name `wisekiosk` cannot equal;
+        `surf`'s own argv[0] carries no path (`cmdline` reads plain `surf\0...`), which is why
+        `pgrep -x surf` (used elsewhere in this suite) and `pgrep -x systemd` both succeed on the
+        same board. Plain `pgrep wisekiosk` (no `-x`) substring-matches the path and succeeds;
+        `wisekiosk` is a unique enough name on this image that the unanchored match carries no
+        risk of matching anything else.
+
+        Returns:
+            str | None: `verdicts.mode.mode_token`'s own result.
+
+        Raises:
+            RuntimeError: no `wisekiosk` process is running, or its environ could not be read.
+        """
+        stdout, stderr, rc = self._driver.run("pgrep wisekiosk")
         if rc != 0:
             raise RuntimeError(f"no running wisekiosk process: {stderr}")
         pid = pid_from_pgrep("\n".join(stdout))
         stdout, stderr, rc = self._driver.run(f"tr '\\0' '\\n' < /proc/{pid}/environ")
         if rc != 0:
             raise RuntimeError(f"could not read /proc/{pid}/environ: {stderr}")
-        mode = mode_token("\n".join(stdout), self._port)
-        if mode != want_mode:
-            raise RuntimeError(f"wisekiosk.service entered mode={mode!r}, expected {want_mode!r}")
-        _stdout, stderr, rc = self._driver.run("systemctl restart kiosk.service")
-        if rc != 0:
-            raise RuntimeError(f"could not restart kiosk.service: {stderr}")
+        return mode_token("\n".join(stdout), self._port)
 
     def _wait_active(self, unit):
         for attempt in Retrying(

@@ -70,7 +70,9 @@ def replay_window(target, proxy):
 
     Opens the reverse forward on the `proxy` fixture's own port, installs the replay CA if
     needed, performs the switch, and restores the board to live mode on teardown -- the board is
-    left live with its own `config.json` restored even if the test itself fails.
+    left live with its own `config.json` restored even if the test itself fails, *or if the
+    switch into replay mode itself fails partway through* (`enter`'s own steps run in an order
+    where an early step's effect must still be undone by `exit` if a later step raises).
 
     Args:
         target: labgrid Target fixture, bound to the `main` target `bench.yaml` names.
@@ -84,7 +86,11 @@ def replay_window(target, proxy):
     replay = Replay(driver, set_dir, proxy)
     with driver.forward_remote_port(proxy, proxy):
         replay.install_ca_if_needed()
-        replay.enter()
+        try:
+            replay.enter()
+        except Exception:
+            replay.exit()
+            raise
         try:
             yield replay.expected
         finally:
