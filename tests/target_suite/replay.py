@@ -109,6 +109,16 @@ class Replay:
             raise first_error
 
     def _restart_into(self, want_mode):
+        """Restart the backend, confirm it reached `want_mode`, then restart the browser.
+
+        Args:
+            want_mode (str): The mode `_read_mode` must report after the restart (`"replay"` or
+                `"live"`).
+
+        Raises:
+            RuntimeError: a restart did not exit 0, or the backend's own mode does not match
+                `want_mode`.
+        """
         _stdout, stderr, rc = self._driver.run("systemctl restart wisekiosk.service")
         if rc != 0:
             raise RuntimeError(f"could not restart wisekiosk.service: {stderr}")
@@ -152,6 +162,14 @@ class Replay:
         return mode_token("\n".join(stdout), self._port)
 
     def _wait_active(self, unit):
+        """Poll `systemctl is-active` until `unit` reports active, or raise at the deadline.
+
+        Args:
+            unit (str): The systemd unit's own name.
+
+        Raises:
+            RuntimeError: `unit` did not reach `"active"` within `_WAIT_TIMEOUT` seconds.
+        """
         for attempt in Retrying(
             stop=stop_after_delay(_WAIT_TIMEOUT), wait=wait_fixed(_WAIT_INTERVAL), reraise=True
         ):

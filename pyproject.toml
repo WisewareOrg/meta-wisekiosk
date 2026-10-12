@@ -13,6 +13,7 @@ dev = [
     "check-reqs",
     "pytest",
     "pytest-cov",
+    "tenacity>=9.0",
 ]
 
 [tool.pytest.ini_options]
