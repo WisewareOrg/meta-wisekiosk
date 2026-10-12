@@ -2,7 +2,7 @@
 
 A replay set is three files under `tests/replay/sets/<name>/`, read by a target-suite test that
 parametrizes [WiseBenchManager](https://github.com/WisewareOrg/WiseBenchManager)'s `proxy` fixture
-(its README, "Running it") with the set's HAR:
+(its README, "What a layer provides") with the set's HAR:
 
 ```
 sets/<name>/
@@ -15,9 +15,8 @@ sets/<name>/
                    `config.json`, recorded by fetching them through mitmdump
 ```
 
-A request the replayed HAR does not hold is killed and ends the test session —
-[WiseBenchManager](https://github.com/WisewareOrg/WiseBenchManager)'s README, "What a layer
-provides" (the `proxy(har)` fixture: "a miss kills the connection").
+A request the replayed HAR does not hold is killed and ends the test session — that same fixture
+table entry: "a miss kills the connection".
 
 A set carries no expiry. What a recording keeps or drops is decided once, at recording time, by
 whoever records it — not refreshed on a schedule and not something a tool recomputes later.
