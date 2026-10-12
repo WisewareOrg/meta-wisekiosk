@@ -161,12 +161,13 @@ bench test <ref> --set cards4-live
 
 `--set <name>` names a replay set under `tests/replay/sets/` for `test_perf_window`, the only
 target-suite test that uses one -- but it is required for any session that collects
-`test_perf_window`: without it, `BENCH_SET` resolves to the empty string (`bench test`'s own
-default with no `--set`, or an unexported variable in a hand run), the HAR path it builds names
-no real file, and the runner's own `proxy` fixture ends the whole session
-(`pytest.exit(2)`) at `test_perf_window`'s setup. Tests collected before it in file order
-(`test_applied.py`, `test_browser_restart.py`, `test_layout.py`) still ran; `test_render.py`'s
-and `test_units.py`'s own tests, collected after, never do.
+`test_perf_window`: without it, `bench test`'s own default leaves `BENCH_SET` set to the empty
+string, the HAR path it builds names no real file, and the runner's own `proxy` fixture ends the
+whole session (`pytest.exit(2)`) at `test_perf_window`'s own setup. Tests collected before it in
+file order (`test_00_provenance.py`, `test_applied.py`, `test_browser_restart.py`,
+`test_layout.py`) still run; `test_render.py`'s and `test_units.py`'s own tests, collected after,
+never do. A hand run with `BENCH_SET` not exported at all fails at collection instead, before
+any test runs.
 
 Records land under `records/<UTC start time>/` in the checkout `bench test` runs from
 (`report.jsonl`, pytest-reportlog's own report; `run.json`, the runner's own per-run summary) —

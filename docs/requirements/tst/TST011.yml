@@ -11,9 +11,9 @@ ref: ''
 references:
 - keyword: def test_perf_window
   path: tests/target_suite/test_perf.py
-  sha: 687bc21689776db43b0d17deb8bd076c5c45af0d0ff574cdc54f6664955432e5
+  sha: 3fe455d5e809670d8a4f4bc5c9590f2461498e49737351d7a203e26f9046d9b5
   type: file
-reviewed: hwvxnwop64GBvY85KYTO7Fo4ns2LTHmvUK0Ow2DbKHM=
+reviewed: 5EAGWAGzJ64_m3DFJqlrEKzZMVgkfr0OUuqlF16K4Ps=
 status: proposed
 text: |
   Over the 300 s window starting 15 s after the page loads, difference the page's frame

@@ -112,7 +112,7 @@ def _device_facts(target):
         target: labgrid Target fixture, bound to the `main` target `bench.yaml` names.
 
     Returns:
-        dict: One key per fact, named for the old record's own field names.
+        dict: One key per fact; see `docs/testing.md`'s `device_context` key list for the names.
     """
     driver = target.get_driver("SSHDriver")
     start = datetime.now(timezone.utc).isoformat()
