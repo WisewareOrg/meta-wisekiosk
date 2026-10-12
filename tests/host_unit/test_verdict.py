@@ -100,7 +100,7 @@ def test_expected_state_rejects_invalid_input(name, text):
 
 
 # ---------------------------------------------------------------------------- validity
-# Phase A is always judged against a replay set (rulings-group2.md Q11): expected is never None.
+# This suite only ever runs under a replay set: expected is never None.
 
 EXPECTED = {"cards": "4/4", "faulted": 0, "unreachable": 0}
 

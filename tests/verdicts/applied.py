@@ -55,6 +55,9 @@ def _typed(found):
     Returns:
         dict: `_FIELDS`' five keys; `_INT_FIELDS`' two values converted to int, the rest left
             as the strings `found` carried.
+
+    Raises:
+        ValueError: `_INT_FIELDS`' value in `found` is not a valid base-10 integer string.
     """
     return {key: (int(found[key]) if key in _INT_FIELDS else found[key]) for key in _FIELDS}
 
