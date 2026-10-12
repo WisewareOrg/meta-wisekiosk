@@ -1,0 +1,17 @@
+# WiseBenchManager's own config -- see [docs/testing.md](docs/testing.md)
+# §"Running a candidate through bench test". No site identity here: the
+# board's address is LG_BENCH_ADDRESS, exported into the shell, never
+# written to a tracked file.
+
+[hooks]
+precondition = "just bench-precondition"
+build        = "just build"
+bundle       = "just kiosk-bundle"
+
+[bundle]
+path        = "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/update-bundle-raspberrypi0-wifi.raucb"
+destination = "/data/update.raucb"
+
+[tests]
+host_suite   = "tests/host_suite"
+target_suite = "tests/target_suite"

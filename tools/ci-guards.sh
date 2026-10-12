@@ -150,7 +150,18 @@ else
     badyaml=0
     while IFS= read -r f; do
         [ -f "$f" ] || continue
-        if ! err=$("$PY" -c 'import sys,yaml; yaml.safe_load(open(sys.argv[1]))' "$f" 2>&1); then
+        # bench.yaml's labgrid !template tag has no constructor in plain
+        # safe_load; registered by its own exact name, not a blanket
+        # catch-all, so an unrelated or misspelled tag still fails this check.
+        if ! err=$("$PY" -c '
+import sys, yaml
+
+class _TagTolerant(yaml.SafeLoader):
+    pass
+
+_TagTolerant.add_constructor("!template", lambda loader, node: loader.construct_scalar(node))
+yaml.load(open(sys.argv[1]), Loader=_TagTolerant)
+' "$f" 2>&1); then
             bad "YAML does not parse: $f"
             printf '%s\n' "$err" | sed 's/^/        /'
             badyaml=1
@@ -968,6 +979,32 @@ else
     else
         ok "every kiosk-*-check in $runsh20 runs from the tree under test, not the driver's checkout"
     fi
+fi
+
+# --- 21. the device-role identity resolver must still pass its own
+# self-test -- fixture-only, no bench, no local/, runs fully here. ---------
+roletest21="tools/device-role-test.py"
+if [ ! -f "$roletest21" ]; then
+    bad "guard 21: $roletest21 missing -- the device-role resolver is no longer self-tested"
+elif out21=$("$PY" "$roletest21" 2>&1); then
+    ok "the device-role resolver passes its self-test ($(printf '%s\n' "$out21" | tail -n1))"
+else
+    bad "the device-role resolver FAILS its own self-test:"
+    printf '%s\n' "$out21" | grep -E '^(FAIL|pass=)' | sed 's/^/        /'
+fi
+
+# --- 23. the requirements tree passes the shared check-reqs gate ---------
+# Fixture-free -- the real tree under docs/requirements/. Doorstop walks from
+# the project root; build/ and sources/ are gitignored and skipped by a marker
+# written here once each directory exists. ---------------------------------
+for dir23 in build sources; do
+    [ -d "$dir23" ] && [ ! -f "$dir23/.doorstop.skip-all" ] && : > "$dir23/.doorstop.skip-all"
+done
+if out23=$(uv run --locked check-reqs --root docs/requirements 2>&1); then
+    ok "the requirements tree passes check-reqs ($(printf '%s\n' "$out23" | tail -n1))"
+else
+    bad "guard 23: the requirements tree FAILS check-reqs:"
+    printf '%s\n' "$out23" | sed 's/^/        /'
 fi
 
 if [ "$fail" -ne 0 ]; then

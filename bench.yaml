@@ -1,0 +1,12 @@
+# labgrid env file, named at `bench test`'s --lg-env. The board's address is
+# LG_BENCH_ADDRESS, substituted by labgrid's own !template (labgrid 26 only
+# substitutes LG_-prefixed variables), exported from local/device-identity.md
+# into the shell and never written here.
+targets:
+  main:
+    resources:
+      NetworkService:
+        address: !template $LG_BENCH_ADDRESS
+        username: root
+    drivers:
+      SSHDriver: {}
