@@ -8,30 +8,12 @@ import pytest
 from framework.record import keyed_hash
 from verdicts.context import (
     asset_hashes,
-    booted_slot,
     config_summary,
     kiosk_conf_mac,
     pid_from_pgrep,
     uptime_seconds,
     webkit_env,
 )
-
-# ------------------------------------------------------------------- booted_slot
-# run.sh's own booted_slot(): sed -n "s/^RAUC_SYSTEM_BOOTED_BOOTNAME='\(.*\)'/\1/p"
-
-RAUC_SHELL_OTHER_LINES = "RAUC_SYSTEM_COMPATIBLE='wisekiosk-raspberrypi0-wifi'\n"
-
-
-@pytest.mark.parametrize(
-    ("name", "text", "want"),
-    [
-        ("slot A", RAUC_SHELL_OTHER_LINES + "RAUC_SYSTEM_BOOTED_BOOTNAME='A'\n", "A"),
-        ("slot B", RAUC_SHELL_OTHER_LINES + "RAUC_SYSTEM_BOOTED_BOOTNAME='B'\n", "B"),
-        ("no such line", RAUC_SHELL_OTHER_LINES, ""),
-    ],
-)
-def test_booted_slot(name, text, want):
-    assert booted_slot(text) == want, name
 
 
 # --------------------------------------------------------------------- uptime_seconds

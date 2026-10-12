@@ -15,7 +15,6 @@ from probe import Probe
 from replay import Replay
 from verdicts.context import (
     asset_hashes,
-    booted_slot,
     config_summary,
     kiosk_conf_mac,
     pid_from_pgrep,
@@ -157,10 +156,7 @@ def _gather_device_facts(driver):
     """
     start = datetime.now(timezone.utc).isoformat()
 
-    hostname = _run_text(driver, "hostname").strip()
     boot_id = _run_text(driver, "cat /proc/sys/kernel/random/boot_id").strip()
-    rauc_shell = _run_text(driver, "rauc status --detailed --output-format=shell")
-    slot = booted_slot(rauc_shell)
     uptime_s = uptime_seconds(_run_text(driver, "cat /proc/uptime"))
 
     index_html = _run_text(driver, "wget -qO- http://127.0.0.1:8080/")
@@ -192,10 +188,8 @@ def _gather_device_facts(driver):
 
     return {
         "start": start,
-        "hostname": hostname,
         "boot_id": boot_id,
         "uptime_s": uptime_s,
-        "slot": slot,
         "bundle": bundle,
         "config_mac": config_mac,
         "config": config,

@@ -9,22 +9,7 @@ import re
 
 from framework.record import keyed_hash
 
-_BOOTED_BOOTNAME = re.compile(r"^RAUC_SYSTEM_BOOTED_BOOTNAME='(.*)'$", re.MULTILINE)
 _ASSET_TAG = re.compile(r'<script\b[^>]*\ssrc="([^"]+)"|<link\b[^>]*\shref="([^"]+)"')
-
-
-def booted_slot(text):
-    """The booted slot's bootname from `rauc status`'s own shell-format output.
-
-    Args:
-        text (str): `rauc status --output-format=shell`'s (or `--detailed`'s) stdout.
-
-    Returns:
-        str: The `RAUC_SYSTEM_BOOTED_BOOTNAME` line's value (e.g. `"rootfs.0"`), or `""` if
-            absent.
-    """
-    m = _BOOTED_BOOTNAME.search(text)
-    return m.group(1) if m else ""
 
 
 def uptime_seconds(text):
