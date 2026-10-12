@@ -163,5 +163,12 @@ Records land under `records/<UTC start time>/` in the checkout `bench test` runs
 (`report.jsonl`, pytest-reportlog's own report; `run.json`, the runner's own per-run summary) —
 gitignored, never committed.
 
-Running the target suite against any already-installed board, with no new install, is plain
-`pytest tests/target_suite --lg-env bench.yaml`, `LG_BENCH_ADDRESS` exported the same way.
+Running the target suite against any already-installed board, with no new install, needs an
+interpreter with `labgrid` on it (the runner's own venv has one; this layer's does not),
+`BENCH_SHA` set by hand to that board's own currently-installed commit (read its `/etc/buildinfo`),
+and `-o addopts=` to clear this checkout's own `--cov`, which the target suite does not carry:
+
+```sh
+BENCH_SHA=<the board's own currently-installed commit> \
+/path/to/an/interpreter/with/labgrid -m pytest tests/target_suite -o addopts= --lg-env bench.yaml
+```
