@@ -56,3 +56,10 @@ Stop `mitmdump` cleanly (`SIGINT`) once every URL has been fetched — the HAR i
 a clean exit. Before committing: `jq '.log.entries | length' <path>.har` must equal the number of
 URLs fetched, and the recording must still clear [`CONTRIBUTING.md`](../../CONTRIBUTING.md)'s
 public-repository rule — read it before assuming a third-party API's own response headers do.
+
+mitmdump's HAR carries each entry's own `serverIPAddress` and, behind Cloudflare, a `cf-ray`
+response header whose suffix names the edge location that served the request — a coarse location of
+the host doing the recording, not of the appliance. Drop every entry's `serverIPAddress` field and
+every `cf-ray`/`cf-cache-status` response header before committing (a one-off `jq`/`python` edit at
+recording time, not a kept script); mitmproxy's replay match is on method, host, path and query, so
+removing response headers changes nothing about what a later replay serves.
