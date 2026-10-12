@@ -39,6 +39,7 @@ loud, in its own file, where a reader sees the limit.
 Scope is `git ls-files` -- the tracked set is exactly what publishing publishes,
 and it excludes `build/`, `sources/` and `local/` for free.
 """
+import os
 import re
 import subprocess
 import sys
@@ -174,8 +175,13 @@ def map_path(root):
     direct = root / MAP_REL
     if direct.exists():
         return direct
+    # A hook's own GIT_DIR/GIT_WORK_TREE outrank cwd for repo discovery, so a
+    # caller's own env would resolve this from the invoking hook's repo rather
+    # than `root`. Strip both and let `cwd` decide.
+    env = {k: v for k, v in os.environ.items()
+           if k not in ('GIT_DIR', 'GIT_WORK_TREE')}
     result = subprocess.run(['git', 'rev-parse', '--git-common-dir'], cwd=root,
-                            capture_output=True, text=True)
+                            env=env, capture_output=True, text=True)
     shared = result.stdout.strip()
     if result.returncode != 0 or not shared:
         return direct

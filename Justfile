@@ -103,7 +103,7 @@ spotless: clean
 # two independent findings are worth more than the first one twice.
 [group('guards')]
 [script('bash')]
-[doc("Run repository guards: secrets, template, shell syntax, YAML, gitleaks, IPs, service reachability, recovery wiring, trailing-; hooks, guard wiring, guard self-test, review-checklist taxonomy, CVE tools self-test, python interpreter, Go module generator self-test, config seed self-test, default-config path agreement, app lockfile self-test, device identity")]
+[doc("Run repository guards: secrets, template, shell syntax, YAML, gitleaks, IPs, service reachability, recovery wiring, trailing-; hooks, guard wiring, guard self-test, review-checklist taxonomy, CVE tools self-test, python interpreter, Go module generator self-test, config seed self-test, default-config path agreement, app lockfile self-test, device identity, device-role self-test, requirements tree gate")]
 guards:
     rc=0
     tools/ci-guards.sh || rc=1
@@ -118,6 +118,13 @@ guards:
 install-hooks:
     git config core.hooksPath .githooks
     @echo "core.hooksPath -> .githooks (pre-commit runs tools/ci-guards.sh)"
+
+# bench.toml's own [hooks] precondition -- refuses a bench run when /data's
+# config no longer matches tools/pipeline/accept-bench-config.sh's baseline.
+[group('guards')]
+[doc("WiseBenchManager's precondition hook: verify bench's /data config against its accepted baseline")]
+bench-precondition:
+    tools/bench-precondition.sh
 
 # === Documentation checks ===
 
@@ -139,6 +146,11 @@ verify:
 [doc("Check that every tracked Markdown cross-reference resolves")]
 links:
     {{py}} tools/doc-links.py
+
+[group('check')]
+[doc("Run the pytest suite over meta-wisekiosk/lib/oeqa/runtime/framework, 100% coverage floor")]
+test:
+    uv run --frozen --group dev pytest
 
 # What the prose says the image ships, against what it ships. Needs a populated
 # build/ rootfs and is therefore local-only -- CI never builds, so wiring it
