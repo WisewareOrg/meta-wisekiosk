@@ -15,6 +15,10 @@ sets/<name>/
                    `config.json`, recorded by fetching them through mitmdump
 ```
 
+A request the replayed HAR does not hold is killed and ends the test session —
+[WiseBenchManager](https://github.com/WisewareOrg/WiseBenchManager)'s README, "What a layer
+provides" (the `proxy(har)` fixture: "a miss kills the connection").
+
 A set carries no expiry. What a recording keeps or drops is decided once, at recording time, by
 whoever records it — not refreshed on a schedule and not something a tool recomputes later.
 
@@ -68,6 +72,15 @@ public-repository rule — read it before assuming a third-party API's own respo
 mitmdump's HAR carries each entry's own `serverIPAddress` and, behind Cloudflare, a `cf-ray`
 response header whose suffix names the edge location that served the request — a coarse location of
 the host doing the recording, not of the appliance. Drop every entry's `serverIPAddress` field and
-every `cf-ray`/`cf-cache-status` response header before committing (a one-off `jq`/`python` edit at
-recording time, not a kept script); mitmproxy's replay match is on method, host, path and query, so
-removing response headers changes nothing about what a later replay serves.
+every response header whose name starts `cf-` (case-insensitive — `cf-ray`, `cf-cache-status`, and
+any other Cloudflare header a future recording picks up) before committing, a one-off edit at
+recording time, not a kept script:
+
+```sh
+jq '.log.entries[] |= (del(.serverIPAddress) |
+    .response.headers |= map(select(.name | ascii_downcase | startswith("cf-") | not)))' \
+  raw.har > sets/<name>/flows.har
+```
+
+mitmproxy's replay match is on method, host, path and query, so removing response headers changes
+nothing about which request a replay matches.
