@@ -11,9 +11,9 @@ ref: ''
 references:
 - keyword: def test_perf_window
   path: tests/target_suite/test_perf.py
-  sha: 9dfaa38961a6b1c36e26e67731bc71bf702a846183ad0d10f094e3e3cfb86925
+  sha: 687bc21689776db43b0d17deb8bd076c5c45af0d0ff574cdc54f6664955432e5
   type: file
-reviewed: obPK5Us5a3MmPo9GZe2vh34LoJjmHIq-_qOwdO_vKoA=
+reviewed: vXkyXGl6SzByTBn8dT11DA9M7Sln-LROv0iX_5bn1gI=
 status: proposed
 text: |
   Over the 300 s window starting 15 s after the page loads, record the number of frame

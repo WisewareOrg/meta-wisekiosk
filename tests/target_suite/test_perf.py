@@ -2,7 +2,7 @@
 
 import time
 
-from conftest import _run_text
+from runcmd import run_text
 from verdicts.applied import read_fields
 from verdicts.perf import (
     cpu_idle,
@@ -59,9 +59,10 @@ def _wait(probe, done, deadline_s, what):
 def _measure(driver, probe, window_ms):
     """The window's two probe reads, its `/proc/stat` reads and its thermal readings.
 
-    Stops `kiosk-soak.timer` for the window's own duration and restarts it once the window's
-    reads are done, as the old pipeline's performance phase did -- the soak timer's own work is
-    load the measurement is not meant to include.
+    Stops `kiosk-soak.timer` before the warmed-up wait and restarts it once the window's reads
+    are done -- the soak timer's own work is load the measurement is not meant to include, and
+    stopping it only after the warm-up wait would let a run that started during warm-up carry on
+    into the window regardless.
 
     Args:
         driver: A labgrid SSHDriver.
@@ -73,23 +74,23 @@ def _measure(driver, probe, window_ms):
             probe samples, the `/proc/stat` reads bracketing the window, and every thermal
             reading taken during it.
     """
-    start = _wait(
-        probe, lambda s: window_reached(s, WARMUP_MS), _START_DEADLINE_SECONDS, "warmed-up"
-    )
-    _run_text(driver, f"systemctl stop {_SOAK_TIMER}")
+    run_text(driver, f"systemctl stop {_SOAK_TIMER}")
     try:
-        stat_start = _run_text(driver, _STAT)
-        readings = [_run_text(driver, _THERMAL)]
+        start = _wait(
+            probe, lambda s: window_reached(s, WARMUP_MS), _START_DEADLINE_SECONDS, "warmed-up"
+        )
+        stat_start = run_text(driver, _STAT)
+        readings = [run_text(driver, _THERMAL)]
         began = time.monotonic()
         for n in range(1, window_ms // 1000 // THERMAL_EVERY_SECONDS + 1):
             time.sleep(max(0, began + n * THERMAL_EVERY_SECONDS - time.monotonic()))
-            readings.append(_run_text(driver, _THERMAL))
+            readings.append(run_text(driver, _THERMAL))
         end = _wait(
             probe, lambda s: window_ended(start, s, window_ms), _END_DEADLINE_SECONDS, "window-end"
         )
-        stat_end = _run_text(driver, _STAT)
+        stat_end = run_text(driver, _STAT)
     finally:
-        _run_text(driver, f"systemctl start {_SOAK_TIMER}")
+        run_text(driver, f"systemctl start {_SOAK_TIMER}")
     return start, end, stat_start, stat_end, readings
 
 
@@ -112,7 +113,7 @@ def test_perf_window(target, probe, replay_window, record_property):
     fields = dict(_UNREAD)
     try:
         start, end, stat_start, stat_end, readings = _measure(driver, probe, WINDOW_MS)
-        rss = rss_total(_run_text(driver, _SOAK))
+        rss = rss_total(run_text(driver, _SOAK))
         window, reason = validity(start, end, replay_window)
         fields.update(rss=rss, idle=cpu_idle(stat_start, stat_end), thermal=thermal(readings))
         fields.update(metrics(start, end))

@@ -12,6 +12,7 @@ import pytest
 from framework.record import decode_hex_dump, keyed_hash
 from probe import Probe
 from replay import Replay
+from runcmd import run_text
 from verdicts.context import (
     asset_hashes,
     config_summary,
@@ -37,7 +38,8 @@ def pytest_generate_tests(metafunc):
         metafunc: pytest's own hook argument; supplies the fixtures a test item requests.
 
     Raises:
-        KeyError: `BENCH_SET` is unset and this session collects `test_perf_window`.
+        KeyError: `BENCH_SET` is unset entirely (a hand run that did not export it; `bench test`
+            always sets it, to the empty string when `--set` is not given).
     """
     if "proxy" not in metafunc.fixturenames:
         return
@@ -97,25 +99,6 @@ def replay_window(target, proxy):
             replay.exit()
 
 
-def _run_text(driver, cmd):
-    """`driver.run(cmd)`'s stdout, newline-joined.
-
-    Args:
-        driver: A labgrid SSHDriver.
-        cmd (str): The command to run.
-
-    Returns:
-        str: `cmd`'s stdout, its lines rejoined with newlines.
-
-    Raises:
-        RuntimeError: `cmd` exited non-zero.
-    """
-    stdout, stderr, rc = driver.run(cmd)
-    if rc != 0:
-        raise RuntimeError(f"{cmd!r} exited {rc}: {stderr}")
-    return "\n".join(stdout)
-
-
 @pytest.fixture(scope="session")
 def _device_facts(target):
     """Read the board's own context once per session: everything but `board`'s `end`.
@@ -134,35 +117,35 @@ def _device_facts(target):
     driver = target.get_driver("SSHDriver")
     start = datetime.now(timezone.utc).isoformat()
 
-    boot_id = _run_text(driver, "cat /proc/sys/kernel/random/boot_id").strip()
-    uptime_s = uptime_seconds(_run_text(driver, "cat /proc/uptime"))
+    boot_id = run_text(driver, "cat /proc/sys/kernel/random/boot_id").strip()
+    uptime_s = uptime_seconds(run_text(driver, "cat /proc/uptime"))
 
-    index_html = _run_text(driver, "wget -qO- http://127.0.0.1:8080/")
+    index_html = run_text(driver, "wget -qO- http://127.0.0.1:8080/")
     bundle = ",".join(asset_hashes(index_html))
 
     hmac_key = _HMAC_KEY_PATH.read_bytes()
-    config_hex = _run_text(driver, 'hexdump -ve \'1/1 "%02x"\' /data/config/config.json')
+    config_hex = run_text(driver, 'hexdump -ve \'1/1 "%02x"\' /data/config/config.json')
     config_json = decode_hex_dump(config_hex).decode()
     config_mac = keyed_hash(hmac_key, config_json.encode())
     config = config_summary(config_json)
 
-    pid = pid_from_pgrep(_run_text(driver, "pgrep -x surf"))
-    browser = _run_text(driver, f"cat /proc/{pid}/comm").strip()
-    nrestarts = _run_text(driver, "systemctl show -p NRestarts --value kiosk.service").strip()
-    cmdline_sha = _run_text(driver, f"sha256sum /proc/{pid}/cmdline | cut -d' ' -f1").strip()
-    webkit_environ = webkit_env(_run_text(driver, f"tr '\\0' '\\n' < /proc/{pid}/environ"))
+    pid = pid_from_pgrep(run_text(driver, "pgrep -x surf"))
+    browser = run_text(driver, f"cat /proc/{pid}/comm").strip()
+    nrestarts = run_text(driver, "systemctl show -p NRestarts --value kiosk.service").strip()
+    cmdline_sha = run_text(driver, f"sha256sum /proc/{pid}/cmdline | cut -d' ' -f1").strip()
+    webkit_environ = webkit_env(run_text(driver, f"tr '\\0' '\\n' < /proc/{pid}/environ"))
     conf_stdout, _conf_stderr, conf_rc = driver.run(
         'hexdump -ve \'1/1 "%02x"\' /data/config/kiosk.conf'
     )
     kiosk_conf_mac_token = kiosk_conf_mac(
         conf_rc, decode_hex_dump("\n".join(conf_stdout)).decode(), hmac_key
     )
-    mode = current_mode(_run_text(driver, "DISPLAY=:0 xrandr"))
-    kernel = _run_text(driver, "uname -r").strip()
-    cpufreq_max = _run_text(
+    mode = current_mode(run_text(driver, "DISPLAY=:0 xrandr"))
+    kernel = run_text(driver, "uname -r").strip()
+    cpufreq_max = run_text(
         driver, "cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq"
     ).strip()
-    timesync = _run_text(driver, "timedatectl show -p NTPSynchronized --value").strip()
+    timesync = run_text(driver, "timedatectl show -p NTPSynchronized --value").strip()
 
     return {
         "start": start,

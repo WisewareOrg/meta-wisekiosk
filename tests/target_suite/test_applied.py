@@ -2,9 +2,9 @@
 
 import time
 
+from probe import APPLIED_WAIT_SECONDS
 from verdicts.applied import read_sample, verdict
 
-_WAIT_SECONDS = 90
 _POLL_SECONDS = 2
 
 
@@ -15,7 +15,7 @@ def test_page_applied(probe):
         probe: deploys `probe.js` and restarts the browser; yields a reader for the board's
             current window titles, raw.
     """
-    deadline = time.monotonic() + _WAIT_SECONDS
+    deadline = time.monotonic() + APPLIED_WAIT_SECONDS
     samples = []
     while True:
         samples.append(read_sample(probe()))

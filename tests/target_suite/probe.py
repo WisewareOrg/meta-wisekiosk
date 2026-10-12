@@ -1,4 +1,4 @@
-"""Deploys the DOM probe to the board and reads its latest window-title payload."""
+"""Deploys the DOM probe to the board and reads its current window titles."""
 
 import time
 from pathlib import Path
@@ -19,7 +19,7 @@ _POLL_SECONDS = 2
 
 
 class Probe:
-    """Deploys `probe.js` to the board, restarts the browser, and reads its latest sample.
+    """Deploys `probe.js` to the board, restarts the browser, and reads its current window titles.
 
     Holds the labgrid SSHDriver; every method is one transport call -- the judgement lives in
     `verdicts.applied`, never here.
