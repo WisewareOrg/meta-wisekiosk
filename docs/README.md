@@ -7,6 +7,7 @@
 | [`cve-and-sbom.md`](cve-and-sbom.md) | What is the image made of, which of those packages carry published vulnerabilities, and how do you find out? |
 | [`layer-currency.md`](layer-currency.md) | How old is the image's software — have the pins fallen behind, is a newer recipe already inside a pinned layer, and what would a bump close? |
 | [`testing.md`](testing.md) | What does each testing tier prove, what does a green result at that tier not say, and how do you run the device pipeline? |
+| [`../tests/replay/README.md`](../tests/replay/README.md) | What does a replay set hold, what page state does it produce, and how do you record a new one by hand? |
 | [`requirements/README.md`](requirements/README.md) | What does the image own as an obligation, and which check discharges each one? |
 | [`../meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md`](../meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md) | How do you bump the WiseKiosk app pin, and why does the build regenerate its API client and types instead of committing them? |
 | [`issue_investigation/TEMPLATE.md`](issue_investigation/TEMPLATE.md) | What shape must an issue investigation take, and what must every test run in it name? |
