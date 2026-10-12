@@ -20,6 +20,14 @@ sys.dont_write_bytecode = True
 
 
 def load(name):
+    """Load `<name>.py` from this file's own directory by path.
+
+    Args:
+        name (str): A module's file stem, hyphens allowed (e.g. `"device-role"`).
+
+    Returns:
+        module: The loaded module.
+    """
     spec = importlib.util.spec_from_file_location(name.replace("-", "_"), TOOLS / f"{name}.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -32,6 +40,13 @@ PASS, FAIL = [], []
 
 
 def case(name, got, want):
+    """Record one case's outcome into `PASS`/`FAIL`, printing a diff on mismatch.
+
+    Args:
+        name (str): The case's own description.
+        got: The value `device_role` actually produced.
+        want: The value the case expects.
+    """
     (PASS if got == want else FAIL).append(name)
     if got != want:
         print(f"FAIL  {name}\n        want {want!r}\n        got  {got!r}")
@@ -60,6 +75,7 @@ More prose below the fence.
 
 
 def resolve_role_cases():
+    """Run every `resolve_role` case against the fabricated `FENCE` fixture."""
     case("resolve_role: finds prod by its own address",
          device_role.resolve_role(FENCE, "203.0.113.9"), ("prod", "prod-host"))
     case("resolve_role: finds bench by its own address",
@@ -93,6 +109,11 @@ def resolve_role_cases():
 
 
 def main() -> int:
+    """Run every case and print the pass/fail summary line.
+
+    Returns:
+        int: 0 if every case passed, 1 if any failed.
+    """
     resolve_role_cases()
     print(f"\npass={len(PASS)} fail={len(FAIL)} skip=0")
     return 1 if FAIL else 0

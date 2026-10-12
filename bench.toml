@@ -1,6 +1,7 @@
-# WiseBenchManager's own config (docs/testing.md names the runner). No site
-# identity here: the board's address is LG_BENCH_ADDRESS, exported into the
-# shell, never written to a tracked file.
+# WiseBenchManager's own config -- see [docs/testing.md](docs/testing.md)
+# §"Running a candidate through bench test". No site identity here: the
+# board's address is LG_BENCH_ADDRESS, exported into the shell, never
+# written to a tracked file.
 
 [hooks]
 precondition = "just bench-precondition"
@@ -14,12 +15,3 @@ destination = "/data/update.raucb"
 [tests]
 host_suite   = "tests/host_suite"
 target_suite = "tests/target_suite"
-
-[run]
-unit = "wisekiosk-pipeline"
-
-[github]
-repo        = "WisewareOrg/meta-wisekiosk"
-app_id      = 5286902
-private_key = "~/.config/wisebench/app.pem"
-check       = "bench-pipeline"

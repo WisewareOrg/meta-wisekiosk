@@ -9,6 +9,7 @@ result at that tier does **not** let you conclude.
 | Build (`just build`) | The kas config resolves and bitbake completes: an image artifact exists. | On demand, locally — never in CI, which does not build. | Whether the image differs from the last one, whether it boots, whether it serves anything. |
 | Device smoke (`testimage` + stages) | The backend unit is active, `/healthz` answers, the page serves, WebKit still composites on the GPU, the page is still painting — on **one** physical device (`PIPELINE_TARGET`), **one** boot, after an OTA install (never a flash). | The pipeline, once per run. | The shared boot partition (`config.txt`, `cmdline.txt`, `boot.scr`, and `uboot.env` apart from RAUC's own boot-selection variables) — an OTA writes only the slot rootfs it boots, which does carry the kernel. The RAUC slot layout, which an OTA never touches, or a second boot. |
 | OTA/rollback (the queue run) | Install, reboot, and — for a queue run — mark-bad, reboot and land back on the baseline slot all completed, and the device answered again each time. | Every queue job. | Whether the slot rolled back *into* would itself survive a fresh install — it was booted back into, not reinstalled. There are only two slots. |
+| Host (`just test`) | The runner's own pure functions — `keyed_hash`/`decode_hex_dump` (the accept step's and the precondition's boundary value), `parse_buildinfo` (the provenance test's own parser) — behave correctly against constructed input. | Every commit (pre-commit hook runs the other three checks; `just test` is CI's own job, not the hook's), every PR and merge-group commit (CI). | Anything about a board or a built image — these are pure-function tests over fabricated strings, no board, no file, no network. |
 
 ## Running it
 
@@ -128,3 +129,39 @@ with no DISABLED file and no PR comment.
 
 A new host needs a clone, the dev tree's `local/device-identity.md`, `gh auth login`, the host user's
 own ssh identity already accepted as root on the device, and `just pipeline-install`.
+
+## Running a candidate through bench test
+
+[WiseBenchManager](https://github.com/WisewareOrg/WiseBenchManager)'s `bench test <ref>` (its own
+README, "The job") builds a candidate commit, installs it over OTA on the board named by
+`LG_BENCH_ADDRESS`, and runs this layer's own test suites against it — a hand tool for
+investigations, never a CI job (CI's own board-free tier is `just test`, above).
+
+`bench.toml` at the layer root names the three hooks (`bench-precondition`, `build`, `bundle`), the
+built bundle's path and board destination, and the two suites (`tests/host_suite`,
+`tests/target_suite`). `bench.yaml` is the labgrid env file: a target named `main`, a
+`NetworkService` resource whose address is `!template $LG_BENCH_ADDRESS` (labgrid only substitutes
+`LG_`-prefixed variables), and an `SSHDriver` — the board's real address is never written into
+either file, only exported into the shell from `local/device-identity.md`.
+
+Before the first run against a board, `tools/pipeline/accept-bench-config.sh` records that board's
+current `/data/config/kiosk.conf`/`config.json` as the accepted baseline (a keyed hash under
+`local/keys/hmac.key`, into `local/bench-config.mac`). `bench.toml`'s own `precondition` hook,
+`just bench-precondition`, recomputes and compares that hash on every later run, refusing (exit
+non-zero, which `bench test` turns into its own exit 2) when the board's config has drifted, when
+the accept step has never been run, or when the board resolves to the `prod` role — or to no role
+at all — via `tools/device-role.py`: `bench test` always installs an image, so it never has reason
+to target the wall board.
+
+```sh
+export LG_BENCH_ADDRESS=<from local/device-identity.md>
+export LG_ENV=bench.yaml
+bench test <ref>
+```
+
+Records land under `records/<UTC start time>/` in the checkout `bench test` runs from
+(`report.jsonl`, pytest-reportlog's own report; `run.json`, the runner's own per-run summary) —
+gitignored, never committed.
+
+Running the target suite against any already-installed board, with no new install, is plain
+`pytest tests/target_suite --lg-env bench.yaml`, `LG_BENCH_ADDRESS` exported the same way.

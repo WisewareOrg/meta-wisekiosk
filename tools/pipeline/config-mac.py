@@ -18,6 +18,11 @@ from framework import record  # noqa: E402
 
 
 def main():
+    """Read a keyfile path from argv and a hex dump from stdin; print the keyed hash.
+
+    Returns:
+        int: 0 on success; 2 on bad usage or a keyfile that could not be read.
+    """
     if len(sys.argv) != 2:
         print("usage: config-mac.py <keyfile>", file=sys.stderr)
         return 2

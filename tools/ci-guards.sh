@@ -150,16 +150,16 @@ else
     badyaml=0
     while IFS= read -r f; do
         [ -f "$f" ] || continue
-        # A custom tag (bench.yaml's labgrid !template) has no constructor in
-        # plain safe_load; this checks parses, not semantics, so any unknown
-        # tag resolves to None rather than failing the whole file.
+        # bench.yaml's labgrid !template tag has no constructor in plain
+        # safe_load; registered by its own exact name, not a blanket
+        # catch-all, so an unrelated or misspelled tag still fails this check.
         if ! err=$("$PY" -c '
 import sys, yaml
 
 class _TagTolerant(yaml.SafeLoader):
     pass
 
-_TagTolerant.add_multi_constructor("", lambda loader, tag_suffix, node: None)
+_TagTolerant.add_constructor("!template", lambda loader, node: loader.construct_scalar(node))
 yaml.load(open(sys.argv[1]), Loader=_TagTolerant)
 ' "$f" 2>&1); then
             bad "YAML does not parse: $f"
@@ -996,11 +996,7 @@ fi
 # --- 23. the requirements tree passes the shared check-reqs gate ---------
 # Fixture-free -- the real tree under docs/requirements/. Doorstop walks from
 # the project root; build/ and sources/ are gitignored and skipped by a marker
-# written here once each directory exists. Numbered 23, not 22: 22 is
-# tools/pipeline-test.sh's own self-test guard, wired in by a different,
-# not-yet-landed ticket; docs/requirements/README.md's own prose already
-# cites this gate as "guard 23", carried byte-for-byte from the branch that
-# numbered it. ---------------------------------
+# written here once each directory exists. ---------------------------------
 for dir23 in build sources; do
     [ -d "$dir23" ] && [ ! -f "$dir23/.doorstop.skip-all" ] && : > "$dir23/.doorstop.skip-all"
 done

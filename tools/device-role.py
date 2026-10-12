@@ -19,6 +19,13 @@ _SCRUB_IDENTITY = None
 
 
 def _load_scrub_identity():
+    """Load `tools/scrub-identity.py` by path and cache the module.
+
+    Loaded by path, not imported, because the file name has a hyphen.
+
+    Returns:
+        module: The loaded `scrub-identity.py` module, cached across calls.
+    """
     global _SCRUB_IDENTITY
     if _SCRUB_IDENTITY is None:
         tools = Path(__file__).resolve().parent
@@ -30,10 +37,24 @@ def _load_scrub_identity():
 
 
 def resolve_role(fence_text, address):
-    """(role, hostname) for the role -- "prod" or "bench" only -- whose
-    "<role>.address" row in fence_text equals address, scanned through
-    tools/scrub-identity.py's own `_map_rows`. Raises ValueError naming
-    address if neither role's address matches."""
+    """Resolve which role -- `prod` or `bench` only -- owns `address`.
+
+    Scans `fence_text` through `tools/scrub-identity.py`'s own `_map_rows` fenced-block parser,
+    never a copy of its regexes, for whichever of `prod`/`bench` has `<role>.address == address`.
+
+    Args:
+        fence_text (str): Text containing a ` ```identity ` fenced block, in
+            `local/device-identity.md`'s own `key = value` shape.
+        address (str): The address to resolve.
+
+    Returns:
+        tuple[str, str]: `(role, hostname)` -- `role` is `"prod"` or `"bench"`; `hostname` is that
+        role's own `<role>.hostname` row, or `""` if the map carries none.
+
+    Raises:
+        ValueError: Naming `address`, when neither role's address matches it -- including when a
+            well-formed row for some other role matches, since only `prod`/`bench` are candidates.
+    """
     scrub_identity = _load_scrub_identity()
     with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as f:
         f.write(fence_text)
@@ -49,6 +70,12 @@ def resolve_role(fence_text, address):
 
 
 def main():
+    """Parse argv, resolve the named address's role, and print `role=<r> hostname=<h>`.
+
+    Returns:
+        int: 0 on a resolved role; 1 if the map could not be read or no role matched the given
+        address; 2 on bad usage (not exactly one argument).
+    """
     if len(sys.argv) != 2:
         print("usage: device-role.py <address>", file=sys.stderr)
         return 2

@@ -14,6 +14,17 @@ ROOT="$(cd "$HERE/.." && pwd)"
 
 [ -n "${LG_BENCH_ADDRESS:-}" ] || { echo "bench-precondition.sh: LG_BENCH_ADDRESS not set" >&2; exit 2; }
 
+ROLE_LINE=$(python3 "$HERE/device-role.py" "$LG_BENCH_ADDRESS") || {
+    echo "bench-precondition.sh: could not resolve $LG_BENCH_ADDRESS to a role -- refusing" >&2
+    exit 1
+}
+ROLE=${ROLE_LINE#role=}
+ROLE=${ROLE%% *}
+if [ "$ROLE" = "prod" ]; then
+    echo "bench-precondition.sh: target resolves to role=prod -- refusing to run against prod" >&2
+    exit 1
+fi
+
 MAC_FILE="$ROOT/local/bench-config.mac"
 [ -f "$MAC_FILE" ] || {
     echo "bench-precondition.sh: no $MAC_FILE -- run tools/pipeline/accept-bench-config.sh first" >&2
@@ -37,9 +48,13 @@ hex_read() {
     ssh "${SSH_OPTS[@]}" "$SSH_HOST" "hexdump -ve '1/1 \"%02x\"' $1"
 }
 
-now_kiosk_conf_mac=absent
-if ssh "${SSH_OPTS[@]}" "$SSH_HOST" test -f /data/config/kiosk.conf; then
+# Presence test matches tools/pipeline/accept-bench-config.sh's own exactly
+# (a cat that succeeds or fails), not a separate test -f, so the two sides
+# can never disagree about what "absent" means.
+if ssh "${SSH_OPTS[@]}" "$SSH_HOST" cat /data/config/kiosk.conf > /dev/null 2>&1; then
     now_kiosk_conf_mac=$(hex_read /data/config/kiosk.conf | python3 "$HERE/pipeline/config-mac.py" "$KEY")
+else
+    now_kiosk_conf_mac=absent
 fi
 now_config_mac=$(hex_read /data/config/config.json | python3 "$HERE/pipeline/config-mac.py" "$KEY")
 
