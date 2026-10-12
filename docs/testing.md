@@ -156,12 +156,21 @@ to target the wall board.
 ```sh
 export LG_BENCH_ADDRESS=<from local/device-identity.md>
 export LG_ENV=bench.yaml
-bench test <ref>
+bench test <ref> --set cards4-live
 ```
+
+`--set <name>` names a replay set under `tests/replay/sets/` for `test_perf_window`, the only
+target-suite test that uses one; every other target-suite test runs the same way whether or not
+`--set` is given.
 
 Records land under `records/<UTC start time>/` in the checkout `bench test` runs from
 (`report.jsonl`, pytest-reportlog's own report; `run.json`, the runner's own per-run summary) —
-gitignored, never committed.
+gitignored, never committed. `tests/target_suite/conftest.py`'s `device_context` fixture attaches
+the board's own context to every test's own report line, one `record_property` key per fact:
+`hostname`, `boot_id`, `uptime_s`, `slot`, `bundle`, `config_mac`, `config`, `browser`,
+`nrestarts`, `cmdline_sha`, `webkit_env`, `kiosk_conf_mac`, `mode`, `kernel`, `cpufreq_max`,
+`timesync`, `start` and `end`. `test_perf_window` additionally records its own window's metrics
+under `fps`, `p50`, `stall`, `maxstall`, `ttp`, `cost`, `rss`, `idle` and `thermal`.
 
 Running the target suite against any already-installed board, with no new install, needs an
 interpreter with `labgrid` on it (the runner's own venv has one; this layer's does not),

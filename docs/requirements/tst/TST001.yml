@@ -1,0 +1,25 @@
+active: true
+derived: false
+header: |
+  Applied-page check passes
+level: 1.0
+links:
+- SRS001: 6yVbCJR6FLm2q-aTyZofQ00UG5i6KCZ5oBd9F0v5-ew=
+normative: true
+rationale: ''
+ref: ''
+references:
+- keyword: def test_page_applied
+  path: tests/target_suite/test_applied.py
+  sha: fad18e45eb91bf94d3d2c4077fd700c7164e5178bf91bdec0385946ca6002653
+  type: file
+reviewed: 9x5Mvi8gwHq-907pXSvG_pxgK61AXsCQiJ7nfdrtYV8=
+status: proposed
+text: |
+  Run the target suite's applied-page check against the booted image and assert it passes.
+verification-justification: |
+  Settles that the page the application serves is the one reported applied on screen, on one
+  physical device, one boot. The failure branch is proven on constructed input and was watched
+  failing on bench when the check was built. Leaves unproven whether it stays applied, and
+  whether it renders.
+verification-method: test

@@ -1,0 +1,17 @@
+active: true
+derived: false
+header: |
+  Display presented as designed
+level: 1.0
+links: []
+normative: true
+rationale: ''
+ref: ''
+reviewed: u6hdq6mHTqj4-PFL8YoiEf3ClOIYMUPOHFSXKCbqAtU=
+status: proposed
+text: |
+  The kiosk shall present the WiseKiosk display as designed on this hardware.
+verification-justification: |
+  Settles that the display reaches the state the application designs for. Leaves unproven
+  whether it stays that way once unattended, and whether it renders smoothly.
+verification-method: test
