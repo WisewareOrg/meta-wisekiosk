@@ -139,6 +139,15 @@ def test_read_fields_none_when_no_window_carries_a_payload():
 # production and is not a case here.
 
 def _sample(state):
+    """Build a parse_title-shaped sample carrying only the given state.
+
+    Args:
+        state (str): The sample's `state` field.
+
+    Returns:
+        dict: A fixed nonce and an empty cards/faulted/unreachable reading, with `state` set to
+            the given value.
+    """
     return {"nonce": "1", "state": state, "cards": "-/-", "faulted": 0, "unreachable": 0}
 
 

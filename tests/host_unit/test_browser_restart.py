@@ -12,6 +12,16 @@ _NEW_NONCE = "1791490412009"
 
 
 def _sample(nonce, state="applied"):
+    """Build a read_sample-shaped sample carrying the given nonce and state.
+
+    Args:
+        nonce (str): The sample's `nonce` field.
+        state (str): The sample's `state` field.
+
+    Returns:
+        dict: An empty cards/faulted/unreachable reading, with `nonce` and `state` set to the
+            given values.
+    """
     return {"nonce": nonce, "state": state, "cards": "-/-", "faulted": 0, "unreachable": 0}
 
 

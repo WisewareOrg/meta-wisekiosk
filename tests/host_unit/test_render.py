@@ -19,6 +19,17 @@ NOTBLANK = "blank min=0 max=255 mean=4.2"
 
 
 def frame(n, *, rc=0, bytes_=1840, md5=A):
+    """Build one `frame <n> ...` render-probe line.
+
+    Args:
+        n (int): The frame number (1 or 2 in every case here).
+        rc (int): The `rc` field -- `import`'s own exit status for this capture.
+        bytes_ (int): The `bytes` field -- the captured PNG's byte count.
+        md5 (str): The `md5` field -- the captured PNG's md5 hex digest.
+
+    Returns:
+        str: One probe line in `verdict`'s own `frame <n> rc=<rc> ... bytes=<b> md5=<m>` shape.
+    """
     return f"frame {n} rc={rc} at=10:43:1{n} bytes={bytes_} md5={md5}"
 
 

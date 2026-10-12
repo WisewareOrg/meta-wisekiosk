@@ -100,12 +100,25 @@ def test_expected_state_rejects_invalid_input(name, text):
 
 
 # ---------------------------------------------------------------------------- validity
-# This suite only ever runs under a replay set: expected is never None.
+# The perf window is always judged against a replay set: expected is never None.
 
 EXPECTED = {"cards": "4/4", "faulted": 0, "unreachable": 0}
 
 
 def _sample(el, changes=2, state="applied", cards="4/4", faulted=0, unreachable=0):
+    """Build a perf_sample-shaped sample for `validity`'s own five fields.
+
+    Args:
+        el (int): The sample's `el` field (elapsed ms since the probe's t0).
+        changes (int): The sample's `changes` field.
+        state (str): The sample's `state` field.
+        cards (str): The sample's `cards` field.
+        faulted (int): The sample's `faulted` field.
+        unreachable (int): The sample's `unreachable` field.
+
+    Returns:
+        dict: The six given fields, keyed as `validity` reads them.
+    """
     return {
         "el": el, "changes": changes, "state": state, "cards": cards, "faulted": faulted,
         "unreachable": unreachable,
@@ -236,6 +249,15 @@ def test_rss_total_does_not_match_a_field_name_ending_in_the_same_text():
 # bits 16-19 are STICKY (occurred since boot, never clear on their own).
 
 def _reading(temp, throttled):
+    """Build one `vcgencmd measure_temp && vcgencmd get_throttled` reading.
+
+    Args:
+        temp (str): The Celsius value `vcgencmd measure_temp` would report, without the `'C` suffix.
+        throttled (str): The hex bitmask `vcgencmd get_throttled` would report, e.g. `"0x50000"`.
+
+    Returns:
+        str: The two-line combined output `thermal` parses.
+    """
     return f"temp={temp}'C\nthrottled={throttled}"
 
 
