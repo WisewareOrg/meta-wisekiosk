@@ -1,0 +1,13 @@
+[bundle]
+path        = "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/update-bundle-raspberrypi0-wifi.raucb"
+destination = "/data/update.raucb"
+
+[hooks]
+# The runner requires a precondition hook; this layer's board state needs none.
+precondition = "true"
+build        = "just build"
+bundle       = "just kiosk-bundle"
+
+[tests]
+host_suite   = "tests/host_suite"
+target_suite = "tests/target_suite"
