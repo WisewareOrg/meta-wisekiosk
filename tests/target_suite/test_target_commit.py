@@ -6,13 +6,13 @@ import pytest
 def test_buildinfo_names_commit(target, bench_candidate, record_property):
     """TST016: after an image update, /etc/buildinfo names the installed commit.
 
-    Skipped when `bench_candidate` is None -- no candidate was built this run (a plain
-    pytest invocation outside the runner). image-buildinfo writes one line per BBLAYERS
-    entry as "<layer> = <branch>:<sha>[ -- modified]"; parsed the same way as
-    tools/reproducibility-gate.sh's own buildinfo check.
+    Skipped when `bench_candidate` is None -- a plain pytest invocation outside the
+    runner, or `bench test <ref> --skip-build`, which runs this suite against the board
+    as it is with no candidate built. image-buildinfo writes one line per BBLAYERS entry
+    as "<layer> = <branch>:<sha>[ -- modified]".
     """
     if bench_candidate is None:
-        pytest.skip("no bench_candidate: not running under bench test/bench run")
+        pytest.skip("no bench_candidate: a plain pytest run, or bench test --skip-build")
     record_property("requirement", "TST016")
     expected = bench_candidate
     driver = target.get_driver("SSHDriver")

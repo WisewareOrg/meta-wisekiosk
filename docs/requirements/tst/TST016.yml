@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_buildinfo_names_commit
   path: tests/target_suite/test_target_commit.py
-  sha: 05cb13d74cf07062bb8de73e831f65f580c844f1ad036da49e119b1b5ac0d03e
+  sha: a92b08f81962eb0c4182b54d5e034e849a392eb6125d21909f141e676b16e8db
   type: file
-reviewed: C7aO0WccYAvrbkfcp-VddB33b_znajFS-DzGCwxxb34=
+reviewed: 9oS-nHyBy_RZAgHGXmHlNH2fF8PusTCrK_thqKbi7nY=
 status: proposed
 text: |
   Install a valid image update over the air, then read which build the running appliance reports.
