@@ -1,0 +1,18 @@
+active: true
+derived: false
+header: |
+  Motion without visible stutter
+level: 1.11
+links:
+- SYS003: 8PnhzVE4lxZ4pTLRsH2QHWabmmlZOf5qGn7tPE3UtEY=
+normative: true
+rationale: ''
+ref: ''
+reviewed: 8Q-c-RmwuFLXn9bvVut_u9sblpCysGYqbqDm5otTp_A=
+status: proposed
+text: |
+  The kiosk shall show motion on the page without visible stutter.
+verification-justification: |
+  Unverified: every child is a placeholder with no bound, so a stuttering display is recorded,
+  never failed. The checks measure what the page reports, not the glass.
+verification-method: test

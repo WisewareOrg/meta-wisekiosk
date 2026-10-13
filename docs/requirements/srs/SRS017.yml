@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Accepts updates after a power cut
+level: 1.16
+links:
+- SYS004: NFlpvL2V3LE9n1QRMBtsCIMe6N0dWG426tWh04Atjk8=
+normative: true
+rationale: |
+  The board keeps no time while unpowered, and a cold clock can refuse a valid update.
+ref: ''
+reviewed: MVY3nB-THW_uyQwqM3VQscsrmJFgyr8QuY41nOuwudc=
+status: proposed
+text: |
+  After a loss of power, the kiosk shall still accept a valid update from its maintainer, whether
+  or not it can learn the time from the network.
+verification-justification: |
+  It leaves unproven any other use of the clock; the time the page displays is the application's.
+verification-method: test

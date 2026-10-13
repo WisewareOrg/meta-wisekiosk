@@ -1,18 +1,20 @@
 active: true
 derived: false
 header: |
-  Display is applied as designed
+  Shows the ready page when it starts
 level: 1.0
 links:
-- SYS001: u6hdq6mHTqj4-PFL8YoiEf3ClOIYMUPOHFSXKCbqAtU=
+- SYS001: XMbgwAVLqV9oMTUsY5HZeKexL6RiYvq624osqUT82ic=
 normative: true
-rationale: ''
+rationale: |
+  How long the check waits is the check's own number; a bound on how soon the page appears is a
+  separate need.
 ref: ''
-reviewed: CQ6dO428i2PxNvOoLL3YaowGG9aYK7dmfw3AFFa4bOw=
+reviewed: Vn1BTqXatR8HQmKT1MWI9qRqvzDPx04pOGDlvuzAX44=
 status: proposed
 text: |
-  The display shall be applied as the application designs it.
+  When the kiosk starts, it shall show the WiseKiosk page in its ready state, not an error page,
+  not still loading and not a browser error, with nobody at the panel.
 verification-justification: |
-  Settles that the page the application serves is the one on screen. Leaves unproven whether
-  it stays applied, and whether it is still rendering.
+  Its check reads what the browser reports, not the glass.
 verification-method: test

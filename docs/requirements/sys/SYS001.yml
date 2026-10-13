@@ -1,17 +1,18 @@
 active: true
 derived: false
 header: |
-  Display presented as designed
+  The viewer sees the page
 level: 1.0
 links: []
 normative: true
 rationale: ''
 ref: ''
-reviewed: u6hdq6mHTqj4-PFL8YoiEf3ClOIYMUPOHFSXKCbqAtU=
+reviewed: XMbgwAVLqV9oMTUsY5HZeKexL6RiYvq624osqUT82ic=
 status: proposed
 text: |
-  The kiosk shall present the WiseKiosk display as designed on this hardware.
+  A person at the panel shall see the WiseKiosk page, filling the panel, without anyone having set
+  it up at the panel.
 verification-justification: |
-  Settles that the display reaches the state the application designs for. Leaves unproven
-  whether it stays that way once unattended, and whether it renders smoothly.
+  Its checks read the page state and the display server's image. They leave unproven what reaches
+  the glass, such as a panel that is switched off or disconnected.
 verification-method: test

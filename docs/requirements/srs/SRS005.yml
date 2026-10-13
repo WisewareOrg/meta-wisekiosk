@@ -1,19 +1,18 @@
 active: true
 derived: false
 header: |
-  Display runs at the configured mode, at or above the design floor
-level: 1.6
+  Browser comes back
+level: 1.4
 links:
-- SYS001: u6hdq6mHTqj4-PFL8YoiEf3ClOIYMUPOHFSXKCbqAtU=
+- SYS002: i4FpLfgobOi79y50pwQzhZabRVmisxlP0G0Pt_4fR60=
 normative: true
 rationale: ''
 ref: ''
-reviewed: 8y2IhFhmL9jfwsqTBrSo_Gy5vadygvqQHAUOYQrPmYM=
+reviewed: xgUeCEYeJCL-Adhn7kY4SH1hV3vTsZ3O_mCBoLuO4ys=
 status: proposed
 text: |
-  The display shall run at the configured mode, which shall be at least 1280 wide and 720 high.
+  When the browser exits for any reason, the kiosk shall show the page again without anyone at the
+  panel.
 verification-justification: |
-  Settles the floor and the configured mode at the mode actually set. Leaves unproven anything
-  about the display at a mode below the floor, and the application's screen layout, which is
-  the application's own tier's.
+  It leaves unproven a browser that keeps dying, and one that is alive but hung.
 verification-method: test

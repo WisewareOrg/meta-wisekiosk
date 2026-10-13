@@ -1,0 +1,20 @@
+active: true
+derived: false
+header: |
+  Service session from the site network
+level: 1.21
+links:
+- SRS015: zo6TnHG_66pJH1uiNXtkyrDVI-PubjUBRWaOd3sdlxA=
+normative: true
+rationale: ''
+ref: ''
+references: []
+reviewed: xOKsypog3bQkO95n6-lBlWxLNm4iggq0DkB0Io251FU=
+status: proposed
+text: |
+  From another machine on the site network, open a service session to the kiosk and run a command
+  on it. Pass if the command runs.
+verification-justification: |
+  Settles reachability from the site network. Leaves unproven reaching it from off site, and who
+  else can reach it.
+verification-method: test

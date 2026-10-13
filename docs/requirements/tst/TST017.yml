@@ -1,0 +1,21 @@
+active: false
+derived: false
+header: |
+  Longest freeze
+level: 1.16
+links:
+- SRS012: vlpLn5-wR1RyFhsEMfQXNnqc6QVbKGfHtkIwq6Z7SCE=
+normative: true
+rationale: |
+  Kept as a placeholder with no bound set, so its check cannot fail. It is activated when a bound
+  is stated.
+ref: ''
+references: []
+reviewed: WStj9H1s3SR2vC4zqSMM_35c6Fu4hu_iqusagYYA8aE=
+status: proposed
+text: |
+  With the page showing known, repeatable content, measure the longest gap between two frames over
+  the check's window. Pass if it is within the bound.
+verification-justification: |
+  Would settle the longest freeze on that content. Leaves unproven other content and the glass.
+verification-method: test

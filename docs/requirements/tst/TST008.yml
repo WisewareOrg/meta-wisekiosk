@@ -1,23 +1,20 @@
 active: true
 derived: false
 header: |
-  Longest freeze over the window
-level: 1.11
+  Power cut during an update
+level: 1.7
 links:
-- SRS007: b3xawemneLNjXoyEZ2F65YkOrhUNWWzrCAnDHdoZ7lE=
+- SRS007: lME-FnYxblS5Axe2fmDc2_ivf_F9Vrjm7VslOk_L75A=
 normative: true
 rationale: ''
 ref: ''
 references: []
-reviewed: oNrcJbpwkq0TN7RLdFczxJnZTFITCAhRI-gMoEKH9NU=
+reviewed: 5Zo14rIjZVt865rZ3z_m1azy66yxzAxahaAvPX7yju8=
 status: proposed
 text: |
-  On the second boot of the updated slot, over the 300 s window starting 15 s after the page
-  loads, record the longest interval between two frames.
+  Cut power while an update is being installed, then restore it. Pass if the kiosk comes up
+  showing the WiseKiosk page in its ready state, on either image, with nobody at the panel.
 verification-justification: |
-  Records the metric over one 300 s window on the replayed page, on one physical device,
-  one boot, the window voided unless both reads show the replay set's expected page state and
-  the page counts no state change between them. Asserts no bound until the baseline campaign derives one, so until then a value
-  is recorded, never failed.
-  Leaves unproven how often freezes recur (TST009) and the frame rate around them (TST007).
+  Settles a cut at one point in an install. Leaves unproven a cut while the update writes the boot
+  files both images share, which can leave neither image bootable.
 verification-method: test

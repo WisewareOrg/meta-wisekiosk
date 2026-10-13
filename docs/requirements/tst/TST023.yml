@@ -1,0 +1,20 @@
+active: true
+derived: false
+header: |
+  Rejoins after an outage
+level: 1.22
+links:
+- SRS016: FjbROpuO-ZDRwhZitOb_t7c_EBvLLh_ariVG_Iwuoh0=
+normative: true
+rationale: ''
+ref: ''
+references: []
+reviewed: 5Xi6CNdiafiz8f9AW3P9SwpJtzU0G8WXeRSi8eNt4D0=
+status: proposed
+text: |
+  Take the site network away from a running kiosk, then restore it. Pass if, with nobody at the
+  panel, the kiosk is reachable for service again within the check's wait.
+verification-justification: |
+  Settles one outage of one length. Leaves unproven an outage across a restart, longer outages,
+  and changed credentials.
+verification-method: test

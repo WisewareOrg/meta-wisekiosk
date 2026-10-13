@@ -1,19 +1,17 @@
 active: true
 derived: false
 header: |
-  Browser comes back on its own when it dies
-level: 1.4
+  Panel stays lit, no pointer
+level: 1.2
 links:
-- SYS002: 3rybjADVCuFnWGKsBOBBEk5XOFysjMgIAR8EbRLtJ0o=
+- SYS001: XMbgwAVLqV9oMTUsY5HZeKexL6RiYvq624osqUT82ic=
 normative: true
 rationale: ''
 ref: ''
-reviewed: 5RmLLqf5ZDf-SFKiyW-8gacAmnTFXkYyNqKEriQ1QoU=
+reviewed: GueDTqc69Dw6mlw1V07d5n_-s8YAjA9EKGL1R8m4LQ8=
 status: proposed
 text: |
-  The browser shall come back on its own, and the display be applied again, when it dies, with
-  nobody attending the display.
+  The panel shall stay lit and show no pointer, however long nobody touches it.
 verification-justification: |
-  Settles that the browser comes back and the page is applied again after a kill. Leaves
-  unproven recovery from any fault other than the browser process itself ending.
+  It leaves unproven any timescale longer than one run.
 verification-method: test

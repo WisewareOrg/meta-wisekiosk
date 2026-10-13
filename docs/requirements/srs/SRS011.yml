@@ -1,0 +1,20 @@
+active: false
+derived: false
+header: |
+  Ready page within a bound of starting
+level: '1.10'
+links:
+- SYS002: i4FpLfgobOi79y50pwQzhZabRVmisxlP0G0Pt_4fR60=
+normative: true
+rationale: |
+  Kept as a placeholder with no bound set, so its check cannot fail. It is activated when a bound
+  is stated. No clause of its parent states promptness; the parent gains one with the bound.
+ref: ''
+reviewed: w1jA0gIt-EBYoJLJSd_tVpr0WXp_8ZSwLuMIuwOrIrI=
+status: proposed
+text: |
+  The kiosk shall show the WiseKiosk page in its ready state within a bound of power being
+  applied.
+verification-justification: |
+  No bound has been set, so nothing can fail it.
+verification-method: test

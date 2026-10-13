@@ -1,25 +1,21 @@
 active: true
 derived: false
 header: |
-  Shipped units load on the board
-level: 1.9
+  Back to the page after an update
+level: 1.5
 links:
-- SRS006: 78pyUwMaix3E5dxT3MAP2l1kGPk_hHv5pa_NW6oYF7E=
+- SRS006: -N_HW71rZ0btgxnV9EkqCQq78VB33RPYo5uO9dLJrt8=
 normative: true
 rationale: ''
 ref: ''
 references: []
-reviewed: YTL3f3OkbG-DT0HEkUOuhTXktJoRfv2E0JFTBos6dP0=
+reviewed: 4J9oQCfOENfIIqZUjXL8RyV-KD9poFCD-CIaXdS_VX8=
 status: proposed
 text: |
-  On the booted board, for every unit the layer ships, assert systemd reports it loaded
-  with no load error and none failed.
+  With nobody at the panel, install a valid update over the network and let the kiosk restart into
+  it. Pass if it comes back showing the WiseKiosk page in its ready state within the check's wait.
+  Fail otherwise.
 verification-justification: |
-  Settles that every unit meta-wisekiosk's own recipes ship is loaded with no load error, and
-  that none of them appears in systemd's own failed-unit list, as the board's own systemd
-  reports it, on one physical device, one boot. The failure branch is proven on constructed
-  input, shaped from real `systemctl show`/`systemctl list-units --failed` output captured on
-  bench, and was watched failing once, read-only, against a unit name no recipe ships, when
-  the check was built. Leaves unproven anything about units this layer does not own, or
-  whether a later change breaks a unit that currently passes.
+  Settles the good-update path end to end. Leaves unproven which image is running, and updates
+  installed by any other route.
 verification-method: test

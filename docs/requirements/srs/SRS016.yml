@@ -1,0 +1,17 @@
+active: true
+derived: false
+header: |
+  Rejoins the network after an outage
+level: 1.15
+links:
+- SYS004: NFlpvL2V3LE9n1QRMBtsCIMe6N0dWG426tWh04Atjk8=
+normative: true
+rationale: ''
+ref: ''
+reviewed: 2tez41DxkikkmtyL8xNLFJocBWNRFB0itwGLyPChbF8=
+status: proposed
+text: |
+  After the site network goes away and comes back, the kiosk shall rejoin it by itself.
+verification-justification: |
+  It leaves unproven an outage that spans a restart, and changed network credentials.
+verification-method: test

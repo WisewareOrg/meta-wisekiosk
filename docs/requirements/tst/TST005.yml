@@ -1,24 +1,20 @@
 active: true
 derived: false
 header: |
-  Display service set as designed in the shipped image
-level: 1.7
+  Browser killed, page returns
+level: 1.4
 links:
-- SRS006: 78pyUwMaix3E5dxT3MAP2l1kGPk_hHv5pa_NW6oYF7E=
+- SRS005: xhMBBgkm0F2h5uNI90JMXVafU2tWKZJrD9GRXXZbbOg=
 normative: true
 rationale: ''
 ref: ''
 references: []
-reviewed: jIESzJczFMhIWlC4lETAaL-OeemfsJhoR_NOsGAZDQw=
+reviewed: UuS-0v7iTff87CTCm-6gfl4rUaJUnhKQ_nbw3gW0E54=
 status: proposed
 text: |
-  Read the display service's effective ExecStart and the display's served entry point from
-  the shipped rootfs; assert blanking off, cursor hidden, entry point present.
+  With nobody at the panel, kill the browser. Pass if the WiseKiosk page is back in its ready
+  state within the check's bound. Fail otherwise.
 verification-justification: |
-  Settles that the built rootfs's own display-launch unit carries the designed flags and that
-  its served entry point is present, read from this build's own artifacts. Both failure
-  branches are proven on constructed input and were watched failing on a mutated copy of the
-  artefact when the check was built. Leaves unproven whether a runtime override later changes
-  any of this once the image is deployed, and whether every shipped unit is itself loadable
-  (TST006, *Shipped units load on the board*, the same obligation's device-tier check).
+  Settles recovery from one browser exit. Leaves unproven a crash loop, a browser that is alive
+  but hung, and every fault other than the browser ending.
 verification-method: test

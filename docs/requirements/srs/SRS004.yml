@@ -1,18 +1,18 @@
-active: false
+active: true
 derived: false
 header: |
-  Misprovisioned unit shows a fault, never a blank or stale display
-level: 1.5
+  Page keeps updating
+level: 1.3
 links:
-- SYS002: 3rybjADVCuFnWGKsBOBBEk5XOFysjMgIAR8EbRLtJ0o=
+- SYS002: i4FpLfgobOi79y50pwQzhZabRVmisxlP0G0Pt_4fR60=
 normative: true
-rationale: ''
+rationale: |
+  A frozen page is an outage, not stutter, so it falls under getting back to showing the page.
 ref: ''
-reviewed: hcEQlgbuXCzaLeMQARS-o0YnmetsIpCpNCUdiHZDtPk=
+reviewed: 5ceYW7YmcMxILOf1bHfwMe4XjfVn3kMBXlcKZGund_s=
 status: proposed
 text: |
-  A misprovisioned unit shows a fault, never a blank or stale display.
+  The page on the panel shall keep updating and shall not freeze.
 verification-justification: |
-  No appliance-level fault display exists yet to verify this against: the application's own
-  configuration-error page is its own tier's mechanism, not the appliance's.
+  Its check samples a short interval. It leaves unproven a freeze that begins later.
 verification-method: test

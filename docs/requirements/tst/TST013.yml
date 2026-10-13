@@ -1,0 +1,20 @@
+active: true
+derived: false
+header: |
+  Configuration across a power cut
+level: 1.12
+links:
+- SRS010: BtbQgEPWC7fcZQNpUXZE7FVsSnJUeoTU1chekXd9qrQ=
+normative: true
+rationale: ''
+ref: ''
+references: []
+reviewed: Mhu3P3KUMCo_nVW7KFs8sbM-jB-KIvMZsi5SYFbS5NU=
+status: proposed
+text: |
+  Compare the kiosk's site configuration before and after cutting its power without warning and
+  restoring it. Pass if it is unchanged.
+verification-justification: |
+  Settles survival of one cut at one moment. Leaves unproven a cut during a write to the
+  configuration.
+verification-method: test

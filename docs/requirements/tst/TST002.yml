@@ -1,22 +1,21 @@
 active: true
 derived: false
 header: |
-  Render-advancing check passes
+  Page covers the panel
 level: 1.1
 links:
-- SRS002: uY_vQgxKYXcHe-NInQv3B-5G27fRXU1vp02fhEFgEeY=
+- SRS002: gJRzDXr6rNNpXXoDL9Jl2nBPXqxa9yVocX80X2Hn5TU=
 normative: true
 rationale: ''
 ref: ''
 references: []
-reviewed: vYEL63GoZHNvnMG_MbRf-r9Ya_B4h7nkuzhcTmDKsv8=
+reviewed: dETZt3SbU3AJ4Wt2g9wLRHnv7aulPYUYonLlvg3a6Xs=
 status: proposed
 text: |
-  Run the device oeqa suite's render-advancing case against the booted image and assert it
-  passes.
+  On the started kiosk, read the panel's active screen size and the size of the area the page is
+  drawn in. Pass if the page area covers the whole screen and the screen is no smaller than the
+  floor the check carries. Fail otherwise.
 verification-justification: |
-  Settles that the display is still painting across the two captured frames, on one physical
-  device, one boot. The failure branch is proven on constructed input and was watched failing
-  on bench when the check was built. Leaves unproven whether a painted frame is visually
-  correct.
+  Settles that the page fills the mode actually set, and the floor. Leaves unproven a panel whose
+  native size is below the floor, and the layout inside the page.
 verification-method: test

@@ -1,22 +1,21 @@
 active: true
 derived: false
 header: |
-  Layout-floor check passes
-level: 1.6
+  Page keeps changing
+level: 1.3
 links:
-- SRS005: JsgZZhUX8nlZ3w1CAAri0WSu1hMm9us7Xnf06YJlOjw=
+- SRS004: 9vEu1KTfiGsX124kyNuoxyoB-HC-nno2Y5T_32kwc3Q=
 normative: true
 rationale: ''
 ref: ''
 references: []
-reviewed: kZqxvlDb6B_eVjAQC58jm4z7_OqF9ES0JGILT92XC2g=
+reviewed: xAkdMUjQ1DOvEY0DoYcLPr6aLEdtYPY-UQoDN19xZv0=
 status: proposed
 text: |
-  Read the mode xrandr reports and the launcher's own configured mode, and assert the former is
-  at least 1280x720 and matches the latter.
+  While the page is showing, capture the screen twice, some seconds apart. Pass if the two
+  captures differ and neither is blank or a single colour. Fail otherwise.
 verification-justification: |
-  Settles the floor and the configured-mode match at the mode xrandr reports, on one physical
-  device, one boot. The failure branch is proven on constructed input and was watched failing
-  on bench when the check was built. Leaves unproven anything about the display at a mode below
-  the floor, and the application's screen layout, which is the application's own tier's.
+  Settles that the display server's image is advancing across one interval. Leaves unproven a
+  freeze that starts later, and the glass itself. A page legitimately still between captures fails
+  falsely.
 verification-method: test

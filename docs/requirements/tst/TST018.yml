@@ -1,0 +1,22 @@
+active: false
+derived: false
+header: |
+  Freeze rate
+level: 1.17
+links:
+- SRS012: vlpLn5-wR1RyFhsEMfQXNnqc6QVbKGfHtkIwq6Z7SCE=
+normative: true
+rationale: |
+  Kept as a placeholder with no bound set, so its check cannot fail. It is activated when a bound
+  is stated.
+ref: ''
+references: []
+reviewed: yF8OyoJ63s6TnFPcuzmppQkhY26JO3yESRtSCwBm6zE=
+status: proposed
+text: |
+  With the page showing known, repeatable content, measure how often the page freezes over the
+  check's window. Pass if the rate is within the bound.
+verification-justification: |
+  Would settle how often the page freezes on that content. Leaves unproven other content and the
+  glass. The check defines a freeze.
+verification-method: test

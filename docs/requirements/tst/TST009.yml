@@ -1,23 +1,21 @@
 active: true
 derived: false
 header: |
-  Freeze rate over the window
-level: 1.12
+  System hangs, kiosk restarts
+level: 1.8
 links:
-- SRS007: b3xawemneLNjXoyEZ2F65YkOrhUNWWzrCAnDHdoZ7lE=
+- SRS008: VxM2llcnhlWg5r6NQPmV6syT-jxgMjk-gMf-BJaCqlc=
 normative: true
 rationale: ''
 ref: ''
 references: []
-reviewed: ZkEMMmdsx_JjREN1nzxBLPWj2MWRepp4c4jExwliP2A=
+reviewed: T5r8T6x1aLidHkvB2tUgW_cVxMIPuSDAo5NOOVLgjl8=
 status: proposed
 text: |
-  On the second boot of the updated slot, over the 300 s window starting 15 s after the page
-  loads, record the number of frame intervals of 100 ms or more per minute.
+  With nobody at the panel, make the system stop responding entirely, so that nothing on it runs.
+  Pass if the kiosk restarts by itself and comes back showing the WiseKiosk page in its ready
+  state within the check's wait.
 verification-justification: |
-  Records the metric over one 300 s window on the replayed page, on one physical device,
-  one boot, the window voided unless both reads show the replay set's expected page state and
-  the page counts no state change between them. Asserts no bound until the baseline campaign derives one, so until then a value
-  is recorded, never failed.
-  Leaves unproven the length of the longest freeze (TST008) and the frame rate (TST007).
+  Settles recovery from a whole-system hang. Leaves unproven a partial hang, where the system runs
+  but the browser or display is frozen, and a hang before the protection is armed during boot.
 verification-method: test

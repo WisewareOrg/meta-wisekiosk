@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Configuration across an update
+level: 1.11
+links:
+- SRS010: BtbQgEPWC7fcZQNpUXZE7FVsSnJUeoTU1chekXd9qrQ=
+normative: true
+rationale: ''
+ref: ''
+references: []
+reviewed: 1OmCMc12nNg1G0_11LtNiFSl83mWCqDitXHod2b_yBY=
+status: proposed
+text: |
+  Compare the kiosk's site configuration before and after installing a valid update. Pass if it is
+  unchanged.
+verification-justification: |
+  Settles survival across one update. Only the comparison result is recorded, never a value.
+verification-method: test

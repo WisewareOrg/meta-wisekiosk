@@ -1,0 +1,21 @@
+active: true
+derived: false
+header: |
+  Update that cannot reach the network
+level: '1.10'
+links:
+- SRS009: dQ27shIs7SrChmkdmIqA7IdESWHpklYCfliQ4v6dOI0=
+normative: true
+rationale: ''
+ref: ''
+references: []
+reviewed: NSdESSzhVbtvpOlio1tFEGcRICvNkZFcexDC5bcQCt0=
+status: proposed
+text: |
+  Install over the network an update whose image starts but cannot reach the site network. Pass
+  if, with nobody at the panel, the kiosk returns by itself to its previous image, reachable for
+  service and showing the page.
+verification-justification: |
+  Settles fallback from an image that boots but cannot be serviced. Leaves unproven an update that
+  is reachable but shows no page, which this need excludes by its own definition.
+verification-method: test

@@ -1,24 +1,20 @@
 active: true
 derived: false
 header: |
-  Time to page after boot
-level: 1.13
+  Update that cannot start
+level: 1.9
 links:
-- SRS006: 78pyUwMaix3E5dxT3MAP2l1kGPk_hHv5pa_NW6oYF7E=
+- SRS009: dQ27shIs7SrChmkdmIqA7IdESWHpklYCfliQ4v6dOI0=
 normative: true
 rationale: ''
 ref: ''
 references: []
-reviewed: NjTVELZlvKFWJLjwJ_dTqy1Oz9chLiqZzO9Cx1fSxo4=
+reviewed: C8lfyNYMkBd5eXqPdob-J9soK6hxYTWPXPY5q4Mwbww=
 status: proposed
 text: |
-  On the second boot of the updated slot, record the time from the page's load to the first
-  probe sample showing the display's frame, nothing loading, the weather present and the
-  replay set's expected cards.
+  Install over the network an update whose image cannot start. Pass if, with nobody at the panel,
+  the kiosk returns by itself to its previous image, reachable for service and showing the page.
 verification-justification: |
-  Records the time read at the window's start, on the replayed page, on one physical device,
-  one boot, the window voided unless both reads show the replay set's expected page state and
-  the page counts no state change between them. Asserts no bound until the baseline campaign derives one, so until then a value
-  is recorded, never failed. Leaves unproven how long the board takes to start the browser,
-  which the page's own load clock does not see.
+  Settles fallback from an image that never boots. Leaves unproven a fault in the shared boot
+  files.
 verification-method: test

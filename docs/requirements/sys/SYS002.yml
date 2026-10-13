@@ -1,23 +1,19 @@
 active: true
 derived: false
 header: |
-  Runs unattended and recovers
+  No visit to get it back
 level: 1.1
 links: []
 normative: true
-rationale: |
-  Decomposed by the browser's own recovery from being killed, without a person at the panel,
-  and by the kiosk coming back showing its display after an update, without anyone attending
-  it (SRS006). A misprovisioned unit's own fault display is a decomposed need too, inactive
-  until an appliance-level fault display exists to verify it against.
+rationale: ''
 ref: ''
-reviewed: 3rybjADVCuFnWGKsBOBBEk5XOFysjMgIAR8EbRLtJ0o=
+reviewed: i4FpLfgobOi79y50pwQzhZabRVmisxlP0G0Pt_4fR60=
 status: proposed
 text: |
-  The kiosk shall run unattended and recover.
+  Once installed, the kiosk shall never need a person at the wall to get it back to showing the
+  page, short of a hardware failure.
 verification-justification: |
-  Settles that the browser recovers from being killed, without a person at the panel, and
-  that the kiosk comes back showing its display after an update (SRS006). Leaves unproven a
-  misprovisioned unit's own fault display, and any fault this image's own checks do not
-  inject.
+  Its checks inject one fault of each class per run. They leave unproven repeated faults, faults
+  no check injects, and a bad write to the boot files both images share, which needs the card
+  pulled.
 verification-method: test

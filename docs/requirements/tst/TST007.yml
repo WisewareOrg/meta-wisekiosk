@@ -1,24 +1,20 @@
 active: true
 derived: false
 header: |
-  Frame rate and late frames over the window
-level: '1.10'
+  Power cut while showing the page
+level: 1.6
 links:
-- SRS007: b3xawemneLNjXoyEZ2F65YkOrhUNWWzrCAnDHdoZ7lE=
+- SRS007: lME-FnYxblS5Axe2fmDc2_ivf_F9Vrjm7VslOk_L75A=
 normative: true
 rationale: ''
 ref: ''
 references: []
-reviewed: S2nL0C6HuuWI_5neUzaQ1V-fVNa-yNFuy3_1Pygq9Y4=
+reviewed: cH9sZOqx1rQ7dvGOU3S0GpqAwO_PGA8uUSCx0V2BhoU=
 status: proposed
 text: |
-  On the second boot of the updated slot, over the 300 s window starting 15 s after the page
-  loads, difference the page's frame counters read at the window's start and end; record the
-  mean frame rate and the share of frame intervals under 50 ms (late frames are the rest).
+  While the kiosk shows the page, cut its power without warning, then restore it. Pass if it comes
+  up showing the WiseKiosk page in its ready state with nobody at the panel.
 verification-justification: |
-  Records the metric over one 300 s window on the replayed page, on one physical device,
-  one boot, the window voided unless both reads show the replay set's expected page state and
-  the page counts no state change between them. Asserts no bound until the baseline campaign derives one, so until then a value
-  is recorded, never failed.
-  Leaves unproven a single long freeze (TST008) and freezes that recur (TST009).
+  Settles one unclean cut at one moment. Leaves unproven other moments, repeated cuts, and a cut
+  during a write to the shared boot files.
 verification-method: test

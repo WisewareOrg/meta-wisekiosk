@@ -1,0 +1,21 @@
+active: false
+derived: false
+header: |
+  Frame rate
+level: 1.14
+links:
+- SRS012: vlpLn5-wR1RyFhsEMfQXNnqc6QVbKGfHtkIwq6Z7SCE=
+normative: true
+rationale: |
+  Kept as a placeholder with no bound set, so its check cannot fail. It is activated when a bound
+  is stated.
+ref: ''
+references: []
+reviewed: aLgoP3ZK5peONIdZ0--ieQtLM0j5FuiN_3kowT0BG-I=
+status: proposed
+text: |
+  With the page showing known, repeatable content, measure the rate at which it draws frames over
+  the check's window. Pass if the rate is within the bound.
+verification-justification: |
+  Would settle the frame rate on that content. Leaves unproven other content and the glass.
+verification-method: test

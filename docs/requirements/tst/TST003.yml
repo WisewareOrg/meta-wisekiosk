@@ -1,21 +1,23 @@
 active: true
 derived: false
 header: |
-  Browser-restart check passes
-level: 1.4
+  Untouched panel still lit, no pointer drawn
+level: 1.2
 links:
-- SRS003: WL7evQNeACSW_c6tnfaLJBWsNbOyA8ubXJ8OtuIVjrE=
+- SRS003: kZIW62RVljLAH0AGsYmi1NqPQTRwjNa6-fIbp6eYRyA=
 normative: true
 rationale: ''
 ref: ''
 references: []
-reviewed: T_UOeIq7S2PV60xYQzN9PbJHnBgJBG9KXLtvQs_cLsc=
+reviewed: QQwtltKoxClLH0GHqWjnBcqQU4xDfAbSzLu5W_LLZJg=
 status: proposed
 text: |
-  Kill the browser process and assert the page is applied again within 60 s.
+  Leave the kiosk showing the page, untouched, for longer than the display's default blanking
+  time. Then capture the screen, and read from the display whether it has powered the panel down
+  and whether it is drawing a pointer. Pass if the capture is not blank, the panel is not powered
+  down, and no pointer is drawn.
 verification-justification: |
-  Settles that the browser restarts and the page is applied again within 60 s of the kill,
-  on one physical device, one boot. The failure branch is proven on constructed input and was
-  watched failing on bench when the check was built. Leaves unproven recovery from any fault
-  other than the browser process itself ending.
+  Settles blanking and pointer at one point past the default timeout. A screen capture alone shows
+  neither power-down nor the pointer, so both are read from the display. Leaves unproven the
+  panel's own hardware power saving, and longer timescales.
 verification-method: test

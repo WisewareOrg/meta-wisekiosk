@@ -1,23 +1,19 @@
 active: true
 derived: false
 header: |
-  Comes back showing its display after an update
-level: 1.7
+  Comes back showing the page after an update
+level: 1.5
 links:
-- SYS002: 3rybjADVCuFnWGKsBOBBEk5XOFysjMgIAR8EbRLtJ0o=
+- SYS002: i4FpLfgobOi79y50pwQzhZabRVmisxlP0G0Pt_4fR60=
 normative: true
 rationale: ''
 ref: ''
-reviewed: KPMdsBP7gKOm0sfet9YCt6DIFLYl792lmYGHy27KOm4=
+reviewed: 1DNuyy5154-epQdyjEBHrBdoXvW4oS1qZ2ZIQ2UeorQ=
 status: proposed
 text: |
-  After an update, the kiosk shall come back showing its display without anyone attending it.
+  After an update installed over the network, the kiosk shall come back showing the page without
+  anyone at the panel.
 verification-justification: |
-  Settled by two decompositions of how an update can fail to do that: the image's display
-  service is set to show the display as designed (TST005, read from the shipped image itself);
-  the services the image ships load on the booted board (TST006, as the board's own systemd
-  reports). The time from the page's load to its first full sample, on the boot after an update,
-  is recorded (TST010), with no bound asserted until the baseline campaign derives one. Leaves
-  unproven what the display shows once up (SRS001, SRS005), how soon is soon enough, and an
-  install that bypasses kiosk-preflight.
+  It leaves unproven which image the kiosk then runs; the need that an update takes effect owns
+  that.
 verification-method: test
