@@ -1,20 +1,20 @@
-active: true
+active: false
 derived: false
 header: |
-  Browser killed, page returns
+  Pending: Kernel crash
 level: 1.4
 links:
-- SRS005: xhMBBgkm0F2h5uNI90JMXVafU2tWKZJrD9GRXXZbbOg=
+- SRS002: NAu4MJb26dF5WvVS2-niihrLEgxxLlYEUvRIl5kHt2A=
 normative: true
-rationale: ''
+rationale: |
+  Waits on its test.
 ref: ''
 references: []
-reviewed: UuS-0v7iTff87CTCm-6gfl4rUaJUnhKQ_nbw3gW0E54=
+reviewed: JBtjnUb7L2dPxOss1qXHwu2XhNl7ilPgcivwzyCsKhA=
 status: proposed
 text: |
-  With nobody at the panel, kill the browser. Pass if the WiseKiosk page is back in its ready
-  state within the check's bound. Fail otherwise.
-verification-justification: |
-  Settles recovery from one browser exit. Leaves unproven a crash loop, a browser that is alive
-  but hung, and every fault other than the browser ending.
+  With nobody at the panel, crash the kernel over the network so that nothing on the appliance runs.
+  Pass if the appliance restarts by itself and the WiseKiosk instance is on the panel within 60 s of
+  the crash.
+verification-justification: ''
 verification-method: test

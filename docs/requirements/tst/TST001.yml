@@ -1,21 +1,19 @@
-active: true
+active: false
 derived: false
 header: |
-  Starts to the ready page
+  Pending: Restart to the panel
 level: 1.0
 links:
-- SRS001: _Tg9LLLZxhdhNCDdFehoKOO9HqVMiWs5DCYBBhT9Pr8=
+- SRS008: AguqAMaxXzK3PcXEcDPbvgy02utWAk9O5ArIRBFOVt8=
 normative: true
-rationale: ''
+rationale: |
+  Waits on its test.
 ref: ''
 references: []
-reviewed: BAXwXGS2gGb88FGcuvAhd51SkLKPyx8AqizB-2KA0JE=
+reviewed: Of-BBOSDW5Yqcr_UkOKUM833vrVqTbmJJwcTLFqntZs=
 status: proposed
 text: |
-  Apply power to the kiosk with nobody at the panel, then read which page the browser shows and
-  its state. Pass if, within the check's wait, it is the WiseKiosk page in its ready state. Fail
-  if it is an error page, still loading, a browser error, or anything else.
-verification-justification: |
-  Settles that the browser reaches the ready page unaided from power-on. Leaves unproven what
-  reaches the glass, so a panel that is off or disconnected still passes.
+  Restart the appliance over the network, with nobody at the panel. Pass if the WiseKiosk instance
+  is on the panel within 60 s of the restart.
+verification-justification: ''
 verification-method: test

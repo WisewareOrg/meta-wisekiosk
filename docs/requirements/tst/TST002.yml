@@ -1,21 +1,19 @@
-active: true
+active: false
 derived: false
 header: |
-  Page covers the panel
+  Pending: Browser killed
 level: 1.1
 links:
-- SRS002: gJRzDXr6rNNpXXoDL9Jl2nBPXqxa9yVocX80X2Hn5TU=
+- SRS002: NAu4MJb26dF5WvVS2-niihrLEgxxLlYEUvRIl5kHt2A=
 normative: true
-rationale: ''
+rationale: |
+  Waits on its test.
 ref: ''
 references: []
-reviewed: dETZt3SbU3AJ4Wt2g9wLRHnv7aulPYUYonLlvg3a6Xs=
+reviewed: rZDYW70BHKd_HQvsfrKsm3oVw0WYUVk7Fu2lFOBBENQ=
 status: proposed
 text: |
-  On the started kiosk, read the panel's active screen size and the size of the area the page is
-  drawn in. Pass if the page area covers the whole screen and the screen is no smaller than the
-  floor the check carries. Fail otherwise.
-verification-justification: |
-  Settles that the page fills the mode actually set, and the floor. Leaves unproven a panel whose
-  native size is below the floor, and the layout inside the page.
+  With nobody at the panel, kill the browser. Pass if the WiseKiosk instance is back on the panel
+  within 15 s.
+verification-justification: ''
 verification-method: test

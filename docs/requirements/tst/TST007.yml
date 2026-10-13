@@ -1,20 +1,19 @@
-active: true
+active: false
 derived: false
 header: |
-  Power cut while showing the page
+  Pending: Frozen page recovered
 level: 1.6
 links:
-- SRS007: lME-FnYxblS5Axe2fmDc2_ivf_F9Vrjm7VslOk_L75A=
+- SRS002: NAu4MJb26dF5WvVS2-niihrLEgxxLlYEUvRIl5kHt2A=
 normative: true
-rationale: ''
+rationale: |
+  Waits on its test.
 ref: ''
 references: []
-reviewed: cH9sZOqx1rQ7dvGOU3S0GpqAwO_PGA8uUSCx0V2BhoU=
+reviewed: uQi5OmqTdCSMZC_vwTq5WC829EknxAeG3qYVJyXFQO4=
 status: proposed
 text: |
-  While the kiosk shows the page, cut its power without warning, then restore it. Pass if it comes
-  up showing the WiseKiosk page in its ready state with nobody at the panel.
-verification-justification: |
-  Settles one unclean cut at one moment. Leaves unproven other moments, repeated cuts, and a cut
-  during a write to the shared boot files.
+  With the WiseKiosk instance configured to show a clock with seconds, freeze the page without ending
+  the browser. Pass if the panel is changing again within 60 s of the freeze.
+verification-justification: ''
 verification-method: test

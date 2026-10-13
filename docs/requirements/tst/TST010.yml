@@ -1,20 +1,19 @@
-active: true
+active: false
 derived: false
 header: |
-  Update that cannot start
+  Pending: Motion stutter measured
 level: 1.9
 links:
-- SRS009: dQ27shIs7SrChmkdmIqA7IdESWHpklYCfliQ4v6dOI0=
+- SRS003: C4QFTYBaBIUObNoZn6l7l883wwVL14VydmqoINFxZrc=
 normative: true
-rationale: ''
+rationale: |
+  Waits on its test and its bound.
 ref: ''
 references: []
-reviewed: C8lfyNYMkBd5eXqPdob-J9soK6hxYTWPXPY5q4Mwbww=
+reviewed: D3cLSJNLSrBRYH9eCuJEpFtXjEgSgcKdB8glF4Q4H3w=
 status: proposed
 text: |
-  Install over the network an update whose image cannot start. Pass if, with nobody at the panel,
-  the kiosk returns by itself to its previous image, reachable for service and showing the page.
-verification-justification: |
-  Settles fallback from an image that never boots. Leaves unproven a fault in the shared boot
-  files.
+  With the WiseKiosk instance configured to show repeatable motion, measure stutter over the check's
+  window. Pass if it is within a bound not yet set.
+verification-justification: ''
 verification-method: test

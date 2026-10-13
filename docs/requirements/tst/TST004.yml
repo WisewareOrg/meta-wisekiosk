@@ -1,21 +1,19 @@
-active: true
+active: false
 derived: false
 header: |
-  Page keeps changing
+  Pending: Power cut during an update
 level: 1.3
 links:
-- SRS004: 9vEu1KTfiGsX124kyNuoxyoB-HC-nno2Y5T_32kwc3Q=
+- SRS002: NAu4MJb26dF5WvVS2-niihrLEgxxLlYEUvRIl5kHt2A=
 normative: true
-rationale: ''
+rationale: |
+  Waits on its test, and on power control at the bench, which the project does not have.
 ref: ''
 references: []
-reviewed: xAkdMUjQ1DOvEY0DoYcLPr6aLEdtYPY-UQoDN19xZv0=
+reviewed: Ql2CUaB9WoQWsh4yvRcld-TPuq0VVUtywBGbvbvslYg=
 status: proposed
 text: |
-  While the page is showing, capture the screen twice, some seconds apart. Pass if the two
-  captures differ and neither is blank or a single colour. Fail otherwise.
-verification-justification: |
-  Settles that the display server's image is advancing across one interval. Leaves unproven a
-  freeze that starts later, and the glass itself. A page legitimately still between captures fails
-  falsely.
+  Cut the appliance's power while an update is being installed, then restore it. Pass if the
+  WiseKiosk instance is on the panel within 60 s of power returning, on either image.
+verification-justification: ''
 verification-method: test

@@ -1,18 +1,19 @@
 active: true
 derived: false
 header: |
-  The viewer sees the page
+  Hosts and displays WiseKiosk
 level: 1.0
 links: []
 normative: true
 rationale: ''
 ref: ''
-reviewed: XMbgwAVLqV9oMTUsY5HZeKexL6RiYvq624osqUT82ic=
+reviewed: XReWT8EazW9-pb33CAD0YfMTmeq6LYYk8PDZ9qNHeuk=
 status: proposed
 text: |
-  A person at the panel shall see the WiseKiosk page, filling the panel, without anyone having set
-  it up at the panel.
+  The appliance shall host a WiseKiosk instance and display it on its panel.
 verification-justification: |
-  Its checks read the page state and the display server's image. They leave unproven what reaches
-  the glass, such as a panel that is switched off or disconnected.
+  Verified only through its children. Its checks settle that the instance is brought back to the
+  panel after the faults they induce, that it comes up promptly from power-on, and that it can reach
+  its data. Motion without stutter has no check until its bound is set. Unproven: what reaches the
+  glass when the panel itself is off or disconnected, and every fault not yet seen.
 verification-method: test

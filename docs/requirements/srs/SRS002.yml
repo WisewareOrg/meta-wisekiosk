@@ -1,19 +1,24 @@
 active: true
 derived: false
 header: |
-  Page fills the panel
+  Recovers the instance to the panel
 level: 1.1
 links:
-- SYS001: XMbgwAVLqV9oMTUsY5HZeKexL6RiYvq624osqUT82ic=
+- SYS001: XReWT8EazW9-pb33CAD0YfMTmeq6LYYk8PDZ9qNHeuk=
 normative: true
-rationale: |
-  The render resolution the launcher chooses for headroom is a mechanism and is not stated here.
+rationale: ''
 ref: ''
-reviewed: 76wX_-10aPRGGSWr3fOjbg8e7RpD0xX-G7TVMqrMpH8=
+reviewed: BLfFSDyxLXgeG2jd_uxD0Nm1kmLQp1qBFAw_WwZLjgg=
 status: proposed
 text: |
-  The page shall fill the whole panel, at no less than the smallest screen size the application is
-  laid out for.
+  If the panel stops showing the live WiseKiosk instance, the appliance shall detect it and bring the
+  instance back, with nobody at the panel.
 verification-justification: |
-  It leaves unproven whether the layout inside the page is right, which is the application's.
+  A check counts the instance on the panel when the browser shows the instance the appliance serves
+  and a screen capture is not a single uniform colour. Its checks settle recovery from the faults
+  they induce: a browser kill, a kernel crash and a frozen page, and, once the bench has power
+  control, a power cut while showing and during an update. Unproven: any way of losing the panel the
+  checks do not induce, such as a userspace hang with the kernel still running, a crash loop, a
+  freeze from the application's own error, or a partial freeze; and a fault that recurs on every
+  boot.
 verification-method: test

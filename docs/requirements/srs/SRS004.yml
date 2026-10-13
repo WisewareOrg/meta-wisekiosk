@@ -1,18 +1,19 @@
 active: true
 derived: false
 header: |
-  Page keeps updating
+  The instance can fetch its data
 level: 1.3
 links:
-- SYS002: i4FpLfgobOi79y50pwQzhZabRVmisxlP0G0Pt_4fR60=
+- SYS001: XReWT8EazW9-pb33CAD0YfMTmeq6LYYk8PDZ9qNHeuk=
 normative: true
-rationale: |
-  A frozen page is an outage, not stutter, so it falls under getting back to showing the page.
+rationale: ''
 ref: ''
-reviewed: 5ceYW7YmcMxILOf1bHfwMe4XjfVn3kMBXlcKZGund_s=
+reviewed: 4TQ3j3IQTdt6pXmwiGBy4wueVGohDIJ5r_eABupjtls=
 status: proposed
 text: |
-  The page on the panel shall keep updating and shall not freeze.
+  The WiseKiosk instance shall be able to fetch its data whenever the site network gives the
+  appliance internet access.
 verification-justification: |
-  Its check samples a short interval. It leaves unproven a freeze that begins later.
+  Settles that one HTTPS request completes from the instance's own process context. Unproven:
+  reaching the instance's own data sources specifically, and a capability lost between checks.
 verification-method: test

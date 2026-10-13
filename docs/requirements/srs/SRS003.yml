@@ -1,17 +1,17 @@
 active: true
 derived: false
 header: |
-  Panel stays lit, no pointer
+  Motion without stutter
 level: 1.2
 links:
-- SYS001: XMbgwAVLqV9oMTUsY5HZeKexL6RiYvq624osqUT82ic=
+- SYS001: XReWT8EazW9-pb33CAD0YfMTmeq6LYYk8PDZ9qNHeuk=
 normative: true
 rationale: ''
 ref: ''
-reviewed: GueDTqc69Dw6mlw1V07d5n_-s8YAjA9EKGL1R8m4LQ8=
+reviewed: EHUJmkwOaqK2l-uVzXc0T8qZ9SUxqefaOWiJFMz0tKU=
 status: proposed
 text: |
-  The panel shall stay lit and show no pointer, however long nobody touches it.
+  Motion on the panel shall not visibly stutter.
 verification-justification: |
-  It leaves unproven any timescale longer than one run.
+  No check yet. Unverified until a bound is set from a repeatable measurement.
 verification-method: test

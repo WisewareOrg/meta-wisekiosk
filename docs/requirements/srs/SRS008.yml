@@ -1,19 +1,18 @@
 active: true
 derived: false
 header: |
-  Restarts itself when the system hangs
+  Prompt from power-on
 level: 1.7
 links:
-- SYS002: i4FpLfgobOi79y50pwQzhZabRVmisxlP0G0Pt_4fR60=
+- SYS001: XReWT8EazW9-pb33CAD0YfMTmeq6LYYk8PDZ9qNHeuk=
 normative: true
 rationale: ''
 ref: ''
-reviewed: Rq0BsySHvTXohh9ck9XXJu_wK3NWwbZ6zhnnoaa_qQ0=
+reviewed: QJzo3k5h1lrZ6n284NTXIvRyAxi8JfxNhfxwxj-fsVg=
 status: proposed
 text: |
-  If the system stops responding, the kiosk shall restart itself and come back showing the page
-  without anyone at the panel.
+  After power is applied, the appliance shall bring the WiseKiosk instance onto the panel promptly.
 verification-justification: |
-  It leaves unproven a partial hang, where the system runs but the display or the browser is
-  frozen.
+  TST008 waits on power control and its bound. TST001 settles the warm path only; it skips the
+  cold-power path a real outage takes.
 verification-method: test

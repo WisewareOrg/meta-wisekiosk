@@ -1,23 +1,19 @@
-active: true
+active: false
 derived: false
 header: |
-  Untouched panel still lit, no pointer drawn
+  Pending: Power cut while showing
 level: 1.2
 links:
-- SRS003: kZIW62RVljLAH0AGsYmi1NqPQTRwjNa6-fIbp6eYRyA=
+- SRS002: NAu4MJb26dF5WvVS2-niihrLEgxxLlYEUvRIl5kHt2A=
 normative: true
-rationale: ''
+rationale: |
+  Waits on its test, and on power control at the bench, which the project does not have.
 ref: ''
 references: []
-reviewed: QQwtltKoxClLH0GHqWjnBcqQU4xDfAbSzLu5W_LLZJg=
+reviewed: h5jb1MBboVYEITM5IS70Z1JXbnqrWYVPjkwYlVGTaRM=
 status: proposed
 text: |
-  Leave the kiosk showing the page, untouched, for longer than the display's default blanking
-  time. Then capture the screen, and read from the display whether it has powered the panel down
-  and whether it is drawing a pointer. Pass if the capture is not blank, the panel is not powered
-  down, and no pointer is drawn.
-verification-justification: |
-  Settles blanking and pointer at one point past the default timeout. A screen capture alone shows
-  neither power-down nor the pointer, so both are read from the display. Leaves unproven the
-  panel's own hardware power saving, and longer timescales.
+  While the WiseKiosk instance is on the panel, cut the appliance's power without warning, then
+  restore it. Pass if the instance is on the panel within 60 s of power returning.
+verification-justification: ''
 verification-method: test

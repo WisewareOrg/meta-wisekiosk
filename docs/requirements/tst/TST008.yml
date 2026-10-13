@@ -1,20 +1,19 @@
-active: true
+active: false
 derived: false
 header: |
-  Power cut during an update
+  Pending: Cold boot to the panel
 level: 1.7
 links:
-- SRS007: lME-FnYxblS5Axe2fmDc2_ivf_F9Vrjm7VslOk_L75A=
+- SRS008: AguqAMaxXzK3PcXEcDPbvgy02utWAk9O5ArIRBFOVt8=
 normative: true
-rationale: ''
+rationale: |
+  Waits on its test, its bound, and on power control at the bench, which the project does not have.
 ref: ''
 references: []
-reviewed: 5Zo14rIjZVt865rZ3z_m1azy66yxzAxahaAvPX7yju8=
+reviewed: klVWGMO0A_mCLcF7mAFiHjEysVeEULkuwzonyqCwjzM=
 status: proposed
 text: |
-  Cut power while an update is being installed, then restore it. Pass if the kiosk comes up
-  showing the WiseKiosk page in its ready state, on either image, with nobody at the panel.
-verification-justification: |
-  Settles a cut at one point in an install. Leaves unproven a cut while the update writes the boot
-  files both images share, which can leave neither image bootable.
+  With the appliance powered off and nobody at the panel, apply power. Pass if the WiseKiosk instance
+  is on the panel within a bound not yet set.
+verification-justification: ''
 verification-method: test

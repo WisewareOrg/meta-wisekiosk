@@ -1,21 +1,19 @@
-active: true
+active: false
 derived: false
 header: |
-  System hangs, kiosk restarts
+  Pending: The instance reaches out
 level: 1.8
 links:
-- SRS008: VxM2llcnhlWg5r6NQPmV6syT-jxgMjk-gMf-BJaCqlc=
+- SRS004: z1wY5_fqpNkbX7UwCCMcSmoSau9yksblkHYf9VdcSiw=
 normative: true
-rationale: ''
+rationale: |
+  Waits on its test.
 ref: ''
 references: []
-reviewed: T5r8T6x1aLidHkvB2tUgW_cVxMIPuSDAo5NOOVLgjl8=
+reviewed: yu4422wQOnY24zfWTG1P14E_UuHF6y7Dj0LXbbJZLiw=
 status: proposed
 text: |
-  With nobody at the panel, make the system stop responding entirely, so that nothing on it runs.
-  Pass if the kiosk restarts by itself and comes back showing the WiseKiosk page in its ready
-  state within the check's wait.
-verification-justification: |
-  Settles recovery from a whole-system hang. Leaves unproven a partial hang, where the system runs
-  but the browser or display is frozen, and a hang before the protection is armed during boot.
+  With the site network giving internet access, make an HTTPS request to a public endpoint from the
+  WiseKiosk instance's own process context on the appliance. Pass if it completes.
+verification-justification: ''
 verification-method: test
