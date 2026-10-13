@@ -1,16 +1,22 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Remote shell runs a command
+  Remote shell runs a command
 level: 2.7
 links:
 - SRS012: GEl0A2A-h5UPMj0GMsfPfqBw8DODWX-1TG4QgHoyBVU=
 normative: true
 rationale: |
-  Waits on its test.
+  Verified by test_page_serves in the device smoke tier, which runs a command on the appliance over
+  its remote shell from the build host and fails unless the command runs. The pipeline runs it after
+  every image update.
 ref: ''
-references: []
-reviewed: NJew8_5g3CiN-vNxl9fN5gNpcaTDxyRS3-QyOgz1GKQ=
+references:
+- keyword: def test_page_serves
+  path: meta-wisekiosk/lib/oeqa/runtime/cases/wisekiosk.py
+  sha: 3e1d7f0d3883053188fe2219c1938a2611e6079555d99bc79621f2f8979270d6
+  type: file
+reviewed: Bd5_max4LSzrLSHEuZIGrcdwIEw7md_3SD_WrhtMuSc=
 status: proposed
 text: |
   From another machine on the network, open a remote shell on the appliance and run a command in it.
