@@ -24,10 +24,12 @@ def install_candidate(target, bench_candidate):
         subprocess.run(["just", "kiosk-ota", host], check=True)
         subprocess.run(["just", "kiosk-reboot", host], check=True)
     driver = target.get_driver("SSHDriver")
-    stdout, _stderr, _returncode = driver.run("cat /etc/buildinfo")
+    stdout, _stderr, returncode = driver.run("cat /etc/buildinfo")
+    assert returncode == 0, "could not read /etc/buildinfo on the board"
     line = next(
         (entry for entry in stdout if entry.split()[:2] == ["meta-wisekiosk", "="]),
         None,
     )
+    assert line is not None, f"no meta-wisekiosk layer line in buildinfo:\n{chr(10).join(stdout)}"
     board_commit = line.split()[2].rsplit(":", 1)[-1]
     print(f"board_commit={board_commit}")
