@@ -4,16 +4,18 @@ header: |
   Pending: Browser killed
 level: 1.1
 links:
-- SRS002: NAu4MJb26dF5WvVS2-niihrLEgxxLlYEUvRIl5kHt2A=
+- SRS002: OIye_IBNVcx8xdaRLyl7SkOJUA3d5FqMrYtXcc8qH54=
 normative: true
 rationale: |
   Waits on its test.
 ref: ''
 references: []
-reviewed: rZDYW70BHKd_HQvsfrKsm3oVw0WYUVk7Fu2lFOBBENQ=
+reviewed: IO406wOMJcrL4yhlBwh8ZG9_5aMmBXQdxMzK4oEwBlI=
 status: proposed
 text: |
   With nobody at the panel, kill the browser. Pass if the WiseKiosk instance is back on the panel
   within 15 s.
-verification-justification: ''
+verification-justification: |
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
 verification-method: test

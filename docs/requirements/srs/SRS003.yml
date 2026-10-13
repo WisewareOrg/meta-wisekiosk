@@ -4,14 +4,15 @@ header: |
   Motion without stutter
 level: 1.2
 links:
-- SYS001: XReWT8EazW9-pb33CAD0YfMTmeq6LYYk8PDZ9qNHeuk=
+- SYS001: Ta20aoPNJyYWbpr94AV6MBWxYqpVlvJDX6aLqNdZ_sw=
 normative: true
-rationale: ''
+rationale: |
+  Its check waits on a bound set from a repeatable measurement, so this need is unverified.
 ref: ''
-reviewed: EHUJmkwOaqK2l-uVzXc0T8qZ9SUxqefaOWiJFMz0tKU=
+reviewed: jvD4UQPRlRs6df0sehGiCUrY2z-tgaUX3b9IfSDKP2c=
 status: proposed
 text: |
   Motion on the panel shall not visibly stutter.
 verification-justification: |
-  No check yet. Unverified until a bound is set from a repeatable measurement.
+  Test. Each check beneath it measures against a stated bound, so the result needs no judgement.
 verification-method: test

@@ -2,14 +2,20 @@
 
 Three Doorstop documents trace this image's own obligations: `sys/` (`SYS` — what the kiosk's two
 stakeholders need: the viewer at the panel, and the operator, who configures, deploys and maintains
-the unit), `srs/` (`SRS` — what the kiosk does to meet each need), and `tst/` (`TST` — one
-verification each: a stimulus, an observation and a pass condition, checked automatically against
-the appliance). Every item's `verification-justification` states what its checks settle and what
-they leave unproven. A `TST` item's `references`, where it carries any, pin each file by hash, and
-the gate fails an item whose referenced file changed after review. The pipeline's tier guarantees
-stay in [`../testing.md`](../testing.md); this tree holds the image's own obligations.
+the unit; a unit can have more than one operator, and whoever signs its updates is one of them),
+`srs/` (`SRS` — what the kiosk does to meet each need), and `tst/` (`TST` — one verification each: a
+stimulus, an observation and a pass condition, checked automatically against the appliance). Every
+item's `verification-justification` argues why it is verified the way it is; what its checks settle,
+and what they leave unproven, is its `rationale`. A `TST` item's `references`, where it carries any,
+pin each file by hash, and the gate fails an item whose referenced file changed after review. The
+pipeline's tier guarantees stay in [`../testing.md`](../testing.md); this tree holds the image's own
+obligations.
 
 **Every `SYS` item traces to a goal in [`../../README.md`](../../README.md) §"Mission".**
+
+**An image update and a configuration change are different things, and no item says "update"
+alone.** An image update replaces the image the appliance runs; a configuration change alters the
+configuration it holds.
 
 **An item states a need — what the viewer or the operator needs — never a mechanism.** A rendering
 setting, a render node held by a process, a flag on a unit file, a probe channel: those are

@@ -1,0 +1,21 @@
+active: true
+derived: false
+header: |
+  Takes an image update over the air
+level: 2.0
+links:
+- SYS003: mLgaQVN21rXEcgohDx200J3LddwwVCPx8hjiHL3I_f8=
+normative: true
+rationale: |
+  Settles that one valid image update, delivered over the air, leaves the appliance running the
+  build it carried. Unproven: image updates delivered by any path other than the one the check uses.
+ref: ''
+reviewed: USSBrroU1xlgZH-zCIdihtVfRhHSJGJWZjYVGFexACQ=
+status: proposed
+text: |
+  A valid image update installed over the air shall leave the appliance running the image it
+  carried.
+verification-justification: |
+  Test. Each check beneath it exercises the capability directly and reads whether it worked, so the
+  result needs no judgement.
+verification-method: test

@@ -1,0 +1,21 @@
+active: false
+derived: false
+header: |
+  Pending: Remote shell runs a command
+level: 2.7
+links:
+- SRS012: GEl0A2A-h5UPMj0GMsfPfqBw8DODWX-1TG4QgHoyBVU=
+normative: true
+rationale: |
+  Waits on its test.
+ref: ''
+references: []
+reviewed: NJew8_5g3CiN-vNxl9fN5gNpcaTDxyRS3-QyOgz1GKQ=
+status: proposed
+text: |
+  From another machine on the network, open a remote shell on the appliance and run a command in it.
+  Pass if the command runs.
+verification-justification: |
+  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
+  judgement.
+verification-method: test

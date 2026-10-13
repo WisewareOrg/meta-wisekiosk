@@ -4,16 +4,18 @@ header: |
   Pending: The instance reaches out
 level: 1.8
 links:
-- SRS004: z1wY5_fqpNkbX7UwCCMcSmoSau9yksblkHYf9VdcSiw=
+- SRS004: f1rgnEA6-dk3jZD7QOrHEyY6ORUAG0kYAv-VzVfWTe4=
 normative: true
 rationale: |
   Waits on its test.
 ref: ''
 references: []
-reviewed: yu4422wQOnY24zfWTG1P14E_UuHF6y7Dj0LXbbJZLiw=
+reviewed: pLn3EZ78DF-AKDnHDn_YW5BgpZZUd-ZhvD1gRxlqho0=
 status: proposed
 text: |
   With the site network giving internet access, make an HTTPS request to a public endpoint from the
   WiseKiosk instance's own process context on the appliance. Pass if it completes.
-verification-justification: ''
+verification-justification: |
+  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
+  judgement.
 verification-method: test

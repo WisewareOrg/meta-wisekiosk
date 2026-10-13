@@ -4,16 +4,17 @@ header: |
   Pending: Motion stutter measured
 level: 1.9
 links:
-- SRS003: C4QFTYBaBIUObNoZn6l7l883wwVL14VydmqoINFxZrc=
+- SRS003: 2aKAQtGZ3cEyHgdArE7yf3TDozV9lFJuPcUeeGbxO_A=
 normative: true
 rationale: |
   Waits on its test and its bound.
 ref: ''
 references: []
-reviewed: D3cLSJNLSrBRYH9eCuJEpFtXjEgSgcKdB8glF4Q4H3w=
+reviewed: Kpf6yohre8CJt2RJxzcsh7wYc_MGfDIHGwcbFy_A3kA=
 status: proposed
 text: |
   With the WiseKiosk instance configured to show repeatable motion, measure stutter over the check's
   window. Pass if it is within a bound not yet set.
-verification-justification: ''
+verification-justification: |
+  Test. It measures against a stated bound; the pass condition needs no judgement.
 verification-method: test

@@ -1,0 +1,21 @@
+active: false
+derived: false
+header: |
+  Pending: Configuration held across a power cut
+level: 2.6
+links:
+- SRS011: v_rlPtEhcGyIPeD3d4JCRsMq2BqbHQ7hX5dKTM5cnrY=
+normative: true
+rationale: |
+  Waits on its test, and on power control at the bench, which the project does not have.
+ref: ''
+references: []
+reviewed: KcIHViQZXf8Vn_tIFesYV0yVqcyQr86Ew5C_MuHLOEw=
+status: proposed
+text: |
+  Change the appliance's configuration over the air, then cut its power without warning and restore
+  it. Pass if the configuration the appliance holds afterwards is the changed one.
+verification-justification: |
+  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
+  judgement.
+verification-method: test

@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Configured and maintained over the air
+level: 1.1
+links: []
+normative: true
+rationale: |
+  Its checks settle that the operator can install an image update and change the configuration over
+  the air, that the appliance refuses an image update not meant for it, that the operator can open a
+  remote shell, and that the appliance falls back from an image update that cuts the operator off.
+  Falling back from a configuration change has no bound set. Unproven: any way of losing the
+  operator's access that its checks do not induce.
+ref: ''
+reviewed: mLgaQVN21rXEcgohDx200J3LddwwVCPx8hjiHL3I_f8=
+status: proposed
+text: |
+  Once provisioned, the appliance shall be configured and maintained by its operator over the air.
+verification-justification: |
+  Test. Every requirement beneath it is verified by automated tests, so the need is settled by them
+  alone.
+verification-method: test

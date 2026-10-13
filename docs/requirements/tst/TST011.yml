@@ -1,0 +1,22 @@
+active: false
+derived: false
+header: |
+  Pending: Image update with a new application build
+level: 2.0
+links:
+- SRS002: OIye_IBNVcx8xdaRLyl7SkOJUA3d5FqMrYtXcc8qH54=
+normative: true
+rationale: |
+  Waits on its test.
+ref: ''
+references: []
+reviewed: uIoGMeLy63FkZBGJvPdCCPi_-2mUedYHPcWlyIT-xTE=
+status: proposed
+text: |
+  With nobody at the panel, install over the air a valid image update carrying a different WiseKiosk
+  build from the one running. Pass if the WiseKiosk instance is on the panel within 60 s of the
+  appliance restarting into it.
+verification-justification: |
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
+verification-method: test

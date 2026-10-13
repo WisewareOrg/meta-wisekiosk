@@ -4,16 +4,18 @@ header: |
   Pending: Power cut while showing
 level: 1.2
 links:
-- SRS002: NAu4MJb26dF5WvVS2-niihrLEgxxLlYEUvRIl5kHt2A=
+- SRS002: OIye_IBNVcx8xdaRLyl7SkOJUA3d5FqMrYtXcc8qH54=
 normative: true
 rationale: |
   Waits on its test, and on power control at the bench, which the project does not have.
 ref: ''
 references: []
-reviewed: h5jb1MBboVYEITM5IS70Z1JXbnqrWYVPjkwYlVGTaRM=
+reviewed: jZy_cmrvoZQ4Lfs2VdRjKiPcbAZRDMC_JQ_3lXx3WDs=
 status: proposed
 text: |
   While the WiseKiosk instance is on the panel, cut the appliance's power without warning, then
   restore it. Pass if the instance is on the panel within 60 s of power returning.
-verification-justification: ''
+verification-justification: |
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
 verification-method: test

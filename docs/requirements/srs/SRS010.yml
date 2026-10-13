@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Refuses image updates not meant for it
+level: 2.1
+links:
+- SYS003: mLgaQVN21rXEcgohDx200J3LddwwVCPx8hjiHL3I_f8=
+normative: true
+rationale: |
+  An image update is meant for it when one of its operators signed it and it was built for its kind
+  of hardware. Settles refusal of an image update signed by a key no operator holds, and of one
+  built for a different kind of hardware. Unproven: an image update that is signed correctly but
+  carries a bad image, which SRS013 covers.
+ref: ''
+reviewed: oNpUGtzBTbeOLl5Vj7dywsD10KPY2owuURCtx0pyqsk=
+status: proposed
+text: |
+  The appliance shall refuse an image update not meant for it.
+verification-justification: |
+  Test. Each check beneath it exercises the capability directly and reads whether it worked, so the
+  result needs no judgement.
+verification-method: test

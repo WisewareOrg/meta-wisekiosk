@@ -4,16 +4,18 @@ header: |
   The instance can fetch its data
 level: 1.3
 links:
-- SYS001: XReWT8EazW9-pb33CAD0YfMTmeq6LYYk8PDZ9qNHeuk=
+- SYS001: Ta20aoPNJyYWbpr94AV6MBWxYqpVlvJDX6aLqNdZ_sw=
 normative: true
-rationale: ''
+rationale: |
+  Settles that one HTTPS request completes from the instance's own process context. Unproven:
+  reaching the instance's own data sources specifically, and a capability lost between checks.
 ref: ''
-reviewed: 4TQ3j3IQTdt6pXmwiGBy4wueVGohDIJ5r_eABupjtls=
+reviewed: WW290q1QV24KZBz5gix_NBiCWzaCpOfq7jvG-GSSlEY=
 status: proposed
 text: |
   The WiseKiosk instance shall be able to fetch its data whenever the site network gives the
   appliance internet access.
 verification-justification: |
-  Settles that one HTTPS request completes from the instance's own process context. Unproven:
-  reaching the instance's own data sources specifically, and a capability lost between checks.
+  Test. Each check beneath it exercises the capability directly and reads whether it worked, so the
+  result needs no judgement.
 verification-method: test

@@ -1,0 +1,21 @@
+active: false
+derived: false
+header: |
+  Pending: Configuration held across an image update
+level: 2.4
+links:
+- SRS011: v_rlPtEhcGyIPeD3d4JCRsMq2BqbHQ7hX5dKTM5cnrY=
+normative: true
+rationale: |
+  Waits on its test.
+ref: ''
+references: []
+reviewed: jHXdOqlAlrhr6NL5R110lY-DW_1CRQ1JD80o9BHZHYs=
+status: proposed
+text: |
+  Change the appliance's configuration over the air, then install a valid image update over the air.
+  Pass if the configuration the appliance holds after it restarts is the changed one.
+verification-justification: |
+  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
+  judgement.
+verification-method: test

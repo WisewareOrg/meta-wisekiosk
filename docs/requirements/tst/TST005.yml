@@ -4,17 +4,19 @@ header: |
   Pending: Kernel crash
 level: 1.4
 links:
-- SRS002: NAu4MJb26dF5WvVS2-niihrLEgxxLlYEUvRIl5kHt2A=
+- SRS002: OIye_IBNVcx8xdaRLyl7SkOJUA3d5FqMrYtXcc8qH54=
 normative: true
 rationale: |
   Waits on its test.
 ref: ''
 references: []
-reviewed: JBtjnUb7L2dPxOss1qXHwu2XhNl7ilPgcivwzyCsKhA=
+reviewed: LjKCGaDI3v5npuW3AnzLekl8Dc4458byrxrKzpjJNnw=
 status: proposed
 text: |
   With nobody at the panel, crash the kernel over the network so that nothing on the appliance runs.
   Pass if the appliance restarts by itself and the WiseKiosk instance is on the panel within 60 s of
   the crash.
-verification-justification: ''
+verification-justification: |
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
 verification-method: test

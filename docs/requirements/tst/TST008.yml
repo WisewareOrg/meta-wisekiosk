@@ -4,16 +4,17 @@ header: |
   Pending: Cold boot to the panel
 level: 1.7
 links:
-- SRS008: AguqAMaxXzK3PcXEcDPbvgy02utWAk9O5ArIRBFOVt8=
+- SRS008: JquF9KXX9BNc3FR-QWjD65OkELrNgkK1PZNaYd1TStc=
 normative: true
 rationale: |
   Waits on its test, its bound, and on power control at the bench, which the project does not have.
 ref: ''
 references: []
-reviewed: klVWGMO0A_mCLcF7mAFiHjEysVeEULkuwzonyqCwjzM=
+reviewed: W0dDemxRNro9zpGMsQP3kAilJHHWbVn0t2NXYetipQA=
 status: proposed
 text: |
-  With the appliance powered off and nobody at the panel, apply power. Pass if the WiseKiosk instance
-  is on the panel within a bound not yet set.
-verification-justification: ''
+  With the appliance powered off and nobody at the panel, apply power. Pass if the WiseKiosk
+  instance is on the panel within a bound not yet set.
+verification-justification: |
+  Test. It measures against a stated bound; the pass condition needs no judgement.
 verification-method: test

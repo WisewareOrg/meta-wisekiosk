@@ -1,19 +1,21 @@
 active: false
 derived: false
 header: |
-  Pending: Power cut during an update
+  Pending: Power cut during an image update
 level: 1.3
 links:
-- SRS002: NAu4MJb26dF5WvVS2-niihrLEgxxLlYEUvRIl5kHt2A=
+- SRS002: OIye_IBNVcx8xdaRLyl7SkOJUA3d5FqMrYtXcc8qH54=
 normative: true
 rationale: |
   Waits on its test, and on power control at the bench, which the project does not have.
 ref: ''
 references: []
-reviewed: Ql2CUaB9WoQWsh4yvRcld-TPuq0VVUtywBGbvbvslYg=
+reviewed: Dnf2EWCu8gNJvZx-vNJPpYAC9IQpZ2aJUmRY7i9ZZF0=
 status: proposed
 text: |
-  Cut the appliance's power while an update is being installed, then restore it. Pass if the
+  Cut the appliance's power while an image update is being installed, then restore it. Pass if the
   WiseKiosk instance is on the panel within 60 s of power returning, on either image.
-verification-justification: ''
+verification-justification: |
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
 verification-method: test

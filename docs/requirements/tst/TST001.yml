@@ -4,16 +4,17 @@ header: |
   Pending: Restart to the panel
 level: 1.0
 links:
-- SRS008: AguqAMaxXzK3PcXEcDPbvgy02utWAk9O5ArIRBFOVt8=
+- SRS008: JquF9KXX9BNc3FR-QWjD65OkELrNgkK1PZNaYd1TStc=
 normative: true
 rationale: |
   Waits on its test.
 ref: ''
 references: []
-reviewed: Of-BBOSDW5Yqcr_UkOKUM833vrVqTbmJJwcTLFqntZs=
+reviewed: AK8wcVSibXhRVx5FjbxJs5fGAAgArKVvkqGVbMTJtrE=
 status: proposed
 text: |
   Restart the appliance over the network, with nobody at the panel. Pass if the WiseKiosk instance
   is on the panel within 60 s of the restart.
-verification-justification: ''
+verification-justification: |
+  Test. It measures against a stated bound; the pass condition needs no judgement.
 verification-method: test

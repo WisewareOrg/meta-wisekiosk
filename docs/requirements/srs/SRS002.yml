@@ -4,21 +4,23 @@ header: |
   Recovers the instance to the panel
 level: 1.1
 links:
-- SYS001: XReWT8EazW9-pb33CAD0YfMTmeq6LYYk8PDZ9qNHeuk=
+- SYS001: Ta20aoPNJyYWbpr94AV6MBWxYqpVlvJDX6aLqNdZ_sw=
 normative: true
-rationale: ''
-ref: ''
-reviewed: BLfFSDyxLXgeG2jd_uxD0Nm1kmLQp1qBFAw_WwZLjgg=
-status: proposed
-text: |
-  If the panel stops showing the live WiseKiosk instance, the appliance shall detect it and bring the
-  instance back, with nobody at the panel.
-verification-justification: |
+rationale: |
   A check counts the instance on the panel when the browser shows the instance the appliance serves
   and a screen capture is not a single uniform colour. Its checks settle recovery from the faults
-  they induce: a browser kill, a kernel crash and a frozen page, and, once the bench has power
-  control, a power cut while showing and during an update. Unproven: any way of losing the panel the
-  checks do not induce, such as a userspace hang with the kernel still running, a crash loop, a
-  freeze from the application's own error, or a partial freeze; and a fault that recurs on every
-  boot.
+  they induce: a browser kill, a kernel crash, a frozen page and an image update carrying a new
+  application build, and, once the bench has power control, a power cut while showing and during an
+  image update. Unproven: any way of losing the panel the checks do not induce, such as a userspace
+  hang with the kernel still running, a crash loop, a freeze from the application's own error, or a
+  partial freeze; and a fault that recurs on every boot.
+ref: ''
+reviewed: uq1rZ3DLewpEtMiGvCC1MKntvrH4O6BOuPOdqphziPI=
+status: proposed
+text: |
+  If the panel stops showing the live WiseKiosk instance, the appliance shall detect it and bring
+  the instance back, with nobody at the panel.
+verification-justification: |
+  Test. Each check beneath it injects the fault and observes the recovery from outside the
+  appliance, so the result needs no judgement.
 verification-method: test

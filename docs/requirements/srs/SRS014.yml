@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Falls back from a configuration change that cuts it off
+level: 2.5
+links:
+- SYS003: mLgaQVN21rXEcgohDx200J3LddwwVCPx8hjiHL3I_f8=
+normative: true
+rationale: |
+  Its check waits on its bound, and nothing on the appliance undoes a configuration change, so this
+  need is unverified. Unproven once its check is active: configuration changes other than WiFi
+  credentials that cut the operator off.
+ref: ''
+reviewed: 03O4K3m7qVxvBbAeXH5ND0ENPPdWfK5YrdONpPPE0mw=
+status: proposed
+text: |
+  A configuration change that cuts the operator off from the appliance, by its remote shell or over
+  the air, shall be undone by the appliance itself, leaving it on its previous configuration.
+verification-justification: |
+  Test. Each check beneath it injects the fault and observes the recovery from outside the
+  appliance, so the result needs no judgement.
+verification-method: test

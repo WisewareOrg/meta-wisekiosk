@@ -1,0 +1,21 @@
+active: false
+derived: false
+header: |
+  Pending: Running the image update's build
+level: 2.1
+links:
+- SRS009: B9L4dxUF7ZxIzZ76JCa2wOXqNl_uZ5_ox0mV-u3ygnk=
+normative: true
+rationale: |
+  Waits on its test.
+ref: ''
+references: []
+reviewed: R-aASYpfmqgYu4IHbzZXMHoeTCG6cR2RHAjmkGbP17c=
+status: proposed
+text: |
+  Install a valid image update over the air, then read which build the running appliance reports.
+  Pass if it is the build the image update carried.
+verification-justification: |
+  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
+  judgement.
+verification-method: test

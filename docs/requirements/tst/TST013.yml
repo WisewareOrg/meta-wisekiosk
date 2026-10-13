@@ -1,0 +1,22 @@
+active: false
+derived: false
+header: |
+  Pending: Refuses a foreign signature
+level: 2.2
+links:
+- SRS010: UVRd9qmgNkc-yK9v3DBgr8MUA2QLVSTuafjG36bkC_o=
+normative: true
+rationale: |
+  Waits on its test.
+ref: ''
+references: []
+reviewed: ITd7rnuxhSMgO2gmTG0ufMQiYgfWIDIS-oikUfmkft4=
+status: proposed
+text: |
+  Offer the appliance an image update signed by a key none of its operators holds. Pass if it
+  refuses the image update and is still running the same build, with the WiseKiosk instance on the
+  panel.
+verification-justification: |
+  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
+  judgement.
+verification-method: test

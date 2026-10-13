@@ -1,0 +1,23 @@
+active: true
+derived: false
+header: |
+  Falls back from an image update that cuts it off
+level: 2.4
+links:
+- SYS003: mLgaQVN21rXEcgohDx200J3LddwwVCPx8hjiHL3I_f8=
+normative: true
+rationale: |
+  Settles fallback from an image update that cannot start and from one that starts but cannot join
+  the network, each within three failed attempts. Unproven: an image update that cuts the operator
+  off some other way, and whether the appliance mistakes a site network outage for a bad image
+  update.
+ref: ''
+reviewed: LdOLSMcsTMNjx5IUfLjSVWTymJ7t6srCBRoO8U_uBZc=
+status: proposed
+text: |
+  An image update that cuts the operator off from the appliance, by its remote shell or over the
+  air, shall be undone by the appliance itself, leaving it on its previous image.
+verification-justification: |
+  Test. Each check beneath it injects the fault and observes the recovery from outside the
+  appliance, so the result needs no judgement.
+verification-method: test

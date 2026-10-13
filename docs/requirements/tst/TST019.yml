@@ -1,0 +1,22 @@
+active: false
+derived: false
+header: |
+  Pending: Image that cannot start
+level: 2.8
+links:
+- SRS013: 7-RhJ2-UuUuhgQbC9gNQJZwgeiGOYs41mGA0gNKg4OY=
+normative: true
+rationale: |
+  Waits on its test.
+ref: ''
+references: []
+reviewed: -_QTmsy64JsoD0qtw-iiMSkTyb2cSJSEQPE97mwEsBg=
+status: proposed
+text: |
+  With nobody at the panel, install over the air an image update that cannot start. Pass if the
+  appliance is back on its previous build within three failed attempts to start the image update,
+  and accepts a valid image update over the air.
+verification-justification: |
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
+verification-method: test

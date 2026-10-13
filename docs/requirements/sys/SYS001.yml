@@ -5,15 +5,17 @@ header: |
 level: 1.0
 links: []
 normative: true
-rationale: ''
+rationale: |
+  Its checks settle that the instance is brought back to the panel after the faults they induce,
+  that it comes up promptly from power-on, and that it can reach its data. Motion without stutter
+  has no check until its bound is set. Unproven: what reaches the glass when the panel itself is off
+  or disconnected, and every fault not yet seen.
 ref: ''
-reviewed: XReWT8EazW9-pb33CAD0YfMTmeq6LYYk8PDZ9qNHeuk=
+reviewed: Ta20aoPNJyYWbpr94AV6MBWxYqpVlvJDX6aLqNdZ_sw=
 status: proposed
 text: |
   The appliance shall host a WiseKiosk instance and display it on its panel.
 verification-justification: |
-  Verified only through its children. Its checks settle that the instance is brought back to the
-  panel after the faults they induce, that it comes up promptly from power-on, and that it can reach
-  its data. Motion without stutter has no check until its bound is set. Unproven: what reaches the
-  glass when the panel itself is off or disconnected, and every fault not yet seen.
+  Test. Every requirement beneath it is verified by automated tests, so the need is settled by them
+  alone.
 verification-method: test

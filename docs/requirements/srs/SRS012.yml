@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Remote shell for service
+level: 2.3
+links:
+- SYS003: mLgaQVN21rXEcgohDx200J3LddwwVCPx8hjiHL3I_f8=
+normative: true
+rationale: |
+  Image updates and configuration changes may later arrive by another path, such as an image update
+  server; the operator's own way in for service stays required whichever path they take. Settles
+  that a remote shell opens from another machine on the network and runs a command. Unproven: access
+  from outside the site network.
+ref: ''
+reviewed: oDpZe8nqlo2UTnFunu7NgVUl09zgi6-A5IWvjWds8iA=
+status: proposed
+text: |
+  The operator shall be able to open a remote shell on the appliance over the network.
+verification-justification: |
+  Test. Each check beneath it exercises the capability directly and reads whether it worked, so the
+  result needs no judgement.
+verification-method: test
