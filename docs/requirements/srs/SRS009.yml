@@ -4,7 +4,7 @@ header: |
   Takes an image update over the air
 level: 2.0
 links:
-- SYS003: mLgaQVN21rXEcgohDx200J3LddwwVCPx8hjiHL3I_f8=
+- SYS003: VgIAeRF3hodOUEARzaE4lrQOCGZiVouc8CqHAEdy2Bk=
 normative: true
 rationale: |
   Settles that one valid image update, delivered over the air, leaves the appliance running the

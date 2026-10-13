@@ -1,0 +1,21 @@
+active: false
+derived: false
+header: |
+  Pending: Timezone set over the air
+level: 3.4
+links:
+- SRS016: 3lJMMagzITCwk881d6b5iDe7lItjMpaT6AB3rX98ouU=
+normative: true
+rationale: |
+  Waits on its test.
+ref: ''
+references: []
+reviewed: 9usv8z7FpWWu9x6hexLmMGp_7Nue74FfQsTJe_tQxFQ=
+status: proposed
+text: |
+  Set the appliance's timezone over the air to one different from its current timezone. Pass if the
+  local time the appliance reports is in the timezone that was set.
+verification-justification: |
+  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
+  judgement.
+verification-method: test
