@@ -19,9 +19,6 @@ scratchpad/
 # per run. Build output, not source.
 records/
 
-# Written by a coverage tool run. Build output, not source.
-.coverage
-
 # Written by tools/write-build-rev.sh before every build (#46). Build input, not
 # source. Must be ignored, not merely untracked -- see ci-guards.sh guard 10.
 meta-wisekiosk/conf/build-rev.inc
