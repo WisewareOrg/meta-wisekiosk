@@ -41,7 +41,7 @@ jobs:
 
       # wise-ci's own composite action, run alongside guard 21's local wrapper
       # in tools/ci-guards.sh -- whether both stay is still open.
-      - uses: WisewareOrg/wise-ci/check-reqs@224efb4
+      - uses: WisewareOrg/wise-ci/check-reqs@224efb4b448d60cebb4877b36890256657e4e58b
         with:
           root: docs/requirements
 
