@@ -60,8 +60,8 @@ def _measure(driver, probe, window_ms):
     """The window's two probe reads, its `/proc/stat` reads and its thermal readings.
 
     Stops `kiosk-soak.timer` before the warmed-up wait and restarts it once the window's reads
-    are done, in a `finally` -- the timer's own run would otherwise be load inside the
-    measurement.
+    are done, in a `finally` -- without this, the timer's own periodic sampling work would
+    itself be measured as load during the window.
 
     Args:
         driver: A labgrid SSHDriver.

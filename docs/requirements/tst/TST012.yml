@@ -11,9 +11,9 @@ ref: ''
 references:
 - keyword: def test_perf_window
   path: tests/target_suite/test_perf.py
-  sha: 3fe455d5e809670d8a4f4bc5c9590f2461498e49737351d7a203e26f9046d9b5
+  sha: ac24d9fa4c67f4904a253185bb8f1ac1dd24bbfe4817aeabeec676a19c4ed6c1
   type: file
-reviewed: N4QOmYiZ4YRhygvytyb8A0CA6WJbwzL2sLnoZGFo17I=
+reviewed: 0A6h7V2v1a1rpVW-nvxI21hi_pyN9gwAe3Sk2SNXid0=
 status: proposed
 text: |
   Over the 300 s window starting 15 s after the page loads, record the longest interval
