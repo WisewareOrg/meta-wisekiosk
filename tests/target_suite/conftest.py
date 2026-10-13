@@ -105,9 +105,7 @@ def _retry_text(driver, cmd):
 
     For a read that depends on the app itself being up, not just ssh -- the backend's web
     server and the browser both start a few seconds after an OTA reboot's ssh connection does,
-    a race `_device_facts` must not fail on (measured: a bench proof's own device-context read
-    hit this immediately after an OTA reboot, `pgrep -x surf` exiting non-zero with nothing yet
-    running).
+    a race `_device_facts` must not fail on.
 
     Args:
         driver: A labgrid SSHDriver.
