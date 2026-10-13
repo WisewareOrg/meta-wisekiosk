@@ -1,0 +1,20 @@
+active: true
+derived: false
+header: |
+  Nothing on the panel but the instance
+level: 1.8
+links:
+- SYS001: SYLQteZvMNnvVcrf6pJMZshqCLZOQx0bnUDyymOKHts=
+normative: true
+rationale: |
+  Anything else drawn on the panel, such as a pointer, a window frame or a dialog, is something the
+  WiseKiosk application did not put there. Its checks settle that no pointer is drawn.
+ref: ''
+reviewed: aF_UipoydkvjswEvQPWnxAcPnrQkBVIFEpIX7SmRtNM=
+status: proposed
+text: |
+  The panel shall show nothing but the WiseKiosk instance.
+verification-justification: |
+  Test. Each check beneath it exercises the capability directly and reads whether it worked, so the
+  result needs no judgement.
+verification-method: test
