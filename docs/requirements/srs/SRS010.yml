@@ -4,15 +4,15 @@ header: |
   Refuses image updates not meant for it
 level: 2.1
 links:
-- SYS003: ZDaZyOvPs8i1-zVEkFoQ7TDGOdc6x_1dKJ5Kw67JSlI=
+- SYS003: cRbRUHcska9Gg8_qBIQ44q1JJ1fwC1Ypo3s3G8eRzCM=
 normative: true
 rationale: |
   An image update is meant for it when one of its operators signed it and it was built for its kind
   of hardware. Settles refusal of an image update signed by a key no operator holds, and of one
   built for a different kind of hardware. Unproven: an image update that is signed correctly but
-  carries a bad image, which SRS013 covers.
+  carries a bad image, which SRS013 (falls back from an image update that cuts it off) covers.
 ref: ''
-reviewed: oNpUGtzBTbeOLl5Vj7dywsD10KPY2owuURCtx0pyqsk=
+reviewed: d_ZZZTAPsMybBWbzV7pt9x75-iyn4SJmO9qC2cyBYV0=
 status: proposed
 text: |
   The appliance shall refuse an image update not meant for it.

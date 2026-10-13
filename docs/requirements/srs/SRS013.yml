@@ -4,15 +4,14 @@ header: |
   Falls back from an image update that cuts it off
 level: 2.4
 links:
-- SYS003: ZDaZyOvPs8i1-zVEkFoQ7TDGOdc6x_1dKJ5Kw67JSlI=
+- SYS003: cRbRUHcska9Gg8_qBIQ44q1JJ1fwC1Ypo3s3G8eRzCM=
 normative: true
 rationale: |
   Settles fallback from an image update that cannot start and from one that starts but cannot join
-  the network, each within three failed attempts. Unproven: an image update that cuts the operator
-  off some other way, and whether the appliance mistakes a site network outage for a bad image
-  update.
+  the network. Unproven: an image update that cuts the operator off some other way, and whether the
+  appliance mistakes a site network outage for a bad image update.
 ref: ''
-reviewed: LdOLSMcsTMNjx5IUfLjSVWTymJ7t6srCBRoO8U_uBZc=
+reviewed: YagKL252dUu9h9dGXzU-lnp1ROh1FqSVTOJw8ui-Kac=
 status: proposed
 text: |
   An image update that cuts the operator off from the appliance, by its remote shell or over the

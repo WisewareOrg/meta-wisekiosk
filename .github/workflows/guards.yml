@@ -41,7 +41,7 @@ jobs:
       - name: Run repository guards
         run: tools/ci-guards.sh
 
-      # !cancelled(), as for the steps below: a failing guard leaves the tree checked.
+      # !cancelled(): runs even when the guards step failed.
       - uses: WisewareOrg/wise-ci/check-reqs@224efb4b448d60cebb4877b36890256657e4e58b
         if: ${{ !cancelled() }}
         with:

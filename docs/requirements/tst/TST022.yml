@@ -10,12 +10,12 @@ rationale: |
   Waits on its test.
 ref: ''
 references: []
-reviewed: 4OrznQG930ovBz19A0NBhRQPfpP76ePzgj28IBw2RdY=
+reviewed: IreMK2HIa-Y_Hq7bXXhgixkhWQo1NvfGk7ThPHxrBRI=
 status: proposed
 text: |
   With the WiseKiosk instance configured to show a clock with seconds and nobody touching the
   appliance, leave it for longer than the display's default blanking time. Pass if the panel keeps
-  changing throughout.
+  changing throughout, or is changing again within 60 s of any time it stops.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.

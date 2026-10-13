@@ -4,7 +4,7 @@ header: |
   Pending: Timezone set over the air
 level: 3.4
 links:
-- SRS016: 3lJMMagzITCwk881d6b5iDe7lItjMpaT6AB3rX98ouU=
+- SRS016: zKCfG4gFmuumop618r2bCxzQnlRMnOCUFfY5q8v84Qo=
 normative: true
 rationale: |
   Waits on its test.

@@ -4,13 +4,13 @@ header: |
   Prompt from power-on
 level: 1.7
 links:
-- SYS001: Pzp1loqe86fVFpfP12JQ7cFZssZL9NaN8YciKho9Hu4=
+- SYS001: 6toqMs3OqOyDFeKZNdo9Impt-vFTglHoMyEFvMz35zQ=
 normative: true
 rationale: |
-  TST008 waits on power control and its bound. TST001 settles the warm path only; it skips the
-  cold-power path a real outage takes.
+  TST008 (cold boot to the panel) waits on power control and its bound. TST001 (restart to the
+  panel) settles the warm path only; it skips the cold-power path a real outage takes.
 ref: ''
-reviewed: 1atRCuN6YezZLPjt6VvDDf_IBQbj5Ys4ob8sVuktIUo=
+reviewed: iWbkGxECmclGUrzD62bZmlOxgv9hjpxg8K6IdDgvXcQ=
 status: proposed
 text: |
   After power is applied, the appliance shall bring the WiseKiosk instance onto the panel promptly.

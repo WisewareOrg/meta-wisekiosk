@@ -8,7 +8,7 @@ Updates are RAUC A/B over U-Boot, delivered over the LAN. Site configuration —
 hostname, machine-id — is **never** in the image; it is written to the device's `/data` partition by
 provisioning and read at runtime.
 
-The page the kiosk shows is **WiseKiosk** ([`tjwise99/WiseKiosk`](https://github.com/tjwise99/WiseKiosk)),
+The page the kiosk shows is **WiseKiosk** ([`WisewareOrg/WiseKiosk`](https://github.com/WisewareOrg/WiseKiosk)),
 and this repository builds it from source into the image — both halves, at one pinned app commit.
 The backend serves the frontend's bundle over the loopback, so the display does not depend on a
 remote origin being reachable. The app's configuration is the one part that is never baked: it lives
@@ -25,13 +25,6 @@ a site can still point the browser elsewhere. Provisioning shares that default: 
 default. Another origin — a Docker host, say — stays supported for debugging. A board already
 provisioned with a remote value is moved to the local app by editing `/data/config/kiosk.conf`
 directly (#96 provisioned boards keep their old `KIOSK_URL`).
-
-> ### Related project
->
-> WiseKiosk epic
-> [#208 appliance-first-class](https://github.com/tjwise99/WiseKiosk/issues/208) brings the board
-> inside WiseKiosk's requirements boundary. The two repositories stay separate: the app commit is
-> pinned here in one place, and bumping it is an edit reviewed like any other pin.
 
 How to work in this repository — the gates, the conventions and the review checklist — is
 [CONTRIBUTING.md](CONTRIBUTING.md); the rules an AI agent works under are [CLAUDE.md](CLAUDE.md).
@@ -85,6 +78,7 @@ meta-wisekiosk/                    <- the repository (project scaffolding)
 │   ├── base.yaml                  every repo + commit, incl. meta-autonomos and its patches
 │   ├── rauc.yaml
 │   ├── cve-audit.yaml             opt-in cve-check overlay, joined on by `just cve-build`
+│   ├── testimage.yaml             the device smoke tier, joined on by `just testimage`
 │   └── platforms/
 │       ├── raspberrypi.yaml
 │       └── raspberrypi-zero-w.yaml
@@ -97,8 +91,9 @@ meta-wisekiosk/                    <- the repository (project scaffolding)
 ├── tools/                         provisioning, bundle delivery, device debugging, doc gate,
 │                                  CI guards, the identity scan, the build-commit writer and
 │                                  reproducibility gate
-├── docs/                          layers-and-kas.md, rauc-key-rotation.md, cve-and-sbom.md,
-│                                  issue_investigation/
+├── docs/                          README.md (the index), layers-and-kas.md, testing.md,
+│                                  rauc-key-rotation.md, cve-and-sbom.md, layer-currency.md,
+│                                  requirements/, issue_investigation/
 └── sources/                       gitignored; everything kas fetches lands here
 ```
 
@@ -173,7 +168,7 @@ and then runs `kas-container build kiosk-zero-w.yaml`. Calling `kas-container` d
 first half: on a fresh clone bitbake refuses to parse, and on a tree that has built before it builds
 against the *previous* run's commit — which the gate then refuses at flash. The first run clones
 every repo declared across the kas include chain — `includes/base.yaml`, `includes/rauc.yaml` and
-`includes/platforms/raspberrypi.yaml` — into `sources/`: nine repositories, several GB and a long
+`includes/platforms/raspberrypi.yaml` — into `sources/`: ten repositories, several GB and a long
 while before any compiling starts.
 
 A change to webkit's `PACKAGECONFIG`, or to a WebKit recipe, invalidates WebKit alone. A change to
@@ -307,7 +302,7 @@ that qualifies, and "Known gaps" says what closes it.
 | Engine | WebKitGTK 2.44.3, `ENABLE_JIT=OFF`, `USE_WOFF2=ON`, `MinSizeRel` — genuine ARMv6 (`Tag_CPU_arch: v6KZ`) |
 | Browser | `surf` 2.1 + the kiosk patch (milestones, override-redirect, shims) |
 | Display | bare Xorg on vc4 firmware KMS at 1280x720, `xf86-video-modesetting` + mesa for glamor, WebKit painting in software, no display manager, no window manager — **measured on prod, never out of a build** |
-| Update | RAUC A/B over U-Boot — both slots visible, **rollback never exercised** |
+| Update | RAUC A/B over U-Boot — both slots visible |
 | Memory | 87 MB used of 428; zram present and never touched — **measured on the fbdev image** |
 
 ### Known gaps
@@ -320,8 +315,6 @@ that qualifies, and "Known gaps" says what closes it.
   Two of its findings decide the shape and are not open questions: full KMS **boots and presents a
   black scanout on this panel**, and accelerated compositing measures **5.2x worse than software** —
   [`docs/issue_investigation/gpu_compositing/README.md`](docs/issue_investigation/gpu_compositing/README.md) §"Engine levers, measured".
-- **Rollback has never been exercised.** RAUC reports healthy slots; that is not the same as proving
-  a bad update rolls back, or that a slow-but-healthy boot does *not* trigger one.
 - **Issue #6 RAUC signing private key is committed in this public repository** — closed by rotation;
   history keeps the dev key and purging it undoes nothing. Its replacement, the WiseKiosk 2026 key,
   is uncommitted in gitignored `local/` — back it up, git cannot. [rotation](docs/rauc-key-rotation.md)

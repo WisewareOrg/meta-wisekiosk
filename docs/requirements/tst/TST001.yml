@@ -4,7 +4,7 @@ header: |
   Pending: Restart to the panel
 level: 1.0
 links:
-- SRS008: JquF9KXX9BNc3FR-QWjD65OkELrNgkK1PZNaYd1TStc=
+- SRS008: xAFcyiChHJ4Jg0AKjNBwWUkUC6NBNoksR9eYf3Vrh7E=
 normative: true
 rationale: |
   Waits on its test.

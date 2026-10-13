@@ -4,7 +4,7 @@ header: |
   Pending: Refuses another hardware type's image update
 level: 2.3
 links:
-- SRS010: UVRd9qmgNkc-yK9v3DBgr8MUA2QLVSTuafjG36bkC_o=
+- SRS010: judm4iOOIFwC-AtDeAtVYoslik2bucErmRx7bPC5XUo=
 normative: true
 rationale: |
   Waits on its test.

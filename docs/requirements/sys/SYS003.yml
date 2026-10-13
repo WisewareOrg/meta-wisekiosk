@@ -13,10 +13,11 @@ rationale: |
   back from an image update that cuts the operator off. Falling back from a configuration change has
   no bound set. Unproven: any way of losing the operator's access that its checks do not induce.
 ref: ''
-reviewed: ZDaZyOvPs8i1-zVEkFoQ7TDGOdc6x_1dKJ5Kw67JSlI=
+reviewed: cRbRUHcska9Gg8_qBIQ44q1JJ1fwC1Ypo3s3G8eRzCM=
 status: proposed
 text: |
-  Once provisioned, the appliance shall be configured and maintained by its operator over the air.
+  Once provisioned, the appliance shall be configured and maintained by its operator, primarily over
+  the air.
 verification-justification: |
   Test. Every requirement beneath it is verified by automated tests, so the need is settled by them
   alone.

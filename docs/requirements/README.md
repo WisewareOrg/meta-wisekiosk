@@ -22,9 +22,10 @@ setting, a render node held by a process, a flag on a unit file, a probe channel
 mechanisms that deliver a need. They live in the launcher, the recipes and `docs/testing.md`, are
 recorded as context in the run record, and this tree never asserts them.
 
-The gate — [`wise-ci`](https://github.com/WisewareOrg/wise-ci)'s shared `check-reqs`, pinned in
-`pyproject.toml`/`uv.lock` — runs in the CI `guards` job, and locally on demand with `just reqs`; it
-reviews the whole tree, not a diff, so every run checks every item.
+The gate — [`wise-ci`](https://github.com/WisewareOrg/wise-ci)'s shared `check-reqs`, pinned by
+commit in `.github/workflows/guards.yml` for the CI `guards` job and in `pyproject.toml`/`uv.lock`
+for `just reqs`, which runs it locally on demand — it reviews the whole tree, not a diff, so every
+run checks every item.
 
 The tree holds the appliance's own needs. The application's requirements stay in the application's
 own tree; no item here realises, cites or tracks one of them.
@@ -40,11 +41,11 @@ children, never left inactive once they exist.
 **An `SRS` states a required capability, a performance need, or the appliance's response to a fault
 it can credibly suffer.** A required capability is one the appliance could lose, such as to a
 hardening change, and its `TST` checks that it is still there. A fault response is one failure as
-the person at the panel sees it: the appliance detects it and recovers to the WiseKiosk instance on
-the panel. Each way of inducing that failure is a `TST` under it, which injects the fault and
-observes the response, so a newly found way becomes another `TST`, not another `SRS`. A fault is
-credible once it has been seen or the design makes it certain, and a newly found one becomes a new
-item whose response is designed against it.
+the viewer or the operator sees it: the appliance detects it and recovers what that person needs.
+Each way of inducing that failure is a `TST` under it, which injects the fault and observes the
+response, so a newly found way becomes another `TST`, not another `SRS`. A fault is credible once it
+has been seen or the design makes it certain, and a newly found one becomes a new item whose
+response is designed against it.
 
 **A performance number is stated in the `TST` item that checks it**, never in a `SYS` or `SRS`
 item, so tuning it is a change to that check and not to the need it verifies.

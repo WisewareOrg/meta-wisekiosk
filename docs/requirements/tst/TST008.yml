@@ -4,7 +4,7 @@ header: |
   Pending: Cold boot to the panel
 level: 1.7
 links:
-- SRS008: JquF9KXX9BNc3FR-QWjD65OkELrNgkK1PZNaYd1TStc=
+- SRS008: xAFcyiChHJ4Jg0AKjNBwWUkUC6NBNoksR9eYf3Vrh7E=
 normative: true
 rationale: |
   Waits on its test, its bound, and on power control at the bench, which the project does not have.

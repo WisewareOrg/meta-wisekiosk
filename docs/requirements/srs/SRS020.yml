@@ -4,7 +4,7 @@ header: |
   Rejoins the site network
 level: 2.9
 links:
-- SYS003: ZDaZyOvPs8i1-zVEkFoQ7TDGOdc6x_1dKJ5Kw67JSlI=
+- SYS003: cRbRUHcska9Gg8_qBIQ44q1JJ1fwC1Ypo3s3G8eRzCM=
 normative: true
 rationale: |
   An outage the appliance does not recover from leaves the operator without any path over the
