@@ -8,9 +8,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
+from tenacity import Retrying, stop_after_delay, wait_fixed
 
 from framework.record import decode_hex_dump, keyed_hash
-from probe import Probe
+from probe import APPLIED_WAIT_SECONDS, POLL_SECONDS, Probe
 from replay import Replay
 from runcmd import run_text
 from verdicts.context import (
@@ -99,6 +100,32 @@ def replay_window(target, proxy):
             replay.exit()
 
 
+def _retry_text(driver, cmd):
+    """`run_text(driver, cmd)`, retried until it succeeds or `APPLIED_WAIT_SECONDS` elapses.
+
+    For a read that depends on the app itself being up, not just ssh -- the backend's web
+    server and the browser both start a few seconds after an OTA reboot's ssh connection does,
+    a race `_device_facts` must not fail on (measured: a bench proof's own device-context read
+    hit this immediately after an OTA reboot, `pgrep -x surf` exiting non-zero with nothing yet
+    running).
+
+    Args:
+        driver: A labgrid SSHDriver.
+        cmd (str): The command to run.
+
+    Returns:
+        str: `run_text`'s own result.
+
+    Raises:
+        RuntimeError: `cmd` kept exiting non-zero for `APPLIED_WAIT_SECONDS`.
+    """
+    for attempt in Retrying(
+        stop=stop_after_delay(APPLIED_WAIT_SECONDS), wait=wait_fixed(POLL_SECONDS), reraise=True
+    ):
+        with attempt:
+            return run_text(driver, cmd)
+
+
 @pytest.fixture(scope="session")
 def _device_facts(target):
     """Read the board's own context once per session: everything but `board`'s `end`.
@@ -108,11 +135,19 @@ def _device_facts(target):
     autouse `device_context` fixture below attaches these facts, plus a fresh `end`, to every
     test's own report.
 
+    Two reads -- the served page and the browser's own pid -- go through `_retry_text` instead
+    of `run_text`, since both depend on the app itself being up, which lags ssh's own readiness
+    after an OTA reboot; every other read is a system or image fact that does not.
+
     Args:
         target: labgrid Target fixture, bound to the `main` target `bench.yaml` names.
 
     Returns:
         dict: One key per fact; see `docs/testing.md`'s `device_context` key list for the names.
+
+    Raises:
+        RuntimeError: a retried read kept failing for `APPLIED_WAIT_SECONDS`, or any
+            unretried read failed outright.
     """
     driver = target.get_driver("SSHDriver")
     start = datetime.now(timezone.utc).isoformat()
@@ -120,7 +155,7 @@ def _device_facts(target):
     boot_id = run_text(driver, "cat /proc/sys/kernel/random/boot_id").strip()
     uptime_s = uptime_seconds(run_text(driver, "cat /proc/uptime"))
 
-    index_html = run_text(driver, "wget -qO- http://127.0.0.1:8080/")
+    index_html = _retry_text(driver, "wget -qO- http://127.0.0.1:8080/")
     bundle = ",".join(asset_hashes(index_html))
 
     hmac_key = _HMAC_KEY_PATH.read_bytes()
@@ -129,7 +164,7 @@ def _device_facts(target):
     config_mac = keyed_hash(hmac_key, config_json.encode())
     config = config_summary(config_json)
 
-    pid = pid_from_pgrep(run_text(driver, "pgrep -x surf"))
+    pid = pid_from_pgrep(_retry_text(driver, "pgrep -x surf"))
     browser = run_text(driver, f"cat /proc/{pid}/comm").strip()
     nrestarts = run_text(driver, "systemctl show -p NRestarts --value kiosk.service").strip()
     cmdline_sha = run_text(driver, f"sha256sum /proc/{pid}/cmdline | cut -d' ' -f1").strip()

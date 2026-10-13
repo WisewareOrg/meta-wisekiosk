@@ -15,7 +15,7 @@ _TITLES_PROBE = (
 )
 
 APPLIED_WAIT_SECONDS = 90
-_POLL_SECONDS = 2
+POLL_SECONDS = 2
 
 
 class Probe:
@@ -92,4 +92,4 @@ def wait_applied(titles_reader, deadline_s=APPLIED_WAIT_SECONDS):
             return samples[-1]
         if time.monotonic() >= deadline:
             raise RuntimeError(f"the page did not apply within {deadline_s}s ({outcome}:{reason})")
-        time.sleep(_POLL_SECONDS)
+        time.sleep(POLL_SECONDS)
