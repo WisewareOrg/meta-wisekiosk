@@ -138,8 +138,9 @@ checkout, it reads the tracked `bench.toml` here — which never names a machine
 booted board. The runner never touches the board itself:
 
 ```sh
-bench test <ref>     # by hand: build, run both suites; the target suite installs on the board LG_ENV names
-bench run            # on a timer: the merge queue's head entry, the same path
+bench test <ref>               # by hand: build, run both suites; the target suite installs on the board LG_ENV names
+bench test <ref> --skip-build  # by hand: the target suite only, against the board as it is
+bench run                      # on a timer: the merge queue's head entry, the same path
 ```
 
 `bench.toml`'s `[hooks]` carries a no-op `precondition` — the runner requires one; this layer's board
@@ -155,6 +156,11 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   `bench_candidate` fixture, never an environment variable — `None` outside `bench test`/`bench run`,
   in which case the setup fixture does nothing and the one test (TST016) skips. That test reads the
   board's `/etc/buildinfo` and fails unless it names `bench_candidate`.
+
+`--skip-build` runs the `precondition` hook and the target suite only — no `build`, no `bundle`, no
+host suite, and `bench_candidate` stays `None`, so the target suite's own setup fixture and TST016
+both skip. It tests a running board without a build and installs nothing, so a review or an
+investigation that needs a build never cites a `--skip-build` run as that evidence.
 
 The board comes from labgrid's own env file, pointed at with `LG_ENV` — a target named `main`, a
 `NetworkService` resource carrying the board's address, an `SSHDriver` — kept untracked under
