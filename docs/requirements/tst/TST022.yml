@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Pending: Left untouched past blanking
+level: 3.1
+links:
+- SRS002: J1S9BS-RXgQhjTFugcSyFBK8vAZaFReeIxTgn9Y2Xlk=
+normative: true
+rationale: |
+  Waits on its test.
+ref: ''
+references: []
+reviewed: 4OrznQG930ovBz19A0NBhRQPfpP76ePzgj28IBw2RdY=
+status: proposed
+text: |
+  With the WiseKiosk instance configured to show a clock with seconds and nobody touching the
+  appliance, leave it for longer than the display's default blanking time. Pass if the panel keeps
+  changing throughout.
+verification-justification: |
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
+verification-method: test

@@ -9,13 +9,14 @@ normative: true
 rationale: |
   A check counts the instance on the panel when the browser shows the instance the appliance serves
   and a screen capture is not a single uniform colour. Its checks settle recovery from the faults
-  they induce: a browser kill, a kernel crash, a frozen page and an image update carrying a new
-  application build, and, once the bench has power control, a power cut while showing and during an
-  image update. Unproven: any way of losing the panel the checks do not induce, such as a userspace
-  hang with the kernel still running, a crash loop, a freeze from the application's own error, or a
-  partial freeze; and a fault that recurs on every boot.
+  they induce: a browser kill, a kernel crash, a frozen page, an image update carrying a new
+  application build, the panel left untouched past its blanking time, and sustained network load,
+  and, once the bench has power control, a power cut while showing and during an image update.
+  Unproven: any way of losing the panel the checks do not induce, such as a userspace hang with the
+  kernel still running, a crash loop, a freeze from the application's own error, or a partial
+  freeze; and a fault that recurs on every boot.
 ref: ''
-reviewed: uq1rZ3DLewpEtMiGvCC1MKntvrH4O6BOuPOdqphziPI=
+reviewed: wdnLSD2_qmdGveGONKZVzqXUHyWXDHNEIg32R9t-Orw=
 status: proposed
 text: |
   If the panel stops showing the live WiseKiosk instance, the appliance shall detect it and bring

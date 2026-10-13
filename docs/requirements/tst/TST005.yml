@@ -1,10 +1,10 @@
-active: false
+active: true
 derived: false
 header: |
   Pending: Kernel crash
 level: 1.4
 links:
-- SRS002: OIye_IBNVcx8xdaRLyl7SkOJUA3d5FqMrYtXcc8qH54=
+- SRS002: J1S9BS-RXgQhjTFugcSyFBK8vAZaFReeIxTgn9Y2Xlk=
 normative: true
 rationale: |
   Waits on its test.
