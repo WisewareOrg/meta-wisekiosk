@@ -1,18 +1,23 @@
-active: false
+active: true
 derived: false
 header: |
-  Misprovisioned unit shows a fault, never a blank or stale display
-level: 1.5
+  Comes back showing its display after an update
+level: 1.7
 links:
-- SYS002: HHqTcaBAP5Z81Zrs_ZcK_qnYu038O8jwtB-qo4d-3ZM=
+- SYS002: 3rybjADVCuFnWGKsBOBBEk5XOFysjMgIAR8EbRLtJ0o=
 normative: true
 rationale: ''
 ref: ''
-reviewed: TNa9nIc3zRAxW0xP0tYB4kihgUMXHWXqZrOjts02tr4=
+reviewed: KPMdsBP7gKOm0sfet9YCt6DIFLYl792lmYGHy27KOm4=
 status: proposed
 text: |
-  A misprovisioned unit shows a fault, never a blank or stale display.
+  After an update, the kiosk shall come back showing its display without anyone attending it.
 verification-justification: |
-  No appliance-level fault display exists yet to verify this against: the application's own
-  configuration-error page is its own tier's mechanism, not the appliance's.
+  Settled by two decompositions of how an update can fail to do that: the image's display
+  service is set to show the display as designed (TST005, read from the shipped image itself);
+  the services the image ships load on the booted board (TST006, as the board's own systemd
+  reports). The time from the page's load to its first full sample, on the boot after an update,
+  is recorded (TST010), with no bound asserted until the baseline campaign derives one. Leaves
+  unproven what the display shows once up (SRS001, SRS005), how soon is soon enough, and an
+  install that bypasses kiosk-preflight.
 verification-method: test

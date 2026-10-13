@@ -1,21 +1,24 @@
 active: true
 derived: false
 header: |
-  Browser-restart check passes
-level: 1.4
+  Display service set as designed in the shipped image
+level: 1.7
 links:
-- SRS005: XGWAcZQvNfgkkpYq_Fpr26gzuxtPM6NxT6NTam_mwRE=
+- SRS006: 78pyUwMaix3E5dxT3MAP2l1kGPk_hHv5pa_NW6oYF7E=
 normative: true
 rationale: ''
 ref: ''
 references: []
-reviewed: J8EeuSxA3XM7spq5DqxAeXEb9q_q2ra1vFoY1ebzHyE=
+reviewed: jIESzJczFMhIWlC4lETAaL-OeemfsJhoR_NOsGAZDQw=
 status: proposed
 text: |
-  Kill the browser process and assert the page is applied again within 60 s.
+  Read the display service's effective ExecStart and the display's served entry point from
+  the shipped rootfs; assert blanking off, cursor hidden, entry point present.
 verification-justification: |
-  Settles that the browser restarts and the page is applied again within 60 s of the kill,
-  on one physical device, one boot. The failure branch is proven on constructed input and was
-  watched failing on bench when the check was built. Leaves unproven recovery from any fault
-  other than the browser process itself ending.
+  Settles that the built rootfs's own display-launch unit carries the designed flags and that
+  its served entry point is present, read from this build's own artifacts. Both failure
+  branches are proven on constructed input and were watched failing on a mutated copy of the
+  artefact when the check was built. Leaves unproven whether a runtime override later changes
+  any of this once the image is deployed, and whether every shipped unit is itself loadable
+  (TST006, *Shipped units load on the board*, the same obligation's device-tier check).
 verification-method: test

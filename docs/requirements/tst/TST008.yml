@@ -1,24 +1,23 @@
 active: true
 derived: false
 header: |
-  Display service set as designed in the shipped image
-level: 1.7
+  Longest freeze over the window
+level: 1.11
 links:
-- SRS008: yr9Y0fXes5pflVN3ra5eP0XLpuiNqAxWcdacAz7RgXU=
+- SRS007: b3xawemneLNjXoyEZ2F65YkOrhUNWWzrCAnDHdoZ7lE=
 normative: true
 rationale: ''
 ref: ''
 references: []
-reviewed: 8z7wAF0UxPg6b9yfMRKus4intKWDk477UHNhB7s3AtA=
+reviewed: oNrcJbpwkq0TN7RLdFczxJnZTFITCAhRI-gMoEKH9NU=
 status: proposed
 text: |
-  Read the display service's effective ExecStart and the display's served entry point from
-  the shipped rootfs; assert blanking off, cursor hidden, entry point present.
+  On the second boot of the updated slot, over the 300 s window starting 15 s after the page
+  loads, record the longest interval between two frames.
 verification-justification: |
-  Settles that the built rootfs's own display-launch unit carries the designed flags and that
-  its served entry point is present, read from this build's own artifacts. Both failure
-  branches are proven on constructed input and were watched failing on a mutated copy of the
-  artefact when the check was built. Leaves unproven whether a runtime override later changes
-  any of this once the image is deployed, and whether every shipped unit is itself loadable
-  (TST010, *Shipped units load on the board*, the same obligation's device-tier check).
+  Records the metric over one 300 s window on the replayed page, on one physical device,
+  one boot, the window voided unless both reads show the replay set's expected page state and
+  the page counts no state change between them. Asserts no bound until the baseline campaign derives one, so until then a value
+  is recorded, never failed.
+  Leaves unproven how often freezes recur (TST009) and the frame rate around them (TST007).
 verification-method: test

@@ -1,19 +1,19 @@
 active: true
 derived: false
 header: |
-  Browser comes back on its own when it dies
-level: 1.4
+  Display runs at the configured mode, at or above the design floor
+level: 1.6
 links:
-- SYS002: HHqTcaBAP5Z81Zrs_ZcK_qnYu038O8jwtB-qo4d-3ZM=
+- SYS001: u6hdq6mHTqj4-PFL8YoiEf3ClOIYMUPOHFSXKCbqAtU=
 normative: true
 rationale: ''
 ref: ''
-reviewed: u3L2kBJJP3q7Ew-2tYxl-wgwBDWmbThVpPWJQVjb0hw=
+reviewed: 8y2IhFhmL9jfwsqTBrSo_Gy5vadygvqQHAUOYQrPmYM=
 status: proposed
 text: |
-  The browser shall come back on its own, and the display be applied again, when it dies, with
-  nobody attending the display.
+  The display shall run at the configured mode, which shall be at least 1280 wide and 720 high.
 verification-justification: |
-  Settles that the browser comes back and the page is applied again after a kill. Leaves
-  unproven recovery from any fault other than the browser process itself ending.
+  Settles the floor and the configured mode at the mode actually set. Leaves unproven anything
+  about the display at a mode below the floor, and the application's screen layout, which is
+  the application's own tier's.
 verification-method: test

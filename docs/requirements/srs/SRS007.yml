@@ -1,19 +1,22 @@
 active: true
 derived: false
 header: |
-  Display runs at the configured mode, at or above the design floor
-level: 1.6
+  Display moves without visible stutter
+level: 1.8
 links:
-- SYS001: u6hdq6mHTqj4-PFL8YoiEf3ClOIYMUPOHFSXKCbqAtU=
+- SYS003: rq2VyKTMDDUq0Nt-VxQYHkOzikliVHyX4tiqAcJ3F_Q=
 normative: true
-rationale: ''
+rationale: |
+  Decomposed by the ways motion on the panel fails: frames arriving late (TST007), one long
+  freeze (TST008), and freezes that recur (TST009).
 ref: ''
-reviewed: mx_26ddcTyQ9Gacjk4GM7lUnmwW85JdMI0UabdWKpCU=
+reviewed: C4Kx5GdyYm15sACbzJ8WQlxIRqdkz4pm02Jum-ILaf8=
 status: proposed
 text: |
-  The display shall run at the configured mode, which shall be at least 1280 wide and 720 high.
+  The kiosk shall show its display in motion without visible stutter.
 verification-justification: |
-  Settles the floor and the configured mode at the mode actually set. Leaves unproven anything
-  about the display at a mode below the floor, and the application's screen layout, which is
-  the application's own tier's.
+  Settles the frame rate, the share of late frames, the longest freeze and the freeze rate over
+  one window on the replayed page, recorded on one physical device, one boot. Leaves unproven
+  any bound: none is asserted until the baseline campaign derives them, so until then a
+  stuttering display is recorded, never failed.
 verification-method: test

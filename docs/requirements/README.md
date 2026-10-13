@@ -12,7 +12,7 @@ that deliver a need. They live in the launcher, the recipes and `docs/testing.md
 context in the run record, and this tree never asserts them.
 
 The gate — [`wise-ci`](https://github.com/WisewareOrg/wise-ci)'s shared `check-reqs`, pinned in
-`pyproject.toml`/`uv.lock` — is guard 23 of [`tools/ci-guards.sh`](../../tools/ci-guards.sh), so
+`pyproject.toml`/`uv.lock` — is guard 21 of [`tools/ci-guards.sh`](../../tools/ci-guards.sh), so
 `just guards`, the pre-commit hook and the CI `guards` job run it; it reviews the whole tree, not a
 diff, so every run checks every item.
 

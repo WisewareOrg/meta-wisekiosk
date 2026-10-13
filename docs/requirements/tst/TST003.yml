@@ -1,0 +1,21 @@
+active: true
+derived: false
+header: |
+  Browser-restart check passes
+level: 1.4
+links:
+- SRS003: WL7evQNeACSW_c6tnfaLJBWsNbOyA8ubXJ8OtuIVjrE=
+normative: true
+rationale: ''
+ref: ''
+references: []
+reviewed: T_UOeIq7S2PV60xYQzN9PbJHnBgJBG9KXLtvQs_cLsc=
+status: proposed
+text: |
+  Kill the browser process and assert the page is applied again within 60 s.
+verification-justification: |
+  Settles that the browser restarts and the page is applied again within 60 s of the kill,
+  on one physical device, one boot. The failure branch is proven on constructed input and was
+  watched failing on bench when the check was built. Leaves unproven recovery from any fault
+  other than the browser process itself ending.
+verification-method: test
