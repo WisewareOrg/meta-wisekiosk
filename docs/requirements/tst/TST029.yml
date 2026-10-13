@@ -1,0 +1,22 @@
+active: false
+derived: false
+header: |
+  Pending: Rejoins after an outage
+level: 2.10.1
+links:
+- SRS017: 9fGovo9tja5uaKm5ugvZEAF704yZxuX1iMzDG1Xjv_4=
+normative: true
+rationale: |
+  Waits on its test, its bound, and on control of the site network at the bench, which the project
+  does not have.
+ref: ''
+references: []
+reviewed: 2BnVcniuXHPFi00JeNs9eU9__mpqRvO5sad9Yrp_nHY=
+status: proposed
+text: |
+  Take the site network away from the running appliance, then restore it. Pass if the operator can
+  open a remote shell within a bound not yet set of the network returning.
+verification-justification: |
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
+verification-method: test

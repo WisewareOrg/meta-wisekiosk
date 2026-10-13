@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Prompt from power-on
+level: 1.4
+links:
+- SYS001: 6toqMs3OqOyDFeKZNdo9Impt-vFTglHoMyEFvMz35zQ=
+normative: true
+rationale: |
+  TST012 (cold boot to the panel) waits on power control and its bound. TST011 (restart to the
+  panel) settles the warm path only; it skips the cold-power path a real outage takes.
+ref: ''
+reviewed: nVP-elh5a2GqIjEEAq9jUrqDFQcvcwbcIj5xLE8ThJ4=
+status: proposed
+text: |
+  After power is applied, the appliance shall bring the WiseKiosk instance onto the panel promptly.
+verification-justification: |
+  Test. Each check beneath it measures against a stated bound, so the result needs no judgement.
+verification-method: test

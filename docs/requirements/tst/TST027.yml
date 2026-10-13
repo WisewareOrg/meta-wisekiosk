@@ -1,0 +1,22 @@
+active: false
+derived: false
+header: |
+  Pending: Shell from an attached keyboard
+level: 2.8.1
+links:
+- SRS015: BCw21-Oqpz2545jH8RZGKPDcRlK0WLo_kq-TtIroQJ4=
+normative: true
+rationale: |
+  Waits on its test, and on a keyboard the bench can type on automatically, which the project does
+  not have.
+ref: ''
+references: []
+reviewed: 6dpFtaCX0OF37hUFwsLnu8bRzTHLEMnx6apYRjViMNk=
+status: proposed
+text: |
+  With the appliance's network unavailable, attach a keyboard and log in with it. Pass if a command
+  typed there runs.
+verification-justification: |
+  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
+  judgement.
+verification-method: test

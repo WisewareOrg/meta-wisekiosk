@@ -1,0 +1,23 @@
+active: false
+derived: false
+header: |
+  Pending: Image that cannot reach the network
+level: 2.5.2
+links:
+- SRS012: g4fr8dj_fdpvkjPL1q-4VBxy9Gtng0JG2Uj35CMSJus=
+normative: true
+rationale: |
+  Waits on its test.
+ref: ''
+references: []
+reviewed: v5qysXhsObYU3Oa6br2sUm39iomcInrjyvx4wCJsLTo=
+status: proposed
+text: |
+  With the site network healthy and nobody at the panel, install over the air an image update that
+  starts but cannot join the network, its site configuration unchanged. Pass if the appliance is
+  back on its previous build within three failed attempts to start the image update, and accepts a
+  valid image update over the air.
+verification-justification: |
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
+verification-method: test

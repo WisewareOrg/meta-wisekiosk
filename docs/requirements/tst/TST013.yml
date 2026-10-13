@@ -1,0 +1,21 @@
+active: false
+derived: false
+header: |
+  Pending: No pointer drawn
+level: 1.5.1
+links:
+- SRS005: tLFI1Gec8czHa7Dy0rdAkGR2oZ5kGWqB_HD_XRhOsKw=
+normative: true
+rationale: |
+  Waits on its test.
+ref: ''
+references: []
+reviewed: r2sJkITuBaRJnIsNd9-vLMyvEgEJfkp0buNjOiuQGuw=
+status: proposed
+text: |
+  With the WiseKiosk instance on the panel, read from the display whether it is drawing a pointer.
+  Pass if it is not.
+verification-justification: |
+  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
+  judgement.
+verification-method: test

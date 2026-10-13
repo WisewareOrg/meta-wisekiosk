@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Timezone set by the operator
+level: 2.7
+links:
+- SYS002: we4-sQcWch5HDwJ-oXfvp9Sv6m3b5_G4qYVQ1_9S9QY=
+normative: true
+rationale: |
+  The WiseKiosk application shows time in the appliance's timezone, so the panel shows local time
+  only when the appliance's timezone is the site's. Its check settles that a timezone set over the
+  air is the one the appliance keeps time in; that it holds is SRS010's (configuration changed over
+  the air).
+ref: ''
+reviewed: n_p8VOcWV-1SJ-VZmTrshbRxaxEgyDLg833VH3K7Bvo=
+status: proposed
+text: |
+  The operator shall be able to set the appliance's timezone over the air.
+verification-justification: |
+  Test. Each check beneath it exercises the capability directly and reads whether it worked, so the
+  result needs no judgement.
+verification-method: test

@@ -1,0 +1,21 @@
+active: false
+derived: false
+header: |
+  Pending: Configuration held across a restart
+level: 2.3.2
+links:
+- SRS010: AwaFoX_yAriClXD63RQ5h9A8DQz38RL7MypMTxlAX-w=
+normative: true
+rationale: |
+  Waits on its test.
+ref: ''
+references: []
+reviewed: hkEw9myJznx64zZgfOviXgza_dZJBdZMvr4xIVsPzdo=
+status: proposed
+text: |
+  Change the appliance's configuration over the air, then restart the appliance over the network.
+  Pass if the configuration the appliance holds afterwards is the changed one.
+verification-justification: |
+  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
+  judgement.
+verification-method: test

@@ -1,0 +1,21 @@
+active: true
+derived: false
+header: |
+  Rejoins the site network
+level: '2.10'
+links:
+- SYS002: we4-sQcWch5HDwJ-oXfvp9Sv6m3b5_G4qYVQ1_9S9QY=
+normative: true
+rationale: |
+  An outage the appliance does not recover from leaves the operator without any path over the
+  network until someone visits. Its check waits on control of the site network at the bench and on
+  its bound.
+ref: ''
+reviewed: P3ZQu0zJBRffk6MyBvCUinqtMICW2SArpwowOTdrWQg=
+status: proposed
+text: |
+  When the site network returns after an outage, the appliance shall rejoin it by itself.
+verification-justification: |
+  Test. Each check beneath it injects the fault and observes the recovery from outside the
+  appliance, so the result needs no judgement.
+verification-method: test

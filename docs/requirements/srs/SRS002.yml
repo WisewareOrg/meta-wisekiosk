@@ -1,0 +1,18 @@
+active: true
+derived: false
+header: |
+  Motion without stutter
+level: 1.2
+links:
+- SYS001: 6toqMs3OqOyDFeKZNdo9Impt-vFTglHoMyEFvMz35zQ=
+normative: true
+rationale: |
+  Its check waits on a bound set from a repeatable measurement, so this need is unverified.
+ref: ''
+reviewed: fM9mvQU-0XmToAhmGWRL2BMowVqXGmoAs5q0aWhcgfo=
+status: proposed
+text: |
+  Motion on the panel shall not visibly stutter.
+verification-justification: |
+  Test. Each check beneath it measures against a stated bound, so the result needs no judgement.
+verification-method: test

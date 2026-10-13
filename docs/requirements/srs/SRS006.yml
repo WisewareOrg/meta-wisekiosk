@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Memory stays bounded
+level: 1.6
+links:
+- SYS001: 6toqMs3OqOyDFeKZNdo9Impt-vFTglHoMyEFvMz35zQ=
+normative: true
+rationale: |
+  Memory that grows over a long run ends in a process being killed, which takes the instance off the
+  panel. Its check waits on how long a run it samples.
+ref: ''
+reviewed: mrNH6Cszqkfl_lEnef-XYQVDTIh03qAVhgAPRLm2dx0=
+status: proposed
+text: |
+  The appliance's memory use shall stay bounded however long it runs.
+verification-justification: |
+  Test. Each check beneath it measures against a stated bound, so the result needs no judgement.
+verification-method: test

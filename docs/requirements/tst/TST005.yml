@@ -1,0 +1,21 @@
+active: false
+derived: false
+header: |
+  Pending: Frozen page recovered
+level: 1.1.5
+links:
+- SRS001: mHF_3E-UfqxDFcUPdCyvErtJ2u-SY5fAEBMb5iey9TY=
+normative: true
+rationale: |
+  Waits on its test.
+ref: ''
+references: []
+reviewed: ojJ_ECCCCcQGmSeFxH3ondcy2ms9zs9mzfquag0cJH8=
+status: proposed
+text: |
+  With the WiseKiosk instance configured to show a clock with seconds, freeze the page without
+  ending the browser. Pass if the panel is changing again within 60 s of the freeze.
+verification-justification: |
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
+verification-method: test

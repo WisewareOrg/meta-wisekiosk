@@ -1,0 +1,22 @@
+active: false
+derived: false
+header: |
+  Pending: Sustained network load
+level: 1.1.8
+links:
+- SRS001: mHF_3E-UfqxDFcUPdCyvErtJ2u-SY5fAEBMb5iey9TY=
+normative: true
+rationale: |
+  Waits on its test and its bound.
+ref: ''
+references: []
+reviewed: m2vxcQ5tfytvStHKHPAVytk9AEG7K5nuak-IxnTHe8k=
+status: proposed
+text: |
+  With the WiseKiosk instance on the panel, hold the appliance's network under sustained load for a
+  period not yet set. Pass if the panel shows the live instance throughout, or is back within 60 s
+  of any time it stops.
+verification-justification: |
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
+verification-method: test

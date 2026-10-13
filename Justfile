@@ -140,6 +140,11 @@ verify:
 links:
     {{py}} tools/doc-links.py
 
+[group('check')]
+[doc("Check the requirements tree with wise-ci's check-reqs")]
+reqs:
+    uv run --locked check-reqs --root docs/requirements
+
 # What the prose says the image ships, against what it ships. Needs a populated
 # build/ rootfs and is therefore local-only -- CI never builds, so wiring it
 # into a required check would mean a permanently skipping gate.

@@ -1,0 +1,23 @@
+active: false
+derived: false
+header: |
+  Pending: WiFi credentials the site rejects
+level: 2.6.1
+links:
+- SRS013: 9D--Bt_QK8Fb5VJ8czSLAGP3b96bZxiyMouvsYStkms=
+normative: true
+rationale: |
+  Waits on its test and its bound.
+ref: ''
+references: []
+reviewed: OxWQEBeOJyF7tKip63ZLdb4r7nBsfCQPNbI73XOtt5Y=
+status: proposed
+text: |
+  With the site network healthy and nobody at the panel, change the appliance's WiFi configuration
+  over the air to credentials the site network rejects. Pass if the appliance is back on its
+  previous configuration within a bound not yet set, and accepts a configuration change over the
+  air.
+verification-justification: |
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
+verification-method: test

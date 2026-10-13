@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Configuration changed over the air
+level: 2.3
+links:
+- SYS002: we4-sQcWch5HDwJ-oXfvp9Sv6m3b5_G4qYVQ1_9S9QY=
+normative: true
+rationale: |
+  Settles that a configuration change made over the air holds across an image update and a restart;
+  the power-cut check waits on power control. Unproven: whether the application acts on the
+  configuration the appliance holds, which is the application's own requirement.
+ref: ''
+reviewed: 5hbl6tkjYMUzkdqrTUsLMbhO1c-J4B9xqKrmYEg37ak=
+status: proposed
+text: |
+  The operator shall be able to change the appliance's configuration over the air, and the change
+  shall hold until they change it again.
+verification-justification: |
+  Test. Each check beneath it exercises the capability directly and reads whether it worked, so the
+  result needs no judgement.
+verification-method: test

@@ -1,0 +1,20 @@
+active: false
+derived: false
+header: |
+  Pending: Restart to the panel
+level: 1.4.1
+links:
+- SRS004: 6GW0ujQU0bNMyJN8mUU22YIF013OOeOJOi_KdjbkByc=
+normative: true
+rationale: |
+  Waits on its test.
+ref: ''
+references: []
+reviewed: M__Zj5tWStOMiof0ORnYHpS6rDyU2p6WbCeRb2FQ76M=
+status: proposed
+text: |
+  Restart the appliance over the network, with nobody at the panel. Pass if the WiseKiosk instance
+  is on the panel within 60 s of the restart.
+verification-justification: |
+  Test. It measures against a stated bound; the pass condition needs no judgement.
+verification-method: test

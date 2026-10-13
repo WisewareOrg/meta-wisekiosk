@@ -1,0 +1,20 @@
+active: false
+derived: false
+header: |
+  Pending: Motion stutter measured
+level: 1.2.1
+links:
+- SRS002: LEdl4V48HbyxoyKPScKLujsTew6813LK1scJt-c1K4U=
+normative: true
+rationale: |
+  Waits on its test and its bound.
+ref: ''
+references: []
+reviewed: WFYX_fXq3vGIQ5aSqkNvTReJeKgCaU2_3TIGlcElh6o=
+status: proposed
+text: |
+  With the WiseKiosk instance configured to show repeatable motion, measure stutter over the check's
+  window. Pass if it is within a bound not yet set.
+verification-justification: |
+  Test. It measures against a stated bound; the pass condition needs no judgement.
+verification-method: test
