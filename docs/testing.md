@@ -159,8 +159,10 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
 
 `--skip-build` runs the `precondition` hook and the target suite only — no `build`, no `bundle`, no
 host suite, and `bench_candidate` stays `None`, so the target suite's own setup fixture and TST016
-both skip. It tests a running board without a build and installs nothing, so a review or an
-investigation that needs a build never cites a `--skip-build` run as that evidence.
+both skip: it tests a running board without a build and installs nothing. Whether such a run counts
+as evidence for a review or an investigation is
+[WiseBenchManager's ADR 0001 decision 9, provenance](https://github.com/WisewareOrg/WiseBenchManager/blob/main/docs/decisions/0001-verify-with-a-python-bench-runner.md)'s
+own rule, not this layer's.
 
 The board comes from labgrid's own env file, pointed at with `LG_ENV` — a target named `main`, a
 `NetworkService` resource carrying the board's address, an `SSHDriver` — kept untracked under
