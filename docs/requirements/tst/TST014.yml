@@ -1,0 +1,27 @@
+active: true
+derived: false
+header: |
+  Time to page after boot
+level: 1.13
+links:
+- SRS008: yr9Y0fXes5pflVN3ra5eP0XLpuiNqAxWcdacAz7RgXU=
+normative: true
+rationale: ''
+ref: ''
+references:
+- keyword: def test_perf_window
+  path: tests/target_suite/test_perf.py
+  sha: ac24d9fa4c67f4904a253185bb8f1ac1dd24bbfe4817aeabeec676a19c4ed6c1
+  type: file
+reviewed: AuvEss7mr5Z4DmBqTH7caZMK_XDLsASy6LbVDybFKRc=
+status: proposed
+text: |
+  Record the time from the page's load to the first probe sample showing the display's
+  frame, nothing loading, the weather present and the replay set's expected cards.
+verification-justification: |
+  Records the time read at the window's start, on the replayed page, on one physical device,
+  one boot, the window voided unless both reads show the replay set's expected page state and
+  the page counts no state change between them. Asserts no bound until the baseline campaign derives one, so until then a value
+  is recorded, never failed. Leaves unproven how long the board takes to start the browser,
+  which the page's own load clock does not see.
+verification-method: test

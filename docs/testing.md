@@ -156,19 +156,37 @@ to target the wall board.
 ```sh
 export LG_BENCH_ADDRESS=<from local/device-identity.md>
 export LG_ENV=bench.yaml
-bench test <ref>
+bench test <ref> --set cards4-live
 ```
+
+`--set <name>` names a replay set under `tests/replay/sets/` for `test_perf_window`, the only
+target-suite test that uses one -- but it is required for any session that collects
+`test_perf_window`: without it, `bench test`'s own default leaves `BENCH_SET` set to the empty
+string, the HAR path it builds names no real file, and the runner's own `proxy` fixture ends the
+whole session (`pytest.exit(2)`) at `test_perf_window`'s own setup. Tests collected before it in
+file order (`test_00_provenance.py`, `test_applied.py`, `test_browser_restart.py`,
+`test_layout.py`) still run; `test_render.py`'s and `test_units.py`'s own tests, collected after,
+never do. A hand run with `BENCH_SET` not exported at all fails at collection instead, before
+any test runs.
 
 Records land under `records/<UTC start time>/` in the checkout `bench test` runs from
 (`report.jsonl`, pytest-reportlog's own report; `run.json`, the runner's own per-run summary) —
-gitignored, never committed.
+gitignored, never committed. `tests/target_suite/conftest.py`'s `device_context` fixture attaches
+the board's own context to every test's own report line, one `record_property` key per fact:
+`boot_id`, `uptime_s`, `bundle`, `config_mac`, `config`, `browser`,
+`nrestarts`, `cmdline_sha`, `webkit_env`, `kiosk_conf_mac`, `mode`, `kernel`, `cpufreq_max`,
+`timesync`, `start` and `end`. `test_perf_window` additionally records its own window's metrics
+under `fps`, `p50`, `stall`, `maxstall`, `ttp`, `cost`, `rss`, `idle` and `thermal`.
 
-Running the target suite against any already-installed board, with no new install, needs an
-interpreter with `labgrid` on it (the runner's own venv has one; this layer's does not),
-`BENCH_SHA` set by hand to that board's own currently-installed commit (read its `/etc/buildinfo`),
-and `-o addopts=` to clear this checkout's own `--cov`, which the target suite does not carry:
+Running the target suite against any already-installed board, with no new install, needs the
+runner's own interpreter (it carries `labgrid` and `tenacity`; this layer's own interpreter has
+neither), `BENCH_SHA` set by hand to that board's own currently-installed commit (read its
+`/etc/buildinfo`), `BENCH_SET` naming a replay set under `tests/replay/sets/` (required whenever
+the run collects `test_perf_window`, per above), and `-o addopts=` to clear this checkout's own
+`--cov`, which the target suite does not carry:
 
 ```sh
 BENCH_SHA=<the board's own currently-installed commit> \
-/path/to/an/interpreter/with/labgrid -m pytest tests/target_suite -o addopts= --lg-env bench.yaml
+BENCH_SET=<a replay set under tests/replay/sets/> \
+/path/to/WiseBenchManager/.venv/bin/python -m pytest tests/target_suite -o addopts= --lg-env bench.yaml
 ```

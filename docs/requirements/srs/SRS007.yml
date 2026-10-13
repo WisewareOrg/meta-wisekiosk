@@ -1,0 +1,19 @@
+active: true
+derived: false
+header: |
+  Display runs at the configured mode, at or above the design floor
+level: 1.6
+links:
+- SYS001: u6hdq6mHTqj4-PFL8YoiEf3ClOIYMUPOHFSXKCbqAtU=
+normative: true
+rationale: ''
+ref: ''
+reviewed: mx_26ddcTyQ9Gacjk4GM7lUnmwW85JdMI0UabdWKpCU=
+status: proposed
+text: |
+  The display shall run at the configured mode, which shall be at least 1280 wide and 720 high.
+verification-justification: |
+  Settles the floor and the configured mode at the mode actually set. Leaves unproven anything
+  about the display at a mode below the floor, and the application's screen layout, which is
+  the application's own tier's.
+verification-method: test

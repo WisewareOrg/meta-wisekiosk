@@ -1,0 +1,25 @@
+active: true
+derived: false
+header: |
+  Browser-restart check passes
+level: 1.4
+links:
+- SRS005: XGWAcZQvNfgkkpYq_Fpr26gzuxtPM6NxT6NTam_mwRE=
+normative: true
+rationale: ''
+ref: ''
+references:
+- keyword: def test_browser_restart
+  path: tests/target_suite/test_browser_restart.py
+  sha: 88634c12723f474d0b89d8fb62da2a7622f6d71dcd799cee0e070822482e51b1
+  type: file
+reviewed: abbW7dRFGe96yqZNRI7ZXtGZo9O6HS_br0D7aUtvK1A=
+status: proposed
+text: |
+  Kill the browser process and assert the page is applied again within 60 s.
+verification-justification: |
+  Settles that the browser restarts and the page is applied again within 60 s of the kill,
+  on one physical device, one boot. The failure branch is proven on constructed input and was
+  watched failing on bench when the check was built. Leaves unproven recovery from any fault
+  other than the browser process itself ending.
+verification-method: test

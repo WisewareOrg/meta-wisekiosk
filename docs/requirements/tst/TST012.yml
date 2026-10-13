@@ -1,0 +1,27 @@
+active: true
+derived: false
+header: |
+  Longest freeze over the window
+level: 1.11
+links:
+- SRS010: 398ANkdsf49YF4jlD-GrNkzSBlp3qpCsDoX-bEJ7nAs=
+normative: true
+rationale: ''
+ref: ''
+references:
+- keyword: def test_perf_window
+  path: tests/target_suite/test_perf.py
+  sha: ac24d9fa4c67f4904a253185bb8f1ac1dd24bbfe4817aeabeec676a19c4ed6c1
+  type: file
+reviewed: 0A6h7V2v1a1rpVW-nvxI21hi_pyN9gwAe3Sk2SNXid0=
+status: proposed
+text: |
+  Over the 300 s window starting 15 s after the page loads, record the longest interval
+  between two frames.
+verification-justification: |
+  Records the metric over one 300 s window on the replayed page, on one physical device,
+  one boot, the window voided unless both reads show the replay set's expected page state and
+  the page counts no state change between them. Asserts no bound until the baseline campaign derives one, so until then a value
+  is recorded, never failed.
+  Leaves unproven how often freezes recur (TST013) and the frame rate around them (TST011).
+verification-method: test
