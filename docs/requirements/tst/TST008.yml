@@ -1,0 +1,24 @@
+active: true
+derived: false
+header: |
+  Display service set as designed in the shipped image
+level: 1.7
+links:
+- SRS008: yr9Y0fXes5pflVN3ra5eP0XLpuiNqAxWcdacAz7RgXU=
+normative: true
+rationale: ''
+ref: ''
+references: []
+reviewed: 8z7wAF0UxPg6b9yfMRKus4intKWDk477UHNhB7s3AtA=
+status: proposed
+text: |
+  Read the display service's effective ExecStart and the display's served entry point from
+  the shipped rootfs; assert blanking off, cursor hidden, entry point present.
+verification-justification: |
+  Settles that the built rootfs's own display-launch unit carries the designed flags and that
+  its served entry point is present, read from this build's own artifacts. Both failure
+  branches are proven on constructed input and were watched failing on a mutated copy of the
+  artefact when the check was built. Leaves unproven whether a runtime override later changes
+  any of this once the image is deployed, and whether every shipped unit is itself loadable
+  (TST010, *Shipped units load on the board*, the same obligation's device-tier check).
+verification-method: test

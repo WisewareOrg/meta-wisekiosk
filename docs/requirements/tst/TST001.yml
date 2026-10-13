@@ -1,0 +1,21 @@
+active: true
+derived: false
+header: |
+  Applied-page check passes
+level: 1.0
+links:
+- SRS001: 6yVbCJR6FLm2q-aTyZofQ00UG5i6KCZ5oBd9F0v5-ew=
+normative: true
+rationale: ''
+ref: ''
+references: []
+reviewed: KcE7Ytu28E-77aMNHVHeE52etXYANrYMWBq0IR8RL50=
+status: proposed
+text: |
+  Run the device oeqa suite's applied-page case against the booted image and assert it passes.
+verification-justification: |
+  Settles that the page the application serves is the one reported applied on screen, on one
+  physical device, one boot. The failure branch is proven on constructed input and was watched
+  failing on bench when the check was built. Leaves unproven whether it stays applied, and
+  whether it renders.
+verification-method: test

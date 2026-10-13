@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Layout-floor check passes
+level: 1.6
+links:
+- SRS007: T-nC5q_Q5j3MsS-QuwZtwmqkYRXJMuY93HF44R0BNwA=
+normative: true
+rationale: ''
+ref: ''
+references: []
+reviewed: L-mlFttn9c4wW9H4GZRKnvFBG2f3PQyfSx3xvDl1Tn0=
+status: proposed
+text: |
+  Read the mode xrandr reports and the launcher's own configured mode, and assert the former is
+  at least 1280x720 and matches the latter.
+verification-justification: |
+  Settles the floor and the configured-mode match at the mode xrandr reports, on one physical
+  device, one boot. The failure branch is proven on constructed input and was watched failing
+  on bench when the check was built. Leaves unproven anything about the display at a mode below
+  the floor, and the application's screen layout, which is the application's own tier's.
+verification-method: test

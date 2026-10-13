@@ -1,0 +1,23 @@
+active: true
+derived: false
+header: |
+  Freeze rate over the window
+level: 1.12
+links:
+- SRS010: 398ANkdsf49YF4jlD-GrNkzSBlp3qpCsDoX-bEJ7nAs=
+normative: true
+rationale: ''
+ref: ''
+references: []
+reviewed: KLBhuN4K2Vl79--lbupNGlOtqN389XY6AheWanwEJNU=
+status: proposed
+text: |
+  On the second boot of the updated slot, over the 300 s window starting 15 s after the page
+  loads, record the number of frame intervals of 100 ms or more per minute.
+verification-justification: |
+  Records the metric over one 300 s window on the replayed page, on one physical device,
+  one boot, the window voided unless both reads show the replay set's expected page state and
+  the page counts no state change between them. Asserts no bound until the baseline campaign derives one, so until then a value
+  is recorded, never failed.
+  Leaves unproven the length of the longest freeze (TST012) and the frame rate (TST011).
+verification-method: test
