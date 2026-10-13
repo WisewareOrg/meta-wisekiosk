@@ -9,6 +9,8 @@ they leave unproven. A `TST` item's `references`, where it carries any, pin each
 the gate fails an item whose referenced file changed after review. The pipeline's tier guarantees
 stay in [`../testing.md`](../testing.md); this tree holds the image's own obligations.
 
+**Every `SYS` item traces to a goal in [`../../README.md`](../../README.md) §"Mission".**
+
 **An item states a need — what the viewer or the operator needs — never a mechanism.** A rendering
 setting, a render node held by a process, a flag on a unit file, a probe channel: those are
 mechanisms that deliver a need. They live in the launcher, the recipes and `docs/testing.md`, are

@@ -55,6 +55,21 @@ How to work in this repository — the gates, the conventions and the review che
 > renaming its identifiers is a one-way change that strands every unit in the field. And the two patches
 > in `patches/meta-autonomos/` have to apply to upstream's files as upstream writes them.
 
+## Mission
+
+Give the WiseKiosk application a dedicated home on one board: one that shows it well, and that its
+operator can set up and leave.
+
+The appliance replaces Raspbian on this board, which performs badly there and whose support for the
+board has faded. It is a vessel. What the viewer sees is the application, and everything here exists
+to serve that.
+
+- **The application, shown well.** The WiseKiosk instance is on the panel, live, and running smoothly.
+- **Self-sufficient.** Everything the instance needs runs on the one board. A deployment depends on
+  no other machine the operator runs.
+- **Isolated.** Each appliance is its own deployment, unrelated to and unconnected with every other.
+- **Easy to keep.** The operator configures, deploys and maintains it without a visit to the panel.
+
 ## Layout: scaffolding vs. layer
 
 The repository is a project, not a layer. Exactly one directory in it is a BitBake layer.
