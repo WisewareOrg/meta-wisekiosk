@@ -4,7 +4,7 @@ header: |
   Falls back from an image update that cuts it off
 level: 2.4
 links:
-- SYS003: VgIAeRF3hodOUEARzaE4lrQOCGZiVouc8CqHAEdy2Bk=
+- SYS003: ZDaZyOvPs8i1-zVEkFoQ7TDGOdc6x_1dKJ5Kw67JSlI=
 normative: true
 rationale: |
   Settles fallback from an image update that cannot start and from one that starts but cannot join

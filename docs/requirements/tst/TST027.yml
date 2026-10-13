@@ -1,0 +1,21 @@
+active: false
+derived: false
+header: |
+  Pending: Log kept across an image update
+level: 3.6
+links:
+- SRS018: EJCmecO3T7Iin-3HnZuy8nAH7rxFeAbB2o9OLShpD4E=
+normative: true
+rationale: |
+  Waits on its test.
+ref: ''
+references: []
+reviewed: RmS2_YtmV-pxaUL-lc9--IqicmY8hcRtkFh0aV_voEw=
+status: proposed
+text: |
+  Write a marker line to the appliance's log, then install a valid image update over the air. Pass
+  if the marker is in the log the appliance holds after it restarts.
+verification-justification: |
+  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
+  judgement.
+verification-method: test

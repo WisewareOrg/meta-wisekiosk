@@ -1,0 +1,20 @@
+active: false
+derived: false
+header: |
+  Pending: Memory over a long run
+level: 3.7
+links:
+- SRS019: 9gaR8WEIbKbZIUFNKGFPxxftGKjitTlfN-OuytwlUcs=
+normative: true
+rationale: |
+  Waits on its test and its bound.
+ref: ''
+references: []
+reviewed: hlvn75xVvRezHgv0GU6LjYFDbjn-gKvRKJjVX3klNFk=
+status: proposed
+text: |
+  With the WiseKiosk instance on the panel, run the appliance for a period not yet set, sampling its
+  memory use. Pass if it stays under 80% of usable memory throughout.
+verification-justification: |
+  Test. It measures against a stated bound; the pass condition needs no judgement.
+verification-method: test

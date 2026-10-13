@@ -4,7 +4,7 @@ header: |
   Refuses image updates not meant for it
 level: 2.1
 links:
-- SYS003: VgIAeRF3hodOUEARzaE4lrQOCGZiVouc8CqHAEdy2Bk=
+- SYS003: ZDaZyOvPs8i1-zVEkFoQ7TDGOdc6x_1dKJ5Kw67JSlI=
 normative: true
 rationale: |
   An image update is meant for it when one of its operators signed it and it was built for its kind

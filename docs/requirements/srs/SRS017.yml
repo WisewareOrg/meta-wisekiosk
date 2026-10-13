@@ -1,0 +1,21 @@
+active: true
+derived: false
+header: |
+  Keyboard at the appliance as the last resort
+level: 2.7
+links:
+- SYS003: ZDaZyOvPs8i1-zVEkFoQ7TDGOdc6x_1dKJ5Kw67JSlI=
+normative: true
+rationale: |
+  The last way in once the operator's remote shell, image updates and configuration changes over the
+  air have all failed. Its check waits on a keyboard the bench can type on automatically.
+ref: ''
+reviewed: 6jE7hCLC5GR4WZbk1BlMBFlszXZMTgh97cDl73OIggQ=
+status: proposed
+text: |
+  When every path over the network is gone, a keyboard attached to the appliance shall give the
+  operator a shell.
+verification-justification: |
+  Test. Each check beneath it exercises the capability directly and reads whether it worked, so the
+  result needs no judgement.
+verification-method: test

@@ -4,7 +4,7 @@ header: |
   Motion without stutter
 level: 1.2
 links:
-- SYS001: SYLQteZvMNnvVcrf6pJMZshqCLZOQx0bnUDyymOKHts=
+- SYS001: 8SdZkohcyDrGQAGwxe-w6XzBd-UUhNYMV9efIjQBnLk=
 normative: true
 rationale: |
   Its check waits on a bound set from a repeatable measurement, so this need is unverified.
