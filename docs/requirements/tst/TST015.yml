@@ -10,11 +10,13 @@ rationale: |
   Waits on its test and its bound.
 ref: ''
 references: []
-reviewed: KLPXosLxU0nLuzFxXW-U16x-nT7PJXiNoGhdrZl9y1Y=
+reviewed: gUCibfpBt94gvz4L9z0kgqZc9ksyzrIkETrgpQSKJuA=
 status: proposed
 text: |
-  With the site network up, set the appliance's clock wrong by days, then restart the appliance.
-  Pass if, within a bound not yet set, the appliance's clock agrees with the network's time.
+  With the site network up, set the appliance's clock wrong by days, then restart the appliance and
+  confirm its clock is still wrong. Pass if, within a bound not yet set, the appliance's clock
+  agrees with the network's time. The check is invalid if the clock is not still wrong after the
+  restart.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.
