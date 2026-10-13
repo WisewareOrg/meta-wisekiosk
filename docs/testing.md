@@ -134,11 +134,11 @@ own ssh identity already accepted as root on the device, and `just pipeline-inst
 [WiseBenchManager](https://github.com/WisewareOrg/WiseBenchManager) is a separate, generic
 hardware-in-the-loop runner, cloned and built outside this tree per its own README. Pointed at this
 checkout, it reads the tracked `bench.toml` here — which never names a machine or a board — runs its
-`build` and `bundle` hooks, a host suite before anything is installed, an OTA install, and a target
-suite against the booted board:
+`build` and `bundle` hooks, a host suite before anything is installed, then a target suite against the
+booted board. The runner never touches the board itself:
 
 ```sh
-bench test <ref>     # by hand: build, install on the board LG_ENV names, run both suites
+bench test <ref>     # by hand: build, run both suites; the target suite installs on the board LG_ENV names
 bench run            # on a timer: the merge queue's head entry, the same path
 ```
 
@@ -149,8 +149,12 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
 - `tests/host_suite` — runs before anything is installed, against the build hook's own output. Its
   one test runs `tools/reproducibility-gate.sh --image` on the rootfs, so a candidate the gate
   refuses never reaches the board.
-- `tests/target_suite` — runs against the booted board after the install. Its one test reads the
-  board's `/etc/buildinfo` and fails unless it names the commit `bench test` built from (TST016).
+- `tests/target_suite` — its own session-scoped, autouse fixture (`conftest.py`) installs the
+  candidate on the board through `just kiosk-ota` and `just kiosk-reboot`, then reconnects labgrid's
+  own SSH session, before any test runs. The commit under test comes from the runner's own
+  `bench_candidate` fixture, never an environment variable — `None` outside `bench test`/`bench run`,
+  in which case the setup fixture does nothing and the one test (TST016) skips. That test reads the
+  board's `/etc/buildinfo` and fails unless it names `bench_candidate`.
 
 The board comes from labgrid's own env file, pointed at with `LG_ENV` — a target named `main`, a
 `NetworkService` resource carrying the board's address, an `SSHDriver` — kept untracked under
