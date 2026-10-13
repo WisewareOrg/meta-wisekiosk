@@ -128,3 +128,30 @@ with no DISABLED file and no PR comment.
 
 A new host needs a clone, the dev tree's `local/device-identity.md`, `gh auth login`, the host user's
 own ssh identity already accepted as root on the device, and `just pipeline-install`.
+
+## Running it through the runner
+
+[WiseBenchManager](https://github.com/WisewareOrg/WiseBenchManager) is a separate, generic
+hardware-in-the-loop runner, cloned and built outside this tree per its own README. Pointed at this
+checkout, it reads the tracked `bench.toml` here — which never names a machine or a board — runs its
+`build` and `bundle` hooks, a host suite before anything is installed, an OTA install, and a target
+suite against the booted board:
+
+```sh
+bench test <ref>     # by hand: build, install on the board LG_ENV names, run both suites
+bench run            # on a timer: the merge queue's head entry, the same path
+```
+
+`bench.toml`'s `[hooks]` carries a no-op `precondition` — the runner requires one; this layer's board
+needs no state check before a run — `build` (`just build`) and `bundle` (`just kiosk-bundle`).
+`[tests]` names the two suites:
+
+- `tests/host_suite` — runs before anything is installed, against the build hook's own output. Its
+  one test runs `tools/reproducibility-gate.sh --image` on the rootfs, so a candidate the gate
+  refuses never reaches the board.
+- `tests/target_suite` — runs against the booted board after the install. Its one test reads the
+  board's `/etc/buildinfo` and fails unless it names the commit `bench test` built from (TST016).
+
+The board comes from labgrid's own env file, pointed at with `LG_ENV` — a target named `main`, a
+`NetworkService` resource carrying the board's address, an `SSHDriver` — kept untracked under
+`local/`, since this repository is public and the address is site-specific.
