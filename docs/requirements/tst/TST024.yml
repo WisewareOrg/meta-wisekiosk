@@ -1,21 +1,23 @@
 active: false
 derived: false
 header: |
-  Pending: No pointer drawn
-level: 3.3
+  Pending: Image that cannot reach the network
+level: 2.5.2
 links:
-- SRS015: hzDbYQeTcdjaHLKBa-VaJVwbetpKVmbFmBM21UMCsFE=
+- SRS012: g4fr8dj_fdpvkjPL1q-4VBxy9Gtng0JG2Uj35CMSJus=
 normative: true
 rationale: |
   Waits on its test.
 ref: ''
 references: []
-reviewed: 3D5CbGS5K3SCtwuAoZd72kf4hQpVmz2iWPFmYKQPJ04=
+reviewed: v5qysXhsObYU3Oa6br2sUm39iomcInrjyvx4wCJsLTo=
 status: proposed
 text: |
-  With the WiseKiosk instance on the panel, read from the display whether it is drawing a pointer.
-  Pass if it is not.
+  With the site network healthy and nobody at the panel, install over the air an image update that
+  starts but cannot join the network, its site configuration unchanged. Pass if the appliance is
+  back on its previous build within three failed attempts to start the image update, and accepts a
+  valid image update over the air.
 verification-justification: |
-  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
-  judgement.
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
 verification-method: test

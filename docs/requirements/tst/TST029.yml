@@ -2,16 +2,16 @@ active: false
 derived: false
 header: |
   Pending: Rejoins after an outage
-level: 3.8
+level: 2.10.1
 links:
-- SRS020: 6CWjNQStYNinilPa9mGIzdOHaojBtuihAofoMPZ3BsU=
+- SRS017: 9fGovo9tja5uaKm5ugvZEAF704yZxuX1iMzDG1Xjv_4=
 normative: true
 rationale: |
   Waits on its test, its bound, and on control of the site network at the bench, which the project
   does not have.
 ref: ''
 references: []
-reviewed: oXa9QZyO1Z-PvJTuv2o7n-U0woduq1Z9n9MF2tu3BRI=
+reviewed: 2BnVcniuXHPFi00JeNs9eU9__mpqRvO5sad9Yrp_nHY=
 status: proposed
 text: |
   Take the site network away from the running appliance, then restore it. Pass if the operator can

@@ -1,20 +1,20 @@
 active: false
 derived: false
 header: |
-  Pending: Browser killed
-level: 1.1
+  Pending: Power cut while showing
+level: 1.1.2
 links:
-- SRS002: J1S9BS-RXgQhjTFugcSyFBK8vAZaFReeIxTgn9Y2Xlk=
+- SRS001: mHF_3E-UfqxDFcUPdCyvErtJ2u-SY5fAEBMb5iey9TY=
 normative: true
 rationale: |
-  Waits on its test.
+  Waits on its test, and on power control at the bench, which the project does not have.
 ref: ''
 references: []
-reviewed: IO406wOMJcrL4yhlBwh8ZG9_5aMmBXQdxMzK4oEwBlI=
+reviewed: m381pDBStnOHZH-S89U5sdLDeweIILMja_w5n6-Lm5U=
 status: proposed
 text: |
-  With nobody at the panel, kill the browser. Pass if the WiseKiosk instance is back on the panel
-  within 15 s.
+  While the WiseKiosk instance is on the panel, cut the appliance's power without warning, then
+  restore it. Pass if the instance is on the panel within 60 s of power returning.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.

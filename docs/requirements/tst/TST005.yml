@@ -1,21 +1,20 @@
 active: false
 derived: false
 header: |
-  Pending: Kernel crash
-level: 1.4
+  Pending: Frozen page recovered
+level: 1.1.5
 links:
-- SRS002: J1S9BS-RXgQhjTFugcSyFBK8vAZaFReeIxTgn9Y2Xlk=
+- SRS001: mHF_3E-UfqxDFcUPdCyvErtJ2u-SY5fAEBMb5iey9TY=
 normative: true
 rationale: |
   Waits on its test.
 ref: ''
 references: []
-reviewed: LjKCGaDI3v5npuW3AnzLekl8Dc4458byrxrKzpjJNnw=
+reviewed: ojJ_ECCCCcQGmSeFxH3ondcy2ms9zs9mzfquag0cJH8=
 status: proposed
 text: |
-  With nobody at the panel, crash the kernel over the network so that nothing on the appliance runs.
-  Pass if the appliance restarts by itself and the WiseKiosk instance is on the panel within 60 s of
-  the crash.
+  With the WiseKiosk instance configured to show a clock with seconds, freeze the page without
+  ending the browser. Pass if the panel is changing again within 60 s of the freeze.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.

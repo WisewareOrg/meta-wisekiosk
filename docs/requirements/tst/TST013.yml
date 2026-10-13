@@ -1,21 +1,20 @@
 active: false
 derived: false
 header: |
-  Pending: Refuses a foreign signature
-level: 2.2
+  Pending: No pointer drawn
+level: 1.5.1
 links:
-- SRS010: judm4iOOIFwC-AtDeAtVYoslik2bucErmRx7bPC5XUo=
+- SRS005: tLFI1Gec8czHa7Dy0rdAkGR2oZ5kGWqB_HD_XRhOsKw=
 normative: true
 rationale: |
   Waits on its test.
 ref: ''
 references: []
-reviewed: ITd7rnuxhSMgO2gmTG0ufMQiYgfWIDIS-oikUfmkft4=
+reviewed: r2sJkITuBaRJnIsNd9-vLMyvEgEJfkp0buNjOiuQGuw=
 status: proposed
 text: |
-  Offer the appliance an image update signed by a key none of its operators holds. Pass if it
-  refuses the image update and is still running the same build, with the WiseKiosk instance on the
-  panel.
+  With the WiseKiosk instance on the panel, read from the display whether it is drawing a pointer.
+  Pass if it is not.
 verification-justification: |
   Test. It exercises the capability and reads the result mechanically; the pass condition needs no
   judgement.

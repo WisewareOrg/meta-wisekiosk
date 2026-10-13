@@ -1,20 +1,21 @@
 active: false
 derived: false
 header: |
-  Pending: Motion stutter measured
-level: 1.9
+  Pending: The instance reaches out
+level: 1.3.1
 links:
-- SRS003: 2aKAQtGZ3cEyHgdArE7yf3TDozV9lFJuPcUeeGbxO_A=
+- SRS003: nF79wgykuzVTRgwmuQ1wEE7QPZwqBCFJeo3MjbaRHds=
 normative: true
 rationale: |
-  Waits on its test and its bound.
+  Waits on its test.
 ref: ''
 references: []
-reviewed: Kpf6yohre8CJt2RJxzcsh7wYc_MGfDIHGwcbFy_A3kA=
+reviewed: 6FbNA0kqLmZk0CL17n0EyfAwRwcZp_zkmOAgkj2lL1s=
 status: proposed
 text: |
-  With the WiseKiosk instance configured to show repeatable motion, measure stutter over the check's
-  window. Pass if it is within a bound not yet set.
+  With the site network giving internet access, make an HTTPS request to a public endpoint from the
+  WiseKiosk instance's own process context on the appliance. Pass if it completes.
 verification-justification: |
-  Test. It measures against a stated bound; the pass condition needs no judgement.
+  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
+  judgement.
 verification-method: test

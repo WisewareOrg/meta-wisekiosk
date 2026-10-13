@@ -1,22 +1,22 @@
 active: true
 derived: false
 header: |
-  Falls back from a configuration change that cuts it off
-level: 2.5
+  Timezone set by the operator
+level: 2.7
 links:
-- SYS003: cRbRUHcska9Gg8_qBIQ44q1JJ1fwC1Ypo3s3G8eRzCM=
+- SYS002: we4-sQcWch5HDwJ-oXfvp9Sv6m3b5_G4qYVQ1_9S9QY=
 normative: true
 rationale: |
-  Its check waits on its bound, and nothing on the appliance undoes a configuration change, so this
-  need is unverified. Unproven once its check is active: configuration changes other than WiFi
-  credentials that cut the operator off.
+  The WiseKiosk application shows time in the appliance's timezone, so the panel shows local time
+  only when the appliance's timezone is the site's. Its check settles that a timezone set over the
+  air is the one the appliance keeps time in; that it holds is SRS010's (configuration changed over
+  the air).
 ref: ''
-reviewed: 03O4K3m7qVxvBbAeXH5ND0ENPPdWfK5YrdONpPPE0mw=
+reviewed: n_p8VOcWV-1SJ-VZmTrshbRxaxEgyDLg833VH3K7Bvo=
 status: proposed
 text: |
-  A configuration change that cuts the operator off from the appliance, by its remote shell or over
-  the air, shall be undone by the appliance itself, leaving it on its previous configuration.
+  The operator shall be able to set the appliance's timezone over the air.
 verification-justification: |
-  Test. Each check beneath it injects the fault and observes the recovery from outside the
-  appliance, so the result needs no judgement.
+  Test. Each check beneath it exercises the capability directly and reads whether it worked, so the
+  result needs no judgement.
 verification-method: test

@@ -1,22 +1,22 @@
 active: true
 derived: false
 header: |
-  Remote shell for service
-level: 2.3
+  Falls back from an image update that cuts it off
+level: 2.5
 links:
-- SYS003: cRbRUHcska9Gg8_qBIQ44q1JJ1fwC1Ypo3s3G8eRzCM=
+- SYS002: we4-sQcWch5HDwJ-oXfvp9Sv6m3b5_G4qYVQ1_9S9QY=
 normative: true
 rationale: |
-  Image updates and configuration changes may later arrive by another path, such as an image update
-  server; the operator's own way in for service stays required whichever path they take. Settles
-  that a remote shell opens from another machine on the network and runs a command. Unproven: access
-  from outside the site network.
+  Settles fallback from an image update that cannot start and from one that starts but cannot join
+  the network. Unproven: an image update that cuts the operator off some other way, and whether the
+  appliance mistakes a site network outage for a bad image update.
 ref: ''
-reviewed: oDpZe8nqlo2UTnFunu7NgVUl09zgi6-A5IWvjWds8iA=
+reviewed: Je0AWeQhRE1mQyCAuWZRJsZZjQwu8pXMg-6VGKjLeac=
 status: proposed
 text: |
-  The operator shall be able to open a remote shell on the appliance over the network.
+  An image update that cuts the operator off from the appliance, by its remote shell or over the
+  air, shall be undone by the appliance itself, leaving it on its previous image.
 verification-justification: |
-  Test. Each check beneath it exercises the capability directly and reads whether it worked, so the
-  result needs no judgement.
+  Test. Each check beneath it injects the fault and observes the recovery from outside the
+  appliance, so the result needs no judgement.
 verification-method: test

@@ -1,21 +1,19 @@
 active: true
 derived: false
 header: |
-  Timezone set by the operator
-level: 2.6
+  Logs survive an image update
+level: 2.9
 links:
-- SYS003: cRbRUHcska9Gg8_qBIQ44q1JJ1fwC1Ypo3s3G8eRzCM=
+- SYS002: we4-sQcWch5HDwJ-oXfvp9Sv6m3b5_G4qYVQ1_9S9QY=
 normative: true
 rationale: |
-  The WiseKiosk application shows time in the appliance's timezone, so the panel shows local time
-  only when the appliance's timezone is the site's. Its check settles that a timezone set over the
-  air is the one the appliance keeps time in; that it holds is SRS011's (configuration changed over
-  the air).
+  An image update that goes wrong is diagnosed from what the appliance logged before and during it.
+  Its check settles that a log line written before an image update is still there after it.
 ref: ''
-reviewed: nAAcT7xkd8RrzkCGCxabmu_TNBfMPTLSV-fGh0PiQdw=
+reviewed: 4VhJ_cA-oVLzEkasUReKYAeyT_MSarMCY4mMIIp9l0M=
 status: proposed
 text: |
-  The operator shall be able to set the appliance's timezone over the air.
+  The appliance's logs from before an image update shall be readable by the operator after it.
 verification-justification: |
   Test. Each check beneath it exercises the capability directly and reads whether it worked, so the
   result needs no judgement.

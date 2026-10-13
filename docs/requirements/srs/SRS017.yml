@@ -1,21 +1,21 @@
 active: true
 derived: false
 header: |
-  Keyboard at the appliance as the last resort
-level: 2.7
+  Rejoins the site network
+level: '2.10'
 links:
-- SYS003: cRbRUHcska9Gg8_qBIQ44q1JJ1fwC1Ypo3s3G8eRzCM=
+- SYS002: we4-sQcWch5HDwJ-oXfvp9Sv6m3b5_G4qYVQ1_9S9QY=
 normative: true
 rationale: |
-  The last way in once the operator's remote shell, image updates and configuration changes over the
-  air have all failed. Its check waits on a keyboard the bench can type on automatically.
+  An outage the appliance does not recover from leaves the operator without any path over the
+  network until someone visits. Its check waits on control of the site network at the bench and on
+  its bound.
 ref: ''
-reviewed: 6jE7hCLC5GR4WZbk1BlMBFlszXZMTgh97cDl73OIggQ=
+reviewed: P3ZQu0zJBRffk6MyBvCUinqtMICW2SArpwowOTdrWQg=
 status: proposed
 text: |
-  When every path over the network is gone, a keyboard attached to the appliance shall give the
-  operator a shell.
+  When the site network returns after an outage, the appliance shall rejoin it by itself.
 verification-justification: |
-  Test. Each check beneath it exercises the capability directly and reads whether it worked, so the
-  result needs no judgement.
+  Test. Each check beneath it injects the fault and observes the recovery from outside the
+  appliance, so the result needs no judgement.
 verification-method: test

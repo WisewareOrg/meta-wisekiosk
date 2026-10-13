@@ -1,26 +1,21 @@
-active: true
+active: false
 derived: false
 header: |
-  Remote shell runs a command
-level: 2.7
+  Pending: Refuses another hardware type's image update
+level: 2.2.2
 links:
-- SRS012: GEl0A2A-h5UPMj0GMsfPfqBw8DODWX-1TG4QgHoyBVU=
+- SRS009: A_amw6a8blYGOJ9bTxpIB0QHwapd59Ufkry58bvcNeI=
 normative: true
 rationale: |
-  Verified by test_page_serves in the device smoke tier, which runs a command on the appliance over
-  its remote shell from the build host and fails unless the command runs. The pipeline runs it after
-  every image update.
+  Waits on its test.
 ref: ''
-references:
-- keyword: def test_page_serves
-  path: meta-wisekiosk/lib/oeqa/runtime/cases/wisekiosk.py
-  sha: 3e1d7f0d3883053188fe2219c1938a2611e6079555d99bc79621f2f8979270d6
-  type: file
-reviewed: Bd5_max4LSzrLSHEuZIGrcdwIEw7md_3SD_WrhtMuSc=
+references: []
+reviewed: Kypb41k9Nbge7Op6-OCq0bFcXwAM0VPsf5PYLinVxEE=
 status: proposed
 text: |
-  From another machine on the network, open a remote shell on the appliance and run a command in it.
-  Pass if the command runs.
+  Offer the appliance an image update signed by one of its operators but built for a different kind
+  of hardware. Pass if it refuses the image update and is still running the same build, with the
+  WiseKiosk instance on the panel.
 verification-justification: |
   Test. It exercises the capability and reads the result mechanically; the pass condition needs no
   judgement.

@@ -2,7 +2,7 @@ active: true
 derived: false
 header: |
   Configured and maintained over the air
-level: 1.1
+level: 2.0
 links: []
 normative: true
 rationale: |
@@ -13,7 +13,7 @@ rationale: |
   back from an image update that cuts the operator off. Falling back from a configuration change has
   no bound set. Unproven: any way of losing the operator's access that its checks do not induce.
 ref: ''
-reviewed: cRbRUHcska9Gg8_qBIQ44q1JJ1fwC1Ypo3s3G8eRzCM=
+reviewed: we4-sQcWch5HDwJ-oXfvp9Sv6m3b5_G4qYVQ1_9S9QY=
 status: proposed
 text: |
   Once provisioned, the appliance shall be configured and maintained by its operator, primarily over

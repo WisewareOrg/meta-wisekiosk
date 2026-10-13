@@ -1,20 +1,21 @@
 active: false
 derived: false
 header: |
-  Pending: Memory over a long run
-level: 3.7
+  Pending: Log kept across an image update
+level: 2.9.1
 links:
-- SRS019: 9gaR8WEIbKbZIUFNKGFPxxftGKjitTlfN-OuytwlUcs=
+- SRS016: tzlUJes3H5BEhUDY5knRHilIa8GyUU0-xLBmDod4K4Y=
 normative: true
 rationale: |
-  Waits on its test and its bound.
+  Waits on its test.
 ref: ''
 references: []
-reviewed: hlvn75xVvRezHgv0GU6LjYFDbjn-gKvRKJjVX3klNFk=
+reviewed: W2hvcpIWtWX8QOki6P1vmZgnIJCx2l_NjOk5l-bMmDQ=
 status: proposed
 text: |
-  With the WiseKiosk instance on the panel, run the appliance for a period not yet set, sampling its
-  memory use. Pass if it stays under 80% of usable memory throughout.
+  Write a marker line to the appliance's log, then install a valid image update over the air. Pass
+  if the marker is in the log the appliance holds after it restarts.
 verification-justification: |
-  Test. It measures against a stated bound; the pass condition needs no judgement.
+  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
+  judgement.
 verification-method: test

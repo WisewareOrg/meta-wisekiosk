@@ -1,21 +1,21 @@
 active: false
 derived: false
 header: |
-  Pending: Sustained network load
-level: 3.2
+  Pending: Image that cannot start
+level: 2.5.1
 links:
-- SRS002: J1S9BS-RXgQhjTFugcSyFBK8vAZaFReeIxTgn9Y2Xlk=
+- SRS012: g4fr8dj_fdpvkjPL1q-4VBxy9Gtng0JG2Uj35CMSJus=
 normative: true
 rationale: |
-  Waits on its test and its bound.
+  Waits on its test.
 ref: ''
 references: []
-reviewed: q8LprotcjdvcPkuC4nEVg6GmsoESrFufchczW-Uqcx8=
+reviewed: 0Qvh9aTDCGAzVMhQG6WgMc5hf6hXTATFD9BGsOg1S24=
 status: proposed
 text: |
-  With the WiseKiosk instance on the panel, hold the appliance's network under sustained load for a
-  period not yet set. Pass if the panel shows the live instance throughout, or is back within 60 s
-  of any time it stops.
+  With nobody at the panel, install over the air an image update that cannot start. Pass if the
+  appliance is back on its previous build within three failed attempts to start the image update,
+  and accepts a valid image update over the air.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.

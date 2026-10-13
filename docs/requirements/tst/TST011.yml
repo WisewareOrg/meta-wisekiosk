@@ -1,22 +1,20 @@
 active: false
 derived: false
 header: |
-  Pending: Image update with a new application build
-level: 2.0
+  Pending: Restart to the panel
+level: 1.4.1
 links:
-- SRS002: J1S9BS-RXgQhjTFugcSyFBK8vAZaFReeIxTgn9Y2Xlk=
+- SRS004: 6GW0ujQU0bNMyJN8mUU22YIF013OOeOJOi_KdjbkByc=
 normative: true
 rationale: |
   Waits on its test.
 ref: ''
 references: []
-reviewed: uIoGMeLy63FkZBGJvPdCCPi_-2mUedYHPcWlyIT-xTE=
+reviewed: M__Zj5tWStOMiof0ORnYHpS6rDyU2p6WbCeRb2FQ76M=
 status: proposed
 text: |
-  With nobody at the panel, install over the air a valid image update carrying a different WiseKiosk
-  build from the one running. Pass if the WiseKiosk instance is on the panel within 60 s of the
-  appliance restarting into it.
+  Restart the appliance over the network, with nobody at the panel. Pass if the WiseKiosk instance
+  is on the panel within 60 s of the restart.
 verification-justification: |
-  Test. It injects the fault and observes the result from outside the appliance; the pass condition
-  needs no judgement.
+  Test. It measures against a stated bound; the pass condition needs no judgement.
 verification-method: test

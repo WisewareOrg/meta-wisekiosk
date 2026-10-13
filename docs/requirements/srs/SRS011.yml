@@ -1,21 +1,21 @@
 active: true
 derived: false
 header: |
-  Configuration changed over the air
-level: 2.2
+  Remote shell for service
+level: 2.4
 links:
-- SYS003: cRbRUHcska9Gg8_qBIQ44q1JJ1fwC1Ypo3s3G8eRzCM=
+- SYS002: we4-sQcWch5HDwJ-oXfvp9Sv6m3b5_G4qYVQ1_9S9QY=
 normative: true
 rationale: |
-  Settles that a configuration change made over the air holds across an image update and a restart;
-  the power-cut check waits on power control. Unproven: whether the application acts on the
-  configuration the appliance holds, which is the application's own requirement.
+  Image updates and configuration changes may later arrive by another path, such as an image update
+  server; the operator's own way in for service stays required whichever path they take. Settles
+  that a remote shell opens from another machine on the network and runs a command. Unproven: access
+  from outside the site network.
 ref: ''
-reviewed: odK3c7RAzdpcJBn21dDeErfpWtClMU6ru4BaFtgwwZE=
+reviewed: _WZRVZ4rKF_VuJWORGRI_rL4iTnli4Q_kzYHefNTIxI=
 status: proposed
 text: |
-  The operator shall be able to change the appliance's configuration over the air, and the change
-  shall hold until they change it again.
+  The operator shall be able to open a remote shell on the appliance over the network.
 verification-justification: |
   Test. Each check beneath it exercises the capability directly and reads whether it worked, so the
   result needs no judgement.

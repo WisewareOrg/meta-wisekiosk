@@ -1,20 +1,21 @@
 active: false
 derived: false
 header: |
-  Pending: Restart to the panel
-level: 1.0
+  Pending: Browser killed
+level: 1.1.1
 links:
-- SRS008: xAFcyiChHJ4Jg0AKjNBwWUkUC6NBNoksR9eYf3Vrh7E=
+- SRS001: mHF_3E-UfqxDFcUPdCyvErtJ2u-SY5fAEBMb5iey9TY=
 normative: true
 rationale: |
   Waits on its test.
 ref: ''
 references: []
-reviewed: AK8wcVSibXhRVx5FjbxJs5fGAAgArKVvkqGVbMTJtrE=
+reviewed: gVAkyVWVEQsMH7Y1KWWWolvqvaXcSCOg3lWICnl1D3I=
 status: proposed
 text: |
-  Restart the appliance over the network, with nobody at the panel. Pass if the WiseKiosk instance
-  is on the panel within 60 s of the restart.
+  With nobody at the panel, kill the browser. Pass if the WiseKiosk instance is back on the panel
+  within 15 s.
 verification-justification: |
-  Test. It measures against a stated bound; the pass condition needs no judgement.
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
 verification-method: test

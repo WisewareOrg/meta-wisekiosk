@@ -1,21 +1,20 @@
 active: false
 derived: false
 header: |
-  Pending: Shell from an attached keyboard
-level: 3.5
+  Pending: Timezone set over the air
+level: 2.7.1
 links:
-- SRS017: kvBV3F7mL8Ey409ACgiBEF-uJUC61i6t_e8_jOBQIcs=
+- SRS014: ei1J9G_CrbqHlkzAiWYIGPijSd00Uf5HXA7lA3On6pM=
 normative: true
 rationale: |
-  Waits on its test, and on a keyboard the bench can type on automatically, which the project does
-  not have.
+  Waits on its test.
 ref: ''
 references: []
-reviewed: c2lOEmwpH_Qp1Jbjn7UmxHnTE0xsaas7QXQzPosdT7U=
+reviewed: bY8yV7masMF-Z27tiq-Dp8eZdJ2ywmJ8QGPsm0B72eg=
 status: proposed
 text: |
-  With the appliance's network unavailable, attach a keyboard and log in with it. Pass if a command
-  typed there runs.
+  Set the appliance's timezone over the air to one different from its current timezone. Pass if the
+  local time the appliance reports is in the timezone that was set.
 verification-justification: |
   Test. It exercises the capability and reads the result mechanically; the pass condition needs no
   judgement.

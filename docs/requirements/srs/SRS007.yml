@@ -2,7 +2,7 @@ active: true
 derived: false
 header: |
   Corrects a wrong clock
-level: 1.95
+level: 1.7
 links:
 - SYS001: 6toqMs3OqOyDFeKZNdo9Impt-vFTglHoMyEFvMz35zQ=
 normative: true
@@ -11,7 +11,7 @@ rationale: |
   shows the wrong time on the panel and makes HTTPS fail, cutting the instance off from its data.
   Its check waits on its bound.
 ref: ''
-reviewed: 0HLHSgY87DkThyFTIWQRGhglb1XH1t6RUMhzl6FQUDM=
+reviewed: XSiNszw86pzK_rpyk1Ap_hDMrW-Eo0Sk7VWHMsesRkw=
 status: proposed
 text: |
   When the appliance's clock is wrong, the appliance shall correct it by itself once the site

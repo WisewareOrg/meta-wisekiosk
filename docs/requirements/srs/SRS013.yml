@@ -1,21 +1,21 @@
 active: true
 derived: false
 header: |
-  Falls back from an image update that cuts it off
-level: 2.4
+  Falls back from a configuration change that cuts it off
+level: 2.6
 links:
-- SYS003: cRbRUHcska9Gg8_qBIQ44q1JJ1fwC1Ypo3s3G8eRzCM=
+- SYS002: we4-sQcWch5HDwJ-oXfvp9Sv6m3b5_G4qYVQ1_9S9QY=
 normative: true
 rationale: |
-  Settles fallback from an image update that cannot start and from one that starts but cannot join
-  the network. Unproven: an image update that cuts the operator off some other way, and whether the
-  appliance mistakes a site network outage for a bad image update.
+  Its check waits on its bound, and nothing on the appliance undoes a configuration change, so this
+  need is unverified. Unproven once its check is active: configuration changes other than WiFi
+  credentials that cut the operator off.
 ref: ''
-reviewed: YagKL252dUu9h9dGXzU-lnp1ROh1FqSVTOJw8ui-Kac=
+reviewed: _A8LnL6JuUgN_Iavc6w6MPYRKPYRuj5EclJu1K38xuQ=
 status: proposed
 text: |
-  An image update that cuts the operator off from the appliance, by its remote shell or over the
-  air, shall be undone by the appliance itself, leaving it on its previous image.
+  A configuration change that cuts the operator off from the appliance, by its remote shell or over
+  the air, shall be undone by the appliance itself, leaving it on its previous configuration.
 verification-justification: |
   Test. Each check beneath it injects the fault and observes the recovery from outside the
   appliance, so the result needs no judgement.

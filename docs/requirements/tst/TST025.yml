@@ -1,21 +1,23 @@
 active: false
 derived: false
 header: |
-  Pending: Timezone set over the air
-level: 3.4
+  Pending: WiFi credentials the site rejects
+level: 2.6.1
 links:
-- SRS016: zKCfG4gFmuumop618r2bCxzQnlRMnOCUFfY5q8v84Qo=
+- SRS013: 9D--Bt_QK8Fb5VJ8czSLAGP3b96bZxiyMouvsYStkms=
 normative: true
 rationale: |
-  Waits on its test.
+  Waits on its test and its bound.
 ref: ''
 references: []
-reviewed: 9usv8z7FpWWu9x6hexLmMGp_7Nue74FfQsTJe_tQxFQ=
+reviewed: OxWQEBeOJyF7tKip63ZLdb4r7nBsfCQPNbI73XOtt5Y=
 status: proposed
 text: |
-  Set the appliance's timezone over the air to one different from its current timezone. Pass if the
-  local time the appliance reports is in the timezone that was set.
+  With the site network healthy and nobody at the panel, change the appliance's WiFi configuration
+  over the air to credentials the site network rejects. Pass if the appliance is back on its
+  previous configuration within a bound not yet set, and accepts a configuration change over the
+  air.
 verification-justification: |
-  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
-  judgement.
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
 verification-method: test

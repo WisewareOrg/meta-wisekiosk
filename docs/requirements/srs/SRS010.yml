@@ -1,21 +1,21 @@
 active: true
 derived: false
 header: |
-  Refuses image updates not meant for it
-level: 2.1
+  Configuration changed over the air
+level: 2.3
 links:
-- SYS003: cRbRUHcska9Gg8_qBIQ44q1JJ1fwC1Ypo3s3G8eRzCM=
+- SYS002: we4-sQcWch5HDwJ-oXfvp9Sv6m3b5_G4qYVQ1_9S9QY=
 normative: true
 rationale: |
-  An image update is meant for it when one of its operators signed it and it was built for its kind
-  of hardware. Settles refusal of an image update signed by a key no operator holds, and of one
-  built for a different kind of hardware. Unproven: an image update that is signed correctly but
-  carries a bad image, which SRS013 (falls back from an image update that cuts it off) covers.
+  Settles that a configuration change made over the air holds across an image update and a restart;
+  the power-cut check waits on power control. Unproven: whether the application acts on the
+  configuration the appliance holds, which is the application's own requirement.
 ref: ''
-reviewed: d_ZZZTAPsMybBWbzV7pt9x75-iyn4SJmO9qC2cyBYV0=
+reviewed: 5hbl6tkjYMUzkdqrTUsLMbhO1c-J4B9xqKrmYEg37ak=
 status: proposed
 text: |
-  The appliance shall refuse an image update not meant for it.
+  The operator shall be able to change the appliance's configuration over the air, and the change
+  shall hold until they change it again.
 verification-justification: |
   Test. Each check beneath it exercises the capability directly and reads whether it worked, so the
   result needs no judgement.

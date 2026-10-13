@@ -1,21 +1,19 @@
 active: true
 derived: false
 header: |
-  The instance can fetch its data
-level: 1.3
+  Prompt from power-on
+level: 1.4
 links:
 - SYS001: 6toqMs3OqOyDFeKZNdo9Impt-vFTglHoMyEFvMz35zQ=
 normative: true
 rationale: |
-  Settles that one HTTPS request completes from the instance's own process context. Unproven:
-  reaching the instance's own data sources specifically, and a capability lost between checks.
+  TST012 (cold boot to the panel) waits on power control and its bound. TST011 (restart to the
+  panel) settles the warm path only; it skips the cold-power path a real outage takes.
 ref: ''
-reviewed: WW290q1QV24KZBz5gix_NBiCWzaCpOfq7jvG-GSSlEY=
+reviewed: nVP-elh5a2GqIjEEAq9jUrqDFQcvcwbcIj5xLE8ThJ4=
 status: proposed
 text: |
-  The WiseKiosk instance shall be able to fetch its data whenever the site network gives the
-  appliance internet access.
+  After power is applied, the appliance shall bring the WiseKiosk instance onto the panel promptly.
 verification-justification: |
-  Test. Each check beneath it exercises the capability directly and reads whether it worked, so the
-  result needs no judgement.
+  Test. Each check beneath it measures against a stated bound, so the result needs no judgement.
 verification-method: test

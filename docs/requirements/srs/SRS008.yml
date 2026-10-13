@@ -1,19 +1,21 @@
 active: true
 derived: false
 header: |
-  Prompt from power-on
-level: 1.7
+  Takes an image update over the air
+level: 2.1
 links:
-- SYS001: 6toqMs3OqOyDFeKZNdo9Impt-vFTglHoMyEFvMz35zQ=
+- SYS002: we4-sQcWch5HDwJ-oXfvp9Sv6m3b5_G4qYVQ1_9S9QY=
 normative: true
 rationale: |
-  TST008 (cold boot to the panel) waits on power control and its bound. TST001 (restart to the
-  panel) settles the warm path only; it skips the cold-power path a real outage takes.
+  Settles that one valid image update, delivered over the air, leaves the appliance running the
+  build it carried. Unproven: image updates delivered by any path other than the one the check uses.
 ref: ''
-reviewed: iWbkGxECmclGUrzD62bZmlOxgv9hjpxg8K6IdDgvXcQ=
+reviewed: ZwJXxuw-YdH12F8GbVCPcoTj-t6tW3bB_qXsK0rDegg=
 status: proposed
 text: |
-  After power is applied, the appliance shall bring the WiseKiosk instance onto the panel promptly.
+  A valid image update installed over the air shall leave the appliance running the image it
+  carried.
 verification-justification: |
-  Test. Each check beneath it measures against a stated bound, so the result needs no judgement.
+  Test. Each check beneath it exercises the capability directly and reads whether it worked, so the
+  result needs no judgement.
 verification-method: test

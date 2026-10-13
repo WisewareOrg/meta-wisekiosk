@@ -1,23 +1,21 @@
 active: false
 derived: false
 header: |
-  Pending: Image that cannot reach the network
-level: 2.9
+  Pending: Configuration held across a restart
+level: 2.3.2
 links:
-- SRS013: P4TAERRJdf6r8jgTUVz8ehCIwUJ3rr9_VK0PSMJeFD8=
+- SRS010: AwaFoX_yAriClXD63RQ5h9A8DQz38RL7MypMTxlAX-w=
 normative: true
 rationale: |
   Waits on its test.
 ref: ''
 references: []
-reviewed: 7vzitBLi0279qYSutee1AvKdXZYh0tlfrF-M5wDpqTY=
+reviewed: hkEw9myJznx64zZgfOviXgza_dZJBdZMvr4xIVsPzdo=
 status: proposed
 text: |
-  With the site network healthy and nobody at the panel, install over the air an image update that
-  starts but cannot join the network, its site configuration unchanged. Pass if the appliance is
-  back on its previous build within three failed attempts to start the image update, and accepts a
-  valid image update over the air.
+  Change the appliance's configuration over the air, then restart the appliance over the network.
+  Pass if the configuration the appliance holds afterwards is the changed one.
 verification-justification: |
-  Test. It injects the fault and observes the result from outside the appliance; the pass condition
-  needs no judgement.
+  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
+  judgement.
 verification-method: test

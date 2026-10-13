@@ -1,20 +1,21 @@
 active: false
 derived: false
 header: |
-  Pending: Frozen page recovered
-level: 1.6
+  Pending: Left untouched past blanking
+level: 1.1.7
 links:
-- SRS002: J1S9BS-RXgQhjTFugcSyFBK8vAZaFReeIxTgn9Y2Xlk=
+- SRS001: mHF_3E-UfqxDFcUPdCyvErtJ2u-SY5fAEBMb5iey9TY=
 normative: true
 rationale: |
   Waits on its test.
 ref: ''
 references: []
-reviewed: m4eIslK3uVro4WV1MVPmcyL2Y5i-o8EeI8C8ahJ8mEw=
+reviewed: -rg_niYZsKQU17hjRdn4usyYRAW-DSy1rCKg3E9YtvA=
 status: proposed
 text: |
-  With the WiseKiosk instance configured to show a clock with seconds, freeze the page without
-  ending the browser. Pass if the panel is changing again within 60 s of the freeze.
+  With the WiseKiosk instance configured to show a clock with seconds and nobody touching the
+  appliance, leave it for longer than the display's default blanking time. Pass if the panel keeps
+  changing throughout, or is changing again within 60 s of any time it stops.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.

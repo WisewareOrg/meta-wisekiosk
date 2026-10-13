@@ -1,20 +1,22 @@
 active: false
 derived: false
 header: |
-  Pending: Cold boot to the panel
-level: 1.7
+  Pending: Sustained network load
+level: 1.1.8
 links:
-- SRS008: xAFcyiChHJ4Jg0AKjNBwWUkUC6NBNoksR9eYf3Vrh7E=
+- SRS001: mHF_3E-UfqxDFcUPdCyvErtJ2u-SY5fAEBMb5iey9TY=
 normative: true
 rationale: |
-  Waits on its test, its bound, and on power control at the bench, which the project does not have.
+  Waits on its test and its bound.
 ref: ''
 references: []
-reviewed: W0dDemxRNro9zpGMsQP3kAilJHHWbVn0t2NXYetipQA=
+reviewed: m2vxcQ5tfytvStHKHPAVytk9AEG7K5nuak-IxnTHe8k=
 status: proposed
 text: |
-  With the appliance powered off and nobody at the panel, apply power. Pass if the WiseKiosk
-  instance is on the panel within a bound not yet set.
+  With the WiseKiosk instance on the panel, hold the appliance's network under sustained load for a
+  period not yet set. Pass if the panel shows the live instance throughout, or is back within 60 s
+  of any time it stops.
 verification-justification: |
-  Test. It measures against a stated bound; the pass condition needs no judgement.
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
 verification-method: test

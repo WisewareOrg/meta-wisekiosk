@@ -1,22 +1,20 @@
 active: false
 derived: false
 header: |
-  Pending: Refuses another hardware type's image update
-level: 2.3
+  Pending: Memory over a long run
+level: 1.6.1
 links:
-- SRS010: judm4iOOIFwC-AtDeAtVYoslik2bucErmRx7bPC5XUo=
+- SRS006: c10pAuZ9MpgcRszOJG-Nx4UOguYGWxIya8WGXLHv1i8=
 normative: true
 rationale: |
-  Waits on its test.
+  Waits on its test and its bound.
 ref: ''
 references: []
-reviewed: C6goD0UObQX3inpyI-Vd0ufbEtIPzxsQBQy7ZBC595o=
+reviewed: bUFBVtek1bS8J7kmjLImCzofQo0ctNFkJlCj5yCu6Nc=
 status: proposed
 text: |
-  Offer the appliance an image update signed by one of its operators but built for a different kind
-  of hardware. Pass if it refuses the image update and is still running the same build, with the
-  WiseKiosk instance on the panel.
+  With the WiseKiosk instance on the panel, run the appliance for a period not yet set, sampling its
+  memory use. Pass if it stays under 80% of usable memory throughout.
 verification-justification: |
-  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
-  judgement.
+  Test. It measures against a stated bound; the pass condition needs no judgement.
 verification-method: test

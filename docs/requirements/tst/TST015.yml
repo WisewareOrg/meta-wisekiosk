@@ -1,21 +1,21 @@
 active: false
 derived: false
 header: |
-  Pending: Configuration held across an image update
-level: 2.4
+  Pending: Clock set wrong
+level: 1.7.1
 links:
-- SRS011: v_rlPtEhcGyIPeD3d4JCRsMq2BqbHQ7hX5dKTM5cnrY=
+- SRS007: sE7qd8vPfy6eTEWunnSiIAAS9W-KzeOGpV0qfEqKJRA=
 normative: true
 rationale: |
-  Waits on its test.
+  Waits on its test and its bound.
 ref: ''
 references: []
-reviewed: jHXdOqlAlrhr6NL5R110lY-DW_1CRQ1JD80o9BHZHYs=
+reviewed: KLPXosLxU0nLuzFxXW-U16x-nT7PJXiNoGhdrZl9y1Y=
 status: proposed
 text: |
-  Change the appliance's configuration over the air, then install a valid image update over the air.
-  Pass if the configuration the appliance holds after it restarts is the changed one.
+  With the site network up, set the appliance's clock wrong by days, then restart the appliance.
+  Pass if, within a bound not yet set, the appliance's clock agrees with the network's time.
 verification-justification: |
-  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
-  judgement.
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
 verification-method: test

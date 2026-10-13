@@ -1,21 +1,20 @@
 active: false
 derived: false
 header: |
-  Pending: Running the image update's build
-level: 2.1
+  Pending: Cold boot to the panel
+level: 1.4.2
 links:
-- SRS009: B9L4dxUF7ZxIzZ76JCa2wOXqNl_uZ5_ox0mV-u3ygnk=
+- SRS004: 6GW0ujQU0bNMyJN8mUU22YIF013OOeOJOi_KdjbkByc=
 normative: true
 rationale: |
-  Waits on its test.
+  Waits on its test, its bound, and on power control at the bench, which the project does not have.
 ref: ''
 references: []
-reviewed: R-aASYpfmqgYu4IHbzZXMHoeTCG6cR2RHAjmkGbP17c=
+reviewed: p5rf433LN0JT9CQxTrgs2CaXDGdk277koRYnb7iaIyA=
 status: proposed
 text: |
-  Install a valid image update over the air, then read which build the running appliance reports.
-  Pass if it is the build the image update carried.
+  With the appliance powered off and nobody at the panel, apply power. Pass if the WiseKiosk
+  instance is on the panel within a bound not yet set.
 verification-justification: |
-  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
-  judgement.
+  Test. It measures against a stated bound; the pass condition needs no judgement.
 verification-method: test

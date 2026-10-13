@@ -1,20 +1,21 @@
 active: false
 derived: false
 header: |
-  Pending: Power cut during an image update
-level: 1.3
+  Pending: Kernel crash
+level: 1.1.4
 links:
-- SRS002: J1S9BS-RXgQhjTFugcSyFBK8vAZaFReeIxTgn9Y2Xlk=
+- SRS001: mHF_3E-UfqxDFcUPdCyvErtJ2u-SY5fAEBMb5iey9TY=
 normative: true
 rationale: |
-  Waits on its test, and on power control at the bench, which the project does not have.
+  Waits on its test.
 ref: ''
 references: []
-reviewed: Dnf2EWCu8gNJvZx-vNJPpYAC9IQpZ2aJUmRY7i9ZZF0=
+reviewed: yT_W0XyAdtWrTkTcfZU_IOY65-NzTAyhDp0Cg_At9a0=
 status: proposed
 text: |
-  Cut the appliance's power while an image update is being installed, then restore it. Pass if the
-  WiseKiosk instance is on the panel within 60 s of power returning, on either image.
+  With nobody at the panel, crash the kernel over the network so that nothing on the appliance runs.
+  Pass if the appliance restarts by itself and the WiseKiosk instance is on the panel within 60 s of
+  the crash.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.
