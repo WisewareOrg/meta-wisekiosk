@@ -33,24 +33,19 @@ jobs:
       - name: Install PyYAML
         run: python3 -m pip install --quiet pyyaml
 
-      # Guard 21 runs `uv run --locked check-reqs`, so uv and the dev group
-      # must exist before "Run repository guards" below.
+      # wise-ci's check-reqs action needs uv on PATH.
       - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: "0.12.20"
 
-      # wise-ci's own composite action, run alongside guard 21's local wrapper
-      # in tools/ci-guards.sh -- whether both stay is still open.
-      - uses: WisewareOrg/wise-ci/check-reqs@224efb4b448d60cebb4877b36890256657e4e58b
-        with:
-          root: docs/requirements
-
-      - name: Install pinned Python tooling
-        id: uv-sync
-        run: uv sync --frozen --group dev
-
       - name: Run repository guards
         run: tools/ci-guards.sh
+
+      # !cancelled(), as for the steps below: a failing guard leaves the tree checked.
+      - uses: WisewareOrg/wise-ci/check-reqs@224efb4b448d60cebb4877b36890256657e4e58b
+        if: ${{ !cancelled() }}
+        with:
+          root: docs/requirements
 
       # Pure stdlib, no install step. tools/doc-image.py is deliberately NOT
       # here: it compares prose against a built rootfs, CI never builds one, and
