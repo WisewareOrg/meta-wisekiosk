@@ -61,7 +61,7 @@ to serve that.
 - **Self-sufficient.** Everything the instance needs runs on the one board. A deployment depends on
   no other machine the operator runs.
 - **Isolated.** Each appliance is its own deployment, unrelated to and unconnected with every other.
-- **Easy to keep.** The operator configures, deploys and maintains it without a visit to the panel.
+- **Easy to keep.** The operator configures, deploys and maintains it, primarily without a visit to the panel.
 
 ## Layout: scaffolding vs. layer
 
