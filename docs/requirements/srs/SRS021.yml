@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Corrects a wrong clock
+level: 1.95
+links:
+- SYS001: Pzp1loqe86fVFpfP12JQ7cFZssZL9NaN8YciKho9Hu4=
+normative: true
+rationale: |
+  The appliance has no battery-backed clock, so it can start with the wrong time. A wrong clock
+  shows the wrong time on the panel and makes HTTPS fail, cutting the instance off from its data.
+  Its check waits on its bound.
+ref: ''
+reviewed: 0HLHSgY87DkThyFTIWQRGhglb1XH1t6RUMhzl6FQUDM=
+status: proposed
+text: |
+  When the appliance's clock is wrong, the appliance shall correct it by itself once the site
+  network can supply the time.
+verification-justification: |
+  Test. Each check beneath it injects the fault and observes the recovery from outside the
+  appliance, so the result needs no judgement.
+verification-method: test

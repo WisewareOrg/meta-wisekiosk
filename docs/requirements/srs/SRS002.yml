@@ -4,7 +4,7 @@ header: |
   Recovers the instance to the panel
 level: 1.1
 links:
-- SYS001: 8SdZkohcyDrGQAGwxe-w6XzBd-UUhNYMV9efIjQBnLk=
+- SYS001: Pzp1loqe86fVFpfP12JQ7cFZssZL9NaN8YciKho9Hu4=
 normative: true
 rationale: |
   A check counts the instance on the panel when the browser shows the instance the appliance serves

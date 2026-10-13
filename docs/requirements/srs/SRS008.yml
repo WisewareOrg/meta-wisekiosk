@@ -4,7 +4,7 @@ header: |
   Prompt from power-on
 level: 1.7
 links:
-- SYS001: 8SdZkohcyDrGQAGwxe-w6XzBd-UUhNYMV9efIjQBnLk=
+- SYS001: Pzp1loqe86fVFpfP12JQ7cFZssZL9NaN8YciKho9Hu4=
 normative: true
 rationale: |
   TST008 waits on power control and its bound. TST001 settles the warm path only; it skips the

@@ -1,0 +1,21 @@
+active: false
+derived: false
+header: |
+  Pending: Clock set wrong
+level: 3.9
+links:
+- SRS021: yK9nGNfLwH8jz-R84GK4W8CNfppFejQdcTI0EhJ-J_U=
+normative: true
+rationale: |
+  Waits on its test and its bound.
+ref: ''
+references: []
+reviewed: jcyTLBd8tkwSYgYMuPzAAj5XlPJppDm6RX0rvdkJWHo=
+status: proposed
+text: |
+  With the site network up, set the appliance's clock wrong by days. Pass if, within a bound not yet
+  set, the appliance's clock agrees with the network's time.
+verification-justification: |
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
+verification-method: test
