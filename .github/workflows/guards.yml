@@ -33,6 +33,16 @@ jobs:
       - name: Install PyYAML
         run: python3 -m pip install --quiet pyyaml
 
+      # Guard 23 runs `uv run --locked check-reqs`, so uv and the dev group
+      # must exist before "Run repository guards" below.
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "0.12.20"
+
+      - name: Install pinned Python tooling
+        id: uv-sync
+        run: uv sync --frozen --group dev
+
       - name: Run repository guards
         run: tools/ci-guards.sh
 
