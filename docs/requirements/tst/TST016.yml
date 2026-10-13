@@ -8,15 +8,15 @@ links:
 normative: true
 rationale: |
   Verified by test_buildinfo_names_commit in the target suite, which reads /etc/buildinfo on the
-  booted board after the runner installs the candidate as an image update and fails unless it names
-  the commit under test.
+  booted board after the target suite's own setup fixture installs the candidate as an image update
+  through the layer's OTA recipes, and fails unless it names the commit under test.
 ref: ''
 references:
 - keyword: def test_buildinfo_names_commit
   path: tests/target_suite/test_target_commit.py
-  sha: 6db464b91428a03d9e24b33e9b9db2acbbc8203754c6510d5fae6c1c7dfb1378
+  sha: 05cb13d74cf07062bb8de73e831f65f580c844f1ad036da49e119b1b5ac0d03e
   type: file
-reviewed: NZzNrBn8KCGMOp7mJI8c3wTZPRNoggw1Uwap-5zJMFU=
+reviewed: C7aO0WccYAvrbkfcp-VddB33b_znajFS-DzGCwxxb34=
 status: proposed
 text: |
   Install a valid image update over the air, then read which build the running appliance reports.
