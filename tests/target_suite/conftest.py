@@ -7,16 +7,23 @@ import pytest
 
 @pytest.fixture(scope="session", autouse=True)
 def install_candidate(target, bench_candidate):
-    """Install `bench_candidate` on the board, then print the board's commit.
+    """Install `bench_candidate` on the board, if there is one, then print its commit.
 
-    No installation when `bench_candidate` is None -- no candidate was built this run.
-    Otherwise runs `just kiosk-ota` and `just kiosk-reboot` against the board the
-    target's NetworkService names -- read without activating labgrid's own SSH driver,
-    since `kiosk-ota`'s own build and transfer need no ssh connection of ours. Either
-    way, gets the SSHDriver -- fresh, for the first time, after `kiosk-reboot` already
-    waited through the reboot when there was one; activating raises if labgrid's master
-    cannot connect -- reads /etc/buildinfo, and prints the board's meta-wisekiosk commit
-    so pytest captures it into the run's report.
+    Installs by running `just kiosk-ota` and `just kiosk-reboot` against the board the
+    target's NetworkService names. Either way, gets the SSHDriver, reads
+    /etc/buildinfo, and prints the board's meta-wisekiosk commit as
+    `board_commit=<sha>`.
+
+    Args:
+        target (labgrid.Target): names the board's NetworkService and SSHDriver.
+        bench_candidate (str | None): the commit under test, or None outside a build.
+
+    Raises:
+        subprocess.CalledProcessError: `just kiosk-ota` or `just kiosk-reboot` exits
+            nonzero.
+        Exception: the SSHDriver's own activation times out reaching the board.
+        AssertionError: /etc/buildinfo cannot be read, or carries no meta-wisekiosk
+            line.
     """
     if bench_candidate is not None:
         service = target.get_resource("NetworkService")

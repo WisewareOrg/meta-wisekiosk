@@ -9,6 +9,6 @@ ROOTFS = (
 
 
 def test_reproducibility_gate():
-    """Pass only if the tree is clean and pushed and the image names HEAD."""
+    """The build hook's rootfs names a clean, pushed HEAD (reproducibility-gate.sh)."""
     result = subprocess.run(["tools/reproducibility-gate.sh", "--image", ROOTFS], check=False)
     assert result.returncode == 0

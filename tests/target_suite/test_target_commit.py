@@ -7,9 +7,19 @@ def test_buildinfo_names_commit(target, bench_candidate, record_property):
     """TST016: after an image update, /etc/buildinfo names the installed commit.
 
     Skipped when `bench_candidate` is None -- a plain pytest invocation outside the
-    runner, or `bench test <ref> --skip-build`, which runs this suite against the board
-    as it is with no candidate built. image-buildinfo writes one line per BBLAYERS entry
-    as "<layer> = <branch>:<sha>[ -- modified]".
+    runner, or `bench test <ref> --skip-build`, running this suite against the board
+    as it is with no candidate built. image-buildinfo writes one line per BBLAYERS
+    entry as "<layer> = <branch>:<sha>[ -- modified]".
+
+    Args:
+        target (labgrid.Target): names the board's SSHDriver.
+        bench_candidate (str | None): the commit under test, or None outside a build.
+        record_property (Callable[[str, object], None]): pytest's fixture for
+            attaching a property to this test's report.
+
+    Raises:
+        AssertionError: /etc/buildinfo cannot be read, carries no meta-wisekiosk line,
+            or names a commit other than `bench_candidate`.
     """
     if bench_candidate is None:
         pytest.skip("no bench_candidate: a plain pytest run, or bench test --skip-build")
