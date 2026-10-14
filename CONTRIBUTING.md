@@ -77,7 +77,7 @@ hook and `just guards` therefore fail where CI passes: create `local/device-iden
 `--allow-partial` yourself and know that a hostname or an SSID went unlooked-for.
 
 None of the above builds or boots anything — [`docs/testing.md`](docs/testing.md) covers the tiers
-that do, what each one actually proves, and how to run the pipeline behind the two OTA tiers.
+that do, what each one actually proves, and how to run `bench` behind the device tier.
 
 ## Documentation conventions
 
