@@ -4,7 +4,7 @@ header: |
   Pending: Power cut during an image update
 level: 1.1.3
 links:
-- SRS001: mHF_3E-UfqxDFcUPdCyvErtJ2u-SY5fAEBMb5iey9TY=
+- SRS001: guD3L7j10Cvj8FLFuTY6qR_siPN2TkCEA4d9Wf1v0LI=
 normative: true
 rationale: |
   Waits on its test, and on power control at the bench, which the project does not have.

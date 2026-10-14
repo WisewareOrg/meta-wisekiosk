@@ -1,0 +1,29 @@
+active: true
+derived: false
+header: |
+  Backend crash
+level: 1.1.9
+links:
+- SRS001: guD3L7j10Cvj8FLFuTY6qR_siPN2TkCEA4d9Wf1v0LI=
+normative: true
+rationale: |
+  Verified by test_backend_crash in the target suite, which kills the WiseKiosk backend with
+  SIGKILL and fails unless fetching the instance's page on the appliance returns an HTML document
+  within the bound. Unproven: that the panel shows the instance again, since it watches the page
+  being served on the appliance, not the panel; a backend that hangs while still running, exits by
+  itself, or is stopped rather than killed; and one that crashes again on every start.
+ref: ''
+references:
+- keyword: def test_backend_crash
+  path: tests/target_suite/test_wisekiosk.py
+  sha: 28d258a9ea2103e79b385d9ac9d48628b60d28b5e8adc8f48d2c8f2bb249c619
+  type: file
+reviewed: c5kFmsbyW8h-_wNE-0Cwtnza86n_S2oLUeQr1pX6nDw=
+status: proposed
+text: |
+  With nobody at the panel, crash the WiseKiosk backend by killing it outright. Pass if the
+  WiseKiosk instance's page is served on the appliance again within 60 s of the crash.
+verification-justification: |
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
+verification-method: test
