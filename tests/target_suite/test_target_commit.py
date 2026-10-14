@@ -4,7 +4,7 @@ import pytest
 
 
 def test_buildinfo_names_commit(target, bench_candidate, record_property):
-    """TST016: after an image update, /etc/buildinfo names the installed commit."""
+    """After an image update, /etc/buildinfo names the installed commit."""
     if bench_candidate is None:
         pytest.skip("no bench_candidate: a plain pytest run, or bench test --skip-build")
     record_property("requirement", "TST016")
