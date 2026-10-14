@@ -1,12 +1,27 @@
-# The required `bench-pipeline` check. On a pull request it passes without doing
-# anything, which lets the PR enter the merge queue; on the merge-group commit the
-# build host posts the real result as a commit status under the same name.
+# On a pull request, posts a passing `bench-pipeline` check run as the WiseBench App;
+# `bench run` posts the real result on the merge-group commit under the same name.
 name: bench-pipeline
 on:
   pull_request:
 permissions: {}
 jobs:
-  bench-pipeline:
+  post-bench-pipeline-placeholder:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "bench-pipeline runs on the merge-group commit; see docs/testing.md"
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app-token
+        with:
+          app-id: 5286902
+          private-key: ${{ secrets.WISEBENCH_APP_PRIVATE_KEY }}
+
+      - name: Post the bench-pipeline check run
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/check-runs" \
+            -f name='bench-pipeline' \
+            -f head_sha='${{ github.event.pull_request.head.sha }}' \
+            -f status='completed' \
+            -f conclusion='success' \
+            -f 'output[title]=runs in the merge queue' \
+            -f 'output[summary]=bench run posts the real result against the merge-group commit.'

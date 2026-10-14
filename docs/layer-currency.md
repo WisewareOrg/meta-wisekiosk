@@ -21,7 +21,7 @@ No package-manifest reader can see this, because a kas `commit:` is not a manife
 `WisewareOrg/wise-renovate`, which keeps one pull request per behind repo and rolls it forward in place
 while it stays unmerged, except poky and meta-openembedded, which share one pull request because a
 bump of either rebuilds WebKit ([`../README.md`](../README.md) §"Quick start"). Those pull requests
-automerge through the merge queue, gated by the pipeline's build of the queued commit
+automerge through the merge queue, gated by `bench run`'s build of the queued commit
 ([`testing.md`](testing.md) §"Running it"). Renovate says *that* a pin is behind. This
 report and `just gap` say what the pin is worth.
 

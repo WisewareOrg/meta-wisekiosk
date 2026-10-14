@@ -78,7 +78,6 @@ meta-wisekiosk/                    <- the repository (project scaffolding)
 │   ├── base.yaml                  every repo + commit, incl. meta-autonomos and its patches
 │   ├── rauc.yaml
 │   ├── cve-audit.yaml             opt-in cve-check overlay, joined on by `just cve-build`
-│   ├── testimage.yaml             the device smoke tier, joined on by `just testimage`
 │   └── platforms/
 │       ├── raspberrypi.yaml
 │       └── raspberrypi-zero-w.yaml
@@ -142,9 +141,8 @@ systemctl --user link <checkout that stays on main>/tools/hashserv/bitbake-hashs
 systemctl --user enable --now bitbake-hashserv.service
 ```
 
-Link from a checkout that stays on `main` — on a pipeline host, `~/wisekiosk-pipeline/driver` — never
-a working checkout that changes branch: a branch without this file leaves the link dangling and every
-build then fails.
+Link from a checkout that stays on `main`, never a working checkout that changes branch: a branch
+without this file leaves the link dangling and every build then fails.
 
 The server listens on `~/.local/share/bitbake-hashserv/hashserv.sock`;
 `tools/kas-run.sh` mounts `~/.local/share/bitbake-hashserv` read-only at `/hashserv` inside
@@ -157,7 +155,7 @@ just build          # kas fetches sources/, applies the patches, builds core-ima
 **The version in that `curl` URL is the kas version the build uses, and it changes nothing on its
 own.** `just build` runs whatever `kas-container` sits in `~/bin`; nothing downloads it but that
 `curl`. Renovate opens a pull request when kas releases and automerges it through the merge queue,
-gated by the pipeline's build of the queued commit ([`docs/testing.md`](docs/testing.md)
+gated by `bench run`'s build of the queued commit ([`docs/testing.md`](docs/testing.md)
 §"Running it"); merging is the moment to re-run the `curl` and a full build. A new kas is a new
 build container, with a newer host distro that can break a build hours in.
 `kas-container --version` shows what is installed.

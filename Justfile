@@ -62,7 +62,6 @@ import 'justfiles/ota.just'
 import 'justfiles/deploy.just'
 import 'justfiles/device.just'
 import 'justfiles/rotate.just'
-import 'justfiles/pipeline.just'
 
 default: help
 
@@ -200,16 +199,6 @@ gap repo *args:
 cve-build:
     tools/kas-run.sh build {{config}}:includes/cve-audit.yaml
     {{py}} tools/cve-delta.py snapshot
-
-[group('audit')]
-[script('bash')]
-[doc("Build with testimage inherited; run the wisekiosk oeqa suite over ssh")]
-testimage ssh_dir=env('PIPELINE_SSH_DIR', ''):
-    if [ -z "{{ssh_dir}}" ] || [ -z "${TEST_TARGET_IP:-}" ]; then
-        echo "testimage needs ssh_dir (or PIPELINE_SSH_DIR) and TEST_TARGET_IP set -- refusing" >&2
-        exit 2
-    fi
-    KAS_RUN_ENV="TEST_TARGET_IP OEQA_JSON_RESULT_DIR" tools/kas-run.sh --ssh-dir {{ssh_dir}} build {{config}}:includes/testimage.yaml -c testimage
 
 # Write per-site config to a device's /data. The image carries none of it.
 [group('provision')]
