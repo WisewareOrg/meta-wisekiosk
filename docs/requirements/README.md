@@ -5,11 +5,12 @@ stakeholders need: the viewer at the panel, and the operator, who configures, de
 the unit; a unit can have more than one operator, and whoever signs its updates is one of them),
 `srs/` (`SRS` — what the kiosk does to meet each need), and `tst/` (`TST` — one verification each: a
 stimulus, an observation and a pass condition, checked automatically against the appliance). Every
-item's `verification-justification` argues why it is verified the way it is; what its checks settle,
-and what they leave unproven, is its `rationale`. A `TST` item's `references`, where it carries any,
-pin each file by hash, and the gate fails an item whose referenced file changed after review. The
-pipeline's tier guarantees stay in [`../testing.md`](../testing.md); this tree holds the image's own
-obligations.
+item's `verification-justification` argues why it is verified the way it is. Its `rationale` says
+why the item was written: what goes wrong for the viewer or the operator if the need is not met. It
+does not restate the item's text or describe its check, and it never names a test; the item's
+references do that. A `TST` item's `references`, where it carries any, pin each file by hash, and
+the gate fails an item whose referenced file changed after review. The pipeline's tier guarantees
+stay in [`../testing.md`](../testing.md); this tree holds the image's own obligations.
 
 **Every `SYS` item traces to a goal in [`../../README.md`](../../README.md) §"Mission".**
 
@@ -53,8 +54,8 @@ item, so tuning it is a change to that check and not to the need it verifies.
 **Every `TST` item is an automated check, and it sits `active: false` until that check is written
 against it** — the pending-verification convention of the [WiseKiosk
 tree](https://github.com/WisewareOrg/WiseKiosk/blob/main/docs/requirements/README.md). A pending
-item's header starts `Pending:`, and its `rationale` says what it waits on: its test, its bound, or
-hardware the project lacks. The change that lands its test activates it, re-reads it in full and
-stamps its review. An active `SRS` whose `TST` children are all pending is unverified: Doorstop
-counts an inactive child's link as coverage, so the gate does not flag it, and the `Pending:`
-headers beneath it are what say so.
+item's header starts `Pending:`, and its `rationale`, after saying why the item exists, also says
+what it waits on: its test, its bound, or hardware the project lacks. The change that lands its
+test activates it, re-reads it in full and stamps its review. An active `SRS` whose `TST` children
+are all pending is unverified: Doorstop counts an inactive child's link as coverage, so the gate
+does not flag it, and the `Pending:` headers beneath it are what say so.
