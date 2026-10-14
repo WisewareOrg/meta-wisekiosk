@@ -1,6 +1,8 @@
-# The required `bench-pipeline` check. On a pull request it passes without doing
-# anything, which lets the PR enter the merge queue; on the merge-group commit the
-# build host posts the real result as a commit status under the same name.
+# The required `bench-pipeline` check, posted by the WiseBench GitHub App. On a
+# pull request it mints an App token and posts a successful check run against the
+# PR head SHA, which lets the PR enter the merge queue; `bench run` posts the real
+# result against the merge-group commit under the same name, authenticated as the
+# same App, so the ruleset's `integration_id` restriction is satisfied by both.
 name: bench-pipeline
 on:
   pull_request:
@@ -9,4 +11,20 @@ jobs:
   bench-pipeline:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "bench-pipeline runs on the merge-group commit; see docs/testing.md"
+      - uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        id: app-token
+        with:
+          app-id: 5286902
+          private-key: ${{ secrets.WISEBENCH_APP_PRIVATE_KEY }}
+
+      - name: Post the bench-pipeline check run
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/check-runs" \
+            -f name='bench-pipeline' \
+            -f head_sha='${{ github.event.pull_request.head.sha }}' \
+            -f status='completed' \
+            -f conclusion='success' \
+            -f 'output[title]=runs in the merge queue' \
+            -f 'output[summary]=bench run posts the real result against the merge-group commit.'
