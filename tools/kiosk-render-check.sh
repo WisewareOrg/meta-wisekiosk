@@ -3,12 +3,6 @@
 #
 #   tools/kiosk-render-check.sh root@<host> [WxH+X+Y]
 #
-# The gap every other instrument leaves open. kiosk-tcp-state.sh sees an
-# established socket, kiosk-screenshot.sh sees pixels that are not all the same
-# value -- and a browser whose compositor stopped an hour ago satisfies both.
-# Every one of those reads the machinery around the render; none reads the
-# render advancing.
-#
 # HOW IT DECIDES. Capture the X root window twice a few seconds apart and compare
 # the bytes. Frames identical -> nothing repainted in that window -> FROZEN.
 #
@@ -59,7 +53,7 @@
 #       says nothing at all about the browser. Capture is `import -window root`
 #       and must stay that way.
 #
-# THE EXIT CODE, three-valued:
+# THE EXIT CODE:
 #
 #   0  advancing -- the two frames differ
 #   1  FROZEN -- the two frames are byte-identical and both captures verified good

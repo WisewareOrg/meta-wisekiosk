@@ -1,8 +1,5 @@
-# The required `bench-pipeline` check, posted by the WiseBench GitHub App. On a
-# pull request it mints an App token and posts a successful check run against the
-# PR head SHA, which lets the PR enter the merge queue; `bench run` posts the real
-# result against the merge-group commit under the same name, authenticated as the
-# same App, so the ruleset's `integration_id` restriction is satisfied by both.
+# On a pull request, posts a passing `bench-pipeline` check run as the WiseBench App;
+# `bench run` posts the real result on the merge-group commit under the same name.
 name: bench-pipeline
 on:
   pull_request:
