@@ -7,6 +7,11 @@ layer's."
 require wisekiosk-src.inc
 require wisekiosk-backend-go-mods.inc
 
+# PV embeds the app commit hash, which need not sort forward; the image ships
+# whole by RAUC.
+ERROR_QA:remove = "version-going-backwards"
+WARN_QA:append = " version-going-backwards"
+
 # wisekiosk-backend-go-mods.inc is gitignored and written by tools/go-mods.py
 # at build entry (owner, 2026-09-27: nothing autogenerable is committed), so a
 # tree that never ran it, or one still holding a previous pin's .inc, parses
