@@ -20,19 +20,19 @@ def _poll_for_page(driver):
         bool: whether the page served an HTML document within `BOUND_SECONDS`.
     """
     deadline = time.monotonic() + BOUND_SECONDS
-    while True:
+    while time.monotonic() < deadline:
+        remaining = deadline - time.monotonic()
         try:
             stdout, stderr, returncode = driver.run(
-                f"wget -q -O- {PAGE_URL}", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS
+                f"wget -q -O- {PAGE_URL}", timeout=min(POLL_ATTEMPT_TIMEOUT_SECONDS, remaining)
             )
             output = "\n".join(stdout + stderr).strip()
-            if returncode == 0 and "<html" in output:
-                return time.monotonic() <= deadline
+            if returncode == 0 and "<html" in output and time.monotonic() <= deadline:
+                return True
         except subprocess.TimeoutExpired:
             pass
-        if time.monotonic() >= deadline:
-            return False
         time.sleep(POLL_INTERVAL_SECONDS)
+    return False
 
 
 def test_page_serves(target, record_property):
@@ -71,7 +71,7 @@ def test_backend_crash(target, record_property):
     output = "\n".join(stdout + stderr).strip()
     assert returncode == 0, f"could not read MainPID after the crash: {output}"
     new_pid = output
-    assert new_pid != "0" and new_pid != old_pid, (
+    assert new_pid and new_pid != "0" and new_pid != old_pid, (
         f"MainPID did not change after the kill (old {old_pid}, new {new_pid})"
     )
     record_property("requirement", "TST032")

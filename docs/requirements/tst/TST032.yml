@@ -4,18 +4,17 @@ header: |
   Backend crash
 level: 1.1.9
 links:
-- SRS001: guD3L7j10Cvj8FLFuTY6qR_siPN2TkCEA4d9Wf1v0LI=
+- SRS001: mJPXcAkSNEcGQaecPKwCJDrOMXsJRs1pWu-GXRZ10lo=
 normative: true
 rationale: |
-  A crashed backend leaves the panel on the application's error with nobody there to fix it. The
-  appliance has to bring the backend back itself.
+  A crashed backend leaves the panel on the application's error, with nobody there to restart it.
 ref: ''
 references:
 - keyword: def test_backend_crash
   path: tests/target_suite/test_wisekiosk.py
-  sha: 951e65bba1f9d0a6c1af3aead8999a4f2362dfb2295859db916267bb522fa3b0
+  sha: 2325ccc3c782a49241f8dd729aebbb699628c299afe7f739ff2b1a0be68b0b30
   type: file
-reviewed: 4fvlNFVUjRjfW_H9qxHv-IiRZ25GTWhWdf96Fkm5I1o=
+reviewed: L99W94_85qOVpwAhEvnKJdWiUWoyuj4kmNsh_gne-5Q=
 status: proposed
 text: |
   With nobody at the panel, crash the WiseKiosk backend by killing it outright. Pass if the
