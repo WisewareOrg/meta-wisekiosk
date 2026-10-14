@@ -136,13 +136,28 @@ and `commit:` from [`includes/base.yaml`](includes/base.yaml), then:
 mkdir -p ~/.local/share/bitbake-hashserv
 git clone --no-checkout <poky url> ~/.local/share/bitbake-hashserv/poky
 git -C ~/.local/share/bitbake-hashserv/poky checkout --detach <poky commit>
-
-systemctl --user link <checkout that stays on main>/tools/hashserv/bitbake-hashserv.service
-systemctl --user enable --now bitbake-hashserv.service
 ```
 
-Link from a checkout that stays on `main`, never a working checkout that changes branch: a branch
-without this file leaves the link dangling and every build then fails.
+Write this to `~/.config/systemd/user/bitbake-hashserv.service`:
+
+```ini
+[Unit]
+Description=BitBake hash equivalence server shared by every build on this host
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 %h/.local/share/bitbake-hashserv/poky/bitbake/bin/bitbake-hashserv --bind unix://%h/.local/share/bitbake-hashserv/hashserv.sock --database %h/.local/share/bitbake-hashserv/hashserv.db
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+```
+
+```sh
+systemctl --user daemon-reload
+systemctl --user enable --now bitbake-hashserv.service
+```
 
 The server listens on `~/.local/share/bitbake-hashserv/hashserv.sock`;
 `tools/kas-run.sh` mounts `~/.local/share/bitbake-hashserv` read-only at `/hashserv` inside
