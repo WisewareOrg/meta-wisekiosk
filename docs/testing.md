@@ -161,10 +161,8 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   `bench_candidate`.
 
 `--skip-build` runs the `precondition` hook and the target suite only — no `build`, no `bundle`, no
-host suite, and `bench_candidate` stays `None`, so the setup fixture skips only its install step
-(it still reads and prints the board's commit) and TST016 alone skips: it tests a running board
-without a build and installs nothing. Whether such a run counts
-as evidence for a review or an investigation is
+host suite, and `bench_candidate` stays `None` — so it tests a running board without a build and
+installs nothing. Whether such a run counts as evidence for a review or an investigation is
 [WiseBenchManager's own rule](https://github.com/WisewareOrg/WiseBenchManager/blob/main/docs/decisions/0001-verify-with-a-python-bench-runner.md),
 ADR 0001 rev 5 decision 9 (provenance), not this layer's.
 

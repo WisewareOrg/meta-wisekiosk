@@ -27,7 +27,7 @@ def _poll_for_page(driver):
             )
             output = "\n".join(stdout + stderr).strip()
             if returncode == 0 and "<html" in output:
-                return True
+                return time.monotonic() <= deadline
         except subprocess.TimeoutExpired:
             pass
         if time.monotonic() >= deadline:
@@ -46,7 +46,7 @@ def test_page_serves(target, record_property):
 
 
 def test_backend_crash(target, record_property):
-    """The instance's page is served again within 60 s of the backend being killed."""
+    """The instance's page is served again within `BOUND_SECONDS` of the backend being killed."""
     driver = target.get_driver("SSHDriver")
     assert _poll_for_page(driver), "page did not serve before the crash was induced"
 
