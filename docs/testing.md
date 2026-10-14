@@ -160,6 +160,10 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   alone skips: it reads the board's `/etc/buildinfo` itself and fails unless it names
   `bench_candidate`.
 
+`bench run` also reads `[github]` — the GitHub App that posts the `bench-pipeline` check run, and the
+path to its private key on the bench host — and `[run]`, naming the systemd unit it disables on the
+bench's own failure.
+
 `--skip-build` runs the `precondition` hook and the target suite only — no `build`, no `bundle`, no
 host suite, and `bench_candidate` stays `None` — so it tests a running board without a build and
 installs nothing. Whether such a run counts as evidence for a review or an investigation is
