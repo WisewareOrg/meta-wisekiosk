@@ -4,7 +4,7 @@ header: |
   Pending: Sustained network load
 level: 1.1.8
 links:
-- SRS001: mHF_3E-UfqxDFcUPdCyvErtJ2u-SY5fAEBMb5iey9TY=
+- SRS001: mJPXcAkSNEcGQaecPKwCJDrOMXsJRs1pWu-GXRZ10lo=
 normative: true
 rationale: |
   Waits on its test and its bound.

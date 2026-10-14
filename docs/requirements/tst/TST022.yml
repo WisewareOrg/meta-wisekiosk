@@ -7,16 +7,15 @@ links:
 - SRS011: Bpz_OFJ8WKhJRCB7N-741ZXL2wTLsefijSxP9n7niR8=
 normative: true
 rationale: |
-  Verified by test_page_serves in the device smoke tier, which runs a command on the appliance over
-  its remote shell from the build host and fails unless the command runs. The pipeline runs it after
-  every image update.
+  Without a remote shell, every configuration change, image update and service task needs a visit
+  to the appliance.
 ref: ''
 references:
 - keyword: def test_page_serves
-  path: meta-wisekiosk/lib/oeqa/runtime/cases/wisekiosk.py
-  sha: 3e1d7f0d3883053188fe2219c1938a2611e6079555d99bc79621f2f8979270d6
+  path: tests/target_suite/test_wisekiosk.py
+  sha: 2325ccc3c782a49241f8dd729aebbb699628c299afe7f739ff2b1a0be68b0b30
   type: file
-reviewed: WUYkoI5fbah0eKJ4TglXVYF8yAtIsgYwauBx66lXEzw=
+reviewed: aLzcTeut-xeC_OOAtIlvSl5oDdyhS_tCSFDRD3A5f-c=
 status: proposed
 text: |
   From another machine on the network, open a remote shell on the appliance and run a command in it.
