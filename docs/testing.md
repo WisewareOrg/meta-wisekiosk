@@ -53,3 +53,6 @@ ADR 0001 rev 5 decision 9 (provenance), not this layer's.
 The board comes from labgrid's own env file, pointed at with `LG_ENV` — a target named `main`, a
 `NetworkService` resource carrying the board's address, an `SSHDriver` — kept untracked under
 `local/`, since this repository is public and the address is site-specific.
+
+On the bench host, `bench run`'s environment file sets `LG_ENV` and, for this layer,
+`PIPELINE_KEYS_DIR`.
