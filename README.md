@@ -136,6 +136,7 @@ and `commit:` from [`includes/base.yaml`](includes/base.yaml), then:
 mkdir -p ~/.local/share/bitbake-hashserv
 git clone --no-checkout <poky url> ~/.local/share/bitbake-hashserv/poky
 git -C ~/.local/share/bitbake-hashserv/poky checkout --detach <poky commit>
+mkdir -p ~/.config/systemd/user
 ```
 
 Write this to `~/.config/systemd/user/bitbake-hashserv.service`:
