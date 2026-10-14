@@ -1,0 +1,9 @@
+[hooks]
+# The runner requires a precondition hook; this layer's board state needs none.
+precondition = "true"
+build        = "just build"
+bundle       = "just kiosk-bundle"
+
+[tests]
+host_suite   = "tests/host_suite"
+target_suite = "tests/target_suite"

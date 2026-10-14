@@ -4,13 +4,14 @@ header: |
   Nothing on the panel but the instance
 level: 1.5
 links:
-- SYS001: 6toqMs3OqOyDFeKZNdo9Impt-vFTglHoMyEFvMz35zQ=
+- SYS001: -Rxz0zHVT7c0BcB6q8kQPDmeL13UwTHOUppLZI49Bbw=
 normative: true
 rationale: |
   Anything else drawn on the panel, such as a pointer, a window frame or a dialog, is something the
-  WiseKiosk application did not put there. Its checks settle that no pointer is drawn.
+  WiseKiosk application did not put there. Its checks settle that no pointer is drawn and that the
+  instance covers the whole panel.
 ref: ''
-reviewed: GQEKzdATetKRJdWyx4RHx6fL960KTL5yY0f1-o685Dw=
+reviewed: 6WZSSstDMfzawntfhVDWcy9qt8I6LLVmTPkD0xaOBfE=
 status: proposed
 text: |
   The panel shall show nothing but the WiseKiosk instance.

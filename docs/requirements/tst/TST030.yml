@@ -1,0 +1,21 @@
+active: false
+derived: false
+header: |
+  Pending: Instance covers the whole panel
+level: 1.5.2
+links:
+- SRS005: _Jm0I29XYosWpzvjdgfpxuXQpkYiix39X6sbH7YPGOM=
+normative: true
+rationale: |
+  Waits on its test.
+ref: ''
+references: []
+reviewed: 2cG_NKg0fSEiXiZUNDTfFi_w03E5Gt2TAs3qp7IwuUU=
+status: proposed
+text: |
+  With the WiseKiosk instance on the panel, capture the screen. Pass if the instance covers the
+  whole panel.
+verification-justification: |
+  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
+  judgement.
+verification-method: test

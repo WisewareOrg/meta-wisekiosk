@@ -4,7 +4,7 @@ header: |
   Prompt from power-on
 level: 1.4
 links:
-- SYS001: 6toqMs3OqOyDFeKZNdo9Impt-vFTglHoMyEFvMz35zQ=
+- SYS001: -Rxz0zHVT7c0BcB6q8kQPDmeL13UwTHOUppLZI49Bbw=
 normative: true
 rationale: |
   TST012 (cold boot to the panel) waits on power control and its bound. TST011 (restart to the

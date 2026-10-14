@@ -1,16 +1,22 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Running the image update's build
+  Running the image update's build
 level: 2.1.1
 links:
 - SRS008: LDTvRKXMWSz69GCxWlzIElxmwwpb0CrVJQCSVcxNMPc=
 normative: true
 rationale: |
-  Waits on its test.
+  Verified by test_buildinfo_names_commit in the target suite, which reads /etc/buildinfo on the
+  booted board after the target suite's own setup fixture installs the candidate as an image update
+  through the layer's OTA recipes, and fails unless it names the commit under test.
 ref: ''
-references: []
-reviewed: ZhDt3GDRotS5wt1b8DC66iCOkiL6s-dntPyz1gSxLxI=
+references:
+- keyword: def test_buildinfo_names_commit
+  path: tests/target_suite/test_target_commit.py
+  sha: 92aa8a301d7fa512008f23f6da1db1843b42688123a722de43a404227ee5182e
+  type: file
+reviewed: yP2gKHma2BJex0kyokY2mPX82JRFKyQAdS-hI2COmXY=
 status: proposed
 text: |
   Install a valid image update over the air, then read which build the running appliance reports.

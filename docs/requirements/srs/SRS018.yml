@@ -1,0 +1,21 @@
+active: true
+derived: false
+header: |
+  Minimum resolution
+level: 1.8
+links:
+- SYS001: -Rxz0zHVT7c0BcB6q8kQPDmeL13UwTHOUppLZI49Bbw=
+normative: true
+rationale: |
+  Lowering the resolution buys performance but makes the WiseKiosk application look poor, so a lower
+  resolution is a failure, not a trade. Its check settles that the display mode and the page's
+  layout size are both at the minimum.
+ref: ''
+reviewed: DFDKzTVqG0pddLr14UYfY9keTglvmmLt1EfH7YmU_ao=
+status: proposed
+text: |
+  The appliance shall display the WiseKiosk instance at or above a minimum resolution.
+verification-justification: |
+  Test. Each check beneath it exercises the capability directly and reads whether it worked, so the
+  result needs no judgement.
+verification-method: test

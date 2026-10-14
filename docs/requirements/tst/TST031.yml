@@ -1,0 +1,21 @@
+active: false
+derived: false
+header: |
+  Pending: Display at the minimum resolution
+level: 1.8.1
+links:
+- SRS018: wKUUAJrIL3pIKc-OeXFzLOl30tdYUjfIqT7jVTkBOGA=
+normative: true
+rationale: |
+  Waits on its test.
+ref: ''
+references: []
+reviewed: g_dMdGD3HR5AlwoYd_Rrgu9nhxpMkerHNriNpr4pWtM=
+status: proposed
+text: |
+  Read the display mode the panel is driven at and the size the WiseKiosk page is laid out at. Pass
+  if both are at least 1280×720.
+verification-justification: |
+  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
+  judgement.
+verification-method: test

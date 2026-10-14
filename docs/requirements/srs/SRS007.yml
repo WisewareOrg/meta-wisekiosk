@@ -4,7 +4,7 @@ header: |
   Corrects a wrong clock
 level: 1.7
 links:
-- SYS001: 6toqMs3OqOyDFeKZNdo9Impt-vFTglHoMyEFvMz35zQ=
+- SYS001: -Rxz0zHVT7c0BcB6q8kQPDmeL13UwTHOUppLZI49Bbw=
 normative: true
 rationale: |
   The appliance has no battery-backed clock, so it can start with the wrong time. A wrong clock
