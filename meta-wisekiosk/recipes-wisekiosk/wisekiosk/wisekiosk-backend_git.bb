@@ -48,8 +48,8 @@ export GOPROXY = "off"
 # below -- it is a build-time-only dependency, but its own module graph still
 # has to resolve under GOPROXY=off above, so it runs against the goproxy tree
 # unpacked from wisekiosk-backend-go-mods.inc's SRC_URI entries rather than
-# DL_DIR directly. Path is the app's own justfile codegen recipe, run from
-# backend/.
+# DL_DIR directly. Paths are the app's own go:generate directive in
+# internal/boundary/doc.go, run from backend/internal/boundary/.
 #
 # ${GO} is go-cross's wrapper, and the wrapper is not a passthrough: it
 # unconditionally `export`s the TARGET GOOS/GOARCH inside itself (go-cross.inc
@@ -60,10 +60,10 @@ export GOPROXY = "off"
 # because go-cross is a DEPENDS (go.bbclass's own GOTOOLDIR uses the same
 # base) -- where the GOOS/GOARCH set on the command line take effect.
 do_compile() {
-    ( cd ${S}/src/${GO_WORKDIR} && GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} \
+    ( cd ${S}/src/${GO_WORKDIR}/internal/boundary && GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} \
         GOFLAGS=-modcacherw GOPROXY=file://${WORKDIR}/goproxy GOSUMDB=off \
         ${STAGING_LIBDIR_NATIVE}/${TARGET_SYS}/go/bin/go \
-        tool oapi-codegen -config oapi-codegen.yaml ../boundary/openapi.yaml )
+        tool oapi-codegen -config ../../oapi-codegen.yaml ../../../boundary/openapi.yaml )
     [ -s ${S}/src/${GO_WORKDIR}/internal/boundary/boundary.gen.go ] \
         || bbfatal "oapi-codegen produced no internal/boundary/boundary.gen.go"
     go_do_compile
