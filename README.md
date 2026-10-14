@@ -129,8 +129,15 @@ cp secrets.yaml.tmpl ~/.config/wisekiosk/secrets.yaml   # fill in; lives OUTSIDE
 **One-time host setup: the shared hash-equivalence server.** Every `tools/kas-run.sh` build,
 including the fresh-clone `just build` below, refuses to start without it — one
 `bitbake-hashserv` on the host, not one database per build directory, Yocto's own documented
-deployment (the dev manual's "Setting up a Hash Equivalence Server"). Read the `poky` `url:`
-and `commit:` from [`includes/base.yaml`](includes/base.yaml), then:
+deployment (the dev manual's "Setting up a Hash Equivalence Server"). A `--user` service runs
+without a login session only with linger enabled, which the hash server and, on the bench host,
+`bench run`'s own timer both need:
+
+```sh
+loginctl enable-linger "$USER"
+```
+
+Read the `poky` `url:` and `commit:` from [`includes/base.yaml`](includes/base.yaml), then:
 
 ```sh
 mkdir -p ~/.local/share/bitbake-hashserv
