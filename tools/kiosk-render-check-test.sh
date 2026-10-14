@@ -6,8 +6,8 @@
 # kiosk-render-check.sh is a GATE, and the only one that can see a frozen render
 # at all. Its claim is that identical frames FAIL and differing frames PASS, and
 # that a capture which did not happen does neither. A gate nothing re-runs is
-# unproven, which is why guard.sh ships beside guard-test.sh and
-# kiosk-gpu-check.sh beside kiosk-gpu-check-test.sh.
+# unproven, which is why guard.sh ships beside guard-test.sh, and this tool
+# beside this one.
 #
 # It reaches the SHIPPED function, not a copy: the tool is sourced with
 # KIOSK_RENDER_CHECK_LIB=1, which defines `render_verdict` and returns before any

@@ -1,9 +1,0 @@
-[Unit]
-Description=Run the pipeline on a schedule
-
-[Timer]
-OnBootSec=2min
-OnUnitInactiveSec=1min
-
-[Install]
-WantedBy=timers.target
