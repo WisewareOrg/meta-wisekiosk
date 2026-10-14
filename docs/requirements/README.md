@@ -7,10 +7,10 @@ the unit; a unit can have more than one operator, and whoever signs its updates 
 stimulus, an observation and a pass condition, checked automatically against the appliance). Every
 item's `verification-justification` argues why it is verified the way it is. Its `rationale` says
 why the item was written: what goes wrong for the viewer or the operator if the need is not met. It
-does not restate the item's text or describe its check, and it never names a test; its
-`references` name the test. A `TST` item's `references`, where it carries any, pin each file by
-hash, and the gate fails an item whose referenced file changed after review. The pipeline's tier
-guarantees stay in [`../testing.md`](../testing.md); this tree holds the image's own obligations.
+does not restate the item's text or describe its check, and it never names a test; the item's
+references do that. A `TST` item's `references`, where it carries any, pin each file by hash, and
+the gate fails an item whose referenced file changed after review. The pipeline's tier guarantees
+stay in [`../testing.md`](../testing.md); this tree holds the image's own obligations.
 
 **Every `SYS` item traces to a goal in [`../../README.md`](../../README.md) §"Mission".**
 
