@@ -51,7 +51,7 @@ def replay_window(target, proxy, set_config, request):
 
     _, _, returncode = driver.run(
         "mkdir -p /run/systemd/system/wisekiosk.service.d && "
-        f"printf '[Service]\\n"
+        f"printf '[Service]\\nEnvironment=HTTPS_PROXY=http://127.0.0.1:{proxy.port}\\n"
         f"Environment=SSL_CERT_FILE={_CA_BOARD_PATH}\\n' > {_DROP_IN_PATH} && "
         "systemctl daemon-reload"
     )
