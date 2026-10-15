@@ -7,15 +7,17 @@ links:
 - SYS001: -Rxz0zHVT7c0BcB6q8kQPDmeL13UwTHOUppLZI49Bbw=
 normative: true
 rationale: |
-  Settles that one HTTPS request completes from the instance's own process context. Unproven:
-  reaching the instance's own data sources specifically, and a capability lost between checks.
+  The viewer comes to the panel for the instance's data; an instance that cannot fetch it shows a
+  stale or empty page.
 ref: ''
-reviewed: NNRBhUjQX5wOhOCdZL4C7jmFEZVwxwWtnAEOzY7iklQ=
+reviewed: fHT4QTQ6u_YOh72TE-70g1DUyM4IERG5WYr2fGRofZI=
 status: proposed
 text: |
   The WiseKiosk instance shall be able to fetch its data whenever the site network gives the
   appliance internet access.
 verification-justification: |
-  Test. Each check beneath it exercises the capability directly and reads whether it worked, so the
-  result needs no judgement.
+  Test. The check beneath it exercises the instance's own fetches and reads whether each was
+  answered, so the result needs no judgement. It answers them from a proxy on the test host,
+  reached without the traffic leaving the appliance, so it does not show that the appliance
+  reaches its upstream over the site network.
 verification-method: test
