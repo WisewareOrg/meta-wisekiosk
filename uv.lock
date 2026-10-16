@@ -138,7 +138,7 @@ wheels = [
 [[package]]
 name = "check-reqs"
 version = "0"
-source = { git = "https://github.com/WisewareOrg/wise-ci?subdirectory=check-reqs&rev=b7493c39639ce2cce1e480041c20f8795d602590#b7493c39639ce2cce1e480041c20f8795d602590" }
+source = { git = "https://github.com/WisewareOrg/wise-ci?subdirectory=check-reqs&rev=2bd7ee92c8118223b637487860e05ee2e8ebe39f#2bd7ee92c8118223b637487860e05ee2e8ebe39f" }
 dependencies = [
     { name = "doorstop" },
     { name = "pyyaml" },
@@ -209,7 +209,7 @@ dev = [
 requires-dist = [{ name = "pyyaml" }]
 
 [package.metadata.requires-dev]
-dev = [{ name = "check-reqs", git = "https://github.com/WisewareOrg/wise-ci?subdirectory=check-reqs&rev=b7493c39639ce2cce1e480041c20f8795d602590" }]
+dev = [{ name = "check-reqs", git = "https://github.com/WisewareOrg/wise-ci?subdirectory=check-reqs&rev=2bd7ee92c8118223b637487860e05ee2e8ebe39f" }]
 
 [[package]]
 name = "openpyxl"
