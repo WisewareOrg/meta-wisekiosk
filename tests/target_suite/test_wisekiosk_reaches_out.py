@@ -45,22 +45,33 @@ def replay_window(target, proxy, set_config, request):
     driver.put(str(CA_PATH), _CA_BOARD_PATH)
 
     def _remove_ca():
-        _, _, returncode = driver.run(f"rm -f {_CA_BOARD_PATH}")
-        assert returncode == 0, "could not remove the replay CA"
+        stdout, stderr, returncode = driver.run(f"rm -f {_CA_BOARD_PATH}")
+        output = stdout + stderr
+        assert returncode == 0, (
+            f"could not remove the replay CA (rc {returncode}): {chr(10).join(output)}"
+        )
 
     request.addfinalizer(_remove_ca)
 
-    _, _, returncode = driver.run(
+    stdout, stderr, returncode = driver.run(
         "mkdir -p /run/systemd/system/wisekiosk.service.d && "
         f"printf '[Service]\\nEnvironment=HTTPS_PROXY=http://127.0.0.1:{proxy.port}\\n"
         f"Environment=SSL_CERT_FILE={_CA_BOARD_PATH}\\n' > {_DROP_IN_PATH} && "
         "systemctl daemon-reload"
     )
-    assert returncode == 0, "could not write the replay drop-in"
+    output = stdout + stderr
+    assert returncode == 0, (
+        f"could not write the replay drop-in (rc {returncode}): {chr(10).join(output)}"
+    )
 
     def _remove_drop_in():
-        _, _, returncode = driver.run(f"rm -f {_DROP_IN_PATH} && systemctl daemon-reload")
-        assert returncode == 0, "could not remove the replay drop-in"
+        stdout, stderr, returncode = driver.run(
+            f"rm -f {_DROP_IN_PATH} && systemctl daemon-reload"
+        )
+        output = stdout + stderr
+        assert returncode == 0, (
+            f"could not remove the replay drop-in (rc {returncode}): {chr(10).join(output)}"
+        )
 
     request.addfinalizer(_remove_drop_in)
 
