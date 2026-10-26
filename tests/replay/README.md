@@ -19,21 +19,16 @@ whoever records it — not refreshed on a schedule and not something a tool reco
 ## `cards4-live`
 
 Recorded against `config.json`'s four `themeparks.wiki` park IDs and its `open-meteo.com` weather
-location: one weather forecast call, and one `/live` plus one `/schedule` call per park — nine
-requests in total, matching the nine entries in `flows.har`.
+location: one weather forecast call, and one `/live` plus one `/schedule` call per park.
 
 This set is recorded while all four configured parks are open.
 
 ## Re-recording an existing set by hand
 
 There is no recording command in the runner or this layer — mitmproxy's own `mitmdump` is the
-whole tool, pointed at a scratch HAR path:
-
-```sh
-mitmdump --listen-host 127.0.0.1 --listen-port <port> --set hardump=<path>.har
-```
-
-mitmproxy writes its CA to `~/.mitmproxy/mitmproxy-ca-cert.pem` on first start.
+whole tool. [WiseBenchManager](https://github.com/WisewareOrg/WiseBenchManager)'s README,
+"Running it", gives the `hardump` invocation that points it at a scratch HAR path, and where
+mitmproxy writes its CA on first start.
 
 The URLs to record are the ones the instance itself requested in a run of the set's test, served
 and killed alike — after an app change, the failing run. That run's flow file,
@@ -68,6 +63,3 @@ jq '.log.entries[] |= (del(.serverIPAddress) |
     .response.headers |= map(select(.name | ascii_downcase | startswith("cf-") | not)))' \
   raw.har > sets/<name>/flows.har
 ```
-
-mitmproxy's replay match is on method, host, path and query, so removing response headers changes
-nothing about which request a replay matches.

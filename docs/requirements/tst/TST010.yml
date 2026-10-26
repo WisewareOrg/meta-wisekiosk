@@ -4,7 +4,7 @@ header: |
   The instance reaches out
 level: 1.3.1
 links:
-- SRS003: VnRDPhCmeVKZY9keuBAIbeStf96in8tr93ujec7LV3E=
+- SRS003: Hwf-oAst_beVUhPkXwgpeFYH6nfr3nKuqGy76V5wrL8=
 normative: true
 rationale: |
   An instance whose own fetches cannot complete leaves the viewer a page without its data, and
