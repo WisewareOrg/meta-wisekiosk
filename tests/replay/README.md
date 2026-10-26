@@ -27,8 +27,8 @@ This set is recorded while all four configured parks are open.
 
 There is no recording command in the runner or this layer — mitmproxy's own `mitmdump` is the
 whole tool. [WiseBenchManager](https://github.com/WisewareOrg/WiseBenchManager)'s README,
-"Running it", gives the `hardump` invocation that points it at a scratch HAR path, and where
-mitmproxy writes its CA on first start.
+"Installing `bench run`", gives the `hardump` invocation that points it at a scratch HAR path, and
+where mitmproxy writes its CA on first start.
 
 The URLs to record are the ones the instance itself requested in a run of the set's test, served
 and killed alike — after an app change, the failing run. That run's flow file,

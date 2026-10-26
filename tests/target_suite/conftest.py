@@ -76,7 +76,8 @@ def set_config(target, request):
     `request.addfinalizer` once that step has succeeded, so teardown runs them in reverse even
     if a later step fails -- except the backend restart's undo, registered right after the
     restart itself succeeds and before the page wait, so it still runs if that wait fails.
-    Call it at most once per test.
+    Knows nothing of replay; any test may hand `apply` a config file. Call it at most once per
+    test.
 
     Args:
         target (labgrid.Target): names the board's SSHDriver.

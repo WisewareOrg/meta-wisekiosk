@@ -10,7 +10,7 @@ rationale: |
   The viewer comes to the panel for the instance's data; an instance that cannot fetch it shows a
   stale or empty page.
 ref: ''
-reviewed: KLN7Mkmv9VPn194ZbxXwx0PkWBEidlhn1D3nXCPUiW0=
+reviewed: MzNwYg8PAd-cRIID7m1fLUD3FUYYu78ncsXzfcWw9PQ=
 status: proposed
 text: |
   The WiseKiosk instance shall be able to fetch its data whenever the site network gives the
@@ -18,6 +18,6 @@ text: |
 verification-justification: |
   Test. The check beneath it exercises the instance's own fetches and reads whether each was
   answered, so the result needs no judgement. It answers them from a proxy on the test host,
-  reached through a tunnel on the appliance's own loopback, so the instance's fetches never take
-  the site network, and the check does not show that the appliance reaches its upstream over it.
+  reached through an SSH tunnel on the appliance's own loopback, so it does not show that the
+  appliance reaches its upstream over the site network.
 verification-method: test
