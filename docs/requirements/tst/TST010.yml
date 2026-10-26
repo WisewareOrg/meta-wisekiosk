@@ -1,20 +1,27 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: The instance reaches out
+  The instance reaches out
 level: 1.3.1
 links:
-- SRS003: nF79wgykuzVTRgwmuQ1wEE7QPZwqBCFJeo3MjbaRHds=
+- SRS003: UXeibxrMWOhzmlpk4fSFNJ0WI1PfxtnnbJuLshocf7E=
 normative: true
 rationale: |
-  Waits on its test.
+  An instance whose own fetches cannot complete leaves the viewer a page without its data, and
+  nobody at the panel can tell why.
 ref: ''
-references: []
-reviewed: 6FbNA0kqLmZk0CL17n0EyfAwRwcZp_zkmOAgkj2lL1s=
+references:
+- keyword: def test_instance_reaches_out
+  path: tests/target_suite/test_wisekiosk_reaches_out.py
+  sha: ea398207db3126042900f5f7ee943c2752ffda4b3f708eff23c3ac81dbeecdf2
+  type: file
+reviewed: YvHLkgPG0qr4IW6fNeJx0j7YYsLBgxNTeWi2RNIUTtU=
 status: proposed
 text: |
-  With the site network giving internet access, make an HTTPS request to a public endpoint from the
-  WiseKiosk instance's own process context on the appliance. Pass if it completes.
+  With the WiseKiosk instance set to fetch through a proxy that answers its upstream from a
+  recording of it, start the instance and let it fetch its data over HTTPS from its own process
+  context on the appliance. Pass if every request the recording holds is answered from it at least
+  once, and none of the instance's requests goes unanswered.
 verification-justification: |
   Test. It exercises the capability and reads the result mechanically; the pass condition needs no
   judgement.
