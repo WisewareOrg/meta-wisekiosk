@@ -36,7 +36,7 @@ jobs:
       # wise-ci's check-reqs action needs uv on PATH.
       - uses: astral-sh/setup-uv@18d369b23da25a81e9458561248e1aafff6a70fa # v10.3.1
         with:
-          version: "0.13.1"
+          version: "0.13.5"
 
       - name: Run repository guards
         run: tools/ci-guards.sh
