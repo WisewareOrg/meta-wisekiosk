@@ -74,7 +74,8 @@ def set_config(target, request):
     copies `path` to the board, bind-mounts it over the live config, restarts the backend and
     waits for the page, then starts the browser. Each step's undo is registered with
     `request.addfinalizer` once that step has succeeded, so teardown runs them in reverse even
-    if a later step fails. Knows nothing of replay; any test may hand `apply` a config file.
+    if a later step fails -- except the backend restart's undo, registered right after the
+    restart itself succeeds and before the page wait, so it still runs if that wait fails.
     Call it at most once per test.
 
     Args:

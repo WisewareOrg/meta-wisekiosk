@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from page import BOUND_SECONDS, POLL_INTERVAL_SECONDS
+from page import BOUND_SECONDS
 
 SET_DIR = Path(__file__).resolve().parent.parent / "replay" / "sets" / "cards4-live"
 CA_PATH = Path.home() / ".mitmproxy" / "mitmproxy-ca-cert.pem"
@@ -20,10 +20,11 @@ def replay_window(target, proxy, set_config, request):
     """Put the backend behind `proxy` for this test's duration, and return the browser start.
 
     Opens an `ssh -R` tunnel to the proxy's own loopback port, copies the proxy's CA to the
-    board, writes a drop-in pointing wisekiosk.service at the proxy through `HTTPS_PROXY` and
-    `SSL_CERT_FILE`, then hands `set_config` the set's config.json -- whose own backend restart
-    puts the backend onto the proxy before the browser starts. Teardown undoes each of this
-    fixture's own steps in exactly the reverse order, then set_config's, then proxy's.
+    board, writes a drop-in that points wisekiosk.service at the proxy through `HTTPS_PROXY`
+    and adds the proxy's CA to its trust through `SSL_CERT_FILE`, then hands `set_config` the
+    set's config.json -- whose own backend restart puts the backend onto the proxy before the
+    browser starts. Teardown undoes each of this fixture's own steps in exactly the reverse
+    order, then set_config's, then proxy's.
 
     Args:
         target (labgrid.Target): names the board's SSHDriver.
@@ -32,8 +33,8 @@ def replay_window(target, proxy, set_config, request):
         request (pytest.FixtureRequest): registers each step's undo.
 
     Returns:
-        float: `time.monotonic()` taken once the config swap's own backend restart has put the
-        browser on the page -- the browser's start.
+        float: `time.monotonic()` taken once `set_config`'s `apply` has returned from starting
+        `kiosk.service` -- the browser's start.
     """
     driver = target.get_driver("SSHDriver")
 
@@ -69,15 +70,16 @@ def replay_window(target, proxy, set_config, request):
 
 @pytest.mark.parametrize("proxy", [str(SET_DIR / "flows.har")], indirect=True)
 def test_instance_reaches_out(proxy, replay_window, record_property):
-    """The instance's own HTTPS fetches are answered from the recording, none unanswered."""
+    """The instance's own HTTPS fetches are answered from the recording, none unanswered.
+
+    Both halves are read once BOUND_SECONDS have passed since the browser start.
+    """
     record_property("requirement", "TST010")
 
     deadline = replay_window + BOUND_SECONDS
-    served = proxy.served()
-    while any(count == 0 for count in served.values()) and time.monotonic() < deadline:
-        time.sleep(POLL_INTERVAL_SECONDS)
-        served = proxy.served()
+    time.sleep(max(0, deadline - time.monotonic()))
 
+    served = proxy.served()
     unserved = [url for (_method, url), count in served.items() if count == 0]
     assert not unserved, f"never served from the recording: {unserved}"
 
