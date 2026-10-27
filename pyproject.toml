@@ -14,4 +14,4 @@ dev = [
 ]
 
 [tool.uv.sources]
-check-reqs = { git = "https://github.com/WisewareOrg/wise-ci", subdirectory = "check-reqs", rev = "496e1d9dd854f632d68fe60340984ca4773c942b" }
+check-reqs = { git = "https://github.com/WisewareOrg/wise-ci", subdirectory = "check-reqs", rev = "1e437b917064415b0af1b92f9113039c47e117ba" }
