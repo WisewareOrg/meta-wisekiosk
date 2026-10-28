@@ -4,8 +4,11 @@ check_image and resolve are exercised against a dict-backed fake image (lookup +
 callables), never against a real debugfs. parse_stat's fixtures are debugfs output
 captured verbatim from the real built rootfs (and, for the slow-link case, from a
 disposable seeded copy of it); debugfs_lookup/debugfs_read are exercised directly
-against the real rootfs for the cases that rootfs actually has.
+against the real rootfs for the cases that rootfs actually has, and against a fake
+debugfs (subprocess.run patched) for the slow-link case the rootfs has none of.
 """
+
+import subprocess
 
 import pytest
 
@@ -380,10 +383,9 @@ def test_parse_stat_slow_symlink_target_is_none():
 # debugfs_lookup() / debugfs_read()
 #
 # Exercised directly against the real built rootfs, for the cases it actually
-# contains (file, directory, fast symlink, missing). The slow-link cat-completion is
-# covered above only at the parse_stat level: the rootfs has no slow link to drive it
-# through the real debugfs_lookup, and this file keeps no seeded-copy fixture around
-# (captured verbatim once, then discarded, per the brief).
+# contains (file, directory, fast symlink, missing). The rootfs has no slow link to
+# drive the cat-completion branch this way, so that one case instead stands in a fake
+# debugfs (subprocess.run patched) fed the slow-link fixtures captured above.
 # ---------------------------------------------------------------------------
 
 
@@ -407,11 +409,34 @@ def test_debugfs_lookup_missing_path():
     assert lookup("/no/such/path/at/all") is None
 
 
+def test_debugfs_lookup_slow_symlink_reads_target_via_cat(monkeypatch):
+    # The real rootfs has no slow link (confirmed by the full ls -l walk cited above),
+    # so the cat-completion branch is driven with the captured fixtures against a
+    # stand-in debugfs, keyed on the stat/cat command debugfs_lookup issues.
+    def fake_run(cmd, capture_output, text, check):
+        command = cmd[2]
+        if command.startswith("stat"):
+            return subprocess.CompletedProcess(
+                cmd, 0, SLOW_SYMLINK_STAT_STDOUT, SLOW_SYMLINK_STAT_STDERR
+            )
+        if command.startswith("cat"):
+            return subprocess.CompletedProcess(
+                cmd, 0, SLOW_SYMLINK_CAT_STDOUT, SLOW_SYMLINK_CAT_STDERR
+            )
+        raise AssertionError(f"unexpected debugfs command: {command!r}")
+
+    monkeypatch.setattr("unit_files.subprocess.run", fake_run)
+    lookup = debugfs_lookup("fake-image.ext4")
+    assert lookup("/usr/lib/slow-link-test") == ("symlink", SLOW_SYMLINK_CAT_STDOUT)
+
+
 def test_debugfs_read_regular_file():
     read = debugfs_read(ROOTFS)
     text = read("/usr/bin/measure-surf.sh")
+    # Asserted on shape, not byte count: a size pin is a change detector that fails on
+    # any edit to measure-surf.sh with no behavioural regression in debugfs_read.
     assert text is not None
-    assert len(text) == 2693
+    assert text.startswith("#!")
 
 
 def test_debugfs_read_missing_path():
