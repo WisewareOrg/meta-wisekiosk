@@ -566,25 +566,56 @@ def test_check_image_never_raises_unit_error_for_a_percent_specifier():
     assert result[0].startswith("pct.service: (2)")
 
 
+def test_check_image_never_raises_unit_error_for_exec_search_path():
+    img = FakeImage()
+    img.add_file(
+        "/usr/lib/systemd/system/searchpath.service",
+        "[Service]\nExecSearchPath=/custom/path\nExecStart=/usr/bin/true\n",
+    )
+    result = check_image(["searchpath.service"], img.lookup, img.read)
+    assert len(result) == 1
+    assert result[0].startswith("searchpath.service: (2)")
+
+
+def test_check_image_never_raises_unit_error_for_a_lone_semicolon():
+    img = FakeImage()
+    img.add_file(
+        "/usr/lib/systemd/system/semicolon.service",
+        "[Service]\nExecStart=;\n",
+    )
+    result = check_image(["semicolon.service"], img.lookup, img.read)
+    assert len(result) == 1
+    assert result[0].startswith("semicolon.service: (2)")
+
+
+def test_check_image_never_raises_unit_error_for_an_exec_start_symlink_loop():
+    img = FakeImage()
+    img.add_symlink("/usr/bin/selfloop", "/usr/bin/selfloop")
+    img.add_file(
+        "/usr/lib/systemd/system/loopy.service",
+        "[Service]\nExecStart=/usr/bin/selfloop\n",
+    )
+    result = check_image(["loopy.service"], img.lookup, img.read)
+    assert len(result) == 1
+    assert result[0].startswith("loopy.service: (2)")
+
+
 # ---------------------------------------------------------------------------
 # shipped_units()
 #
-# No parameters to construct around: it globs the real repo tree. Pinned against the
-# unit/timer files actually committed under meta-wisekiosk/recipes-* today; update
-# this set if a unit ships or is retired.
+# No parameters to construct around: it globs the real repo tree. Asserted on the glob
+# mechanism's properties -- not today's exact fleet of units -- so a legitimate unit
+# addition or retirement under recipes-* does not fail this test.
 # ---------------------------------------------------------------------------
 
 
-def test_shipped_units_matches_the_committed_recipe_files():
-    assert set(shipped_units()) == {
-        "wpa_supplicant.service",
-        "kiosk-cpufreq-cap.service",
-        "kiosk-journal-flush.service",
-        "kiosk-netcheck.service",
-        "kiosk-provision.service",
-        "kiosk.service",
-        "kiosk-soak.service",
-        "kiosk-soak.timer",
-        "kiosk-timesync-dir.service",
-        "wisekiosk.service",
-    }
+def test_shipped_units_globs_known_units_without_exempting_bootprofile():
+    units = shipped_units()
+    assert units
+    assert all(name.endswith(".service") or name.endswith(".timer") for name in units)
+    # Known units actually committed under recipes-* today.
+    assert "wisekiosk.service" in units
+    assert "kiosk-netcheck.service" in units
+    # The boot profiler's unit moved to tests/diagnostics/, outside the glob by
+    # location -- the plan's no-exemption mechanism, not a special case in the code.
+    assert "kiosk-bootprofile.service" not in units
