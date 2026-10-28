@@ -46,7 +46,9 @@ bench's own failure.
 
 `--skip-build` runs the `precondition` hook and the target suite only — no `build`, no `bundle`, no
 host suite, and `bench_candidate` stays `None` — so it tests a running board without a build and
-installs nothing. Whether such a run counts as evidence for a review or an investigation is
+installs nothing. `just bootprofile` runs this way, against `tests/diagnostics` — see
+[the bootprof README](../meta-wisekiosk/recipes-core/kiosk-bootprof/README.md) for what that run
+does. Whether such a run counts as evidence for a review or an investigation is
 [WiseBenchManager's own rule](https://github.com/WisewareOrg/WiseBenchManager/blob/main/docs/decisions/0001-verify-with-a-python-bench-runner.md),
 ADR 0001 rev 6 decision 9 (provenance), not this layer's.
 

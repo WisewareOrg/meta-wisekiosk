@@ -131,8 +131,9 @@ casync-stats store:
 # transfer is safe on a capped board -- verified 5/5 at ~45s vs the chunker's
 # ~6 min. The chunker was removed with #29.
 
-# NOT covered by `just build`, which makes core-image-base only -- shipping a
-# stale .raucb silently reinstalls the previous image.
+# NOT covered by `just build`, which makes the kas `target:` images
+# (core-image-base, kiosk-bootprof) only -- shipping a stale .raucb silently
+# reinstalls the previous image.
 #
 # kconfig is its own parameter rather than the root Justfile's `config` so that
 # a KAS_CONFIG pointing at some other product cannot silently build the wrong

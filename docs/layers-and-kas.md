@@ -58,7 +58,7 @@ Run `kas-container build kiosk-zero-w.yaml` and, in order, kas:
 5. **Writes `build/conf/local.conf`** from `machine:`, `distro:` and every `local_conf_header:`
    block, concatenated. This is where `kiosk-zero-w.yaml`'s long commented blocks end up — they are
    ordinary BitBake variable assignments with the reasoning kept next to them.
-6. **Runs `bitbake core-image-base`** (the `target:`).
+6. **Runs `bitbake core-image-base kiosk-bootprof`** (the `target:`).
 
 `kas-container checkout kiosk-zero-w.yaml` does steps 1–5 and stops. That is the fast way to inspect
 what a config change actually produced.
