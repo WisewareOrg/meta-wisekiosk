@@ -8,7 +8,7 @@ Before=shutdown.target
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/kiosk-bootprof 150 500 /data/boot-cpu-io mmcblk0
-ExecStopPost=/bin/sh -c 'systemctl disable --no-reload kiosk-bootprofile; rm -f /usr/local/bin/kiosk-bootprof /etc/systemd/system/kiosk-bootprofile.service'
+ExecStopPost=/bin/sh -c 'systemctl disable --no-reload kiosk-bootprofile; rm -f /usr/local/bin/kiosk-bootprof /etc/systemd/system/kiosk-bootprofile.service; rmdir /usr/local/bin'
 IOSchedulingClass=idle
 
 [Install]

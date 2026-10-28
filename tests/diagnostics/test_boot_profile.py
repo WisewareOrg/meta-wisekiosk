@@ -35,6 +35,7 @@ BOARD_BINARY_PATH = "/usr/local/bin/kiosk-bootprof"
 _UNIT_NAME = "kiosk-bootprofile"
 _UNIT_REMOTE = "/etc/systemd/system/kiosk-bootprofile.service"
 _ENABLE_LINK = f"/etc/systemd/system/sysinit.target.wants/{_UNIT_NAME}.service"
+_BOARD_BIN_DIR = "/usr/local/bin"
 _RETRY_ATTEMPTS = 6
 _RETRY_INTERVAL_SECONDS = 20
 _CLEANUP_BOUND_SECONDS = 60
@@ -84,13 +85,17 @@ def test_boot_profile(target, request):
 
     Arms the sampler, reboots, waits out the observer window, pulls the samples and the
     matching journal, and runs the analyzer. Whatever happens, the finalizer below leaves the
-    board with no copied binary, no copied unit and no enable link for it.
+    board with no copied binary, no copied unit, no enable link for it, and no
+    `/usr/local/bin` beyond what was already there.
     """
     driver = target.get_driver("SSHDriver")
     outdir = Path(OUTPUT_DIR)
     outdir.mkdir(parents=True, exist_ok=True)
 
-    state = {"rebooted": False}
+    # No image ships /usr/local/bin. Record whether it already exists, so cleanup removes
+    # only what this run itself created.
+    _out, _err, rc_dir = driver.run(f"test -d {_BOARD_BIN_DIR}")
+    state = {"rebooted": False, "dir_preexisting": rc_dir == 0}
 
     def _cleanup():
         """Remove anything this run left on the board.
@@ -102,6 +107,8 @@ def test_boot_profile(target, request):
         """
         if not state["rebooted"]:
             driver.run(f"rm -f {BOARD_BINARY_PATH} {_UNIT_REMOTE}")
+            if not state["dir_preexisting"]:
+                driver.run(f"rmdir {_BOARD_BIN_DIR}")
             return
 
         deadline = time.monotonic() + _CLEANUP_BOUND_SECONDS
@@ -112,6 +119,7 @@ def test_boot_profile(target, request):
             _out, _err, rc_bin = driver.run(f"test -e {BOARD_BINARY_PATH}")
             _out, _err, rc_unit = driver.run(f"test -e {_UNIT_REMOTE}")
             _out, _err, rc_link = driver.run(f"test -e {_ENABLE_LINK}")
+            _out, _err, rc_dir = driver.run(f"test -d {_BOARD_BIN_DIR}")
             leftover = []
             if "".join(active_out).strip() == "active":
                 leftover.append(f"{_UNIT_NAME} still active")
@@ -121,6 +129,8 @@ def test_boot_profile(target, request):
                 leftover.append(_UNIT_REMOTE)
             if rc_link == 0:
                 leftover.append(_ENABLE_LINK)
+            if rc_dir == 0 and not state["dir_preexisting"]:
+                leftover.append(_BOARD_BIN_DIR)
             if not leftover:
                 return
             if time.monotonic() >= deadline:
@@ -129,6 +139,8 @@ def test_boot_profile(target, request):
 
         driver.run(f"systemctl disable --no-reload {_UNIT_NAME}")
         driver.run(f"rm -f {BOARD_BINARY_PATH} {_UNIT_REMOTE}")
+        if not state["dir_preexisting"]:
+            driver.run(f"rmdir {_BOARD_BIN_DIR}")
         pytest.fail(f"board was not clean after the profile run: {', '.join(leftover)}")
 
     request.addfinalizer(_cleanup)
@@ -136,9 +148,9 @@ def test_boot_profile(target, request):
     # 1. Record the boot id.
     boot_before = _boot_id(driver)
 
-    # 2. Arm: copy the binary and the unit, then enable. No image ships /usr/local/bin, so
-    # scp (which does not create destination directories) needs it made first.
-    _run_checked(driver, "mkdir -p /usr/local/bin")
+    # 2. Arm: copy the binary and the unit, then enable. scp (what driver.put() shells out
+    # to) does not create destination directories, so make it first.
+    _run_checked(driver, f"mkdir -p {_BOARD_BIN_DIR}")
     driver.put(str(DEPLOYED_BINARY), BOARD_BINARY_PATH)
     _run_checked(driver, f"chmod 0755 {BOARD_BINARY_PATH}")
     driver.put(str(UNIT_SOURCE), "/etc/systemd/system/")
