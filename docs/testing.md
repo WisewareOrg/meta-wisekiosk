@@ -7,6 +7,7 @@ result at that tier does **not** let you conclude.
 |---|---|---|---|
 | Static (`just guards`, CI) | Repository invariants hold: no secret or identity reaches a tracked file, shell and YAML parse, every wiring self-test passes. | Every commit (pre-commit hook), every PR and merge-group commit (CI). | Anything about a Yocto build. This tier never invokes bitbake. |
 | Build (`just build`) | The kas config resolves and bitbake completes: an image artifact exists. | On demand, locally — never in CI, which does not build. | Whether the image differs from the last one, whether it boots, whether it serves anything. |
+| Host (`tests/host_suite`) | Both checks pass before any install: the rootfs is attributable to a clean, pushed commit, and every unit this layer's recipes ship is present, has an `ExecStart=` that resolves, and is enabled by name. | After the build, never under `bench test --skip-build`. | Whether a unit actually loads or fails at runtime, drop-in overrides, `ExecStartPre=`/`ExecStartPost=`/`ExecStop=`, or whether the resolved binary is executable. |
 | Device smoke (`tests/target_suite`) | The board's `/etc/buildinfo` names the installed commit, the page is served, the page is served again within 60 s of a backend crash, and the instance's own HTTPS fetches, made through the proxy it is set to use, complete and are answered from a recording of its upstream, every recorded request at least once and none unanswered. | `bench run`, once per queue job. | The shared boot partition (`config.txt`, `cmdline.txt`, `boot.scr`, and `uboot.env` apart from RAUC's own boot-selection variables) — an OTA writes only the slot rootfs it boots, which does carry the kernel. The RAUC slot layout, which an OTA never touches, or a second boot. Whether the instance's traffic leaves the board, whether the board resolves its upstreams' names, or whether its system CA store verifies them: the recording is served by a proxy on the test host, reached through an SSH tunnel on the board's own loopback, which resolves names and presents certificates its own CA signs, and the backend trusts that CA alongside the store. |
 
 ## Running it
@@ -27,9 +28,10 @@ bench run                      # on a timer: the merge queue's head entry, the s
 needs no state check before a run — `build` (`just build`) and `bundle` (`just kiosk-bundle`).
 `[tests]` names the two suites:
 
-- `tests/host_suite` — runs before anything is installed, against the build hook's own output. Its
-  one test runs `tools/reproducibility-gate.sh --image` on the rootfs, so a candidate the gate
-  refuses never reaches the board.
+- `tests/host_suite` — runs before anything is installed, against the build hook's own output. One
+  test runs `tools/reproducibility-gate.sh --image` on the rootfs, so a candidate the gate refuses
+  never reaches the board; the other runs `unit_files.py`'s `check_image` against every unit this
+  layer's recipes ship, so a unit that would strand the board never reaches it either.
 - `tests/target_suite` — its own session-scoped, autouse fixture (`conftest.py`) installs the
   candidate on the board through `just kiosk-ota` and `just kiosk-reboot` when there is one, then
   gets labgrid's SSHDriver fresh and reads the board's `/etc/buildinfo`, printing its meta-wisekiosk
