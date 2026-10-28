@@ -136,7 +136,9 @@ def test_boot_profile(target, request):
     # 1. Record the boot id.
     boot_before = _boot_id(driver)
 
-    # 2. Arm: copy the binary and the unit, then enable.
+    # 2. Arm: copy the binary and the unit, then enable. No image ships /usr/local/bin, so
+    # scp (which does not create destination directories) needs it made first.
+    _run_checked(driver, "mkdir -p /usr/local/bin")
     driver.put(str(DEPLOYED_BINARY), BOARD_BINARY_PATH)
     _run_checked(driver, f"chmod 0755 {BOARD_BINARY_PATH}")
     driver.put(str(UNIT_SOURCE), "/etc/systemd/system/")
