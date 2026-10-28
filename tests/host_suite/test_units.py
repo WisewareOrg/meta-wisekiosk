@@ -1,9 +1,9 @@
 """Host suite: every unit this layer ships verifies and is enabled the way systemd reads it.
 
-systemd-analyze verify and systemctl is-enabled read the unpacked rootfs directly, in place
-of a hand-rolled unit parser. --recursive-errors=no is load-bearing: without it, verify
-fails a unit over a generator-produced dependency (data.mount, from /etc/fstab) that a
-static extracted tree never has, even though the named unit itself is fine.
+systemd-analyze verify and systemctl is-enabled read the unpacked rootfs directly.
+--recursive-errors=no is load-bearing: without it, verify fails a unit over a
+generator-produced dependency (data.mount, from /etc/fstab) that a static extracted tree
+never has, even though the named unit itself is fine.
 """
 
 import glob
