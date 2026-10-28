@@ -32,9 +32,10 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   test runs `tools/reproducibility-gate.sh --image` on the rootfs, so a candidate the gate refuses
   never reaches the board; the other runs `unit_files.py`'s `check_image` against every unit this
   layer's recipes ship, so a unit that would strand the board never reaches it either.
-- `tests/target_suite` — its own session-scoped, autouse fixture (`conftest.py`) installs the
-  candidate on the board through `just kiosk-ota` and `just kiosk-reboot` when there is one, then
-  gets labgrid's SSHDriver fresh and reads the board's `/etc/buildinfo`, printing its meta-wisekiosk
+- `tests/target_suite` — one autouse fixture (`conftest.py`) switches on `install_candidate`
+  (`tests/conftest.py`'s shared setup), which installs the candidate on the board through
+  `just kiosk-ota` and `just kiosk-reboot` when there is one, then gets labgrid's SSHDriver fresh
+  and reads the board's `/etc/buildinfo`, printing its meta-wisekiosk
   commit into the run's own record on every run — so the record carries the board's commit even
   under a `-k`-filtered run where TST016 itself would not execute. The commit under test comes from
   the runner's own `bench_candidate` fixture, never an environment variable — `None` outside

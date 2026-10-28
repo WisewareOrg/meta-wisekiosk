@@ -100,7 +100,7 @@ soak-summary host n="24":
 [group('device')]
 [doc("Profile one boot end to end on the board LG_ENV names; leaves the checkout on a detached HEAD")]
 bootprofile:
-    bench test HEAD --skip-build -- tests/diagnostics -k boot_profile
+    bench test HEAD --skip-build -- tests/diagnostics -k boot_profile -rP
 
 # Pull-only, and deliberately so: /data is the one thing on this device that a
 # reflash does not reproduce, and a backup recipe that can also write is a

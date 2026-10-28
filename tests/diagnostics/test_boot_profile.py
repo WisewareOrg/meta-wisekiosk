@@ -36,6 +36,7 @@ _UNIT_NAME = "kiosk-bootprofile"
 _UNIT_REMOTE = "/etc/systemd/system/kiosk-bootprofile.service"
 _ENABLE_LINK = f"/etc/systemd/system/sysinit.target.wants/{_UNIT_NAME}.service"
 _BOARD_BIN_DIR = "/usr/local/bin"
+_BOARD_LOCAL_DIR = "/usr/local"
 _RETRY_ATTEMPTS = 6
 _RETRY_INTERVAL_SECONDS = 20
 _CLEANUP_BOUND_SECONDS = 60
@@ -85,17 +86,14 @@ def test_boot_profile(target, request):
 
     Arms the sampler, reboots, waits out the observer window, pulls the samples and the
     matching journal, and runs the analyzer. Whatever happens, the finalizer below leaves the
-    board with no copied binary, no copied unit, no enable link for it, and no
-    `/usr/local/bin` beyond what was already there.
+    board with no copied binary, no copied unit, no enable link for it, and neither
+    `/usr/local/bin` nor `/usr/local` -- no image ships either.
     """
     driver = target.get_driver("SSHDriver")
     outdir = Path(OUTPUT_DIR)
     outdir.mkdir(parents=True, exist_ok=True)
 
-    # No image ships /usr/local/bin. Record whether it already exists, so cleanup removes
-    # only what this run itself created.
-    _out, _err, rc_dir = driver.run(f"test -d {_BOARD_BIN_DIR}")
-    state = {"rebooted": False, "dir_preexisting": rc_dir == 0}
+    state = {"rebooted": False}
 
     def _cleanup():
         """Remove anything this run left on the board.
@@ -106,9 +104,9 @@ def test_boot_profile(target, request):
         and otherwise removes the leftovers itself, names them, and fails.
         """
         if not state["rebooted"]:
+            driver.run(f"systemctl disable --no-reload {_UNIT_NAME}")
             driver.run(f"rm -f {BOARD_BINARY_PATH} {_UNIT_REMOTE}")
-            if not state["dir_preexisting"]:
-                driver.run(f"rmdir {_BOARD_BIN_DIR}")
+            driver.run(f"rmdir {_BOARD_BIN_DIR} {_BOARD_LOCAL_DIR}")
             return
 
         deadline = time.monotonic() + _CLEANUP_BOUND_SECONDS
@@ -119,7 +117,8 @@ def test_boot_profile(target, request):
             _out, _err, rc_bin = driver.run(f"test -e {BOARD_BINARY_PATH}")
             _out, _err, rc_unit = driver.run(f"test -e {_UNIT_REMOTE}")
             _out, _err, rc_link = driver.run(f"test -e {_ENABLE_LINK}")
-            _out, _err, rc_dir = driver.run(f"test -d {_BOARD_BIN_DIR}")
+            _out, _err, rc_bin_dir = driver.run(f"test -d {_BOARD_BIN_DIR}")
+            _out, _err, rc_local_dir = driver.run(f"test -d {_BOARD_LOCAL_DIR}")
             leftover = []
             if "".join(active_out).strip() == "active":
                 leftover.append(f"{_UNIT_NAME} still active")
@@ -129,8 +128,10 @@ def test_boot_profile(target, request):
                 leftover.append(_UNIT_REMOTE)
             if rc_link == 0:
                 leftover.append(_ENABLE_LINK)
-            if rc_dir == 0 and not state["dir_preexisting"]:
+            if rc_bin_dir == 0:
                 leftover.append(_BOARD_BIN_DIR)
+            if rc_local_dir == 0:
+                leftover.append(_BOARD_LOCAL_DIR)
             if not leftover:
                 return
             if time.monotonic() >= deadline:
@@ -139,8 +140,7 @@ def test_boot_profile(target, request):
 
         driver.run(f"systemctl disable --no-reload {_UNIT_NAME}")
         driver.run(f"rm -f {BOARD_BINARY_PATH} {_UNIT_REMOTE}")
-        if not state["dir_preexisting"]:
-            driver.run(f"rmdir {_BOARD_BIN_DIR}")
+        driver.run(f"rmdir {_BOARD_BIN_DIR} {_BOARD_LOCAL_DIR}")
         pytest.fail(f"board was not clean after the profile run: {', '.join(leftover)}")
 
     request.addfinalizer(_cleanup)
@@ -194,8 +194,13 @@ def test_boot_profile(target, request):
     stem = f"boot-cpu-io.{boot_after}"
     driver.get(sample_remote, str(outdir / f"{stem}.txt"))
     journal_id = boot_after.replace("-", "")
-    journal_out = _run_checked(driver, f"journalctl -b {journal_id} -o short-monotonic")
-    journal_text = "\n".join(journal_out)
+    journal_stdout, journal_stderr, journal_rc = driver.run(
+        f"journalctl -b {journal_id} -o short-monotonic"
+    )
+    assert journal_rc == 0, (
+        f"journalctl -b {journal_id} failed (rc {journal_rc}): {chr(10).join(journal_stderr)}"
+    )
+    journal_text = "\n".join(journal_stdout)
     assert journal_text.strip(), f"journal for boot {journal_id} is empty"
     (outdir / f"{stem}.journal.txt").write_text(journal_text + "\n")
 
