@@ -3,8 +3,8 @@
 # destructive operations against the PROD board. .claude/hooks/guard.sh RULE 1
 # is the only consumer of the file this writes: under a valid grant it allows
 # an OTA, install, reboot, rollback or reprovision of prod; everything else
-# (flash, bootprofile, rauc-rotate, poweroff/halt/shutdown/kexec) stays
-# blocked regardless. Revoke when the work the grant was for is done.
+# (flash, rauc-rotate, poweroff/halt/shutdown/kexec) stays blocked regardless.
+# Revoke when the work the grant was for is done.
 #
 #   tools/prod-authorize.sh [--hours H]   -- grant H hours (integer 1-12, default 12)
 #   tools/prod-authorize.sh --show        -- print the grant file's raw contents, if any

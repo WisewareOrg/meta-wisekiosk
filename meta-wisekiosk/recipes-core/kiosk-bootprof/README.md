@@ -9,13 +9,12 @@ code cannot state about itself.
 
 ## Capturing a boot
 
-`just bootprofile <host>` (`justfiles/device.just`) runs the whole cycle: enable the unit, reboot,
-wait out the observer window below, pull the samples and the matching journal, run the analyzer,
-disable the unit again.
-
-Do **not** `rm` the unit to stop it. It is image content, so a delete is undone by the next OTA and
-in the meantime the device disagrees with its own image. `systemctl disable kiosk-bootprofile` is
-the off switch.
+`just bootprofile` (`justfiles/device.just`) runs the whole cycle, through
+`tests/diagnostics/test_boot_profile.py` on the board `LG_ENV` names: copy the binary and the
+unit onto the board, enable, reboot, wait out the observer window below, pull the samples and
+the matching journal, run the analyzer. Neither the binary nor the unit is image content --
+both are copied in for the one boot they measure, and the unit's own `ExecStopPost=` removes
+them again when it stops.
 
 ## Your own SSH session is an instrument, and it costs ~3.34s
 

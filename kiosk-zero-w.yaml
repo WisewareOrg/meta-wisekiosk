@@ -16,7 +16,7 @@ header:
 ##########
 build_system: oe
 distro: autonomos
-target: core-image-base
+target: [core-image-base, kiosk-bootprof]
 
 #######################
 # BUILD CONFIGURATION #

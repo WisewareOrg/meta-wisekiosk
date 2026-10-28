@@ -453,7 +453,6 @@ KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: provision.sh device"     ALLOW "$(
 
 echo "--- W2: a valid grant does not widen scope beyond the listed verbs ---"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: flash to fixed disk still blocked (RULE 2 unaffected)" BLOCK "$(b 'sudo bmaptool copy core-image.wic.bz2 /dev/sdz')"
-KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: bootprofile still blocked"     BLOCK "$(b "just bootprofile host=root@$PROD outdir=local")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: rauc-rotate still blocked"     BLOCK "$(b "tools/rauc-rotate.sh root@$PROD local/keys/fleet-key")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl poweroff still blocked" BLOCK "$(b "ssh root@$PROD systemctl poweroff")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl halt still blocked"     BLOCK "$(b "ssh root@$PROD systemctl halt")"
@@ -481,19 +480,17 @@ KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: reboot -p still blocks"           
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: reboot --halt still blocks"            BLOCK "$(b "ssh root@$PROD reboot --halt")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: reboot --poweroff still blocks"        BLOCK "$(b "ssh root@$PROD reboot --poweroff")"
 
-echo "--- W2/S6: power-off, kexec and bootprofile spellings block with or without a grant ---"
+echo "--- W2/S6: power-off and kexec spellings block with or without a grant ---"
 # Pre-existing RULE 1 gaps (predate the grant), surfaced by the new CLAUDE.md /
-# CONTRIBUTING.md / guard.sh prose that now promises bootprofile and "any
-# power-off verb (... kexec)" stay blocked regardless. None of these needed a
-# grant to slip through, so each is proven BOTH ways.
+# CONTRIBUTING.md / guard.sh prose that now promises "any power-off verb
+# (... kexec)" stays blocked regardless. None of these needed a grant to slip
+# through, so each is proven BOTH ways.
 KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: /sbin/poweroff blocks"        BLOCK "$(b "ssh root@$PROD /sbin/poweroff")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: /sbin/poweroff still blocks"     BLOCK "$(b "ssh root@$PROD /sbin/poweroff")"
 KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: kexec -e blocks"              BLOCK "$(b "ssh root@$PROD kexec -e")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kexec -e still blocks"           BLOCK "$(b "ssh root@$PROD kexec -e")"
 KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: systemctl --force poweroff blocks"    BLOCK "$(b "ssh root@$PROD systemctl --force poweroff")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl --force poweroff still blocks" BLOCK "$(b "ssh root@$PROD systemctl --force poweroff")"
-KIOSK_PROD_AUTH_FILE="$GRANT_NONE"  t "no grant: kiosk-bootprofile.sh direct blocks"    BLOCK "$(b "tools/kiosk-bootprofile.sh root@$PROD")"
-KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-bootprofile.sh direct still blocks" BLOCK "$(b "tools/kiosk-bootprofile.sh root@$PROD")"
 
 echo "--- W2: prod log reads survive the B1 quote-strip fix (content-reviewer, 8b340f6) ---"
 # \$flat drops the command's own trailing quote so a verb right before it is

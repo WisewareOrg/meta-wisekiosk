@@ -172,7 +172,7 @@ The server listens on `~/.local/share/bitbake-hashserv/hashserv.sock`;
 the build container.
 
 ```sh
-just build          # kas fetches sources/, applies the patches, builds core-image-base
+just build          # kas fetches sources/, applies the patches, builds core-image-base and deploys kiosk-bootprof
 ```
 
 **The version in that `curl` URL is the kas version the build uses, and it changes nothing on its

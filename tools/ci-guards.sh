@@ -205,8 +205,8 @@ fi
 # be in no IMAGE_INSTALL, so it never runs (kiosk-provision #35, read-only-
 # rootfs-config #10); recipe and IMAGE_INSTALL each parse fine alone, only the
 # cross-check sees it. Scoped to auto-enabled services (owner, 2026-08-15): a
-# debug tool (no service, or unit shipped disabled like kiosk-bootprof) and a
-# config-only recipe are out of scope. "Reachable" is a literal IMAGE_INSTALL
+# debug tool (no service, like kiosk-bootprof, or a unit shipped disabled) and
+# a config-only recipe are out of scope. "Reachable" is a literal IMAGE_INSTALL
 # token; a transitively-pulled recipe false-FAILs (safe) -- name it or extend.
 # Paths are existence-checked first (as 1b/3) so a rename cannot read green.
 scan7_root="meta-wisekiosk"

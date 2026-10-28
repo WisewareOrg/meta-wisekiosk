@@ -7,6 +7,7 @@ result at that tier does **not** let you conclude.
 |---|---|---|---|
 | Static (`just guards`, CI) | Repository invariants hold: no secret or identity reaches a tracked file, shell and YAML parse, every wiring self-test passes. | Every commit (pre-commit hook), every PR and merge-group commit (CI). | Anything about a Yocto build. This tier never invokes bitbake. |
 | Build (`just build`) | The kas config resolves and bitbake completes: an image artifact exists. | On demand, locally — never in CI, which does not build. | Whether the image differs from the last one, whether it boots, whether it serves anything. |
+| Host (`tests/host_suite`) | Both checks pass before any install: the rootfs is attributable to a clean, pushed commit, and `systemd-analyze verify`/`systemctl is-enabled`, run against the unpacked rootfs, are clean for every unit this layer's recipes ship. | After the build, never under `bench test --skip-build`. | Whether a unit actually loads or fails at runtime, errors in a generator-produced dependency unit (`--recursive-errors=no` suppresses those), or anything host-vs-image systemd version drift (259 vs. 255) would mask or add noise to. |
 | Device smoke (`tests/target_suite`) | The board's `/etc/buildinfo` names the installed commit, the page is served, the page is served again within 60 s of a backend crash, and the instance's own HTTPS fetches, made through the proxy it is set to use, complete and are answered from a recording of its upstream, every recorded request at least once and none unanswered. | `bench run`, once per queue job. | The shared boot partition (`config.txt`, `cmdline.txt`, `boot.scr`, and `uboot.env` apart from RAUC's own boot-selection variables) — an OTA writes only the slot rootfs it boots, which does carry the kernel. The RAUC slot layout, which an OTA never touches, or a second boot. Whether the instance's traffic leaves the board, whether the board resolves its upstreams' names, or whether its system CA store verifies them: the recording is served by a proxy on the test host, reached through an SSH tunnel on the board's own loopback, which resolves names and presents certificates its own CA signs, and the backend trusts that CA alongside the store. |
 
 ## Running it
@@ -27,12 +28,15 @@ bench run                      # on a timer: the merge queue's head entry, the s
 needs no state check before a run — `build` (`just build`) and `bundle` (`just kiosk-bundle`).
 `[tests]` names the two suites:
 
-- `tests/host_suite` — runs before anything is installed, against the build hook's own output. Its
-  one test runs `tools/reproducibility-gate.sh --image` on the rootfs, so a candidate the gate
-  refuses never reaches the board.
-- `tests/target_suite` — its own session-scoped, autouse fixture (`conftest.py`) installs the
-  candidate on the board through `just kiosk-ota` and `just kiosk-reboot` when there is one, then
-  gets labgrid's SSHDriver fresh and reads the board's `/etc/buildinfo`, printing its meta-wisekiosk
+- `tests/host_suite` — runs before anything is installed, against the build hook's own output. One
+  test runs `tools/reproducibility-gate.sh --image` on the rootfs, so a candidate the gate refuses
+  never reaches the board; the other unpacks the rootfs tarball and runs `systemd-analyze verify`
+  and `systemctl is-enabled`, both `--root=`-pointed at it, against every unit this layer's recipes
+  ship, so a unit that would strand the board never reaches it either.
+- `tests/target_suite` — one autouse fixture (`conftest.py`) switches on `install_candidate`
+  (`tests/conftest.py`'s shared setup), which installs the candidate on the board through
+  `just kiosk-ota` and `just kiosk-reboot` when there is one, then gets labgrid's SSHDriver fresh
+  and reads the board's `/etc/buildinfo`, printing its meta-wisekiosk
   commit into the run's own record on every run — so the record carries the board's commit even
   under a `-k`-filtered run where TST016 itself would not execute. The commit under test comes from
   the runner's own `bench_candidate` fixture, never an environment variable — `None` outside
@@ -46,7 +50,9 @@ bench's own failure.
 
 `--skip-build` runs the `precondition` hook and the target suite only — no `build`, no `bundle`, no
 host suite, and `bench_candidate` stays `None` — so it tests a running board without a build and
-installs nothing. Whether such a run counts as evidence for a review or an investigation is
+installs nothing. `just bootprofile` runs this way, against `tests/diagnostics` — see
+[the bootprof README](../meta-wisekiosk/recipes-core/kiosk-bootprof/README.md) for what that run
+does. Whether such a run counts as evidence for a review or an investigation is
 [WiseBenchManager's own rule](https://github.com/WisewareOrg/WiseBenchManager/blob/main/docs/decisions/0001-verify-with-a-python-bench-runner.md),
 ADR 0001 rev 6 decision 9 (provenance), not this layer's.
 

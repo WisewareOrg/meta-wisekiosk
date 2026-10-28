@@ -47,9 +47,10 @@ status host:
 
 # === Diagnostics ===
 #
-# Thin wrappers over tools/kiosk-*.sh. The reasoning behind each check lives in
-# the script it wraps; .claude/skills/kiosk-debug/SKILL.md decides which one a
-# given symptom calls for.
+# Thin wrappers over tools/kiosk-*.sh, except bootprofile, which runs through the
+# bench runner. The reasoning behind each check lives in the script it wraps (or,
+# for bootprofile, tests/diagnostics/test_boot_profile.py);
+# .claude/skills/kiosk-debug/SKILL.md decides which one a given symptom calls for.
 
 # Takes a CIDR rather than a host: this is the recipe for when the address is
 # what you are missing. The script picks its own L2 view -- Windows interop
@@ -92,14 +93,14 @@ screenshot host out="":
 soak-summary host n="24":
     tools/kiosk-ssh.sh root@{{host}} 'kiosk-soak.sh --summary {{n}}'
 
-# Costs a reboot of the device and about three minutes. outdir defaults to
-# local/ because the profile comes with a full journal dump -- hostname,
-# addresses, SSID -- and local/ is this repository's gitignored home for exactly
-# that; just runs recipes with cwd at the repository root, which is public.
+# Costs a reboot of the device and about three minutes. Samples land in local/,
+# this repository's gitignored home for a journal dump that carries hostname,
+# addresses and the SSID; just runs recipes with cwd at the repository root,
+# which is public.
 [group('device')]
-[doc("Profile one boot end to end: arm, reboot, collect, analyze, disarm")]
-bootprofile host outdir="local":
-    tools/kiosk-bootprofile.sh root@{{host}} {{outdir}}
+[doc("Profile one boot end to end on the board LG_ENV names; leaves the checkout on a detached HEAD")]
+bootprofile:
+    bench test HEAD --skip-build -- tests/diagnostics -k boot_profile -rP
 
 # Pull-only, and deliberately so: /data is the one thing on this device that a
 # reflash does not reproduce, and a backup recipe that can also write is a

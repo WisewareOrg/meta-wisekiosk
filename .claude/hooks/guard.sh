@@ -297,9 +297,8 @@ Bash)
     # the one that knows.
     #
     # The grant only widens OTA/install/reboot/rollback/reprovision. flash,
-    # bootprofile, tools/rauc-rotate and any power-off verb (shutdown, halt,
-    # poweroff, kexec) stay blocked no matter what the grant says -- see
-    # always_blocked below.
+    # tools/rauc-rotate and any power-off verb (shutdown, halt, poweroff, kexec)
+    # stay blocked no matter what the grant says -- see always_blocked below.
     #
     # Read-only recipes (status, screenshot, soak-summary, kiosk-backup,
     # rauc-status, tcp-state, kiosk-preflight) are NOT here: blocking those
@@ -426,13 +425,13 @@ Bash)
         grant_scoped=1
     fi
 
-    # Never allowed against prod, grant or not: flash, bootprofile (both
-    # spellings), tools/rauc-rotate, and any verb that leaves the board off
-    # rather than restarting it -- bare, `/path/to/`-prefixed, or interleaved
-    # with systemctl options (`systemctl --force poweroff`).
+    # Never allowed against prod, grant or not: flash, tools/rauc-rotate, and
+    # any verb that leaves the board off rather than restarting it -- bare,
+    # `/path/to/`-prefixed, or interleaved with systemctl options
+    # (`systemctl --force poweroff`).
     always_blocked=0
     if [ "$prod_power" -eq 1 ] || printf '%s' "$code" | grep -qE \
-        "just[[:space:]]+(bootprofile|flash)${VERBEND}|systemctl([[:space:]]+-[^[:space:]]+)*[[:space:]]+(poweroff|halt|kexec|shutdown)${VERBEND}|systemctl([[:space:]]+-[^[:space:]]+)*[[:space:]]+(start|isolate)[[:space:]]+(poweroff|halt)\\.target${VERBEND}|${CMDPOS}((\\S*/)?(shutdown|halt|poweroff|kexec))${VERBEND}|tools/rauc-rotate|tools/kiosk-bootprofile\\.sh"; then
+        "just[[:space:]]+flash${VERBEND}|systemctl([[:space:]]+-[^[:space:]]+)*[[:space:]]+(poweroff|halt|kexec|shutdown)${VERBEND}|systemctl([[:space:]]+-[^[:space:]]+)*[[:space:]]+(start|isolate)[[:space:]]+(poweroff|halt)\\.target${VERBEND}|${CMDPOS}((\\S*/)?(shutdown|halt|poweroff|kexec))${VERBEND}|tools/rauc-rotate"; then
         always_blocked=1
     fi
 
@@ -441,12 +440,12 @@ Bash)
 BLOCKED: that is a destructive operation aimed at the PROD board.
 
 Prod is wall-mounted and is carrying the live soak run. An OTA, install,
-rollback, reboot, reprovision or profile there ends a run that cannot be
-replayed, and a slot that comes up wrong costs a physical trip to the wall.
+rollback, reboot or reprovision there ends a run that cannot be replayed, and
+a slot that comes up wrong costs a physical trip to the wall.
 
 A valid grant (tools/prod-authorize.sh) allows the OTA/install/reboot/rollback/
-reprovision half of that list. flash, bootprofile, rauc-rotate and any
-power-off verb (shutdown, halt, poweroff, kexec) stay blocked regardless.
+reprovision half of that list. flash, rauc-rotate and any power-off verb
+(shutdown, halt, poweroff, kexec) stay blocked regardless.
 
 Retarget the BENCH board -- `local/device-identity.md` has the role map, and
 `just find <cidr>` reports which address a swapped board took. Observation of
