@@ -31,7 +31,8 @@ Reach for the cheapest instrument that can *fail*. TCP state and a screenshot co
 no reboot; a boot profile costs a boot of the thing you are debugging.
 
 Screenshot, soak read, and boot profile all need a device that answers SSH. Each script's own
-header says what its device-side step requires and what can be checked without one.
+header says what its device-side step requires and what can be checked without one; for the
+boot profile, that's `test_boot_profile.py`'s own docstring and the bootprof README.
 
 Every one of these opens an SSH connection to the device, so batch reads through `kiosk-ssh.sh`
 rather than issuing them one at a time; its header says what a connection costs and how it is
