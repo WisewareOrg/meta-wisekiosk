@@ -1,0 +1,49 @@
+Run 2 — bench, commit b6d537714dfc5efd85c2a80c88bfe44313f70cdd (after the [stats] stream was
+added). Excerpt from records/20261030T152422Z/report.jsonl, the install item's "Captured
+stdout setup" and "Captured stderr setup" sections. Address redacted to <BENCH_ADDRESS>.
+
+== before
+BOOT_ORDER=B
+BOOT_A_LEFT=0
+BOOT_B_LEFT=3
+Booted from: rootfs.1 (B)
+Activated: rootfs.1 (B)
+      boot status: good
+      boot status: bad
+== clock: device epoch 1793373981, host 1793373981, skew 0s
+== verifying bundle signature against the device keyring
+== installing
+[stdout, host-stamped]
+2026-10-30T11:26:27.057221-0400 [journal] 2026-10-30T11:26:26.993771-04:00 <BENCH_HOSTNAME> rauc[270]: writing data to device /dev/mmcblk0p2
+2026-10-30T11:28:49.642382-0400 [stats] MemFree:23808 Dirty:7436 Writeback:35328 load=5.91 3.76 2.41 mmc=7950 781 791453 249337 9244 321919 2849700 4409046 0 115100 4658384 0 0 0 0 0 0 uv=0
+ ... (one [stats] line roughly every second through the write)
+2026-10-30T11:29:48.739297-0400 [kernel] 2026-10-30T11:29:49,057262-04:00 EXT4-fs (mmcblk0p2): mounted filesystem d4b90c75-f482-4de5-b1d6-c0b42a9ad80a r/w with ordered data mode. Quota mode: none.
+2026-10-30T11:29:48.959614-0400 [journal] 2026-10-30T11:29:48.437717-04:00 <BENCH_HOSTNAME> rauc[270]: Mounting slot /dev/mmcblk0p2
+2026-10-30T11:29:48.978406-0400 [kernel] 2026-10-30T11:29:49,288202-04:00 EXT4-fs (mmcblk0p2): unmounting filesystem d4b90c75-f482-4de5-b1d6-c0b42a9ad80a.
+2026-10-30T11:29:49.506532-0400 [stats] MemFree:122824 Dirty:248 Writeback:0 load=4.92 3.86 2.53 mmc=8273 903 801256 255802 10920 522423 4536262 8554468 0 167300 8810270 0 0 0 0 0 0 uv=0
+
+[stderr, host-stamped -- markers, in order]
+2026-10-30T11:26:22.801942-0400 capture started
+2026-10-30T11:29:49.894270-0400 capture stopped
+2026-10-30T11:29:49.895641-0400 [kernel] session ended
+2026-10-30T11:29:49.895809-0400 [stats] session ended
+2026-10-30T11:29:49.895879-0400 [journal] session ended
+
+== after
+BOOT_ORDER=A B
+BOOT_A_LEFT=3
+BOOT_B_LEFT=3
+Booted from: rootfs.1 (B)
+Activated: rootfs.0 (A)
+      boot status: good
+      boot status: good
+Delivered and installed. Verify, then: just kiosk-reboot root@<BENCH_ADDRESS>
+back after 43s, boot_id 520c0a50-a07f-49d6-8ff8-0da17afc5387
+Booted from: rootfs.0 (A)
+
+A clean run: `Mounting slot` arrives live (~206 s after capture started, well past
+rauc's 173-203 s write window), `capture stopped` prints before any `session ended`
+(ServerAlive 2/3 correctly never fires on a healthy connection), and `[stats]` lines
+land roughly once a second throughout, MemFree/Dirty/Writeback/load/mmc all moving --
+busy but not starved. No stray dmesg -w / journalctl -f / stats-loop processes on the
+host or board afterward, and the pipeline lock was free.
