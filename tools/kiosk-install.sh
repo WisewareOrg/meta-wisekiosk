@@ -14,8 +14,9 @@
 # `rauc install`, that BOOT_ORDER now leads with the slot that was NOT booted
 # before, with that slot's *_LEFT counter reset above 0 (target_activated).
 #
-# During `rauc install` it streams the board's kernel log and journal to the
-# console, timestamped on this host.
+# During `rauc install` it streams the board's kernel log, journal and
+# once-a-second memory/load/SD/undervoltage stats to the console, timestamped
+# on this host.
 #
 # --check-only BEFORE AFTER runs target_activated directly against two
 # fw_printenv/rauc-status blocks, with no ssh and no device.
@@ -117,6 +118,12 @@ main() {
     "${ssh[@]}" -o ServerAliveInterval=2 -o ServerAliveCountMax=3 "$host" 'dmesg -w --time-format iso' > >(stamp kernel) 2>&1 &
     capture_pids+=("$!")
     "${ssh[@]}" -o ServerAliveInterval=2 -o ServerAliveCountMax=3 "$host" 'journalctl -f -o short-iso-precise' > >(stamp journal) 2>&1 &
+    capture_pids+=("$!")
+    # Single-quoted: the $ references are the remote busybox shell's, not
+    # this one's.
+    # shellcheck disable=SC2016
+    local stats_cmd='h=; for d in /sys/class/hwmon/hwmon*; do [ "$(cat "$d"/name 2>/dev/null)" = rpi_volt ] && h="$d"; done; while true; do m=; for f in MemFree Dirty Writeback; do set -- $(grep "^$f:" /proc/meminfo); m="$m$1$2 "; done; set -- $(cat /proc/loadavg); l="load=$1 $2 $3"; set -- $(cat /sys/block/mmcblk0/stat); k="mmc=$*"; u=$(cat "$h/in0_lcrit_alarm"); echo "$m$l $k uv=$u"; sleep 1; done'
+    "${ssh[@]}" -o ServerAliveInterval=2 -o ServerAliveCountMax=3 "$host" "$stats_cmd" > >(stamp stats) 2>&1 &
     capture_pids+=("$!")
     "${ssh[@]}" "$host" 'rauc install /data/update.raucb'
     stop_capture
