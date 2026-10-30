@@ -14,6 +14,9 @@
 # `rauc install`, that BOOT_ORDER now leads with the slot that was NOT booted
 # before, with that slot's *_LEFT counter reset above 0 (target_activated).
 #
+# During `rauc install` it streams the board's kernel log and journal to the
+# console, timestamped on this host.
+#
 # --check-only BEFORE AFTER runs target_activated directly against two
 # fw_printenv/rauc-status blocks, with no ssh and no device.
 #
@@ -40,6 +43,35 @@ target_activated() {
     new_order=$(sed -n 's/^BOOT_ORDER=//p' <<<"$after")
     target_left=$(sed -n "s/^BOOT_${target}_LEFT=//p" <<<"$after")
     [[ "$new_order" == "$target"* ]] && [ "${target_left:-0}" -gt 0 ]
+}
+
+capture_pids=()
+
+# stamp TAG -- writes each stdin line to stdout as "<host-ts> [TAG] <line>",
+# reading $EPOCHREALTIME once per line with no subshell or date(1) fork.
+stamp() {
+    local tag=$1 line epoch
+    while IFS= read -r line || [[ -n $line ]]; do
+        epoch=$EPOCHREALTIME
+        printf '%(%Y-%m-%dT%H:%M:%S)T.%s%(%z)T [%s] %s\n' "${epoch%.*}" "${epoch#*.}" "${epoch%.*}" "$tag" "$line"
+    done
+    epoch=$EPOCHREALTIME
+    printf '%(%Y-%m-%dT%H:%M:%S)T.%s%(%z)T [%s] session ended\n' "${epoch%.*}" "${epoch#*.}" "${epoch%.*}" "$tag" >&2
+}
+
+# Stops the capture on any exit from the install call. Idempotent and
+# failure-tolerant throughout: safe as the EXIT trap and as the explicit call.
+stop_capture() {
+    local status=$? epoch=$EPOCHREALTIME pid
+    printf '%(%Y-%m-%dT%H:%M:%S)T.%s%(%z)T capture stopped\n' "${epoch%.*}" "${epoch#*.}" "${epoch%.*}" >&2
+    if [ "${#capture_pids[@]}" -gt 0 ]; then
+        for pid in "${capture_pids[@]}"; do
+            kill "$pid" 2>/dev/null || true
+        done
+        wait "${capture_pids[@]}" 2>/dev/null || true
+    fi
+    capture_pids=()
+    return "$status"
 }
 
 main() {
@@ -79,7 +111,16 @@ main() {
     "${ssh[@]}" "$host" 'rauc info /data/update.raucb' \
         || { echo "bundle did not verify -- refusing to install"; exit 1; }
     echo "== installing"
+    local epoch=$EPOCHREALTIME
+    printf '%(%Y-%m-%dT%H:%M:%S)T.%s%(%z)T capture started\n' "${epoch%.*}" "${epoch#*.}" "${epoch%.*}" >&2
+    trap stop_capture EXIT
+    "${ssh[@]}" -o ServerAliveInterval=2 -o ServerAliveCountMax=3 "$host" 'dmesg -w --time-format iso' > >(stamp kernel) 2>&1 &
+    capture_pids+=("$!")
+    "${ssh[@]}" -o ServerAliveInterval=2 -o ServerAliveCountMax=3 "$host" 'journalctl -f -o short-iso-precise' > >(stamp journal) 2>&1 &
+    capture_pids+=("$!")
     "${ssh[@]}" "$host" 'rauc install /data/update.raucb'
+    stop_capture
+    trap - EXIT
     echo "== after"
     local after
     after=$("${ssh[@]}" "$host" 'fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT; rauc status 2>&1 | grep -E "Booted|Activated|boot status"')
