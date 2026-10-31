@@ -34,6 +34,7 @@ capture mechanism.
 | Batch 3, run 35 | bench · Pi Zero W | `a4e94247dc2a82b681d2eb4c6307dbb31efa54e5` | `loop3.sh` — durable | Reset: whole-board freeze, confirmed network-independent; watchdog reboot ≥9.4 s later |
 | Batch 4, runs 1-24 | bench · Pi Zero W | `3cb4f4cc0453941641e06610e3d93c7f4d906289` | `loop4.sh` — durable | 24/24 clean, no reset, `performance` governor pinned each run |
 | Batch 4, run 25 | bench · Pi Zero W | `3cb4f4cc0453941641e06610e3d93c7f4d906289` | `loop4.sh` — durable | Reset: `freq=900000` in every heartbeat (DVFS not necessary for the reset); reset within ~0.3-2.3 s of the last heartbeat, unlike resets 2-3 |
+| Batch 5 | bench · Pi Zero W | this branch's HEAD at launch | `loop5.sh` — durable | Observation: watchdog `timeleft` and PID1 state added to the heartbeat, no variable changed (baseline `ondemand`), cap 90 runs; pending |
 
 ### Run 1 — bench, commit `fee57a946f4b256d1cd3999daf83a6b048f5fcbb`
 
@@ -208,6 +209,34 @@ capture mechanism.
   `console-ramoops-0`'s head and final 40 lines, 929 lines / 103428 B total, md5
   `9da1a586250410bbfdf345b528b18fcb`, MAC redacted; the full copy is not committed).
 
+### Batch 5 — watchdog and PID1 observation (pending)
+
+- **Hypothesis.** One reading of resets 2-4 is that the hardware watchdog fires because PID1
+  (systemd, the only pet source) stops petting it for ≥14 s, while the rest of the kernel, the
+  heartbeat and I/O run on — consistent with reset 4's short R, and requiring reset 2/3's
+  userspace to have stalled wholesale with khungtaskd's due report going unseen. The competing
+  reading is a supply sag that resets the SoC directly. Batch 5 adds the two read-only
+  observables that would separate them: the watchdog's own countdown, and PID1's state.
+- **What's observed; no variable changed.** The board stays at the image default `ondemand`
+  governor — batch 5 is back at the baseline conditions batches 1-3 ran under (no `performance`
+  pin, unlike batch 4). The heartbeat gains four read-only fields, nothing is written to the
+  watchdog, and nothing else about the install path changes.
+- **Harness:** [`loop5.sh`](loop5.sh) — DURABLE, committed here. `loop3.sh`'s diagnostics
+  (hung-task sysctls, the heartbeat) with no governor step. Checks once, before the loop, that
+  `/sys/class/watchdog/watchdog0/timeleft` is readable — **not optional:** stops the whole
+  script, not just a run, if it is absent or unreadable, rather than substitute another source.
+  Uses [`hb245-wdt.sh`](hb245-wdt.sh) — `hb245-freq.sh` with four fields appended, in order:
+  `wdt=` (`watchdog0/timeleft`), `p1=` (field 3, state, of `/proc/1/stat`), `p1wchan=`
+  (`/proc/1/wchan`), `p1majflt=` (field 12, majflt, of `/proc/1/stat`). Every existing field and
+  its order is unchanged, so earlier batches' heartbeat lines are unaffected.
+- **Cap and stopping rule:** 90 runs, stopping at the first `reset=yes` (`loop3.sh`'s own reset
+  detection and `pstore` capture, unchanged).
+- Hand-validated against bench before launch: the missing-file check was proven both ways (a
+  real path passes; a seeded nonexistent path stops the script, exit 1, with nothing after it
+  running); `hb245-wdt.sh`'s heartbeat lines carry all four new fields in order after `freq=`,
+  and `wdt=` was observed counting down (11, 10, 9) then resetting to 13 as systemd pets it.
+- **Result:** pending. This section updates once the loop produces a reset or exhausts its cap.
+
 ## Configuration under test
 
 - The capture mechanism: `tools/kiosk-install.sh`'s `stamp`/`stop_capture`, three background ssh
@@ -220,12 +249,15 @@ capture mechanism.
 - `[stats]` fields: `/proc/meminfo`'s `MemFree`/`Dirty`/`Writeback`, `/proc/loadavg`'s three
   load averages, all 17 fields of `/sys/block/mmcblk0/stat`, and `in0_lcrit_alarm` from the
   hwmon device whose `name` reads `rpi_volt` (undervoltage).
-- Batches 3 and 4: `hb245.sh`'s heartbeat, the same fields over `/proc/uptime`/`/proc/meminfo`/
+- Batches 3-5: `hb245.sh`'s heartbeat, the same fields over `/proc/uptime`/`/proc/meminfo`/
   `/proc/loadavg`/`/sys/block/mmcblk0/stat`/the same hwmon device, written to `/dev/kmsg` once a
   second so a sample survives a reset in `pstore`'s console record independent of the network;
   and the board's `hung_task_*` sysctls, raising its own kernel-side stall reporting. Batch 4
   uses `hb245-freq.sh`, which appends `scaling_cur_freq` as `freq=` and pins `scaling_governor`
-  to `performance` before each run — the one variable batch 4 changes.
+  to `performance` before each run — the one variable batch 4 changes. Batch 5 uses
+  `hb245-wdt.sh`, which appends `watchdog0/timeleft`, `/proc/1/stat`'s state and majflt fields,
+  and `/proc/1/wchan`, all read-only; batch 5 changes no variable and stays at the `ondemand`
+  baseline.
 
 ## Metrics
 
