@@ -30,6 +30,8 @@ capture mechanism.
 | Batch 1 (runs 1-40) | bench · Pi Zero W | `b33eec2b6acc0a82e168064489dedaa261e857e2` | `loop.sh` — durable | 40/40 clean, no reset |
 | Batch 2, runs 1-13 | bench · Pi Zero W | `b33eec2b6acc0a82e168064489dedaa261e857e2` | `loop.sh` — durable | 13/13 clean, no reset |
 | Batch 2, run 14 | bench · Pi Zero W | `b33eec2b6acc0a82e168064489dedaa261e857e2` | `loop.sh` — durable | Reset: board froze completely, watchdog-window reboot ~11-19 s later |
+| Batch 3, runs 1-34 | bench · Pi Zero W | `a4e94247dc2a82b681d2eb4c6307dbb31efa54e5` | `loop3.sh` — durable | 34/34 clean, no reset |
+| Batch 3, run 35 | bench · Pi Zero W | `a4e94247dc2a82b681d2eb4c6307dbb31efa54e5` | `loop3.sh` — durable | Reset: whole-board freeze, confirmed network-independent; watchdog reboot ≥9.4 s later |
 
 ### Run 1 — bench, commit `fee57a946f4b256d1cd3999daf83a6b048f5fcbb`
 
@@ -101,6 +103,51 @@ capture mechanism.
   lines of the recovered `console-ramoops-0` record (339 lines, 26609 B, md5
   `2480a8cebee507d46b8843476d6c9df6`), MAC redacted; the full 339-line copy is not committed.
 
+### Batch 3 — the loop with diagnostics armed
+
+- **Harness:** [`loop3.sh`](loop3.sh) — DURABLE, committed here. `loop.sh`'s structure plus two
+  investigation-only steps run over ssh before each `bench test`, under the lock `loop3.sh`
+  already holds: runtime `sysctl -w` for `kernel.printk_devkmsg` and the `hung_task_*` keys
+  (logged and skipped if a key does not exist, not fatal; reverts at that boot's own reboot),
+  and [`hb245.sh`](hb245.sh) launched detached — a once-a-second `/dev/kmsg` heartbeat carrying
+  the same fields as the `[stats]` stream, so a line survives into `pstore`'s console record
+  across a watchdog reset even when the network dies with the board. On a reset, before the
+  summary line or the loop exiting, `pstore` is mounted read-only, copied byte-exact into that
+  run's own `records/<ts>/pstore/`, and unmounted — nothing in `pstore` is ever deleted. Nothing
+  here reaches `tools/kiosk-install.sh`, the image, or any recipe.
+- **Run:** `./loop3.sh a4e94247dc2a82b681d2eb4c6307dbb31efa54e5 batch3-summary.txt
+  root@<bench>`, launched detached. **Raw capture:** [`batch3-summary.txt`](batch3-summary.txt)
+  — runs 1-34 `reset=no`, run 35 `reset=yes`; the loop stopped there.
+- **A correction to `loop3.sh`'s own hand-validation note.** The loop's log shows `sysctl: write
+  error: Invalid argument` for `kernel.printk_devkmsg=on` on every run, logged and skipped exactly
+  as designed. Reset 35's board reads show the **current boot — which nothing armed — already
+  boots with `printk_devkmsg=on`**, with no `printk.devkmsg` kernel cmdline token; the write's
+  `EINVAL` most likely means the setting is locked, not that it failed to take. Who locks it is
+  not established. It does not affect the finding: heartbeat integrity is measured directly (see
+  below), not assumed from the sysctl's own exit status.
+
+### Batch 3, run 35 — the reset
+
+- **Board:** bench, Raspberry Pi Zero W. No address in this record.
+- **Image commit:** `a4e94247dc2a82b681d2eb4c6307dbb31efa54e5`, read from
+  `records/20261031T074356Z/run.json`.
+- **Scripts deployed, read-only, after the reset:** `remote-read.sh` and `remote-read2.sh` — each
+  ONE-OFF, committed here beside this README, run via `run-read.sh` (`flock -o -w 900 <lock> ssh
+  <tools/kiosk-install.sh options> <bench> sh -s < <script>`; the same pattern for both, the
+  second session substituting `remote-read2.sh`). `extract.py`, `window.py`, `batch3.py` and
+  `episodes.py` — each ONE-OFF, committed here, read-only reductions over `records/` and the
+  recovered `pstore` copy, summarized in [`reset3-findings.md`](reset3-findings.md). Their raw
+  `.out` outputs were unredacted and are not committed.
+- **Procedure:** the loop's own `bench test` invocation for this run (no separate script); the
+  two `remote-read*.sh` sessions and the four Python reductions ran afterward, read-only, to
+  analyze it.
+- **Raw capture:** the full analysis, with every raw read and the final-30-seconds `[stats]`
+  table, is [`reset3-findings.md`](reset3-findings.md). Redacted excerpts are committed beside
+  it: [`reset3-host-tail.log`](reset3-host-tail.log) (the capture markers and each stream's last
+  line) and [`reset3-console-ramoops-tail.log`](reset3-console-ramoops-tail.log) (the recovered
+  `console-ramoops-0`'s head and final 80 lines, 861 lines / 91236 B total, md5
+  `5a575b6fc3ef10b5b90b0f49ba637f0f`, MAC redacted; the full copy is not committed).
+
 ## Configuration under test
 
 - The capture mechanism: `tools/kiosk-install.sh`'s `stamp`/`stop_capture`, three background ssh
@@ -113,6 +160,10 @@ capture mechanism.
 - `[stats]` fields: `/proc/meminfo`'s `MemFree`/`Dirty`/`Writeback`, `/proc/loadavg`'s three
   load averages, all 17 fields of `/sys/block/mmcblk0/stat`, and `in0_lcrit_alarm` from the
   hwmon device whose `name` reads `rpi_volt` (undervoltage).
+- Batch 3 only: `hb245.sh`'s heartbeat, the same fields over `/proc/uptime`/`/proc/meminfo`/
+  `/proc/loadavg`/`/sys/block/mmcblk0/stat`/the same hwmon device, written to `/dev/kmsg` once a
+  second so a sample survives a reset in `pstore`'s console record independent of the network;
+  and the board's `hung_task_*` sysctls, raising its own kernel-side stall reporting.
 
 ## Metrics
 
@@ -188,15 +239,42 @@ identical `audit … item=6` line the live `[kernel]` stream ended on; from ther
 lockup detector — so a hard freeze could not have printed anything regardless; the silence is
 consistent with a freeze and does not by itself distinguish one.
 
+### Batch 3, run 35
+
+Full detail, every raw read and the final-30-seconds `[stats]` table, is in
+[`reset3-findings.md`](reset3-findings.md). Summary:
+
+| Marker | Host/board time | Offset |
+|---|---|---|
+| last `[stats]` line | 03:48:18.484613-0400 host | 157.6 s after capture started |
+| last `[kernel]` line (the board's own `hb245 494.87` heartbeat) | 03:48:18.825352-0400 host / board `[495.027]` | 157.96 s after capture started; the same sample is pstore's final line |
+| last heartbeat due and not printed | board `[496.2]` ≈ 03:48:19.98 host | ~1.2 s after the last one |
+| hung-task report due and not printed | board `[495.53]` ≈ 03:48:19.31 host | the reporter had printed every 2.076-2.081 s |
+| `[journal]` / `[stats]`+`[kernel] session ended` | 03:48:25.476646 / 03:48:26.476474-0400 | 6.65 s / 7.65 s after the last `[kernel]` line |
+| `capture stopped` | 03:53:16.717001-0400 | — |
+| next kernel start (board, NTP-synced) | 03:48:36.162 | ≥9.4 s after the stop window (03:48:18.82-19.31) |
+| Board state after | booted/activated rootfs.1 (B); `BOOT_A_LEFT=0`, `BOOT_B_LEFT=3` | fell back to last-good slot, A marked bad |
+
+The last rauc progress line was ` 90% Copying image to rootfs.0`. Writes held 12-19 MB/s with no
+slowdown; `MemFree`/`Dirty`/`Writeback` stayed in their healthy ranges; load held at 5.0; `uv`
+(the firmware's sticky under-voltage bit, cleared and re-polled every 2 s) read 0 up to no more
+than 2 s before the stop. The only blocked task anywhere in the boot was the routine
+`mmc_rescan` kworker waiting on `__mmc_claim_host`, 18 s at the freeze — inside the healthy range
+(10-79 s across 112 episodes in 34 clean runs) and the same single workqueue every healthy run
+also shows. **The board-side heartbeat and the kernel's own hung-task reporter stopped within
+about 0.5 s of the last line the network delivered** — the network did not die on its own while
+the board stayed up; everything stopped together. `PM_RSTS` again read `0x00000020` (`HADWRF`
+set, `HADPOR` clear) — a watchdog reset, not a power-on, for the second reset running.
+
 ## Findings
 
-- **The resets are real, not a capture artifact.** Run 1's board was unreachable for ~4.5
-  minutes (both monitoring sessions down, the install ssh itself eventually reset) and came
-  back up on its pre-install slot with the target slot never activated. Batch 2 run 14 shows the
-  same shape with `[stats]` data to read: *confirmed* as genuine unplanned reboots, in both
-  cases during the slot copy (run 1 at image offsets 80-84%; run 14's drop falls in the same
-  phase). With n = 2 this cannot tell "the same image offset" apart from "the same elapsed
-  time."
+- **The resets are real, not a capture artifact.** Run 1, batch 2 run 14 and batch 3 run 35 all
+  show the same shape — unreachable for minutes, came back on the pre-install slot with the
+  target slot never activated: *confirmed* as genuine unplanned reboots, across n = 3. All three
+  fall in the last third of the slot copy under sustained ~15 MB/s SD writes (80% / 84% / 90%),
+  at different elapsed times (about 131 s / 139 s / 158 s) — **across n = 3 the freeze is not at
+  a fixed image offset or a fixed elapsed time**, which weakens the "same card region" idea run
+  14 had left open.
 - **The capture's own ordering guarantee holds.** Run 2 (clean) and batch 1's 40 clean runs all
   show `capture stopped` before any `session ended`, confirming the EXIT-trap-driven teardown
   runs before the ServerAlive-driven session closes on a healthy connection: *confirmed*.
@@ -220,15 +298,26 @@ consistent with a freeze and does not by itself distinguish one.
   possible*, since `PM_RSTS` cannot distinguish a sag-then-watchdog from a freeze-then-watchdog.
   See [`reset2-console-ramoops-tail.log`](reset2-console-ramoops-tail.log) for the record's own
   last lines.
-- **What froze the board is still open, and this kernel build could not have said.** Candidates
-  are a CPU/kernel lockup with interrupts off, a wedged SD-host or SDIO bus, or a voltage sag
-  deep enough to hang the SoC without tripping `uv` at 1 Hz resolution or forcing a power-on
-  reset. This build has `CONFIG_TINY_RCU=y` and no `CONFIG_SOFTLOCKUP_DETECTOR` — no RCU-stall
-  and no lockup detector — so a hard freeze prints nothing on this kernel regardless of cause.
-  `netconsole`, already shipped but unloaded, and a once-a-second `/dev/kmsg` heartbeat (proven
-  to survive a watchdog reset in pstore, since boot -1's whole console came through intact) are
-  the next instruments; `loop3.sh` carries the heartbeat into a further hunt for a reset to read
-  it from.
+- **Reset 3's network-independent heartbeat confirms the board itself stopped, strongly, and
+  rules out a network-only death.** A wifi/SDIO death with the board still alive would have kept
+  writing heartbeats into `pstore`'s RAM console for the 9-12 s until the watchdog reset — none
+  are there. The heartbeat and the kernel's own hung-task reporter both stopped within about
+  0.5 s of the last line the network delivered, so the kernel and userspace did not run on after
+  the network went quiet: they stopped together. `PM_RSTS` again read `0x20` (`HADWRF` set,
+  `HADPOR` clear), confirming a watchdog reset for the second time running. See
+  [`reset3-findings.md`](reset3-findings.md) §§1-2 and the verdict table there.
+- **What froze the board is still open, and this kernel build could not have said.** Two
+  candidates remain, and nothing on the board can separate them: a CPU, SoC or bus lockup (for
+  example an SD-host or SDIO access that never completes and stalls the single ARMv6 core, with
+  no softlockup or RCU-stall detector and no NMI watchdog to catch it), or a supply sag deep
+  enough to hang the SoC without a power-on reset (the firmware's sticky under-voltage bit covers
+  up to ~2 s before the stop, not the stop itself). The only blocked task at any of the three
+  resets was the routine `mmc_rescan` kworker, within its own healthy range every time — no
+  precursor has been seen in 3 resets or 112 healthy hung-task episodes. `netconsole`, already
+  shipped but unloaded, was considered and set aside: the heartbeat already pins the stop to
+  ~0.5 s, and the single remaining instrument that could decide CPU/bus-lockup against supply sag
+  is a fast (millisecond-resolution) external log of the board's 5 V input across a reset — not
+  achievable in-band, and the owner's to say whether the bench has one.
 
 ## Other board activity on this board
 

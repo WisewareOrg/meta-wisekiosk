@@ -1,0 +1,29 @@
+Reset 3 — bench, commit a4e94247dc2a82b681d2eb4c6307dbb31efa54e5, batch 3 run 35
+(records/20261031T074356Z). Host-stamped capture markers and each stream's last line, from the
+install item's "Captured stdout setup" / "Captured stderr setup" sections. Address redacted to
+<BENCH_ADDRESS>.
+
+[stderr, capture markers]
+2026-10-31T03:45:40.869220-0400 capture started
+2026-10-31T03:48:25.476646-0400 [journal] session ended
+2026-10-31T03:48:26.476474-0400 [stats] session ended
+2026-10-31T03:48:26.476543-0400 [kernel] session ended
+Read from remote host <BENCH_ADDRESS>: Connection reset by peer
+client_loop: send disconnect: Broken pipe
+2026-10-31T03:53:16.717001-0400 capture stopped
+error: recipe `kiosk-install` failed on line 235 with exit code 255
+
+[stdout, last line of each stream before the drop]
+2026-10-31T03:48:17.667697-0400 [journal] 2026-10-31T03:48:17.237631-04:00 <BENCH_HOSTNAME> kernel: 5fe0: 00000000 00000000 00000000 00000000 00000013 00000000
+2026-10-31T03:48:18.088444-0400 [journal] 2026-10-31T03:48:17.628085-04:00 <BENCH_HOSTNAME> unknown: hb245 493.66 MemFree:46656 Dirty:8468 Writeback:36652 load=5.03 2.99 1.35 mmc=5195 626 634830 118142 4957 428176 3650228 7997684 0 125690 8115827 0 0 0 0 0 0 uv=0
+2026-10-31T03:48:18.484613-0400 [stats] MemFree:48828 Dirty:11812 Writeback:37744 load=5.03 2.99 1.35 mmc=5195 626 634830 118142 4977 432240 3670708 8051193 0 126370 8169336 0 0 0 0 0 0 uv=0
+2026-10-31T03:48:18.825352-0400 [kernel] 2026-10-31T03:48:18,805110-04:00 hb245 494.87 MemFree:47116 Dirty:8300 Writeback:37168 load=5.03 2.99 1.35 mmc=5195 626 634830 118142 4988 432240 3681972 8079335 0 126710 8197477 0 0 0 0 0 0 uv=0
+2026-10-31T03:48:25.475971-0400 [journal] Timeout, server <BENCH_ADDRESS> not responding.
+2026-10-31T03:48:26.475930-0400 [kernel] Timeout, server <BENCH_ADDRESS> not responding.
+2026-10-31T03:48:26.475930-0400 [stats] Timeout, server <BENCH_ADDRESS> not responding.
+
+Last rauc progress line: " 90% Copying image to rootfs.0". Last sign of life 157.6 s ([stats])
+and 157.96 s ([kernel]) after capture start. Sessions dropped 6.65 s and 7.65 s after the last
+[kernel] line -- ServerAlive 2/3, same ~1 s split between sessions as reset 2. The last [kernel]
+line is the board's own heartbeat (hb245 494.87), the same sample the pstore console record
+ends on (see reset3-console-ramoops-tail.log) -- the network stream lost nothing.
