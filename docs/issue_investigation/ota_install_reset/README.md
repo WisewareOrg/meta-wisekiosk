@@ -32,6 +32,7 @@ capture mechanism.
 | Batch 2, run 14 | bench · Pi Zero W | `b33eec2b6acc0a82e168064489dedaa261e857e2` | `loop.sh` — durable | Reset: board froze completely, watchdog-window reboot ~11-19 s later |
 | Batch 3, runs 1-34 | bench · Pi Zero W | `a4e94247dc2a82b681d2eb4c6307dbb31efa54e5` | `loop3.sh` — durable | 34/34 clean, no reset |
 | Batch 3, run 35 | bench · Pi Zero W | `a4e94247dc2a82b681d2eb4c6307dbb31efa54e5` | `loop3.sh` — durable | Reset: whole-board freeze, confirmed network-independent; watchdog reboot ≥9.4 s later |
+| Batch 4 | bench · Pi Zero W | this branch's HEAD at launch | `loop4.sh` — durable | Experiment: `performance` governor (fixed frequency), cap 90 runs; pending |
 
 ### Run 1 — bench, commit `fee57a946f4b256d1cd3999daf83a6b048f5fcbb`
 
@@ -148,6 +149,36 @@ capture mechanism.
   `console-ramoops-0`'s head and final 80 lines, 861 lines / 91236 B total, md5
   `5a575b6fc3ef10b5b90b0f49ba637f0f`, MAC redacted; the full copy is not committed).
 
+### Batch 4 — fixed-frequency experiment (pending)
+
+- **Hypothesis.** Upstream `raspberrypi/linux#2555`'s reporters fixed Pi Zero instability with
+  `force_turbo` (fixed frequency) plus `over_voltage`. This image caps the CPU at 900 MHz
+  (`kiosk-cpufreq-cap.service`, `meta-wisekiosk/recipes-core/kiosk-cpufreq`) but leaves DVFS
+  active at stock voltage. Batch 4 tests the fixed-frequency half at runtime, with no
+  `over_voltage` change.
+- **The one variable changed.** cpu0's `scaling_governor` is set to `performance` (fixed at
+  `scaling_max_freq`, no scaling) on the board's current boot, before each run. Everything else
+  — the sysctls and heartbeat `loop3.sh` already arms — is unchanged.
+- **Baseline (the image default, read before anything was changed):** `scaling_governor=ondemand`,
+  `scaling_cur_freq=900000`, `scaling_max_freq=900000`, `scaling_min_freq=700000`,
+  `scaling_available_governors=conservative ondemand userspace powersave performance`.
+  `kiosk-cpufreq-cap.service` is `active`/`enabled`.
+- **Harness:** [`loop4.sh`](loop4.sh) — DURABLE, committed here. `loop3.sh`'s structure plus one
+  added pre-run step, `set_governor`, run over ssh under the lock `loop4.sh` already holds: reads
+  `scaling_available_governors`, sets `scaling_governor=performance`, and logs the readback
+  (`scaling_governor`, `scaling_cur_freq`, `scaling_max_freq`). **Not optional:** if `performance`
+  is not available, the script stops rather than substitute another governor. Uses
+  [`hb245-freq.sh`](hb245-freq.sh) — `hb245.sh` with one field appended, the live
+  `scaling_cur_freq`, as `freq=` at the end of the heartbeat line; every existing field and its
+  order is unchanged, so earlier batches' heartbeat lines are unaffected.
+- **Cap and stopping rule:** 90 runs, stopping at the first `reset=yes` (`loop3.sh`'s own reset
+  detection and `pstore` capture, unchanged).
+- Hand-validated against bench before launch: `set_governor` reads back
+  `scaling_governor=performance scaling_cur_freq=900000 scaling_max_freq=900000`, and
+  `hb245-freq.sh`'s heartbeat lines carry `freq=900000` appended after `uv=`, every other field
+  in place.
+- **Result:** pending. This section updates once the loop produces a reset or exhausts its cap.
+
 ## Configuration under test
 
 - The capture mechanism: `tools/kiosk-install.sh`'s `stamp`/`stop_capture`, three background ssh
@@ -160,10 +191,12 @@ capture mechanism.
 - `[stats]` fields: `/proc/meminfo`'s `MemFree`/`Dirty`/`Writeback`, `/proc/loadavg`'s three
   load averages, all 17 fields of `/sys/block/mmcblk0/stat`, and `in0_lcrit_alarm` from the
   hwmon device whose `name` reads `rpi_volt` (undervoltage).
-- Batch 3 only: `hb245.sh`'s heartbeat, the same fields over `/proc/uptime`/`/proc/meminfo`/
+- Batches 3 and 4: `hb245.sh`'s heartbeat, the same fields over `/proc/uptime`/`/proc/meminfo`/
   `/proc/loadavg`/`/sys/block/mmcblk0/stat`/the same hwmon device, written to `/dev/kmsg` once a
   second so a sample survives a reset in `pstore`'s console record independent of the network;
-  and the board's `hung_task_*` sysctls, raising its own kernel-side stall reporting.
+  and the board's `hung_task_*` sysctls, raising its own kernel-side stall reporting. Batch 4
+  uses `hb245-freq.sh`, which appends `scaling_cur_freq` as `freq=` and pins `scaling_governor`
+  to `performance` before each run — the one variable batch 4 changes.
 
 ## Metrics
 
