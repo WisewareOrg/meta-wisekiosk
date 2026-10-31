@@ -1,0 +1,63 @@
+-17 c17f01a872854533aa30e520d6f3ed62 Fri 2026-10-30 17:54:19 EDT Fri 2026-10-30 18:03:44 EDT
+-16 f0d9cba9b47a43f0957c163fd84e6d2e Fri 2026-10-30 18:03:46 EDT Fri 2026-10-30 18:13:06 EDT
+-15 c069209c5f9f4619b74b039780e810fd Fri 2026-10-30 18:13:07 EDT Fri 2026-10-30 18:23:13 EDT
+-14 358277227e0a4b31989e01cb27acbd48 Fri 2026-10-30 18:23:14 EDT Fri 2026-10-30 18:57:22 EDT
+-13 f5ee05cb852e426a81fc5bf4bac858bd Fri 2026-10-30 18:57:24 EDT Fri 2026-10-30 19:06:58 EDT
+-12 57e0296fd7a0416da93843e63b47d935 Fri 2026-10-30 19:06:59 EDT Fri 2026-10-30 19:16:32 EDT
+-11 fa5efbedc7e042c6883ec7ff5a4b9b2d Fri 2026-10-30 19:16:34 EDT Fri 2026-10-30 19:25:52 EDT
+-10 4e4dc6d31a5346bc8139a5372c889f94 Fri 2026-10-30 19:25:53 EDT Fri 2026-10-30 19:36:14 EDT
+ -9 1231eb5e4c444c0b9da28cdff2961948 Fri 2026-10-30 19:36:15 EDT Fri 2026-10-30 19:45:22 EDT
+ -8 80faa73dc3a241298682dcbb671a5f20 Fri 2026-10-30 19:45:23 EDT Fri 2026-10-30 19:54:20 EDT
+ -7 56545b40eb7b4b7ea97e2fb6e7f0444c Fri 2026-10-30 19:54:22 EDT Fri 2026-10-30 20:04:12 EDT
+ -6 737fa27a0dc04926a8be3af8d3de8190 Fri 2026-10-30 20:04:13 EDT Fri 2026-10-30 20:13:55 EDT
+ -5 cf98e835947342d9a852f63563417d84 Fri 2026-10-30 20:13:56 EDT Fri 2026-10-30 20:23:27 EDT
+ -4 2a39df612e7f4e72b01d894c48c3ef5e Fri 2026-10-30 20:23:28 EDT Fri 2026-10-30 20:32:55 EDT
+ -3 7a039ac6db7c421ebce4e197c3fdb222 Fri 2026-10-30 20:32:57 EDT Fri 2026-10-30 20:42:43 EDT
+ -2 733d7fd44b1f49cbacbe4736358b9fea Fri 2026-10-30 20:42:44 EDT Fri 2026-10-30 20:52:04 EDT
+ -1 8586ebf489a84109b661633bbd49f3cf Fri 2026-10-30 20:52:05 EDT Fri 2026-10-30 20:58:06 EDT
+  0 ed18d67a158e4820852426b87cff5433 Fri 2026-10-30 20:59:15 EDT Fri 2026-10-30 21:12:14 EDT
+== b=-16
+2026-10-30T18:13:06.110021-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Received SIGTERM from PID 1 (systemd-shutdow).
+2026-10-30T18:13:06.111262-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Journal stopped
+== b=-15
+2026-10-30T18:23:13.545991-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Received SIGTERM from PID 1 (systemd-shutdow).
+2026-10-30T18:23:13.558038-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Journal stopped
+== b=-14
+2026-10-30T18:57:22.998754-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Received SIGTERM from PID 1 (systemd-shutdow).
+2026-10-30T18:57:22.999712-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Journal stopped
+== b=-13
+2026-10-30T19:06:58.111917-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Received SIGTERM from PID 1 (systemd-shutdow).
+2026-10-30T19:06:58.112874-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Journal stopped
+== b=-12
+2026-10-30T19:16:32.929589-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Received SIGTERM from PID 1 (systemd-shutdow).
+2026-10-30T19:16:32.931057-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Journal stopped
+== b=-11
+2026-10-30T19:25:52.736264-04:00 <BENCH_HOSTNAME> systemd-shutdown[1]: Sending SIGTERM to remaining processes...
+2026-10-30T19:25:52.738056-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Journal stopped
+== b=-10
+2026-10-30T19:36:14.435584-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Received SIGTERM from PID 1 (systemd-shutdow).
+2026-10-30T19:36:14.459736-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Journal stopped
+== b=-9
+2026-10-30T19:45:22.038675-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Received SIGTERM from PID 1 (systemd-shutdow).
+2026-10-30T19:45:22.039657-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Journal stopped
+== b=-8
+2026-10-30T19:54:20.654079-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Received SIGTERM from PID 1 (systemd-shutdow).
+2026-10-30T19:54:20.655638-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Journal stopped
+== b=-7
+2026-10-30T20:04:12.031971-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Received SIGTERM from PID 1 (systemd-shutdow).
+2026-10-30T20:04:12.032926-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Journal stopped
+== b=-6
+2026-10-30T20:13:55.116441-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Received SIGTERM from PID 1 (systemd-shutdow).
+2026-10-30T20:13:55.117450-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Journal stopped
+== b=-5
+2026-10-30T20:23:27.380662-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Received SIGTERM from PID 1 (systemd-shutdow).
+2026-10-30T20:23:27.381933-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Journal stopped
+== b=-4
+2026-10-30T20:32:55.884073-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Received SIGTERM from PID 1 (systemd-shutdow).
+2026-10-30T20:32:55.885078-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Journal stopped
+== b=-3
+2026-10-30T20:42:43.245985-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Received SIGTERM from PID 1 (systemd-shutdow).
+2026-10-30T20:42:43.246956-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Journal stopped
+== b=-2
+2026-10-30T20:52:04.290084-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Received SIGTERM from PID 1 (systemd-shutdow).
+2026-10-30T20:52:04.291100-04:00 <BENCH_HOSTNAME> systemd-journald[92]: Journal stopped
