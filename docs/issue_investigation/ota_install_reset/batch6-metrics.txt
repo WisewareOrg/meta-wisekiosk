@@ -1,0 +1,20 @@
+record=records/20261031T174046Z window=232.010176 max_stats_gap=1.731956 max_hb_gap=2.982063 min_wdt=7 non_s_p1=[('R', '__skb_wait_for_more_packets'), ('R', '0'), ('R', 'do_epoll_wait'), ('D', '__ext4_get_inode_loc'), ('D', 'folio_wait_bit_common')] p1_d_seconds=3.6
+record=records/20261031T175132Z window=202.904877 max_stats_gap=1.418525 max_hb_gap=1.449913 min_wdt=7 non_s_p1=[('R', 'do_epoll_wait'), ('R', '0')] p1_d_seconds=0.0
+record=records/20261031T180555Z window=190.048189 max_stats_gap=1.429576 max_hb_gap=1.436312 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261031T181519Z window=212.116716 max_stats_gap=1.38635 max_hb_gap=1.62074 min_wdt=7 non_s_p1=[('R', 'do_epoll_wait'), ('R', '0')] p1_d_seconds=0.0
+record=records/20261031T182516Z window=205.454137 max_stats_gap=1.295432 max_hb_gap=1.510009 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261031T183608Z window=207.008654 max_stats_gap=1.212644 max_hb_gap=1.536385 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261031T184553Z window=202.882504 max_stats_gap=1.366989 max_hb_gap=1.987312 min_wdt=7 non_s_p1=[('R', 'do_wait'), ('R', '0')] p1_d_seconds=0.0
+record=records/20261031T185550Z window=200.715371 max_stats_gap=1.555789 max_hb_gap=1.860335 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261031T190533Z window=204.205177 max_stats_gap=1.279754 max_hb_gap=1.82524 min_wdt=7 non_s_p1=[('R', 'do_epoll_wait')] p1_d_seconds=0.0
+record=records/20261031T191521Z window=205.424773 max_stats_gap=1.384051 max_hb_gap=1.811182 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261031T192503Z window=208.28731 max_stats_gap=1.419738 max_hb_gap=1.804869 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261031T193511Z window=202.355915 max_stats_gap=1.340427 max_hb_gap=1.946434 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261031T194518Z window=203.180992 max_stats_gap=1.21054 max_hb_gap=1.53121 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261031T195504Z window=189.990053 max_stats_gap=1.415501 max_hb_gap=1.622063 min_wdt=7 non_s_p1=[('R', 'do_epoll_wait')] p1_d_seconds=0.0
+record=records/20261031T200419Z window=205.098455 max_stats_gap=1.222538 max_hb_gap=1.464517 min_wdt=7 non_s_p1=[('R', 'do_epoll_wait'), ('R', '0')] p1_d_seconds=0.0
+record=records/20261031T201404Z window=186.160424 max_stats_gap=1.153151 max_hb_gap=1.313711 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261031T202332Z window=201.970798 max_stats_gap=1.444806 max_hb_gap=1.929271 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261031T203403Z window=186.573337 max_stats_gap=1.237039 max_hb_gap=1.381372 min_wdt=7 non_s_p1=[('R', 'do_epoll_wait'), ('R', '0')] p1_d_seconds=0.0
+record=records/20261031T204353Z window=209.185494 max_stats_gap=1.515626 max_hb_gap=1.630472 min_wdt=7 non_s_p1=[('R', '0'), ('D', 'folio_wait_bit_common')] p1_d_seconds=1.5
+record=records/20261031T205409Z window=189.555472 max_stats_gap=1.283351 max_hb_gap=1.419274 min_wdt=7 non_s_p1=[('R', '0'), ('R', 'do_epoll_wait')] p1_d_seconds=0.0

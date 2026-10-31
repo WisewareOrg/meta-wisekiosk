@@ -273,7 +273,11 @@ capture mechanism.
 - **Harness:** [`loop6.sh`](loop6.sh) -- DURABLE, committed here. `loop5.sh`'s diagnostics plus
   one added pre-run step, `set_scheduler`: reads `queue/scheduler`'s available list, sets it to
   `bfq`, and logs the readback. **Not optional:** if `bfq` is not listed, the script stops
-  rather than substitute another scheduler.
+  rather than substitute another scheduler. Two hardening additions, added before this batch's
+  launch and in effect for every run below: an `ERR` trap that names the failing line and exit
+  status on any unexpected failure, so a stop is never silent; and `wait_for_board`, which retries
+  a trivial ssh every 10 s (up to 30 tries, 5 min) before each run's pre-run diagnostics and stops
+  the loop, logging why, if the board never answers, rather than skip diagnostics and carry on.
 - **Metric.** Each run's `metrics.py` row -- max `[stats]` gap, max heartbeat gap, min `wdt` --
   compared run by run against batches 3 and 5's same fields, never pooled across batches.
 - **Cap and stopping rule:** 20 runs, stopping at the first `reset=yes` (`loop3.sh`'s own reset
@@ -281,9 +285,73 @@ capture mechanism.
 - Hand-validated against bench before launch (board idle, batch 5 fully stopped): the baseline
   scheduler reads `none [mq-deadline] kyber bfq`; `set_scheduler` reads back
   `scheduler=none mq-deadline kyber [bfq]`; the availability check was also proven to fail on a
-  seeded list without `bfq`. Found and cleaned up a leftover `hb245.sh` heartbeat process on the
-  board from batch 5's aborted run 26 (its install never reached a reboot, so the process never
-  died); it is killed and its script removed.
+  seeded list without `bfq`. `wait_for_board` was proven against the live board (answers on the
+  first try) separately from the hardening fix. Found and cleaned up a leftover `hb245.sh`
+  heartbeat process on the board from batch 5's aborted run 26 (its install never reached a
+  reboot, so the process never died); it is killed and its script removed.
+- **Result:** 20/20 clean, no reset -- the cap exhausted with none caught. **Raw capture:**
+  [`batch6-summary.txt`](batch6-summary.txt). **Per-run metrics**, one row per run (`metrics.py`
+  over each run's own record, never aggregated), full output in
+  [`batch6-metrics.txt`](batch6-metrics.txt):
+
+  | run | record | max `[stats]` gap (s) | max heartbeat gap (s) | min `wdt` | PID1 `D`-state (s) |
+  |---|---|---|---|---|---|
+  | 1 | `records/20261031T174046Z` | 1.73 | 2.98 | 7 | 3.6 |
+  | 2 | `records/20261031T175132Z` | 1.42 | 1.45 | 7 | 0.0 |
+  | 3 | `records/20261031T180555Z` | 1.43 | 1.44 | 7 | 0.0 |
+  | 4 | `records/20261031T181519Z` | 1.39 | 1.62 | 7 | 0.0 |
+  | 5 | `records/20261031T182516Z` | 1.30 | 1.51 | 7 | 0.0 |
+  | 6 | `records/20261031T183608Z` | 1.21 | 1.54 | 7 | 0.0 |
+  | 7 | `records/20261031T184553Z` | 1.37 | 1.99 | 7 | 0.0 |
+  | 8 | `records/20261031T185550Z` | 1.56 | 1.86 | 7 | 0.0 |
+  | 9 | `records/20261031T190533Z` | 1.28 | 1.83 | 7 | 0.0 |
+  | 10 | `records/20261031T191521Z` | 1.38 | 1.81 | 7 | 0.0 |
+  | 11 | `records/20261031T192503Z` | 1.42 | 1.80 | 7 | 0.0 |
+  | 12 | `records/20261031T193511Z` | 1.34 | 1.95 | 7 | 0.0 |
+  | 13 | `records/20261031T194518Z` | 1.21 | 1.53 | 7 | 0.0 |
+  | 14 | `records/20261031T195504Z` | 1.42 | 1.62 | 7 | 0.0 |
+  | 15 | `records/20261031T200419Z` | 1.22 | 1.46 | 7 | 0.0 |
+  | 16 | `records/20261031T201404Z` | 1.15 | 1.31 | 7 | 0.0 |
+  | 17 | `records/20261031T202332Z` | 1.44 | 1.93 | 7 | 0.0 |
+  | 18 | `records/20261031T203403Z` | 1.24 | 1.38 | 7 | 0.0 |
+  | 19 | `records/20261031T204353Z` | 1.52 | 1.63 | 7 | 1.5 |
+  | 20 | `records/20261031T205409Z` | 1.28 | 1.42 | 7 | 0.0 |
+
+  **Comparison against the default `mq-deadline` elevator (batches 3 and 5), counted with
+  `metrics.py` over each batch's own committed summary -- [`batch3-summary.txt`](batch3-summary.txt)'s
+  34 clean runs (excluding run 35, the reset) and [`batch5-summary.txt`](batch5-summary.txt)'s 25:**
+  max `[stats]` gap &ge; 4 s in 15/34 (batch 3) and 8/25 (batch 5) runs, versus **0/20** under
+  `bfq`; max `[stats]` gap &lt; 2 s in 9/34 and 7/25, versus **20/20** under `bfq` -- every batch-6
+  run stayed under 2 s. `min_wdt` never dropped below 7 in any batch-6 run (batch 5's own floor
+  between pets on a healthy sample; batch 5 saw it fall to 4 twice, including run 17's near-miss).
+  Two batch-6 runs show nonzero PID1 `D`-state time (run 1: 3.6 s, run 19: 1.5 s) against batch 5's
+  three nonzero runs of 25 (including run 17's 3.5 s) -- stalls still happen under `bfq`, but
+  shorter and without a watchdog headroom drop in this batch.
+- **Conclusion.** `bfq` removes the multi-second `[stats]`/heartbeat gaps this investigation has
+  been tracking since batch 3 -- every batch-6 run stayed under 2 s, where 15-32% of default-
+  elevator runs hit 4 s or more. Whether it removes the *reset* is untested: the default elevator's
+  pooled reset rate across batches 1-4 is 3 resets in 114 runs (40 + 14 + 35 + 25) &asymp; 2.6%, so
+  batch 6's cap (20 runs, chosen to fit one lock-holding session) is well under the run count
+  needed to say anything about the reset itself -- 20/20 clean is the expected outcome whether or
+  not `bfq` changes the reset probability at all. Batch 7 repeats the same lever at a cap (90
+  runs) sized against that baseline.
+
+### Batch 7 -- BFQ scheduler, run to the reset-rate baseline
+
+- **Hypothesis.** Batch 6 showed `bfq` removes the multi-second `[stats]`/heartbeat read-stall
+  gaps at 20 runs, but 20 is well under the baseline reset rate (batches 1-4, default elevator: 3
+  resets in 114 runs &asymp; 2.6%) and so cannot say anything about the reset itself. Batch 7 runs
+  the same lever long enough to compare against that baseline: if `bfq` removes the reset along
+  with the stalls, batch 7 should clear 90 runs clean; if the reset shares the stalls' mechanism
+  only loosely, or not at all, a reset can still land inside 90 runs at roughly the baseline rate.
+- **The one variable changed.** None, relative to batch 6 -- same lever (`mmcblk0`'s IO scheduler
+  set to `bfq` on the board's current boot, before each run), same diagnostics
+  (`hb245-wdt.sh`), same hardening (the `ERR` trap, `wait_for_board`). Only the cap changes.
+- **Harness:** [`loop7.sh`](loop7.sh) -- DURABLE, committed here. `loop6.sh` verbatim except the
+  cap, raised from 20 to 90 -- the same run count batch 3's cap used, and close to batch 1's 40 +
+  batch 2's 14, so a full run is directly comparable to the baseline batches' totals.
+- **Cap and stopping rule:** 90 runs, stopping at the first `reset=yes` (`loop3.sh`'s own reset
+  detection and `pstore` capture, unchanged).
 - **Result:** pending. This section updates once the loop produces a reset or exhausts its cap.
 
 ## Configuration under test
