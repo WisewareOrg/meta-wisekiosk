@@ -32,7 +32,8 @@ capture mechanism.
 | Batch 2, run 14 | bench · Pi Zero W | `b33eec2b6acc0a82e168064489dedaa261e857e2` | `loop.sh` — durable | Reset: board froze completely, watchdog-window reboot ~11-19 s later |
 | Batch 3, runs 1-34 | bench · Pi Zero W | `a4e94247dc2a82b681d2eb4c6307dbb31efa54e5` | `loop3.sh` — durable | 34/34 clean, no reset |
 | Batch 3, run 35 | bench · Pi Zero W | `a4e94247dc2a82b681d2eb4c6307dbb31efa54e5` | `loop3.sh` — durable | Reset: whole-board freeze, confirmed network-independent; watchdog reboot ≥9.4 s later |
-| Batch 4 | bench · Pi Zero W | this branch's HEAD at launch | `loop4.sh` — durable | Experiment: `performance` governor (fixed frequency), cap 90 runs; pending |
+| Batch 4, runs 1-24 | bench · Pi Zero W | `3cb4f4cc0453941641e06610e3d93c7f4d906289` | `loop4.sh` — durable | 24/24 clean, no reset, `performance` governor pinned each run |
+| Batch 4, run 25 | bench · Pi Zero W | `3cb4f4cc0453941641e06610e3d93c7f4d906289` | `loop4.sh` — durable | Reset: `freq=900000` in every heartbeat (DVFS not necessary for the reset); reset within ~0.3-2.3 s of the last heartbeat, unlike resets 2-3 |
 
 ### Run 1 — bench, commit `fee57a946f4b256d1cd3999daf83a6b048f5fcbb`
 
@@ -149,7 +150,7 @@ capture mechanism.
   `console-ramoops-0`'s head and final 80 lines, 861 lines / 91236 B total, md5
   `5a575b6fc3ef10b5b90b0f49ba637f0f`, MAC redacted; the full copy is not committed).
 
-### Batch 4 — fixed-frequency experiment (pending)
+### Batch 4 — fixed-frequency experiment
 
 - **Hypothesis.** Upstream `raspberrypi/linux#2555`'s reporters fixed Pi Zero instability with
   `force_turbo` (fixed frequency) plus `over_voltage`. This image caps the CPU at 900 MHz
@@ -177,7 +178,35 @@ capture mechanism.
   `scaling_governor=performance scaling_cur_freq=900000 scaling_max_freq=900000`, and
   `hb245-freq.sh`'s heartbeat lines carry `freq=900000` appended after `uv=`, every other field
   in place.
-- **Result:** pending. This section updates once the loop produces a reset or exhausts its cap.
+- **Result:** 24/24 clean, then a reset at run 25. `freq=900000` holds in all 338 heartbeats
+  up to the last line — the CPU never left 900 MHz. Governor was back to `ondemand` on the next
+  boot, confirming the change was runtime-only as designed. See
+  [`reset4-findings.md`](reset4-findings.md) and the Metrics/Findings sections below.
+
+### Batch 4, run 25 — the reset
+
+- **Board:** bench, Raspberry Pi Zero W. No address in this record.
+- **Image commit:** `3cb4f4cc0453941641e06610e3d93c7f4d906289`, read from
+  `records/20261031T121511Z/run.json`.
+- **Scripts deployed, read-only, after the reset:** [`reset4-remote-read.sh`](reset4-remote-read.sh)
+  and [`reset4-remote-read2.sh`](reset4-remote-read2.sh) — each ONE-OFF, committed here, renamed
+  from `remote-read.sh`/`remote-read2.sh` to avoid colliding with reset 3's same-named scripts
+  already in this directory; each run once over ssh, the same flock+ssh pattern as reset 3.
+  [`extract.py`](extract.py), [`window.py`](window.py) and [`episodes.py`](episodes.py) — the
+  committed reset-3 scripts, reused as-is except `episodes.py`'s hardcoded summary path,
+  repointed at batch 4's summary for this reset (not a different script). `batch4.py` and
+  `endphase.py` — each ONE-OFF, committed here, read-only per-run reductions over `records/` and
+  the recovered `pstore` copy. Summarized in [`reset4-findings.md`](reset4-findings.md). Their
+  raw `.out` outputs were unredacted and are not committed.
+- **Procedure:** the loop's own `bench test` invocation for this run (no separate script); the
+  two `reset4-remote-read*.sh` sessions and the Python reductions ran afterward, read-only, to
+  analyze it.
+- **Raw capture:** the full analysis, with every raw read, is
+  [`reset4-findings.md`](reset4-findings.md). Redacted excerpts are committed beside it:
+  [`reset4-host-tail.log`](reset4-host-tail.log) (the capture markers and each stream's last
+  line) and [`reset4-console-ramoops-tail.log`](reset4-console-ramoops-tail.log) (the recovered
+  `console-ramoops-0`'s head and final 40 lines, 929 lines / 103428 B total, md5
+  `9da1a586250410bbfdf345b528b18fcb`, MAC redacted; the full copy is not committed).
 
 ## Configuration under test
 
@@ -299,6 +328,31 @@ about 0.5 s of the last line the network delivered** — the network did not die
 the board stayed up; everything stopped together. `PM_RSTS` again read `0x00000020` (`HADWRF`
 set, `HADPOR` clear) — a watchdog reset, not a power-on, for the second reset running.
 
+### Batch 4, run 25
+
+Full detail is in [`reset4-findings.md`](reset4-findings.md). Summary:
+
+| Marker | Host/board time | Offset |
+|---|---|---|
+| last `[stats]` line | 08:20:35.977345-0400 host | 208.2 s after capture started |
+| last `[kernel]` line (`hb245 609.02`, `freq=900000`) | 08:20:35.925704-0400 host / board `[609.136]` | same sample is pstore's final line; the host `[stats]` sample above was taken fractionally later |
+| `[journal]`/`[stats]`+`[kernel] session ended` | 08:20:42.505428 / 08:20:43.505473-0400 | 6.53 s / 7.53 s after the last `[kernel]` line |
+| `capture stopped` | 08:25:31.798241-0400 | — |
+| next kernel start (board, NTP-synced) | 08:20:43.566 host | **7.648 s** after the last heartbeat |
+| warm reboot's own "Journal stopped" → kernel start | — | 7.32-7.43 s (batch 2, n=14) plus one fresh batch-4 sample, 7.385 s (n=15) |
+| Board state after | booted/activated rootfs.1 (B); `BOOT_A_LEFT=0`, `BOOT_B_LEFT=3`; governor back to `ondemand` | fell back to last-good slot, A marked bad |
+
+Last rauc progress line: ` 99% Copying image to rootfs.0` at +204.7 s; every byte of the image
+had reached the block layer (`Dirty:0`, the remaining `Writeback` accounts for the last ~0.74%).
+`freq=900000` holds in every one of the 338 heartbeats, to the last line. **R (the gap between
+the last heartbeat and the reset) is ≈0.26 s plus the shutdown tail — about 0.3-2.3 s — against
+≥10.7 s (reset 2) and ≥9.4 s (reset 3).** A freeze-then-watchdog reset needs R ≥ 7 s (14 s
+timeout, systemd pets every 7 s); this reset does not fit that shape — the board was still
+running, with the heartbeat at a 1.23 s cadence and writes completing at 10-20 MB/s, until at
+most ~2 s before it reset. No hung-task report was pending at the stop (unlike reset 3). `uv`
+read 0 throughout, up to ≤2 s before the stop. `PM_RSTS` read `0x20` (`HADWRF` set, `HADPOR`
+clear) — a watchdog reset, for the third reset running.
+
 ## Findings
 
 - **The resets are real, not a capture artifact.** Run 1, batch 2 run 14 and batch 3 run 35 all
@@ -339,18 +393,37 @@ set, `HADPOR` clear) — a watchdog reset, not a power-on, for the second reset 
   the network went quiet: they stopped together. `PM_RSTS` again read `0x20` (`HADWRF` set,
   `HADPOR` clear), confirming a watchdog reset for the second time running. See
   [`reset3-findings.md`](reset3-findings.md) §§1-2 and the verdict table there.
-- **What froze the board is still open, and this kernel build could not have said.** Two
-  candidates remain, and nothing on the board can separate them: a CPU, SoC or bus lockup (for
-  example an SD-host or SDIO access that never completes and stalls the single ARMv6 core, with
-  no softlockup or RCU-stall detector and no NMI watchdog to catch it), or a supply sag deep
-  enough to hang the SoC without a power-on reset (the firmware's sticky under-voltage bit covers
-  up to ~2 s before the stop, not the stop itself). The only blocked task at any of the three
-  resets was the routine `mmc_rescan` kworker, within its own healthy range every time — no
-  precursor has been seen in 3 resets or 112 healthy hung-task episodes. `netconsole`, already
-  shipped but unloaded, was considered and set aside: the heartbeat already pins the stop to
-  ~0.5 s, and the single remaining instrument that could decide CPU/bus-lockup against supply sag
-  is a fast (millisecond-resolution) external log of the board's 5 V input across a reset — not
-  achievable in-band, and the owner's to say whether the bench has one.
+- **Reset 4, under a pinned `performance` governor, shows DVFS is not necessary for the reset —
+  strong — and does not fit the reset 2/3 shape.** `freq=900000` holds in all 338 heartbeats to
+  the last line, so the CPU never left 900 MHz: one reset under a fixed frequency is enough to
+  show kernel-requested frequency switching is not a required cause (firmware-side throttling
+  would not show in `freq=`, so this does not cover that path). The *timing* is new and
+  re-weights the field: the next kernel started only 7.648 s after the last heartbeat, against a
+  measured warm-reboot time of 7.32-7.43 s (n=15) — so the reset came within about 0.3-2.3 s of
+  the board still running, not after a silent gap of 7-14 s the way resets 2 and 3 did. A
+  freeze-then-watchdog reset needs R ≥ 7 s to fit this board's 14 s timeout and 7 s petting
+  interval; reset 4 does not fit that window. `PM_RSTS` read `0x20` again (n=3 across resets, all
+  the same value). See [`reset4-findings.md`](reset4-findings.md) §4's hypothesis table.
+- **What froze the board is still open, and this kernel build could not have said.** Resets 2
+  and 3 fit a freeze followed by the hardware watchdog; reset 4 does not — it looks like the
+  watchdog fired while the board was still live. Candidates, and nothing on the board can
+  separate them: a CPU, SoC or bus lockup (no softlockup or RCU-stall detector and no NMI
+  watchdog to catch it) for resets 2/3; for reset 4, either the watchdog firing because PID1
+  itself stopped petting it for ≥14 s while the rest of the kernel, the heartbeat and I/O ran on
+  (page-in and dirty-throttle waits are killable and invisible to the hung-task reporter, so a
+  stalled PID1 would not show there either), or a supply sag that resets the SoC directly (RSTS
+  cannot distinguish the two, and reset 2's timing argument against an immediate dip does not
+  apply to reset 4). Either resets 2-4 are two different modes, or one mechanism — the watchdog
+  on a stalled PID1, or supply — covers all three, which for resets 2/3 needs userspace to stall
+  wholesale and the due hung-task report to go unseen (measured base rate ~5% in batch 4, pooled
+  with batch 3). This is open, and is the owner's call to weigh. The only blocked task at any of
+  the four resets was the routine `mmc_rescan` kworker, within its own healthy range every time —
+  no precursor has been seen in 4 resets or across the healthy hung-task episodes in batches 3-4.
+  `netconsole`, already shipped but unloaded, was considered and set aside: the heartbeat already
+  pins the stop to ~0.5 s (reset 3) or less (reset 4). The instruments that would decide further
+  — a fast external log of the board's 5 V rail, and `watchdog0/timeleft` plus PID1's own state
+  added to the heartbeat — are host-side and read-only respectively; the owner's to say on the
+  former; the latter is tracked as follow-up.
 
 ## Other board activity on this board
 

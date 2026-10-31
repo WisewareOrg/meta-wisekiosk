@@ -1,0 +1,27 @@
+Reset 4 — bench, commit 3cb4f4cc0453941641e06610e3d93c7f4d906289, batch 4 run 25
+(records/20261031T121511Z). Host-stamped capture markers and each stream's last line, from the
+install item's "Captured stdout setup" / "Captured stderr setup" sections. Address redacted to
+<BENCH_ADDRESS>.
+
+[stderr, capture markers]
+2026-10-31T08:17:07.807130-0400 capture started
+2026-10-31T08:20:42.505428-0400 [journal] session ended
+2026-10-31T08:20:43.505473-0400 [stats] session ended
+2026-10-31T08:20:43.505559-0400 [kernel] session ended
+Read from remote host <BENCH_ADDRESS>: Connection reset by peer
+client_loop: send disconnect: Broken pipe
+2026-10-31T08:25:31.798241-0400 capture stopped
+error: recipe `kiosk-install` failed on line 235 with exit code 255
+
+[stdout, last line of each stream before the drop]
+08:20:32.946034 [journal] ... <BENCH_HOSTNAME> unknown: hb245 605.52 ... uv=0 freq=900000  (journal lags ~3 s, as usual)
+08:20:35.925704 [kernel]  2026-10-31T08:20:35,889264-04:00 hb245 609.02 MemFree:45576 Dirty:0 Writeback:17232 load=7.29 4.33 2.09 mmc=5271 565 627638 180000 6045 520972 4441140 9377719 0 157910 9557720 0 0 0 0 0 0 uv=0 freq=900000
+08:20:35.977345 [stats]   MemFree:45576 Dirty:0 Writeback:15696 load=7.29 4.33 2.09 mmc=5271 565 627638 180000 6048 520972 4444212 9385904 0 158000 9565905 0 0 0 0 0 0 uv=0
+
+The [stats] sample was taken after the last heartbeat (its write-sector counter is 3072 sectors
+further on). Last sign of life: board ~[609.19-609.24], host ~08:20:35.98. Sessions dropped
+6.53 s and 7.53 s after the last line -- the same ServerAlive 2/3 signature and ~1 s split as
+resets 2 and 3. Last rauc progress line: " 99% Copying image to rootfs.0", at about +204.7 s;
+every byte of the image had been handed to the block layer (Writeback 15696 kB accounts for the
+remaining ~0.74%). This is the governor-pinned run: freq=900000 in every heartbeat up to the
+last line, so the CPU never left 900 MHz.
