@@ -34,7 +34,7 @@ capture mechanism.
 | Batch 3, run 35 | bench · Pi Zero W | `a4e94247dc2a82b681d2eb4c6307dbb31efa54e5` | `loop3.sh` — durable | Reset: whole-board freeze, confirmed network-independent; watchdog reboot ≥9.4 s later |
 | Batch 4, runs 1-24 | bench · Pi Zero W | `3cb4f4cc0453941641e06610e3d93c7f4d906289` | `loop4.sh` — durable | 24/24 clean, no reset, `performance` governor pinned each run |
 | Batch 4, run 25 | bench · Pi Zero W | `3cb4f4cc0453941641e06610e3d93c7f4d906289` | `loop4.sh` — durable | Reset: `freq=900000` in every heartbeat (DVFS not necessary for the reset); reset within ~0.3-2.3 s of the last heartbeat, unlike resets 2-3 |
-| Batch 5 | bench · Pi Zero W | this branch's HEAD at launch | `loop5.sh` — durable | Observation: watchdog `timeleft` and PID1 state added to the heartbeat, no variable changed (baseline `ondemand`), cap 90 runs; pending |
+| Batch 5, runs 1-25 | bench · Pi Zero W | `38e46c900e0c49c8b0e458b29acc8f015d1d2399` | `loop5.sh` — durable | 25/25 clean, no reset (run 17 a near-miss); loop ended on run 26's host_suite failing, not a reset or the cap -- see below |
 
 ### Run 1 — bench, commit `fee57a946f4b256d1cd3999daf83a6b048f5fcbb`
 
@@ -209,7 +209,7 @@ capture mechanism.
   `console-ramoops-0`'s head and final 40 lines, 929 lines / 103428 B total, md5
   `9da1a586250410bbfdf345b528b18fcb`, MAC redacted; the full copy is not committed).
 
-### Batch 5 — watchdog and PID1 observation (pending)
+### Batch 5 — watchdog and PID1 observation
 
 - **Hypothesis.** One reading of resets 2-4 is that the hardware watchdog fires because PID1
   (systemd, the only pet source) stops petting it for ≥14 s, while the rest of the kernel, the
@@ -235,7 +235,7 @@ capture mechanism.
   real path passes; a seeded nonexistent path stops the script, exit 1, with nothing after it
   running); `hb245-wdt.sh`'s heartbeat lines carry all four new fields in order after `freq=`,
   and `wdt=` was observed counting down (11, 10, 9) then resetting to 13 as systemd pets it.
-- **Result:** running; no reset yet. **Interim: run 17 (clean, `records/20261031T154133Z`) is a
+- **Result:** 25/25 clean, no reset. **Run 17 (clean, `records/20261031T154133Z`) is a
   near-miss.** PID1 went from `S`/`do_epoll_wait` to `D`/`__ext4_find_entry` for about 3.9 s
   (board `[601.31]`-`[603.94]`) while the install's write kept moving; `wdt` fell from 12 to
   **4**, well below the 7-8 floor a heartbeat shows between pets on a healthy sample, before
@@ -244,10 +244,22 @@ capture mechanism.
   call-trace repeats omitted) and [`metrics.py`](metrics.py) (committed here, a per-run reducer
   over a record's `report.jsonl`: install window, max `[stats]`/heartbeat gap, min `wdt`, every
   distinct non-`S` PID1 state with its `wchan`, and seconds spent in `D` -- run 17:
-  `min_wdt=4 p1_d_seconds=3.5`, one row per run, never aggregated). This section updates again
-  once the loop produces a reset or exhausts its cap.
+  `min_wdt=4 p1_d_seconds=3.5`, one row per run, never aggregated).
+- **How the loop ended.** Not a reset and not the 90-run cap: run 26's `tests/host_suite`
+  reproducibility-gate check failed (`records/20261031T171121Z/run.json`, exit 1,
+  `tools/reproducibility-gate.sh --image ...` returned 1) because this checkout's working tree
+  was staged-dirty at that moment -- batch-6 prep (this README update, `loop6.sh`, `metrics.py`,
+  `run17-near-miss.log`) was being `git add`ed and committed (`bea43e4`, landed
+  2026-10-31T17:13:03Z) while loop5 was still running, which the brief that asked for it should
+  not have (owner's own correction). `bench test`'s own `CandidateFailure` on that exit code is
+  caught by loop5.sh's `|| status=$?`, so this did not by itself end the script; loop5.sh's own
+  LOG stops immediately after, with no further output, most likely at the same `git checkout -q
+  "$branch"` restore line hitting the same staged, uncommitted tree. The board was undisturbed
+  (confirmed read-only afterward: idle, freshly rebooted from run 25's own successful install)
+  and nothing was lost -- run 26 produced no target_suite record and is not counted as a run.
+  Checkouts are not edited while a loop runs, going forward.
 
-### Batch 6 -- BFQ scheduler experiment (pending)
+### Batch 6 -- BFQ scheduler experiment
 
 - **Hypothesis.** `rauc`'s bulk image copy is a buffered write with no `O_DIRECT` and one
   `fsync` at the end, under `mmcblk0`'s default `mq-deadline` elevator; PID1's own small
@@ -258,16 +270,21 @@ capture mechanism.
   boot, before each run. Governor stays `ondemand` (unlike batch 4); no `IOWeight`, no dirty
   limits. Everything else -- the sysctls and the `hb245-wdt.sh` heartbeat batch 5 already arms --
   is unchanged, so its fields are directly comparable run-by-run against batches 3 and 5.
-- **Harness:** [`loop6.sh`](loop6.sh) -- DURABLE, committed here, not launched. `loop5.sh`'s
-  diagnostics plus one added pre-run step, `set_scheduler`: reads `queue/scheduler`'s available
-  list, sets it to `bfq`, and logs the readback. **Not optional:** if `bfq` is not listed, the
-  script stops rather than substitute another scheduler.
+- **Harness:** [`loop6.sh`](loop6.sh) -- DURABLE, committed here. `loop5.sh`'s diagnostics plus
+  one added pre-run step, `set_scheduler`: reads `queue/scheduler`'s available list, sets it to
+  `bfq`, and logs the readback. **Not optional:** if `bfq` is not listed, the script stops
+  rather than substitute another scheduler.
 - **Metric.** Each run's `metrics.py` row -- max `[stats]` gap, max heartbeat gap, min `wdt` --
   compared run by run against batches 3 and 5's same fields, never pooled across batches.
 - **Cap and stopping rule:** 20 runs, stopping at the first `reset=yes` (`loop3.sh`'s own reset
   detection and `pstore` capture, unchanged).
-- **Result:** not launched. Not hand-validated against bench yet -- batch 5 was running when
-  this was written, and the board was not touched to validate it.
+- Hand-validated against bench before launch (board idle, batch 5 fully stopped): the baseline
+  scheduler reads `none [mq-deadline] kyber bfq`; `set_scheduler` reads back
+  `scheduler=none mq-deadline kyber [bfq]`; the availability check was also proven to fail on a
+  seeded list without `bfq`. Found and cleaned up a leftover `hb245.sh` heartbeat process on the
+  board from batch 5's aborted run 26 (its install never reached a reboot, so the process never
+  died); it is killed and its script removed.
+- **Result:** pending. This section updates once the loop produces a reset or exhausts its cap.
 
 ## Configuration under test
 
