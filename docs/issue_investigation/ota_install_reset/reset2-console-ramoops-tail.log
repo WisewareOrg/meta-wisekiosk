@@ -1,0 +1,66 @@
+Reset 2's pstore `console-ramoops-0` (boot -1, the boot that ended in the run-14 reset): its
+head (boot banner, kernel command line) and its last 40 lines (the ones immediately before the
+freeze). 339 lines, 26609 bytes total; md5 2480a8cebee507d46b8843476d6c9df6 -- matches the full
+record described in reset2-rsts-pstore.md. The MAC on the command line is redacted; the raw
+339-line copy is never committed. Mounted read-only (`mount -t pstore -o ro pstore
+/sys/fs/pstore`), copied, unmounted; nothing in pstore was deleted.
+
+[    0.000000] Booting Linux on physical CPU 0x0
+[    0.000000] Linux version 6.12.93 (oe-user@oe-host) (arm-poky-linux-gnueabi-gcc (GCC) 13.5.0, GNU ld (GNU Binutils) 2.42.0.20240723) #1 Fri Jun 12 11:45:31 UTC 2026
+[    0.000000] CPU: ARMv6-compatible processor [410fb767] revision 7 (ARMv7), cr=00c5387d
+[    0.000000] CPU: PIPT / VIPT nonaliasing data cache, VIPT nonaliasing instruction cache
+[    0.000000] OF: fdt: Machine model: Raspberry Pi Zero W Rev 1.1
+[    0.000000] random: crng init done
+[    0.000000] Memory policy: Data cache writeback
+[    0.000000] Reserved memory: created CMA memory pool at 0x0bc00000, size 256 MiB
+[    0.000000] OF: reserved mem: initialized node linux,cma, compatible id shared-dma-pool
+[    0.000000] OF: reserved mem: 0x0bc00000..0x1bbfffff (262144 KiB) map reusable linux,cma
+[    0.000000] Zone ranges:
+[    0.000000]   Normal   [mem 0x0000000000000000-0x000000001bffffff]
+[    0.000000] Movable zone start for each node
+[    0.000000] Early memory node ranges
+[    0.000000]   node   0: [mem 0x0000000000000000-0x000000001bffffff]
+[    0.000000] Initmem setup node 0 [mem 0x0000000000000000-0x000000001bffffff]
+[    0.000000] OF: reserved mem: 0x0b000000..0x0b03ffff (256 KiB) map non-reusable ramoops@b000000
+[    0.000000] Kernel command line: coherent_pool=1M 8250.nr_uarts=1 snd_bcm2835.enable_headphones=0 cgroup_disable=memory clk_ignore_unused  smsc95xx.macaddr=<BOARD_MAC> vc_mem.mem_base=0x1ec00000 vc_mem.mem_size=0x20000000  dwc_otg.lpm_enable=0 console=tty1 root=/dev/mmcblk0p2 rootfstype=ext4 rootwait  net.ifnames=0 panic=10 root=/dev/mmcblk0p3 rauc.slot=B
+...
+[   78.925141] audit: type=1334 audit(1793408010.573:7): prog-id=8 op=UNLOAD
+[   78.934894] audit: type=1334 audit(1793408010.593:8): prog-id=11 op=LOAD
+[   78.939573] audit: type=1334 audit(1793408010.593:9): prog-id=9 op=UNLOAD
+[   78.960840] audit: type=1334 audit(1793408010.613:10): prog-id=12 op=LOAD
+[   78.966301] audit: type=1334 audit(1793408010.623:11): prog-id=3 op=UNLOAD
+[   78.968965] audit: type=1334 audit(1793408010.623:12): prog-id=13 op=LOAD
+[   78.970849] audit: type=1334 audit(1793408010.623:13): prog-id=14 op=LOAD
+[   78.981852] audit: type=1334 audit(1793408010.633:14): prog-id=4 op=UNLOAD
+[   78.981954] audit: type=1334 audit(1793408010.633:15): prog-id=5 op=UNLOAD
+[  144.338715] systemd-sysv-generator[574]: SysV service '/etc/init.d/sshd' lacks a native systemd unit file, automatically generating a unit file for compatibility.
+[  144.338851] systemd-sysv-generator[574]: Please update package to include a native systemd unit file.
+[  144.338930] systemd-sysv-generator[574]: ! This compatibility logic is deprecated, expect removal soon. !
+[  144.339487] systemd-sysv-generator[574]: SysV service '/etc/init.d/fuse' lacks a native systemd unit file, automatically generating a unit file for compatibility.
+[  144.339576] systemd-sysv-generator[574]: Please update package to include a native systemd unit file.
+[  144.339646] systemd-sysv-generator[574]: ! This compatibility logic is deprecated, expect removal soon. !
+[  149.336832] kauditd_printk_skb: 4 callbacks suppressed
+[  149.336869] audit: type=1334 audit(1793408080.994:20): prog-id=17 op=LOAD
+[  149.345414] audit: type=1334 audit(1793408080.994:21): prog-id=10 op=UNLOAD
+[  149.354361] audit: type=1334 audit(1793408081.014:22): prog-id=18 op=LOAD
+[  149.359209] audit: type=1334 audit(1793408081.014:23): prog-id=11 op=UNLOAD
+[  149.386863] audit: type=1334 audit(1793408081.044:24): prog-id=19 op=LOAD
+[  149.395041] audit: type=1334 audit(1793408081.044:25): prog-id=12 op=UNLOAD
+[  149.395150] audit: type=1334 audit(1793408081.044:26): prog-id=20 op=LOAD
+[  149.395202] audit: type=1334 audit(1793408081.044:27): prog-id=21 op=LOAD
+[  149.395251] audit: type=1334 audit(1793408081.044:28): prog-id=13 op=UNLOAD
+[  149.395299] audit: type=1334 audit(1793408081.044:29): prog-id=14 op=UNLOAD
+[  354.377463] loop0: detected capacity change from 0 to 246933
+[  354.385275] loop0: detected capacity change from 246933 to 246928
+[  354.426187] device-mapper: verity: sha256 using shash "sha256-generic"
+[  354.434310] kauditd_printk_skb: 4 callbacks suppressed
+[  354.434348] audit: type=1338 audit(1793408286.089:34): module=verity op=ctr ppid=1 pid=299 auid=4294967295 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=(none) ses=4294967295 comm="installer" exe="/usr/bin/rauc" dev=254:0 error_msg='success' res=1
+[  354.436510] audit: type=1300 audit(1793408286.089:34): arch=40000028 syscall=54 per=800000 success=yes exit=0 a0=9 a1=c138fd09 a2=b3dfc5e8 a3=b3dfc5b0 items=8 ppid=1 pid=299 auid=4294967295 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=(none) ses=4294967295 comm="installer" exe="/usr/bin/rauc" key=(null)
+[  354.448294] audit: type=1307 audit(1793408286.089:34): cwd="/"
+[  354.448404] audit: type=1302 audit(1793408286.089:34): item=0 name=(null) inode=26 dev=00:08 mode=040755 ouid=0 ogid=0 rdev=00:00 nametype=PARENT cap_fp=0 cap_fi=0 cap_fe=0 cap_fver=0 cap_frootid=0
+[  354.448467] audit: type=1302 audit(1793408286.089:34): item=1 name=(null) inode=7706 dev=00:08 mode=040755 ouid=0 ogid=0 rdev=00:00 nametype=CREATE cap_fp=0 cap_fi=0 cap_fe=0 cap_fver=0 cap_frootid=0
+[  354.448526] audit: type=1302 audit(1793408286.089:34): item=2 name=(null) inode=19 dev=00:08 mode=040755 ouid=0 ogid=0 rdev=00:00 nametype=PARENT cap_fp=0 cap_fi=0 cap_fe=0 cap_fver=0 cap_frootid=0
+[  354.448582] audit: type=1302 audit(1793408286.089:34): item=3 name=(null) inode=7707 dev=00:08 mode=040755 ouid=0 ogid=0 rdev=00:00 nametype=CREATE cap_fp=0 cap_fi=0 cap_fe=0 cap_fver=0 cap_frootid=0
+[  354.448640] audit: type=1302 audit(1793408286.089:34): item=4 name=(null) inode=7707 dev=00:08 mode=040755 ouid=0 ogid=0 rdev=00:00 nametype=PARENT cap_fp=0 cap_fi=0 cap_fe=0 cap_fver=0 cap_frootid=0
+[  354.448698] audit: type=1302 audit(1793408286.089:34): item=5 name=(null) inode=7708 dev=00:08 mode=0100444 ouid=0 ogid=0 rdev=00:00 nametype=CREATE cap_fp=0 cap_fi=0 cap_fe=0 cap_fver=0 cap_frootid=0
+[  354.448759] audit: type=1302 audit(1793408286.089:34): item=6 name=(null) inode=7707 dev=00:08 mode=040755 ouid=0 ogid=0 rdev=00:00 nametype=PARENT cap_fp=0 cap_fi=0 cap_fe=0 cap_fver=0 cap_frootid=0

@@ -94,6 +94,12 @@ capture mechanism.
   outputs are committed beside it: [`board-read.out`](board-read.out),
   [`board-read2.out`](board-read2.out), [`board-read3.out`](board-read3.out),
   [`reset2-window.out`](reset2-window.out) (address- and hostname-redacted).
+- **Follow-up, read-only, after the reset:** the SoC's firmware-held copy of its reset-cause
+  register (`/proc/device-tree/chosen/bootloader/rsts`) and a read-only `pstore` mount
+  (`mount -t pstore -o ro pstore /sys/fs/pstore`, copied, then `umount`). **Raw capture:**
+  [`reset2-console-ramoops-tail.log`](reset2-console-ramoops-tail.log) — the head and final 40
+  lines of the recovered `console-ramoops-0` record (339 lines, 26609 B, md5
+  `2480a8cebee507d46b8843476d6c9df6`), MAC redacted; the full 339-line copy is not committed.
 
 ## Configuration under test
 
@@ -159,6 +165,29 @@ kernel did not start for at least 10.7 s after that, which is longer than this b
 reset takes (7.32-7.43 s, n=14) — too long for an instant power-dip reset, and inside the 14 s
 hardware-watchdog window for a freeze.
 
+### Batch 2, run 14 — reset-cause register and pstore
+
+The firmware's boot-time copy of the SoC's `PM_RSTS` register (`/proc/device-tree/chosen/bootloader/rsts`)
+read **`0x00000020`**: bit 5 (`HADWRF`, watchdog full reset) set, bit 12 (`HADPOR`, power-on
+reset) clear. A plain `reboot` and a `panic=10` restart set the same bit on this SoC, so `0x20`
+alone does not separate a watchdog timeout from a deliberate reboot — but no reboot was
+requested at 21:00:22 (rauc was mid-copy), and a panic/oops is ruled out next. A sag that hangs
+the SoC without a power-on reset would also read `0x20`; that stays open. n = 1, no cold-boot
+control sample.
+
+`pstore` had never been mounted on this board before this read — `/proc/mounts` and
+`stat -f /sys/fs/pstore` both showed it as a bare `sysfs` mountpoint, so **every earlier "pstore
+empty" reading (including this record's own §4, above) looked at an unmounted directory and
+could not have seen anything.** Mounted read-only, it held exactly one record,
+`console-ramoops-0` (boot -1's complete kernel console, 339 lines, confirmed complete and
+unwrapped) and **no `dmesg-ramoops-*`** — the zone a panic or oops would have dumped to, under
+this board's `max_reason=2`/`panic_on_oops=1` configuration. The record's last line is the
+identical `audit … item=6` line the live `[kernel]` stream ended on; from there to the freeze
+(136 s) the kernel printed nothing at any loglevel. This board's kernel has
+`CONFIG_TINY_RCU=y` and `# CONFIG_SOFTLOCKUP_DETECTOR is not set` — no RCU-stall and no
+lockup detector — so a hard freeze could not have printed anything regardless; the silence is
+consistent with a freeze and does not by itself distinguish one.
+
 ## Findings
 
 - **The resets are real, not a capture artifact.** Run 1's board was unreachable for ~4.5
@@ -177,17 +206,52 @@ hardware-watchdog window for a freeze.
   kernel started at least 10.7 s later, longer than this board's own warm-reset time (7.32-7.43
   s, n=14). That gap falls inside the 14 s hardware-watchdog window and is too long for an
   immediate power-cycle reset. *Confirmed, moderate to strong* for ruling out an instant power
-  dip; *best supported, moderate to strong* for a freeze-then-watchdog reset; a kernel panic is
-  *disfavored* (pstore was empty). Full reasoning, including the two hypotheses not favored, is
-  in [`reset2-findings.md`](reset2-findings.md) §5.
-- **What froze the board is still open.** Candidates are a CPU/kernel lockup with interrupts
-  off, a wedged SD-host or SDIO bus, or a voltage sag deep enough to hang the SoC without
-  tripping `uv` at 1 Hz resolution. Nothing in the capture shows a cause — no console line, no
-  counter trend — only that everything stopped at once. Deciding watchdog-vs-outage needs the
-  SoC's own reset-cause register (`PM_RSTS`, not exposed by this board's `bootstatus`), which
-  this investigation did not read (a `/dev/mem` read was judged too risky for a read-only
-  check). `netconsole`, already shipped but unloaded, is named in `reset2-findings.md` as the
-  instrument that would catch what froze it.
+  dip. Full reasoning is in [`reset2-findings.md`](reset2-findings.md) §5 — timing only, before
+  the register read below.
+- **The reset-cause register and pstore confirm a watchdog reset and rule out a kernel panic,
+  strongly.** `PM_RSTS` read `0x20`: `HADWRF` (watchdog full reset) set, `HADPOR` (power-on
+  reset) clear. `pstore`, mounted for the first time on this board, held boot -1's complete
+  console and **no `dmesg-ramoops`** — the record a panic or oops would have left under this
+  image's `max_reason=2` pstore configuration. **This supersedes the "pstore empty" reading
+  above (§4 of `reset2-findings.md`): that check looked at an unmounted directory and is void,
+  not evidence.** Kernel panic: *ruled out, strong* (was *disfavored, moderate*). Freeze +
+  hardware watchdog: *best supported* — the register and the timing agree, and nothing else on
+  this board resets after a delay like that. Power dip without a power-on reset: *still
+  possible*, since `PM_RSTS` cannot distinguish a sag-then-watchdog from a freeze-then-watchdog.
+  See [`reset2-console-ramoops-tail.log`](reset2-console-ramoops-tail.log) for the record's own
+  last lines.
+- **What froze the board is still open, and this kernel build could not have said.** Candidates
+  are a CPU/kernel lockup with interrupts off, a wedged SD-host or SDIO bus, or a voltage sag
+  deep enough to hang the SoC without tripping `uv` at 1 Hz resolution or forcing a power-on
+  reset. This build has `CONFIG_TINY_RCU=y` and no `CONFIG_SOFTLOCKUP_DETECTOR` — no RCU-stall
+  and no lockup detector — so a hard freeze prints nothing on this kernel regardless of cause.
+  `netconsole`, already shipped but unloaded, and a once-a-second `/dev/kmsg` heartbeat (proven
+  to survive a watchdog reset in pstore, since boot -1's whole console came through intact) are
+  the next instruments; `loop3.sh` carries the heartbeat into a further hunt for a reset to read
+  it from.
+
+## Other board activity on this board
+
+Ticket #245's own P2 and P4 proofs (the capture surviving `dmesg` failing, and the capture
+stopping cleanly when the install itself is killed) ran on this same board, between batch 2 and
+the reset-cause register read. Both are proofs of the capture mechanism, not part of this
+reset's own diagnosis, but are noted here for completeness since they touched the board:
+
+- P2 passed: `[kernel] session ended` arrived immediately (the seeded failure), a live
+  `Mounting slot` line arrived, exit 0, slot activated.
+- A first P4 attempt is **void**. Its script released the pipeline lock (`flock -o <lock> -c
+  '...'`, which runs the wrapped command under `$SHELL` — zsh on this host, which has no
+  `$EPOCHREALTIME` without `zmodload`) as soon as that script errored, before the kill was sent,
+  while `tools/kiosk-install.sh` and its ssh children kept running, unprotected, in the
+  background. The install completed on its own (success, no reboot — `kiosk-install.sh` never
+  reboots); its exit status was never captured and is not inferred. No harm resulted: the board
+  was not rebooted, and P3's checks (no stray host processes, lock free, no board-side leftover)
+  came back clean once it finished.
+- A second, fixed P4 attempt passed cleanly: run entirely under plain `bash` (`flock -o <lock>
+  bash <script>`, no `$SHELL`-spawning `flock -c`), with the script waiting on
+  `tools/kiosk-install.sh` before returning so the lock cannot release while it or its ssh
+  children are alive. Exit status 255 (OpenSSH's own status on `SIGTERM` mid-session), `==
+  after` absent from its log, `capture stopped` present.
 
 ## Changes configured as a result
 
