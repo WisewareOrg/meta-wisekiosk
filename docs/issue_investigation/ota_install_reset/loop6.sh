@@ -26,7 +26,14 @@
 # queue/scheduler, the script stops rather than substitute another
 # scheduler. Checked and set once per run (it reverts at that boot's own
 # reboot).
+#
+# Before each run's pre-run diagnostics, waits for the board to answer ssh
+# (it may still be settling after the previous run's reboot): up to 30
+# tries, 10 s apart. If it never answers, the loop stops rather than skip
+# diagnostics and carry on. An ERR trap names the failing line and exit
+# status on any other failure, so a stop is never silent.
 set -euo pipefail
+trap 'echo "loop6: failed at line $LINENO (exit $?)" >&2' ERR
 [ -n "${3:-}" ] || { echo "usage: loop6.sh <sha> <summary-file> <bench-host>" >&2; exit 2; }
 sha=$1
 summary=$2
@@ -72,6 +79,18 @@ install_reset() {
     [ -n "$stopped" ] && [ -n "$ended" ] && [ "$ended" -lt "$stopped" ]
 }
 
+# wait_for_board -- retries a trivial ssh every 10 s, up to 30 tries (5 min),
+# until the board answers. True once it does; false (stderr logged by the
+# caller) if it never does in that window.
+wait_for_board() {
+    local i
+    for i in $(seq 1 30); do
+        "${ssh[@]}" "$bench_host" true && return 0
+        sleep 10
+    done
+    return 1
+}
+
 # set_scheduler -- switches mmcblk0's IO scheduler to bfq on the board's
 # current boot and logs the readback. Not optional: stops this script, not
 # just this run, if bfq is not listed in queue/scheduler.
@@ -113,6 +132,7 @@ save_pstore() {
 }
 
 for i in $(seq 1 20); do
+    wait_for_board || { echo "loop6: board did not answer ssh after 30 tries (5 min); stopping before run $i" >&2; break; }
     set_scheduler
     arm_diagnostics
     before_dirs=$(ls -1 records/ 2>/dev/null || true)
