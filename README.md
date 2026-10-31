@@ -234,7 +234,9 @@ Every recipe that defaults to a device — `kiosk-ota`, `kiosk-send-direct`, `ki
 `kiosk-rollback`, `kiosk-preflight`, `kiosk-backup`, `provision-device` — takes its default from one
 `kiosk-host` variable in the [`Justfile`](Justfile), so `export KIOSK_HOST=root@<addr>` retargets all
 of them at once. Boards get swapped on this unit; `just find <cidr>` is how you learn the address of
-the one now on the bench. An explicit `host` argument still wins over both.
+the one now on the bench. An explicit `host` argument still wins over both. The install streams the
+board's kernel log, journal and once-a-second memory/load/SD/undervoltage stats to the console,
+timestamped on the host.
 
 `kiosk-preflight` refuses a delivery that cannot work — wrong slot size, stale bundle, no room on
 `/data` — before the transfer. Every recipe that puts software on a board also refuses, with no

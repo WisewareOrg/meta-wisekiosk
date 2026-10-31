@@ -8,20 +8,6 @@
 rauc-status host:
     ssh root@{{host}} "rauc status"
 
-# Install RAUC bundle on a running device
-[group('device')]
-[script('bash')]
-rauc-install host bundle:
-    # Bypasses the OTA chain, so it carries the gate itself.
-    # --tree: a .raucb is not readable and binds to no rootfs (#48).
-    # No set -e -- `|| exit 1` is load-bearing.
-    tools/reproducibility-gate.sh --tree || exit 1
-    echo "Copying bundle to device..."
-    scp {{bundle}} root@{{host}}:/data/update.raucb
-    echo "Installing bundle..."
-    ssh root@{{host}} "rauc install /data/update.raucb && rm /data/update.raucb"
-    echo "Done. Reboot device to boot into new slot."
-
 # Reboot a device
 [group('device')]
 reboot host:
