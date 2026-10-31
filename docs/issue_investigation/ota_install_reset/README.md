@@ -235,7 +235,39 @@ capture mechanism.
   real path passes; a seeded nonexistent path stops the script, exit 1, with nothing after it
   running); `hb245-wdt.sh`'s heartbeat lines carry all four new fields in order after `freq=`,
   and `wdt=` was observed counting down (11, 10, 9) then resetting to 13 as systemd pets it.
-- **Result:** pending. This section updates once the loop produces a reset or exhausts its cap.
+- **Result:** running; no reset yet. **Interim: run 17 (clean, `records/20261031T154133Z`) is a
+  near-miss.** PID1 went from `S`/`do_epoll_wait` to `D`/`__ext4_find_entry` for about 3.9 s
+  (board `[601.31]`-`[603.94]`) while the install's write kept moving; `wdt` fell from 12 to
+  **4**, well below the 7-8 floor a heartbeat shows between pets on a healthy sample, before
+  jumping back to 12 once PID1 unblocked and petted the watchdog. See
+  [`run17-near-miss.log`](run17-near-miss.log) (the `[kernel]`-stream heartbeats, hung-task
+  call-trace repeats omitted) and [`metrics.py`](metrics.py) (committed here, a per-run reducer
+  over a record's `report.jsonl`: install window, max `[stats]`/heartbeat gap, min `wdt`, every
+  distinct non-`S` PID1 state with its `wchan`, and seconds spent in `D` -- run 17:
+  `min_wdt=4 p1_d_seconds=3.5`, one row per run, never aggregated). This section updates again
+  once the loop produces a reset or exhausts its cap.
+
+### Batch 6 -- BFQ scheduler experiment (pending)
+
+- **Hypothesis.** `rauc`'s bulk image copy is a buffered write with no `O_DIRECT` and one
+  `fsync` at the end, under `mmcblk0`'s default `mq-deadline` elevator; PID1's own small
+  filesystem reads (run 17's `__ext4_find_entry`) queue behind that write. `BFQ` prioritises
+  synchronous reads over large async writes by design. Batch 6 tests whether switching the
+  elevator shortens PID1's read stalls.
+- **The one variable changed.** `mmcblk0`'s IO scheduler is set to `bfq` on the board's current
+  boot, before each run. Governor stays `ondemand` (unlike batch 4); no `IOWeight`, no dirty
+  limits. Everything else -- the sysctls and the `hb245-wdt.sh` heartbeat batch 5 already arms --
+  is unchanged, so its fields are directly comparable run-by-run against batches 3 and 5.
+- **Harness:** [`loop6.sh`](loop6.sh) -- DURABLE, committed here, not launched. `loop5.sh`'s
+  diagnostics plus one added pre-run step, `set_scheduler`: reads `queue/scheduler`'s available
+  list, sets it to `bfq`, and logs the readback. **Not optional:** if `bfq` is not listed, the
+  script stops rather than substitute another scheduler.
+- **Metric.** Each run's `metrics.py` row -- max `[stats]` gap, max heartbeat gap, min `wdt` --
+  compared run by run against batches 3 and 5's same fields, never pooled across batches.
+- **Cap and stopping rule:** 20 runs, stopping at the first `reset=yes` (`loop3.sh`'s own reset
+  detection and `pstore` capture, unchanged).
+- **Result:** not launched. Not hand-validated against bench yet -- batch 5 was running when
+  this was written, and the board was not touched to validate it.
 
 ## Configuration under test
 
@@ -456,6 +488,12 @@ clear) — a watchdog reset, for the third reset running.
   — a fast external log of the board's 5 V rail, and `watchdog0/timeleft` plus PID1's own state
   added to the heartbeat — are host-side and read-only respectively; the owner's to say on the
   former; the latter is tracked as follow-up.
+- **Batch 5 run 17 is a near-miss that names the mechanism's shape.** PID1 spent ~3.9 s in `D`
+  on `__ext4_find_entry` -- its own filesystem read queued behind rauc's buffered bulk write --
+  and `wdt` fell to 4 (healthy floor 7-8) before recovering, in an otherwise clean run. This is
+  the first direct evidence of PID1 itself stalling on IO during an install, consistent with
+  (not yet confirmatory of) the stalled-PID1-watchdog reading of resets 2-4. See
+  [`run17-near-miss.log`](run17-near-miss.log).
 
 ## Other board activity on this board
 
