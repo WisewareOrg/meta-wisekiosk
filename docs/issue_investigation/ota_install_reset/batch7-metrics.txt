@@ -1,0 +1,65 @@
+record=records/20261031T225615Z window=223.968766 max_stats_gap=1.656539 max_hb_gap=2.287517 min_wdt=7 non_s_p1=[('R', '0'), ('D', '0')] p1_d_seconds=3.1
+record=records/20261031T230632Z window=187.108628 max_stats_gap=1.130168 max_hb_gap=1.285409 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261031T231603Z window=187.537858 max_stats_gap=1.263305 max_hb_gap=1.370709 min_wdt=7 non_s_p1=[('R', '0'), ('R', 'do_epoll_wait')] p1_d_seconds=0.0
+record=records/20261031T232515Z window=207.041803 max_stats_gap=1.374223 max_hb_gap=1.445029 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261031T233530Z window=198.636795 max_stats_gap=1.22879 max_hb_gap=1.387951 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261031T234459Z window=188.250788 max_stats_gap=1.223636 max_hb_gap=1.646197 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261031T235405Z window=199.259112 max_stats_gap=1.463739 max_hb_gap=1.758678 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T000400Z window=201.733712 max_stats_gap=1.376894 max_hb_gap=1.504588 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T001333Z window=186.774049 max_stats_gap=1.19691 max_hb_gap=1.471868 min_wdt=7 non_s_p1=[('R', 'do_epoll_wait')] p1_d_seconds=0.0
+record=records/20261101T002249Z window=189.431936 max_stats_gap=1.164398 max_hb_gap=2.011505 min_wdt=7 non_s_p1=[('R', '0'), ('R', 'do_epoll_wait')] p1_d_seconds=0.0
+record=records/20261101T003206Z window=203.078492 max_stats_gap=1.275551 max_hb_gap=1.99593 min_wdt=7 non_s_p1=[('R', 'do_epoll_wait'), ('R', '0')] p1_d_seconds=0.0
+record=records/20261101T004223Z window=188.958586 max_stats_gap=1.291726 max_hb_gap=1.338137 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T005129Z window=191.613062 max_stats_gap=1.160223 max_hb_gap=1.319219 min_wdt=7 non_s_p1=[('R', 'do_epoll_wait')] p1_d_seconds=0.0
+record=records/20261101T010126Z window=195.836371 max_stats_gap=1.241791 max_hb_gap=1.497799 min_wdt=7 non_s_p1=[('R', 'do_epoll_wait'), ('D', 'mmc_blk_rw_wait')] p1_d_seconds=1.4
+record=records/20261101T011041Z window=189.164728 max_stats_gap=1.295749 max_hb_gap=1.366278 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T011956Z window=189.414818 max_stats_gap=1.271416 max_hb_gap=1.487881 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T012921Z window=189.721405 max_stats_gap=1.228579 max_hb_gap=2.251198 min_wdt=7 non_s_p1=[('R', 'do_epoll_wait'), ('R', '0')] p1_d_seconds=0.0
+record=records/20261101T013907Z window=190.032422 max_stats_gap=1.207423 max_hb_gap=1.619109 min_wdt=7 non_s_p1=[('R', '0'), ('R', 'do_epoll_wait')] p1_d_seconds=0.0
+record=records/20261101T014807Z window=195.838633 max_stats_gap=1.180654 max_hb_gap=1.579334 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T015723Z window=189.338361 max_stats_gap=1.330397 max_hb_gap=1.330397 min_wdt=7 non_s_p1=[('R', 'do_epoll_wait'), ('R', '0')] p1_d_seconds=0.0
+record=records/20261101T020707Z window=187.791134 max_stats_gap=2.762386 max_hb_gap=2.762386 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T021609Z window=189.007988 max_stats_gap=1.244147 max_hb_gap=1.799948 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261101T022514Z window=208.327877 max_stats_gap=1.286483 max_hb_gap=1.459055 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T023514Z window=189.425213 max_stats_gap=1.199259 max_hb_gap=1.68481 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T024426Z window=188.205719 max_stats_gap=1.100255 max_hb_gap=1.241946 min_wdt=7 non_s_p1=[('R', 'do_epoll_wait'), ('R', '0')] p1_d_seconds=0.0
+record=records/20261101T025330Z window=185.366329 max_stats_gap=1.276057 max_hb_gap=1.603084 min_wdt=7 non_s_p1=[('R', 'do_epoll_wait'), ('R', '0')] p1_d_seconds=0.0
+record=records/20261101T030241Z window=186.739112 max_stats_gap=1.179312 max_hb_gap=1.431844 min_wdt=7 non_s_p1=[('R', 'do_epoll_wait')] p1_d_seconds=0.0
+record=records/20261101T031155Z window=193.624384 max_stats_gap=1.218645 max_hb_gap=1.465953 min_wdt=7 non_s_p1=[('R', '0'), ('R', 'do_epoll_wait')] p1_d_seconds=0.0
+record=records/20261101T032101Z window=189.947776 max_stats_gap=1.30438 max_hb_gap=1.355193 min_wdt=7 non_s_p1=[('R', '0'), ('R', 'do_epoll_wait')] p1_d_seconds=0.0
+record=records/20261101T033058Z window=195.1341 max_stats_gap=1.906739 max_hb_gap=2.213242 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T034041Z window=192.525882 max_stats_gap=1.303194 max_hb_gap=1.390759 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T035000Z window=187.996187 max_stats_gap=1.275473 max_hb_gap=1.275473 min_wdt=7 non_s_p1=[('R', 'do_epoll_wait'), ('R', '0')] p1_d_seconds=0.0
+record=records/20261101T035905Z window=185.296444 max_stats_gap=1.491712 max_hb_gap=2.035384 min_wdt=7 non_s_p1=[('R', 'do_epoll_wait'), ('R', '0')] p1_d_seconds=0.0
+record=records/20261101T040816Z window=183.735234 max_stats_gap=1.147296 max_hb_gap=1.408491 min_wdt=7 non_s_p1=[('R', '0'), ('R', 'do_wait')] p1_d_seconds=0.0
+record=records/20261101T041712Z window=184.216034 max_stats_gap=1.358337 max_hb_gap=1.782508 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T042648Z window=185.519942 max_stats_gap=1.357936 max_hb_gap=1.640181 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T043628Z window=188.750158 max_stats_gap=1.229017 max_hb_gap=1.388031 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T044546Z window=190.064502 max_stats_gap=1.881188 max_hb_gap=1.977489 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261101T045512Z window=184.578435 max_stats_gap=1.053467 max_hb_gap=1.505162 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T050418Z window=184.43483 max_stats_gap=1.179307 max_hb_gap=1.327953 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T051326Z window=183.70366 max_stats_gap=1.161506 max_hb_gap=1.326159 min_wdt=7 non_s_p1=[('R', 'do_epoll_wait'), ('R', '0')] p1_d_seconds=0.0
+record=records/20261101T052327Z window=189.826383 max_stats_gap=1.182201 max_hb_gap=1.239056 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T053239Z window=184.14931 max_stats_gap=1.25031 max_hb_gap=1.616318 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261101T054133Z window=191.366066 max_stats_gap=1.48952 max_hb_gap=2.01396 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T055037Z window=193.829786 max_stats_gap=1.922409 max_hb_gap=2.228968 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T060037Z window=187.656925 max_stats_gap=1.312119 max_hb_gap=1.547048 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T061015Z window=188.044878 max_stats_gap=1.267146 max_hb_gap=1.387918 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T062350Z window=181.40894 max_stats_gap=1.145038 max_hb_gap=1.381517 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T063317Z window=186.91351 max_stats_gap=1.230081 max_hb_gap=1.47287 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T064250Z window=188.95116 max_stats_gap=1.120288 max_hb_gap=1.494803 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T065204Z window=186.08757 max_stats_gap=2.397166 max_hb_gap=2.986976 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261101T070110Z window=183.39331 max_stats_gap=1.245092 max_hb_gap=1.268219 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T071015Z window=193.75198 max_stats_gap=3.075728 max_hb_gap=3.369157 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261101T071926Z window=188.215936 max_stats_gap=1.353354 max_hb_gap=1.354361 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T072843Z window=188.099055 max_stats_gap=1.400296 max_hb_gap=1.59527 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261101T073823Z window=187.305038 max_stats_gap=1.195914 max_hb_gap=1.390959 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T074736Z window=187.339594 max_stats_gap=1.277307 max_hb_gap=1.457623 min_wdt=7 non_s_p1=[('R', 'do_epoll_wait'), ('R', '0')] p1_d_seconds=0.0
+record=records/20261101T075710Z window=187.875418 max_stats_gap=1.301929 max_hb_gap=1.330939 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T080703Z window=190.126629 max_stats_gap=1.261434 max_hb_gap=1.282869 min_wdt=7 non_s_p1=[('R', 'do_epoll_wait')] p1_d_seconds=0.0
+record=records/20261101T081643Z window=190.694338 max_stats_gap=1.212886 max_hb_gap=1.505189 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261101T082557Z window=184.015213 max_stats_gap=1.161406 max_hb_gap=1.417006 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261101T083512Z window=186.53486 max_stats_gap=1.213908 max_hb_gap=1.532119 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T084444Z window=184.490249 max_stats_gap=1.165657 max_hb_gap=1.543879 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261101T085418Z window=184.243088 max_stats_gap=1.63105 max_hb_gap=1.78891 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261101T090332Z window=374.166894 max_stats_gap=1.244994 max_hb_gap=1.500195 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0

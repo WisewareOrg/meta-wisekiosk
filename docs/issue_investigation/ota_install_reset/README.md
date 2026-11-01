@@ -351,8 +351,48 @@ capture mechanism.
   cap, raised from 20 to 90 -- the same run count batch 3's cap used, and close to batch 1's 40 +
   batch 2's 14, so a full run is directly comparable to the baseline batches' totals.
 - **Cap and stopping rule:** 90 runs, stopping at the first `reset=yes` (`loop3.sh`'s own reset
-  detection and `pstore` capture, unchanged).
-- **Result:** pending. This section updates once the loop produces a reset or exhausts its cap.
+  detection and `pstore` capture, unchanged). **Raw capture:**
+  [`batch7-summary.txt`](batch7-summary.txt); full per-run `metrics.py` output in
+  [`batch7-metrics.txt`](batch7-metrics.txt).
+- **Result:** 64/65 clean, then a reset at run 65. `bfq` against the default elevator: 1 reset in
+  85 BFQ runs (batches 6+7, 1.2%) against 3 in 114 default-elevator runs (batches 1-4, 2.6%) --
+  Fisher's exact two-sided p = 0.64, not distinguishable. BFQ still removed every near-miss (0 of
+  85 runs dipped below `wdt`=7, against 2 of 25 on the default elevator in batch 5) and every
+  `mmc_rescan` hung-task report (0 in 65 windows). See [`reset5-findings.md`](reset5-findings.md)
+  and the Findings section below.
+
+### Batch 7, run 65 — the reset
+
+- **Board:** bench, Raspberry Pi Zero W. No address in this record.
+- **Image commit:** `8207d14bb4521043445fe44488985914e198411a`, read from
+  `records/20261101T090332Z/run.json`.
+- **Scripts deployed, read-only, after the reset:** [`reset5-remote-read.sh`](reset5-remote-read.sh)
+  — ONE-OFF, committed here, renamed from `remote-read.sh` to avoid colliding with batch 3's
+  script already in this directory; run once over ssh under the pipeline lock.
+  [`clocks.py`](clocks.py), [`final30.py`](final30.py), [`timing.py`](timing.py),
+  [`pets.py`](pets.py), [`wdtrate.py`](wdtrate.py), [`wdtrate_d.py`](wdtrate_d.py),
+  [`wdtrate_u.py`](wdtrate_u.py), [`progress.py`](progress.py), [`phase.py`](phase.py) and
+  [`stamp.py`](stamp.py) — each ONE-OFF, committed here, read-only reductions over `records/`,
+  the recovered `pstore` copy and the heartbeat stream. Summarized in
+  [`reset5-findings.md`](reset5-findings.md). Their raw outputs were unredacted and are not
+  committed.
+- **Procedure:** the loop's own `bench test` invocation for this run (no separate script); the
+  `reset5-remote-read.sh` session and the Python reductions ran afterward, read-only, to analyze
+  it.
+- **Raw capture:** the full analysis, with every raw read, is
+  [`reset5-findings.md`](reset5-findings.md). Redacted excerpts are committed beside it:
+  [`reset5-host-tail.log`](reset5-host-tail.log) (the capture markers and each stream's last
+  line) and [`reset5-console-ramoops-tail.log`](reset5-console-ramoops-tail.log) (the recovered
+  `console-ramoops-0`'s head and final 40 lines, 560 lines / 75236 B total, md5
+  `45acb1a95645614d292bba75218b7f64`, MAC redacted; the full 560-line copy is not committed).
+- **Verdict.** The watchdog/PID1 heartbeat ran to the last line and PID1 was never stalled: `S
+  do_epoll_wait` in 220 of 221 heartbeats (one `R`), `wdt` never below the healthy floor of 7. The
+  timing test rejects "the watchdog counted down from the last heartbeat" by about 7 s and agrees
+  instead with "PID1 petted once more, then 14 s of silence" -- this is reset 3's shape, a
+  whole-board stop the hardware watchdog recovered 14 s later. `PM_RSTS` read `0x20` again, the
+  fourth consecutive checked reset to do so (n = 4 of 4). By mmc write-sector count the copy had
+  reached ~26% of the image, the earliest of the five resets this investigation has caught
+  (80/84/90/99% for resets 2-4).
 
 ## Configuration under test
 
@@ -553,32 +593,42 @@ clear) — a watchdog reset, for the third reset running.
   freeze-then-watchdog reset needs R ≥ 7 s to fit this board's 14 s timeout and 7 s petting
   interval; reset 4 does not fit that window. `PM_RSTS` read `0x20` again (n=3 across resets, all
   the same value). See [`reset4-findings.md`](reset4-findings.md) §4's hypothesis table.
-- **What froze the board is still open, and this kernel build could not have said.** Resets 2
-  and 3 fit a freeze followed by the hardware watchdog; reset 4 does not — it looks like the
-  watchdog fired while the board was still live. Candidates, and nothing on the board can
-  separate them: a CPU, SoC or bus lockup (no softlockup or RCU-stall detector and no NMI
-  watchdog to catch it) for resets 2/3; for reset 4, either the watchdog firing because PID1
-  itself stopped petting it for ≥14 s while the rest of the kernel, the heartbeat and I/O ran on
-  (page-in and dirty-throttle waits are killable and invisible to the hung-task reporter, so a
-  stalled PID1 would not show there either), or a supply sag that resets the SoC directly (RSTS
-  cannot distinguish the two, and reset 2's timing argument against an immediate dip does not
-  apply to reset 4). Either resets 2-4 are two different modes, or one mechanism — the watchdog
-  on a stalled PID1, or supply — covers all three, which for resets 2/3 needs userspace to stall
-  wholesale and the due hung-task report to go unseen (measured base rate ~5% in batch 4, pooled
-  with batch 3). This is open, and is the owner's call to weigh. The only blocked task at any of
-  the four resets was the routine `mmc_rescan` kworker, within its own healthy range every time —
-  no precursor has been seen in 4 resets or across the healthy hung-task episodes in batches 3-4.
-  `netconsole`, already shipped but unloaded, was considered and set aside: the heartbeat already
-  pins the stop to ~0.5 s (reset 3) or less (reset 4). The instruments that would decide further
-  — a fast external log of the board's 5 V rail, and `watchdog0/timeleft` plus PID1's own state
-  added to the heartbeat — are host-side and read-only respectively; the owner's to say on the
-  former; the latter is tracked as follow-up.
-- **Batch 5 run 17 is a near-miss that names the mechanism's shape.** PID1 spent ~3.9 s in `D`
+- **PID1 starvation is refuted as the freeze-then-watchdog resets' mechanism, strong.** Reset 5
+  is the first reset this investigation caught with the watchdog/PID1 heartbeat running to the
+  stop, and it shows a healthy PID1 throughout: `S do_epoll_wait` in 220 of 221 heartbeats, never
+  `D`, `wdt` never below the healthy floor of 7. The timing test places the board's last pet
+  ~0.5 s after the last heartbeat and the watchdog's 14 s expiry lands within 0-0.1 s of the
+  observed reset for a near-zero shutdown tail -- the instrument built to see a starved PID1 ran
+  to the last line and did not see one. Reset 5 shares resets 2 and 3's shape (a silent gap of
+  14-22 s before the next kernel starts); reset 4 does not (next kernel at only 7.648 s) and is
+  not covered by this reading. See [`reset5-findings.md`](reset5-findings.md) §5.
+- **What stops the board, for resets 2, 3 and 5, is still open, and this kernel build could not
+  have said.** Candidates, and nothing on the board can separate them: a CPU, SoC or bus lockup
+  (no softlockup or RCU-stall detector and no NMI watchdog to catch it), or a supply sag
+  indistinguishable from a freeze by `PM_RSTS` alone. Either reading needs userspace and the
+  kernel itself to stall wholesale with the due hung-task report going unseen (measured base rate
+  ~5% in batch 4, pooled with batch 3; 0% across all 65 batch-7 windows, since `bfq` also removed
+  the routine `mmc_rescan` reports batches 3-4 saw). The only blocked task at any of the five
+  resets was that routine `mmc_rescan` kworker, within its own healthy range every time -- no
+  precursor has been seen in 5 resets or across the healthy hung-task episodes in batches 3, 4 and
+  7. `netconsole`, already shipped but unloaded, was considered and set aside: the heartbeat
+  already pins the stop to ~0.5 s or less at every freeze-shaped reset. The instruments that
+  would decide further — a fast external log of the board's 5 V rail, and the soft-lockup/RCU-
+  stall sysctls [`reset5-findings.md`](reset5-findings.md) §5 flags as unverified on this image —
+  are the owner's to arm. Reset 4's own mechanism remains separately open; this reading does not
+  cover it.
+- **Batch 5 run 17's near-miss and the reset are different mechanisms.** PID1 spent ~3.9 s in `D`
   on `__ext4_find_entry` -- its own filesystem read queued behind rauc's buffered bulk write --
-  and `wdt` fell to 4 (healthy floor 7-8) before recovering, in an otherwise clean run. This is
-  the first direct evidence of PID1 itself stalling on IO during an install, consistent with
-  (not yet confirmatory of) the stalled-PID1-watchdog reading of resets 2-4. See
-  [`run17-near-miss.log`](run17-near-miss.log).
+  and `wdt` fell to 4 (healthy floor 7-8) before recovering, in an otherwise clean run: real,
+  direct evidence of PID1 stalling on IO during an install. Reset 5 shows this is not what causes
+  the freeze-then-watchdog reset: `bfq` removed the near-miss (0 of 85 BFQ runs dipped below
+  `wdt`=7) without distinguishably changing the reset rate (1/85 against the default elevator's
+  3/114, Fisher p = 0.64). See [`run17-near-miss.log`](run17-near-miss.log) and
+  [`reset5-findings.md`](reset5-findings.md) §5.
+- **Reset 5 is the earliest yet in the copy.** By mmc write-sector count the install had reached
+  ~26% of the image, against 80/84/90/99% for resets 2-4 -- a hazard spread over the sustained-
+  write window rather than a fixed phase, at n = 5 inference. `PM_RSTS` read `0x20` for the fourth
+  consecutive checked reset (n = 4 of 4).
 
 ## Other board activity on this board
 
