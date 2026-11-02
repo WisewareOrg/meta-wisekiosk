@@ -394,6 +394,39 @@ capture mechanism.
   reached ~26% of the image, the earliest of the five resets this investigation has caught
   (80/84/90/99% for resets 2-4).
 
+### Batch 8 baseline, attempt 1 — the reset
+
+- **Board:** bench, Raspberry Pi Zero W. No address in this record.
+- **Image commit:** `59969986d739e999652906f32c8ac9701624a926`, read from
+  `records/20261102T050109Z/run.json`.
+- **Context.** This reset happened during batch 8's pre-change perf baseline: `bench test
+  <HEAD>` on the then-current, unmodified HEAD, run once to put that image on bench
+  before three `just bootprofile` passes -- before the soft-lockup kernel fragment and
+  `loop8.sh` existed, with no heartbeat and no diagnostic sysctls armed (confirmed on the board:
+  `hung_task_timeout_secs=120`, the image default; zero `hb245` processes). Without that
+  instrumentation this reset cannot say anything new about the PID1-starvation question reset 5
+  settled; it is one more data point for the reset's rate and shape, not its cause.
+- **Scripts deployed, read-only, after the reset:** [`reset6-remote-read.sh`](reset6-remote-read.sh)
+  — ONE-OFF, committed here, run once over ssh under the pipeline lock; the pstore mount, copy
+  and unmount that followed it used the same read-only procedure `loop.sh`'s `save_pstore` uses
+  (mount read-only, copy every file byte-exact, unmount; nothing deleted).
+- **Procedure:** the baseline script's own `bench test` invocation (no separate script to
+  reproduce the reset itself); the `reset6-remote-read.sh` session and the pstore copy ran
+  afterward, read-only, to analyze it.
+- **Raw capture:** the full analysis is [`reset6-findings.md`](reset6-findings.md). Redacted
+  excerpts are committed beside it: [`reset6-host-tail.log`](reset6-host-tail.log) (the capture
+  markers and each stream's last line) and
+  [`reset6-console-ramoops-tail.log`](reset6-console-ramoops-tail.log) (the recovered
+  `console-ramoops-0`'s head and final 20 lines, 307 lines / 23555 B total, md5
+  `62463305fad93d37b64e98cfeb6529e2`, MAC redacted; the full 307-line copy is not committed).
+- **Verdict.** Same freeze-then-watchdog shape as resets 2, 3 and 5: `PM_RSTS` read `0x20` again
+  (the fifth consecutive checked reset to do so, n = 5 of 5), a ~7.1 s silent gap before the
+  ServerAlive timeout fired, and a clean recovery onto the fallback slot (`rootfs.0 (A)`,
+  `BOOT_A_LEFT=3`). By mmc write-sector count the copy had reached ~92%, inside the 80-99% range
+  resets 2-4 died in. This makes 4 resets in 115 default-elevator/no-diagnostics `bench test`
+  runs against this checkout's HEAD (batches 1-4 plus this one), consistent with the ~2.6% rate
+  already measured; it does not change any standing Finding.
+
 ## Configuration under test
 
 - The capture mechanism: `tools/kiosk-install.sh`'s `stamp`/`stop_capture`, three background ssh
