@@ -48,7 +48,8 @@ capture mechanism.
 | Batch 9, attempt 2, run 57 | bench · Pi Zero W | `64a461bb759225812c9872ff570ac03dea37fa94` | `loop9b.sh` — durable | **Voided**: host_suite's reproducibility gate refused (transient -- could not reach origin), and the resulting no-target_suite-record case crashed `target_suite_record` (`jq -e` exit 4) -- fixed in `loop9c.sh` |
 | Batch 9, attempt 3, runs 1-15 | bench · Pi Zero W | `3bd3e8a9fc545ccdd6fc6ef04e04f0646634bc3a` | `loop9c.sh` — durable | 15/15 clean, no reset, no panic |
 | Batch 9, attempt 3, run 16 | bench · Pi Zero W | `3bd3e8a9fc545ccdd6fc6ef04e04f0646634bc3a` | `loop9c.sh` — durable | **Voided** (handled as designed): the same transient gate refusal as attempt 2's run 57 |
-| Batch 9, attempt 3, run 17 | bench · Pi Zero W | `3bd3e8a9fc545ccdd6fc6ef04e04f0646634bc3a` | `loop9c.sh` — durable | Reset: stop-to-reset window ≥11.4 s vs. the detector's 3.55 s worst case -- rules out an interrupts-on lockup strongly, conditional on the detector firing (unproven) |
+| Batch 9, attempt 3, run 17 | bench · Pi Zero W | `3bd3e8a9fc545ccdd6fc6ef04e04f0646634bc3a` | `loop9c.sh` — durable | Reset: stop-to-reset window ≥11.4 s vs. the detector's 3.55 s worst case -- rules out an interrupts-on lockup strongly and unconditionally (detector confirmed to fire, below) |
+| Soft-lockup detection seed | bench · Pi Zero W | `3ff13a8b272d6c447de0feb59a3acdbb94e48ca9` | `softlockup-seed.sh` — one-off | Pass: `chrt -f 99` busy loop with the RT throttle and fair server disabled trips the detector -- `dmesg-ramoops-0` holds the soft-lockup `BUG:` and panic |
 
 ### Run 1 — bench, commit `fee57a946f4b256d1cd3999daf83a6b048f5fcbb`
 
@@ -740,10 +741,11 @@ capture mechanism.
   Nothing printed: no soft-lockup, `BUG:`, panic, oops, RCU, or SD-timeout line; no new
   `dmesg-ramoops` record. The detector was confirmed armed on the boot that reset (the 17th of 17
   `kernel.watchdog_thresh = 1` readbacks in `loop9c`'s own log, with no `FAIL`). **Rules out any
-  interrupts-on kernel lockup, strongly -- conditional on the detector actually firing, which has
-  never been seeded on this board** (the sysrq seed proved only panic -> pstore, not detection;
-  73 clean `thresh=1` installs show no false positive, which says nothing about a true one). Two
-  other kernel witnesses had time and were silent too: the `mmc_rescan` khungtaskd series (13:1
+  interrupts-on kernel lockup, strongly and unconditionally** -- the detector was seeded directly
+  after this reset (below) and confirmed to fire, closing the one open condition this verdict
+  carried at first ("conditional on the detector actually firing, which has never been seeded on
+  this board"). Two other kernel witnesses had time and were silent too: the `mmc_rescan`
+  khungtaskd series (13:1
   evidence the kernel stopped scheduling it before the reports would have continued) and the SD
   driver's 10 s command timeout. `PM_RSTS` read `0x20` again (7 of 7 checked resets). By mmc
   write-sector count the copy had reached ~49%, in the middle of the 26-99% spread resets 1-8
@@ -763,6 +765,49 @@ capture mechanism.
   Zero false soft-lockup panics in those 73 `thresh=1` installs, with install-window load up to
   9.51. See [`reset8-findings.md`](reset8-findings.md) "Overall tally" for the per-scope counts
   and counting caveats.
+
+### Soft-lockup detection seed
+
+- **Board:** bench, Raspberry Pi Zero W. No address in this record.
+- **Purpose.** Reset 8's "rules out an interrupts-on kernel lockup" verdict held only
+  conditional on the soft-lockup detector actually firing -- the batch-8 sysrq seed had proved
+  only panic -> pstore, never the detector itself. This seeds detection directly, owner-authorized,
+  on bench, read-only except for the deliberate crash and reboot it causes.
+- **Why a runtime-only method works on this kernel, without a test module.** The softlockup
+  detector's touch (`softlockup_fn`, called via `stop_one_cpu_nowait`) is **not** a special
+  high-priority "stop" task on this board: `include/linux/stop_machine.h`'s `!CONFIG_SMP`
+  fallback (this board has no `CONFIG_SMP` -- `CPU_V6`, confirmed in the batch-8 recon) reduces
+  `stop_one_cpu_nowait` to a plain `schedule_work`, an ordinary `system_wq` kworker running at
+  normal `SCHED_NORMAL`/CFS priority. There is no stop-machine class to starve here -- CFS is the
+  actual target. A `SCHED_FIFO` task alone is not quite enough to starve it: 6.12's fair-server
+  `dl_server` independently guarantees CFS ~50 ms/s of runtime regardless of the RT group
+  throttle (verified in `kernel/sched/debug.c`'s `sched_fair_server_write`, which prints "Fair
+  server disabled ... system may crash due to starvation" when its runtime is set to 0 -- the
+  kernel's own documentation of exactly this effect). Both the RT throttle and the fair server
+  need disabling together.
+- **Procedure:** [`softlockup-seed.sh`](softlockup-seed.sh) -- ONE-OFF, committed here, run once
+  under the pipeline lock. Arms `kernel.watchdog_thresh=1`, `kernel.sched_rt_runtime_us=-1`
+  (unlimited RT runtime) and `echo 0 > /sys/kernel/debug/sched/fair_server/cpu0/runtime` (fair
+  server off), then launches `chrt -f 99 sh -c 'while true; do :; done'` backgrounded. Recoverable
+  even if detection fails: the busy loop also starves PID1 (also `SCHED_NORMAL`), so systemd
+  stops petting the hardware watchdog, which resets the board within its normal 14 s regardless.
+- **Hand-verified before running:** `chrt`, debugfs and the `fair_server/cpu0/{runtime,period}`
+  files all present on the board; `sched_rt_runtime_us` read `950000` (the 95% default) and
+  `fair_server/cpu0/runtime` read `50000000` (ns, i.e. 50 ms/s) beforehand, confirming both guards
+  were live before being turned off.
+- **Result: pass.** A new `dmesg-ramoops-0` (md5 `b945f02fb507851245a47e7aef51ba8e`, differing
+  from the sysrq seed's `e5ad0ce5a7a0fb19138a9d1ce4330bbe`) holds `watchdog: BUG: soft lockup -
+  CPU#0 stuck for 3s! [sh:1375]` then `Kernel panic - not syncing: softlockup: hung tasks`, 3.58 s
+  after the fair-server-disabled message -- inside the detector's own modelled 2.00-3.55 s
+  worst-case latency at `thresh=1`. `PM_RSTS` read `0x20` (indistinguishable from a watchdog
+  reset, as the batch-8 panic-seed's own finding already established). **The detector fires on
+  this board.** This proves detection, not the specific mechanism of any of the eight resets --
+  none showed a soft-lockup record themselves.
+- **Raw capture:**
+  [`softlockup-seed-dmesg-ramoops.log`](softlockup-seed-dmesg-ramoops.log) -- the last 39 lines
+  (the fair-server warning through the panic call trace; no boot banner or MAC in this range),
+  347 lines / 25543 B total, md5 `b945f02fb507851245a47e7aef51ba8e`; the full 347-line copy and
+  `console-ramoops-0` are not committed.
 
 ## Configuration under test
 
@@ -999,6 +1044,24 @@ clear) — a watchdog reset, for the third reset running.
   ~26% of the image, against 80/84/90/99% for resets 2-4 -- a hazard spread over the sustained-
   write window rather than a fixed phase, at n = 5 inference. `PM_RSTS` read `0x20` for the fourth
   consecutive checked reset (n = 4 of 4).
+- **An interrupts-on kernel lockup is ruled out for reset 8, unconditionally.** Reset 8's own
+  timing gave the `watchdog_thresh=1` detector ≥7.9 s of slack against its ≤3.55 s worst-case
+  latency (modelled P = 1.000), but that ruling held only conditional on the detector actually
+  firing -- never seeded on this board; the sysrq seed had proved only panic -> pstore, not
+  detection. **Seeded directly:** `kernel.sched_rt_runtime_us=-1` plus disabling 6.12's fair-server
+  CFS guarantee (`echo 0 > /sys/kernel/debug/sched/fair_server/cpu0/runtime`) lets a `chrt -f 99`
+  busy loop starve the softlockup touch -- a plain `system_wq` (CFS) kworker on this
+  non-`CONFIG_SMP` board, confirmed from `stop_one_cpu_nowait`'s `!CONFIG_SMP` fallback in
+  `include/linux/stop_machine.h` (`schedule_work`, no real stop-machine class to starve; CFS is
+  the actual target, and the RT throttle alone is not enough, since the fair server independently
+  guarantees it runtime). The detector fired: a new `dmesg-ramoops-0` (md5 differs from the sysrq
+  seed's) holds `watchdog: BUG: soft lockup - CPU#0 stuck for 3s! [sh:1375]` then `Kernel panic -
+  not syncing: softlockup: hung tasks`, 3.58 s after the fair server was disabled -- consistent
+  with the detector's own modelled 2.00-3.55 s latency. This closes reset 8's one open condition:
+  the interrupts-on-lockup exclusion is now strong and unconditional, for that reset. See
+  [`softlockup-seed-dmesg-ramoops.log`](softlockup-seed-dmesg-ramoops.log) and
+  [`reset8-findings.md`](reset8-findings.md) §5's "next diagnostic" discussion, which this seed
+  closes the first half of.
 
 ## Other board activity on this board
 
