@@ -43,6 +43,7 @@ capture mechanism.
 | Batch 8, runs 1-5 | bench · Pi Zero W | `375fd0328152583f088bf42e795ce83583e26a0a` | `loop8.sh` — durable | 5/5 clean, no reset, no panic (soft-lockup detector armed at `watchdog_thresh=3`) |
 | Batch 8, run 6 | bench · Pi Zero W | `375fd0328152583f088bf42e795ce83583e26a0a` | `loop8.sh` — durable | Reset, no panic: detector live but its ~6-8.4 s latency raced the ~6.5-7.7 s window this stop gave it; weak evidence only |
 | Batch 8, panic-seed | bench · Pi Zero W | `375fd0328152583f088bf42e795ce83583e26a0a` | `sysrq-seed.sh` — one-off | Pass: `echo c > /proc/sysrq-trigger` lands a `dmesg-ramoops-0` with the crash; proves the capture path, not detection |
+| Batch 9, attempt 1 | bench · Pi Zero W | `104ed752f298b65f43fc9e207e86b1f64eb41ecf` | `loop9.sh` — durable | **Voided**: run 1 reported a false `panic=yes` from the panic-seed's stale `dmesg-ramoops-0`, a `panic_recorded` defect (presence-only, no baseline) -- fixed in `loop9b.sh` |
 
 ### Run 1 — bench, commit `fee57a946f4b256d1cd3999daf83a6b048f5fcbb`
 
@@ -612,10 +613,34 @@ capture mechanism.
   continuing to pile more runs on top of it.
 - **Harness:** [`loop9.sh`](loop9.sh) -- DURABLE, committed here. `loop8.sh` verbatim except
   `set_lockup_thresh`'s value and the panic check moving from "only on a reset" to "every run"
-  (above).
+  (above). **Attempt 1's own `panic_recorded` had a defect** (next section); the fixed harness
+  that actually ran batch 9 is [`loop9b.sh`](loop9b.sh), below.
 - **Cap and stopping rule:** 90 runs, stopping at the first `reset=yes` or `panic=yes`.
-- **Result:** pending. This section updates once the loop produces a reset, a panic, or
-  exhausts its cap.
+
+### Batch 9, attempt 1 — voided by a stale-record defect, not a panic
+
+- **What happened.** Run 1 reported `panic=yes` (`records/20261102T084317Z`), and `loop9.sh`
+  stopped as designed -- but `panic_recorded` was presence-only (`ls
+  $record/pstore/dmesg-ramoops-*`), with no comparison against what was already there.
+  `pstore`'s ramoops records survive a warm reboot until unlinked, and this investigation never
+  unlinks one, so the batch-8 panic-seed's `dmesg-ramoops-0` (above) was still on the board.
+  **Confirmed:** `records/20261102T084317Z/pstore/dmesg-ramoops-0` is byte-identical (md5
+  `e5ad0ce5a7a0fb19138a9d1ce4330bbe`, `cmp` clean) to the seed's own copy -- the stale record, not
+  a new panic. Run 1 itself is **voided**: it is not evidence of anything about batch 9's
+  hypothesis, and does not count toward any run total.
+- **The fix.** [`loop9b.sh`](loop9b.sh) -- DURABLE, committed here. `loop9.sh` with
+  `panic_recorded` changed from presence to a sha256 comparison against a reference manifest:
+  the manifest is captured from the board once, before run 1 (so a pre-existing record like the
+  seed's is in the baseline from the start), and replaced with the current run's own manifest
+  after every run. `panic=yes` iff a `dmesg-ramoops-*` file is new or its sha256 changed since
+  the reference -- never for a file that was already there, unchanged. `pstore` is still never
+  deleted; this changes only how an already-captured record is read.
+- **Validated on host files, before relaunch:** three fixtures built from the real seed record
+  (an unchanged copy, a genuinely modified copy, and a run with no `dmesg-ramoops-*` file at
+  all), run through the exact functions in `loop9b.sh`: unchanged -> `panic=no` (correct),
+  modified -> `panic=yes` (correct), absent -> `panic=no` (correct).
+- **Result:** pending. This section's parent updates once `loop9b.sh` produces a reset, a real
+  panic, or exhausts its cap.
 
 ## Configuration under test
 
