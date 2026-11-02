@@ -42,6 +42,7 @@ capture mechanism.
 | Batch 8 bootstrap | bench · Pi Zero W | `595fb2bf6fb5a99d26871debaa78e67d6739bbe8` | `batch8-bootstrap.sh` — one-off | Clean install; puts the soft-lockup-detector kernel on bench ahead of `loop8.sh` |
 | Batch 8, runs 1-5 | bench · Pi Zero W | `375fd0328152583f088bf42e795ce83583e26a0a` | `loop8.sh` — durable | 5/5 clean, no reset, no panic (soft-lockup detector armed at `watchdog_thresh=3`) |
 | Batch 8, run 6 | bench · Pi Zero W | `375fd0328152583f088bf42e795ce83583e26a0a` | `loop8.sh` — durable | Reset, no panic: detector live but its ~6-8.4 s latency raced the ~6.5-7.7 s window this stop gave it; weak evidence only |
+| Batch 8, panic-seed | bench · Pi Zero W | `375fd0328152583f088bf42e795ce83583e26a0a` | `sysrq-seed.sh` — one-off | Pass: `echo c > /proc/sysrq-trigger` lands a `dmesg-ramoops-0` with the crash; proves the capture path, not detection |
 
 ### Run 1 — bench, commit `fee57a946f4b256d1cd3999daf83a6b048f5fcbb`
 
@@ -562,6 +563,32 @@ capture mechanism.
   hung-task and sdhost witnesses were also cut off at ~7 s here). `PM_RSTS` read `0x20` again (6
   of 6 checked resets). By mmc write-sector count the copy had reached ~56% of the image, on
   schedule against the five healthy batch-8 runs.
+
+### Batch 8, panic-seed proof
+
+- **Board:** bench, Raspberry Pi Zero W. No address in this record.
+- **Purpose.** Reset 7 left "the panic path itself is unproven on this board" as an open caveat
+  -- nothing had shown the detector's `BUG:` reaching `panic()` reaching a `dmesg-ramoops` record
+  on this hardware. This seeds the panic-to-pstore half directly, without the detector: it
+  proves the capture path works; it does **not** prove soft-lockup detection itself.
+- **Procedure:** [`sysrq-seed.sh`](sysrq-seed.sh) -- ONE-OFF, committed here, run once under the
+  pipeline lock. `echo c > /proc/sysrq-trigger` on bench (`sysrq_handle_crash` -> `panic("sysrq
+  triggered crash")`, bypassing the `sysrq` mask since the trigger file ignores it), wait for the
+  board to come back, read the reset-cause register, mount `pstore` read-only, copy every file,
+  unmount. Recoverable: a kernel panic into the same booted slot, no install in flight, nothing
+  under `/boot`, a slot or the keyring touched.
+- **Result: pass.** `pstore` held both `console-ramoops-0` **and `dmesg-ramoops-0`** -- the
+  shipped ramoops config (`max_reason=2`) captures a panic dump, not only the console. The dmesg
+  record's tail holds the crash directly: `sysrq: Trigger a crash`, `Kernel panic - not syncing:
+  sysrq triggered crash`, and the call trace through `sysrq_handle_crash` -> `__handle_sysrq` ->
+  `write_sysrq_trigger`. `PM_RSTS` read `0x20` -- **the same value a hardware-watchdog reset
+  reads; `RSTS` cannot distinguish a panic-restart from a watchdog expiry, only the `dmesg`
+  record can**, so this reading on its own proves nothing about any of the seven resets above,
+  only that the capture mechanism works when a panic does happen.
+- **Raw capture:** [`sysrq-seed-dmesg-ramoops.log`](sysrq-seed-dmesg-ramoops.log) -- the head
+  (boot banner, kernel command line) and the crash lines, redacted (MAC scrubbed), 326 lines /
+  23978 B total, md5 `e5ad0ce5a7a0fb19138a9d1ce4330bbe`; the full 326-line copy and
+  `console-ramoops-0` are not committed.
 
 ## Configuration under test
 
