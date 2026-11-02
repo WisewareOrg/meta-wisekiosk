@@ -39,6 +39,9 @@ capture mechanism.
 | Batch 7, runs 1-64 | bench · Pi Zero W | `8207d14bb4521043445fe44488985914e198411a` | `loop7.sh` — durable | 64/64 clean, no reset (`bfq` scheduler, cap raised to 90) |
 | Batch 7, run 65 | bench · Pi Zero W | `8207d14bb4521043445fe44488985914e198411a` | `loop7.sh` — durable | Reset: PID1 never stalled (`wdt` never below 7); refutes PID1-starvation for this reset |
 | Batch 8 baseline, attempt 1 | bench · Pi Zero W | `59969986d739e999652906f32c8ac9701624a926` | `batch8-baseline.sh` — one-off | Reset: no heartbeat armed (pre-loop8 perf baseline); same freeze-then-watchdog shape as resets 2/3/5 |
+| Batch 8 bootstrap | bench · Pi Zero W | `595fb2bf6fb5a99d26871debaa78e67d6739bbe8` | `batch8-bootstrap.sh` — one-off | Clean install; puts the soft-lockup-detector kernel on bench ahead of `loop8.sh` |
+| Batch 8, runs 1-5 | bench · Pi Zero W | `375fd0328152583f088bf42e795ce83583e26a0a` | `loop8.sh` — durable | 5/5 clean, no reset, no panic (soft-lockup detector armed at `watchdog_thresh=3`) |
+| Batch 8, run 6 | bench · Pi Zero W | `375fd0328152583f088bf42e795ce83583e26a0a` | `loop8.sh` — durable | Reset, no panic: detector live but its ~6-8.4 s latency raced the ~6.5-7.7 s window this stop gave it; weak evidence only |
 
 ### Run 1 — bench, commit `fee57a946f4b256d1cd3999daf83a6b048f5fcbb`
 
@@ -439,12 +442,23 @@ capture mechanism.
   stays there as long as it does not meaningfully impact performance.
 - **Hypothesis.** If the kernel is looping with interrupts on, `CONFIG_SOFTLOCKUP_DETECTOR` (with
   `CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC`) panics with a stack trace, into the same `pstore` console
-  this investigation already recovers, before the 14 s hardware watchdog fires. Silence under the
+  this investigation already recovers, before the hardware watchdog fires. Silence under the
   detector means the freeze is either interrupts-off or a hardware hang -- the detector cannot
   see either. `CONFIG_HARDLOCKUP_DETECTOR` and `RCU_CPU_STALL_TIMEOUT` are Kconfig-infeasible on
   this board without `CONFIG_SMP` (unavailable, `CPU_V6`) or switching the preemption model
   (`CONFIG_PREEMPT_VOLUNTARY` to `CONFIG_PREEMPT`, a broader change than a diagnostic) -- out of
   scope for this batch.
+- **The window this gives the detector is narrower than "6 s threshold, under the 14 s hardware
+  watchdog" -- that premise is wrong as first stated, corrected here (reset 7 below exposed it).**
+  The 14 s hardware-watchdog timeout runs from systemd's *last pet* (every ~6.2-7.7 s), not from
+  the stop. A stop can land anywhere in that pet cycle, so the stop-to-reset window is **14 s
+  minus the stop's phase in the cycle: anywhere from ~6.3 s to 14 s**, not a flat 14 s.
+  `watchdog_thresh=3` (batch 8) needs 6.0-8.4 s after the stop plus print/dump time before a
+  record lands -- covering only stops in roughly the first ~5 s of a pet cycle, about 70% of
+  phases. A stop in the uncovered ~30% gives the detector a window as short as or shorter than
+  its own latency: silence there is weak evidence, not strong. See
+  [`reset7-findings.md`](reset7-findings.md) §5 for the full timing and the modelled detection
+  probability (~0.3-0.7) under this batch's threshold.
 - **Perf baseline, before any change.** One `bench test` on the then-current HEAD puts that
   image on bench ([`batch8-baseline.sh`](batch8-baseline.sh)'s first attempt caught reset 6,
   above; the retry, run by hand, passed clean), then `just bootprofile` three times reads the
@@ -486,19 +500,57 @@ capture mechanism.
 - **Harness:** [`loop8.sh`](loop8.sh) -- DURABLE, committed here. `loop5.sh`'s diagnostics and
   heartbeat (default `mq-deadline` scheduler, no `bfq`; default governor), `loop6.sh`/`loop7.sh`'s
   hardening (the `ERR` trap, `wait_for_board`), plus one added pre-run step, `set_lockup_thresh`:
-  `sysctl -w kernel.watchdog_thresh=3` (soft-lockup threshold 6 s, under the 14 s hardware
-  watchdog), with readback. **Not optional:** if the sysctl key does not exist, the detector is
+  `sysctl -w kernel.watchdog_thresh=3` (a 6 s soft-lockup threshold -- see the window caveat
+  above), with readback. **Not optional:** if the sysctl key does not exist, the detector is
   not live and the script stops -- safe to enforce from run 1 because of the bootstrap install
   above. After a reset, in addition to the pstore copy, records whether `pstore` holds a
   `dmesg-ramoops-*` file (a soft-lockup panic) or only the console record. Cap 90, stop at first
   reset.
-- **Perf check, after.** Once `loop8.sh` has 10+ clean runs or stops, three more `just
-  bootprofile` passes on the new image (under the lock, never while `loop8.sh` is running),
-  compared against the baseline above and against batches 3 and 5's install windows
-  (`metrics.py`'s `window` field: batch 3 mean 193.3 s range 188.1-198.4 s, n=34; batch 5 mean
-  205.7 s range 193.1-217.3 s, n=25).
-- **Result:** pending. This section updates as the kernel fragment, `loop8.sh` and the perf
-  check land.
+- **Perf check, after.** Three `just bootprofile` passes on the detector kernel, compared against
+  the baseline above and against batches 3 and 5's install windows (`metrics.py`'s `window`
+  field: batch 3 mean 193.3 s range 188.1-198.4 s, n=34; batch 5 mean 205.7 s range
+  193.1-217.3 s, n=25).
+- **Result:** 5/5 clean, then a reset at run 6. **Raw capture:**
+  [`batch8-summary.txt`](batch8-summary.txt); full per-run `metrics.py` output in
+  [`batch8-metrics.txt`](batch8-metrics.txt) (run 1 shows a near-miss, `D` on
+  `__ext4_find_entry` for 3.9 s, with no `wdt` dip -- noted, not analyzed further here). See
+  [`reset7-findings.md`](reset7-findings.md) and the Metrics/Findings sections below.
+
+### Batch 8, run 6 — the reset
+
+- **Board:** bench, Raspberry Pi Zero W. No address in this record.
+- **Image commit:** `375fd0328152583f088bf42e795ce83583e26a0a`, read from
+  `records/20261102T074924Z/run.json`.
+- **Scripts deployed, read-only, after the reset:** [`reset7-remote-read.sh`](reset7-remote-read.sh)
+  — ONE-OFF, committed here, renamed from `remote-read.sh` to avoid colliding with batch 3's
+  script already in this directory; run once over ssh under the pipeline lock.
+  [`timing7.py`](timing7.py) and [`detect7.py`](detect7.py) -- each ONE-OFF, committed here.
+  [`final30.py`](final30.py) -- the committed reset-5 script, reused as-is except its hardcoded
+  scratch-output path, repointed at reset 7 (not a different script). Summarized in
+  [`reset7-findings.md`](reset7-findings.md). Their raw outputs were unredacted and are not
+  committed.
+- **Procedure:** the loop's own `bench test` invocation for this run (no separate script); the
+  `reset7-remote-read.sh` session and the Python reductions ran afterward, read-only, to analyze
+  it.
+- **Raw capture:** the full analysis is [`reset7-findings.md`](reset7-findings.md). Redacted
+  excerpts are committed beside it: [`reset7-host-tail.log`](reset7-host-tail.log) (the capture
+  markers and each stream's last line) and
+  [`reset7-console-ramoops-tail.log`](reset7-console-ramoops-tail.log) (the recovered
+  `console-ramoops-0`'s head and final 40 lines, 907 lines / 104898 B total, md5
+  `0ef98d9ae6731425a416b42199327474`, MAC redacted; the full 907-line copy is not committed).
+- **Verdict.** The detector was live (confirmed on the current boot: `soft_watchdog=1`,
+  `softlockup_panic=1`, and `watchdog_thresh=3` was read back on the boot that reset) but did not
+  fire: no `dmesg-ramoops-*`, no soft-lockup/`BUG:`/panic line in the console record, and PID1
+  stayed `S do_epoll_wait` throughout (never a near-miss). The timing test says no further pet
+  came after the last heartbeat, so the hardware watchdog fired the full 14 s after the last pet
+  -- but the stop itself landed only ~6.5-7.7 s before that expiry (k = 1; up to 8.4 s for
+  k &le; 1.08), inside the detector's own 6.0-8.4 s latency window. Modelled probability a record
+  would have landed before the reset: **~0.3-0.7** -- so **this is weak evidence (likelihood
+  ratio ~1.4-3.7) against an interrupts-on CPU loop, not strong evidence against one**, and it
+  says nothing about an interrupts-off hang, a bus/SoC stall, or a userspace-only stall (the 10 s
+  hung-task and sdhost witnesses were also cut off at ~7 s here). `PM_RSTS` read `0x20` again (6
+  of 6 checked resets). By mmc write-sector count the copy had reached ~56% of the image, on
+  schedule against the five healthy batch-8 runs.
 
 ## Configuration under test
 

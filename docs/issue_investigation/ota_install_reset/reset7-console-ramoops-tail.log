@@ -1,0 +1,69 @@
+Reset 7's pstore `console-ramoops-0` (the boot that ended in the batch-8 run-6
+reset): its head (boot banner, kernel command line) and its last 40 lines (the
+heartbeat up to the stop). 907 lines, 104898 bytes total; md5
+0ef98d9ae6731425a416b42199327474 -- matches the full record described in
+reset7-findings.md. No `dmesg-ramoops-*` file exists alongside it -- the
+soft-lockup detector did not fire (see the README's Batch 8 section for why the
+window may not have given it time to). The MAC on the command line is redacted;
+the full 907-line copy is not committed. Mounted read-only (`mount -t pstore -o
+ro pstore /sys/fs/pstore`), copied, unmounted; nothing in pstore was deleted.
+
+[    0.000000] Booting Linux on physical CPU 0x0
+[    0.000000] Linux version 6.12.93 (oe-user@oe-host) (arm-poky-linux-gnueabi-gcc (GCC) 13.5.0, GNU ld (GNU Binutils) 2.42.0.20240723) #1 Fri Jun 12 11:45:31 UTC 2026
+[    0.000000] CPU: ARMv6-compatible processor [410fb767] revision 7 (ARMv7), cr=00c5387d
+[    0.000000] CPU: PIPT / VIPT nonaliasing data cache, VIPT nonaliasing instruction cache
+[    0.000000] OF: fdt: Machine model: Raspberry Pi Zero W Rev 1.1
+[    0.000000] random: crng init done
+[    0.000000] Memory policy: Data cache writeback
+[    0.000000] Reserved memory: created CMA memory pool at 0x0bc00000, size 256 MiB
+[    0.000000] OF: reserved mem: initialized node linux,cma, compatible id shared-dma-pool
+[    0.000000] OF: reserved mem: 0x0bc00000..0x1bbfffff (262144 KiB) map reusable linux,cma
+[    0.000000] Zone ranges:
+[    0.000000]   Normal   [mem 0x0000000000000000-0x000000001bffffff]
+[    0.000000] Movable zone start for each node
+[    0.000000] Early memory node ranges
+[    0.000000]   node   0: [mem 0x0000000000000000-0x000000001bffffff]
+[    0.000000] Initmem setup node 0 [mem 0x0000000000000000-0x000000001bffffff]
+[    0.000000] OF: reserved mem: 0x0b000000..0x0b03ffff (256 KiB) map non-reusable ramoops@b000000
+[    0.000000] Kernel command line: coherent_pool=1M 8250.nr_uarts=1 snd_bcm2835.enable_headphones=0 cgroup_disable=memory clk_ignore_unused  smsc95xx.macaddr=<BOARD_MAC> vc_mem.mem_base=0x1ec00000 vc_mem.mem_size=0x20000000  dwc_otg.lpm_enable=0 console=tty1 root=/dev/mmcblk0p2 rootfstype=ext4 rootwait  net.ifnames=0 panic=10 root=/dev/mmcblk0p3 rauc.slot=B
+...
+[  496.535993]  __mmc_claim_host from mmc_sd_detect+0x1c/0x74
+[  496.536066]  mmc_sd_detect from mmc_rescan+0xa8/0x354
+[  496.536128]  mmc_rescan from process_one_work+0x134/0x340
+[  496.536201]  process_one_work from worker_thread+0x168/0x2f0
+[  496.536262]  worker_thread from kthread+0xc4/0xe4
+[  496.536329]  kthread from ret_from_fork+0x14/0x28
+[  496.536384] Exception stack(0xdcc19fb0 to 0xdcc19ff8)
+[  496.536425] 9fa0:                                     00000000 00000000 00000000 00000000
+[  496.536468] 9fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  496.536509] 9fe0: 00000000 00000000 00000000 00000000 00000013 00000000
+[  497.516672] hb245 497.42 MemFree:49184 Dirty:5128 Writeback:37660 load=4.92 2.83 1.37 mmc=5024 520 622638 83525 3503 259227 2283548 5125658 0 85350 5209183 0 0 0 0 0 0 uv=0 freq=900000 wdt=7 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  498.615500] INFO: task kworker/0:3:2351 blocked for more than 43 seconds.
+[  498.615599]       Not tainted 6.12.93 #1
+[  498.615631] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+[  498.615659] task:kworker/0:3     state:D stack:0     pid:2351  tgid:2351  ppid:2      flags:0x00200000
+[  498.615722] Workqueue: events_freezable mmc_rescan
+[  498.615788] Call trace: 
+[  498.615809]  __schedule from schedule+0x28/0x138
+[  498.615903]  schedule from __mmc_claim_host+0xdc/0x1d4
+[  498.615963]  __mmc_claim_host from mmc_sd_detect+0x1c/0x74
+[  498.616030]  mmc_sd_detect from mmc_rescan+0xa8/0x354
+[  498.616087]  mmc_rescan from process_one_work+0x134/0x340
+[  498.616156]  process_one_work from worker_thread+0x168/0x2f0
+[  498.616212]  worker_thread from kthread+0xc4/0xe4
+[  498.616273]  kthread from ret_from_fork+0x14/0x28
+[  498.616322] Exception stack(0xdcc19fb0 to 0xdcc19ff8)
+[  498.616361] 9fa0:                                     00000000 00000000 00000000 00000000
+[  498.616399] 9fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  498.616435] 9fe0: 00000000 00000000 00000000 00000000 00000013 00000000
+[  498.654921] hb245 498.55 MemFree:49184 Dirty:5128 Writeback:20252 load=4.92 2.83 1.37 mmc=5024 520 622638 83525 3538 259227 2319388 5233529 0 86490 5317054 0 0 0 0 0 0 uv=0 freq=900000 wdt=13 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  499.857424] hb245 499.69 MemFree:48360 Dirty:6152 Writeback:4380 load=4.92 2.83 1.37 mmc=5025 520 622670 85835 3569 259227 2351132 5315505 0 87640 5401340 0 0 0 0 0 0 uv=0 freq=900000 wdt=11 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  501.195809] hb245 500.90 MemFree:48796 Dirty:28768 Writeback:0 load=4.92 2.83 1.37 mmc=5026 520 622678 86411 3616 259608 2360028 5429272 0 88060 5515683 0 0 0 0 0 0 uv=0 freq=900000 wdt=10 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  502.440838] hb245 502.23 MemFree:45140 Dirty:39092 Writeback:6148 load=4.93 2.87 1.39 mmc=5026 520 622678 86411 3684 264688 2392172 5441496 0 89280 5527907 0 0 0 0 0 0 uv=0 freq=900000 wdt=9 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  503.696284] hb245 503.48 MemFree:47260 Dirty:8436 Writeback:36420 load=4.93 2.87 1.39 mmc=5026 520 622678 86411 3727 277521 2435236 5468489 0 90230 5554900 0 0 0 0 0 0 uv=0 freq=900000 wdt=8 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  505.231288] hb245 504.75 MemFree:44104 Dirty:9724 Writeback:35408 load=4.93 2.87 1.39 mmc=5026 520 622678 86411 3762 281586 2471076 5530846 0 91250 5617257 0 0 0 0 0 0 uv=0 freq=900000 wdt=13 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  506.556088] hb245 506.26 MemFree:47140 Dirty:5140 Writeback:40540 load=5.01 2.92 1.42 mmc=5026 520 622678 86411 3800 287683 2509988 5635655 0 92310 5722066 0 0 0 0 0 0 uv=0 freq=900000 wdt=12 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  507.684048] hb245 507.59 MemFree:49632 Dirty:6176 Writeback:40036 load=5.01 2.92 1.42 mmc=5026 520 622678 86411 3832 291748 2542756 5724622 0 93220 5811033 0 0 0 0 0 0 uv=0 freq=900000 wdt=11 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  508.806895] hb245 508.72 MemFree:49632 Dirty:6184 Writeback:19556 load=5.01 2.92 1.42 mmc=5026 520 622678 86411 3871 291748 2582692 5827383 0 94260 5913795 0 0 0 0 0 0 uv=0 freq=900000 wdt=10 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  510.123900] hb245 509.85 MemFree:48184 Dirty:18620 Writeback:4100 load=5.01 2.92 1.42 mmc=5027 520 622686 88400 3923 291751 2614644 6043849 0 95570 6132249 0 0 0 0 0 0 uv=0 freq=900000 wdt=8 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  511.396082] hb245 511.16 MemFree:48056 Dirty:40740 Writeback:3176 load=4.85 2.92 1.43 mmc=5027 520 622686 88400 3954 295180 2644380 6067520 0 96670 6155920 0 0 0 0 0 0 uv=0 freq=900000 wdt=7 p1=S p1wchan=do_epoll_wait p1majflt=143

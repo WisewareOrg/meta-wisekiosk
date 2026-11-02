@@ -1,0 +1,29 @@
+Reset 7 -- bench, commit 375fd0328152583f088bf42e795ce83583e26a0a, batch 8 run 6
+(records/20261102T074924Z). Host-stamped capture markers and each stream's last line, from the
+install item's "Captured stdout setup" / "Captured stderr setup" sections. Address redacted to
+<BENCH_ADDRESS>; hostname redacted to <BENCH_HOSTNAME>.
+
+[stderr, capture markers]
+2026-11-02T02:51:06.851187-0500 capture started
+2026-11-02T02:53:18.989971-0500 [journal] session ended
+2026-11-02T02:53:19.999165-0500 [stats] session ended
+2026-11-02T02:53:19.999167-0500 [kernel] session ended
+Read from remote host <BENCH_ADDRESS>: Connection reset by peer
+client_loop: send disconnect: Broken pipe
+2026-11-02T02:58:11.316007-0500 capture stopped
+error: recipe `kiosk-install` failed on line 235 with exit code 255
+
+[stdout, last line of each stream before the drop]
+02:53:11.208177 [kernel]  2026-11-02T02:53:11,190095-05:00 hb245 509.85 MemFree:48184 Dirty:18620 Writeback:4100 load=5.01 2.92 1.42 mmc=5027 520 622686 88400 3923 291751 2614644 6043849 0 95570 6132249 0 0 0 0 0 0 uv=0 freq=900000 wdt=8 p1=S p1wchan=do_epoll_wait p1majflt=143
+02:53:11.506996 [journal] 2026-11-02T02:53:11.216956-05:00 <BENCH_HOSTNAME> unknown: hb245 509.85 MemFree:48184 Dirty:18620 Writeback:4100 load=5.01 2.92 1.42 mmc=5027 520 622686 88400 3923 291751 2614644 6043849 0 95570 6132249 0 0 0 0 0 0 uv=0 freq=900000 wdt=8 p1=S p1wchan=do_epoll_wait p1majflt=143
+02:53:12.266491 [stats]   MemFree:47924 Dirty:40004 Writeback:1028 load=5.01 2.92 1.42 mmc=5027 520 622686 88400 3943 293402 2633116 6065983 0 96360 6154383 0 0 0 0 0 0 uv=0
+02:53:12.489875 [kernel]  2026-11-02T02:53:12,462277-05:00 hb245 511.16 MemFree:48056 Dirty:40740 Writeback:3176 load=4.85 2.92 1.43 mmc=5027 520 622686 88400 3954 295180 2644380 6067520 0 96670 6155920 0 0 0 0 0 0 uv=0 freq=900000 wdt=7 p1=S p1wchan=do_epoll_wait p1majflt=143
+02:53:18.989260 [journal] Timeout, server <BENCH_ADDRESS> not responding.
+02:53:19.998602 [stats]   Timeout, server <BENCH_ADDRESS> not responding.
+02:53:19.998602 [kernel]  Timeout, server <BENCH_ADDRESS> not responding.
+
+Last line: wdt=7, the healthy pre-pet floor -- not a dip. PID1 was S/do_epoll_wait, as in every
+heartbeat this run. Sessions dropped 7.48, 7.73 and 7.51 s after the last data, the same
+ServerAlive 2/3 signature as resets 2-5. Last rauc progress line: " 77% Copying image to
+rootfs.0"; by mmc write-sector count the run had copied ~56% of the image, on schedule against
+the five healthy batch-8 runs.
