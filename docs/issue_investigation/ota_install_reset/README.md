@@ -46,6 +46,9 @@ capture mechanism.
 | Batch 9, attempt 1 | bench · Pi Zero W | `104ed752f298b65f43fc9e207e86b1f64eb41ecf` | `loop9.sh` — durable | **Voided**: run 1 reported a false `panic=yes` from the panic-seed's stale `dmesg-ramoops-0`, a `panic_recorded` defect (presence-only, no baseline) -- fixed in `loop9b.sh` |
 | Batch 9, attempt 2, runs 1-56 | bench · Pi Zero W | `64a461bb759225812c9872ff570ac03dea37fa94` | `loop9b.sh` — durable | 56/56 clean, no reset, no panic |
 | Batch 9, attempt 2, run 57 | bench · Pi Zero W | `64a461bb759225812c9872ff570ac03dea37fa94` | `loop9b.sh` — durable | **Voided**: host_suite's reproducibility gate refused (transient -- could not reach origin), and the resulting no-target_suite-record case crashed `target_suite_record` (`jq -e` exit 4) -- fixed in `loop9c.sh` |
+| Batch 9, attempt 3, runs 1-15 | bench · Pi Zero W | `3bd3e8a9fc545ccdd6fc6ef04e04f0646634bc3a` | `loop9c.sh` — durable | 15/15 clean, no reset, no panic |
+| Batch 9, attempt 3, run 16 | bench · Pi Zero W | `3bd3e8a9fc545ccdd6fc6ef04e04f0646634bc3a` | `loop9c.sh` — durable | **Voided** (handled as designed): the same transient gate refusal as attempt 2's run 57 |
+| Batch 9, attempt 3, run 17 | bench · Pi Zero W | `3bd3e8a9fc545ccdd6fc6ef04e04f0646634bc3a` | `loop9c.sh` — durable | Reset: stop-to-reset window ≥11.4 s vs. the detector's 3.55 s worst case -- rules out an interrupts-on lockup strongly, conditional on the detector firing (unproven) |
 
 ### Run 1 — bench, commit `fee57a946f4b256d1cd3999daf83a6b048f5fcbb`
 
@@ -678,8 +681,88 @@ capture mechanism.
   ssh, no board): three voided runs in a row stops with the expected message; a pattern of
   voided, voided, a real record, voided, voided runs all five without stopping early and resets
   the consecutive count at the real record, as designed.
-- **Result:** pending. This section updates once `loop9c.sh` produces a reset, a real panic,
-  three consecutive voided runs, or exhausts its cap.
+- **Result:** superseded by attempt 3, next.
+
+### Batch 9, attempt 3 — 15 clean, run 16 voided, run 17 = reset 8
+
+- **What happened.** `loop9c.sh` ran 15 clean runs, then run 16 was voided by the same transient
+  gate refusal as attempt 2's run 57 (`records/20261102T204808Z`: `REFUSING: cannot reach
+  origin`) -- confirmed the same way, and this time handled as designed: logged
+  `exit=1 record=none reset=no panic=no voided=yes`, and the loop continued rather than dying.
+  Run 17 caught a reset. **Raw capture:**
+  [`batch9-attempt3-summary.txt`](batch9-attempt3-summary.txt); full per-run `metrics.py` output
+  (runs 1-15 and 17, run 16 excluded -- it produced no record) in
+  [`batch9-attempt3-metrics.txt`](batch9-attempt3-metrics.txt).
+- **Run 16 left a second heartbeat running into run 17.** `arm_diagnostics` starts `hb245` before
+  `bench test`; run 16's `bench test` failed inside `host_suite` without rebooting the board, so
+  its heartbeat kept running when run 17's own `arm_diagnostics` started a second one on the same
+  boot. The two series interleave at ~0.6 s intervals from printk ~268.6 onward in reset 8's
+  `console-ramoops-0`. This is visible, not corrupting: both series write the same fields, and
+  `loop9c` run 1 shows the identical doubling after `loop9b`'s run-57 crash, in an otherwise clean
+  run -- so it is a side effect of a voided/crashed run leaving a boot untouched, not unique to
+  this reset.
+- **Result:** 15/15 clean, then a reset at run 17. See [`reset8-findings.md`](reset8-findings.md)
+  and the Metrics/Findings sections below.
+
+### Batch 9, run 17 — the reset (reset 8)
+
+- **Board:** bench, Raspberry Pi Zero W. No address in this record.
+- **Image commit:** `3bd3e8a9fc545ccdd6fc6ef04e04f0646634bc3a`, read from
+  `records/20261102T205017Z/run.json`.
+- **Scripts deployed, read-only, after the reset:**
+  [`reset8-remote-read.sh`](reset8-remote-read.sh), [`reset8-remote-read2.sh`](reset8-remote-read2.sh)
+  and [`reset8-remote-read3.sh`](reset8-remote-read3.sh) -- each ONE-OFF, committed here, renamed
+  from `remote-read.sh`/`remote-read2.sh`/`remote-read3.sh` to avoid colliding with earlier
+  resets' same-named scripts; each run once over ssh under the pipeline lock.
+  [`timing8.py`](timing8.py), [`detect8.py`](detect8.py), [`latency8.py`](latency8.py),
+  [`hung8.py`](hung8.py), [`episodes8.py`](episodes8.py), [`load8.py`](load8.py) and
+  [`lull8.py`](lull8.py) -- each ONE-OFF, committed here. [`final30.py`](final30.py) -- the
+  committed reset-5 script, reused as-is except its hardcoded scratch-output path, repointed at
+  reset 8. The committed `metrics.py` and `progress.py` ran unchanged over all 16 `loop9c`
+  records. Summarized in [`reset8-findings.md`](reset8-findings.md); their raw outputs were
+  unredacted and are not committed.
+- **Procedure:** the loop's own `bench test` invocation for this run (no separate script); the
+  three `reset8-remote-read*.sh` sessions and the Python reductions ran afterward, read-only, to
+  analyze it.
+- **Raw capture:** the full analysis is [`reset8-findings.md`](reset8-findings.md). Redacted
+  excerpts are committed beside it: [`reset8-host-tail.log`](reset8-host-tail.log) (the capture
+  markers and the last heartbeat/stats data before the drop) and
+  [`reset8-console-ramoops-tail.log`](reset8-console-ramoops-tail.log) (the ring-wrapped
+  `console-ramoops-0`'s first surviving line and its last 40, 745 lines / 131060 B total, md5
+  `6be56f5cb84a6fdb1f4b83939168b5d1`; no MAC survives in this copy -- the ring wrapped past the
+  boot banner; the full 745-line copy is not committed). Its `dmesg-ramoops-0` is
+  byte-identical to the batch-8 sysrq seed (`e5ad0ce5a7a0fb19138a9d1ce4330bbe`, already
+  committed as [`sysrq-seed-dmesg-ramoops.log`](sysrq-seed-dmesg-ramoops.log)) -- carried over,
+  not repeated here, and correctly read as `panic=no` by `loop9c`'s manifest comparison.
+- **Verdict.** This stop came early in the pet cycle: the stop-to-reset window was **~11.4-13.5 s**
+  (reset 5's geometry, not reset 7's), against the `watchdog_thresh=1` detector's worst-case
+  3.55 s latency -- **≥7.9 s of slack, modelled P(record lands before the reset) = 1.000.**
+  Nothing printed: no soft-lockup, `BUG:`, panic, oops, RCU, or SD-timeout line; no new
+  `dmesg-ramoops` record. The detector was confirmed armed on the boot that reset (the 17th of 17
+  `kernel.watchdog_thresh = 1` readbacks in `loop9c`'s own log, with no `FAIL`). **Rules out any
+  interrupts-on kernel lockup, strongly -- conditional on the detector actually firing, which has
+  never been seeded on this board** (the sysrq seed proved only panic -> pstore, not detection;
+  73 clean `thresh=1` installs show no false positive, which says nothing about a true one). Two
+  other kernel witnesses had time and were silent too: the `mmc_rescan` khungtaskd series (13:1
+  evidence the kernel stopped scheduling it before the reports would have continued) and the SD
+  driver's 10 s command timeout. `PM_RSTS` read `0x20` again (7 of 7 checked resets). By mmc
+  write-sector count the copy had reached ~49%, in the middle of the 26-99% spread resets 1-8
+  cover.
+- **Correction to resets 5 and 7's driver attribution.** `mmc0` (the SD card) is bound to
+  `sdhost-bcm2835`, i.e. `drivers/mmc/host/bcm2835.c` (`CONFIG_MMC_BCM2835=y`), confirmed on the
+  board. `bcm2835-sdhost.c` -- named in `reset5-findings.md`'s own text for the 10 s per-command
+  timeout -- is not built (`# CONFIG_MMC_BCM2835_SDHOST is not set`). The 10 s timeout and its
+  message are the same in both files, so neither reset 5's nor reset 7's conclusions are
+  affected; this only names the driver correctly. `reset5-findings.md`/`reset7-findings.md` are
+  record-of-record and are not edited for this -- the correction lives here and in
+  `reset8-findings.md` §3.
+- **Tally, across the whole investigation.** 308 captured installs, 8 resets, 2.6% (exact 95% CI
+  1.1-5.1%). Under the soft-lockup detector (batches 8-9, all attempts): 79 installs, 2 resets
+  (7, 8), 2.5%. At `watchdog_thresh=1` specifically (batch 9, attempts 1-3): 73 installs, 1 reset
+  (8), 1.4%. The rate has not moved across elevator, governor, detector or threshold changes.
+  Zero false soft-lockup panics in those 73 `thresh=1` installs, with install-window load up to
+  9.51. See [`reset8-findings.md`](reset8-findings.md) "Overall tally" for the per-scope counts
+  and counting caveats.
 
 ## Configuration under test
 

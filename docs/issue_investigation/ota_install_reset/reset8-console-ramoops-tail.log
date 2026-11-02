@@ -1,0 +1,55 @@
+Reset 8's pstore `console-ramoops-0` (the boot that ended in the batch-9 loop9c
+run-17 reset): the ring wrapped (no boot banner or kernel command line survives in
+this copy, so no MAC to redact). Its first whole line and its last 40 lines (the
+routine mmc_rescan hung-task call trace through the final heartbeat). 745 lines,
+131060 bytes total; md5 6be56f5cb84a6fdb1f4b83939168b5d1 -- matches the full record
+described in reset8-findings.md. The full 745-line copy is not committed; the
+carried-over sysrq-seed `dmesg-ramoops-0` (byte-identical to the batch-8 seed, md5
+e5ad0ce5a7a0fb19138a9d1ce4330bbe) is already committed as
+sysrq-seed-dmesg-ramoops.log and is not repeated here. Mounted read-only
+(`mount -t pstore -o ro pstore /sys/fs/pstore`), copied, unmounted; nothing in
+pstore was deleted.
+
+ 7214 0 0 32972 0 0 0 0 0 0 uv=0 freq=900000 wdt=9 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  264.735725] hb245 264.61 MemFree:164196 Dirty:116 Writeback:0 load=0.68 0.98 0.47 mmc=3548 428 332622 25757 423 413 12378 7214 0 0 32972 0 0 0 0 0 0 uv=0 freq=900000 wdt=8 p1=S p1wchan=do_epoll_wait p1majflt=143
+...
+[  598.882839]       Not tainted 6.12.93 #1
+[  598.882880] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+[  598.882918] task:kworker/0:2     state:D stack:0     pid:5034  tgid:5034  ppid:2      flags:0x00200000
+[  598.882992] Workqueue: events_freezable mmc_rescan
+[  598.883072] Call trace: 
+[  598.883094]  __schedule from schedule+0x28/0x138
+[  598.883209]  schedule from __mmc_claim_host+0xdc/0x1d4
+[  598.883281]  __mmc_claim_host from mmc_sd_detect+0x1c/0x74
+[  598.883363]  mmc_sd_detect from mmc_rescan+0xa8/0x354
+[  598.883433]  mmc_rescan from process_one_work+0x134/0x340
+[  598.883517]  process_one_work from worker_thread+0x168/0x2f0
+[  598.883587]  worker_thread from kthread+0xc4/0xe4
+[  598.883661]  kthread from ret_from_fork+0x14/0x28
+[  598.883725] Exception stack(0xdcc1dfb0 to 0xdcc1dff8)
+[  598.883772] dfa0:                                     00000000 00000000 00000000 00000000
+[  598.883820] dfc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  598.883867] dfe0: 00000000 00000000 00000000 00000000 00000013 00000000
+[  599.072963] hb245 598.95 MemFree:73856 Dirty:4424 Writeback:40760 load=4.94 2.61 1.25 mmc=4968 599 621238 104947 3762 259466 2282972 5042113 0 86070 5147060 0 0 0 0 0 0 uv=0 freq=900000 wdt=7 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  599.697369] hb245 599.57 MemFree:73856 Dirty:4432 Writeback:32056 load=4.94 2.61 1.25 mmc=4968 599 621238 104947 3780 259466 2301404 5095090 0 86870 5200037 0 0 0 0 0 0 uv=0 freq=900000 wdt=13 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  600.209952] hb245 600.08 MemFree:73856 Dirty:4444 Writeback:22328 load=4.94 2.61 1.25 mmc=4968 599 621238 104947 3799 259466 2320860 5148007 0 87390 5252955 0 0 0 0 0 0 uv=0 freq=900000 wdt=13 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  600.822909] hb245 600.70 MemFree:74664 Dirty:4448 Writeback:16184 load=4.94 2.61 1.25 mmc=4968 599 621238 104947 3811 259466 2333148 5182243 0 88020 5287191 0 0 0 0 0 0 uv=0 freq=900000 wdt=12 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  600.962758] INFO: task kworker/0:2:5034 blocked for more than 33 seconds.
+[  600.962868]       Not tainted 6.12.93 #1
+[  600.962908] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+[  600.962944] task:kworker/0:2     state:D stack:0     pid:5034  tgid:5034  ppid:2      flags:0x00200000
+[  600.963018] Workqueue: events_freezable mmc_rescan
+[  600.963094] Call trace: 
+[  600.963117]  __schedule from schedule+0x28/0x138
+[  600.963234]  schedule from __mmc_claim_host+0xdc/0x1d4
+[  600.963308]  __mmc_claim_host from mmc_sd_detect+0x1c/0x74
+[  600.963390]  mmc_sd_detect from mmc_rescan+0xa8/0x354
+[  600.963458]  mmc_rescan from process_one_work+0x134/0x340
+[  600.963539]  process_one_work from worker_thread+0x168/0x2f0
+[  600.963614]  worker_thread from kthread+0xc4/0xe4
+[  600.963688]  kthread from ret_from_fork+0x14/0x28
+[  600.963750] Exception stack(0xdcc1dfb0 to 0xdcc1dff8)
+[  600.963796] dfa0:                                     00000000 00000000 00000000 00000000
+[  600.963844] dfc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  600.963889] dfe0: 00000000 00000000 00000000 00000000 00000013 00000000
+[  601.373956] hb245 601.22 MemFree:74664 Dirty:4484 Writeback:11576 load=4.95 2.65 1.27 mmc=4968 599 621238 104947 3820 259466 2342364 5209163 0 88560 5314110 0 0 0 0 0 0 uv=0 freq=900000 wdt=12 p1=S p1wchan=do_epoll_wait p1majflt=143

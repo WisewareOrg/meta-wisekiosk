@@ -6,7 +6,7 @@ sectors, writes completed, write sectors) since the previous heartbeat.
 Read-only."""
 import re, sys
 rec, n = sys.argv[1], int(sys.argv[2])
-W = "/tmp/claude-1000/-home-tjwise-meta-wisekiosk/3d372d54-7280-4f07-9aa9-116c6be4bdbd/scratchpad/reset7"
+W = "/tmp/claude-1000/-home-tjwise-meta-wisekiosk/3d372d54-7280-4f07-9aa9-116c6be4bdbd/scratchpad/reset8"
 HB = re.compile(r"hb245 (\S+) MemFree:(\d+) Dirty:(\d+) Writeback:(\d+) load=(\S+) \S+ \S+ mmc=((?:\d+ ){16}\d+) uv=(\d) freq=(\d+) wdt=(\d+) p1=(\S+) p1wchan=(\S*) p1majflt=(\d+)")
 ps = {}
 for l in open(f"{rec}/pstore/console-ramoops-0"):
