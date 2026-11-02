@@ -427,6 +427,61 @@ capture mechanism.
   runs against this checkout's HEAD (batches 1-4 plus this one), consistent with the ~2.6% rate
   already measured; it does not change any standing Finding.
 
+### Batch 8 — soft-lockup detector
+
+- **Owner rulings.** No SD card or PSU can be swapped on this board. More diagnostics are fine.
+  The soft-lockup detector goes straight into the main image, not a diagnostic overlay, and it
+  stays there as long as it does not meaningfully impact performance.
+- **Hypothesis.** If the kernel is looping with interrupts on, `CONFIG_SOFTLOCKUP_DETECTOR` (with
+  `CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC`) panics with a stack trace, into the same `pstore` console
+  this investigation already recovers, before the 14 s hardware watchdog fires. Silence under the
+  detector means the freeze is either interrupts-off or a hardware hang -- the detector cannot
+  see either. `CONFIG_HARDLOCKUP_DETECTOR` and `RCU_CPU_STALL_TIMEOUT` are Kconfig-infeasible on
+  this board without `CONFIG_SMP` (unavailable, `CPU_V6`) or switching the preemption model
+  (`CONFIG_PREEMPT_VOLUNTARY` to `CONFIG_PREEMPT`, a broader change than a diagnostic) -- out of
+  scope for this batch.
+- **Perf baseline, before any change.** One `bench test` on the then-current HEAD puts that
+  image on bench (its first attempt caught reset 6, above; the retry passed clean), then `just
+  bootprofile` three times reads the same image with no further change. **Raw capture:**
+  [`batch8-bootprofile-3x.sh`](batch8-bootprofile-3x.sh) -- DURABLE, committed here; runs
+  `bootprofile` three times under one hold of the pipeline lock. Hand-validated separately
+  first: `bench.env`'s own `PATH` does not include `~/WiseBenchManager/.venv/bin`, so the
+  recipe's bare `bench` call fails (`Permission denied`, exit 127) unless that directory is
+  exported onto `PATH` first -- proven by running one `bootprofile` by hand with the fix and
+  confirming `which bench` resolves and the run exits 0, before running the three counted below.
+  Per-run figures are the analyzer's "BOOT (to 60s)" row
+  (`meta-wisekiosk/recipes-core/kiosk-bootprof/README.md` covers what each column means and its
+  limits):
+
+  | run | record | wall (s) | busy% | idle% | iowait% | headroom (s) | run queue max/mean |
+  |---|---|---|---|---|---|---|---|
+  | 1 | `records/20261102T053659Z` | 53.5 | 73.6 | 19.98 | 6.41 | 14.06 | 14 / 2.95 |
+  | 2 | `records/20261102T054014Z` | 53.5 | 74.2 | 19.57 | 6.24 | 13.82 | 15 / 3.26 |
+  | 3 | `records/20261102T054329Z` | 53.5 | 68.6 | 24.92 | 6.48 | 16.77 | 17 / 3.09 |
+
+  Mean busy% 72.1 (range 68.6-74.2), mean headroom 14.88 s (range 13.82-16.77 s). This is the
+  figure the perf check after the kernel change compares against -- never pooled with it.
+- **The one change.** A kernel config fragment,
+  `meta-wisekiosk/recipes-kernel/linux/files/lockup-detect.cfg`, with exactly
+  `CONFIG_SOFTLOCKUP_DETECTOR=y` and `CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC=y`, added to
+  `linux-raspberrypi_%.bbappend`'s `SRC_URI` following its own existing pattern. No sysctl.d
+  change, no cmdline change, no other config. This ships: it is a change to the main image, not
+  a diagnostic overlay.
+- **Harness:** `loop8.sh` -- loop5.sh's diagnostics and heartbeat (default `mq-deadline`
+  scheduler, no `bfq`; default governor), plus one pre-run step: `sysctl -w
+  kernel.watchdog_thresh=3` (soft-lockup threshold 6 s, under the 14 s hardware watchdog), with
+  readback. Not optional: if the sysctl key does not exist, the detector is not live and the
+  script stops. After a reset, in addition to the pstore copy, records whether `pstore` holds a
+  `dmesg-ramoops-*` file (a soft-lockup panic) or only the console record. Cap 90, stop at first
+  reset.
+- **Perf check, after.** Once `loop8.sh` has 10+ clean runs or stops, three more `just
+  bootprofile` passes on the new image (under the lock, never while `loop8.sh` is running),
+  compared against the baseline above and against batches 3 and 5's install windows
+  (`metrics.py`'s `window` field: batch 3 mean 193.3 s range 188.1-198.4 s, n=34; batch 5 mean
+  205.7 s range 193.1-217.3 s, n=25).
+- **Result:** pending. This section updates as the kernel fragment, `loop8.sh` and the perf
+  check land.
+
 ## Configuration under test
 
 - The capture mechanism: `tools/kiosk-install.sh`'s `stamp`/`stop_capture`, three background ssh
