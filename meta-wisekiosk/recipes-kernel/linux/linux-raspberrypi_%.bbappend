@@ -11,3 +11,10 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 # the kiosk-cpufreq recipe. Different fault class: this one faults near address 0
 # with a resolvable PC.
 SRC_URI += " file://brcmfmac-52e8726d6782.patch"
+
+# #245: the soft-lockup detector, so a kernel looping with interrupts on panics
+# with a stack trace into pstore before the 14s hardware watchdog fires,
+# instead of a silent reset. CONFIG_HARDLOCKUP_DETECTOR and
+# CONFIG_RCU_CPU_STALL_TIMEOUT are not selectable on this board (no CONFIG_SMP;
+# see docs/issue_investigation/ota_install_reset/README.md's Batch 8 section).
+SRC_URI += " file://lockup-detect.cfg"

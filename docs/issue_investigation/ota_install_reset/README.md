@@ -35,6 +35,10 @@ capture mechanism.
 | Batch 4, runs 1-24 | bench · Pi Zero W | `3cb4f4cc0453941641e06610e3d93c7f4d906289` | `loop4.sh` — durable | 24/24 clean, no reset, `performance` governor pinned each run |
 | Batch 4, run 25 | bench · Pi Zero W | `3cb4f4cc0453941641e06610e3d93c7f4d906289` | `loop4.sh` — durable | Reset: `freq=900000` in every heartbeat (DVFS not necessary for the reset); reset within ~0.3-2.3 s of the last heartbeat, unlike resets 2-3 |
 | Batch 5, runs 1-25 | bench · Pi Zero W | `38e46c900e0c49c8b0e458b29acc8f015d1d2399` | `loop5.sh` — durable | 25/25 clean, no reset (run 17 a near-miss); loop ended on run 26's host_suite failing, not a reset or the cap -- see below |
+| Batch 6, runs 1-20 | bench · Pi Zero W | `b9885af9da50d1fee2539e71005006345de0e940` | `loop6.sh` — durable | 20/20 clean, no reset (`bfq` scheduler) |
+| Batch 7, runs 1-64 | bench · Pi Zero W | `8207d14bb4521043445fe44488985914e198411a` | `loop7.sh` — durable | 64/64 clean, no reset (`bfq` scheduler, cap raised to 90) |
+| Batch 7, run 65 | bench · Pi Zero W | `8207d14bb4521043445fe44488985914e198411a` | `loop7.sh` — durable | Reset: PID1 never stalled (`wdt` never below 7); refutes PID1-starvation for this reset |
+| Batch 8 baseline, attempt 1 | bench · Pi Zero W | `59969986d739e999652906f32c8ac9701624a926` | `batch8-baseline.sh` — one-off | Reset: no heartbeat armed (pre-loop8 perf baseline); same freeze-then-watchdog shape as resets 2/3/5 |
 
 ### Run 1 — bench, commit `fee57a946f4b256d1cd3999daf83a6b048f5fcbb`
 
@@ -410,9 +414,10 @@ capture mechanism.
   — ONE-OFF, committed here, run once over ssh under the pipeline lock; the pstore mount, copy
   and unmount that followed it used the same read-only procedure `loop.sh`'s `save_pstore` uses
   (mount read-only, copy every file byte-exact, unmount; nothing deleted).
-- **Procedure:** the baseline script's own `bench test` invocation (no separate script to
-  reproduce the reset itself); the `reset6-remote-read.sh` session and the pstore copy ran
-  afterward, read-only, to analyze it.
+- **Procedure:** [`batch8-baseline.sh`](batch8-baseline.sh)'s own `bench test` step (ONE-OFF,
+  committed here; its bootprofile step has the PATH bug the Batch 8 section below covers, which
+  is why it never ran past this step here); the `reset6-remote-read.sh` session and the pstore
+  copy ran afterward, read-only, to analyze it.
 - **Raw capture:** the full analysis is [`reset6-findings.md`](reset6-findings.md). Redacted
   excerpts are committed beside it: [`reset6-host-tail.log`](reset6-host-tail.log) (the capture
   markers and each stream's last line) and
@@ -441,8 +446,9 @@ capture mechanism.
   (`CONFIG_PREEMPT_VOLUNTARY` to `CONFIG_PREEMPT`, a broader change than a diagnostic) -- out of
   scope for this batch.
 - **Perf baseline, before any change.** One `bench test` on the then-current HEAD puts that
-  image on bench (its first attempt caught reset 6, above; the retry passed clean), then `just
-  bootprofile` three times reads the same image with no further change. **Raw capture:**
+  image on bench ([`batch8-baseline.sh`](batch8-baseline.sh)'s first attempt caught reset 6,
+  above; the retry, run by hand, passed clean), then `just bootprofile` three times reads the
+  same image with no further change. **Raw capture:**
   [`batch8-bootprofile-3x.sh`](batch8-bootprofile-3x.sh) -- DURABLE, committed here; runs
   `bootprofile` three times under one hold of the pipeline lock. Hand-validated separately
   first: `bench.env`'s own `PATH` does not include `~/WiseBenchManager/.venv/bin`, so the
@@ -462,11 +468,14 @@ capture mechanism.
   Mean busy% 72.1 (range 68.6-74.2), mean headroom 14.88 s (range 13.82-16.77 s). This is the
   figure the perf check after the kernel change compares against -- never pooled with it.
 - **The one change.** A kernel config fragment,
-  `meta-wisekiosk/recipes-kernel/linux/files/lockup-detect.cfg`, with exactly
-  `CONFIG_SOFTLOCKUP_DETECTOR=y` and `CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC=y`, added to
-  `linux-raspberrypi_%.bbappend`'s `SRC_URI` following its own existing pattern. No sysctl.d
-  change, no cmdline change, no other config. This ships: it is a change to the main image, not
-  a diagnostic overlay.
+  [`lockup-detect.cfg`](../../../meta-wisekiosk/recipes-kernel/linux/files/lockup-detect.cfg),
+  with exactly `CONFIG_SOFTLOCKUP_DETECTOR=y` and `CONFIG_BOOTPARAM_SOFTLOCKUP_PANIC=y`, added to
+  [`linux-raspberrypi_%.bbappend`](../../../meta-wisekiosk/recipes-kernel/linux/linux-raspberrypi_%.bbappend)'s
+  `SRC_URI` following its own existing pattern. No sysctl.d change, no cmdline change, no other
+  config. This ships: it is a change to the main image, not a diagnostic overlay. Confirmed
+  host-side in the built kernel `.config` (both symbols read `=y`) against the working tree this
+  change was committed from -- not yet device-verified: that lands with `loop8.sh`'s first run,
+  the first time this kernel boots on bench, below.
 - **Harness:** `loop8.sh` -- loop5.sh's diagnostics and heartbeat (default `mq-deadline`
   scheduler, no `bfq`; default governor), plus one pre-run step: `sysctl -w
   kernel.watchdog_thresh=3` (soft-lockup threshold 6 s, under the 14 s hardware watchdog), with
