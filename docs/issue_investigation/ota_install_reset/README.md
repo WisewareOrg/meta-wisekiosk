@@ -44,6 +44,8 @@ capture mechanism.
 | Batch 8, run 6 | bench · Pi Zero W | `375fd0328152583f088bf42e795ce83583e26a0a` | `loop8.sh` — durable | Reset, no panic: detector live but its ~6-8.4 s latency raced the ~6.5-7.7 s window this stop gave it; weak evidence only |
 | Batch 8, panic-seed | bench · Pi Zero W | `375fd0328152583f088bf42e795ce83583e26a0a` | `sysrq-seed.sh` — one-off | Pass: `echo c > /proc/sysrq-trigger` lands a `dmesg-ramoops-0` with the crash; proves the capture path, not detection |
 | Batch 9, attempt 1 | bench · Pi Zero W | `104ed752f298b65f43fc9e207e86b1f64eb41ecf` | `loop9.sh` — durable | **Voided**: run 1 reported a false `panic=yes` from the panic-seed's stale `dmesg-ramoops-0`, a `panic_recorded` defect (presence-only, no baseline) -- fixed in `loop9b.sh` |
+| Batch 9, attempt 2, runs 1-56 | bench · Pi Zero W | `64a461bb759225812c9872ff570ac03dea37fa94` | `loop9b.sh` — durable | 56/56 clean, no reset, no panic |
+| Batch 9, attempt 2, run 57 | bench · Pi Zero W | `64a461bb759225812c9872ff570ac03dea37fa94` | `loop9b.sh` — durable | **Voided**: host_suite's reproducibility gate refused (transient -- could not reach origin), and the resulting no-target_suite-record case crashed `target_suite_record` (`jq -e` exit 4) -- fixed in `loop9c.sh` |
 
 ### Run 1 — bench, commit `fee57a946f4b256d1cd3999daf83a6b048f5fcbb`
 
@@ -639,8 +641,45 @@ capture mechanism.
   (an unchanged copy, a genuinely modified copy, and a run with no `dmesg-ramoops-*` file at
   all), run through the exact functions in `loop9b.sh`: unchanged -> `panic=no` (correct),
   modified -> `panic=yes` (correct), absent -> `panic=no` (correct).
-- **Result:** pending. This section's parent updates once `loop9b.sh` produces a reset, a real
-  panic, or exhausts its cap.
+- **Result:** 56/56 clean, then run 57 voided (next section) -- not a reset, not a panic.
+
+### Batch 9, attempt 2 — 56 clean, run 57 voided by a gate refusal and a harness defect
+
+- **What happened.** `loop9b.sh` ran 56 clean runs (`reset=no panic=no` throughout). **Raw
+  capture:** [`batch9-attempt2-summary.txt`](batch9-attempt2-summary.txt) -- 56 lines, no `run=57`
+  line, because run 57 crashed before reaching its own `printf` to the summary file (below).
+  Run 57 (`records/20261102T180604Z`) failed inside `tests/host_suite`:
+  `test_reproducibility_gate`'s
+  `tools/reproducibility-gate.sh --image …` refused with `REFUSING: cannot reach origin --
+  cannot prove <sha> is published`. **Confirmed by hand**, re-running the same gate against the
+  same built image right after: it passed clean (`HEAD is published on origin` now succeeds) --
+  the refusal was transient (a network blip reaching `origin` at that moment), not a real
+  reproducibility defect, and HEAD was and still is clean and published.
+  Because host_suite failed before `target_suite` ever ran, no target_suite record existed for
+  this run -- and `target_suite_record`'s own `jq -e 'select(...)'` call exits `4` ("no valid
+  result was ever produced"), not `1`, when nothing matches. That `4` propagated through the
+  function's pipeline under `pipefail`, which `set -e` turned into `loop9b.sh` exiting outright
+  (`loop9b: failed at line 187 (exit 4)`) -- a harness defect, latent since `loop.sh`, that this
+  investigation had never before hit a run shaped the way run 57 was (the newest record being a
+  non-`target_suite` one). **Run 57 is voided**: the transient gate refusal is why it has no
+  install data; the harness crash on top of that is unrelated to batch 9's hypothesis.
+- **The fix.** [`loop9c.sh`](loop9c.sh) -- DURABLE, committed here. `loop9b.sh` with
+  `target_suite_record`'s `jq -e` call wrapped so a non-match ends its `&&` list at exit `0`
+  instead of `4` (returning empty, not crashing), and the main loop changed to treat an empty
+  record as a **voided** run rather than a fatal error: logged `voided=yes` with
+  `reset=no panic=no`, and the loop continues -- it counts toward the cap, since the board and
+  kernel saw a normal pre-run arm either way. Three voided runs in a row stop the loop with a
+  message. Cap lowered to 34 (the remaining runs of the original 90; attempt 2's 56 clean runs
+  are not repeated). Nothing else changes from `loop9b.sh`.
+- **Validated before relaunch:** reproduced run 57's exact scenario (a `run.json` whose
+  `command_line` is `tests/host_suite`, not `target_suite`) against both versions of
+  `target_suite_record` -- `loop9b.sh`'s crashes with exit `4`, `loop9c.sh`'s returns empty
+  without crashing. Simulated the main loop with a stubbed `bench`/`target_suite_record` (no
+  ssh, no board): three voided runs in a row stops with the expected message; a pattern of
+  voided, voided, a real record, voided, voided runs all five without stopping early and resets
+  the consecutive count at the real record, as designed.
+- **Result:** pending. This section updates once `loop9c.sh` produces a reset, a real panic,
+  three consecutive voided runs, or exhausts its cap.
 
 ## Configuration under test
 
