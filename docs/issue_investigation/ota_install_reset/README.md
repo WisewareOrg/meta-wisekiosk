@@ -590,6 +590,33 @@ capture mechanism.
   23978 B total, md5 `e5ad0ce5a7a0fb19138a9d1ce4330bbe`; the full 326-line copy and
   `console-ramoops-0` are not committed.
 
+### Batch 9 -- faster soft-lockup threshold
+
+- **Hypothesis.** Reset 7 showed `watchdog_thresh=3`'s detector latency (6.0-8.4 s) racing the
+  stop-to-reset window (as little as ~6.3 s at some pet-cycle phases) and losing. `watchdog_thresh=1`
+  gives a 2 s soft-lockup threshold and a 0.4 s sample period, for a worst-case detection latency
+  of ~3.6 s after the stop -- inside the ~6.3 s minimum window at every pet-cycle phase, with
+  ~2.7 s of margin. If an interrupts-on CPU loop is the mechanism, this threshold should catch it
+  reliably; continued silence under it is correspondingly stronger evidence against one than
+  batch 8's was.
+- **The single change from batch 8.** Only `set_lockup_thresh`'s value, `3` to `1`. Everything
+  else -- diagnostics, heartbeat, scheduler, governor, hardening -- is unchanged.
+- **The false-panic risk, and why the loop treats it as a stop.** On this UP board the detector's
+  touch is an ordinary `SCHED_NORMAL` kworker, so CPU starvation alone -- not only a genuine
+  interrupts-on loop -- can trip it at this threshold; the five clean batch-8 runs showed no
+  false positive at `thresh=3` with load up to 7.8, which says nothing about `thresh=1`. A
+  soft-lockup panic on an otherwise-clean install is itself data the owner needs to see, not
+  noise to run past: [`loop9.sh`](loop9.sh) mounts and copies `pstore` after **every** run, not
+  only a reset, and stops at `reset=yes` **or** `panic=yes` -- a false panic is captured and
+  halts the loop exactly like a reset would, rather than being silently skipped and the loop
+  continuing to pile more runs on top of it.
+- **Harness:** [`loop9.sh`](loop9.sh) -- DURABLE, committed here. `loop8.sh` verbatim except
+  `set_lockup_thresh`'s value and the panic check moving from "only on a reset" to "every run"
+  (above).
+- **Cap and stopping rule:** 90 runs, stopping at the first `reset=yes` or `panic=yes`.
+- **Result:** pending. This section updates once the loop produces a reset, a panic, or
+  exhausts its cap.
+
 ## Configuration under test
 
 - The capture mechanism: `tools/kiosk-install.sh`'s `stamp`/`stop_capture`, three background ssh
