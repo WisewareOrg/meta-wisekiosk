@@ -506,10 +506,21 @@ capture mechanism.
   above. After a reset, in addition to the pstore copy, records whether `pstore` holds a
   `dmesg-ramoops-*` file (a soft-lockup panic) or only the console record. Cap 90, stop at first
   reset.
-- **Perf check, after.** Three `just bootprofile` passes on the detector kernel, compared against
-  the baseline above and against batches 3 and 5's install windows (`metrics.py`'s `window`
-  field: batch 3 mean 193.3 s range 188.1-198.4 s, n=34; batch 5 mean 205.7 s range
-  193.1-217.3 s, n=25).
+- **Perf check, after.** Three `just bootprofile` passes on the detector kernel
+  ([`batch8-bootprofile-3x.sh`](batch8-bootprofile-3x.sh), reused as-is -- the board already ran
+  the detector kernel after `loop8.sh`, so no `bench test` was needed this time), same per-run
+  figures as the baseline:
+
+  | run | record | wall (s) | busy% | idle% | iowait% | headroom (s) | run queue max/mean |
+  |---|---|---|---|---|---|---|---|
+  | 1 | `records/20261102T081643Z` | 53.5 | 72.0 | 21.60 | 6.43 | 14.97 | 17 / 3.35 |
+  | 2 | `records/20261102T081957Z` | 53.5 | 73.0 | 20.56 | 6.44 | 14.37 | 18 / 3.31 |
+  | 3 | `records/20261102T082312Z` | 53.5 | 71.8 | 21.99 | 6.25 | 15.02 | 17 / 3.24 |
+
+  Mean busy% 72.3 (range 71.8-73.0) against the baseline's 72.1 (range 68.6-74.2); mean headroom
+  14.79 s (range 14.37-15.02 s) against the baseline's 14.88 s (range 13.82-16.77 s). Both are
+  inside the baseline's own run-to-run spread -- reported as numbers, not a verdict on whether
+  the difference is meaningful.
 - **Result:** 5/5 clean, then a reset at run 6. **Raw capture:**
   [`batch8-summary.txt`](batch8-summary.txt); full per-run `metrics.py` output in
   [`batch8-metrics.txt`](batch8-metrics.txt) (run 1 shows a near-miss, `D` on
