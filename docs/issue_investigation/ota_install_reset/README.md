@@ -473,14 +473,23 @@ capture mechanism.
   [`linux-raspberrypi_%.bbappend`](../../../meta-wisekiosk/recipes-kernel/linux/linux-raspberrypi_%.bbappend)'s
   `SRC_URI` following its own existing pattern. No sysctl.d change, no cmdline change, no other
   config. This ships: it is a change to the main image, not a diagnostic overlay. Confirmed
-  host-side in the built kernel `.config` (both symbols read `=y`) against the working tree this
-  change was committed from -- not yet device-verified: that lands with `loop8.sh`'s first run,
-  the first time this kernel boots on bench, below.
-- **Harness:** `loop8.sh` -- loop5.sh's diagnostics and heartbeat (default `mq-deadline`
-  scheduler, no `bfq`; default governor), plus one pre-run step: `sysctl -w
-  kernel.watchdog_thresh=3` (soft-lockup threshold 6 s, under the 14 s hardware watchdog), with
-  readback. Not optional: if the sysctl key does not exist, the detector is not live and the
-  script stops. After a reset, in addition to the pstore copy, records whether `pstore` holds a
+  host-side in the built kernel `.config` (both symbols read `=y`); device-verified below.
+- **Bootstrap install.** `loop8.sh` enforces its `watchdog_thresh` step uniformly from run 1
+  (below) -- that needs the new kernel already on bench, which bench's prior state (still the
+  perf baseline's unmodified image) wasn't. One `bench test` on this commit, run once, outside
+  `loop8.sh` and not counted as one of its runs: [`batch8-bootstrap.sh`](batch8-bootstrap.sh) --
+  ONE-OFF, committed here. Passed clean (`records/20261102T064643Z`). Device-verified
+  immediately after, by hand, under the lock: `kernel.watchdog_thresh` now exists (it did not on
+  the pre-fragment kernel -- confirmed absent there too, with `sysctl -w` failing "unknown key");
+  `kernel.soft_watchdog` reads `1`; `sysctl -w kernel.watchdog_thresh=3` succeeds and reads back
+  `3`.
+- **Harness:** [`loop8.sh`](loop8.sh) -- DURABLE, committed here. `loop5.sh`'s diagnostics and
+  heartbeat (default `mq-deadline` scheduler, no `bfq`; default governor), `loop6.sh`/`loop7.sh`'s
+  hardening (the `ERR` trap, `wait_for_board`), plus one added pre-run step, `set_lockup_thresh`:
+  `sysctl -w kernel.watchdog_thresh=3` (soft-lockup threshold 6 s, under the 14 s hardware
+  watchdog), with readback. **Not optional:** if the sysctl key does not exist, the detector is
+  not live and the script stops -- safe to enforce from run 1 because of the bootstrap install
+  above. After a reset, in addition to the pstore copy, records whether `pstore` holds a
   `dmesg-ramoops-*` file (a soft-lockup panic) or only the console record. Cap 90, stop at first
   reset.
 - **Perf check, after.** Once `loop8.sh` has 10+ clean runs or stops, three more `just
