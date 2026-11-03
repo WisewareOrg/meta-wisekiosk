@@ -50,6 +50,7 @@ capture mechanism.
 | Batch 9, attempt 3, run 16 | bench · Pi Zero W | `3bd3e8a9fc545ccdd6fc6ef04e04f0646634bc3a` | `loop9c.sh` — durable | **Voided** (handled as designed): the same transient gate refusal as attempt 2's run 57 |
 | Batch 9, attempt 3, run 17 | bench · Pi Zero W | `3bd3e8a9fc545ccdd6fc6ef04e04f0646634bc3a` | `loop9c.sh` — durable | Reset: stop-to-reset window ≥11.4 s vs. the detector's 3.55 s worst case -- rules out an interrupts-on lockup strongly and unconditionally (detector confirmed to fire, below) |
 | Soft-lockup detection seed | bench · Pi Zero W | `3ff13a8b272d6c447de0feb59a3acdbb94e48ca9` | `softlockup-seed.sh` — one-off | Pass: `chrt -f 99` busy loop with the RT throttle and fair server disabled trips the detector -- `dmesg-ramoops-0` holds the soft-lockup `BUG:` and panic |
+| Batch 10 bootstrap | bench · Pi Zero W | `144ec83047eefd0487ad6a9d50f984a4e92fceaf` | `batch10-bootstrap.sh` — one-off | Clean install; puts the pstore-ftrace kernel on bench ahead of `loop10.sh`; also the C0 disarmed-copy-time data point |
 
 ### Run 1 — bench, commit `fee57a946f4b256d1cd3999daf83a6b048f5fcbb`
 
@@ -808,6 +809,66 @@ capture mechanism.
   (the fair-server warning through the panic call trace; no boot banner or MAC in this range),
   347 lines / 25543 B total, md5 `b945f02fb507851245a47e7aef51ba8e`; the full 347-line copy and
   `console-ramoops-0` are not committed.
+
+### Batch 10 -- pstore ftrace
+
+- **Owner.** Root cause not found by batch 9; keep pushing. Next instrument: a persistent
+  function tracer in the existing pstore reservation, armed only for the install window, to
+  separate a CPU still executing (an IRQs-off loop or IRQ storm) from one that is not (a bus/SoC
+  stall) at the next reset -- the question reset 8's own "what remains" left open.
+- **Hypothesis.** `CONFIG_PSTORE_FTRACE` traces a narrow, hand-picked set of functions (the SD/SDIO
+  stack, DMA, IRQ entry, the watchdog pet, the firmware mailbox, and the heartbeat's own
+  `devkmsg_write`) into a ring inside the existing 256 KiB ramoops reservation, with IRQs masked
+  and no scheduler dependency -- the one instrument in this investigation that keeps recording
+  through exactly the condition seven resets have been silent about. At the next reset, the
+  ring's tail either cycles through a fixed set with no timer entry (an IRQs-off loop, naming the
+  loop), shows a storm of one IRQ source, ends inside a handler with no `irq_exit` (the handler
+  never returned), or ends once with no repetition (favours a stall the CPU cannot report on).
+- **The two kernel changes, both inside the existing reservation -- no new RAM.**
+  [`lockup-detect.cfg`](../../../meta-wisekiosk/recipes-kernel/linux/files/lockup-detect.cfg)'s
+  sibling: `CONFIG_PSTORE_FTRACE=y`
+  ([`pstore-ftrace.cfg`](../../../meta-wisekiosk/recipes-kernel/linux/files/pstore-ftrace.cfg))
+  plus a small patch
+  ([`0001-pstore-ram-default-ftrace-zone.patch`](../../../meta-wisekiosk/recipes-kernel/linux/files/0001-pstore-ram-default-ftrace-zone.patch))
+  defaulting `fs/pstore/ram.c`'s `ftrace-size` to 64 KiB when the device tree gives none -- the rpi
+  ramoops overlay has no `ftrace-size` property and `config.txt` is not OTA-updatable, so the zone
+  has to come from kernel code, not a downstream layer or a runtime write. Device-verified on
+  bench after the bootstrap install below: `ftrace_size=65536`, `record_size=32768` and
+  `console_size=131072` (both unchanged), `dmesg: ramoops: using 0x40000@0xb000000` (the same
+  256 KiB total), and `/sys/kernel/debug/pstore/record_ftrace` exists, reading `0` (disarmed by
+  default). The one disarmed regression: `dmesg` records go from 4 to 2 per boot (still holds one
+  oops plus one panic in the board's one measured incident class).
+- **Decisions (owner, settled, not reopened):** 64 KiB zone (Q1); the ~310-function production
+  filter in [`ftrace-filter.txt`](ftrace-filter.txt), including the SDIO/brcmfmac stack (Q2);
+  delete only `ftrace-ramoops-0`, only after a byte-exact sha256-verified copy, never another
+  pstore record (Q3); measure the armed cost and report the numbers, no verdict (Q4); the config
+  and patch stay in the image only if the disarmed check (below) shows no cost, per the batch-8
+  ruling (Q5); the sysrq panic-seed suffices for the capture-survives-a-reset half, no LKDTM
+  module (Q6); the `bcm2835.c` PIO-loop noinline-marker question is deferred (Q7); pre-commit cap
+  114 armed installs, stop at first reset/panic -- zero in 114 is recorded as "tracing may
+  suppress the fault," not as evidence of absence (Q8); bench only, deploy only after any unread
+  reset is read, re-seed the dmesg manifest after deployment (Q9).
+- **Bootstrap install.** One `bench test` on this commit, outside `loop10.sh` and not counted as
+  one of its runs -- needed to get the ftrace-capable kernel onto bench before anything else.
+  [`batch10-bootstrap.sh`](batch10-bootstrap.sh) -- ONE-OFF, committed here. Passed clean
+  (`records/20261103T031031Z`). This is also the one disarmed install C0 measures (no ftrace
+  filter set, no `record_ftrace` write): copy time to 2.06M sectors = **128.5 s**, against
+  `loop9c`'s healthy 111.9-150.3 s (n = 15) -- inside range.
+- **C0, disarmed perf check.** Three `just bootprofile` passes
+  ([`batch8-bootprofile-3x.sh`](batch8-bootprofile-3x.sh), reused as-is), same per-run figures as
+  batches 8/9's checks:
+
+  | run | record | wall (s) | busy% | idle% | iowait% | headroom (s) | run queue max/mean |
+  |---|---|---|---|---|---|---|---|
+  | 1 | `records/20261103T031927Z` | 53.5 | 75.2 | 18.53 | 6.24 | 13.20 | 17 / 3.32 |
+  | 2 | `records/20261103T032244Z` | 53.5 | 69.2 | 24.61 | 6.15 | 16.46 | 16 / 2.98 |
+  | 3 | `records/20261103T032601Z` | 53.5 | 70.3 | 23.38 | 6.34 | 15.88 | 17 / 3.27 |
+
+  Mean busy% 71.6 (range 69.2-75.2) against the batch-8 baseline's 72.1 (68.6-74.2) and the
+  batch-8 post-detector check's 72.3 (71.8-73.0); mean headroom 15.18 s (range 13.20-16.46 s)
+  against 14.88 s (13.82-16.77 s) and 14.79 s (14.37-15.02 s). All three checks overlap -- reported
+  as numbers, no verdict on whether a difference is meaningful (Q4/Q5).
+- **Result:** pending (the ftrace seed, the armed-cost measurement and `loop10.sh` follow).
 
 ## Configuration under test
 
