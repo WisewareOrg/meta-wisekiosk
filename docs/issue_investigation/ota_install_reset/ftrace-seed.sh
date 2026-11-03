@@ -79,14 +79,21 @@ fi
 echo "== setting the filter ==" | tee -a "$outdir/LOG"
 # shellcheck disable=SC2016
 "${ssh[@]}" ': > /sys/kernel/debug/tracing/set_ftrace_filter'
-while IFS= read -r glob; do
+# Reads $filter_file on fd 3, not stdin: a `done < file` loop with an ssh
+# call inside its body has every such call inherit the loop's own
+# redirected stdin and consume the rest of the file as its own input, so
+# `read` sees EOF after the first line and every glob past the first is
+# silently never written. Found by hand-reproducing this exact loop
+# against the board (count stalled at 166, one glob's worth, instead of
+# growing to 311); confirmed fixed by moving the file read to fd 3.
+while IFS= read -r glob <&3; do
     [ -n "$glob" ] || continue
     # shellcheck disable=SC2029
     "${ssh[@]}" "echo '$glob' >> /sys/kernel/debug/tracing/set_ftrace_filter" || {
         echo "VOID: filter write failed for: $glob" >&2
         exit 1
     }
-done < "$filter_file"
+done 3< "$filter_file"
 for name in $seed_names; do
     # shellcheck disable=SC2029
     "${ssh[@]}" "echo '$name' >> /sys/kernel/debug/tracing/set_ftrace_filter" || {
