@@ -869,8 +869,33 @@ capture mechanism.
   batch-8 post-detector check's 72.3 (71.8-73.0); mean headroom 15.18 s (range 13.20-16.46 s)
   against 14.88 s (13.82-16.77 s) and 14.79 s (14.37-15.02 s). All three checks overlap -- reported
   as numbers, no verdict on whether a difference is meaningful (Q4/Q5).
-- **Result:** pending the armed-cost measurement and `loop10.sh` (next). The ftrace seed below
-  is done, and passed.
+- **C1, per-record cost.** [`ftrace-c1.sh`](ftrace-c1.sh) -- ONE-OFF, committed here. No install,
+  no reset: filter `read_zero write_null`, `time dd if=/dev/zero of=/dev/null bs=1
+  count=1000000`, disarmed/armed alternating, 3 each.
+
+  | run | armed | real (s) |
+  |---|---|---|
+  | 1 | no | 5.23 |
+  | 1 | yes | 7.63 |
+  | 2 | no | 4.43 |
+  | 2 | yes | 6.99 |
+  | 3 | no | 5.39 |
+  | 3 | yes | 7.08 |
+
+  Mean disarmed 5.02 s, mean armed 7.23 s; Δt = 2.22 s / 2e6 records ≈ **1.11 µs/record**, the same
+  order as the spec's 0.5-1 µs estimate (sec 3). Numbers only, no verdict (Q4).
+- **C2/C3, rate and perturbation: abandoned, owner's call.** [`ftrace-c2c3.sh`](ftrace-c2c3.sh) --
+  ONE-OFF, committed here for the record, but its one armed-install attempt never reached the
+  board: `tests/host_suite`'s reproducibility gate refused on this session's own uncommitted
+  `ftrace-c1.sh`/`ftrace-c2c3.sh` (`records/20261103T045929Z`, `?? ftrace-c1.sh`/`?? ftrace-c2c3.sh`
+  in the gate's own refusal text) -- a self-inflicted void, not a board event; nothing was
+  installed, the board never rebooted. Disarmed and confirmed clean by hand afterward
+  (`record_ftrace=0`, `function_profile_enabled=0`, filter cleared). Owner decided not to retry
+  the separate measurement: the armed cost is instead read from `loop10.sh`'s own runs (its
+  `metrics.py` install windows against `loop9c`'s, and its `[stats]` CPU, Q4) rather than a
+  dedicated side measurement.
+- **Result:** C0 and C1 show no measurable disarmed cost and a per-record cost in the estimated
+  range. `loop10.sh` (next) carries the armed-perturbation question into its own runs.
 
 ### pstore ftrace detection seed
 
