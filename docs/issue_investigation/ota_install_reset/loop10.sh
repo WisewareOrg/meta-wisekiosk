@@ -150,16 +150,26 @@ panic_recorded() {
 # (already copied there by save_pstore), sha256-verify it against the
 # board, then delete only that file. DIR/pstore must already be
 # populated by save_pstore; this never re-copies.
+#
+# save_pstore always unmounts pstore before returning, so the sha256 has
+# to be read inside a fresh mount of its own -- not a second call against
+# an already-unmounted /sys/fs/pstore, which is what the first version of
+# this function did (sha_remote came back empty every time, read as "not
+# byte-exact" and voiding every run after the first). Mounts read-write
+# once, since a match deletes in the same mount; ftrace-seed.sh avoids
+# this by reading the sha inline, in the single mount save_pstore already
+# holds open, before it unmounts.
 delete_ftrace_ramoops() {
     local dir=$1 sha_local sha_remote
     [ -f "$dir/pstore/ftrace-ramoops-0" ] || return 0
     sha_local=$(sha256sum "$dir/pstore/ftrace-ramoops-0" | cut -d' ' -f1)
+    "${ssh[@]}" "$bench_host" 'mount -t pstore pstore /sys/fs/pstore'
     sha_remote=$("${ssh[@]}" "$bench_host" 'sha256sum /sys/fs/pstore/ftrace-ramoops-0 2>/dev/null' | cut -d' ' -f1)
     if [ -z "$sha_remote" ] || [ "$sha_remote" != "$sha_local" ]; then
+        "${ssh[@]}" "$bench_host" 'umount /sys/fs/pstore' || true
         echo "loop10: ftrace-ramoops-0 copy is not byte-exact against the board -- refusing to delete it" >&2
         return 1
     fi
-    "${ssh[@]}" "$bench_host" 'mount -t pstore pstore /sys/fs/pstore'
     "${ssh[@]}" "$bench_host" 'rm -f /sys/fs/pstore/ftrace-ramoops-0'
     "${ssh[@]}" "$bench_host" 'umount /sys/fs/pstore'
 }
