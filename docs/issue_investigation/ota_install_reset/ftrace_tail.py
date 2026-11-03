@@ -20,8 +20,16 @@ classification input):
 import sys
 import re
 
+# The func field (group 5) is followed by an optional " [module]" tag when
+# it comes from a loadable module (e.g. brcmfmac) -- found by hand against
+# real data: the unqualified pattern silently dropped 567 of 4095 lines
+# (every brcmf_sdio* record), which also masked ts-contiguity and marker
+# checks that read the (wrongly shortened) filtered sequence. The parent
+# field's own optional module tag, after its +offset/size, never needs
+# handling here: \S+ already stops before that trailing space, and
+# parent_func() only wants the part before "+".
 LINE = re.compile(
-    r"CPU:(\d+)\s+ts:(\d+)\s+([0-9a-f]+)\s+([0-9a-f]+)\s+(\S+)\s+<-\s+(\S+)"
+    r"CPU:(\d+)\s+ts:(\d+)\s+([0-9a-f]+)\s+([0-9a-f]+)\s+(\S+)(?:\s+\[\S+\])?\s+<-\s+(\S+)"
 )
 
 CHAIN = [

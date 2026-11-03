@@ -124,7 +124,16 @@ if [ "$record_ftrace_readback" != "1" ]; then
     exit 1
 fi
 
-sleep 10
+# A devkmsg_write call during the window, so the segment has >=1 of it
+# (spec check 4) -- this seed arms no heartbeat of its own (that is
+# loop10.sh's job, not this one-off's), so without this nothing ever
+# calls devkmsg_write at all. Found missing on the first real run (every
+# other check passed; this one didn't, because the file had zero
+# devkmsg_write records).
+for _ in 1 2 3; do
+    "${ssh[@]}" 'echo "<5>ftrace-seed heartbeat" > /dev/kmsg'
+    sleep 3
+done
 
 echo "== triggering sysrq crash ==" | tee -a "$outdir/LOG"
 "${ssh[@]}" 'echo c > /proc/sysrq-trigger' > /dev/null 2>&1 || true
