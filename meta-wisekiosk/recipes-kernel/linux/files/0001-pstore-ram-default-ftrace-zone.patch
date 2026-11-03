@@ -1,0 +1,23 @@
+Subject: [PATCH] pstore/ram: default a 64 KiB ftrace zone when DT has none
+
+The Raspberry Pi ramoops overlay has no ftrace-size parameter and its
+config.txt is not OTA-updatable, so CONFIG_PSTORE_FTRACE gets no zone.
+With PSTORE_FTRACE built in, default the zone to 64 KiB inside the
+existing reservation. A DT ftrace-size still wins; without
+PSTORE_FTRACE the default stays 0.
+
+Upstream-Status: Inappropriate [board-specific diagnostic]
+
+--- a/fs/pstore/ram.c
++++ b/fs/pstore/ram.c
+@@ -689,7 +689,9 @@ static int ramoops_parse_dt(struct platform_device *pdev,
+ 	parse_u32("mem-type", pdata->mem_type, pdata->mem_type);
+ 	parse_u32("record-size", pdata->record_size, 0);
+ 	parse_u32("console-size", pdata->console_size, 0);
+-	parse_u32("ftrace-size", pdata->ftrace_size, 0);
++	/* No ftrace-size in DT: give PSTORE_FTRACE a zone inside the reservation. */
++	parse_u32("ftrace-size", pdata->ftrace_size,
++		  IS_ENABLED(CONFIG_PSTORE_FTRACE) ? SZ_64K : 0);
+ 	parse_u32("pmsg-size", pdata->pmsg_size, 0);
+ 	parse_u32("ecc-size", pdata->ecc_info.ecc_size, 0);
+ 	parse_u32("flags", pdata->flags, 0);
