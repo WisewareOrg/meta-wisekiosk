@@ -51,6 +51,7 @@ capture mechanism.
 | Batch 9, attempt 3, run 17 | bench · Pi Zero W | `3bd3e8a9fc545ccdd6fc6ef04e04f0646634bc3a` | `loop9c.sh` — durable | Reset: stop-to-reset window ≥11.4 s vs. the detector's 3.55 s worst case -- rules out an interrupts-on lockup strongly and unconditionally (detector confirmed to fire, below) |
 | Soft-lockup detection seed | bench · Pi Zero W | `3ff13a8b272d6c447de0feb59a3acdbb94e48ca9` | `softlockup-seed.sh` — one-off | Pass: `chrt -f 99` busy loop with the RT throttle and fair server disabled trips the detector -- `dmesg-ramoops-0` holds the soft-lockup `BUG:` and panic |
 | Batch 10 bootstrap | bench · Pi Zero W | `144ec83047eefd0487ad6a9d50f984a4e92fceaf` | `batch10-bootstrap.sh` — one-off | Clean install; puts the pstore-ftrace kernel on bench ahead of `loop10.sh`; also the C0 disarmed-copy-time data point |
+| pstore ftrace detection seed | bench · Pi Zero W | `fb7312522545e3edec7ad4d0a122b1a337c19540` | `ftrace-seed.sh` — one-off | Pass, all 6 checks: `echo c > /proc/sysrq-trigger` lands the full sysrq chain in `ftrace-ramoops-0`, ending `console_verbose <- panic`; proves the detector's own capture, not just panic-to-pstore |
 
 ### Run 1 — bench, commit `fee57a946f4b256d1cd3999daf83a6b048f5fcbb`
 
@@ -868,7 +869,54 @@ capture mechanism.
   batch-8 post-detector check's 72.3 (71.8-73.0); mean headroom 15.18 s (range 13.20-16.46 s)
   against 14.88 s (13.82-16.77 s) and 14.79 s (14.37-15.02 s). All three checks overlap -- reported
   as numbers, no verdict on whether a difference is meaningful (Q4/Q5).
-- **Result:** pending (the ftrace seed, the armed-cost measurement and `loop10.sh` follow).
+- **Result:** pending the armed-cost measurement and `loop10.sh` (next). The ftrace seed below
+  is done, and passed.
+
+### pstore ftrace detection seed
+
+- **Board:** bench, Raspberry Pi Zero W. No address in this record.
+- **Purpose.** Proves the detector itself -- the zone, the filter, IRQs-masked capture
+  (`console_verbose` is entered after `panic()`'s `local_irq_disable()`), and survival of the
+  watchdog-driven warm reset -- via the sysrq panic chain (`write_sysrq_trigger` ->
+  `__handle_sysrq` -> `sysrq_handle_crash` -> `panic` -> `console_verbose`).
+- **Procedure:** [`ftrace-seed.sh`](ftrace-seed.sh) -- ONE-OFF, committed here, cloned from
+  `sysrq-seed.sh` (same lock, boot_id wait, pstore save), implementing the pstore-ftrace spec's
+  preconditions-through-arm-and-run procedure (§4). Preconditions (`ftrace_size=65536`,
+  `record_ftrace` exists) void the run, not fail, if missing. Writes
+  [`ftrace-filter.txt`](ftrace-filter.txt)'s production filter plus five
+  sysrq/panic names, asserts every anchor landed, saves the readback. Arms `record_ftrace`,
+  waits, then in one remote command (no gap) writes a `devkmsg` line and triggers
+  `echo c > /proc/sysrq-trigger`.
+- **Two bugs found and fixed before trusting a result, neither a finding:**
+  - [`ftrace_tail.py`](ftrace_tail.py)'s line regex required the func field to be a single
+    token, but a module function's line is `funcname [module] <- ...` -- every `brcmf_sdio*`
+    record (567 of 4095 lines on the first real run) silently failed to parse and was dropped,
+    which is what made the `ts`-contiguity check fail (the raw file's `ts` values are genuinely
+    contiguous, confirmed independently with `awk` over the unparsed text). Fixed the regex;
+    re-confirmed against both the real file (4095 of 4095 lines now parse) and the committed
+    synthetic fixtures (same results as before the fix).
+  - `ftrace-seed.sh` wrote to `/dev/kmsg` during its wait window, 3-9 s before the crash -- too
+    early. The production filter traces 3-15k calls/s (spec §3), so the 4095-record ring covers
+    as little as ~0.3-1.5 s before the end; a write from seconds earlier was long overwritten by
+    crash time (confirmed: zero `devkmsg_write` records twice, despite the writes succeeding and
+    the name being in the filter). Fixed by writing `devkmsg` in the same remote command as the
+    trigger, with no gap.
+- **Result: pass, all six checks** (pstore-ftrace spec §4.6): present and non-empty; final record
+  `console_verbose <- panic`; the full sysrq chain in the final 30 records, each parent-linked;
+  `bcm2835_time_interrupt` and `devkmsg_write` both present; `ts` rises by exactly 1 across the
+  segment; the matching `dmesg-ramoops-0` holds `sysrq triggered crash`. `PM_RSTS` read `0x20`;
+  `uname -v` unchanged before/after (symbolization valid). The last 10 records are in
+  [`ftrace-seed-ftrace-ramoops.log`](ftrace-seed-ftrace-ramoops.log), below.
+- **`ftrace-ramoops-0` deleted per Q3** -- sha256 verified byte-exact against the board
+  (`53700240fae72a5d603dcb4ad4028f9625bb56ac81f20f78f9b3f958ac1531b6`) before deletion;
+  `console-ramoops-0` and `dmesg-ramoops-0` confirmed untouched afterward. This is the only
+  pstore file this investigation ever deletes, and only after this verification.
+- **Raw capture:** [`ftrace-seed-ftrace-ramoops.log`](ftrace-seed-ftrace-ramoops.log) -- the last
+  15 records (two IRQ cycles, the devkmsg write, the full chain), 4095 lines / 376363 bytes
+  total, same sha256 as above; no address, hostname or MAC appears in ftrace records (function
+  names and addresses only), so nothing is redacted. The full 4095-line copy is not committed.
+  [`ftrace-seed-filter-readback.txt`](ftrace-seed-filter-readback.txt) -- the 316-entry resolved
+  filter this run used, read back after arming.
 
 ## Configuration under test
 
