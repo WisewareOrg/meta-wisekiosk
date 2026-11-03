@@ -124,19 +124,19 @@ if [ "$record_ftrace_readback" != "1" ]; then
     exit 1
 fi
 
-# A devkmsg_write call during the window, so the segment has >=1 of it
-# (spec check 4) -- this seed arms no heartbeat of its own (that is
-# loop10.sh's job, not this one-off's), so without this nothing ever
-# calls devkmsg_write at all. Found missing on the first real run (every
-# other check passed; this one didn't, because the file had zero
-# devkmsg_write records).
-for _ in 1 2 3; do
-    "${ssh[@]}" 'echo "<5>ftrace-seed heartbeat" > /dev/kmsg'
-    sleep 3
-done
+sleep 10
 
-echo "== triggering sysrq crash ==" | tee -a "$outdir/LOG"
-"${ssh[@]}" 'echo c > /proc/sysrq-trigger' > /dev/null 2>&1 || true
+echo "== triggering sysrq crash (with a devkmsg_write immediately before it) ==" | tee -a "$outdir/LOG"
+# The devkmsg_write call and the crash trigger are one remote command, not
+# two, so there is no gap between them: the production filter traces
+# 3-15k calls/s (spec sec 3), so the 4095-record ring covers as little as
+# ~0.3-1.5s before the end -- a devkmsg_write written seconds earlier
+# (tried first: three writes, 3s apart, during the wait) is long gone by
+# the time of the crash. Found by checking two runs in a row with zero
+# devkmsg_write records despite the writes succeeding (confirmed: exit 0,
+# and present in the filter), then re-deriving the ring's own real-time
+# span from the spec's own rate estimate.
+"${ssh[@]}" 'echo "<5>ftrace-seed heartbeat" > /dev/kmsg; echo c > /proc/sysrq-trigger' > /dev/null 2>&1 || true
 
 echo "== waiting for the board to come back ==" | tee -a "$outdir/LOG"
 ok=0
