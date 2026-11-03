@@ -13,11 +13,11 @@ wheels = [
 
 [[package]]
 name = "certifi"
-version = "2026.10.18"
+version = "2026.10.23"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/7e/eb/a2aa1ac3ea30dd3f30ca57f40232138b6b0040719316ecb85daf61167771/certifi-2026.10.18.tar.gz", hash = "sha256:b9995d97b64d0431a5af837d8ca8cd6238104d1f319f04bd93ea43124d6c861e", size = 135227, upload-time = "2026-10-18T16:21:07.655Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fd/11/b524cbd9bbdaca58608e4cf4053fd463417549e1959fa8d3aa18319f9555/certifi-2026.10.23.tar.gz", hash = "sha256:a9895e6e2758b371e0545e321a3a8fd1fcfd9829ada8824a936dfb16aaaf36cd", size = 136225, upload-time = "2026-10-23T11:36:16.478Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/08/ba/95dd616042484f7c83a06974388b37b837732740ee70bc5dc715b5fcd55a/certifi-2026.10.18-py3-none-any.whl", hash = "sha256:73191c47aaa79da394e8fee2dbc2ec827432cab56311122c9e47abf79e390f62", size = 134093, upload-time = "2026-10-18T16:21:06.276Z" },
+    { url = "https://files.pythonhosted.org/packages/32/d1/a3652fe2c19134d0d15922177821d863cbd7e842d53a21bbe7e8e3a1b5ac/certifi-2026.10.23-py3-none-any.whl", hash = "sha256:e9b54de76e530bb6cf0ccd036787103acb58fd42ba930ea8bf948ddbaa2f61d1", size = 135082, upload-time = "2026-10-23T11:36:14.763Z" },
 ]
 
 [[package]]
@@ -185,11 +185,11 @@ wheels = [
 
 [[package]]
 name = "markdown"
-version = "3.11.1"
+version = "3.11.2"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/4e/d4/f3f4b6ed70b7c7608fa026ff3bbe59ace9b1ebca43d8ae4886c87c95e81d/markdown-3.11.1.tar.gz", hash = "sha256:496f4f80f9ebd3395a04c8ec9595c40bbe8ec19e9c67d21fe071a1643e876606", size = 492927, upload-time = "2026-10-13T19:29:13.343Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f4/32/0b4d0297064244f04af4331b65de16237cc3cce07474171ee14222a28981/markdown-3.11.2.tar.gz", hash = "sha256:87bf5d90f2d2882e2c02fcda182c2800456b985bff38913867c49706481514b0", size = 491445, upload-time = "2026-10-19T19:41:42.687Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/75/e6/1c7b7a48aa3f2c2a5d3c71a6c9c90a6c8c2903e5c73663b5f5e38f87257f/markdown-3.11.1-py3-none-any.whl", hash = "sha256:f1fa378ba5d682900c9ecb55ccceacca936016dda7c3b27097e8ae03ff78feb5", size = 116774, upload-time = "2026-10-13T19:29:12.066Z" },
+    { url = "https://files.pythonhosted.org/packages/fe/66/bcab3b677b71ad286b4e607e3427499537c76e13ad2e22584ba7a7d9882c/markdown-3.11.2-py3-none-any.whl", hash = "sha256:f80390747a2a0ff2ba54da074ce4f862f72a6685f608cd2637b646a6d83993f5", size = 114266, upload-time = "2026-10-19T19:41:41.244Z" },
 ]
 
 [[package]]
@@ -225,17 +225,20 @@ wheels = [
 
 [[package]]
 name = "plantuml-markdown"
-version = "3.11.3"
+version = "3.11.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "certifi" },
+    { name = "charset-normalizer" },
+    { name = "idna" },
     { name = "markdown" },
     { name = "requests" },
     { name = "six" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c6/84/b895ccc22affc8b75c7f33aae67eb3575b58efe7d696e31b01298fefc27b/plantuml_markdown-3.11.3.tar.gz", hash = "sha256:ffb78b5bf9ffc3b7b5bc04893972b673c8ee96f1407f3ea9bc48003bdfa85302", size = 32631, upload-time = "2026-09-26T06:23:26.301Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/49/05/190feb623b10a80f16cb7ee3027659cdd9906288952d260d2f5afcc5988f/plantuml_markdown-3.11.5.tar.gz", hash = "sha256:a7f5ddec5d2dce043837a06ab36ed4278ac6fb34cd50df8a571d1c35615c0714", size = 32839, upload-time = "2026-10-26T19:32:03.305Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8d/6f/b607e6881420b2f6883a02be95509aded9ad1c9ce55a0c31e472ca373742/plantuml_markdown-3.11.3-py3-none-any.whl", hash = "sha256:fa83f4ed94c70d5ec0a06d015058b4bdfcb923535e820af4e20fbe7c493d3cf2", size = 20209, upload-time = "2026-09-26T06:23:24.866Z" },
+    { url = "https://files.pythonhosted.org/packages/6f/89/ffab4c5d7bc2d8409a7fa9411050e0d729665c3ec715c08705b7438f3e31/plantuml_markdown-3.11.5-py3-none-any.whl", hash = "sha256:935c34253bad6fe49910305f2ec1a8862f97c53a6c3800b95ec956f704850ee4", size = 20209, upload-time = "2026-10-26T19:32:01.681Z" },
 ]
 
 [[package]]
