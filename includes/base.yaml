@@ -49,7 +49,7 @@ repos:
 
   poky:
     url: "https://git.yoctoproject.org/git/poky"
-    commit: b6ae714a1d1bfae8384654a13da15996cac64712
+    commit: 2a6862e7ed4cb2f030f6341458df61282bf8a5ca
     path: "sources/poky"
     layers:
       meta:
