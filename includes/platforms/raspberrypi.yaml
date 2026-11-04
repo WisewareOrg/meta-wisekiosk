@@ -18,7 +18,7 @@ repos:
 
   meta-rauc-community:
     url: "https://github.com/rauc/meta-rauc-community.git"
-    commit: 222c61275054974cdbd09bd5faa2b7a37ddbd840
+    commit: f037f3a81ef64d6ef99218b7252a1736c3867a03
     path: "sources/meta-rauc-community"
     branch: scarthgap
     layers:
