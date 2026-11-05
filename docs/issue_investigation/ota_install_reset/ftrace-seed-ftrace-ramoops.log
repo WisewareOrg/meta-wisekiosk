@@ -1,0 +1,27 @@
+The pstore-ftrace seed's final `ftrace-ramoops-0` (the detector's own capture,
+armed under the production filter plus the five sysrq/panic names, triggered by
+`echo c > /proc/sysrq-trigger` on the batch-10 ftrace kernel): its last 15 records
+(two IRQ cycles, the devkmsg_write written immediately before the trigger so it
+survives the ring, then the full sysrq chain through to the panic). 4095 lines /
+376363 bytes total (the whole ring, since the seed ran long enough to wrap it);
+sha256 `53700240fae72a5d603dcb4ad4028f9625bb56ac81f20f78f9b3f958ac1531b6`,
+verified byte-exact against the board before the file was deleted (the only pstore
+file this investigation ever deletes, per Q3, and only after this verification).
+No address, hostname or MAC appears in ftrace records (function names and
+addresses only), so nothing is redacted. The full 4095-line copy is not committed.
+
+CPU:0 ts:17343 c00285a0  c0b27190  irq_exit <- call_with_stack+0x18/0x20
+CPU:0 ts:17344 bf1f0d98  c00a4f50  brcmf_sdio_clkctl [brcmfmac] <- call_timer_fn+0x30/0x100
+CPU:0 ts:17345 bf1f7840  bf1f5354  mmc_submit_one [brcmfmac] <- brcmf_sdio_dataworker+0x1b8c/0x2b2c [brcmfmac]
+CPU:0 ts:17346 bf1f77f0  bf1f535c  brcmf_sdiod_skbuff_read [brcmfmac] <- brcmf_sdio_dataworker+0x1b94/0x2b2c [brcmfmac]
+CPU:0 ts:17347 bf1f786c  bf1f5340  mmc_submit_one [brcmfmac] <- brcmf_sdio_dataworker+0x1b78/0x2b2c [brcmfmac]
+CPU:0 ts:17348 c0009340  c0b60f68  bcm2835_handle_irq <- generic_handle_arch_irq+0x28/0x3c
+CPU:0 ts:17349 c063a3b4  c00883dc  armctrl_mask_irq <- handle_level_irq+0x120/0x188
+CPU:0 ts:17350 c063a150  c008842c  armctrl_unmask_irq <- handle_level_irq+0x170/0x188
+CPU:0 ts:17351 c00285a0  c0b27190  irq_exit <- call_with_stack+0x18/0x20
+CPU:0 ts:17352 c007f1e4  c02731e0  devkmsg_write <- vfs_write+0x254/0x420
+CPU:0 ts:17353 c06af21c  c02fce2c  write_sysrq_trigger <- proc_reg_write+0xa8/0xf0
+CPU:0 ts:17354 c06aea94  c06af29c  __handle_sysrq <- write_sysrq_trigger+0x88/0xa0
+CPU:0 ts:17355 c06ae4f4  c06aeb58  sysrq_handle_crash <- __handle_sysrq+0xcc/0x184
+CPU:0 ts:17356 c0b5554c  c06ae500  panic <- sysrq_handle_crash+0x14/0x18
+CPU:0 ts:17357 c007b828  c0b555c8  console_verbose <- panic+0x8c/0x330

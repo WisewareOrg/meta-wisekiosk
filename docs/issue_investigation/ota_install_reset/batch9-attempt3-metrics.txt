@@ -1,0 +1,16 @@
+record=records/20261102T181851Z window=237.142088 max_stats_gap=1.842198 max_hb_gap=2.449829 min_wdt=7 non_s_p1=[('R', '0'), ('R', 'do_epoll_wait'), ('R', 'mmc_blk_rw_wait')] p1_d_seconds=0.0
+record=records/20261102T182927Z window=198.434039 max_stats_gap=1.511541 max_hb_gap=1.637959 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261102T183907Z window=209.561122 max_stats_gap=4.604796 max_hb_gap=4.693075 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261102T184929Z window=191.443094 max_stats_gap=5.467093 max_hb_gap=5.754352 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261102T185907Z window=198.758543 max_stats_gap=7.229228 max_hb_gap=7.483348 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261102T190830Z window=195.493426 max_stats_gap=2.142779 max_hb_gap=2.142779 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261102T191820Z window=195.235344 max_stats_gap=2.421378 max_hb_gap=2.421499 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261102T192812Z window=210.414674 max_stats_gap=2.437565 max_hb_gap=3.12507 min_wdt=7 non_s_p1=[('R', '0'), ('D', '__ext4_find_entry')] p1_d_seconds=2.7
+record=records/20261102T193757Z window=200.56957 max_stats_gap=4.603785 max_hb_gap=4.662451 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261102T194737Z window=204.660697 max_stats_gap=6.788866 max_hb_gap=6.844681 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261102T195741Z window=199.918234 max_stats_gap=2.496576 max_hb_gap=2.496647 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261102T200701Z window=192.551054 max_stats_gap=2.024916 max_hb_gap=2.330343 min_wdt=7 non_s_p1=[('D', '0')] p1_d_seconds=0.0
+record=records/20261102T201631Z window=204.029896 max_stats_gap=5.454847 max_hb_gap=5.550546 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261102T202745Z window=207.352241 max_stats_gap=1.880957 max_hb_gap=2.066479 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261102T203814Z window=218.409618 max_stats_gap=3.78218 max_hb_gap=3.78218 min_wdt=7 non_s_p1=[('R', '0'), ('R', 'kernel_clone'), ('D', 'kernel_clone')] p1_d_seconds=1.4
+record=records/20261102T205017Z window=416.250946 max_stats_gap=6.418909 max_hb_gap=6.61695 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0

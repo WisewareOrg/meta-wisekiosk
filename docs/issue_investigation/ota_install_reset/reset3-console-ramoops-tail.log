@@ -1,0 +1,107 @@
+Reset 3's pstore `console-ramoops-0` (the boot that ended in the batch-3 run-35 reset): its
+head (boot banner, kernel command line) and its last 80 lines (the mmc_rescan hung-task
+episode and the heartbeat up to the stop). 861 lines, 91236 bytes total; md5
+5a575b6fc3ef10b5b90b0f49ba637f0f -- matches the full record described in reset3-findings.md.
+The MAC on the command line is redacted; the full 861-line copy is not committed. Mounted
+read-only (`mount -t pstore -o ro pstore /sys/fs/pstore`), copied, unmounted; nothing in pstore
+was deleted.
+
+[    0.000000] Booting Linux on physical CPU 0x0
+[    0.000000] Linux version 6.12.93 (oe-user@oe-host) (arm-poky-linux-gnueabi-gcc (GCC) 13.5.0, GNU ld (GNU Binutils) 2.42.0.20240723) #1 Fri Jun 12 11:45:31 UTC 2026
+[    0.000000] CPU: ARMv6-compatible processor [410fb767] revision 7 (ARMv7), cr=00c5387d
+[    0.000000] CPU: PIPT / VIPT nonaliasing data cache, VIPT nonaliasing instruction cache
+[    0.000000] OF: fdt: Machine model: Raspberry Pi Zero W Rev 1.1
+[    0.000000] random: crng init done
+[    0.000000] Memory policy: Data cache writeback
+[    0.000000] Reserved memory: created CMA memory pool at 0x0bc00000, size 256 MiB
+[    0.000000] OF: reserved mem: initialized node linux,cma, compatible id shared-dma-pool
+[    0.000000] OF: reserved mem: 0x0bc00000..0x1bbfffff (262144 KiB) map reusable linux,cma
+[    0.000000] Zone ranges:
+[    0.000000]   Normal   [mem 0x0000000000000000-0x000000001bffffff]
+[    0.000000] Movable zone start for each node
+[    0.000000] Early memory node ranges
+[    0.000000]   node   0: [mem 0x0000000000000000-0x000000001bffffff]
+[    0.000000] Initmem setup node 0 [mem 0x0000000000000000-0x000000001bffffff]
+[    0.000000] OF: reserved mem: 0x0b000000..0x0b03ffff (256 KiB) map non-reusable ramoops@b000000
+[    0.000000] Kernel command line: coherent_pool=1M 8250.nr_uarts=1 snd_bcm2835.enable_headphones=0 cgroup_disable=memory clk_ignore_unused  smsc95xx.macaddr=<BOARD_MAC> vc_mem.mem_base=0x1ec00000 vc_mem.mem_size=0x20000000  dwc_otg.lpm_enable=0 console=tty1 root=/dev/mmcblk0p2 rootfstype=ext4 rootwait  net.ifnames=0 panic=10 root=/dev/mmcblk0p3 rauc.slot=B
+...
+[  486.440267] hb245 486.19 MemFree:46744 Dirty:8320 Writeback:41100 load=5.03 2.95 1.33 mmc=5195 626 634830 118142 4697 401715 3428300 7256943 0 119290 7375085 0 0 0 0 0 0 uv=0
+[  487.209761] INFO: task kworker/0:1:1967 blocked for more than 12 seconds.
+[  487.209865]       Not tainted 6.12.93 #1
+[  487.209897] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+[  487.209927] task:kworker/0:1     state:D stack:0     pid:1967  tgid:1967  ppid:2      flags:0x00200000
+[  487.209988] Workqueue: events_freezable mmc_rescan
+[  487.210054] Call trace: 
+[  487.210075]  __schedule from schedule+0x28/0x138
+[  487.210176]  schedule from __mmc_claim_host+0xdc/0x1d4
+[  487.210239]  __mmc_claim_host from mmc_sd_detect+0x1c/0x74
+[  487.210308]  mmc_sd_detect from mmc_rescan+0xa8/0x354
+[  487.210363]  mmc_rescan from process_one_work+0x134/0x340
+[  487.210431]  process_one_work from worker_thread+0x168/0x2f0
+[  487.210492]  worker_thread from kthread+0xc4/0xe4
+[  487.210558]  kthread from ret_from_fork+0x14/0x28
+[  487.210609] Exception stack(0xdcc15fb0 to 0xdcc15ff8)
+[  487.210650] 5fa0:                                     00000000 00000000 00000000 00000000
+[  487.210693] 5fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  487.210733] 5fe0: 00000000 00000000 00000000 00000000 00000013 00000000
+[  487.741326] hb245 487.46 MemFree:49340 Dirty:5320 Writeback:39664 load=5.03 2.95 1.33 mmc=5195 626 634830 118142 4746 405797 3463292 7357876 0 120420 7476019 0 0 0 0 0 0 uv=0
+[  489.001369] hb245 488.75 MemFree:50148 Dirty:9024 Writeback:35576 load=5.03 2.95 1.33 mmc=5195 626 634830 118142 4786 409862 3504252 7460708 0 121600 7578850 0 0 0 0 0 0 uv=0
+[  489.289676] INFO: task kworker/0:1:1967 blocked for more than 14 seconds.
+[  489.289774]       Not tainted 6.12.93 #1
+[  489.289807] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+[  489.289835] task:kworker/0:1     state:D stack:0     pid:1967  tgid:1967  ppid:2      flags:0x00200000
+[  489.289900] Workqueue: events_freezable mmc_rescan
+[  489.289967] Call trace: 
+[  489.289987]  __schedule from schedule+0x28/0x138
+[  489.290089]  schedule from __mmc_claim_host+0xdc/0x1d4
+[  489.290148]  __mmc_claim_host from mmc_sd_detect+0x1c/0x74
+[  489.290221]  mmc_sd_detect from mmc_rescan+0xa8/0x354
+[  489.290273]  mmc_rescan from process_one_work+0x134/0x340
+[  489.290344]  process_one_work from worker_thread+0x168/0x2f0
+[  489.290408]  worker_thread from kthread+0xc4/0xe4
+[  489.290473]  kthread from ret_from_fork+0x14/0x28
+[  489.290525] Exception stack(0xdcc15fb0 to 0xdcc15ff8)
+[  489.290565] 5fa0:                                     00000000 00000000 00000000 00000000
+[  489.290666] 5fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  489.290715] 5fe0: 00000000 00000000 00000000 00000000 00000013 00000000
+[  490.237777] hb245 490.01 MemFree:47716 Dirty:10740 Writeback:34048 load=5.03 2.95 1.33 mmc=5195 626 634830 118142 4822 413936 3541116 7553379 0 122660 7671522 0 0 0 0 0 0 uv=0
+[  491.371138] INFO: task kworker/0:1:1967 blocked for more than 16 seconds.
+[  491.371234]       Not tainted 6.12.93 #1
+[  491.371264] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+[  491.371293] task:kworker/0:1     state:D stack:0     pid:1967  tgid:1967  ppid:2      flags:0x00200000
+[  491.371350] Workqueue: events_freezable mmc_rescan
+[  491.371411] Call trace: 
+[  491.371430]  __schedule from schedule+0x28/0x138
+[  491.371521]  schedule from __mmc_claim_host+0xdc/0x1d4
+[  491.371576]  __mmc_claim_host from mmc_sd_detect+0x1c/0x74
+[  491.371639]  mmc_sd_detect from mmc_rescan+0xa8/0x354
+[  491.371693]  mmc_rescan from process_one_work+0x134/0x340
+[  491.371760]  process_one_work from worker_thread+0x168/0x2f0
+[  491.371815]  worker_thread from kthread+0xc4/0xe4
+[  491.371876]  kthread from ret_from_fork+0x14/0x28
+[  491.371924] Exception stack(0xdcc15fb0 to 0xdcc15ff8)
+[  491.371958] 5fa0:                                     00000000 00000000 00000000 00000000
+[  491.371993] 5fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  491.372026] 5fe0: 00000000 00000000 00000000 00000000 00000013 00000000
+[  491.450377] hb245 491.25 MemFree:56920 Dirty:8688 Writeback:37796 load=5.03 2.99 1.35 mmc=5195 626 634830 118142 4856 420032 3575932 7637451 0 123600 7755594 0 0 0 0 0 0 uv=0
+[  492.660645] hb245 492.45 MemFree:49992 Dirty:6052 Writeback:40532 load=5.03 2.99 1.35 mmc=5195 626 634830 118142 4917 424096 3609268 7896405 0 124620 8014547 0 0 0 0 0 0 uv=0
+[  493.449802] INFO: task kworker/0:1:1967 blocked for more than 18 seconds.
+[  493.449901]       Not tainted 6.12.93 #1
+[  493.449931] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+[  493.449957] task:kworker/0:1     state:D stack:0     pid:1967  tgid:1967  ppid:2      flags:0x00200000
+[  493.450018] Workqueue: events_freezable mmc_rescan
+[  493.450079] Call trace: 
+[  493.450098]  __schedule from schedule+0x28/0x138
+[  493.450189]  schedule from __mmc_claim_host+0xdc/0x1d4
+[  493.450256]  __mmc_claim_host from mmc_sd_detect+0x1c/0x74
+[  493.450315]  mmc_sd_detect from mmc_rescan+0xa8/0x354
+[  493.450362]  mmc_rescan from process_one_work+0x134/0x340
+[  493.450419]  process_one_work from worker_thread+0x168/0x2f0
+[  493.450495]  worker_thread from kthread+0xc4/0xe4
+[  493.450547]  kthread from ret_from_fork+0x14/0x28
+[  493.450590] Exception stack(0xdcc15fb0 to 0xdcc15ff8)
+[  493.450620] 5fa0:                                     00000000 00000000 00000000 00000000
+[  493.450653] 5fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  493.450683] 5fe0: 00000000 00000000 00000000 00000000 00000013 00000000
+[  493.847946] hb245 493.66 MemFree:46656 Dirty:8468 Writeback:36652 load=5.03 2.99 1.35 mmc=5195 626 634830 118142 4957 428176 3650228 7997684 0 125690 8115827 0 0 0 0 0 0 uv=0
+[  495.027273] hb245 494.87 MemFree:47116 Dirty:8300 Writeback:37168 load=5.03 2.99 1.35 mmc=5195 626 634830 118142 4988 432240 3681972 8079335 0 126710 8197477 0 0 0 0 0 0 uv=0

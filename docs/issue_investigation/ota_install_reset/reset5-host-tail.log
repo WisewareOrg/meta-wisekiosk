@@ -1,0 +1,27 @@
+Reset 5 -- bench, commit 8207d14bb4521043445fe44488985914e198411a, batch 7 run 65
+(records/20261101T090332Z). Host-stamped capture markers and each stream's last line, from the
+install item's "Captured stdout setup" / "Captured stderr setup" sections. Address redacted to
+<BENCH_ADDRESS>; hostname redacted to <BENCH_HOSTNAME>.
+
+[stderr, capture markers]
+2026-11-01T04:05:16.203960-0500 capture started
+2026-11-01T04:06:37.093228-0500 [journal] session ended
+2026-11-01T04:06:37.094871-0500 [stats] session ended
+2026-11-01T04:06:38.095400-0500 [kernel] session ended
+Read from remote host <BENCH_ADDRESS>: Connection reset by peer
+client_loop: send disconnect: Broken pipe
+2026-11-01T04:11:30.370854-0500 capture stopped
+error: recipe `kiosk-install` failed on line 235 with exit code 255
+
+[stdout, last line of each stream before the drop]
+04:06:29.114986 [journal] 2026-11-01T04:06:28.681102-05:00 <BENCH_HOSTNAME> unknown: hb245 433.42 MemFree:47164 Dirty:17644 Writeback:27716 load=3.24 1.92 0.93 mmc=5455 565 635358 72944 2340 135729 1303996 809177 0 54980 882122 0 0 0 0 0 0 uv=0 freq=900000 wdt=9 p1=S p1wchan=do_epoll_wait p1majflt=143
+04:06:30.068391 [stats]   MemFree:48900 Dirty:27552 Writeback:18288 load=3.24 1.92 0.93 mmc=5455 565 635358 72944 2390 140557 1343068 904153 0 56310 977098 0 0 0 0 0 0 uv=0
+04:06:30.382172 [kernel]  2026-11-01T04:06:30,118226-05:00 hb245 434.77 MemFree:46524 Dirty:31308 Writeback:15184 load=3.24 1.92 0.93 mmc=5455 565 635358 72944 2387 139169 1339996 898402 0 56260 971346 0 0 0 0 0 0 uv=0 freq=900000 wdt=7 p1=S p1wchan=do_epoll_wait p1majflt=143
+
+The [stats] sample was taken after [journal]'s last line but before [kernel]'s, and [kernel]'s
+last line (wdt=7, the healthy floor) is the true last sign of life -- the next heartbeat, due
+~1.4 s later, never arrived. Sessions dropped 7.0, 7.0 and 7.7 s after it, the same ServerAlive
+2/3 signature and ~1 s split as resets 2-4. Last rauc progress line: " 61% Copying image to
+rootfs.1" -- rauc's percentage does not track bytes; by mmc write-sector count this run had
+copied ~26% of the image, the earliest any of the five resets has died in the copy (80/84/90/99%
+for resets 2-4).

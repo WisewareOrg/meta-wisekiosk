@@ -1,0 +1,67 @@
+Reset 5's pstore `console-ramoops-0` (the boot that ended in the batch-7 run-65
+reset): its head (boot banner, kernel command line) and its last 40 lines (the
+heartbeat up to the stop). 560 lines, 75236 bytes total; md5
+45acb1a95645614d292bba75218b7f64 -- matches the full record described in
+reset5-findings.md. The MAC on the command line is redacted; the full 560-line copy
+is not committed. Mounted read-only (`mount -t pstore -o ro pstore /sys/fs/pstore`),
+copied, unmounted; nothing in pstore was deleted.
+
+[    0.000000] Booting Linux on physical CPU 0x0
+[    0.000000] Linux version 6.12.93 (oe-user@oe-host) (arm-poky-linux-gnueabi-gcc (GCC) 13.5.0, GNU ld (GNU Binutils) 2.42.0.20240723) #1 Fri Jun 12 11:45:31 UTC 2026
+[    0.000000] CPU: ARMv6-compatible processor [410fb767] revision 7 (ARMv7), cr=00c5387d
+[    0.000000] CPU: PIPT / VIPT nonaliasing data cache, VIPT nonaliasing instruction cache
+[    0.000000] OF: fdt: Machine model: Raspberry Pi Zero W Rev 1.1
+[    0.000000] random: crng init done
+[    0.000000] Memory policy: Data cache writeback
+[    0.000000] Reserved memory: created CMA memory pool at 0x0bc00000, size 256 MiB
+[    0.000000] OF: reserved mem: initialized node linux,cma, compatible id shared-dma-pool
+[    0.000000] OF: reserved mem: 0x0bc00000..0x1bbfffff (262144 KiB) map reusable linux,cma
+[    0.000000] Zone ranges:
+[    0.000000]   Normal   [mem 0x0000000000000000-0x000000001bffffff]
+[    0.000000] Movable zone start for each node
+[    0.000000] Early memory node ranges
+[    0.000000]   node   0: [mem 0x0000000000000000-0x000000001bffffff]
+[    0.000000] Initmem setup node 0 [mem 0x0000000000000000-0x000000001bffffff]
+[    0.000000] OF: reserved mem: 0x0b000000..0x0b03ffff (256 KiB) map non-reusable ramoops@b000000
+[    0.000000] Kernel command line: coherent_pool=1M 8250.nr_uarts=1 snd_bcm2835.enable_headphones=0 cgroup_disable=memory clk_ignore_unused  smsc95xx.macaddr=<BOARD_MAC> vc_mem.mem_base=0x1ec00000 vc_mem.mem_size=0x20000000  dwc_otg.lpm_enable=0 console=tty1 root=/dev/mmcblk0p2 rootfstype=ext4 rootwait  net.ifnames=0 panic=10 root=/dev/mmcblk0p2 rauc.slot=A
+...
+[  381.844724] hb245 381.44 MemFree:22556 Dirty:23624 Writeback:0 load=2.63 1.59 0.77 mmc=4647 559 431526 45810 1386 37157 561836 330551 0 23100 376361 0 0 0 0 0 0 uv=0 freq=900000 wdt=12 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  383.222657] hb245 382.86 MemFree:51208 Dirty:25928 Writeback:1540 load=2.63 1.59 0.77 mmc=4673 559 437990 46333 1415 39298 578236 331479 0 23800 377813 0 0 0 0 0 0 uv=0 freq=900000 wdt=11 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  384.644221] hb245 384.23 MemFree:44016 Dirty:21132 Writeback:1028 load=2.63 1.59 0.77 mmc=4692 559 442638 47243 1442 42602 603868 333895 0 24800 381139 0 0 0 0 0 0 uv=0 freq=900000 wdt=10 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  386.067165] hb245 385.69 MemFree:29880 Dirty:13696 Writeback:0 load=2.63 1.59 0.77 mmc=4713 559 448014 48494 1478 45287 627716 346000 0 25690 394494 0 0 0 0 0 0 uv=0 freq=900000 wdt=8 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  387.536447] hb245 387.10 MemFree:18460 Dirty:24128 Writeback:0 load=2.82 1.64 0.79 mmc=4755 559 458766 48988 1478 45287 627716 346000 0 26200 394988 0 0 0 0 0 0 uv=0 freq=900000 wdt=7 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  388.819424] hb245 388.57 MemFree:19756 Dirty:26948 Writeback:1028 load=2.82 1.64 0.79 mmc=4781 559 465422 49448 1489 46938 638980 347113 0 26780 396561 0 0 0 0 0 0 uv=0 freq=900000 wdt=12 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  390.335991] hb245 389.86 MemFree:56044 Dirty:15740 Writeback:516 load=2.82 1.64 0.79 mmc=4796 559 469262 51392 1538 51268 672028 358933 0 27870 410326 0 0 0 0 0 0 uv=0 freq=900000 wdt=11 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  391.749007] hb245 391.37 MemFree:30884 Dirty:20544 Writeback:0 load=2.75 1.65 0.80 mmc=4834 559 478734 51934 1543 51384 677060 359485 0 28400 411419 0 0 0 0 0 0 uv=0 freq=900000 wdt=9 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  393.053435] hb245 392.77 MemFree:26684 Dirty:29592 Writeback:516 load=2.75 1.65 0.80 mmc=4871 559 488350 52525 1553 52760 687132 360142 0 29030 412668 0 0 0 0 0 0 uv=0 freq=900000 wdt=8 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  394.272065] hb245 394.07 MemFree:23108 Dirty:16636 Writeback:2564 load=2.75 1.65 0.80 mmc=4887 563 491734 53942 1589 55828 709988 370679 0 30060 424621 0 0 0 0 0 0 uv=0 freq=900000 wdt=13 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  395.531589] hb245 395.29 MemFree:45400 Dirty:15304 Writeback:1028 load=2.75 1.65 0.80 mmc=4907 564 496958 54652 1617 59006 736652 374059 0 30890 428712 0 0 0 0 0 0 uv=0 freq=900000 wdt=11 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  396.795557] hb245 396.54 MemFree:45536 Dirty:6144 Writeback:512 load=2.85 1.69 0.82 mmc=4917 564 499518 56401 1652 61547 759340 381322 0 31810 437724 0 0 0 0 0 0 uv=0 freq=900000 wdt=10 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  398.199704] hb245 397.81 MemFree:73792 Dirty:15816 Writeback:0 load=2.85 1.69 0.82 mmc=4954 564 508262 56774 1652 61547 759340 381322 0 32170 438097 0 0 0 0 0 0 uv=0 freq=900000 wdt=9 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  399.807295] hb245 399.24 MemFree:56396 Dirty:24000 Writeback:0 load=2.85 1.69 0.82 mmc=4981 564 515174 57081 1652 61547 759340 381322 0 32460 438404 0 0 0 0 0 0 uv=0 freq=900000 wdt=8 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  401.178769] hb245 400.82 MemFree:67552 Dirty:26972 Writeback:516 load=2.85 1.69 0.82 mmc=5003 564 520550 57574 1667 63454 772684 382374 0 33000 439949 0 0 0 0 0 0 uv=0 freq=900000 wdt=13 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  402.572644] hb245 402.23 MemFree:62172 Dirty:19004 Writeback:1028 load=2.94 1.73 0.83 mmc=5020 564 524902 58857 1709 66756 799484 391295 0 34120 450152 0 0 0 0 0 0 uv=0 freq=900000 wdt=11 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  403.975253] hb245 403.59 MemFree:51564 Dirty:10920 Writeback:0 load=2.94 1.73 0.83 mmc=5039 564 529766 60105 1746 69677 825228 400205 0 35030 460310 0 0 0 0 0 0 uv=0 freq=900000 wdt=10 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  405.482878] hb245 405.01 MemFree:53700 Dirty:21568 Writeback:0 load=2.94 1.73 0.83 mmc=5081 564 540518 60595 1746 69677 825228 400205 0 35510 460800 0 0 0 0 0 0 uv=0 freq=900000 wdt=9 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  406.868827] hb245 406.49 MemFree:45348 Dirty:29652 Writeback:0 load=2.87 1.73 0.84 mmc=5117 564 549734 60988 1749 69933 826284 400248 0 35910 461237 0 0 0 0 0 0 uv=0 freq=900000 wdt=7 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  408.188097] hb245 407.89 MemFree:44112 Dirty:28508 Writeback:516 load=2.87 1.73 0.84 mmc=5145 564 557158 62049 1762 71584 839596 402718 0 36810 464767 0 0 0 0 0 0 uv=0 freq=900000 wdt=13 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  409.493236] hb245 409.22 MemFree:45192 Dirty:16928 Writeback:1028 load=2.87 1.73 0.84 mmc=5156 564 559734 63195 1810 76030 874588 420887 0 37820 484083 0 0 0 0 0 0 uv=0 freq=900000 wdt=12 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  410.770622] hb245 410.51 MemFree:43712 Dirty:14408 Writeback:1028 load=2.87 1.73 0.84 mmc=5191 564 568566 64424 1823 77681 887900 423458 0 38720 487883 0 0 0 0 0 0 uv=0 freq=900000 wdt=10 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  412.345683] hb245 411.79 MemFree:49064 Dirty:11912 Writeback:0 load=3.04 1.79 0.86 mmc=5227 564 577782 65697 1857 79842 907556 435984 0 39690 501682 0 0 0 0 0 0 uv=0 freq=900000 wdt=9 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  413.739077] hb245 413.37 MemFree:42660 Dirty:22540 Writeback:0 load=3.04 1.79 0.86 mmc=5298 564 595958 66365 1857 79842 907556 435984 0 40410 502349 0 0 0 0 0 0 uv=0 freq=900000 wdt=8 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  415.103407] hb245 414.76 MemFree:44148 Dirty:27336 Writeback:516 load=3.04 1.79 0.86 mmc=5329 564 603638 67043 1868 81493 918820 437019 0 40920 504062 0 0 0 0 0 0 uv=0 freq=900000 wdt=13 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  416.421037] hb245 416.11 MemFree:46068 Dirty:16444 Writeback:516 load=3.12 1.82 0.88 mmc=5337 564 605686 68842 1911 85430 950708 460245 0 42100 529087 0 0 0 0 0 0 uv=0 freq=900000 wdt=12 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  417.822423] hb245 417.44 MemFree:48116 Dirty:21712 Writeback:0 load=3.12 1.82 0.88 mmc=5374 564 615158 69414 1919 85940 956884 460920 0 42630 530334 0 0 0 0 0 0 uv=0 freq=900000 wdt=10 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  419.335494] hb245 418.87 MemFree:42560 Dirty:27396 Writeback:1028 load=3.12 1.82 0.88 mmc=5394 564 620022 69884 1942 87337 966260 461718 0 43100 531602 0 0 0 0 0 0 uv=0 freq=900000 wdt=9 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  420.676673] hb245 420.34 MemFree:77928 Dirty:22332 Writeback:516 load=3.12 1.82 0.88 mmc=5422 564 627190 71054 1960 89496 984692 464350 0 44020 535405 0 0 0 0 0 0 uv=0 freq=900000 wdt=8 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  422.054610] hb245 421.69 MemFree:60072 Dirty:15292 Writeback:1028 load=3.11 1.84 0.89 mmc=5434 564 630150 71895 2006 93941 1018636 476212 0 45050 548107 0 0 0 0 0 0 uv=0 freq=900000 wdt=13 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  423.448751] hb245 423.09 MemFree:54904 Dirty:12188 Writeback:0 load=3.11 1.84 0.89 mmc=5446 565 633302 72807 2029 96102 1039156 485310 0 46040 558118 0 0 0 0 0 0 uv=0 freq=900000 wdt=12 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  424.760979] hb245 424.49 MemFree:69308 Dirty:32008 Writeback:1024 load=3.11 1.84 0.89 mmc=5454 565 635350 72873 2045 99477 1055540 486732 0 46550 559606 0 0 0 0 0 0 uv=0 freq=900000 wdt=10 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  425.976834] hb245 425.78 MemFree:50904 Dirty:46880 Writeback:1028 load=3.11 1.84 0.89 mmc=5454 565 635350 72873 2085 101817 1083340 505528 0 47710 578402 0 0 0 0 0 0 uv=0 freq=900000 wdt=9 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  427.220194] hb245 427.00 MemFree:48868 Dirty:45508 Writeback:592 load=3.18 1.88 0.91 mmc=5454 565 635350 72873 2133 106770 1125428 519718 0 48910 592592 0 0 0 0 0 0 uv=0 freq=900000 wdt=8 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  428.641178] hb245 428.24 MemFree:76908 Dirty:19068 Writeback:26672 load=3.18 1.88 0.91 mmc=5454 565 635350 72873 2179 118329 1155332 539072 0 50040 611946 0 0 0 0 0 0 uv=0 freq=900000 wdt=13 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  429.882055] hb245 429.65 MemFree:45796 Dirty:21888 Writeback:23556 load=3.18 1.88 0.91 mmc=5454 565 635350 72873 2215 120488 1190164 588625 0 51310 661499 0 0 0 0 0 0 uv=0 freq=900000 wdt=12 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  431.081905] hb245 430.89 MemFree:47240 Dirty:20756 Writeback:25680 load=3.24 1.92 0.93 mmc=5455 565 635358 72944 2252 125823 1228052 664016 0 52300 736960 0 0 0 0 0 0 uv=0 freq=900000 wdt=11 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  432.379365] hb245 432.10 MemFree:49216 Dirty:16568 Writeback:29240 load=3.24 1.92 0.93 mmc=5455 565 635358 72944 2302 131284 1265084 740493 0 53670 813437 0 0 0 0 0 0 uv=0 freq=900000 wdt=10 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  433.749610] hb245 433.42 MemFree:47164 Dirty:17644 Writeback:27716 load=3.24 1.92 0.93 mmc=5455 565 635358 72944 2340 135729 1303996 809177 0 54980 882122 0 0 0 0 0 0 uv=0 freq=900000 wdt=9 p1=S p1wchan=do_epoll_wait p1majflt=143
+[  435.199029] hb245 434.77 MemFree:46524 Dirty:31308 Writeback:15184 load=3.24 1.92 0.93 mmc=5455 565 635358 72944 2387 139169 1339996 898402 0 56260 971346 0 0 0 0 0 0 uv=0 freq=900000 wdt=7 p1=S p1wchan=do_epoll_wait p1majflt=143

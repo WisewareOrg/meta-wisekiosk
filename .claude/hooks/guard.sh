@@ -421,7 +421,7 @@ Bash)
     # OTA, install, direct-send, rollback, reboot, rauc install or reprovision.
     grant_scoped=0
     if [ "$prod_reboot" -eq 1 ] || printf '%s' "$code" | grep -qE \
-        "just[[:space:]]+(kiosk-ota|kiosk-install|kiosk-send-direct|kiosk-rollback|kiosk-reboot|reboot|rauc-install|provision-device)${VERBEND}|rauc[[:space:]]+install|systemctl([[:space:]]+-[^[:space:]]+)*[[:space:]]+reboot${VERBEND}|${CMDPOS}(\\S*/)?reboot${VERBEND}|tools/provision\\.sh[[:space:]]+device"; then
+        "just[[:space:]]+(kiosk-ota|kiosk-install|kiosk-send-direct|kiosk-rollback|kiosk-reboot|reboot|provision-device)${VERBEND}|rauc[[:space:]]+install|systemctl([[:space:]]+-[^[:space:]]+)*[[:space:]]+reboot${VERBEND}|${CMDPOS}(\\S*/)?reboot${VERBEND}|tools/provision\\.sh[[:space:]]+device"; then
         grant_scoped=1
     fi
 

@@ -1,0 +1,67 @@
+Reset 4's pstore `console-ramoops-0` (the boot that ended in the batch-4 run-25 reset): its
+head (boot banner, kernel command line) and its last 40 lines (the heartbeat up to the stop,
+including the `freq=900000` field on every line). 929 lines, 103428 bytes total; md5
+9da1a586250410bbfdf345b528b18fcb -- matches the full record described in reset4-findings.md.
+The MAC on the command line is redacted; the full 929-line copy is not committed. Mounted
+read-only (`mount -t pstore -o ro pstore /sys/fs/pstore`), copied, unmounted; nothing in pstore
+was deleted.
+
+[    0.000000] Booting Linux on physical CPU 0x0
+[    0.000000] Linux version 6.12.93 (oe-user@oe-host) (arm-poky-linux-gnueabi-gcc (GCC) 13.5.0, GNU ld (GNU Binutils) 2.42.0.20240723) #1 Fri Jun 12 11:45:31 UTC 2026
+[    0.000000] CPU: ARMv6-compatible processor [410fb767] revision 7 (ARMv7), cr=00c5387d
+[    0.000000] CPU: PIPT / VIPT nonaliasing data cache, VIPT nonaliasing instruction cache
+[    0.000000] OF: fdt: Machine model: Raspberry Pi Zero W Rev 1.1
+[    0.000000] random: crng init done
+[    0.000000] Memory policy: Data cache writeback
+[    0.000000] Reserved memory: created CMA memory pool at 0x0bc00000, size 256 MiB
+[    0.000000] OF: reserved mem: initialized node linux,cma, compatible id shared-dma-pool
+[    0.000000] OF: reserved mem: 0x0bc00000..0x1bbfffff (262144 KiB) map reusable linux,cma
+[    0.000000] Zone ranges:
+[    0.000000]   Normal   [mem 0x0000000000000000-0x000000001bffffff]
+[    0.000000] Movable zone start for each node
+[    0.000000] Early memory node ranges
+[    0.000000]   node   0: [mem 0x0000000000000000-0x000000001bffffff]
+[    0.000000] Initmem setup node 0 [mem 0x0000000000000000-0x000000001bffffff]
+[    0.000000] OF: reserved mem: 0x0b000000..0x0b03ffff (256 KiB) map non-reusable ramoops@b000000
+[    0.000000] Kernel command line: coherent_pool=1M 8250.nr_uarts=1 snd_bcm2835.enable_headphones=0 cgroup_disable=memory clk_ignore_unused  smsc95xx.macaddr=<BOARD_MAC> vc_mem.mem_base=0x1ec00000 vc_mem.mem_size=0x20000000  dwc_otg.lpm_enable=0 console=tty1 root=/dev/mmcblk0p2 rootfstype=ext4 rootwait  net.ifnames=0 panic=10 root=/dev/mmcblk0p3 rauc.slot=B
+...
+[  593.207456]  mmc_rescan from process_one_work+0x134/0x340
+[  593.207522]  process_one_work from worker_thread+0x168/0x2f0
+[  593.207578]  worker_thread from kthread+0xc4/0xe4
+[  593.207636]  kthread from ret_from_fork+0x14/0x28
+[  593.207686] Exception stack(0xdc835fb0 to 0xdc835ff8)
+[  593.207719] 5fa0:                                     00000000 00000000 00000000 00000000
+[  593.207754] 5fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  593.207788] 5fe0: 00000000 00000000 00000000 00000000 00000013 00000000
+[  593.310345] hb245 593.06 MemFree:50848 Dirty:6656 Writeback:36036 load=6.47 4.02 1.96 mmc=5254 565 627366 141438 5517 472373 4009604 8089962 0 143230 8231400 0 0 0 0 0 0 uv=0 freq=900000
+[  594.624315] hb245 594.34 MemFree:51324 Dirty:15204 Writeback:26876 load=6.47 4.02 1.96 mmc=5254 565 627366 141438 5553 474416 4046468 8191333 0 144570 8332771 0 0 0 0 0 0 uv=0 freq=900000
+[  595.286712] INFO: task kworker/0:0:6 blocked for more than 22 seconds.
+[  595.286809]       Not tainted 6.12.93 #1
+[  595.286839] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+[  595.286869] task:kworker/0:0     state:D stack:0     pid:6     tgid:6     ppid:2      flags:0x00000000
+[  595.286926] Workqueue: events_freezable mmc_rescan
+[  595.286988] Call trace: 
+[  595.287008]  __schedule from schedule+0x28/0x138
+[  595.287100]  schedule from __mmc_claim_host+0xdc/0x1d4
+[  595.287158]  __mmc_claim_host from mmc_sd_detect+0x1c/0x74
+[  595.287219]  mmc_sd_detect from mmc_rescan+0xa8/0x354
+[  595.287275]  mmc_rescan from process_one_work+0x134/0x340
+[  595.287340]  process_one_work from worker_thread+0x168/0x2f0
+[  595.287395]  worker_thread from kthread+0xc4/0xe4
+[  595.287455]  kthread from ret_from_fork+0x14/0x28
+[  595.287503] Exception stack(0xdc835fb0 to 0xdc835ff8)
+[  595.287539] 5fa0:                                     00000000 00000000 00000000 00000000
+[  595.287575] 5fc0: 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
+[  595.287611] 5fe0: 00000000 00000000 00000000 00000000 00000013 00000000
+[  595.935713] hb245 595.64 MemFree:44356 Dirty:31964 Writeback:9980 load=6.47 4.02 1.96 mmc=5254 565 627366 141438 5586 474416 4080260 8281143 0 145880 8422581 0 0 0 0 0 0 uv=0 freq=900000
+[  597.236222] hb245 596.94 MemFree:45416 Dirty:40428 Writeback:3700 load=6.91 4.15 2.01 mmc=5254 565 627366 141438 5648 476448 4108484 8449653 0 147120 8591091 0 0 0 0 0 0 uv=0 freq=900000
+[  598.469203] hb245 598.25 MemFree:57592 Dirty:7552 Writeback:34840 load=6.91 4.15 2.01 mmc=5254 565 627366 141438 5715 488640 4144772 8481675 0 148120 8623113 0 0 0 0 0 0 uv=0 freq=900000
+[  599.745974] hb245 599.48 MemFree:68308 Dirty:8116 Writeback:35404 load=6.91 4.15 2.01 mmc=5254 565 627366 141438 5747 492704 4177540 8530451 0 149280 8671889 0 0 0 0 0 0 uv=0 freq=900000
+[  601.019371] hb245 600.75 MemFree:46352 Dirty:8000 Writeback:36428 load=6.91 4.15 2.01 mmc=5254 565 627366 141438 5775 496774 4206212 8600509 0 150040 8741947 0 0 0 0 0 0 uv=0 freq=900000
+[  602.193709] hb245 602.03 MemFree:60544 Dirty:8320 Writeback:33880 load=7.32 4.28 2.06 mmc=5254 565 627366 141438 5829 500838 4245316 8757811 0 151400 8899249 0 0 0 0 0 0 uv=0 freq=900000
+[  603.381949] hb245 603.19 MemFree:47736 Dirty:5300 Writeback:36604 load=7.32 4.28 2.06 mmc=5254 565 627366 141438 5861 505575 4278084 8844551 0 152500 8985989 0 0 0 0 0 0 uv=0 freq=900000
+[  604.509862] hb245 604.38 MemFree:72864 Dirty:7000 Writeback:38660 load=7.32 4.28 2.06 mmc=5259 565 627454 153932 5889 509640 4306756 8912854 0 153550 9066786 0 0 0 0 0 0 uv=0 freq=900000
+[  605.741504] hb245 605.52 MemFree:47240 Dirty:7772 Writeback:34056 load=7.32 4.28 2.06 mmc=5259 565 627454 153932 5931 513704 4349764 9022456 0 154680 9176388 0 0 0 0 0 0 uv=0 freq=900000
+[  606.929381] hb245 606.74 MemFree:43644 Dirty:6516 Writeback:36576 load=7.29 4.33 2.09 mmc=5267 565 627606 173857 5982 517772 4376628 9203302 0 155740 9377160 0 0 0 0 0 0 uv=0 freq=900000
+[  608.021316] hb245 607.93 MemFree:47436 Dirty:3560 Writeback:31464 load=7.29 4.33 2.09 mmc=5268 565 627614 174867 6007 519804 4402228 9268846 0 156380 9443713 0 0 0 0 0 0 uv=0 freq=900000
+[  609.136464] hb245 609.02 MemFree:45576 Dirty:0 Writeback:17232 load=7.29 4.33 2.09 mmc=5271 565 627638 180000 6045 520972 4441140 9377719 0 157910 9557720 0 0 0 0 0 0 uv=0 freq=900000

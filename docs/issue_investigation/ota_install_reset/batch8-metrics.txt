@@ -1,0 +1,6 @@
+record=records/20261102T070204Z window=200.300798 max_stats_gap=7.049481 max_hb_gap=7.27646 min_wdt=7 non_s_p1=[('R', '0'), ('D', '__ext4_find_entry')] p1_d_seconds=3.9
+record=records/20261102T071134Z window=196.963672 max_stats_gap=6.677925 max_hb_gap=6.785402 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261102T072114Z window=191.612569 max_stats_gap=4.625207 max_hb_gap=5.055745 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261102T073022Z window=189.576381 max_stats_gap=5.725217 max_hb_gap=6.01323 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0
+record=records/20261102T073925Z window=195.937461 max_stats_gap=4.95762 max_hb_gap=4.967121 min_wdt=7 non_s_p1=[] p1_d_seconds=0.0
+record=records/20261102T074924Z window=424.46482 max_stats_gap=1.319192 max_hb_gap=1.500857 min_wdt=7 non_s_p1=[('R', '0')] p1_d_seconds=0.0

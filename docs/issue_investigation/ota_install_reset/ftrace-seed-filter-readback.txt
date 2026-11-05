@@ -1,0 +1,316 @@
+bcm2835_handle_irq
+irq_exit
+console_verbose
+devkmsg_write
+armctrl_unmask_irq
+armctrl_xlate
+armctrl_mask_irq
+bcm2835_gpio_wake_irq_handler
+bcm2835_gpio_irq_ack
+bcm2835_pctl_get_groups_count
+bcm2835_pctl_get_group_name
+bcm2835_pctl_get_group_pins
+bcm2835_pmx_get_functions_count
+bcm2835_pmx_get_function_name
+bcm2835_pmx_get_function_groups
+bcm2835_pull_config_set
+bcm2835_pinconf_get
+bcm2835_pmx_free
+bcm2835_pmx_gpio_disable_free
+bcm2835_pinconf_set
+bcm2835_pctl_dt_free_map
+bcm2835_pctl_pin_dbg_show
+bcm2835_add_pin_ranges_fallback
+bcm2835_gpio_set
+bcm2835_gpio_get
+bcm2835_gpio_get_direction
+bcm2835_gpio_irq_handle_bank
+bcm2835_gpio_irq_handler
+bcm2835_gpio_irq_set_wake
+bcm2835_pinctrl_probe
+bcm2835_pctl_dt_node_to_map
+bcm2835_gpio_direction_input
+bcm2835_pmx_set
+bcm2835_pmx_gpio_set_direction
+bcm2835_gpio_irq_config
+bcm2835_gpio_irq_set_type
+bcm2835_gpio_irq_unmask
+bcm2835_gpio_irq_mask
+bcm2835_gpio_direction_output
+bcm2835_pll_is_on
+bcm2835_pll_off
+bcm2835_pll_divider_is_on
+bcm2835_pll_divider_determine_rate
+bcm2835_pll_divider_get_rate
+bcm2835_pll_divider_off
+bcm2835_pll_divider_on
+bcm2835_clock_is_on
+bcm2835_clock_on
+bcm2835_clock_set_parent
+bcm2835_clock_get_parent
+bcm2835_vpu_clock_is_on
+bcm2835_register_gate
+bcm2835_clock_wait_busy
+bcm2835_clock_off
+bcm2835_register_clock
+bcm2835_pll_debug_init
+bcm2835_register_pll_divider
+bcm2835_pll_on
+bcm2835_clk_probe
+bcm2835_clock_debug_init
+bcm2835_register_pll
+bcm2835_pll_divider_debug_init
+bcm2835_clock_rate_from_divisor
+bcm2835_clock_get_rate
+bcm2835_clock_get_rate_vpu
+bcm2835_pll_choose_ndiv_and_fdiv
+bcm2835_pll_set_rate
+bcm2835_pll_round_rate
+bcm2835_clock_choose_div
+bcm2835_clock_set_rate_and_parent
+bcm2835_clock_set_rate
+bcm2835_clock_determine_rate
+bcm2835_pll_divider_set_rate
+bcm2835_pll_get_rate
+bcm2835_aux_clk_probe
+vchan_complete
+bcm2835_dma_slave_config
+bcm2835_dma_init
+bcm2835_dma_free
+bcm2835_dma_remove
+bcm2835_dma_xlate
+bcm2835_dma_synchronize
+bcm2835_dma_free_chan_resources
+bcm2835_dma_alloc_chan_resources
+bcm2835_dma_exit
+bcm2835_dma_tx_status
+bcm2835_dma_desc_free
+bcm2835_dma_terminate_all
+bcm2835_dma_probe
+bcm2835_dma_create_cb_chain
+bcm2835_dma_prep_dma_memcpy
+bcm2835_dma_prep_slave_sg
+bcm2835_dma_start_desc
+bcm2835_dma_issue_pending
+bcm2835_dma_callback
+bcm2835_dma_prep_dma_cyclic
+bcm2835_asb_control
+bcm2835_power_power_off
+bcm2835_asb_power_off
+bcm2835_power_pd_power_off
+bcm2835_power_power_on
+bcm2835_power_probe
+bcm2835_reset_status
+bcm2835_asb_power_on
+bcm2835_power_pd_power_on
+bcm2835_reset_reset
+sysrq_handle_crash
+__handle_sysrq
+write_sysrq_trigger
+bcm2835_rng_cleanup
+bcm2835_rng_read
+bcm2835_rng_probe
+bcm2835_rng_init
+bcm2835_pm_probe
+dwc_otg_common_irq
+dwc_otg_pcd_irq
+dwc_otg_hcd_irq
+bcm2835_drain_rxfifo
+bcm2835_i2c_func
+bcm2835_i2c_remove
+bcm2835_i2c_probe
+bcm2835_i2c_start_transfer
+bcm2835_i2c_xfer
+bcm2835_i2c_isr
+bcm2835_thermal_remove
+bcm2835_thermal_get_temp
+bcm2835_thermal_probe
+bcm2835_wdt_start
+bcm2835_wdt_stop
+bcm2835_wdt_get_timeleft
+bcm2835_wdt_remove
+bcm2835_restart
+bcm2835_wdt_probe
+bcm2835_power_off
+__mmc_claim_host
+mmc_release_host
+mmc_request_done
+__mmc_start_request
+mmc_start_request
+mmc_rescan
+sdio_disable_wide
+sdio_enable_4bit_bus
+sdio_reset
+sdio_match_device
+sdio_bus_match
+sdio_bus_uevent
+sdio_unregister_driver
+sdio_release_func
+sdio_bus_probe
+sdio_bus_remove
+sdio_register_bus
+sdio_unregister_bus
+sdio_alloc_func
+sdio_add_func
+sdio_remove_func
+sdio_read_cis
+sdio_read_common_cis
+sdio_free_common_cis
+sdio_read_func_cis
+sdio_free_func_cis
+sdio_get_host_pm_caps
+sdio_set_host_pm_flags
+sdio_retune_crc_disable
+sdio_retune_crc_enable
+sdio_retune_hold_now
+sdio_disable_func
+sdio_set_block_size
+sdio_readb
+sdio_writeb_readb
+sdio_f0_readb
+sdio_enable_func
+sdio_retune_release
+sdio_claim_host
+sdio_release_host
+sdio_writeb
+sdio_f0_writeb
+sdio_io_rw_ext_helper
+sdio_memcpy_fromio
+sdio_readw
+sdio_readl
+sdio_memcpy_toio
+sdio_writew
+sdio_writel
+sdio_readsb
+sdio_writesb
+sdio_align_size
+sdio_signal_irq
+sdio_single_irq_set
+sdio_claim_irq
+sdio_release_irq
+sdio_irq_thread
+sdio_irq_work
+mmc_blk_mq_complete_rq
+mmc_blk_mq_post_req
+mmc_blk_mq_req_done
+mmc_blk_mq_issue_rq
+bcm2835_mmc_reset
+bcm2835_mmc_remove
+bcm2835_mmc_tasklet_finish
+bcm2835_mmc_probe
+bcm2835_mmc_enable_sdio_irq
+bcm2835_mmc_ack_sdio_irq
+bcm2835_mmc_set_clock
+bcm2835_mmc_set_ios
+bcm2835_mmc_transfer_dma
+bcm2835_mmc_send_command
+bcm2835_mmc_finish_data
+bcm2835_mmc_timeout_timer
+bcm2835_mmc_dma_complete
+bcm2835_mmc_request
+bcm2835_mmc_finish_command
+bcm2835_mmc_irq
+bcm2835_remove
+bcm2835_reset_internal
+bcm2835_reset
+bcm2835_set_clock
+bcm2835_set_ios
+bcm2835_finish_request
+bcm2835_dma_complete
+bcm2835_transfer_pio
+bcm2835_read_wait_sdcmd.constprop.0
+bcm2835_send_command
+bcm2835_probe
+bcm2835_irq
+bcm2835_finish_command
+bcm2835_transfer_complete
+bcm2835_finish_data
+bcm2835_timeout
+bcm2835_dma_complete_work
+bcm2835_threaded_irq
+bcm2835_request
+rpi_firmware_property_list
+rpi_firmware_property
+bcm2835_time_set_next_event
+bcm2835_time_interrupt
+bcm2835_send_data
+bcm2835_startup
+bcm2835_shutdown
+bcm2835_last_tx_done
+bcm2835_mbox_index_xlate
+bcm2835_mbox_irq
+bcm2835_mbox_probe
+panic
+bcm2835_debug_print_msg
+brcmf_sdio_hdpack [brcmfmac]
+brcmf_sdio_bus_gettxq [brcmfmac]
+brcmf_sdio_bus_get_ramsize [brcmfmac]
+brcmf_sdio_get_blob [brcmfmac]
+brcmf_sdio_buscore_read32 [brcmfmac]
+brcmf_sdio_buscore_write32 [brcmfmac]
+brcmf_sdio_intr_rstatus [brcmfmac]
+brcmf_sdio_buscoreprep [brcmfmac]
+brcmf_sdio_bus_remove [brcmfmac]
+brcmf_sdio_bus_reset [brcmfmac]
+brcmf_sdio_assert_info [brcmfmac]
+brcmf_sdio_trap_info [brcmfmac]
+brcmf_sdio_bus_get_memdump [brcmfmac]
+brcmf_sdio_buscore_activate [brcmfmac]
+brcmf_sdio_kso_control [brcmfmac]
+brcmf_sdio_htclk [brcmfmac]
+brcmf_sdio_clkctl [brcmfmac]
+brcmf_sdio_debugfs_create [brcmfmac]
+brcmf_sdio_readconsole [brcmfmac]
+brcmf_sdio_bus_preinit [brcmfmac]
+brcmf_sdio_verifymemory [brcmfmac]
+brcmf_sdio_rxfail [brcmfmac]
+brcmf_sdio_hdparse [brcmfmac]
+brcmf_sdio_txfail [brcmfmac]
+brcmf_sdio_txpkt_hdalign [brcmfmac]
+brcmf_sdio_prepare_fw_request [brcmfmac]
+brcmf_sdio_watchdog [brcmfmac]
+brcmf_sdio_bus_txctl [brcmfmac]
+brcmf_sdio_bus_txdata [brcmfmac]
+brcmf_sdio_bus_sleep [brcmfmac]
+brcmf_sdio_readshared [brcmfmac]
+brcmf_sdio_forensic_read [brcmfmac]
+brcmf_sdio_checkdied [brcmfmac]
+brcmf_sdio_bus_rxctl [brcmfmac]
+brcmf_sdio_bus_stop [brcmfmac]
+brcmf_sdio_firmware_callback [brcmfmac]
+brcmf_sdio_dataworker [brcmfmac]
+brcmf_sdio_watchdog_thread [brcmfmac]
+brcmf_sdio_trigger_dpc [brcmfmac]
+brcmf_sdio_isr [brcmfmac]
+brcmf_sdio_remove [brcmfmac]
+brcmf_sdio_probe [brcmfmac]
+brcmf_sdio_wd_timer [brcmfmac]
+brcmf_sdio_sleep [brcmfmac]
+brcmf_sdiod_dummy_irqhandler [brcmfmac]
+brcmf_sdiod_set_backplane_window [brcmfmac]
+brcmf_sdiod_ib_irqhandler [brcmfmac]
+brcmf_sdiod_oob_irqhandler [brcmfmac]
+brcmf_sdiod_intr_register [brcmfmac]
+brcmf_sdiod_intr_unregister [brcmfmac]
+brcmf_sdiod_change_state [brcmfmac]
+brcmf_sdiod_skbuff_read [brcmfmac]
+brcmf_sdiod_sglist_rw [brcmfmac]
+brcmf_sdiod_readl [brcmfmac]
+brcmf_sdiod_writel [brcmfmac]
+brcmf_sdiod_recv_pkt [brcmfmac]
+brcmf_sdiod_recv_buf [brcmfmac]
+brcmf_sdiod_recv_chain [brcmfmac]
+brcmf_sdiod_send_buf [brcmfmac]
+brcmf_sdiod_send_pkt [brcmfmac]
+brcmf_sdiod_ramrw [brcmfmac]
+brcmf_sdiod_abort [brcmfmac]
+brcmf_sdiod_sgtable_alloc [brcmfmac]
+brcmf_sdiod_freezing [brcmfmac]
+brcmf_sdiod_try_freeze [brcmfmac]
+brcmf_sdiod_freezer_count [brcmfmac]
+brcmf_sdiod_freezer_uncount [brcmfmac]
+brcmf_sdiod_remove [brcmfmac]
+brcmf_sdiod_probe [brcmfmac]
+brcmf_sdio_wowl_config [brcmfmac]
+brcmf_sdio_register [brcmfmac]
+brcmf_sdio_exit [brcmfmac]

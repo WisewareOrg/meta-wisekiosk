@@ -1,0 +1,42 @@
+1793409044.143522234 == pstore archive
+1793409044.172888699 ls: /var/lib/systemd/pstore: No such file or directory
+1793409044.178400467 == pstore unit
+1793409044.496297538 Result=success
+1793409044.501396079 ExecMainStartTimestamp=
+1793409044.506466218 ActiveState=inactive
+1793409044.511416750 ConditionResult=no
+1793409044.523598265 cat: can't open '/etc/systemd/pstore.conf': No such file or directory
+1793409044.553728081 ls: /etc/systemd/pstore.conf.d: No such file or directory
+1793409044.558925228 == pstore unit journal b=0
+1793409044.931473556 -- No entries --
+1793409044.936752709 == pstore unit journal b=-1
+1793409045.207916953 -- No entries --
+1793409045.213367317 == pstore unit journal b=-2
+1793409045.523825490 -- No entries --
+1793409045.529075642 == ramoops/pstore/wdt in dmesg (current boot)
+1793409045.730475317 2026-10-30T21:00:41,113826-04:00 Booting Linux on physical CPU 0x0
+1793409045.735799973 2026-10-30T21:00:41,113826-04:00 OF: reserved mem: 0x0b000000..0x0b03ffff (256 KiB) map non-reusable ramoops@b000000
+1793409045.741068926 2026-10-30T21:00:41,216798-04:00 pstore: Using crash dump compression: deflate
+1793409045.746509490 2026-10-30T21:00:41,216879-04:00 printk: legacy console [ramoops-1] enabled
+1793409045.751599731 2026-10-30T21:00:41,217279-04:00 pstore: Registered ramoops as persistent store backend
+1793409045.756511059 2026-10-30T21:00:41,217317-04:00 ramoops: using 0x40000@0xb000000, ecc: 0
+1793409045.761917121 2026-10-30T21:00:44,055337-04:00 bcm2835-wdt bcm2835-wdt: Broadcom BCM2835 watchdog timer
+1793409045.767234177 2026-10-30T21:00:45,751083-04:00 systemd[1]: Using hardware watchdog 'Broadcom BCM2835 Watchdog timer', version 0, device /dev/watchdog0
+1793409045.772499529 2026-10-30T21:00:45,756896-04:00 systemd[1]: Watchdog running with a hardware timeout of 14s.
+1793409045.777790483 == ramoops/pstore in boot -1 kernel
+1793409045.954325795 == timesync b0
+1793409046.267649760 2026-10-30T20:59:19.085024-04:00 <BENCH_HOSTNAME> systemd-timesyncd[190]: Network configuration changed, trying to establish connection.
+1793409046.273075823 2026-10-30T20:59:22.012285-04:00 <BENCH_HOSTNAME> systemd-timesyncd[190]: Network configuration changed, trying to establish connection.
+1793409046.278300072 2026-10-30T20:59:22.033974-04:00 <BENCH_HOSTNAME> systemd-timesyncd[190]: Network configuration changed, trying to establish connection.
+1793409046.283342510 2026-10-30T20:59:22.045058-04:00 <BENCH_HOSTNAME> systemd-timesyncd[190]: Network configuration changed, trying to establish connection.
+1793409046.288785074 2026-10-30T21:01:40.492266-04:00 <BENCH_HOSTNAME> systemd-timesyncd[190]: Contacted time server 216.239.35.8:123 (time3.google.com).
+1793409046.293941519 2026-10-30T21:01:40.494718-04:00 <BENCH_HOSTNAME> systemd-timesyncd[190]: Initial clock synchronization to Fri 2026-10-30 21:01:40.488594 EDT.
+1793409046.299187870 == b0 first lines
+1793409046.405549387 2026-10-30T20:59:15.006045-04:00 <BENCH_HOSTNAME> systemd-journald[93]: Time spent on flushing to /var/log/journal/<KIOSK_MACHINE_ID> is 415.390ms for 422 entries.
+1793409046.411487884 2026-10-30T20:59:15.006045-04:00 <BENCH_HOSTNAME> systemd-journald[93]: System Journal (/var/log/journal/<KIOSK_MACHINE_ID>) is 63.6M, max 64.0M, 336.0K free.
+1793409046.417149163 2026-10-30T20:59:16.149746-04:00 <BENCH_HOSTNAME> systemd-journald[93]: Received client request to flush runtime journal.
+1793409046.422719535 2026-10-30T20:59:16.150793-04:00 <BENCH_HOSTNAME> systemd-journald[93]: File /var/log/journal/<KIOSK_MACHINE_ID>/system.journal corrupted or uncleanly shut down, renaming and replacing.
+1793409046.462414491 == edges
+1793409047.037688383 edge 1793409047 605.91 432.57
+1793409048.075311350 edge 1793409048 606.93 432.57
+1793409049.045071780 edge 1793409049 607.92 432.57

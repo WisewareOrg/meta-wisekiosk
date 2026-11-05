@@ -1,0 +1,29 @@
+Reset 6 -- bench, commit 59969986d739e999652906f32c8ac9701624a926, the batch-8 baseline's
+first `bench test` attempt (no loop, no diagnostics armed -- this predates batch 8's own
+heartbeat). Host-stamped capture markers and each stream's last line, from the install item's
+"Captured stdout setup" / "Captured stderr setup" sections. Address redacted to
+<BENCH_ADDRESS>.
+
+[stderr, capture markers]
+2026-11-02T00:02:57.274716-0500 capture started
+2026-11-02T00:05:53.663149-0500 [kernel] session ended
+2026-11-02T00:05:53.663234-0500 [stats] session ended
+2026-11-02T00:05:54.662914-0500 [journal] session ended
+Read from remote host <BENCH_ADDRESS>: Connection reset by peer
+client_loop: send disconnect: Broken pipe
+2026-11-02T00:10:45.744766-0500 capture stopped
+error: recipe `kiosk-install` failed on line 235 with exit code 255
+
+[stdout, last line of each stream before the drop]
+00:05:45.368617 [stats]   MemFree:16900 Dirty:4296 Writeback:42780 load=4.66 2.37 1.07 mmc=7986 793 961519 187317 15681 447186 3905371 7314760 0 154680 7502077 0 0 0 0 0 0 uv=0
+00:05:46.542233 [stats]   MemFree:45728 Dirty:11476 Writeback:35728 load=4.69 2.42 1.09 mmc=7987 793 961527 189581 15720 451251 3944291 7428491 0 155780 7618073 0 0 0 0 0 0 uv=0
+00:05:53.662444 [stats]   Timeout, server <BENCH_ADDRESS> not responding.
+00:05:53.662444 [kernel]  Timeout, server <BENCH_ADDRESS> not responding.
+00:05:54.662381 [journal] Timeout, server <BENCH_ADDRESS> not responding.
+
+No heartbeat was armed for this run (it is the batch-8 baseline, not a diagnostic loop), so
+there is no PID1/watchdog instrument and no [kernel]-stream heartbeat to read -- only the
+shipped [stats]/[kernel]/[journal] capture tools/kiosk-install.sh always runs. The [stats] gap
+from the last sample (00:05:46.54) to the ServerAlive timeout (00:05:53.66) is ~7.1 s, the same
+signature as resets 2-5. Last rauc progress line: " 92% Copying image to rootfs.1" -- in the
+80-99% range resets 2-4 died in, not reset 5's early ~26%.

@@ -1,0 +1,50 @@
+Run 1 — bench, commit fee57a946f4b256d1cd3999daf83a6b048f5fcbb (before the [stats] stream
+existed). Excerpt from records/20261030T042402Z/report.jsonl, the install item's "Captured
+stdout setup" and "Captured stderr setup" sections. Address redacted to <BENCH_ADDRESS>.
+
+== before
+BOOT_ORDER=B A
+BOOT_A_LEFT=3
+BOOT_B_LEFT=3
+Booted from: rootfs.1 (B)
+Activated: rootfs.1 (B)
+      boot status: good
+      boot status: good
+== clock: device epoch 1793334351, host 1793334352, skew 1s
+== verifying bundle signature against the device keyring
+== installing
+[stdout, host-stamped]
+2026-10-30T00:25:56.367591-0400 [journal] 2026-10-30T00:25:55.234936-04:00 <BENCH_HOSTNAME> rauc[297]: Found handler for image type 'ext4' and slot type 'ext4'
+2026-10-30T00:25:56.367847-0400 [journal] 2026-10-30T00:25:55.245606-04:00 <BENCH_HOSTNAME> rauc[297]: Marking target slot rootfs.0 as non-bootable (bad)...
+2026-10-30T00:25:56.367988-0400 [journal] 2026-10-30T00:25:55.447557-04:00 <BENCH_HOSTNAME> rauc[297]: Marked slot rootfs.0 as bad
+2026-10-30T00:25:56.368149-0400 [journal] 2026-10-30T00:25:55.457512-04:00 <BENCH_HOSTNAME> rauc[297]: installing /data/update.raucb: Updating slots...
+2026-10-30T00:25:56.368606-0400 [journal] 2026-10-30T00:25:55.565975-04:00 <BENCH_HOSTNAME> rauc[297]: Updating /dev/mmcblk0p2 with /run/rauc/mnt/bundle/core-image-base-raspberrypi0-wifi.rootfs.ext4
+2026-10-30T00:25:56.368979-0400 [journal] 2026-10-30T00:25:55.572829-04:00 <BENCH_HOSTNAME> rauc[297]: opening slot device /dev/mmcblk0p2
+2026-10-30T00:25:56.369121-0400 [journal] 2026-10-30T00:25:55.573604-04:00 <BENCH_HOSTNAME> rauc[297]: writing data to device /dev/mmcblk0p2
+ 47% Copying image to rootfs.0
+ ...
+ 80% Copying image to rootfs.0
+2026-10-30T00:28:11.372225-0400 [journal] Timeout, server <BENCH_ADDRESS> not responding.
+2026-10-30T00:28:12.371472-0400 [kernel] Timeout, server <BENCH_ADDRESS> not responding.
+
+[stderr, host-stamped -- markers and the main ssh's own diagnostics]
+2026-10-30T00:25:52.999681-0400 capture started
+2026-10-30T00:28:11.372872-0400 [journal] session ended
+2026-10-30T00:28:12.372031-0400 [kernel] session ended
+Read from remote host <BENCH_ADDRESS>: Connection reset by peer
+client_loop: send disconnect: Broken pipe
+2026-10-30T00:33:02.430707-0400 capture stopped
+error: recipe `kiosk-install` failed on line 235 with exit code 255
+
+Board, checked read-only right after: up 9 min (rebooted around the time both capture
+sessions ended), reachable, idle. Still booted/activated on rootfs.1 (B); BOOT_A_LEFT=0 --
+the install to A never completed, and the board fell back to the last-good slot after an
+unplanned reboot.
+
+Both capture sessions (ServerAlive 2/3) ended within about 6 s of the board going silent
+(00:28:11-12), roughly 138 s into rauc's 173-203 s write. The main `rauc install` ssh (no
+ServerAlive) took until closer to 00:33 to report its own "Connection reset by peer" -- the
+board was down for the whole gap and only returned an RST once it came back up and the still
+-pending TCP session hit the fresh kernel's socket table. No [stats] stream existed yet on
+this run, so there is no memory/load/IO context for the drop -- the reason this ticket also
+carries the loop in loop.sh.
