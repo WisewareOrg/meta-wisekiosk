@@ -9,10 +9,10 @@ normative: true
 rationale: |
   The WiseKiosk application shows time in the appliance's timezone, so the panel shows local time
   only when the appliance's timezone is the site's. Its check settles that a timezone set over the
-  air is the one the appliance keeps time in; that it holds is SRS010's (configuration changed over
-  the air).
+  air is the one the appliance keeps time in; that it holds is
+  SRS010's<!-- Configuration changed over the air -->.
 ref: ''
-reviewed: n_p8VOcWV-1SJ-VZmTrshbRxaxEgyDLg833VH3K7Bvo=
+reviewed: zQCwJ9Zw6hKuPS-Ecvxa6wh2SzC_septC7hcY6s7dV4=
 status: proposed
 text: |
   The operator shall be able to set the appliance's timezone over the air.

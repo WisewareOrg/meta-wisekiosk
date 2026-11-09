@@ -4351,8 +4351,9 @@ Each finding names the run that decided it. **OBSERVATION** is something read of
 - **Accepted verification gap — nothing in the tree obliges the substantive check.** The in-tree
   verification of #100 gpu-compositing proves **the CSS declaration resolved on the animating row and
   nowhere else — nothing more**. It asserts nothing about layer creation, about compositing, or about
-  CPU. Every on-device claim here rests on the runs above, which TST018's own rationale says are
-  obliged by nothing: TST018 is `active:false` / proposed and concerns emulated boot, not this.
+  CPU. Every on-device claim here rests on the runs above, which the emulated-boot test item's own
+  rationale says are obliged by nothing: that item is `active:false` / proposed and concerns
+  emulated boot, not this.
   Wherever this record describes on-device evidence it carries that qualifier.
 
 - **OBSERVATION (Run 2) — full KMS blacks the panel outright, worse than the risk anticipated.** The
