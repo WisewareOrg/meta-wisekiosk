@@ -42,6 +42,7 @@ CODEGEN_TOOL = "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen"
 # dev hosts. -modcacherw so the scratch GOMODCACHE fetch_cache() creates can
 # be removed afterwards -- Go writes it read-only otherwise. GOWORK=off so a
 # host go.work cannot change module resolution the rest of this dict pins.
+# GOTOOLCHAIN=local because `go list` runs the binary _app_go already chose.
 GO_ENV = {
     "GOPROXY": "https://proxy.golang.org",
     "GOSUMDB": "sum.golang.org",
@@ -149,16 +150,16 @@ def render_inc(cache_dir: Path, srcrev: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _go_version_tuple(text: str):
-    m = re.search(r"go(\d+)\.(\d+)(?:\.(\d+))?", text)
-    return tuple(int(x or 0) for x in m.groups())
-
-
-def _required_go_version(repo: Path):
-    """The `go` directive backend/go.mod declares, e.g. `go 1.24.0` -> (1, 24, 0)."""
-    text = (repo / "backend" / "go.mod").read_text()
-    m = re.search(r"^go\s+(\d+)\.(\d+)(?:\.(\d+))?", text, re.M)
-    return tuple(int(x or 0) for x in m.groups())
+def _app_go(repo: Path) -> str:
+    """The `go` binary backend/go.mod calls for. GOTOOLCHAIN=auto lets Go
+    download it when the host's is older, into the host's own GOMODCACHE --
+    never the scratch one render_inc renders, where it would become a
+    SRC_URI entry. stderr is left uncaptured so a failed download says why."""
+    goroot = subprocess.run(
+        ["go", "env", "GOROOT"], cwd=repo / "backend",
+        env=clean_env(**dict(GO_ENV, GOTOOLCHAIN="auto")),
+        check=True, stdout=subprocess.PIPE, text=True).stdout.strip()
+    return str(Path(goroot) / "bin" / "go")
 
 
 def current_srcrev(inc_path: Path = INC_PATH):
@@ -224,9 +225,6 @@ def fetch_cache(url: str, srcrev: str) -> Path:
     """Clone the pinned commit and run the one Go command that touches the
     network: `go list -deps` against oapi-codegen's own import path, which
     downloads exactly the modules it needs into a scratch GOMODCACHE."""
-    have = _go_version_tuple(subprocess.run(
-        ["go", "version"], capture_output=True, text=True, check=True).stdout)
-
     workdir = Path(tempfile.mkdtemp(prefix="go-mods-"))
     _LEFTOVER_WORKDIRS.append(workdir)
     repo = workdir / "repo"
@@ -235,11 +233,7 @@ def fetch_cache(url: str, srcrev: str) -> Path:
     subprocess.run(["git", "-C", str(repo), "checkout", "--quiet", srcrev],
                    check=True, env=clean_env())
 
-    need = _required_go_version(repo)
-    if have < need:
-        sys.exit(refuse(
-            f"host go {'.'.join(map(str, have))} is older than the app's "
-            f"go.mod ({'.'.join(map(str, need))})"))
+    go = _app_go(repo)
 
     gomodcache = workdir / "gomodcache"
     gomodcache.mkdir()
@@ -252,7 +246,7 @@ def fetch_cache(url: str, srcrev: str) -> Path:
     gocache.mkdir()
     env = clean_env(**GO_ENV, GOMODCACHE=str(gomodcache), GOCACHE=str(gocache))
     result = subprocess.run(
-        ["go", "list", "-json=Dir,Module", "-deps", CODEGEN_TOOL],
+        [go, "list", "-json=Dir,Module", "-deps", CODEGEN_TOOL],
         cwd=repo / "backend", env=env, check=True,
         capture_output=True, text=True)
 

@@ -189,74 +189,23 @@ def escaping_and_sort_cases():
          lines, want)
 
 
-# --- go-version contract (W3): fetch_cache refuses a too-old host `go` -----
+# --- toolchain selection: the app's go.mod picks the `go` that runs go list --
 #
-# `_go_version_tuple` and `_required_go_version` are the two parsing seams;
-# `fetch_cache`'s `have < need` comparison between them is the refusal path
-# itself. `fetch_cache` also clones and runs `go list`, so exercising the
-# comparison end-to-end monkeypatches `subprocess.run` -- there is no wrapper
-# function to stub instead, the way layer-currency.py's `git()` gives
+# `fetch_cache` asks Go itself which toolchain backend/go.mod calls for
+# (`go env GOROOT` under GOTOOLCHAIN=auto, downloading it when the host's is
+# older) and runs `go list` with that binary. `fetch_cache` also clones, so
+# exercising it end-to-end monkeypatches `subprocess.run` -- there is no
+# wrapper function to stub instead, the way layer-currency.py's `git()` gives
 # cve-tools-test.py one.
 
-GO_MOD_1260 = "module example.com/fixture\n\ngo 1.26.0\n"
-GO_MOD_1260_SHORT = "module example.com/fixture\n\ngo 1.26\n"
-
-
-def version_tuple_cases():
-    case("_go_version_tuple: exact three-component `go version` output",
-         go_mods._go_version_tuple("go version go1.26.0 linux/amd64\n"),
-         (1, 26, 0))
-    # Spelled differently but valid: a newer patch must not be misread as
-    # equal -- the comparison is a tuple compare, not a string compare.
-    case("_go_version_tuple: a newer patch parses strictly greater",
-         go_mods._go_version_tuple("go version go1.26.1 linux/amd64\n") >
-         go_mods._go_version_tuple("go version go1.26.0 linux/amd64\n"),
-         True)
-    case("_go_version_tuple: an older minor parses strictly less",
-         go_mods._go_version_tuple("go version go1.25.9 linux/amd64\n") <
-         go_mods._go_version_tuple("go version go1.26.0 linux/amd64\n"),
-         True)
-    # `go version` never emits a bare two-component string, but the regex's
-    # patch group is optional -- missing reads as 0, not refused outright.
-    case("_go_version_tuple: a two-component version fills patch with 0",
-         go_mods._go_version_tuple("go version go1.26 linux/amd64\n"),
-         (1, 26, 0))
-    # A devel/rc build string: the regex has no dedicated case for it, so it
-    # reads whatever `go\d+\.\d+` it finds first -- here the base series
-    # `go1.24` embedded in the devel build stamp, silently dropping the
-    # `-e705a...` commit suffix. This is the parser's actual behaviour, not a
-    # claimed feature: a devel toolchain built off an older series is (only
-    # coincidentally correctly) read as behind; one built off the SAME series
-    # as a later release would read as behind too, wrongly.
-    case("_go_version_tuple: a devel build string reads its embedded series",
-         go_mods._go_version_tuple(
-             "go version devel go1.24-e705a02574 Tue Sep 26 15:22:01 2023 "
-             "+0000 linux/amd64\n"),
-         (1, 24, 0))
-
-
-def required_go_version_cases():
-    with tempfile.TemporaryDirectory() as tmp:
-        repo = Path(tmp)
-        (repo / "backend").mkdir()
-        (repo / "backend" / "go.mod").write_text(GO_MOD_1260)
-        case("_required_go_version: three-component `go` directive",
-             go_mods._required_go_version(repo), (1, 26, 0))
-
-    with tempfile.TemporaryDirectory() as tmp:
-        repo = Path(tmp)
-        (repo / "backend").mkdir()
-        (repo / "backend" / "go.mod").write_text(GO_MOD_1260_SHORT)
-        case("_required_go_version: two-component `go` directive fills "
-             "patch with 0",
-             go_mods._required_go_version(repo), (1, 26, 0))
+GO_MOD = "module example.com/fixture\n\ngo 1.27\n"
+FAKE_GOROOT = "/fake/gomodcache/golang.org/toolchain@v0.0.1-go1.27.0.linux-amd64"
 
 
 class FakeToolchain:
-    """Stands in for the four subprocess.run calls fetch_cache makes -- `go
-    version`, `git clone`, `git checkout` and `go list` -- around its version
-    gate. Recording whether `go list` ran is what proves a refusal
-    short-circuited rather than merely printing a message and continuing.
+    """Stands in for the four subprocess.run calls fetch_cache makes -- `git
+    clone`, `git checkout`, `go env GOROOT` and `go list`. Any other call is
+    an AssertionError, so a host `go version` gate creeping back fails here.
 
     `go list`'s fake stdout defaults to naming DEFAULT_MODULE alone, and the
     default seed puts that module's .zip in the fake GOMODCACHE -- a real
@@ -267,15 +216,15 @@ class FakeToolchain:
 
     DEFAULT_MODULE = ("github.com/oapi-codegen/oapi-codegen/v2", "v2.4.1")
 
-    def __init__(self, go_version_stdout, go_mod_text, go_list_stdout=None,
-                 seed_gomodcache=None):
-        self.go_version_stdout = go_version_stdout
-        self.go_mod_text = go_mod_text
+    def __init__(self, go_list_stdout=None, seed_gomodcache=None):
         self.go_list_stdout = (go_list_stdout if go_list_stdout is not None
                                else self._default_deps_stream())
         self.seed_gomodcache = (seed_gomodcache if seed_gomodcache is not None
                                 else self._seed_default_module)
+        self.goroot_env = None
+        self.goroot_cwd = None
         self.go_list_called = False
+        self.go_list_binary = None
         self.go_list_env = None
         self.workdir = None
 
@@ -289,18 +238,21 @@ class FakeToolchain:
         seed(gomodcache, path, version, "zip", b"fixture zip payload")
 
     def __call__(self, argv, **kwargs):
-        if argv[:2] == ["go", "version"]:
-            return SimpleNamespace(stdout=self.go_version_stdout, returncode=0)
         if argv[:2] == ["git", "clone"]:
             repo = Path(argv[-1])
             self.workdir = repo.parent
             (repo / "backend").mkdir(parents=True)
-            (repo / "backend" / "go.mod").write_text(self.go_mod_text)
+            (repo / "backend" / "go.mod").write_text(GO_MOD)
             return SimpleNamespace(returncode=0)
         if argv[:2] == ["git", "-C"] and "checkout" in argv:
             return SimpleNamespace(returncode=0)
-        if argv[:2] == ["go", "list"]:
+        if argv == ["go", "env", "GOROOT"]:
+            self.goroot_env = kwargs.get("env")
+            self.goroot_cwd = kwargs.get("cwd")
+            return SimpleNamespace(stdout=FAKE_GOROOT + "\n", returncode=0)
+        if argv[1:2] == ["list"]:
             self.go_list_called = True
+            self.go_list_binary = argv[0]
             self.go_list_env = kwargs.get("env")
             # fetch_cache has already created workdir/gomodcache for real by
             # this point (subprocess.run is the only thing faked) -- seeding
@@ -312,13 +264,11 @@ class FakeToolchain:
         raise AssertionError(f"unexpected subprocess call in fetch_cache: {argv}")
 
 
-def run_fetch_cache(go_version_stdout, go_mod_text, go_list_stdout=None,
-                     seed_gomodcache=None):
+def run_fetch_cache(go_list_stdout=None, seed_gomodcache=None):
     """fetch_cache(), every subprocess call faked: returns (the SystemExit
     code fetch_cache raised, or None; its stderr; the FakeToolchain, to check
-    whether `go list` ran)."""
-    toolchain = FakeToolchain(go_version_stdout, go_mod_text, go_list_stdout,
-                              seed_gomodcache)
+    what `go env GOROOT` and `go list` were run with)."""
+    toolchain = FakeToolchain(go_list_stdout, seed_gomodcache)
     was_run = subprocess.run
     subprocess.run = toolchain
     stderr = io.StringIO()
@@ -336,46 +286,33 @@ def run_fetch_cache(go_version_stdout, go_mod_text, go_list_stdout=None,
     return code, stderr.getvalue(), toolchain
 
 
-def refusal_path_cases():
-    GO_VERSION = "go version go1.26.0 linux/amd64\n"
+def toolchain_selection_cases():
+    host_gomodcache = "/nonexistent/host/gomodcache"
+    was_gomodcache = os.environ.get("GOMODCACHE")
+    os.environ["GOMODCACHE"] = host_gomodcache
+    try:
+        code, err, tc = run_fetch_cache()
+    finally:
+        if was_gomodcache is None:
+            os.environ.pop("GOMODCACHE", None)
+        else:
+            os.environ["GOMODCACHE"] = was_gomodcache
 
-    # Equal: the app's own pinned floor, exactly met. Must proceed, not
-    # refuse -- `have < need` is strict, not `<=`.
-    code, err, tc = run_fetch_cache(GO_VERSION, GO_MOD_1260)
-    case("fetch_cache: host go equal to the required version is not refused",
-         code, None)
-    case("fetch_cache: equal version still runs `go list`",
-         tc.go_list_called, True)
-
-    # Newer patch: the must-not-fire half of the same comparison.
-    code, err, tc = run_fetch_cache(
-        "go version go1.26.1 linux/amd64\n", GO_MOD_1260)
-    case("fetch_cache: a newer host patch is not refused", code, None)
-
-    # Older minor: THE case. Must refuse before `go list` ever runs.
-    code, err, tc = run_fetch_cache(
-        "go version go1.25.9 linux/amd64\n", GO_MOD_1260)
-    case("fetch_cache: an older host minor is refused", code, 2)
-    case("fetch_cache: refusal names both versions",
-         "1.25.9" in err and "1.26.0" in err, True)
-    case("fetch_cache: a refusal never runs `go list`",
-         tc.go_list_called, False)
-
-    # The two-component `go` directive form: same comparison, fed from
-    # `_required_go_version`'s other branch.
-    code, err, tc = run_fetch_cache(GO_VERSION, GO_MOD_1260_SHORT)
-    case("fetch_cache: a two-component go.mod directive is not refused",
-         code, None)
-
-    # A devel host toolchain, read as its embedded 1.24 series (see
-    # version_tuple_cases): behind a 1.26.0 floor, so it refuses here -- this
-    # documents the parser's literal behaviour, not a claim that devel builds
-    # are specially supported.
-    case("fetch_cache: a devel host string reading behind is refused",
-         run_fetch_cache(
-             "go version devel go1.24-e705a02574 Tue Sep 26 15:22:01 2023 "
-             "+0000 linux/amd64\n", GO_MOD_1260)[0],
-         2)
+    case("fetch_cache: proceeds with no host-version gate", code, None)
+    case("fetch_cache: the toolchain is resolved inside the app's own module",
+         tc.goroot_cwd is not None and tc.workdir is not None
+         and Path(tc.goroot_cwd) == tc.workdir / "repo" / "backend", True)
+    case("fetch_cache: the resolve may switch toolchains (GOTOOLCHAIN=auto)",
+         (tc.goroot_env or {}).get("GOTOOLCHAIN"), "auto")
+    # The switch downloads into GOMODCACHE, and render_inc renders every zip
+    # in the scratch one -- a toolchain there would become a SRC_URI entry.
+    case("fetch_cache: the toolchain download lands in the host GOMODCACHE, "
+         "not the scratch one", (tc.goroot_env or {}).get("GOMODCACHE"),
+         host_gomodcache)
+    case("fetch_cache: go list runs the binary the resolve selected",
+         tc.go_list_binary, f"{FAKE_GOROOT}/bin/go")
+    case("fetch_cache: go list never switches again (GOTOOLCHAIN=local)",
+         (tc.go_list_env or {}).get("GOTOOLCHAIN"), "local")
 
 
 # --- GOCACHE isolation -------------------------------------------------------
@@ -392,8 +329,7 @@ def gocache_isolation_cases():
     was_gocache = os.environ.get("GOCACHE")
     os.environ["GOCACHE"] = host_gocache
     try:
-        code, err, tc = run_fetch_cache(
-            "go version go1.26.0 linux/amd64\n", GO_MOD_1260)
+        code, err, tc = run_fetch_cache()
     finally:
         if was_gocache is None:
             os.environ.pop("GOCACHE", None)
@@ -509,7 +445,6 @@ def check_complete_cases():
 # with a real `go list -deps` stream and a real (fixture) GOMODCACHE.
 
 def completeness_wiring_cases():
-    GO_VERSION = "go version go1.26.0 linux/amd64\n"
     codegen_path, codegen_version = FakeToolchain.DEFAULT_MODULE
     # Two packages: the codegen tool's own module (fetch_cache refuses
     # outright without it, unrelated to completeness) and a second module
@@ -526,9 +461,8 @@ def completeness_wiring_cases():
         seed(gomodcache, codegen_path, codegen_version, "zip",
              b"fixture zip payload")
 
-    code, err, tc = run_fetch_cache(
-        GO_VERSION, GO_MOD_1260, go_list_stdout=deps_stream,
-        seed_gomodcache=seed_codegen_only)
+    code, err, tc = run_fetch_cache(go_list_stdout=deps_stream,
+                                    seed_gomodcache=seed_codegen_only)
     case("fetch_cache: a module missing its .zip is refused", code, 2)
     case("fetch_cache: the refusal names the missing module",
          "example.com/needed@v1.0.0" in err, True)
@@ -544,9 +478,8 @@ def completeness_wiring_cases():
         seed(gomodcache, "example.com/needed", "v1.0.0", "zip",
              b"a fixture zip payload")
 
-    code, err, tc = run_fetch_cache(
-        GO_VERSION, GO_MOD_1260, go_list_stdout=deps_stream,
-        seed_gomodcache=seed_both)
+    code, err, tc = run_fetch_cache(go_list_stdout=deps_stream,
+                                    seed_gomodcache=seed_both)
     case("fetch_cache: a module with its .zip present is not refused",
          code, None)
 
@@ -560,12 +493,9 @@ def completeness_wiring_cases():
 # trusted, checked before completeness rather than after.
 
 def codegen_tool_presence_cases():
-    GO_VERSION = "go version go1.26.0 linux/amd64\n"
-
     # THE case: no output at all -- explicit override, or the toolchain's
     # own "trusted, complete" default would mask exactly this.
-    code, err, tc = run_fetch_cache(
-        GO_VERSION, GO_MOD_1260, go_list_stdout="")
+    code, err, tc = run_fetch_cache(go_list_stdout="")
     case("fetch_cache: empty go list output refuses rather than reporting "
          "an empty closure complete", code, 2)
     case("fetch_cache: the refusal names the codegen tool's import path",
@@ -583,9 +513,8 @@ def codegen_tool_presence_cases():
         seed(gomodcache, "gopkg.in/yaml.v3", "v3.0.1", "zip",
              b"fixture zip payload")
 
-    code, err, tc = run_fetch_cache(
-        GO_VERSION, GO_MOD_1260, go_list_stdout=unrelated,
-        seed_gomodcache=seed_unrelated)
+    code, err, tc = run_fetch_cache(go_list_stdout=unrelated,
+                                    seed_gomodcache=seed_unrelated)
     case("fetch_cache: a deps list missing the codegen tool's module "
          "refuses even when otherwise complete", code, 2)
     case("fetch_cache: that refusal names the codegen tool, not a "
@@ -606,9 +535,8 @@ def codegen_tool_presence_cases():
         seed(gomodcache, near_miss_path, near_miss_version, "zip",
              b"fixture zip payload")
 
-    code, err, tc = run_fetch_cache(
-        GO_VERSION, GO_MOD_1260, go_list_stdout=near_miss,
-        seed_gomodcache=seed_near_miss)
+    code, err, tc = run_fetch_cache(go_list_stdout=near_miss,
+                                    seed_gomodcache=seed_near_miss)
     case("fetch_cache: a string-prefix, non-boundary module is not "
          "mistaken for the codegen tool's own module", code, 2)
     case("fetch_cache: that refusal names the codegen tool",
@@ -641,9 +569,7 @@ def main() -> int:
     entry_shape_cases()
     mod_only_cases()
     escaping_and_sort_cases()
-    version_tuple_cases()
-    required_go_version_cases()
-    refusal_path_cases()
+    toolchain_selection_cases()
     gocache_isolation_cases()
     deps_modules_cases()
     check_complete_cases()
