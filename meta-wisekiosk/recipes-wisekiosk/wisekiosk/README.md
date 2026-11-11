@@ -16,7 +16,8 @@ regenerates both from the new pin, via `tools/app-lockfile.py` and `tools/go-mod
 before bitbake ever sees them. Both need network the first time a new pin is built; each output
 records the commit it was generated for — a variable inside the `.inc`, a gitignored `.srcrev` stamp
 beside the shrinkwrap — so every later build against the same pin skips the fetch entirely.
-`go-mods.py` also needs a `go` toolchain new enough for the app's `go.mod`.
+`go-mods.py` runs whichever Go toolchain the app's `go.mod` calls for, which Go downloads itself when
+the host's `go` is older.
 
 `SRCREV` follows the app's `main` (owner, 2026-09-29): Renovate keeps one pull request moving it to
 `main`'s head, rolled forward while unmerged, automerging the same way the kas layer pins do — see
