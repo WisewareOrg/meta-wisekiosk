@@ -6,7 +6,7 @@ HOMEPAGE = "https://github.com/tjwise99/WiseKiosk"
 LICENSE = "MIT"
 
 SRC_URI = "git://github.com/tjwise99/WiseKiosk.git;protocol=https;branch=main"
-SRCREV = "cd8cbb65de20d0528947eac655e935639f8627f7"
+SRCREV = "c21efa0743bdfee7749c63ec512bff87c9ffb1f5"
 
 # The app carries no release version; `+git` is poky's spelling for that, SRCPV
 # being empty in 4.3 and later.
