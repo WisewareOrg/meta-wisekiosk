@@ -38,11 +38,11 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   `just kiosk-ota` and `just kiosk-reboot` when there is one, then gets labgrid's SSHDriver fresh
   and reads the board's `/etc/buildinfo`, printing its meta-wisekiosk
   commit into the run's own record on every run — so the record carries the board's commit even
-  under a `-k`-filtered run where TST016 itself would not execute. The commit under test comes from
-  the runner's own `bench_candidate` fixture, never an environment variable — `None` outside
-  `bench test`/`bench run`, in which case the setup fixture skips only its install step and TST016
-  alone skips: it reads the board's `/etc/buildinfo` itself and fails unless it names
-  `bench_candidate`.
+  under a `-k`-filtered run where TST016<!-- Running the image update's build --> itself would not
+  execute. The commit under test comes from the runner's own `bench_candidate` fixture, never an
+  environment variable — `None` outside `bench test`/`bench run`, in which case the setup fixture
+  skips only its install step and TST016<!-- Running the image update's build --> alone skips:
+  it reads the board's `/etc/buildinfo` itself and fails unless it names `bench_candidate`.
 
 `bench run` also reads `[github]` — the GitHub App that posts the `bench-pipeline` check run, and the
 path to its private key on the bench host — and `[run]`, naming the systemd unit it disables on the

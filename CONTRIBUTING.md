@@ -97,9 +97,9 @@ file, then `§`, then the heading in double quotes — as [`README.md`](README.m
 cited above. [`tools/doc-links.py`](tools/doc-links.py) gates that form against the real headings,
 and it cannot see a line number rot. Show the form by citing a real section, as here: the checker
 reads Markdown link syntax anywhere on a line, backticks included, so an invented filename written
-as an illustration is a broken link like any other. The same rule holds for anything renumberable — write `issue #46 build stamp`
-and `SRS026 backend-unreachable state`, number *and* name, because a renumber rewrites links and
-leaves prose untouched. Ordinal references in prose ("step 3") are reported as warnings for exactly
+as an illustration is a broken link like any other. The same rule holds for anything
+renumberable — write `issue #46 build stamp`, number *and* name, because a renumber rewrites links
+and leaves prose untouched. Ordinal references in prose ("step 3") are reported as warnings for exactly
 this reason.
 
 **An investigation is a directory whose `README.md` is the record of record**, copied from
