@@ -34,15 +34,15 @@ jobs:
         run: python3 -m pip install --quiet pyyaml
 
       # wise-ci's check-reqs action needs uv on PATH.
-      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
-          version: "0.13.5"
+          version: "0.13.7"
 
       - name: Run repository guards
         run: tools/ci-guards.sh
 
       # !cancelled(): runs even when the guards step failed.
-      - uses: WisewareOrg/wise-ci/check-reqs@27d1fdca471d5ed1b6fbaf1b03b8ebe6c641c66e
+      - uses: WisewareOrg/wise-ci/check-reqs@4b3554d330465dee925aa10e0c62355903b1488a
         if: ${{ !cancelled() }}
         with:
           root: docs/requirements

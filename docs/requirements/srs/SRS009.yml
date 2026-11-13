@@ -10,9 +10,10 @@ rationale: |
   An image update is meant for it when one of its operators signed it and it was built for its kind
   of hardware. Settles refusal of an image update signed by a key no operator holds, and of one
   built for a different kind of hardware. Unproven: an image update that is signed correctly but
-  carries a bad image, which SRS012 (falls back from an image update that cuts it off) covers.
+  carries a bad image, which SRS012<!-- Falls back from an image update that cuts it off -->
+  covers.
 ref: ''
-reviewed: Qc9_acuQ2maLGus-SFMC_t3YaC5dmN4SnKtsWXAW0EA=
+reviewed: 6f3i7ixJ8CH-GoWRN07dEsOgNaYgULH6lmh0zfkiaX0=
 status: proposed
 text: |
   The appliance shall refuse an image update not meant for it.
