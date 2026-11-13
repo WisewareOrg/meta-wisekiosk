@@ -39,12 +39,8 @@ One owner per fact. Read the owner; do not restate it here or anywhere else.
   `DISTRO_FEATURES`, `MACHINE_FEATURES`, or a poky/meta-openembedded pin bump invalidate more than
   WebKit. Either is a multi-hour rebuild — see [`README.md`](README.md) §"Quick start" for the
   measured costs — so decide before starting.
-- **Every dedicated test on a board runs through the bench driver.** It is a pytest case under
-  `tests/`, run as `bench test <ref> -- <suite> -k <name>` the way `just bootprofile` runs
-  `tests/diagnostics` — never an ad hoc script, loop or ssh one-liner. By hand, a board is for
-  inspection only: reading its state and running read-only diagnostics. A test driven outside the
-  driver carries none of its provenance, and its results are not evidence for a review, an
-  investigation or a PR.
+- **Every dedicated test on a board runs through the bench driver** — the rule and the form are
+  [`docs/testing.md`](docs/testing.md) §"Running it".
 - **Never destructively test the prod board.** It is wall-mounted and carries the live soak run;
   bench is the OTA, reboot and rollback target. Roles and addresses are in
   `local/device-identity.md` — read them, do not remember them.

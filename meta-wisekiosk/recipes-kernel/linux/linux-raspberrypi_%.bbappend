@@ -12,18 +12,11 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 # with a resolvable PC.
 SRC_URI += " file://brcmfmac-52e8726d6782.patch"
 
-# #245: the soft-lockup detector, so a kernel looping with interrupts on panics
-# with a stack trace into pstore instead of a silent reset. It fires ahead of
-# the 14s hardware watchdog only with kernel.watchdog_thresh lowered from its
-# default of 10, which tools/kiosk-install.sh does for the length of an
-# install. CONFIG_HARDLOCKUP_DETECTOR and CONFIG_RCU_CPU_STALL_TIMEOUT
-# are not selectable on this board (no CONFIG_SMP).
+# Soft-lockup detector, panicking into pstore; tools/kiosk-install.sh lowers
+# kernel.watchdog_thresh to 1 for the length of an install.
 SRC_URI += " file://lockup-detect.cfg"
 
-# #245: a persistent function tracer zone, armed by tools/kiosk-install.sh for
-# the length of an install, to separate a CPU still executing (an IRQs-off loop
-# or IRQ storm) from one that is not (a bus/SoC stall) at the next reset. The rpi ramoops overlay has no
-# ftrace-size and config.txt is not OTA-updatable, so the zone defaults from
-# kernel code.
+# pstore ftrace zone, sized by the patch when the device tree gives none;
+# tools/kiosk-install.sh arms it for the length of an install.
 SRC_URI += " file://pstore-ftrace.cfg"
 SRC_URI += " file://0001-pstore-ram-default-ftrace-zone.patch"
