@@ -13,6 +13,7 @@ class Board:
 
     Attributes:
         driver (labgrid.driver.SSHDriver): the board's remote shell.
+        host (str): `user@address` of the board, as the `just kiosk-*` recipes take it.
     """
 
     def __init__(self, target):
@@ -24,7 +25,7 @@ class Board:
         self._target = target
         self.driver = target.get_driver("SSHDriver")
         service = target.get_resource("NetworkService")
-        self._host = f"{service.username}@{service.address}"
+        self.host = f"{service.username}@{service.address}"
 
     def run_checked(self, cmd, timeout=COMMAND_TIMEOUT_SECONDS):
         """Run `cmd` on the board and assert it returned 0.
@@ -71,7 +72,7 @@ class Board:
             subprocess.CalledProcessError: `just kiosk-reboot` exits nonzero.
             Exception: the SSHDriver's own activation times out reaching the board.
         """
-        subprocess.run(["just", "kiosk-reboot", self._host], check=True)
+        subprocess.run(["just", "kiosk-reboot", self.host], check=True)
         self._target.deactivate(self.driver)
         self._target.activate(self.driver)
 
@@ -90,16 +91,14 @@ def board(target):
 
 
 @pytest.fixture(scope="session")
-def install_candidate(target, bench_candidate, board):
+def install_candidate(bench_candidate, board):
     """Install `bench_candidate` on the board, if there is one, then print its commit.
 
-    Installs by running `just kiosk-ota` against the board the target's NetworkService
-    names, then `board.restart`. Either way, gets the SSHDriver, reads
-    /etc/buildinfo, and prints the board's meta-wisekiosk commit as
-    `board_commit=<sha>`.
+    Installs by running `just kiosk-ota` against `board.host`, then `board.restart`.
+    Either way, reads /etc/buildinfo through `board.driver` and prints the board's
+    meta-wisekiosk commit as `board_commit=<sha>`.
 
     Args:
-        target (labgrid.Target): names the board's NetworkService and SSHDriver.
         bench_candidate (str | None): the commit under test, or None outside a build.
         board (Board): the board under test.
 
@@ -111,12 +110,9 @@ def install_candidate(target, bench_candidate, board):
             line.
     """
     if bench_candidate is not None:
-        service = target.get_resource("NetworkService")
-        host = f"{service.username}@{service.address}"
-        subprocess.run(["just", "kiosk-ota", host], check=True)
+        subprocess.run(["just", "kiosk-ota", board.host], check=True)
         board.restart()
-    driver = target.get_driver("SSHDriver")
-    stdout, _stderr, returncode = driver.run("cat /etc/buildinfo")
+    stdout, _stderr, returncode = board.driver.run("cat /etc/buildinfo")
     assert returncode == 0, "could not read /etc/buildinfo on the board"
     line = next(
         (entry for entry in stdout if entry.split()[:2] == ["meta-wisekiosk", "="]),

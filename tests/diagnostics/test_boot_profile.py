@@ -69,7 +69,7 @@ def test_boot_profile(target, request, board):
     board with no copied binary, no copied unit, no enable link for it, and neither
     `/usr/local/bin` nor `/usr/local` -- no image ships either.
     """
-    driver = target.get_driver("SSHDriver")
+    driver = board.driver
     outdir = Path(OUTPUT_DIR)
     outdir.mkdir(parents=True, exist_ok=True)
 
