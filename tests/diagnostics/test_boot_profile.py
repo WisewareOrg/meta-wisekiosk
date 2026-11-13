@@ -43,11 +43,11 @@ _CLEANUP_BOUND_SECONDS = 60
 _CLEANUP_POLL_SECONDS = 5
 
 
-def _boot_id(run_checked):
+def _boot_id(board):
     """Read the board's current boot id.
 
     Args:
-        run_checked (Callable[..., list[str]]): the `run_checked` fixture (tests/conftest.py).
+        board (Board): the board under test (tests/conftest.py).
 
     Returns:
         str: the boot id.
@@ -55,13 +55,13 @@ def _boot_id(run_checked):
     Raises:
         AssertionError: the id could not be read, or came back empty.
     """
-    output = run_checked("cat /proc/sys/kernel/random/boot_id", timeout=None)
+    output = board.run_checked("cat /proc/sys/kernel/random/boot_id", timeout=None)
     boot_id = "".join(output).strip()
     assert boot_id, "empty boot id -- refusing to run blind"
     return boot_id
 
 
-def test_boot_profile(target, request, run_checked):
+def test_boot_profile(target, request, board):
     """Capture one boot profile end to end, leaving the board as it was found.
 
     Arms the sampler, reboots, waits out the observer window, pulls the samples and the
@@ -126,15 +126,15 @@ def test_boot_profile(target, request, run_checked):
     request.addfinalizer(_cleanup)
 
     # 1. Record the boot id.
-    boot_before = _boot_id(run_checked)
+    boot_before = _boot_id(board)
 
     # 2. Arm: copy the binary and the unit, then enable. scp (what driver.put() shells out
     # to) does not create destination directories, so make it first.
-    run_checked(f"mkdir -p {_BOARD_BIN_DIR}", timeout=None)
+    board.run_checked(f"mkdir -p {_BOARD_BIN_DIR}", timeout=None)
     driver.put(str(DEPLOYED_BINARY), BOARD_BINARY_PATH)
-    run_checked(f"chmod 0755 {BOARD_BINARY_PATH}", timeout=None)
+    board.run_checked(f"chmod 0755 {BOARD_BINARY_PATH}", timeout=None)
     driver.put(str(UNIT_SOURCE), "/etc/systemd/system/")
-    run_checked(f"systemctl daemon-reload && systemctl enable {_UNIT_NAME}", timeout=None)
+    board.run_checked(f"systemctl daemon-reload && systemctl enable {_UNIT_NAME}", timeout=None)
 
     # 3. Reboot, then disconnect for the whole observer window -- a connection during it is
     # itself an instrument; see the bootprof README for the measured cost.
@@ -155,7 +155,7 @@ def test_boot_profile(target, request, run_checked):
         except Exception:  # noqa: BLE001 -- unreachable is "still the old boot", not a failure
             time.sleep(_RETRY_INTERVAL_SECONDS)
             continue
-        boot_after = _boot_id(run_checked)
+        boot_after = _boot_id(board)
         if boot_after == boot_before:
             time.sleep(_RETRY_INTERVAL_SECONDS)
             continue

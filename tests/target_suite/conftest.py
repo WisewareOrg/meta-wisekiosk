@@ -14,7 +14,7 @@ def _install_candidate(install_candidate):
 
 
 @pytest.fixture
-def set_config(target, request, run_checked):
+def set_config(request, board):
     """Build an `apply` that swaps the board onto a given config, undoing it at teardown.
 
     `apply(path)` stops the browser, clears a mount a dead run left over the live config path,
@@ -27,14 +27,13 @@ def set_config(target, request, run_checked):
     test.
 
     Args:
-        target (labgrid.Target): names the board's SSHDriver.
         request (pytest.FixtureRequest): registers each step's undo.
-        run_checked (Callable[[str], list[str]]): the `run_checked` fixture (tests/conftest.py).
+        board (Board): the board under test (tests/conftest.py).
 
     Returns:
         Callable[[str | os.PathLike], None]: `apply(path)`.
     """
-    driver = target.get_driver("SSHDriver")
+    driver = board.driver
 
     def apply(path):
         """Swap the board onto `path`'s config and leave the instance running against it.
@@ -42,28 +41,28 @@ def set_config(target, request, run_checked):
         Args:
             path (str | os.PathLike): the config file to copy to the board.
         """
-        run_checked("systemctl stop kiosk.service")
-        request.addfinalizer(lambda: run_checked("systemctl start kiosk.service"))
+        board.run_checked("systemctl stop kiosk.service")
+        request.addfinalizer(lambda: board.run_checked("systemctl start kiosk.service"))
 
-        run_checked(
+        board.run_checked(
             f"if grep -q ' {_CONFIG_PATH} ' /proc/self/mountinfo; then umount {_CONFIG_PATH}; fi",
         )
 
         driver.put(str(path), _CONFIG_COPY_PATH)
-        request.addfinalizer(lambda: run_checked(f"rm -f {_CONFIG_COPY_PATH}"))
+        request.addfinalizer(lambda: board.run_checked(f"rm -f {_CONFIG_COPY_PATH}"))
 
-        run_checked(f"mount --bind {_CONFIG_COPY_PATH} {_CONFIG_PATH}")
-        request.addfinalizer(lambda: run_checked(f"umount {_CONFIG_PATH}"))
+        board.run_checked(f"mount --bind {_CONFIG_COPY_PATH} {_CONFIG_PATH}")
+        request.addfinalizer(lambda: board.run_checked(f"umount {_CONFIG_PATH}"))
 
         def _restart_backend_and_wait():
-            run_checked("systemctl restart wisekiosk.service")
+            board.run_checked("systemctl restart wisekiosk.service")
             assert poll_for_page(driver), "page did not serve after the backend restart"
 
-        run_checked("systemctl restart wisekiosk.service")
+        board.run_checked("systemctl restart wisekiosk.service")
         request.addfinalizer(_restart_backend_and_wait)
         assert poll_for_page(driver), "page did not serve after the backend restart"
 
-        run_checked("systemctl start kiosk.service")
-        request.addfinalizer(lambda: run_checked("systemctl stop kiosk.service"))
+        board.run_checked("systemctl start kiosk.service")
+        request.addfinalizer(lambda: board.run_checked("systemctl stop kiosk.service"))
 
     return apply

@@ -15,7 +15,7 @@ STILL_WRONG_SECONDS = 24 * 3600
 CLOCK_FILE = "/data/systemd-timesync/clock"
 
 
-def _restored_clock_offset(run_checked):
+def _restored_clock_offset(board):
     """How far behind the host the clock was when timesyncd first logged this boot.
 
     timesyncd restores the recorded clock at its own startup, before it logs anything, so
@@ -23,7 +23,7 @@ def _restored_clock_offset(run_checked):
     identifier rather than the unit, which would also match systemd's own earlier entries.
 
     Args:
-        run_checked (Callable[[str], list[str]]): the `run_checked` fixture.
+        board (Board): the board under test.
 
     Returns:
         float | None: host `time.time()` minus that entry's realtime in seconds, or None if
@@ -33,43 +33,42 @@ def _restored_clock_offset(run_checked):
         AssertionError: the journal cannot be read.
     """
     cmd = "journalctl -q -b SYSLOG_IDENTIFIER=systemd-timesyncd -o json --no-pager"
-    entries = [line for line in run_checked(cmd) if line.startswith("{")]
+    entries = [line for line in board.run_checked(cmd) if line.startswith("{")]
     if not entries:
         return None
     return time.time() - int(json.loads(entries[0])["__REALTIME_TIMESTAMP"]) / 1e6
 
 
-def _set_board_clock(run_checked, epoch):
+def _set_board_clock(board, epoch):
     """Set the board's clock to `epoch` and record it as the persisted clock.
 
     Args:
-        run_checked (Callable[[str], list[str]]): the `run_checked` fixture.
+        board (Board): the board under test.
         epoch (int): seconds since the epoch.
 
     Raises:
         AssertionError: setting the clock or touching the clock file fails.
     """
-    run_checked(f"date -s @{epoch}")
-    run_checked(f"touch {CLOCK_FILE}")
+    board.run_checked(f"date -s @{epoch}")
+    board.run_checked(f"touch {CLOCK_FILE}")
 
 
 @pytest.fixture
-def restore_clock(board_clock, run_checked):
+def restore_clock(board):
     """Leave the board's clock agreeing with the host's and timesyncd running, at teardown.
 
     Args:
-        board_clock (Callable[[], tuple[float, float] | None]): the `board_clock` fixture.
-        run_checked (Callable[[str], list[str]]): the `run_checked` fixture.
+        board (Board): the board under test.
     """
     yield
-    reading = board_clock()
+    reading = board.clock()
     assert reading is not None, "the board's clock could not be read at teardown"
     if abs(reading[1]) > AGREE_SECONDS:
-        _set_board_clock(run_checked, int(time.time()))
-    run_checked("systemctl start systemd-timesyncd")
+        _set_board_clock(board, int(time.time()))
+    board.run_checked("systemctl start systemd-timesyncd")
 
 
-def test_clock_set_wrong(restore_clock, run_checked, board_clock, restart_board, record_property):
+def test_clock_set_wrong(restore_clock, board, record_property):
     """The board's clock agrees with the host's within `BOUND_SECONDS` of its starting up again.
 
     Stops timesyncd, sets the clock three days back and records it as the persisted clock,
@@ -79,15 +78,15 @@ def test_clock_set_wrong(restore_clock, run_checked, board_clock, restart_board,
     before the pass conditions.
     """
     record_property("requirement", "TST015")
-    run_checked("systemctl stop systemd-timesyncd")
-    _set_board_clock(run_checked, int(time.time()) - SKEW_SECONDS)
+    board.run_checked("systemctl stop systemd-timesyncd")
+    _set_board_clock(board, int(time.time()) - SKEW_SECONDS)
 
-    restart_board()
+    board.restart()
     returned = time.monotonic()
 
     reading = None
     while True:
-        latest = board_clock()
+        latest = board.clock()
         if latest is not None:
             reading = latest
             uptime, offset = reading
@@ -97,8 +96,8 @@ def test_clock_set_wrong(restore_clock, run_checked, board_clock, restart_board,
             break
         time.sleep(POLL_INTERVAL_SECONDS)
 
-    behind = _restored_clock_offset(run_checked)
-    print("\n".join(run_checked("journalctl -b -u systemd-timesyncd --no-pager")))
+    behind = _restored_clock_offset(board)
+    print("\n".join(board.run_checked("journalctl -b -u systemd-timesyncd --no-pager")))
     assert behind is not None, (
         "INVALID CHECK, not an appliance failure: timesyncd logged nothing this boot"
     )
