@@ -6,7 +6,6 @@ import time
 
 import pytest
 
-from board import run_checked
 from page import POLL_ATTEMPT_TIMEOUT_SECONDS, POLL_INTERVAL_SECONDS
 
 # the bound is TST015's
@@ -63,37 +62,38 @@ def _restored_clock_offset(driver):
     return time.time() - int(json.loads(stdout[0])["__REALTIME_TIMESTAMP"]) / 1e6
 
 
-def _set_board_clock(driver, epoch):
+def _set_board_clock(run_checked, epoch):
     """Set the board's clock to `epoch` and record it as the persisted clock.
 
     Args:
-        driver (labgrid.driver.SSHDriver): the board's remote shell.
+        run_checked (Callable[[str], list[str]]): the `run_checked` fixture.
         epoch (int): seconds since the epoch.
 
     Raises:
         AssertionError: setting the clock or touching the clock file fails.
     """
-    run_checked(driver, f"date -s @{epoch}")
-    run_checked(driver, f"touch {CLOCK_FILE}")
+    run_checked(f"date -s @{epoch}")
+    run_checked(f"touch {CLOCK_FILE}")
 
 
 @pytest.fixture
-def restore_clock(target):
+def restore_clock(target, run_checked):
     """Leave the board's clock agreeing with the host's and timesyncd running, at teardown.
 
     Args:
         target (labgrid.Target): names the board's SSHDriver.
+        run_checked (Callable[[str], list[str]]): the `run_checked` fixture.
     """
     driver = target.get_driver("SSHDriver")
     yield
     reading = _poll_board(driver)
     assert reading is not None, "the board's clock could not be read at teardown"
     if abs(reading[1]) > AGREE_SECONDS:
-        _set_board_clock(driver, int(time.time()))
-    run_checked(driver, "systemctl start systemd-timesyncd")
+        _set_board_clock(run_checked, int(time.time()))
+    run_checked("systemctl start systemd-timesyncd")
 
 
-def test_clock_set_wrong(target, restore_clock, record_property):
+def test_clock_set_wrong(target, restore_clock, run_checked, record_property):
     """The board's clock agrees with the host's within `BOUND_SECONDS` of its starting up again.
 
     Stops timesyncd, sets the clock three days back and records it as the persisted clock,
@@ -107,8 +107,8 @@ def test_clock_set_wrong(target, restore_clock, record_property):
     host = f"{service.username}@{service.address}"
     driver = target.get_driver("SSHDriver")
 
-    run_checked(driver, "systemctl stop systemd-timesyncd")
-    _set_board_clock(driver, int(time.time()) - SKEW_SECONDS)
+    run_checked("systemctl stop systemd-timesyncd")
+    _set_board_clock(run_checked, int(time.time()) - SKEW_SECONDS)
 
     subprocess.run(["just", "kiosk-reboot", host], check=True)
     returned = time.monotonic()
