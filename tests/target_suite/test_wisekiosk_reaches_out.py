@@ -16,7 +16,7 @@ _DROP_IN_PATH = "/run/systemd/system/wisekiosk.service.d/replay.conf"
 
 
 @pytest.fixture
-def replay_window(target, proxy, set_config, request):
+def replay_window(board, proxy, set_config, request):
     """Put the backend behind `proxy` for this test's duration, and return the browser start.
 
     Opens an `ssh -R` tunnel to the proxy's own loopback port, copies the proxy's CA to the
@@ -27,7 +27,7 @@ def replay_window(target, proxy, set_config, request):
     order, then set_config's, then proxy's.
 
     Args:
-        target (labgrid.Target): names the board's SSHDriver.
+        board (Board): the board under test (tests/conftest.py).
         proxy (wisebench.proxy.Proxy): the running proxy this test replays through.
         set_config (Callable[[str | os.PathLike], None]): swaps the board onto a config file.
         request (pytest.FixtureRequest): registers each step's undo.
@@ -36,7 +36,7 @@ def replay_window(target, proxy, set_config, request):
         float: `time.monotonic()` taken once `set_config`'s `apply` has returned from starting
         `kiosk.service` -- the browser's start.
     """
-    driver = target.get_driver("SSHDriver")
+    driver = board.driver
 
     stack = contextlib.ExitStack()
     request.addfinalizer(stack.close)

@@ -3,9 +3,9 @@
 from page import BOUND_SECONDS, PAGE_URL, POLL_ATTEMPT_TIMEOUT_SECONDS, poll_for_page
 
 
-def test_page_serves(target, record_property):
+def test_page_serves(board, record_property):
     """The WiseKiosk instance's page is served on the appliance."""
-    driver = target.get_driver("SSHDriver")
+    driver = board.driver
     stdout, stderr, returncode = driver.run(f"wget -q -O- {PAGE_URL}", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
     output = "\n".join(stdout + stderr).strip()
     assert returncode == 0, f"GET / failed (rc {returncode}): {output}"
@@ -13,9 +13,9 @@ def test_page_serves(target, record_property):
     record_property("requirement", "TST022")
 
 
-def test_backend_crash(target, record_property):
+def test_backend_crash(board, record_property):
     """The instance's page is served again within `BOUND_SECONDS` of the backend being killed."""
-    driver = target.get_driver("SSHDriver")
+    driver = board.driver
     assert poll_for_page(driver), "page did not serve before the crash was induced"
 
     stdout, stderr, returncode = driver.run(

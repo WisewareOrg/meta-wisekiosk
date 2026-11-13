@@ -3,13 +3,13 @@
 import pytest
 
 
-def test_buildinfo_names_commit(target, bench_candidate, record_property):
+def test_buildinfo_names_commit(board, bench_candidate, record_property):
     """After an image update, /etc/buildinfo names the installed commit."""
     if bench_candidate is None:
         pytest.skip("no bench_candidate: a plain pytest run, or bench test --skip-build")
     record_property("requirement", "TST016")
     expected = bench_candidate
-    driver = target.get_driver("SSHDriver")
+    driver = board.driver
     stdout, _stderr, returncode = driver.run("cat /etc/buildinfo")
     assert returncode == 0, "could not read /etc/buildinfo on the board"
     line = next(
