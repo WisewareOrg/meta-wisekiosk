@@ -16,7 +16,12 @@
 #
 # During `rauc install` it streams the board's kernel log, journal and
 # once-a-second memory/load/SD/undervoltage stats to the console, timestamped
-# on this host.
+# on this host, and arms two kernel recorders that survive a reset: the
+# soft-lockup detector at kernel.watchdog_thresh=1, so a lockup panics into
+# pstore inside the 14 s hardware watchdog, and the pstore ftrace zone over
+# the functions in kiosk-install-ftrace-filter.txt. Both are disarmed when the
+# install returns. If the install's session drops and the board comes back
+# with a new boot_id, the board's pstore is printed into the same capture.
 #
 # --check-only BEFORE AFTER runs target_activated directly against two
 # fw_printenv/rauc-status blocks, with no ssh and no device.
@@ -46,7 +51,30 @@ target_activated() {
     [[ "$new_order" == "$target"* ]] && [ "${target_left:-0}" -gt 0 ]
 }
 
+ssh=(ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
+host=
 capture_pids=()
+
+# Reads the ftrace filter on stdin. Each step reports its own failure and the
+# script carries on: an unarmed recorder never stops the install.
+# shellcheck disable=SC2016
+arm_cmd='grep -q " /sys/fs/pstore " /proc/mounts || mount -t pstore pstore /sys/fs/pstore || echo "pstore did not mount"
+rm -f /sys/fs/pstore/ftrace-ramoops-0
+f=/sys/kernel/tracing/set_ftrace_filter
+: > $f
+while read -r g; do [ -n "$g" ] && { echo "$g" >> $f || echo "ftrace filter rejected: $g"; }; done
+echo nop > /sys/kernel/tracing/current_tracer
+echo 1 > /sys/kernel/debug/pstore/record_ftrace || echo "pstore ftrace not armed"
+sysctl -w kernel.watchdog_thresh=1 || echo "soft-lockup threshold not set"
+echo "armed: record_ftrace=$(cat /sys/kernel/debug/pstore/record_ftrace) filter_entries=$(wc -l < $f) watchdog_thresh=$(cat /proc/sys/kernel/watchdog_thresh)"'
+
+# 10 is the kernel's default watchdog_thresh.
+disarm_cmd='echo 0 > /sys/kernel/debug/pstore/record_ftrace; sysctl -w kernel.watchdog_thresh=10'
+
+# shellcheck disable=SC2016
+pstore_cmd='grep -q " /sys/fs/pstore " /proc/mounts || mount -t pstore pstore /sys/fs/pstore
+ls -le /sys/fs/pstore
+for f in /sys/fs/pstore/*; do [ -e "$f" ] || continue; echo "== $f"; cat "$f"; done'
 
 # stamp TAG -- writes each stdin line to stdout as "<host-ts> [TAG] <line>",
 # reading $EPOCHREALTIME once per line with no subshell or date(1) fork.
@@ -63,7 +91,9 @@ stamp() {
 # Stops the capture on any exit from the install call. Idempotent and
 # failure-tolerant throughout: safe as the EXIT trap and as the explicit call.
 stop_capture() {
-    local status=$? epoch=$EPOCHREALTIME pid
+    local status=$? epoch pid
+    "${ssh[@]}" "$host" "$disarm_cmd" 2>&1 | stamp disarm || true
+    epoch=$EPOCHREALTIME
     printf '%(%Y-%m-%dT%H:%M:%S)T.%s%(%z)T capture stopped\n' "${epoch%.*}" "${epoch#*.}" "${epoch%.*}" >&2
     if [ "${#capture_pids[@]}" -gt 0 ]; then
         for pid in "${capture_pids[@]}"; do
@@ -73,6 +103,25 @@ stop_capture() {
     fi
     capture_pids=()
     return "$status"
+}
+
+# reset_readback BOOT_ID -- waits up to 300 s for the board to answer, as
+# `just kiosk-reboot` does; if it answers with a boot_id other than BOOT_ID it
+# reset, and its pstore is printed into the capture.
+reset_readback() {
+    local before=$1 t0=$SECONDS now
+    while :; do
+        now=$("${ssh[@]}" "$host" 'cat /proc/sys/kernel/random/boot_id') || now=
+        [ -n "$now" ] && break
+        if (( SECONDS - t0 > 300 )); then
+            echo "== board did not answer within 300s -- pstore not read" >&2
+            return 0
+        fi
+        sleep 5
+    done
+    [ "$now" != "$before" ] || return 0
+    echo "== board reset during install (boot_id $before -> $now); its pstore follows" >&2
+    "${ssh[@]}" "$host" "$pstore_cmd" 2>&1 | stamp pstore || true
 }
 
 main() {
@@ -85,12 +134,11 @@ main() {
         exit $?
     fi
     [ -n "${1:-}" ] || { usage >&2; exit 2; }
-    local host=$1
+    host=$1
     local root gate
     root=$(cd "$(dirname "$0")/.." && pwd)
     gate="$root/tools/reproducibility-gate.sh"
     cd "$root"
-    local ssh=(ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
 
     # Directly invocable, so it cannot rely on kiosk-preflight having run.
     # --tree: what installs is already on the device.
@@ -111,6 +159,8 @@ main() {
     echo "== verifying bundle signature against the device keyring"
     "${ssh[@]}" "$host" 'rauc info /data/update.raucb' \
         || { echo "bundle did not verify -- refusing to install"; exit 1; }
+    local boot_id
+    boot_id=$("${ssh[@]}" "$host" 'cat /proc/sys/kernel/random/boot_id')
     echo "== installing"
     local epoch=$EPOCHREALTIME
     printf '%(%Y-%m-%dT%H:%M:%S)T.%s%(%z)T capture started\n' "${epoch%.*}" "${epoch#*.}" "${epoch%.*}" >&2
@@ -125,9 +175,18 @@ main() {
     local stats_cmd='h=; for d in /sys/class/hwmon/hwmon*; do [ "$(cat "$d"/name 2>/dev/null)" = rpi_volt ] && h="$d"; done; while true; do m=; for f in MemFree Dirty Writeback; do set -- $(grep "^$f:" /proc/meminfo); m="$m$1$2 "; done; set -- $(cat /proc/loadavg); l="load=$1 $2 $3"; set -- $(cat /sys/block/mmcblk0/stat); k="mmc=$*"; u=$(cat "$h/in0_lcrit_alarm"); echo "$m$l $k uv=$u"; sleep 1; done'
     "${ssh[@]}" -o ServerAliveInterval=2 -o ServerAliveCountMax=3 "$host" "$stats_cmd" > >(stamp stats) 2>&1 &
     capture_pids+=("$!")
-    "${ssh[@]}" "$host" 'rauc install /data/update.raucb'
+    "${ssh[@]}" "$host" "$arm_cmd" < "$root/tools/kiosk-install-ftrace-filter.txt" 2>&1 | stamp arm || true
+    # 30 s of silence outlasts the 14 s hardware watchdog: a board that stops
+    # answering that long has reset, and a stall it recovers from keeps the
+    # session -- and with it rauc -- alive.
+    local rc=0
+    "${ssh[@]}" -o ServerAliveInterval=5 -o ServerAliveCountMax=6 "$host" 'rauc install /data/update.raucb' || rc=$?
     stop_capture
     trap - EXIT
+    if [ "$rc" -ne 0 ]; then
+        reset_readback "$boot_id"
+        exit "$rc"
+    fi
     echo "== after"
     local after
     after=$("${ssh[@]}" "$host" 'fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT; rauc status 2>&1 | grep -E "Booted|Activated|boot status"')
