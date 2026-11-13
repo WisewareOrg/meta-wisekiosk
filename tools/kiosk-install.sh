@@ -20,9 +20,9 @@
 # soft-lockup detector at kernel.watchdog_thresh=1 and the pstore ftrace zone
 # over the functions in kiosk-install-ftrace-filter.txt. Arming deletes any
 # dmesg and ftrace records already in pstore; disarming restores the threshold
-# and empties the filter. The install's session ends after 30 s without an
-# answer from the board. If it fails and the board answers again with a new
-# boot_id, the board's pstore is printed into the same capture.
+# and empties the filter. The install's session ends once the board stops
+# answering its keepalives. If it ends that way and the board answers again
+# with a new boot_id, the board's pstore is printed into the same capture.
 #
 # --check-only BEFORE AFTER runs target_activated directly against two
 # fw_printenv/rauc-status blocks, with no ssh and no device.
@@ -105,6 +105,11 @@ stream() {
     capture_pids+=("$!")
 }
 
+# arm ROOT -- arms the recorders, reading the filter beside this script.
+arm() {
+    "${ssh[@]}" "$host" "$arm_cmd" < "$1/tools/kiosk-install-ftrace-filter.txt" 2>&1 | stamp arm || true
+}
+
 start_capture() {
     line_ts "capture started" >&2
     trap stop_capture EXIT
@@ -132,12 +137,13 @@ stop_capture() {
         wait "${capture_pids[@]}" 2>/dev/null || true
     fi
     capture_pids=()
+    trap - EXIT
     return "$status"
 }
 
 # reset_readback BOOT_ID -- waits up to 300 s for the board to answer, as
-# `just kiosk-reboot` does. A boot_id other than BOOT_ID means it reset, and
-# its pstore is printed into the capture.
+# `just kiosk-reboot` does, then disarms it. A boot_id other than BOOT_ID
+# means it reset, and its pstore is printed into the capture.
 reset_readback() {
     local before=$1 t0=$SECONDS now
     while :; do
@@ -149,6 +155,7 @@ reset_readback() {
         fi
         sleep 5
     done
+    disarm
     if [ "$now" = "$before" ]; then
         echo "== session lost with no reset (boot_id unchanged) -- the install may still be running on the board" >&2
         return 0
@@ -197,13 +204,12 @@ main() {
     prev_thresh=$("${ssh[@]}" "$host" 'cat /proc/sys/kernel/watchdog_thresh') || prev_thresh=
     echo "== installing"
     start_capture
-    "${ssh[@]}" "$host" "$arm_cmd" < "$root/tools/kiosk-install-ftrace-filter.txt" 2>&1 | stamp arm || true
+    arm "$root"
     local rc=0
     "${ssh[@]}" -o ServerAliveInterval=5 -o ServerAliveCountMax=6 "$host" 'rauc install /data/update.raucb' || rc=$?
     stop_capture
-    trap - EXIT
     if [ "$rc" -ne 0 ]; then
-        reset_readback "$boot_id"
+        [ "$rc" -ne 255 ] || reset_readback "$boot_id"
         exit "$rc"
     fi
     echo "== after"

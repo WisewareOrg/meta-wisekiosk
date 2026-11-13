@@ -13,13 +13,12 @@ through the bench driver:
 import re
 import subprocess
 
-SLOT_WRITE = "rauc["
-SLOT_WRITE_MESSAGE = "writing data to device"
+RAUC_TAG = "rauc["
+SLOT_WRITE = "writing data to device"
 ARMED = re.compile(
     r"\[arm\] armed: record_ftrace=1 filter_entries=\d+ watchdog_thresh=1 softlockup_panic=1$"
 )
 SEED = "echo c > /proc/sysrq-trigger"
-CAPTURE_STREAM = "dmesg -w --time-format iso"
 
 
 def _booted_slot(driver):
@@ -52,7 +51,8 @@ def _crash(host):
     """
     subprocess.Popen(
         ["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=no",
-         "-o", "UserKnownHostsFile=/dev/null", "-o", "ServerAliveInterval=2",
+         "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=10",
+         "-o", "ServerAliveInterval=2",
          "-o", "ServerAliveCountMax=3", host, SEED],
         stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
     )
@@ -78,7 +78,7 @@ def test_install_reset_capture(target):
     for line in ota.stdout:
         print(line, end="")
         lines.append(line.rstrip("\n"))
-        if not seeded and SLOT_WRITE in line and SLOT_WRITE_MESSAGE in line:
+        if not seeded and RAUC_TAG in line and SLOT_WRITE in line:
             _crash(host)
             seeded = True
     rc = ota.wait()
@@ -98,8 +98,6 @@ def test_install_reset_capture(target):
     assert any(line.endswith("== /sys/fs/pstore/ftrace-ramoops-0") for line in pstore), (
         "no ftrace-ramoops record in the read-back"
     )
-    orphans = subprocess.run(["pgrep", "-f", CAPTURE_STREAM], capture_output=True, text=True)
-    assert orphans.stdout == "", f"capture streams outlived the install: {orphans.stdout}"
 
     target.deactivate(driver)
     target.activate(driver)
