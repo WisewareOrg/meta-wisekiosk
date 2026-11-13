@@ -58,15 +58,14 @@ def _crash(host):
     )
 
 
-def test_install_reset_capture(target):
+def test_install_reset_capture(target, board):
     """A crash mid-install leaves the panic and the ftrace ring in the install's output.
 
     The crashed install never activates the slot it was writing, so the board comes back
     on the slot it booted from before.
     """
-    service = target.get_resource("NetworkService")
-    host = f"{service.username}@{service.address}"
-    driver = target.get_driver("SSHDriver")
+    host = board.host
+    driver = board.driver
     slot_before = _booted_slot(driver)
 
     ota = subprocess.Popen(
