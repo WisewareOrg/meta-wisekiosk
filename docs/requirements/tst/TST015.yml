@@ -1,22 +1,28 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Clock set wrong
+  Clock set wrong
 level: 1.7.1
 links:
-- SRS007: sE7qd8vPfy6eTEWunnSiIAAS9W-KzeOGpV0qfEqKJRA=
+- SRS007: noBKpAln5AlkF-TrHILyVILefZYXSMPXaTetZUYCSgY=
 normative: true
 rationale: |
-  Waits on its test and its bound.
+  The recorded clock is what a restart trusts, so a clock wrong by days when the appliance goes down
+  stays wrong when it comes back until the network corrects it. The viewer must not be left with a
+  panel showing the wrong time or an instance cut off from its data.
 ref: ''
-references: []
-reviewed: gUCibfpBt94gvz4L9z0kgqZc9ksyzrIkETrgpQSKJuA=
+references:
+- keyword: def test_clock_set_wrong
+  path: tests/target_suite/test_clock.py
+  sha: f110db7251257a507a8f26fe6a7727ad4da1f75b3d4293821091ec846b4440b8
+  type: file
+reviewed: TZqML-G6HvX2dPqQ3v0a2JasaZj-LbXORckUZ4uIFyc=
 status: proposed
 text: |
   With the site network up, set the appliance's clock wrong by days, then restart the appliance and
-  confirm its clock is still wrong. Pass if, within a bound not yet set, the appliance's clock
-  agrees with the network's time. The check is invalid if the clock is not still wrong after the
-  restart.
+  confirm its clock is still wrong. Pass if, within 110 seconds of the restart, the appliance's
+  clock agrees with the network's time. The check is invalid if the clock is not still wrong after
+  the restart.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.

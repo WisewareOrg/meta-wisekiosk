@@ -1,5 +1,6 @@
 """Target suite: a clock set wrong by days and persisted across a restart is corrected."""
 
+import json
 import subprocess
 import time
 
@@ -7,12 +8,13 @@ import pytest
 
 from page import POLL_ATTEMPT_TIMEOUT_SECONDS, POLL_INTERVAL_SECONDS
 
-# placeholder for the measurement runs; the real bound is set from them
-BOUND_SECONDS = 600
+# the bound is TST015's
+BOUND_SECONDS = 110
 AGREE_SECONDS = 5
 SKEW_SECONDS = 3 * 24 * 3600
 STILL_WRONG_SECONDS = 24 * 3600
 CLOCK_FILE = "/data/systemd-timesync/clock"
+RESTORE_MESSAGE = "restored from recorded timestamp"
 
 
 def _run_checked(driver, cmd):
@@ -50,6 +52,30 @@ def _board_offset(driver):
     return int(stdout[0].strip()) - time.time()
 
 
+def _restored_clock_offset(driver):
+    """How far behind the host the clock was when timesyncd restored it this boot.
+
+    Reads the current boot's journal entry timesyncd logs when it restores the recorded
+    clock, and compares that entry's realtime stamp with the host's clock.
+
+    Args:
+        driver (labgrid.driver.SSHDriver): the board's remote shell.
+
+    Returns:
+        float | None: host `time.time()` minus the entry's realtime in seconds, or None if
+            this boot has no restore entry.
+
+    Raises:
+        AssertionError: the journal cannot be read.
+    """
+    lines = _run_checked(driver, "journalctl -b -u systemd-timesyncd -o json --no-pager")
+    for line in lines:
+        entry = json.loads(line)
+        if RESTORE_MESSAGE in entry.get("MESSAGE", ""):
+            return time.time() - int(entry["__REALTIME_TIMESTAMP"]) / 1e6
+    return None
+
+
 def _set_board_clock(driver, epoch):
     """Set the board's clock to `epoch` and record it as the persisted clock.
 
@@ -82,8 +108,8 @@ def test_clock_set_wrong(target, restore_clock, record_property):
     """The board's clock agrees with the host's within `BOUND_SECONDS` of a restart.
 
     Stops timesyncd, sets the clock three days back and records it as the persisted clock,
-    then restarts the board. The check is invalid unless the first clock read after the
-    restart is still more than a day off.
+    then restarts the board. The check is invalid unless this boot's timesyncd journal shows
+    it restored a clock more than a day behind the host.
     """
     service = target.get_resource("NetworkService")
     host = f"{service.username}@{service.address}"
@@ -97,12 +123,16 @@ def test_clock_set_wrong(target, restore_clock, record_property):
     target.deactivate(driver)
     target.activate(driver)
 
-    offset = _board_offset(driver)
-    assert abs(offset) > STILL_WRONG_SECONDS, (
-        f"INVALID CHECK, not an appliance failure: the clock was not still wrong after the "
-        f"restart (offset {offset:.0f}s)"
+    behind = _restored_clock_offset(driver)
+    assert behind is not None, (
+        "INVALID CHECK, not an appliance failure: no restore entry in this boot's timesyncd journal"
+    )
+    assert behind > STILL_WRONG_SECONDS, (
+        f"INVALID CHECK, not an appliance failure: the restored clock was not still wrong "
+        f"(only {behind:.0f}s behind the host)"
     )
 
+    offset = _board_offset(driver)
     elapsed = time.monotonic() - started
     while abs(offset) > AGREE_SECONDS and elapsed <= BOUND_SECONDS:
         time.sleep(POLL_INTERVAL_SECONDS)
