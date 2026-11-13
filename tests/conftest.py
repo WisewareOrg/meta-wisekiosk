@@ -94,13 +94,13 @@ def restart_board(target):
     service = target.get_resource("NetworkService")
     host = f"{service.username}@{service.address}"
 
-    def restart_board():
+    def _restart():
         """Restart the board and reconnect the SSHDriver."""
-        restart_board()
+        subprocess.run(["just", "kiosk-reboot", host], check=True)
         target.deactivate(driver)
         target.activate(driver)
 
-    return restart_board
+    return _restart
 
 
 @pytest.fixture(scope="session")
