@@ -2,7 +2,7 @@
 
 import pytest
 
-from page import POLL_ATTEMPT_TIMEOUT_SECONDS, poll_for_page
+from page import poll_for_page
 
 _CONFIG_PATH = "/data/config/config.json"
 _CONFIG_COPY_PATH = "/tmp/kiosk-config.json"
@@ -11,39 +11,6 @@ _CONFIG_COPY_PATH = "/tmp/kiosk-config.json"
 @pytest.fixture(scope="session", autouse=True)
 def _install_candidate(install_candidate):
     """Activate `install_candidate` (tests/conftest.py) for every test in this suite."""
-
-
-@pytest.fixture
-def run_checked(target):
-    """Build a `run_checked` that runs a command on the board and asserts it returned 0.
-
-    Args:
-        target (labgrid.Target): names the board's SSHDriver.
-
-    Returns:
-        Callable[[str], list[str]]: `run_checked(cmd)`, which returns `cmd`'s combined stdout
-            and stderr lines and raises AssertionError if `cmd` returned nonzero.
-    """
-    driver = target.get_driver("SSHDriver")
-
-    def run_checked(cmd):
-        """Run `cmd` on the board and assert it returned 0.
-
-        Args:
-            cmd (str): the command to run.
-
-        Returns:
-            list[str]: `cmd`'s combined stdout and stderr lines.
-
-        Raises:
-            AssertionError: `cmd` returned nonzero.
-        """
-        stdout, stderr, returncode = driver.run(cmd, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
-        output = stdout + stderr
-        assert returncode == 0, f"{cmd!r} failed (rc {returncode}): {chr(10).join(output)}"
-        return output
-
-    return run_checked
 
 
 @pytest.fixture
@@ -62,7 +29,7 @@ def set_config(target, request, run_checked):
     Args:
         target (labgrid.Target): names the board's SSHDriver.
         request (pytest.FixtureRequest): registers each step's undo.
-        run_checked (Callable[[str], list[str]]): the `run_checked` fixture.
+        run_checked (Callable[[str], list[str]]): the `run_checked` fixture (tests/conftest.py).
 
     Returns:
         Callable[[str | os.PathLike], None]: `apply(path)`.
