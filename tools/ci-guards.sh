@@ -546,8 +546,7 @@ else
     for spec in \
         "justfiles/deploy.just:flash:--image" \
         "justfiles/ota.just:kiosk-preflight:--image" \
-        "justfiles/ota.just:kiosk-send-direct:--tree" \
-        "justfiles/device.just:rauc-install:--tree"
+        "justfiles/ota.just:kiosk-send-direct:--tree"
     do
         jf10=${spec%%:*}
         rest10=${spec#*:}

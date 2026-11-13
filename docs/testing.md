@@ -56,6 +56,18 @@ does. Whether such a run counts as evidence for a review or an investigation is
 [WiseBenchManager's own rule](https://github.com/WisewareOrg/WiseBenchManager/blob/main/docs/decisions/0001-verify-with-a-python-bench-runner.md),
 ADR 0001 rev 6 decision 9 (provenance), not this layer's.
 
+Every dedicated test on a board is a pytest case under `tests/`, run through the bench driver as
+`bench test <ref> -- <suite> -k <name>` — never an ad hoc script, loop or ssh one-liner. A test
+driven outside the driver carries none of its provenance, and its result is not evidence for a
+review, an investigation or a PR. By hand, a board is for inspection only: reading its state and
+running read-only diagnostics.
+
+`tests/diagnostics` also holds the check that a reset mid-install is caught: `bench test <ref> --
+tests/diagnostics -k install_reset_capture -rP` installs the candidate, then runs a second `just
+kiosk-ota` and crashes the board once rauc reports writing the slot, and passes only when that
+install's own output carries the reset and the board's pstore read back after it. It crashes the
+board on purpose, so it runs only by hand, never in the queue job.
+
 The board comes from labgrid's own env file, pointed at with `LG_ENV` — a target named `main`, a
 `NetworkService` resource carrying the board's address, an `SSHDriver` — kept untracked under
 `local/`, since this repository is public and the address is site-specific.

@@ -11,3 +11,12 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 # the kiosk-cpufreq recipe. Different fault class: this one faults near address 0
 # with a resolvable PC.
 SRC_URI += " file://brcmfmac-52e8726d6782.patch"
+
+# Soft-lockup detector, panicking into pstore; tools/kiosk-install.sh lowers
+# kernel.watchdog_thresh to 1 for the length of an install.
+SRC_URI += " file://lockup-detect.cfg"
+
+# pstore ftrace zone, sized by the patch when the device tree gives none;
+# tools/kiosk-install.sh arms it for the length of an install.
+SRC_URI += " file://pstore-ftrace.cfg"
+SRC_URI += " file://0001-pstore-ram-default-ftrace-zone.patch"
