@@ -6,6 +6,7 @@ import time
 
 import pytest
 
+from board import run_checked
 from page import POLL_ATTEMPT_TIMEOUT_SECONDS, POLL_INTERVAL_SECONDS
 
 # the bound is TST015's
@@ -16,39 +17,25 @@ STILL_WRONG_SECONDS = 24 * 3600
 CLOCK_FILE = "/data/systemd-timesync/clock"
 
 
-def _run_checked(driver, cmd):
-    """Run `cmd` on the board and assert it returned 0.
-
-    Args:
-        driver (labgrid.driver.SSHDriver): the board's remote shell.
-        cmd (str): the command to run.
-
-    Returns:
-        list[str]: `cmd`'s combined stdout and stderr lines.
-
-    Raises:
-        AssertionError: `cmd` returned nonzero.
-    """
-    stdout, stderr, returncode = driver.run(cmd, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
-    output = stdout + stderr
-    assert returncode == 0, f"{cmd!r} failed (rc {returncode}): {chr(10).join(output)}"
-    return output
-
-
-def _board_offset(driver):
-    """The board's clock minus the host's, in seconds.
+def _poll_board(driver):
+    """The board's uptime and its clock minus the host's, from one command.
 
     Args:
         driver (labgrid.driver.SSHDriver): the board's remote shell.
 
     Returns:
-        float: board `date +%s` minus host `time.time()`.
-
-    Raises:
-        AssertionError: the board's clock cannot be read.
+        tuple[float, float] | None: the board's uptime in seconds and board `date +%s` minus
+            host `time.time()`, or None if the read failed or timed out.
     """
-    stdout = _run_checked(driver, "date +%s")
-    return int(stdout[0].strip()) - time.time()
+    try:
+        stdout, _stderr, returncode = driver.run(
+            "cat /proc/uptime; date +%s", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS
+        )
+    except subprocess.TimeoutExpired:
+        return None
+    if returncode != 0:
+        return None
+    return float(stdout[0].split()[0]), int(stdout[1].strip()) - time.time()
 
 
 def _restored_clock_offset(driver):
@@ -68,12 +55,12 @@ def _restored_clock_offset(driver):
     Raises:
         AssertionError: the journal cannot be read.
     """
-    lines = _run_checked(
-        driver, "journalctl -b SYSLOG_IDENTIFIER=systemd-timesyncd -o json --no-pager"
-    )
-    if not lines:
+    cmd = "journalctl -q -b SYSLOG_IDENTIFIER=systemd-timesyncd -o json --no-pager"
+    stdout, stderr, returncode = driver.run(cmd, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
+    assert returncode == 0, f"{cmd!r} failed (rc {returncode}): {chr(10).join(stdout + stderr)}"
+    if not stdout:
         return None
-    return time.time() - int(json.loads(lines[0])["__REALTIME_TIMESTAMP"]) / 1e6
+    return time.time() - int(json.loads(stdout[0])["__REALTIME_TIMESTAMP"]) / 1e6
 
 
 def _set_board_clock(driver, epoch):
@@ -86,8 +73,8 @@ def _set_board_clock(driver, epoch):
     Raises:
         AssertionError: setting the clock or touching the clock file fails.
     """
-    _run_checked(driver, f"date -s @{epoch}")
-    _run_checked(driver, f"touch {CLOCK_FILE}")
+    run_checked(driver, f"date -s @{epoch}")
+    run_checked(driver, f"touch {CLOCK_FILE}")
 
 
 @pytest.fixture
@@ -99,54 +86,66 @@ def restore_clock(target):
     """
     driver = target.get_driver("SSHDriver")
     yield
-    if abs(_board_offset(driver)) > AGREE_SECONDS:
+    reading = _poll_board(driver)
+    assert reading is not None, "the board's clock could not be read at teardown"
+    if abs(reading[1]) > AGREE_SECONDS:
         _set_board_clock(driver, int(time.time()))
-    _run_checked(driver, "systemctl start systemd-timesyncd")
+    run_checked(driver, "systemctl start systemd-timesyncd")
 
 
 def test_clock_set_wrong(target, restore_clock, record_property):
-    """The board's clock agrees with the host's within `BOUND_SECONDS` of a restart.
+    """The board's clock agrees with the host's within `BOUND_SECONDS` of its starting up again.
 
     Stops timesyncd, sets the clock three days back and records it as the persisted clock,
-    then restarts the board. The check is invalid unless this boot's timesyncd journal shows
-    timesyncd's first entry carries a clock more than a day behind the host.
+    then restarts the board and polls until the clock agrees. The time is the board's uptime
+    at the first agreeing read. The check is invalid unless this boot's first timesyncd
+    journal entry carries the clock the stimulus set, to within a day; that verdict comes
+    before the pass conditions.
     """
+    record_property("requirement", "TST015")
     service = target.get_resource("NetworkService")
     host = f"{service.username}@{service.address}"
     driver = target.get_driver("SSHDriver")
 
-    _run_checked(driver, "systemctl stop systemd-timesyncd")
+    run_checked(driver, "systemctl stop systemd-timesyncd")
     _set_board_clock(driver, int(time.time()) - SKEW_SECONDS)
 
-    started = time.monotonic()
     subprocess.run(["just", "kiosk-reboot", host], check=True)
+    returned = time.monotonic()
     target.deactivate(driver)
     target.activate(driver)
 
-    behind = _restored_clock_offset(driver)
-    assert behind is not None, (
-        "INVALID CHECK, not an appliance failure: timesyncd logged nothing this boot"
-    )
-    assert behind > STILL_WRONG_SECONDS, (
-        f"INVALID CHECK, not an appliance failure: timesyncd's first entry was not stamped wrong "
-        f"(only {behind:.0f}s behind the host)"
-    )
-
-    offset = _board_offset(driver)
-    elapsed = time.monotonic() - started
-    while abs(offset) > AGREE_SECONDS and elapsed <= BOUND_SECONDS:
+    reading = None
+    while True:
+        latest = _poll_board(driver)
+        if latest is not None:
+            reading = latest
+            uptime, offset = reading
+            if abs(offset) <= AGREE_SECONDS or uptime > BOUND_SECONDS:
+                break
+        elif time.monotonic() - returned > BOUND_SECONDS:
+            break
         time.sleep(POLL_INTERVAL_SECONDS)
-        offset = _board_offset(driver)
-        elapsed = time.monotonic() - started
 
+    behind = _restored_clock_offset(driver)
     stdout, stderr, _returncode = driver.run(
         "journalctl -b -u systemd-timesyncd --no-pager", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS
     )
     print("\n".join(stdout + stderr))
-    print(f"clock_corrected_seconds={elapsed:.1f} final_offset_seconds={offset:.1f}")
-    record_property("clock_corrected_seconds", elapsed)
-    assert abs(offset) <= AGREE_SECONDS, (
-        f"clock still {offset:.0f}s off the network's time {BOUND_SECONDS}s after the restart"
+    assert behind is not None, (
+        "INVALID CHECK, not an appliance failure: timesyncd logged nothing this boot"
     )
-    assert elapsed <= BOUND_SECONDS, f"clock agreed only after {elapsed:.0f}s, bound {BOUND_SECONDS}s"
-    record_property("requirement", "TST015")
+    assert abs(behind - SKEW_SECONDS) < STILL_WRONG_SECONDS, (
+        f"INVALID CHECK, not an appliance failure: timesyncd's first entry was {behind:.0f}s "
+        f"behind the host, not the {SKEW_SECONDS}s the stimulus set"
+    )
+
+    assert reading is not None, "the board's clock could not be read after the restart"
+    uptime, offset = reading
+    print(f"clock_corrected_seconds={uptime:.1f} final_offset_seconds={offset:.1f}")
+    record_property("clock_corrected_seconds", uptime)
+    assert abs(offset) <= AGREE_SECONDS, (
+        f"clock still {offset:.0f}s off the network's time at uptime {uptime:.0f}s, "
+        f"bound {BOUND_SECONDS}s"
+    )
+    assert uptime <= BOUND_SECONDS, f"clock agreed only at uptime {uptime:.0f}s, bound {BOUND_SECONDS}s"
