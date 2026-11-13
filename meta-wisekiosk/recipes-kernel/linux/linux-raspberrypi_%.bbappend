@@ -13,17 +13,16 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 SRC_URI += " file://brcmfmac-52e8726d6782.patch"
 
 # #245: the soft-lockup detector, so a kernel looping with interrupts on panics
-# with a stack trace into pstore before the 14s hardware watchdog fires,
-# instead of a silent reset. CONFIG_HARDLOCKUP_DETECTOR and
-# CONFIG_RCU_CPU_STALL_TIMEOUT are not selectable on this board (no CONFIG_SMP;
-# see docs/issue_investigation/ota_install_reset/README.md's Batch 8 section).
+# with a stack trace into pstore instead of a silent reset. It fires ahead of
+# the 14s hardware watchdog only with kernel.watchdog_thresh lowered from its
+# default of 10. CONFIG_HARDLOCKUP_DETECTOR and CONFIG_RCU_CPU_STALL_TIMEOUT
+# are not selectable on this board (no CONFIG_SMP).
 SRC_URI += " file://lockup-detect.cfg"
 
-# #245: a persistent function tracer, armed only for the install window, to
+# #245: a persistent function tracer zone, recording only once armed, to
 # separate a CPU still executing (an IRQs-off loop or IRQ storm) from one that
 # is not (a bus/SoC stall) at the next reset. The rpi ramoops overlay has no
-# ftrace-size and config.txt is not OTA-updatable, so the zone has to default
-# from kernel code -- see docs/issue_investigation/ota_install_reset/README.md's
-# Batch 10 section for the full rationale.
+# ftrace-size and config.txt is not OTA-updatable, so the zone defaults from
+# kernel code.
 SRC_URI += " file://pstore-ftrace.cfg"
 SRC_URI += " file://0001-pstore-ram-default-ftrace-zone.patch"
