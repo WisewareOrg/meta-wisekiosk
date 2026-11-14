@@ -13,6 +13,7 @@ _GIVE_UP_SECONDS = 120
 
 def test_browser_killed(board, panel, record_property):
     """TST001 browser killed: SIGKILL the browser and time until the instance is on the panel again."""
+    record_property("requirement", "TST001")
     _, before = panel.wait_on_panel()
 
     stdout, _stderr, _returncode = board.run(

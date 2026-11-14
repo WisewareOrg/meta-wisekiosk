@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_browser_killed
   path: tests/target_suite/test_browser_killed.py
-  sha: 0b6a308e12bd063ce2be15a9288d4e75b49124f7cad807172aba7a41b605e0ff
+  sha: 5d06383bf687d930165172eab2674e862cc9ceb709dbd5fb41191b29762b6b15
   type: file
-reviewed: G3Gh5aVXlbXMTFxjt_bmcw7jXGw5pZ5ZDg2cvHeZi1w=
+reviewed: -PJabApGrjXoGR_PdJudiF-bOAdyD6BJuTVmKbNS6aw=
 status: proposed
 text: |
   With nobody at the panel, kill the browser. Pass if the WiseKiosk instance is back on the panel
