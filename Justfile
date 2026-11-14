@@ -144,6 +144,11 @@ links:
 reqs:
     uv run --locked check-reqs --root docs/requirements
 
+[group('check')]
+[doc("Run the verdict modules' unit tests (tests/host_unit) with full branch coverage")]
+test:
+    uv run --locked pytest
+
 # What the prose says the image ships, against what it ships. Needs a populated
 # build/ rootfs and is therefore local-only -- CI never builds, so wiring it
 # into a required check would mean a permanently skipping gate.
