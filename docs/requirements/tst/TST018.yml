@@ -1,16 +1,21 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Refuses another hardware type's image update
+  Refuses another hardware type's image update
 level: 2.2.2
 links:
 - SRS009: gRU17d51Q07bnN11Ozhhb_PEZE8zvmCterf7NQIxrLs=
 normative: true
 rationale: |
-  Waits on its test.
+  An image update built for another kind of hardware may not boot on this one, or may not drive its
+  panel. The appliance has to refuse it rather than leave the viewer's panel to whatever it does.
 ref: ''
-references: []
-reviewed: Kypb41k9Nbge7Op6-OCq0bFcXwAM0VPsf5PYLinVxEE=
+references:
+- keyword: def test_another_hardware_type
+  path: tests/target_suite/test_refused_updates.py
+  sha: feeaf7fdbd1b1929df6a0fe23fd612464fb2334937d00d969a72f99decb530c9
+  type: file
+reviewed: nFLeMM0VmtMPm0clKuMbqSR5uHYQj-Ba0mbb0hCG9UE=
 status: proposed
 text: |
   Offer the appliance an image update signed by one of its operators but built for a different kind

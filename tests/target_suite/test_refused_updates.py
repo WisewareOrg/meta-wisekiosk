@@ -18,6 +18,8 @@ _FOREIGN_KEY_CN = "Refused update test key"
 # only catches a hang; neither TST017 nor TST018 states a bound
 _INSTALL_TIMEOUT_SECONDS = 60
 _PAYLOAD_BYTES = 1024 * 1024
+# a picked ceiling on a hung container, so a hang cannot hold the whole bench run
+_KAS_TIMEOUT_SECONDS = 900
 
 # Runs inside the kas container. `rauc bundle` refuses a compressible payload (it squashes to
 # 4096 bytes), hence random bytes. The operator's key is read from `update-bundle`'s own
@@ -94,6 +96,7 @@ def bundles(request, board):
         ],
         cwd=_REPO,
         check=True,
+        timeout=_KAS_TIMEOUT_SECONDS,
     )
     return run_dir / "foreign-signature.raucb", run_dir / "other-hardware.raucb"
 
