@@ -193,7 +193,10 @@ class Board:
         self.connect()
 
     def restart_by(self, cmd):
-        """Run `cmd` to take the board down, then reconnect once it answers in a new boot.
+        """Take the board down with `cmd` over a one-shot ssh, then reconnect in a new boot.
+
+        Disconnects the SSHDriver while the board is still up, so no disconnect waits on a dead
+        board.
 
         Args:
             cmd (str): the command that restarts or crashes the board.
@@ -204,11 +207,23 @@ class Board:
         """
         boot_id_cmd = "cat /proc/sys/kernel/random/boot_id"
         old_boot_id = self.run(boot_id_cmd, check=True)[0][0]
+        self.disconnect()
         try:
-            self.run(cmd, timeout=5)
+            subprocess.run(
+                [
+                    "ssh",
+                    "-o", "BatchMode=yes",
+                    "-o", "StrictHostKeyChecking=no",
+                    "-o", "UserKnownHostsFile=/dev/null",
+                    "-o", "ConnectTimeout=10",
+                    self.host,
+                    cmd,
+                ],
+                capture_output=True,
+                timeout=5,
+            )
         except subprocess.TimeoutExpired:
             pass
-        self.disconnect()
         deadline = time.monotonic() + self.RESTART_WAIT_SECONDS
         while time.monotonic() < deadline:
             try:
