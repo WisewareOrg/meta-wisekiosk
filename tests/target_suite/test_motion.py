@@ -116,12 +116,18 @@ def test_motion_stutter(proxy, replay_window, panel, full_state, board, record_p
     start_counters, start_hist = _counters(start)
     while True:
         end_uptime, end = _read(panel)
+        if end is not None and end["load"] != start["load"]:
+            break
         if end is not None and int(end["el"]) >= start_counters["el"] + WINDOW_MS:
             break
         assert time.monotonic() < deadline, (
             f"the page stopped reporting within {END_WAIT_SECONDS} s; last: {end!r}"
         )
         time.sleep(READ_PAUSE_SECONDS)
+    if end["load"] != start["load"]:
+        reloaded = "the page reloaded inside the window"
+        record_property("validity", f"invalid: {reloaded}")
+        pytest.fail(f"INVALID: {reloaded}")
     end_temp = _soc_temperature(board)
     killed = proxy.killed()
     soak_samples = _soak_samples_between(board, start_uptime, end_uptime)
@@ -133,8 +139,6 @@ def test_motion_stutter(proxy, replay_window, panel, full_state, board, record_p
     moving_share = delta["moving"] / delta["ticks"] if delta["ticks"] else 0.0
 
     problems = []
-    if start["load"] != end["load"]:
-        problems.append("the page reloaded inside the window")
     if delta["changes"] != 0:
         problems.append("the page changed state inside the window")
     if not (_full(panel, start) and _full(panel, end)):

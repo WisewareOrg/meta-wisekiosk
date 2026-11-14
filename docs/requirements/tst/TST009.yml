@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_motion_stutter
   path: tests/target_suite/test_motion.py
-  sha: de999d99af4a5256d89dd06c940cbdeb3479dadb3064fcab04f0ffbc7c8eee29
+  sha: 3f3d3ba22a11061842c7f2f4f2cb6313f29343c16ee0076f253ae2ded41c8955
   type: file
-reviewed: 8pTA68eiu4xb5WXQ5KNU8nBqFZarQZyjgfyt2U3Lrmg=
+reviewed: nsDDC1T06wZQJ2iAHVH1RFrpsxSDVKDzth7SuhMqwUA=
 status: proposed
 text: |
   With the WiseKiosk instance showing the replayed page, four park cards live, ride names scrolling,
