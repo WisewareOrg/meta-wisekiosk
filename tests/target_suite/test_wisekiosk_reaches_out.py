@@ -36,16 +36,15 @@ def replay_window(board, proxy, set_config, request):
         float: `time.monotonic()` taken once `set_config`'s `apply` has returned from starting
         `kiosk.service` -- the browser's start.
     """
-    driver = board.driver
 
     stack = contextlib.ExitStack()
     request.addfinalizer(stack.close)
-    stack.enter_context(driver.forward_remote_port(proxy.port, proxy.port))
+    stack.enter_context(board.forward_remote_port(proxy.port, proxy.port))
 
-    driver.put(str(CA_PATH), _CA_BOARD_PATH)
+    board.put(str(CA_PATH), _CA_BOARD_PATH)
 
     def _remove_ca():
-        stdout, stderr, returncode = driver.run(f"rm -f {_CA_BOARD_PATH}")
+        stdout, stderr, returncode = board.run(f"rm -f {_CA_BOARD_PATH}", timeout=None)
         output = stdout + stderr
         assert returncode == 0, (
             f"could not remove the replay CA (rc {returncode}): {chr(10).join(output)}"
@@ -53,11 +52,12 @@ def replay_window(board, proxy, set_config, request):
 
     request.addfinalizer(_remove_ca)
 
-    stdout, stderr, returncode = driver.run(
+    stdout, stderr, returncode = board.run(
         "mkdir -p /run/systemd/system/wisekiosk.service.d && "
         f"printf '[Service]\\nEnvironment=HTTPS_PROXY=http://127.0.0.1:{proxy.port}\\n"
         f"Environment=SSL_CERT_FILE={_CA_BOARD_PATH}\\n' > {_DROP_IN_PATH} && "
-        "systemctl daemon-reload"
+        "systemctl daemon-reload",
+        timeout=None,
     )
     output = stdout + stderr
     assert returncode == 0, (
@@ -65,8 +65,8 @@ def replay_window(board, proxy, set_config, request):
     )
 
     def _remove_drop_in():
-        stdout, stderr, returncode = driver.run(
-            f"rm -f {_DROP_IN_PATH} && systemctl daemon-reload"
+        stdout, stderr, returncode = board.run(
+            f"rm -f {_DROP_IN_PATH} && systemctl daemon-reload", timeout=None
         )
         output = stdout + stderr
         assert returncode == 0, (

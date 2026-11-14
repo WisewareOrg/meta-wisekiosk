@@ -33,7 +33,8 @@ def _restored_clock_offset(board):
         AssertionError: the journal cannot be read.
     """
     cmd = "journalctl -q -b SYSLOG_IDENTIFIER=systemd-timesyncd -o json --no-pager"
-    entries = [line for line in board.run_checked(cmd) if line.startswith("{")]
+    stdout, stderr, _returncode = board.run(cmd, check=True)
+    entries = [line for line in stdout + stderr if line.startswith("{")]
     if not entries:
         return None
     return time.time() - int(json.loads(entries[0])["__REALTIME_TIMESTAMP"]) / 1e6
@@ -49,8 +50,8 @@ def _set_board_clock(board, epoch):
     Raises:
         AssertionError: setting the clock or touching the clock file fails.
     """
-    board.run_checked(f"date -s @{epoch}")
-    board.run_checked(f"touch {CLOCK_FILE}")
+    board.run(f"date -s @{epoch}", check=True)
+    board.run(f"touch {CLOCK_FILE}", check=True)
 
 
 @pytest.fixture
@@ -65,7 +66,7 @@ def restore_clock(board):
     assert reading is not None, "the board's clock could not be read at teardown"
     if abs(reading[1]) > AGREE_SECONDS:
         _set_board_clock(board, int(time.time()))
-    board.run_checked("systemctl start systemd-timesyncd")
+    board.run("systemctl start systemd-timesyncd", check=True)
 
 
 def test_clock_set_wrong(restore_clock, board, record_property):
@@ -78,7 +79,7 @@ def test_clock_set_wrong(restore_clock, board, record_property):
     before the pass conditions.
     """
     record_property("requirement", "TST015")
-    board.run_checked("systemctl stop systemd-timesyncd")
+    board.run("systemctl stop systemd-timesyncd", check=True)
     _set_board_clock(board, int(time.time()) - SKEW_SECONDS)
 
     board.restart()
@@ -97,7 +98,8 @@ def test_clock_set_wrong(restore_clock, board, record_property):
         time.sleep(POLL_INTERVAL_SECONDS)
 
     behind = _restored_clock_offset(board)
-    print("\n".join(board.run_checked("journalctl -b -u systemd-timesyncd --no-pager")))
+    stdout, stderr, _returncode = board.run("journalctl -b -u systemd-timesyncd --no-pager", check=True)
+    print("\n".join(stdout + stderr))
     assert behind is not None, (
         "INVALID CHECK, not an appliance failure: timesyncd logged nothing this boot"
     )

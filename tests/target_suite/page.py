@@ -10,11 +10,11 @@ POLL_INTERVAL_SECONDS = 2
 POLL_ATTEMPT_TIMEOUT_SECONDS = 10
 
 
-def poll_for_page(driver):
+def poll_for_page(board):
     """Poll `PAGE_URL` on the board until it serves an HTML page or the bound elapses.
 
     Args:
-        driver (labgrid.driver.SSHDriver): the board's remote shell.
+        board (Board): the board under test (tests/conftest.py).
 
     Returns:
         bool: whether the page served an HTML document within `BOUND_SECONDS`.
@@ -23,7 +23,7 @@ def poll_for_page(driver):
     while time.monotonic() < deadline:
         remaining = deadline - time.monotonic()
         try:
-            stdout, stderr, returncode = driver.run(
+            stdout, stderr, returncode = board.run(
                 f"wget -q -O- {PAGE_URL}", timeout=min(POLL_ATTEMPT_TIMEOUT_SECONDS, remaining)
             )
             output = "\n".join(stdout + stderr).strip()

@@ -5,8 +5,7 @@ from page import BOUND_SECONDS, PAGE_URL, POLL_ATTEMPT_TIMEOUT_SECONDS, poll_for
 
 def test_page_serves(board, record_property):
     """The WiseKiosk instance's page is served on the appliance."""
-    driver = board.driver
-    stdout, stderr, returncode = driver.run(f"wget -q -O- {PAGE_URL}", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
+    stdout, stderr, returncode = board.run(f"wget -q -O- {PAGE_URL}", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
     output = "\n".join(stdout + stderr).strip()
     assert returncode == 0, f"GET / failed (rc {returncode}): {output}"
     assert "<html" in output, f"GET / did not return an <html> body: {output}"
@@ -15,25 +14,24 @@ def test_page_serves(board, record_property):
 
 def test_backend_crash(board, record_property):
     """The instance's page is served again within `BOUND_SECONDS` of the backend being killed."""
-    driver = board.driver
-    assert poll_for_page(driver), "page did not serve before the crash was induced"
+    assert poll_for_page(board), "page did not serve before the crash was induced"
 
-    stdout, stderr, returncode = driver.run(
+    stdout, stderr, returncode = board.run(
         "systemctl show -p MainPID --value wisekiosk.service", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS
     )
     output = "\n".join(stdout + stderr).strip()
     assert returncode == 0, f"could not read MainPID before the crash: {output}"
     old_pid = output
 
-    stdout, stderr, returncode = driver.run(
+    stdout, stderr, returncode = board.run(
         "systemctl kill --signal=KILL wisekiosk.service", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS
     )
     output = "\n".join(stdout + stderr).strip()
     assert returncode == 0, f"systemctl kill failed (rc {returncode}): {output}"
 
-    assert poll_for_page(driver), f"page did not serve again within {BOUND_SECONDS}s of the crash"
+    assert poll_for_page(board), f"page did not serve again within {BOUND_SECONDS}s of the crash"
 
-    stdout, stderr, returncode = driver.run(
+    stdout, stderr, returncode = board.run(
         "systemctl show -p MainPID --value wisekiosk.service", timeout=POLL_ATTEMPT_TIMEOUT_SECONDS
     )
     output = "\n".join(stdout + stderr).strip()

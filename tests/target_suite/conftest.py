@@ -33,7 +33,6 @@ def set_config(request, board):
     Returns:
         Callable[[str | os.PathLike], None]: `apply(path)`.
     """
-    driver = board.driver
 
     def apply(path):
         """Swap the board onto `path`'s config and leave the instance running against it.
@@ -41,28 +40,29 @@ def set_config(request, board):
         Args:
             path (str | os.PathLike): the config file to copy to the board.
         """
-        board.run_checked("systemctl stop kiosk.service")
-        request.addfinalizer(lambda: board.run_checked("systemctl start kiosk.service"))
+        board.run("systemctl stop kiosk.service", check=True)
+        request.addfinalizer(lambda: board.run("systemctl start kiosk.service", check=True))
 
-        board.run_checked(
+        board.run(
             f"if grep -q ' {_CONFIG_PATH} ' /proc/self/mountinfo; then umount {_CONFIG_PATH}; fi",
+            check=True,
         )
 
-        driver.put(str(path), _CONFIG_COPY_PATH)
-        request.addfinalizer(lambda: board.run_checked(f"rm -f {_CONFIG_COPY_PATH}"))
+        board.put(str(path), _CONFIG_COPY_PATH)
+        request.addfinalizer(lambda: board.run(f"rm -f {_CONFIG_COPY_PATH}", check=True))
 
-        board.run_checked(f"mount --bind {_CONFIG_COPY_PATH} {_CONFIG_PATH}")
-        request.addfinalizer(lambda: board.run_checked(f"umount {_CONFIG_PATH}"))
+        board.run(f"mount --bind {_CONFIG_COPY_PATH} {_CONFIG_PATH}", check=True)
+        request.addfinalizer(lambda: board.run(f"umount {_CONFIG_PATH}", check=True))
 
         def _restart_backend_and_wait():
-            board.run_checked("systemctl restart wisekiosk.service")
-            assert poll_for_page(driver), "page did not serve after the backend restart"
+            board.run("systemctl restart wisekiosk.service", check=True)
+            assert poll_for_page(board), "page did not serve after the backend restart"
 
-        board.run_checked("systemctl restart wisekiosk.service")
+        board.run("systemctl restart wisekiosk.service", check=True)
         request.addfinalizer(_restart_backend_and_wait)
-        assert poll_for_page(driver), "page did not serve after the backend restart"
+        assert poll_for_page(board), "page did not serve after the backend restart"
 
-        board.run_checked("systemctl start kiosk.service")
-        request.addfinalizer(lambda: board.run_checked("systemctl stop kiosk.service"))
+        board.run("systemctl start kiosk.service", check=True)
+        request.addfinalizer(lambda: board.run("systemctl stop kiosk.service", check=True))
 
     return apply
