@@ -163,7 +163,8 @@ def _device_facts(install_candidate, board):
     def read(cmd):
         return "\n".join(board.run(cmd, check=True)[0]).strip()
 
-    hashes_out, _, _ = board.run("sha256sum " + " ".join(_HASHED_PATHS))
+    hashes_out, hashes_err, hashes_rc = board.run("sha256sum " + " ".join(_HASHED_PATHS))
+    assert hashes_rc in (0, 1), f"sha256sum failed (rc {hashes_rc}): {chr(10).join(hashes_err)}"
     hashes = file_hashes("\n".join(hashes_out), _HASHED_PATHS)
     return {
         "boot_id": read("cat /proc/sys/kernel/random/boot_id"),

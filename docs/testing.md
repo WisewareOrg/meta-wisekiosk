@@ -46,8 +46,7 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   it reads the board's `/etc/buildinfo` itself and fails unless it names `bench_candidate`.
   The `panel` fixture bind-mounts a probe from `/tmp` over surf's script path and restarts the
   browser so the test can read what the page shows; teardown unmounts it and restarts the browser
-  again. The device context (boot id, kernel, config and boot hashes, browser command line,
-  display mode, time sync) is recorded on every test.
+  again. The device context (`_device_facts` in `conftest.py`) is recorded on every test.
 
 `bench run` also reads `[github]` — the GitHub App that posts the `bench-pipeline` check run, and the
 path to its private key on the bench host — and `[run]`, naming the systemd unit it disables on the

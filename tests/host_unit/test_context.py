@@ -51,7 +51,7 @@ def test_display_mode_none_for_empty_output():
 @pytest.mark.parametrize(
     ("text", "want"),
     [
-        ("HOME=/root\nWEBKIT_A=1\nPATH=/bin\nWEBKIT_B=2\n", "WEBKIT_A=1,WEBKIT_B=2"),
+        ("HOME=/root\nWEBKIT_A=1\nNOT_WEBKIT_X=1\nWEBKIT_B=2\n", "WEBKIT_A=1,WEBKIT_B=2"),
         ("HOME=/root\n", ""),
         ("", ""),
     ],

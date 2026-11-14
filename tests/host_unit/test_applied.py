@@ -10,7 +10,7 @@ No device, no DOM -- every title and sample is constructed.
 
 import pytest
 
-from verdicts.applied import OWN_ORIGINS, on_panel, parse_title, read_sample
+from verdicts.applied import on_panel, parse_title, read_sample
 
 PROBE = "WK1 nonce=1699999999.5 state=applied cards=4/4 origin=http://localhost:8080"
 SAMPLE = {"nonce": "1699999999.5", "state": "applied", "cards": "4/4",
@@ -74,7 +74,7 @@ def _sample(state="applied", origin="http://localhost:8080"):
     return {"nonce": "1", "state": state, "cards": "0/0", "origin": origin}
 
 
-@pytest.mark.parametrize("origin", OWN_ORIGINS)
+@pytest.mark.parametrize("origin", ["http://localhost:8080", "http://127.0.0.1:8080"])
 def test_on_panel_true_for_applied_from_each_own_origin(origin):
     assert on_panel(_sample(origin=origin))
 
@@ -87,6 +87,8 @@ def test_on_panel_true_for_applied_from_each_own_origin(origin):
         ("not the app", _sample("error:not-app")),
         ("configuration error", _sample("error:configuration")),
         ("applied from a foreign origin", _sample(origin="http://example.invalid")),
+        ("applied from the own host on another port", _sample(origin="http://localhost:8081")),
+        ("applied from the own address on another port", _sample(origin="http://127.0.0.1:8081")),
     ],
 )
 def test_on_panel_false(name, sample):

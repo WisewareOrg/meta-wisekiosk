@@ -27,6 +27,12 @@ def test_not_restarted_when_every_after_sample_carries_the_old_nonce():
     assert "nonce" in reason
 
 
+def test_not_restarted_when_the_new_nonce_is_still_loading():
+    outcome, reason = verdict(_sample(_OLD_NONCE), [_sample(_NEW_NONCE, state="loading")])
+    assert outcome == "not-restarted"
+    assert "on-panel" in reason
+
+
 def test_not_restarted_when_the_new_nonce_is_from_a_foreign_origin():
     outcome, reason = verdict(
         _sample(_OLD_NONCE), [_sample(_NEW_NONCE, origin="http://example.invalid")]

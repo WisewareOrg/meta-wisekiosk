@@ -7,7 +7,6 @@ from verdicts.applied import on_panel, read_sample
 WAIT_SECONDS = 90
 POLL_SECONDS = 1
 
-# Walks the root window's whole tree and prints every window's WM_NAME.
 _TITLES_WALK = (
     "for id in $(DISPLAY=:0 xwininfo -root -tree 2>/dev/null | awk '/^ +0x/ { print $1 }'); do "
     'DISPLAY=:0 xprop -id "$id" WM_NAME 2>/dev/null; done'

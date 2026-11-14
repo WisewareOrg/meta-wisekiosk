@@ -50,6 +50,7 @@ just verify         # every documentation check: cross-references + docs-vs-imag
 just links          # cross-references only (this is the one CI requires)
 just guards         # repository invariants: secrets, identity, syntax, wiring;
                     # runs the device guard's and the CVE tools' self-tests too
+just test           # the verdict modules' unit tests, full branch coverage
 just reqs           # the requirements tree, through wise-ci's check-reqs
 just install-hooks  # once per clone: point core.hooksPath at .githooks
 bash .claude/hooks/guard-test.sh   # the device guard's self-test on its own
