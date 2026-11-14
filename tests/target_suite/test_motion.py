@@ -6,10 +6,9 @@ import time
 import pytest
 from labgrid.driver.exception import ExecutionError
 
+from panel import FULL_CARDS
 from replay import CARDS4_LIVE
 
-# the page's state under replay: four park cards, all live
-FULL_CARDS = "4/4"
 # setup error, not a failure, if the page never reaches full state
 FULL_STATE_WAIT_SECONDS = 120
 WARMUP_MS = 40_000
@@ -61,15 +60,7 @@ def _counters(sample):
 @pytest.fixture
 def full_state(panel):
     """Wait for the applied page on the board's own origin with every card live; return its read."""
-    deadline = time.monotonic() + FULL_STATE_WAIT_SECONDS
-    while True:
-        uptime_s, sample = _read(panel)
-        if _full(panel, sample):
-            return uptime_s, sample
-        assert time.monotonic() < deadline, (
-            f"the page was not in full state within {FULL_STATE_WAIT_SECONDS} s; last: {sample!r}"
-        )
-        time.sleep(READ_PAUSE_SECONDS)
+    return panel.wait_full_state(FULL_STATE_WAIT_SECONDS)
 
 
 def _soc_temperature(board):

@@ -17,9 +17,7 @@ USE_LIMIT = 0.80
 MAX_GAP_SECONDS = 450
 # how often the host checks the boot, so a reboot ends the run early
 BOOT_CHECK_SECONDS = 600
-FULL_CARDS = "4/4"
 FULL_STATE_WAIT_SECONDS = 120
-READ_PAUSE_SECONDS = 1
 
 _SOAK_LOG_PATH = "/data/kiosk-soak.log"
 _OOM = re.compile(r"^\[\s*(\d+\.\d+)\].*Out of memory")
@@ -53,19 +51,8 @@ def _oom_uptimes(board, boot_flag, start, end):
 
 @pytest.fixture
 def full_state(panel):
-    """Wait for the applied page on the board's own origin with every card live; return its sample."""
-    deadline = time.monotonic() + FULL_STATE_WAIT_SECONDS
-    while True:
-        try:
-            _uptime, sample = panel.read()
-        except _BOARD_ERRORS:
-            sample = None
-        if panel.on_panel(sample) and sample["cards"] == FULL_CARDS:
-            return sample
-        assert time.monotonic() < deadline, (
-            f"the page was not in full state within {FULL_STATE_WAIT_SECONDS} s; last: {sample!r}"
-        )
-        time.sleep(READ_PAUSE_SECONDS)
+    """Wait for the page in full state; return its sample."""
+    return panel.wait_full_state(FULL_STATE_WAIT_SECONDS)[1]
 
 
 def _wait_period(board, boot_id):
@@ -84,7 +71,9 @@ def _wait_period(board, boot_id):
 
 @pytest.mark.soak
 @pytest.mark.parametrize("proxy", [str(CARDS4_LIVE / "flows.har")], indirect=True)
-def test_memory_over_a_long_run(proxy, replay_window, panel, full_state, board, record_property):
+def test_memory_over_a_long_run(
+    request, proxy, replay_window, panel, full_state, board, record_property
+):
     """TST014 memory over a long run: kiosk-soak's samples of memory in use stay under 80% of usable.
 
     Usable is `MemTotal`; in use is `MemTotal - MemAvailable`. A sample at or above the limit, or
@@ -95,6 +84,8 @@ def test_memory_over_a_long_run(proxy, replay_window, panel, full_state, board, 
     record_property("requirement", "TST014")
     record_property("period_s", PERIOD_SECONDS)
     timer_was_active = board.run("systemctl is-active kiosk-soak.timer")[2] == 0
+    if not timer_was_active:
+        request.addfinalizer(lambda: board.run("systemctl stop kiosk-soak.timer", check=True))
     board.run("systemctl start kiosk-soak.timer", check=True)
     record_property("timer_was_active", timer_was_active)
 

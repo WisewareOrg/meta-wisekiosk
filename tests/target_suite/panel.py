@@ -2,8 +2,11 @@
 
 import hashlib
 import re
+import subprocess
 import time
 from pathlib import Path
+
+from labgrid.driver.exception import ExecutionError
 
 _PROBE_SRC = Path(__file__).resolve().parent / "probe.js"
 _PROBE_COPY_PATH = "/tmp/kiosk-probe.js"
@@ -11,6 +14,7 @@ _SURF_DIR = "/home/root/.surf"
 _SURF_SCRIPT_PATH = f"{_SURF_DIR}/script.js"
 _PANEL_WAIT_SECONDS = 90
 _PANEL_POLL_SECONDS = 1
+FULL_CARDS = "4/4"
 OWN_ORIGINS = ("http://localhost:8080", "http://127.0.0.1:8080")
 _PROBE_FIELDS = ("nonce", "state", "cards", "origin")
 _WM_NAME = re.compile(r'WM_NAME\(\w+\) = "(.*)"$')
@@ -88,5 +92,20 @@ class Panel:
                 return uptime_s, sample
             assert time.monotonic() < deadline, (
                 f"the instance was not on the panel within {timeout_s} s; last sample: {sample!r}"
+            )
+            time.sleep(_PANEL_POLL_SECONDS)
+
+    def wait_full_state(self, timeout_s):
+        """Poll until the page is on the panel with every card live; return that read's (uptime, sample)."""
+        deadline = time.monotonic() + timeout_s
+        while True:
+            try:
+                uptime_s, sample = self.read()
+            except (ExecutionError, subprocess.TimeoutExpired):
+                sample = None
+            if self.on_panel(sample) and sample["cards"] == FULL_CARDS:
+                return uptime_s, sample
+            assert time.monotonic() < deadline, (
+                f"the page was not in full state within {timeout_s} s; last sample: {sample!r}"
             )
             time.sleep(_PANEL_POLL_SECONDS)
