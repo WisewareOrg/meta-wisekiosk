@@ -9,7 +9,6 @@ result at that tier does **not** let you conclude.
 | Build (`just build`) | The kas config resolves and bitbake completes: an image artifact exists. | On demand, locally — never in CI, which does not build. | Whether the image differs from the last one, whether it boots, whether it serves anything. |
 | Host (`tests/host_suite`) | Both checks pass before any install: the rootfs is attributable to a clean, pushed commit, and `systemd-analyze verify`/`systemctl is-enabled`, run against the unpacked rootfs, are clean for every unit this layer's recipes ship. | After the build, never under `bench test --skip-build`. | Whether a unit actually loads or fails at runtime, errors in a generator-produced dependency unit (`--recursive-errors=no` suppresses those), or anything host-vs-image systemd version drift (259 vs. 255) would mask or add noise to. |
 | Device smoke (`tests/target_suite`) | The board's `/etc/buildinfo` names the installed commit, the page is served, the page is served again within 60 s of a backend crash, the browser killed with nobody at the panel has the WiseKiosk instance back on the panel — the app applied, served by the board's own backend — within TST001<!-- Browser killed -->'s bound, a clock set wrong by days and persisted across a restart is corrected within TST015<!-- Clock set wrong -->'s bound, and the instance's own HTTPS fetches, made through the proxy it is set to use, complete and are answered from a recording of its upstream, every recorded request at least once and none unanswered. | `bench run`, once per queue job. | The shared boot partition (`config.txt`, `cmdline.txt`, `boot.scr`, and `uboot.env` apart from RAUC's own boot-selection variables) — an OTA writes only the slot rootfs it boots, which does carry the kernel. The RAUC slot layout, which an OTA never touches. Whether the instance's traffic leaves the board, whether the board resolves its upstreams' names, or whether its system CA store verifies them: the recording is served by a proxy on the test host, reached through an SSH tunnel on the board's own loopback, which resolves names and presents certificates its own CA signs, and the backend trusts that CA alongside the store. |
-| Host unit (`just test`) | The verdict modules (`tests/verdicts`) judge constructed reads correctly: `tests/host_unit` covers every branch. | By hand. | Anything about a board: every read it judges is constructed, so no browser, probe or display is exercised. |
 
 ## Running it
 
@@ -46,7 +45,7 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   it reads the board's `/etc/buildinfo` itself and fails unless it names `bench_candidate`.
   The `panel` fixture bind-mounts a probe from `/tmp` over surf's script path and restarts the
   browser so the test can read what the page shows; teardown unmounts it and restarts the browser
-  again. The device context (`_read_device_facts` in `conftest.py`) is recorded on every test.
+  again. The device context (`device_context` in `conftest.py`) is recorded on every test.
 
 `bench run` also reads `[github]` — the GitHub App that posts the `bench-pipeline` check run, and the
 path to its private key on the bench host — and `[run]`, naming the systemd unit it disables on the

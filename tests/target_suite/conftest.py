@@ -1,15 +1,13 @@
 """Target-suite setup: switch on the shared board setup for every test here."""
 
 import hashlib
+import re
 import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
-
-from panel import Panel
-from verdicts.context import display_mode, file_hashes, webkit_env
 
 _CONFIG_PATH = "/data/config/config.json"
 _CONFIG_COPY_PATH = "/tmp/kiosk-config.json"
@@ -24,6 +22,15 @@ _HASHED_PATHS = (
     "/data/config/kiosk.conf",
     "/boot/config.txt",
     "/boot/cmdline.txt",
+)
+_PANEL_WAIT_SECONDS = 90
+_PANEL_POLL_SECONDS = 1
+OWN_ORIGINS = ("http://localhost:8080", "http://127.0.0.1:8080")
+_PROBE_FIELDS = ("nonce", "state", "cards", "origin")
+_WM_NAME = re.compile(r'WM_NAME\(\w+\) = "(.*)"$')
+_TITLES_WALK = (
+    "for id in $(DISPLAY=:0 xwininfo -root -tree 2>/dev/null | awk '/^ +0x/ { print $1 }'); do "
+    'DISPLAY=:0 xprop -id "$id" WM_NAME 2>/dev/null; done'
 )
 
 
@@ -87,23 +94,59 @@ def set_config(request, board):
     return apply
 
 
+def _probe_sample(xprop_output):
+    """The first window title carrying the probe's four fields, as a dict of strings, else None."""
+    for line in xprop_output.splitlines():
+        match = _WM_NAME.match(line)
+        if match and "WK1 " in match.group(1):
+            tokens = match.group(1).split("WK1 ", 1)[1].split()
+            found = dict(token.split("=", 1) for token in tokens if "=" in token)
+            if all(key in found for key in _PROBE_FIELDS):
+                return {key: found[key] for key in _PROBE_FIELDS}
+    return None
+
+
+class Panel:
+    """What the panel shows, read through the probe the `panel` fixture puts in the browser."""
+
+    def __init__(self, board):
+        self._board = board
+
+    @staticmethod
+    def on_panel(sample):
+        """The app applied, served by the board's own backend; the card count is never judged."""
+        return sample is not None and sample["state"] == "applied" and sample["origin"] in OWN_ORIGINS
+
+    def read(self):
+        """The board's uptime and the probe's sample (None = no payload), from one command.
+
+        Raises:
+            subprocess.TimeoutExpired: the command ran past `Board.run`'s timeout.
+        """
+        stdout, _stderr, _returncode = self._board.run(f"cat /proc/uptime; {_TITLES_WALK}")
+        return float(stdout[0].split()[0]), _probe_sample("\n".join(stdout[1:]))
+
+    def wait_on_panel(self, timeout_s=_PANEL_WAIT_SECONDS):
+        """Poll until the instance is on the panel; return that read's (uptime, sample)."""
+        deadline = time.monotonic() + timeout_s
+        while True:
+            uptime_s, sample = self.read()
+            if self.on_panel(sample):
+                return uptime_s, sample
+            assert time.monotonic() < deadline, (
+                f"the instance was not on the panel within {timeout_s} s; last sample: {sample!r}"
+            )
+            time.sleep(_PANEL_POLL_SECONDS)
+
+
 @pytest.fixture
 def panel(request, board, record_property):
-    """The on-the-panel observation: the probe loaded into the browser, undone at teardown.
+    """Load the probe into the browser and return a `Panel`; the page wait is the test's.
 
-    Copies `probe.js` to `/tmp`, bind-mounts it over surf's script path (clearing a mount a dead
-    run left there) and restarts the browser so surf loads it. Each undo is registered with
-    `request.addfinalizer` once its step has succeeded, except the browser restart's, registered
-    before the bind mount so teardown unmounts the probe and then restarts the browser. Does not
-    wait for the page; the test calls `Panel.wait_on_panel`.
-
-    Args:
-        request (pytest.FixtureRequest): registers each step's undo.
-        board (Board): the board under test (tests/conftest.py).
-        record_property (Callable[[str, object], None]): records the probe's sha256.
-
-    Returns:
-        Panel: the observation.
+    The probe is copied to `/tmp` and bind-mounted over surf's script path, then the browser
+    restarts to load it. Each undo is registered once its step has succeeded, except the
+    browser restart's, registered before the bind mount so teardown unmounts the probe, then
+    restarts the browser, then removes the copy.
     """
     board.put(str(_PROBE_SRC), _PROBE_COPY_PATH)
     request.addfinalizer(lambda: board.run(f"rm -f {_PROBE_COPY_PATH}", check=True))
@@ -126,27 +169,11 @@ def panel(request, board, record_property):
 
 
 def _utc_now():
-    """The host's UTC time, ISO-8601."""
     return datetime.now(timezone.utc).isoformat()
 
 
-def _read_device_facts(board):
-    """The board as a test finds it: the device context, read at that test's setup.
-
-    Polls for the browser first: it starts some seconds after ssh does following a restart.
-
-    Args:
-        board (Board): the board under test.
-
-    Returns:
-        dict[str, object]: boot_id, uptime_s, kernel, the sha256 of the config, kiosk.conf,
-            boot config and boot cmdline ("absent" when missing), the browser's cmdline sha256,
-            its WEBKIT_* environment, the display mode, NTP sync state and the start time.
-
-    Raises:
-        AssertionError: the browser never appeared, or `sha256sum` failed for a reason other
-            than a missing file.
-    """
+def _browser_pid(board):
+    """The browser's pid; it starts some seconds after ssh does following a restart."""
     deadline = time.monotonic() + _BROWSER_WAIT_SECONDS
     while True:
         try:
@@ -154,42 +181,38 @@ def _read_device_facts(board):
         except subprocess.TimeoutExpired:
             stdout, returncode = [], 1
         if returncode == 0 and stdout:
-            pid = stdout[0].strip()
-            break
+            return stdout[0].strip()
         assert time.monotonic() < deadline, "the browser never appeared"
         time.sleep(_BROWSER_POLL_SECONDS)
-
-    def read(cmd):
-        return "\n".join(board.run(cmd, check=True)[0]).strip()
-
-    hashes_out, hashes_err, hashes_rc = board.run("sha256sum " + " ".join(_HASHED_PATHS))
-    assert hashes_rc in (0, 1), f"sha256sum failed (rc {hashes_rc}): {chr(10).join(hashes_err)}"
-    hashes = file_hashes("\n".join(hashes_out), _HASHED_PATHS)
-    return {
-        "boot_id": read("cat /proc/sys/kernel/random/boot_id"),
-        "uptime_s": float(read("cat /proc/uptime").split()[0]),
-        "kernel": read("uname -r"),
-        "config_sha256": hashes["/data/config/config.json"],
-        "kiosk_conf_sha256": hashes["/data/config/kiosk.conf"],
-        "boot_config_sha256": hashes["/boot/config.txt"],
-        "boot_cmdline_sha256": hashes["/boot/cmdline.txt"],
-        "browser_cmdline_sha256": read(f"sha256sum /proc/{pid}/cmdline").split()[0],
-        "browser_webkit_env": webkit_env(read(f"tr '\\0' '\\n' < /proc/{pid}/environ")),
-        "display_mode": display_mode(read("DISPLAY=:0 xrandr")),
-        "timesync": read("timedatectl show -p NTPSynchronized --value"),
-        "start": _utc_now(),
-    }
 
 
 @pytest.fixture(autouse=True)
 def device_context(board, record_property):
-    """Record the device context as the test found the board, and the end time after it.
+    """Record the board as the test found it, and the end time after the test.
 
-    Args:
-        board (Board): the board under test.
-        record_property (Callable[[str, object], None]): records each fact.
+    Facts are raw board output: a missing file is simply absent from `file_sha256`.
     """
-    for key, value in _read_device_facts(board).items():
+    pid = _browser_pid(board)
+
+    def read(cmd):
+        return "\n".join(board.run(cmd, check=True)[0]).strip()
+
+    sums_out, sums_err, sums_rc = board.run("sha256sum " + " ".join(_HASHED_PATHS))
+    assert sums_rc in (0, 1), f"sha256sum failed (rc {sums_rc}): {chr(10).join(sums_err)}"
+    environ = read(f"tr '\\0' '\\n' < /proc/{pid}/environ").splitlines()
+    xrandr = read("DISPLAY=:0 xrandr").splitlines()
+    facts = {
+        "boot_id": read("cat /proc/sys/kernel/random/boot_id"),
+        "uptime_s": float(read("cat /proc/uptime").split()[0]),
+        "kernel": read("uname -r"),
+        "file_sha256": "\n".join(sums_out),
+        "browser_cmdline_sha256": read(f"sha256sum /proc/{pid}/cmdline").split()[0],
+        "browser_webkit_env": ",".join(line for line in environ if line.startswith("WEBKIT_")),
+        "display_mode": next((line.strip() for line in xrandr if "*" in line), ""),
+        "timesync": read("timedatectl show -p NTPSynchronized --value"),
+        "start": _utc_now(),
+    }
+    for key, value in facts.items():
         record_property(key, value)
     yield
     record_property("end", _utc_now())
