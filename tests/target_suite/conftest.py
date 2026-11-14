@@ -1,9 +1,23 @@
 """Target-suite setup: switch on the shared board setup for every test here."""
 
+import subprocess
+import time
+from datetime import datetime, timezone
+
 import pytest
+
+from panel import Panel
 
 _CONFIG_PATH = "/data/config/config.json"
 _CONFIG_COPY_PATH = "/tmp/kiosk-config.json"
+_BROWSER_WAIT_SECONDS = 90
+_BROWSER_POLL_SECONDS = 2
+_HASHED_PATHS = (
+    "/data/config/config.json",
+    "/data/config/kiosk.conf",
+    "/boot/config.txt",
+    "/boot/cmdline.txt",
+)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -64,3 +78,61 @@ def set_config(request, board):
         request.addfinalizer(lambda: board.run("systemctl stop kiosk.service", check=True))
 
     return apply
+
+
+@pytest.fixture
+def panel(request, board, record_property):
+    """Load the probe into the browser and return the `Panel`; the page wait is the test's."""
+    observation = Panel(board)
+    record_property("probe_sha256", observation.install(request))
+    return observation
+
+
+def _utc_now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _browser_pid(board):
+    """The browser's pid; it starts some seconds after ssh does following a restart."""
+    deadline = time.monotonic() + _BROWSER_WAIT_SECONDS
+    while True:
+        try:
+            stdout, _stderr, returncode = board.run("pgrep -x surf")
+        except subprocess.TimeoutExpired:
+            stdout, returncode = [], 1
+        if returncode == 0 and stdout:
+            return stdout[0].strip()
+        assert time.monotonic() < deadline, "the browser never appeared"
+        time.sleep(_BROWSER_POLL_SECONDS)
+
+
+@pytest.fixture(autouse=True)
+def device_context(board, record_property):
+    """Record the board as the test found it, and the end time after the test.
+
+    Facts are raw board output: a missing file is simply absent from `file_sha256`.
+    """
+    pid = _browser_pid(board)
+
+    def read(cmd):
+        return "\n".join(board.run(cmd, check=True)[0]).strip()
+
+    sums_out, sums_err, sums_rc = board.run("sha256sum " + " ".join(_HASHED_PATHS))
+    assert sums_rc in (0, 1), f"sha256sum failed (rc {sums_rc}): {chr(10).join(sums_err)}"
+    environ = read(f"tr '\\0' '\\n' < /proc/{pid}/environ").splitlines()
+    xrandr = read("DISPLAY=:0 xrandr").splitlines()
+    facts = {
+        "boot_id": read("cat /proc/sys/kernel/random/boot_id"),
+        "uptime_s": float(read("cat /proc/uptime").split()[0]),
+        "kernel": read("uname -r"),
+        "file_sha256": "\n".join(sums_out),
+        "browser_cmdline_sha256": read(f"sha256sum /proc/{pid}/cmdline").split()[0],
+        "browser_webkit_env": ",".join(line for line in environ if line.startswith("WEBKIT_")),
+        "display_mode": next((line.strip() for line in xrandr if "*" in line), ""),
+        "timesync": read("timedatectl show -p NTPSynchronized --value"),
+        "start": _utc_now(),
+    }
+    for key, value in facts.items():
+        record_property(key, value)
+    yield
+    record_property("end", _utc_now())

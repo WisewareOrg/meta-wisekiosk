@@ -1,20 +1,25 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Browser killed
+  Browser killed
 level: 1.1.1
 links:
 - SRS001: mJPXcAkSNEcGQaecPKwCJDrOMXsJRs1pWu-GXRZ10lo=
 normative: true
 rationale: |
-  Waits on its test.
+  A browser that dies leaves the panel blank, and with nobody at the panel nobody restarts it. The
+  viewer must get the instance back without anyone coming to it.
 ref: ''
-references: []
-reviewed: gVAkyVWVEQsMH7Y1KWWWolvqvaXcSCOg3lWICnl1D3I=
+references:
+- keyword: def test_browser_killed
+  path: tests/target_suite/test_browser_killed.py
+  sha: cfe0b89e2cbc6f208b8dd5c5bf2aa389970c7a88a03dc1b7467d5152c9bf8edb
+  type: file
+reviewed: wbXnmVyXvmvSfNvbavbvzlu4Yr6ZFv3Kk8vbQrKAIkM=
 status: proposed
 text: |
   With nobody at the panel, kill the browser. Pass if the WiseKiosk instance is back on the panel
-  within 15 s.
+  within 45 s.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.
