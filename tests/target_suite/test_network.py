@@ -4,22 +4,14 @@ import os
 import subprocess
 import threading
 import time
-from pathlib import Path
 
 from labgrid.driver.exception import ExecutionError
 
-_OUTAGE_SRC = Path(__file__).resolve().parent / "outage.sh"
-_OUTAGE_SCRIPT_PATH = "/tmp/test-outage.sh"
-_OUTAGE_RECORD_PATH = "/tmp/test-outage.record"
-_OUTAGE_UNIT = "test-outage"
-# the delay `systemd-run` waits before the script cuts, so the arming command returns first
-_ARM_DELAY_SECONDS = 3
+from outage import Outage
+
 _OUTAGE_SECONDS = 60
-# stop polling this long after the network returns; past the bound, so the record carries the time
-_GIVE_UP_SECONDS = 180
 # TST029's bound
 _REJOIN_BOUND_SECONDS = 30
-_BOOT_COMPLETE_WAIT_SECONDS = 180
 _SHELL_TIMEOUT_SECONDS = 10
 _JOURNAL_TIMEOUT_SECONDS = 60
 
@@ -35,61 +27,13 @@ _PUSH_GRACE_SECONDS = 60
 _READ_PAUSE_SECONDS = 1
 
 
-def _record_lines(board):
-    """The outage record's lines as the board holds them (empty if absent), on the SSHDriver."""
-    return board.run(f"cat {_OUTAGE_RECORD_PATH} 2>/dev/null || true", check=True)[0]
-
-
-def _wait_boot_complete(board):
-    """Wait for boot-complete.target, so an outage cannot land inside kiosk-netcheck's window."""
-    deadline = time.monotonic() + _BOOT_COMPLETE_WAIT_SECONDS
-    while board.run("systemctl is-active boot-complete.target")[2] != 0:
-        assert time.monotonic() < deadline, (
-            f"boot-complete.target was not active within {_BOOT_COMPLETE_WAIT_SECONDS} s"
-        )
-        time.sleep(1)
-
-
-def _arm_outage(request, board):
-    """Copy the outage script to the board and start it on a timer; undo each step at teardown.
-
-    The SSHDriver is disconnected last, while the board is still up. Teardown reconnects it,
-    stops the units, un-pins the network the record names, then removes the files.
-    """
-    board.put(str(_OUTAGE_SRC), _OUTAGE_SCRIPT_PATH)
-    request.addfinalizer(lambda: board.run(f"rm -f {_OUTAGE_SCRIPT_PATH} {_OUTAGE_RECORD_PATH}"))
-
-    def unpin():
-        for line in _record_lines(board):
-            fields = line.split()
-            if fields[:1] == ["id"] and len(fields) == 2:
-                board.run(f"wpa_cli -i wlan0 set_network {fields[1]} bssid any")
-                return
-
-    request.addfinalizer(unpin)
-
-    board.run(
-        f"systemd-run --unit={_OUTAGE_UNIT} --on-active={_ARM_DELAY_SECONDS} "
-        f"--timer-property=AccuracySec=100ms /bin/sh {_OUTAGE_SCRIPT_PATH} "
-        f"{_OUTAGE_SECONDS} {_GIVE_UP_SECONDS}",
-        check=True,
-    )
-    units = f"{_OUTAGE_UNIT}.timer {_OUTAGE_UNIT}.service"
-    request.addfinalizer(
-        lambda: board.run(f"systemctl stop {units}; systemctl reset-failed {units}")
-    )
-
-    request.addfinalizer(board.reconnect)
-    board.disconnect()
-
-
 def _shell(board):
     """Open a new ssh shell; return its (uptime, record lines) or None, and how the attempt ended."""
     try:
         done = subprocess.run(
             [
                 *board.fresh_ssh_argv("ConnectTimeout=5"),
-                f"cat /proc/uptime; cat {_OUTAGE_RECORD_PATH} 2>/dev/null; true",
+                f"cat /proc/uptime; cat {Outage.RECORD_PATH} 2>/dev/null; true",
             ],
             capture_output=True,
             text=True,
@@ -103,22 +47,13 @@ def _shell(board):
     return (float(lines[0].split()[0]), lines[1:]), "opened"
 
 
-def _field(lines, name):
-    """The number after the first `name` line of the record, else None."""
-    for line in lines:
-        fields = line.split()
-        if fields[:1] == [name]:
-            return float(fields[1])
-    return None
-
-
-def test_rejoins_after_an_outage(request, board, record_property):
+def test_rejoins_after_an_outage(request, board, outage, record_property):
     """TST029 rejoins after an outage: pin the board off its network, then time until a shell opens."""
     record_property("requirement", "TST029")
-    _wait_boot_complete(board)
+    outage.wait_boot_complete()
     boot_id = board.run("cat /proc/sys/kernel/random/boot_id", check=True)[0][0]
-    _arm_outage(request, board)
-    deadline = time.monotonic() + _ARM_DELAY_SECONDS + _OUTAGE_SECONDS + _GIVE_UP_SECONDS
+    outage.arm(request, _OUTAGE_SECONDS, Outage.GIVE_UP_SECONDS)
+    deadline = time.monotonic() + Outage.ARM_DELAY_SECONDS + _OUTAGE_SECONDS + Outage.GIVE_UP_SECONDS
 
     last_attempt = "no attempt"
     shells_before_cut = 0
@@ -132,8 +67,8 @@ def test_rejoins_after_an_outage(request, board, record_property):
             time.sleep(1)
             continue
         t1, lines = opened
-        cut_at = _field(lines, "cut")
-        t0 = _field(lines, "t0")
+        cut_at = outage.field(lines, "cut")
+        t0 = outage.field(lines, "t0")
         if cut_at is None or t1 < cut_at:
             shells_before_cut += 1
         elif t0 is None:
@@ -157,7 +92,7 @@ def test_rejoins_after_an_outage(request, board, record_property):
     if rejoined_s is None and shells_during_outage == 0:
         board.reconnect()
         journal, journal_err, journal_rc = board.run(
-            f"journalctl -b {boot_id.replace('-', '')} -u {_OUTAGE_UNIT} -o cat --no-pager",
+            f"journalctl -b {boot_id.replace('-', '')} -u {Outage.UNIT} -o cat --no-pager",
             timeout=_JOURNAL_TIMEOUT_SECONDS,
         )
         if journal_rc != 0:
@@ -169,7 +104,7 @@ def test_rejoins_after_an_outage(request, board, record_property):
             record_property("journal_trace", journal[last_run:])
 
     assert shells_during_outage == 0, "the network did not go away: a shell opened during the outage"
-    assert rejoined_s is not None, f"no remote shell within {_GIVE_UP_SECONDS} s of the network returning"
+    assert rejoined_s is not None, f"no remote shell within {Outage.GIVE_UP_SECONDS} s of the network returning"
     assert rejoined_s <= _REJOIN_BOUND_SECONDS, (
         f"a shell opened {rejoined_s} s after the network returned; "
         f"TST029's bound is {_REJOIN_BOUND_SECONDS} s"

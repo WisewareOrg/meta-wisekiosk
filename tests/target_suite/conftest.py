@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 import pytest
 
+from outage import Outage
 from panel import Panel
 
 _CONFIG_PATH = "/data/config/config.json"
@@ -136,3 +137,9 @@ def device_context(board, record_property):
         record_property(key, value)
     yield
     record_property("end", _utc_now())
+
+
+@pytest.fixture
+def outage(board):
+    """The `Outage` for the board; the test arms it."""
+    return Outage(board)
