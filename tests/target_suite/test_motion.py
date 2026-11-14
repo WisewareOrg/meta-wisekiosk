@@ -28,6 +28,8 @@ MOTION_FLOOR = 0.29
 _COUNTERS = ("el", "frames", "isum", "ticks", "moving", "changes", "cost")
 _SOC_TEMP_PATH = "/sys/class/thermal/thermal_zone0/temp"
 _SOAK_LOG_PATH = "/data/kiosk-soak.log"
+# well over an hour of samples at kiosk-soak's 300 s period, far past a window
+_SOAK_TAIL_LINES = 20
 
 
 def _read(panel):
@@ -69,12 +71,15 @@ def _soc_temperature(board):
 
 
 def _soak_samples_between(board, start_uptime, end_uptime):
-    """How many kiosk-soak log lines fall inside the uptime span."""
-    stdout, _stderr, _returncode = board.run(f"cat {_SOAK_LOG_PATH} 2>/dev/null; true")
+    """How many of kiosk-soak's last log lines, from this boot, fall inside the uptime span."""
+    stdout, _stderr, _returncode = board.run(
+        f"cut -c1-8 /proc/sys/kernel/random/boot_id; tail -n {_SOAK_TAIL_LINES} {_SOAK_LOG_PATH} 2>/dev/null; true"
+    )
+    boot = stdout[0]
     count = 0
-    for line in stdout:
+    for line in stdout[1:]:
         fields = dict(token.split("=", 1) for token in line.split() if "=" in token)
-        if "up" in fields and start_uptime <= float(fields["up"]) <= end_uptime:
+        if fields.get("boot") == boot and start_uptime <= float(fields["up"]) <= end_uptime:
             count += 1
     return count
 
