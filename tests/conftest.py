@@ -208,6 +208,35 @@ class Board:
         self.disconnect()
         self.connect()
 
+    def reconnect(self):
+        """Connect the SSHDriver, retrying every 1 s until the board answers.
+
+        Waits through a reboot in progress. A failed or nonzero read of `true` counts as not back
+        yet.
+
+        Raises:
+            AssertionError: the board did not answer within `RESTART_WAIT_SECONDS`.
+        """
+        deadline = time.monotonic() + self.RESTART_WAIT_SECONDS
+        while True:
+            try:
+                self.connect()
+            except Exception:  # labgrid's activation timeout is a bare Exception
+                connected = False
+            else:
+                connected = True
+                try:
+                    if self.run("true")[2] == 0:
+                        return
+                except (ExecutionError, subprocess.TimeoutExpired):
+                    pass
+            assert time.monotonic() < deadline, (
+                f"the board did not answer within {self.RESTART_WAIT_SECONDS} s"
+            )
+            if connected:
+                self.disconnect()
+            time.sleep(1)
+
     def fresh_ssh_argv(self, *options):
         """The argv of an ssh to the board over its own connection, short of the remote command.
 

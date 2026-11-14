@@ -23,8 +23,12 @@ has_ipv4() {
     fi
 }
 
+log() {
+    echo "$*" | tee -a "$record"
+}
+
 trace() {
-    echo "trace $(uptime_s) $(wpa_state) has_ipv4=$(has_ipv4)" >> "$record"
+    log "trace $(uptime_s) $(wpa_state) has_ipv4=$(has_ipv4)"
 }
 
 reached() {
@@ -32,13 +36,14 @@ reached() {
 }
 
 id=$(wpa_cli -i wlan0 status | sed -n 's/^id=//p')
-echo "id $id" > "$record"
+rm -f "$record"
+log "id $id"
 
-cut_at=$(uptime_s)
-echo "cut $cut_at" >> "$record"
 wpa_cli -i wlan0 set_network "$id" bssid ff:ff:ff:ff:ff:ff > /dev/null
 wpa_cli -i wlan0 disconnect > /dev/null
 wpa_cli -i wlan0 reconnect > /dev/null
+cut_at=$(uptime_s)
+log "cut $cut_at"
 
 restore_at=$(awk -v t="$cut_at" -v s="$outage_s" 'BEGIN { print t + s }')
 until reached "$restore_at"; do
@@ -47,7 +52,7 @@ until reached "$restore_at"; do
 done
 
 t0=$(uptime_s)
-echo "t0 $t0" >> "$record"
+log "t0 $t0"
 wpa_cli -i wlan0 set_network "$id" bssid any > /dev/null
 
 give_up_at=$(awk -v t="$t0" -v s="$give_up_s" 'BEGIN { print t + s }')
