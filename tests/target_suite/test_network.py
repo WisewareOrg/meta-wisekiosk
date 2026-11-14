@@ -156,12 +156,17 @@ def test_rejoins_after_an_outage(request, board, record_property):
 
     if rejoined_s is None and shells_during_outage == 0:
         board.reconnect()
-        journal = board.run(
-            f"journalctl -b {boot_id} -u {_OUTAGE_UNIT} -o cat --no-pager",
+        journal, journal_err, journal_rc = board.run(
+            f"journalctl -b {boot_id.replace('-', '')} -u {_OUTAGE_UNIT} -o cat --no-pager",
             timeout=_JOURNAL_TIMEOUT_SECONDS,
-        )[0]
-        last_run = max((n for n, line in enumerate(journal) if line.startswith("id ")), default=0)
-        record_property("journal_trace", journal[last_run:])
+        )
+        if journal_rc != 0:
+            record_property("journal_trace", [f"journalctl rc {journal_rc}", *journal_err])
+        else:
+            last_run = max(
+                (n for n, line in enumerate(journal) if line.startswith("id ")), default=0
+            )
+            record_property("journal_trace", journal[last_run:])
 
     assert shells_during_outage == 0, "the network did not go away: a shell opened during the outage"
     assert rejoined_s is not None, f"no remote shell within {_GIVE_UP_SECONDS} s of the network returning"

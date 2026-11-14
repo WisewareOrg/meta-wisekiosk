@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_rejoins_after_an_outage
   path: tests/target_suite/test_network.py
-  sha: 9a09bc80d9117ec89f684751a236653b9ded70f5cd531c0832abb62d89f24b9a
+  sha: 6ed1d980389ff88ce34322ef0dd7e8a63b2ee4830da3980c5f2bba4c3839d65e
   type: file
-reviewed: bY-cw7P3GOpv3RJY2jmEyFJigJg-xiX75nxHPU_Wg_k=
+reviewed: WZQJac70EcJvf_PTN4XP4f4ocB_xUZAiuV6GkBRLsT0=
 status: proposed
 text: |
   Take the site network away from the running appliance, then restore it. Pass if the operator can
