@@ -20,7 +20,7 @@ def _instance_up(board):
 
 
 def _back_s(board, cmd):
-    """Run `cmd`; return seconds until the instance is up (None past the give-up) and the last read."""
+    """Run `cmd`; return seconds until the instance is up (None if never) and the last read."""
     assert board.wait_for_page(), "the board did not serve the page before the fault"
     started = time.monotonic()
     board.restart_by(cmd)
@@ -48,26 +48,16 @@ def _check(back_s, last_read, fault, requirement):
 def test_kernel_crash(board, record_property):
     """TST004 kernel crash: crash the kernel and time until the page is served, browser running."""
     record_property("requirement", "TST004")
-    back_s = _back_s(board, "sync; echo c > /proc/sysrq-trigger")
+    back_s, last_read = _back_s(board, "sync; echo c > /proc/sysrq-trigger")
     record_property("back_s", back_s)
-    assert back_s is not None, (
-        f"the board did not serve the page with the browser running within {_GIVE_UP_SECONDS} s "
-        "of the crash"
-    )
-    assert back_s <= _BOUND_SECONDS, (
-        f"back after {back_s} s; TST004's bound is {_BOUND_SECONDS} s"
-    )
+    record_property("last_read", last_read)
+    _check(back_s, last_read, "crash", "TST004")
 
 
 def test_restart_to_the_panel(board, record_property):
-    """TST011 restart to the panel: restart the board and time until the page is served, browser up."""
+    """TST011 restart to the panel: restart the board; time until the page is served, browser up."""
     record_property("requirement", "TST011")
-    back_s = _back_s(board, "systemctl reboot")
+    back_s, last_read = _back_s(board, "systemctl reboot")
     record_property("back_s", back_s)
-    assert back_s is not None, (
-        f"the board did not serve the page with the browser running within {_GIVE_UP_SECONDS} s "
-        "of the restart"
-    )
-    assert back_s <= _BOUND_SECONDS, (
-        f"back after {back_s} s; TST011's bound is {_BOUND_SECONDS} s"
-    )
+    record_property("last_read", last_read)
+    _check(back_s, last_read, "restart", "TST011")
