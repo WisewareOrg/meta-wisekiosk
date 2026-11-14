@@ -20,7 +20,6 @@ def test_browser_killed(board, panel, record_property):
     killed_at = float(stdout[0].split()[0])
     give_up_at = time.monotonic() + _GIVE_UP_SECONDS
 
-    sample = None
     seen_payload = False
     recovered_s = None
     while True:
