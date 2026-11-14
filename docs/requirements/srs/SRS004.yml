@@ -8,10 +8,10 @@ links:
 normative: true
 rationale: |
   TST012<!-- Pending: Cold boot to the panel --> waits on power control and its bound.
-  TST011<!-- Pending: Restart to the panel --> settles the warm path only; it skips the cold-power
+  TST011<!-- Restart to the panel --> settles the warm path only; it skips the cold-power
   path a real outage takes.
 ref: ''
-reviewed: YCviaCHdYUdY6RksBKXSBj2gB-41tj8_yYjuTxMphKk=
+reviewed: pMrkPQAaeBgYGuMlnKcDobFiERteEmnpN9myWlwSpu0=
 status: proposed
 text: |
   After power is applied, the appliance shall bring the WiseKiosk instance onto the panel promptly.
