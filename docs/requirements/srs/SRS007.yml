@@ -9,9 +9,8 @@ normative: true
 rationale: |
   The appliance has no battery-backed clock, so it can start with the wrong time. A wrong clock
   shows the wrong time on the panel and makes HTTPS fail, cutting the instance off from its data.
-  Its check waits on its bound.
 ref: ''
-reviewed: XSiNszw86pzK_rpyk1Ap_hDMrW-Eo0Sk7VWHMsesRkw=
+reviewed: c16IVt1VbllcF_2QCufsaK3qxDZsSMY5ZaT7nJb2nkc=
 status: proposed
 text: |
   When the appliance's clock is wrong, the appliance shall correct it by itself once the site

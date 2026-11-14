@@ -2,8 +2,6 @@
 
 import pytest
 
-from page import POLL_ATTEMPT_TIMEOUT_SECONDS, poll_for_page
-
 _CONFIG_PATH = "/data/config/config.json"
 _CONFIG_COPY_PATH = "/tmp/kiosk-config.json"
 
@@ -13,27 +11,8 @@ def _install_candidate(install_candidate):
     """Activate `install_candidate` (tests/conftest.py) for every test in this suite."""
 
 
-def _run_checked(driver, cmd):
-    """Run `cmd` on the board and assert it returned 0.
-
-    Args:
-        driver (labgrid.driver.SSHDriver): the board's remote shell.
-        cmd (str): the command to run.
-
-    Returns:
-        list[str]: `cmd`'s combined stdout and stderr lines.
-
-    Raises:
-        AssertionError: `cmd` returned nonzero.
-    """
-    stdout, stderr, returncode = driver.run(cmd, timeout=POLL_ATTEMPT_TIMEOUT_SECONDS)
-    output = stdout + stderr
-    assert returncode == 0, f"{cmd!r} failed (rc {returncode}): {chr(10).join(output)}"
-    return output
-
-
 @pytest.fixture
-def set_config(target, request):
+def set_config(request, board):
     """Build an `apply` that swaps the board onto a given config, undoing it at teardown.
 
     `apply(path)` stops the browser, clears a mount a dead run left over the live config path,
@@ -46,13 +25,12 @@ def set_config(target, request):
     test.
 
     Args:
-        target (labgrid.Target): names the board's SSHDriver.
         request (pytest.FixtureRequest): registers each step's undo.
+        board (Board): the board under test (tests/conftest.py).
 
     Returns:
         Callable[[str | os.PathLike], None]: `apply(path)`.
     """
-    driver = target.get_driver("SSHDriver")
 
     def apply(path):
         """Swap the board onto `path`'s config and leave the instance running against it.
@@ -60,29 +38,29 @@ def set_config(target, request):
         Args:
             path (str | os.PathLike): the config file to copy to the board.
         """
-        _run_checked(driver, "systemctl stop kiosk.service")
-        request.addfinalizer(lambda: _run_checked(driver, "systemctl start kiosk.service"))
+        board.run("systemctl stop kiosk.service", check=True)
+        request.addfinalizer(lambda: board.run("systemctl start kiosk.service", check=True))
 
-        _run_checked(
-            driver,
+        board.run(
             f"if grep -q ' {_CONFIG_PATH} ' /proc/self/mountinfo; then umount {_CONFIG_PATH}; fi",
+            check=True,
         )
 
-        driver.put(str(path), _CONFIG_COPY_PATH)
-        request.addfinalizer(lambda: _run_checked(driver, f"rm -f {_CONFIG_COPY_PATH}"))
+        board.put(str(path), _CONFIG_COPY_PATH)
+        request.addfinalizer(lambda: board.run(f"rm -f {_CONFIG_COPY_PATH}", check=True))
 
-        _run_checked(driver, f"mount --bind {_CONFIG_COPY_PATH} {_CONFIG_PATH}")
-        request.addfinalizer(lambda: _run_checked(driver, f"umount {_CONFIG_PATH}"))
+        board.run(f"mount --bind {_CONFIG_COPY_PATH} {_CONFIG_PATH}", check=True)
+        request.addfinalizer(lambda: board.run(f"umount {_CONFIG_PATH}", check=True))
 
         def _restart_backend_and_wait():
-            _run_checked(driver, "systemctl restart wisekiosk.service")
-            assert poll_for_page(driver), "page did not serve after the backend restart"
+            board.run("systemctl restart wisekiosk.service", check=True)
+            assert board.wait_for_page(), "page did not serve after the backend restart"
 
-        _run_checked(driver, "systemctl restart wisekiosk.service")
+        board.run("systemctl restart wisekiosk.service", check=True)
         request.addfinalizer(_restart_backend_and_wait)
-        assert poll_for_page(driver), "page did not serve after the backend restart"
+        assert board.wait_for_page(), "page did not serve after the backend restart"
 
-        _run_checked(driver, "systemctl start kiosk.service")
-        request.addfinalizer(lambda: _run_checked(driver, "systemctl stop kiosk.service"))
+        board.run("systemctl start kiosk.service", check=True)
+        request.addfinalizer(lambda: board.run("systemctl stop kiosk.service", check=True))
 
     return apply

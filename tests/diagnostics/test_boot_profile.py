@@ -43,31 +43,11 @@ _CLEANUP_BOUND_SECONDS = 60
 _CLEANUP_POLL_SECONDS = 5
 
 
-def _run_checked(driver, cmd, timeout=None):
-    """Run `cmd` on the board and assert it returned 0.
-
-    Args:
-        driver (labgrid.driver.SSHDriver): the board's remote shell.
-        cmd (str): the command to run.
-        timeout (float | None): forwarded to `driver.run`.
-
-    Returns:
-        list[str]: `cmd`'s combined stdout and stderr lines.
-
-    Raises:
-        AssertionError: `cmd` returned nonzero.
-    """
-    stdout, stderr, returncode = driver.run(cmd, timeout=timeout)
-    output = stdout + stderr
-    assert returncode == 0, f"{cmd!r} failed (rc {returncode}): {chr(10).join(output)}"
-    return output
-
-
-def _boot_id(driver):
+def _boot_id(board):
     """Read the board's current boot id.
 
     Args:
-        driver (labgrid.driver.SSHDriver): the board's remote shell.
+        board (Board): the board under test (tests/conftest.py).
 
     Returns:
         str: the boot id.
@@ -75,13 +55,16 @@ def _boot_id(driver):
     Raises:
         AssertionError: the id could not be read, or came back empty.
     """
-    output = _run_checked(driver, "cat /proc/sys/kernel/random/boot_id")
+    stdout, stderr, _returncode = board.run(
+        "cat /proc/sys/kernel/random/boot_id", timeout=None, check=True
+    )
+    output = stdout + stderr
     boot_id = "".join(output).strip()
     assert boot_id, "empty boot id -- refusing to run blind"
     return boot_id
 
 
-def test_boot_profile(target, request):
+def test_boot_profile(request, board):
     """Capture one boot profile end to end, leaving the board as it was found.
 
     Arms the sampler, reboots, waits out the observer window, pulls the samples and the
@@ -89,7 +72,6 @@ def test_boot_profile(target, request):
     board with no copied binary, no copied unit, no enable link for it, and neither
     `/usr/local/bin` nor `/usr/local` -- no image ships either.
     """
-    driver = target.get_driver("SSHDriver")
     outdir = Path(OUTPUT_DIR)
     outdir.mkdir(parents=True, exist_ok=True)
 
@@ -104,21 +86,21 @@ def test_boot_profile(target, request):
         and otherwise removes the leftovers itself, names them, and fails.
         """
         if not state["rebooted"]:
-            driver.run(f"systemctl disable --no-reload {_UNIT_NAME}")
-            driver.run(f"rm -f {BOARD_BINARY_PATH} {_UNIT_REMOTE}")
-            driver.run(f"rmdir {_BOARD_BIN_DIR} {_BOARD_LOCAL_DIR}")
+            board.run(f"systemctl disable --no-reload {_UNIT_NAME}", timeout=None)
+            board.run(f"rm -f {BOARD_BINARY_PATH} {_UNIT_REMOTE}", timeout=None)
+            board.run(f"rmdir {_BOARD_BIN_DIR} {_BOARD_LOCAL_DIR}", timeout=None)
             return
 
         deadline = time.monotonic() + _CLEANUP_BOUND_SECONDS
         leftover = []
         while True:
-            target.activate(driver)
-            active_out, _stderr, _rc = driver.run(f"systemctl is-active {_UNIT_NAME}")
-            _out, _err, rc_bin = driver.run(f"test -e {BOARD_BINARY_PATH}")
-            _out, _err, rc_unit = driver.run(f"test -e {_UNIT_REMOTE}")
-            _out, _err, rc_link = driver.run(f"test -e {_ENABLE_LINK}")
-            _out, _err, rc_bin_dir = driver.run(f"test -d {_BOARD_BIN_DIR}")
-            _out, _err, rc_local_dir = driver.run(f"test -d {_BOARD_LOCAL_DIR}")
+            board.connect()
+            active_out, _stderr, _rc = board.run(f"systemctl is-active {_UNIT_NAME}", timeout=None)
+            _out, _err, rc_bin = board.run(f"test -e {BOARD_BINARY_PATH}", timeout=None)
+            _out, _err, rc_unit = board.run(f"test -e {_UNIT_REMOTE}", timeout=None)
+            _out, _err, rc_link = board.run(f"test -e {_ENABLE_LINK}", timeout=None)
+            _out, _err, rc_bin_dir = board.run(f"test -d {_BOARD_BIN_DIR}", timeout=None)
+            _out, _err, rc_local_dir = board.run(f"test -d {_BOARD_LOCAL_DIR}", timeout=None)
             leftover = []
             if "".join(active_out).strip() == "active":
                 leftover.append(f"{_UNIT_NAME} still active")
@@ -138,31 +120,31 @@ def test_boot_profile(target, request):
                 break
             time.sleep(_CLEANUP_POLL_SECONDS)
 
-        driver.run(f"systemctl disable --no-reload {_UNIT_NAME}")
-        driver.run(f"rm -f {BOARD_BINARY_PATH} {_UNIT_REMOTE}")
-        driver.run(f"rmdir {_BOARD_BIN_DIR} {_BOARD_LOCAL_DIR}")
+        board.run(f"systemctl disable --no-reload {_UNIT_NAME}", timeout=None)
+        board.run(f"rm -f {BOARD_BINARY_PATH} {_UNIT_REMOTE}", timeout=None)
+        board.run(f"rmdir {_BOARD_BIN_DIR} {_BOARD_LOCAL_DIR}", timeout=None)
         pytest.fail(f"board was not clean after the profile run: {', '.join(leftover)}")
 
     request.addfinalizer(_cleanup)
 
     # 1. Record the boot id.
-    boot_before = _boot_id(driver)
+    boot_before = _boot_id(board)
 
-    # 2. Arm: copy the binary and the unit, then enable. scp (what driver.put() shells out
+    # 2. Arm: copy the binary and the unit, then enable. scp (what board.put() shells out
     # to) does not create destination directories, so make it first.
-    _run_checked(driver, f"mkdir -p {_BOARD_BIN_DIR}")
-    driver.put(str(DEPLOYED_BINARY), BOARD_BINARY_PATH)
-    _run_checked(driver, f"chmod 0755 {BOARD_BINARY_PATH}")
-    driver.put(str(UNIT_SOURCE), "/etc/systemd/system/")
-    _run_checked(driver, f"systemctl daemon-reload && systemctl enable {_UNIT_NAME}")
+    board.run(f"mkdir -p {_BOARD_BIN_DIR}", timeout=None, check=True)
+    board.put(str(DEPLOYED_BINARY), BOARD_BINARY_PATH)
+    board.run(f"chmod 0755 {BOARD_BINARY_PATH}", timeout=None, check=True)
+    board.put(str(UNIT_SOURCE), "/etc/systemd/system/")
+    board.run(f"systemctl daemon-reload && systemctl enable {_UNIT_NAME}", timeout=None, check=True)
 
     # 3. Reboot, then disconnect for the whole observer window -- a connection during it is
     # itself an instrument; see the bootprof README for the measured cost.
     try:
-        driver.run("systemctl reboot", timeout=10)
+        board.run("systemctl reboot", timeout=10)
     except (ExecutionError, subprocess.TimeoutExpired):
         pass
-    target.deactivate(driver)
+    board.disconnect()
     state["rebooted"] = True
     time.sleep(WAIT_SECONDS)
 
@@ -171,16 +153,16 @@ def test_boot_profile(target, request):
     sample_remote = None
     for _attempt in range(_RETRY_ATTEMPTS):
         try:
-            target.activate(driver)
+            board.connect()
         except Exception:  # noqa: BLE001 -- unreachable is "still the old boot", not a failure
             time.sleep(_RETRY_INTERVAL_SECONDS)
             continue
-        boot_after = _boot_id(driver)
+        boot_after = _boot_id(board)
         if boot_after == boot_before:
             time.sleep(_RETRY_INTERVAL_SECONDS)
             continue
         candidate = f"/data/boot-cpu-io.{boot_after}.txt"
-        _stdout, _stderr, returncode = driver.run(f"test -f {candidate}")
+        _stdout, _stderr, returncode = board.run(f"test -f {candidate}", timeout=None)
         if returncode == 0:
             sample_remote = candidate
             break
@@ -192,10 +174,10 @@ def test_boot_profile(target, request):
 
     # 5. Fetch the samples and the matching journal.
     stem = f"boot-cpu-io.{boot_after}"
-    driver.get(sample_remote, str(outdir / f"{stem}.txt"))
+    board.get(sample_remote, str(outdir / f"{stem}.txt"))
     journal_id = boot_after.replace("-", "")
-    journal_stdout, journal_stderr, journal_rc = driver.run(
-        f"journalctl -b {journal_id} -o short-monotonic"
+    journal_stdout, journal_stderr, journal_rc = board.run(
+        f"journalctl -b {journal_id} -o short-monotonic", timeout=None
     )
     assert journal_rc == 0, (
         f"journalctl -b {journal_id} failed (rc {journal_rc}): {chr(10).join(journal_stderr)}"

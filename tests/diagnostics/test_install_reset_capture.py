@@ -21,11 +21,11 @@ ARMED = re.compile(
 SEED = "echo c > /proc/sysrq-trigger"
 
 
-def _booted_slot(driver):
+def _booted_slot(board):
     """The slot the board booted from, as `rauc status` names it.
 
     Args:
-        driver (labgrid.driver.SSHDriver): the board's remote shell.
+        board (Board): the board under test (tests/conftest.py).
 
     Returns:
         str: the `Booted from:` line.
@@ -33,7 +33,7 @@ def _booted_slot(driver):
     Raises:
         AssertionError: `rauc status` failed or named no booted slot.
     """
-    stdout, _stderr, returncode = driver.run("rauc status")
+    stdout, _stderr, returncode = board.run("rauc status", timeout=None)
     assert returncode == 0, "rauc status failed"
     line = next((entry for entry in stdout if entry.startswith("Booted from:")), None)
     assert line is not None, f"no booted slot in rauc status:\n{chr(10).join(stdout)}"
@@ -58,16 +58,14 @@ def _crash(host):
     )
 
 
-def test_install_reset_capture(target):
+def test_install_reset_capture(board):
     """A crash mid-install leaves the panic and the ftrace ring in the install's output.
 
     The crashed install never activates the slot it was writing, so the board comes back
     on the slot it booted from before.
     """
-    service = target.get_resource("NetworkService")
-    host = f"{service.username}@{service.address}"
-    driver = target.get_driver("SSHDriver")
-    slot_before = _booted_slot(driver)
+    host = board.host
+    slot_before = _booted_slot(board)
 
     ota = subprocess.Popen(
         ["just", "kiosk-ota", host],
@@ -99,6 +97,6 @@ def test_install_reset_capture(target):
         "no ftrace-ramoops record in the read-back"
     )
 
-    target.deactivate(driver)
-    target.activate(driver)
-    assert _booted_slot(driver) == slot_before, "the board did not come back on its own slot"
+    board.disconnect()
+    board.connect()
+    assert _booted_slot(board) == slot_before, "the board did not come back on its own slot"

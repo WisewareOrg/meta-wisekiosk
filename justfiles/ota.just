@@ -240,7 +240,7 @@ kiosk-install host=kiosk-host:
 kiosk-reboot host=kiosk-host timeout="300":
     SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10"
     BEFORE=$($SSH {{host}} 'cat /proc/sys/kernel/random/boot_id' 2>/dev/null)
-    $SSH {{host}} 'systemctl reboot' >/dev/null 2>&1 || true
+    $SSH -o ServerAliveInterval=2 -o ServerAliveCountMax=3 {{host}} 'systemctl reboot' >/dev/null 2>&1 || true
     T0=$(date +%s)
     while :; do
         NOW=$($SSH {{host}} 'cat /proc/sys/kernel/random/boot_id' 2>/dev/null || true)
