@@ -17,15 +17,15 @@ _ARM_DELAY_SECONDS = 3
 _OUTAGE_SECONDS = 60
 # stop polling this long after the network returns; past the bound, so the record carries the time
 _GIVE_UP_SECONDS = 180
-# TST029's bound; held at the give-up until the bound is measured
-_REJOIN_BOUND_SECONDS = 180
+# TST029's bound
+_REJOIN_BOUND_SECONDS = 30
 _BOOT_COMPLETE_WAIT_SECONDS = 180
 _SHELL_TIMEOUT_SECONDS = 10
 
 _BLOCK_BYTES = 1024 * 1024
-# the push's duration; provisional until measured
-_LOAD_SECONDS = 120
-# the least average rate that counts as the load applied, in MB/s; provisional until measured
+# TST008's period: one image update's transfer at the slowest measured rate
+_LOAD_SECONDS = 60
+# the least average rate that counts as the load applied, in MB/s
 _LOAD_FLOOR_MB_S = 1.0
 # TST008's allowance for a stop, and how long the panel is watched after the load ends
 _STOP_ALLOWANCE_SECONDS = 60
