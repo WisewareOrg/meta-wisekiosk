@@ -1,22 +1,29 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Kernel crash
+  Kernel crash
 level: 1.1.4
 links:
 - SRS001: mJPXcAkSNEcGQaecPKwCJDrOMXsJRs1pWu-GXRZ10lo=
 normative: true
 rationale: |
-  Waits on its test.
+  A crashed kernel leaves the panel frozen or blank, and with nobody at the panel nobody restarts
+  it. The appliance has to bring itself and the instance back.
 ref: ''
-references: []
-reviewed: yT_W0XyAdtWrTkTcfZU_IOY65-NzTAyhDp0Cg_At9a0=
+references:
+- keyword: def test_kernel_crash
+  path: tests/target_suite/test_restart_recovery.py
+  sha: dc6d63fd401820d9298a71c1412730bebe7cd09f53c8806ec2e9f8f7bf89310c
+  type: file
+reviewed: HXj9XHLkqYCvGhwt2Ar3LbUJ6SdzQGlohr6rV0f7cBk=
 status: proposed
 text: |
   With nobody at the panel, crash the kernel over the network so that nothing on the appliance runs.
-  Pass if the appliance restarts by itself and the WiseKiosk instance is on the panel within 60 s of
-  the crash.
+  Pass if the appliance restarts by itself and, within 60 s of the crash, serves the WiseKiosk
+  instance's page with the browser running.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.
+  It stops at the page served with the browser running; the time from the browser starting to the
+  instance applied is TST001<!-- Browser killed -->'s.
 verification-method: test

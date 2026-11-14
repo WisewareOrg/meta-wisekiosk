@@ -1,20 +1,27 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Restart to the panel
+  Restart to the panel
 level: 1.4.1
 links:
-- SRS004: mOCok92WKXPabBSNbeTk5g_sH0f_LWVnn7HXnF5uhms=
+- SRS004: VZ67Gi2Kxu0X-vGnKcaRPhQHbwrmubar9Kf_NbkBDOQ=
 normative: true
 rationale: |
-  Waits on its test.
+  A restart, for an image update or by the operator, takes the instance off the panel, and nobody
+  is at the panel to bring it back. The appliance has to return to the instance on its own.
 ref: ''
-references: []
-reviewed: M__Zj5tWStOMiof0ORnYHpS6rDyU2p6WbCeRb2FQ76M=
+references:
+- keyword: def test_restart_to_the_panel
+  path: tests/target_suite/test_restart_recovery.py
+  sha: dc6d63fd401820d9298a71c1412730bebe7cd09f53c8806ec2e9f8f7bf89310c
+  type: file
+reviewed: 2kJaeZlF5Y_hFmqmf4WRMRPa2Jm9LISP5JsGfi13kqI=
 status: proposed
 text: |
-  Restart the appliance over the network, with nobody at the panel. Pass if the WiseKiosk instance
-  is on the panel within 60 s of the restart.
+  Restart the appliance over the network, with nobody at the panel. Pass if, within 60 s of the
+  restart, the appliance serves the WiseKiosk instance's page with the browser running.
 verification-justification: |
   Test. It measures against a stated bound; the pass condition needs no judgement.
+  It stops at the page served with the browser running; the time from the browser starting to the
+  instance applied is TST001<!-- Browser killed -->'s.
 verification-method: test
