@@ -249,10 +249,12 @@ class Board:
         except subprocess.TimeoutExpired:
             sent_as = f"timed out after {self.FAULT_SSH_TIMEOUT_SECONDS} s"
         deadline = time.monotonic() + self.RESTART_WAIT_SECONDS
-        while time.monotonic() < deadline:
+        while True:
             try:
                 self.connect()
             except Exception:  # labgrid's activation timeout is a bare Exception
+                if time.monotonic() >= deadline:
+                    break
                 time.sleep(1)
                 continue
             try:

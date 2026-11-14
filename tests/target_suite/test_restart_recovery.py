@@ -33,7 +33,7 @@ def _back_s(board, cmd):
         last_read = _instance_up(board)
         if all(last_read):
             # Overstates by the boot-id read, the disconnect and the ssh connect before the fault
-            # lands (1 to 2 s), plus up to one read and the 1 s sleep.
+            # lands, plus up to one read and the 1 s sleep.
             return round(time.monotonic() - started, 1), last_read
         if time.monotonic() - started > _GIVE_UP_SECONDS:
             return None, last_read
