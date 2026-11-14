@@ -4,6 +4,7 @@ import subprocess
 import time
 
 import pytest
+from labgrid.driver.exception import ExecutionError
 
 COMMAND_TIMEOUT_SECONDS = 10
 
@@ -20,6 +21,8 @@ class Board:
         PAGE_ATTEMPT_TIMEOUT_SECONDS (int): the longest one page fetch may take.
         RESTART_WAIT_SECONDS (int): how long `restart_by` waits for the board to answer in a new
             boot.
+        FAULT_SSH_TIMEOUT_SECONDS (int): the backstop on the one-shot ssh that sends `restart_by`'s
+            command.
     """
 
     PAGE_URL = "http://127.0.0.1:8080/"
@@ -27,6 +30,7 @@ class Board:
     PAGE_POLL_INTERVAL_SECONDS = 2
     PAGE_ATTEMPT_TIMEOUT_SECONDS = 10
     RESTART_WAIT_SECONDS = 180
+    FAULT_SSH_TIMEOUT_SECONDS = 30
 
     def __init__(self, target):
         """Bind to the target's SSHDriver and NetworkService.
@@ -150,6 +154,21 @@ class Board:
         stdout, stderr, returncode = self.run(f"wget -q -O- {self.PAGE_URL}", timeout=timeout)
         return returncode, "\n".join(stdout + stderr).strip()
 
+    def page_served(self, timeout=PAGE_ATTEMPT_TIMEOUT_SECONDS):
+        """Read `PAGE_URL` once and report whether it served an HTML page.
+
+        Args:
+            timeout (float): forwarded to `fetch_page`.
+
+        Returns:
+            bool: whether the fetch returned 0 with `<html` in the output; False if it timed out.
+        """
+        try:
+            returncode, output = self.fetch_page(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return False
+        return returncode == 0 and "<html" in output
+
     def wait_for_page(self):
         """Poll `PAGE_URL` until it serves an HTML page or `PAGE_BOUND_SECONDS` elapse.
 
@@ -159,14 +178,11 @@ class Board:
         deadline = time.monotonic() + self.PAGE_BOUND_SECONDS
         while time.monotonic() < deadline:
             remaining = deadline - time.monotonic()
-            try:
-                returncode, output = self.fetch_page(
-                    timeout=min(self.PAGE_ATTEMPT_TIMEOUT_SECONDS, remaining)
-                )
-                if returncode == 0 and "<html" in output and time.monotonic() <= deadline:
-                    return True
-            except subprocess.TimeoutExpired:
-                pass
+            if (
+                self.page_served(timeout=min(self.PAGE_ATTEMPT_TIMEOUT_SECONDS, remaining))
+                and time.monotonic() <= deadline
+            ):
+                return True
             time.sleep(self.PAGE_POLL_INTERVAL_SECONDS)
         return False
 
@@ -195,35 +211,43 @@ class Board:
     def restart_by(self, cmd):
         """Take the board down with `cmd` over a one-shot ssh, then reconnect in a new boot.
 
-        Disconnects the SSHDriver while the board is still up, so no disconnect waits on a dead
-        board.
+        Unlike `restart`, which goes through `just kiosk-reboot`'s 5 s polling, this polls every
+        1 s, so a test can time the restart. It disconnects the SSHDriver before sending `cmd`,
+        while the board is still up. If the board never answers in a new boot, the SSHDriver is
+        left as the last attempt left it, connected if the last connect succeeded.
 
         Args:
             cmd (str): the command that restarts or crashes the board.
 
         Raises:
-            AssertionError: the board did not answer in a new boot within `RESTART_WAIT_SECONDS`.
+            AssertionError: the opening boot-id read returned nonzero, or the board did not answer
+                in a new boot within `RESTART_WAIT_SECONDS`; the message carries how the ssh
+                that sent `cmd` ended.
             subprocess.TimeoutExpired: reading the boot id before `cmd` ran past its timeout.
         """
         boot_id_cmd = "cat /proc/sys/kernel/random/boot_id"
         old_boot_id = self.run(boot_id_cmd, check=True)[0][0]
         self.disconnect()
         try:
-            subprocess.run(
+            sent = subprocess.run(
                 [
                     "ssh",
                     "-o", "BatchMode=yes",
                     "-o", "StrictHostKeyChecking=no",
                     "-o", "UserKnownHostsFile=/dev/null",
                     "-o", "ConnectTimeout=10",
+                    "-o", "ServerAliveInterval=2",
+                    "-o", "ServerAliveCountMax=3",
                     self.host,
                     cmd,
                 ],
                 capture_output=True,
-                timeout=5,
+                text=True,
+                timeout=self.FAULT_SSH_TIMEOUT_SECONDS,
             )
+            sent_as = f"rc {sent.returncode}, stderr {sent.stderr.strip()[-200:]!r}"
         except subprocess.TimeoutExpired:
-            pass
+            sent_as = f"timed out after {self.FAULT_SSH_TIMEOUT_SECONDS} s"
         deadline = time.monotonic() + self.RESTART_WAIT_SECONDS
         while time.monotonic() < deadline:
             try:
@@ -235,12 +259,15 @@ class Board:
                 stdout, _stderr, returncode = self.run(boot_id_cmd)
                 if returncode == 0 and stdout and stdout[0] != old_boot_id:
                     return
-            except subprocess.TimeoutExpired:
+            except (ExecutionError, subprocess.TimeoutExpired):
                 pass
+            if time.monotonic() >= deadline:
+                break
             self.disconnect()
             time.sleep(1)
         raise AssertionError(
-            f"the board did not answer in a new boot within {self.RESTART_WAIT_SECONDS} s"
+            f"the board did not answer in a new boot within {self.RESTART_WAIT_SECONDS} s; "
+            f"the ssh that sent {cmd!r} ended with {sent_as}"
         )
 
 

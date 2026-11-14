@@ -3,6 +3,8 @@
 import subprocess
 import time
 
+from labgrid.driver.exception import ExecutionError
+
 # TST004's and TST011's bound
 _BOUND_SECONDS = 60
 # stop polling; past the bound, so the record still carries the time it took
@@ -13,10 +15,13 @@ def _instance_up(board):
     """Read whether the browser is running and whether the page is served, as a pair."""
     try:
         _, _, browser = board.run("pgrep -x surf")
-        returncode, output = board.fetch_page()
-    except subprocess.TimeoutExpired:
-        return False, False
-    return browser == 0, returncode == 0 and "<html" in output
+    except (ExecutionError, subprocess.TimeoutExpired):
+        browser = None
+    try:
+        page_served = board.page_served()
+    except ExecutionError:
+        page_served = False
+    return browser == 0, page_served
 
 
 def _back_s(board, cmd):
@@ -27,7 +32,8 @@ def _back_s(board, cmd):
     while True:
         last_read = _instance_up(board)
         if all(last_read):
-            # Overstates by up to one read plus the 1 s sleep.
+            # Overstates by the boot-id read, the disconnect and the ssh connect before the fault
+            # lands (1 to 2 s), plus up to one read and the 1 s sleep.
             return round(time.monotonic() - started, 1), last_read
         if time.monotonic() - started > _GIVE_UP_SECONDS:
             return None, last_read
@@ -48,7 +54,7 @@ def _check(back_s, last_read, fault, requirement):
 def test_kernel_crash(board, record_property):
     """TST004 kernel crash: crash the kernel and time until the page is served, browser running."""
     record_property("requirement", "TST004")
-    back_s, last_read = _back_s(board, "sync; echo c > /proc/sysrq-trigger")
+    back_s, last_read = _back_s(board, "echo c > /proc/sysrq-trigger")
     record_property("back_s", back_s)
     record_property("last_read", last_read)
     _check(back_s, last_read, "crash", "TST004")

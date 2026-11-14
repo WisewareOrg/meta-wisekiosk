@@ -13,15 +13,15 @@ ref: ''
 references:
 - keyword: def test_restart_to_the_panel
   path: tests/target_suite/test_restart_recovery.py
-  sha: 94eb694bf3ed15a3f9c54e580e151529890e70409e4871fcfed44a10c5f017bf
+  sha: 9532d0af8cc49e7820f27dce304c247759a1d9d0864d37a33c1730d37ae599f7
   type: file
-reviewed: GPfUs2kK0cieJ3TgrGWbQ_qXaTctqIFlv7z5hdndF5M=
+reviewed: YS-I74eMTZmd1b-v9LRX1u5b9AyYOxa2pM7FKThaSUM=
 status: proposed
 text: |
   Restart the appliance over the network, with nobody at the panel. Pass if, within 60 s of the
   restart, the appliance serves the WiseKiosk instance's page with the browser running.
 verification-justification: |
   Test. It measures against a stated bound; the pass condition needs no judgement.
-  It stops at the page served with the browser running; the time from the browser starting to the
-  instance applied is TST001<!-- Browser killed -->'s.
+  It stops at the page served with the browser running. A boot's own time to the instance on the
+  panel is TST012<!-- Pending: Cold boot to the panel -->'s.
 verification-method: test
