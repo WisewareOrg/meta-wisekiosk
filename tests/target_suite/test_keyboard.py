@@ -206,6 +206,11 @@ def test_shell_from_an_attached_keyboard(request, board, outage, helpers, tmp_pa
     board.run(f"rm -rf {_DIR}; mkdir {_DIR}", check=True)
     assert _foreground_console(board) == "1", "vt1 is not the foreground console at the start"
     outage.wait_boot_complete()
+    # a full terminal reset: agetty runs with --noclear, so an earlier run's prompt would otherwise stay
+    board.run("printf '\\033c' > /dev/tty2", check=True)
+    assert board.run("grep -q 'login:' /dev/vcs2")[2] != 0, (
+        "tty2 still shows a login prompt after the terminal reset, so the console gate could pass early"
+    )
 
     boot_id = board.run("cat /proc/sys/kernel/random/boot_id", check=True)[0][0]
     builtin = board.run("cat /lib/modules/$(uname -r)/modules.builtin", check=True)[0]
