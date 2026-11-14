@@ -36,6 +36,10 @@ def test_display_mode_from_the_starred_rate():
     assert display_mode(XRANDR) == "1280x720@60.00"
 
 
+def test_display_mode_strips_the_preferred_marker():
+    assert display_mode("   1280x720      60.00*+  59.94\n") == "1280x720@60.00"
+
+
 def test_display_mode_none_without_a_starred_rate():
     assert display_mode("HDMI-1 disconnected\n   1280x720      60.00   59.94\n") == "none"
 
