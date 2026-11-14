@@ -76,9 +76,9 @@ def test_clock_set_wrong(restore_clock, board, record_property):
 
     Stops timesyncd, sets the clock three days back and records it as the persisted clock,
     then restarts the board and polls until the clock agrees. The time is the board's uptime
-    at the first agreeing read. The check is invalid unless this boot's first timesyncd
-    journal entry carries the clock the stimulus set, to within a day; that verdict comes
-    before the pass conditions.
+    at the first agreeing read. A clock that never agrees fails, since it was still wrong
+    after the restart. A clock that agrees counts only if this boot's first timesyncd journal
+    entry carries the clock the stimulus set, to within a day; otherwise the check is invalid.
     """
     record_property("requirement", "TST015")
     board.run("systemctl stop systemd-timesyncd", check=True)
@@ -102,13 +102,6 @@ def test_clock_set_wrong(restore_clock, board, record_property):
     behind = _restored_clock_offset(board)
     stdout, stderr, _returncode = board.run("journalctl -b -u systemd-timesyncd --no-pager", check=True)
     print("\n".join(stdout + stderr))
-    assert behind is not None, (
-        "INVALID CHECK, not an appliance failure: timesyncd logged nothing this boot"
-    )
-    assert abs(behind - SKEW_SECONDS) < SKEW_TOLERANCE_SECONDS, (
-        f"INVALID CHECK, not an appliance failure: timesyncd's first entry was {behind:.0f}s "
-        f"behind the host, not the {SKEW_SECONDS}s the stimulus set"
-    )
 
     assert reading is not None, "the board's clock could not be read after the restart"
     uptime, offset = reading
@@ -117,5 +110,13 @@ def test_clock_set_wrong(restore_clock, board, record_property):
     assert abs(offset) <= AGREE_SECONDS, (
         f"clock still {offset:.0f}s off the network's time at uptime {uptime:.0f}s, "
         f"bound {BOUND_SECONDS}s"
+    )
+
+    assert behind is not None, (
+        "INVALID CHECK, not an appliance failure: timesyncd logged nothing this boot"
+    )
+    assert abs(behind - SKEW_SECONDS) < SKEW_TOLERANCE_SECONDS, (
+        f"INVALID CHECK, not an appliance failure: timesyncd's first entry was {behind:.0f}s "
+        f"behind the host, not the {SKEW_SECONDS}s the stimulus set"
     )
     assert uptime <= BOUND_SECONDS, f"clock agreed only at uptime {uptime:.0f}s, bound {BOUND_SECONDS}s"
