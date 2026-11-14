@@ -18,12 +18,15 @@ class Board:
         PAGE_BOUND_SECONDS (int): how long `wait_for_page` waits for the page.
         PAGE_POLL_INTERVAL_SECONDS (int): the pause between `wait_for_page`'s attempts.
         PAGE_ATTEMPT_TIMEOUT_SECONDS (int): the longest one page fetch may take.
+        RESTART_WAIT_SECONDS (int): how long `restart_by` waits for the board to answer in a new
+            boot.
     """
 
     PAGE_URL = "http://127.0.0.1:8080/"
     PAGE_BOUND_SECONDS = 60
     PAGE_POLL_INTERVAL_SECONDS = 2
     PAGE_ATTEMPT_TIMEOUT_SECONDS = 10
+    RESTART_WAIT_SECONDS = 180
 
     def __init__(self, target):
         """Bind to the target's SSHDriver and NetworkService.
@@ -188,6 +191,42 @@ class Board:
         subprocess.run(["just", "kiosk-reboot", self.host], check=True)
         self.disconnect()
         self.connect()
+
+    def restart_by(self, cmd):
+        """Run `cmd` to take the board down, then reconnect once it answers in a new boot.
+
+        Args:
+            cmd (str): the command that restarts or crashes the board.
+
+        Raises:
+            AssertionError: the board did not answer in a new boot within `RESTART_WAIT_SECONDS`.
+            subprocess.TimeoutExpired: reading the boot id before `cmd` ran past its timeout.
+        """
+        boot_id_cmd = "cat /proc/sys/kernel/random/boot_id"
+        old_boot_id = self.run(boot_id_cmd, check=True)[0][0]
+        try:
+            self.run(cmd, timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
+        self.disconnect()
+        deadline = time.monotonic() + self.RESTART_WAIT_SECONDS
+        while time.monotonic() < deadline:
+            try:
+                self.connect()
+            except Exception:  # labgrid's activation timeout is a bare Exception
+                time.sleep(1)
+                continue
+            try:
+                stdout, _stderr, returncode = self.run(boot_id_cmd)
+                if returncode == 0 and stdout and stdout[0] != old_boot_id:
+                    return
+            except subprocess.TimeoutExpired:
+                pass
+            self.disconnect()
+            time.sleep(1)
+        raise AssertionError(
+            f"the board did not answer in a new boot within {self.RESTART_WAIT_SECONDS} s"
+        )
 
 
 @pytest.fixture(scope="session")
