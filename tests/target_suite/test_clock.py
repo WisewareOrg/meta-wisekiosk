@@ -10,12 +10,12 @@ BOUND_SECONDS = 100
 AGREE_SECONDS = 5
 POLL_INTERVAL_SECONDS = 2
 SKEW_SECONDS = 3 * 24 * 3600
-STILL_WRONG_SECONDS = 24 * 3600
+SKEW_TOLERANCE_SECONDS = 24 * 3600
 CLOCK_FILE = "/data/systemd-timesync/clock"
 
 
 def _restored_clock_offset(board):
-    """How far behind the host the clock was when timesyncd first logged this boot.
+    """How far the host clock is ahead of timesyncd's first log entry this boot.
 
     timesyncd restores the recorded clock at its own startup, before it logs anything, so
     its earliest entry this boot carries the restored clock. Filters on the syslog
@@ -61,11 +61,14 @@ def restore_clock(board):
         board (Board): the board under test.
     """
     yield
-    reading = board.clock()
-    assert reading is not None, "the board's clock could not be read at teardown"
-    if abs(reading[1]) > AGREE_SECONDS:
-        _set_board_clock(board, int(time.time()))
-    board.run("systemctl start systemd-timesyncd", check=True)
+    try:
+        reading = board.clock()
+        assert reading is not None, "the board's clock could not be read at teardown"
+        _uptime, offset = reading
+        if abs(offset) > AGREE_SECONDS:
+            _set_board_clock(board, int(time.time()))
+    finally:
+        board.run("systemctl start systemd-timesyncd", check=True)
 
 
 def test_clock_set_wrong(restore_clock, board, record_property):
@@ -102,7 +105,7 @@ def test_clock_set_wrong(restore_clock, board, record_property):
     assert behind is not None, (
         "INVALID CHECK, not an appliance failure: timesyncd logged nothing this boot"
     )
-    assert abs(behind - SKEW_SECONDS) < STILL_WRONG_SECONDS, (
+    assert abs(behind - SKEW_SECONDS) < SKEW_TOLERANCE_SECONDS, (
         f"INVALID CHECK, not an appliance failure: timesyncd's first entry was {behind:.0f}s "
         f"behind the host, not the {SKEW_SECONDS}s the stimulus set"
     )

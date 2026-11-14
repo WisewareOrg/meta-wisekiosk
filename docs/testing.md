@@ -35,9 +35,9 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   ship, so a unit that would strand the board never reaches it either.
 - `tests/target_suite` — one autouse fixture (`conftest.py`) switches on `install_candidate`
   (`tests/conftest.py`'s shared setup), which installs the candidate on the board through
-  `just kiosk-ota` and `just kiosk-reboot` when there is one, then gets labgrid's SSHDriver fresh
-  and reads the board's `/etc/buildinfo`, printing its meta-wisekiosk
-  commit into the run's own record on every run — so the record carries the board's commit even
+  `just kiosk-ota` and `just kiosk-reboot` when there is one, then reads the board's `/etc/buildinfo`
+  over the ssh connection `Board` opens before the install and `Board.restart` reconnects,
+  printing its meta-wisekiosk commit into the run's own record on every run — so the record carries the board's commit even
   under a `-k`-filtered run where TST016<!-- Running the image update's build --> itself would not
   execute. The commit under test comes from the runner's own `bench_candidate` fixture, never an
   environment variable — `None` outside `bench test`/`bench run`, in which case the setup fixture

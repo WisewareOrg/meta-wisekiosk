@@ -1,4 +1,4 @@
-"""Shared setup: get the board onto `bench_candidate`, then print its commit."""
+"""Shared setup: the `Board` the tests drive, and getting it onto `bench_candidate`."""
 
 import subprocess
 import time
@@ -9,15 +9,15 @@ COMMAND_TIMEOUT_SECONDS = 10
 
 
 class Board:
-    """The board under test: its remote shell, its clock, and its restart.
+    """The board under test: its remote shell, clock, commit, page, image install and restart.
 
     Attributes:
         host (str): `user@address` of the board, as the `just kiosk-*` recipes take it.
         PAGE_URL (str): the WiseKiosk instance's page, as the board fetches it. busybox wget
             returns 0 only on 2xx.
-        PAGE_BOUND_SECONDS (float): how long `wait_for_page` waits for the page.
-        PAGE_POLL_INTERVAL_SECONDS (float): the pause between `wait_for_page`'s attempts.
-        PAGE_ATTEMPT_TIMEOUT_SECONDS (float): the longest one page fetch may take.
+        PAGE_BOUND_SECONDS (int): how long `wait_for_page` waits for the page.
+        PAGE_POLL_INTERVAL_SECONDS (int): the pause between `wait_for_page`'s attempts.
+        PAGE_ATTEMPT_TIMEOUT_SECONDS (int): the longest one page fetch may take.
     """
 
     PAGE_URL = "http://127.0.0.1:8080/"
@@ -27,6 +27,8 @@ class Board:
 
     def __init__(self, target):
         """Bind to the target's SSHDriver and NetworkService.
+
+        Getting the SSHDriver activates it, which opens the SSH connection.
 
         Args:
             target (labgrid.Target): names the board's SSHDriver and NetworkService.
@@ -49,6 +51,7 @@ class Board:
 
         Raises:
             AssertionError: `check` is set and `cmd` returned nonzero.
+            subprocess.TimeoutExpired: `cmd` ran past `timeout`.
         """
         stdout, stderr, returncode = self._driver.run(cmd, timeout=timeout)
         if check:
@@ -84,7 +87,7 @@ class Board:
         Returns:
             contextlib.AbstractContextManager: labgrid's forwarding context manager.
         """
-        return self._driver.forward_remote_port(local, remote)
+        return self._driver.forward_remote_port(remoteport=remote, localport=local)
 
     def connect(self):
         """Activate the board's SSHDriver."""
@@ -99,12 +102,10 @@ class Board:
 
         Returns:
             tuple[float, float] | None: the board's uptime in seconds and board `date +%s`
-                minus host `time.time()`, or None if the read failed or timed out.
+                minus host `time.time()`, or None if the read returned nonzero or timed out.
         """
         try:
-            stdout, _stderr, returncode = self._driver.run(
-                "cat /proc/uptime; date +%s", timeout=COMMAND_TIMEOUT_SECONDS
-            )
+            stdout, _stderr, returncode = self.run("cat /proc/uptime; date +%s")
         except subprocess.TimeoutExpired:
             return None
         if returncode != 0:
