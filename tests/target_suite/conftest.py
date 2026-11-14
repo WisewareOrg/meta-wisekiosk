@@ -130,14 +130,12 @@ def _utc_now():
     return datetime.now(timezone.utc).isoformat()
 
 
-@pytest.fixture(scope="session")
-def _device_facts(install_candidate, board):
-    """The device context, read once after the install.
+def _read_device_facts(board):
+    """The board as a test finds it: the device context, read at that test's setup.
 
     Polls for the browser first: it starts some seconds after ssh does following a restart.
 
     Args:
-        install_candidate: the session's install (tests/conftest.py).
         board (Board): the board under test.
 
     Returns:
@@ -146,7 +144,8 @@ def _device_facts(install_candidate, board):
             its WEBKIT_* environment, the display mode, NTP sync state and the start time.
 
     Raises:
-        AssertionError: the browser never appeared.
+        AssertionError: the browser never appeared, or `sha256sum` failed for a reason other
+            than a missing file.
     """
     deadline = time.monotonic() + _BROWSER_WAIT_SECONDS
     while True:
@@ -183,14 +182,14 @@ def _device_facts(install_candidate, board):
 
 
 @pytest.fixture(autouse=True)
-def device_context(_device_facts, record_property):
-    """Record the device context on every test, and the end time after it.
+def device_context(board, record_property):
+    """Record the device context as the test found the board, and the end time after it.
 
     Args:
-        _device_facts (dict[str, object]): the session's device facts.
+        board (Board): the board under test.
         record_property (Callable[[str, object], None]): records each fact.
     """
-    for key, value in _device_facts.items():
+    for key, value in _read_device_facts(board).items():
         record_property(key, value)
     yield
     record_property("end", _utc_now())

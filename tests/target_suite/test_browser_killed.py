@@ -19,10 +19,9 @@ def test_browser_killed(board, panel, record_property):
         "cat /proc/uptime; kill -KILL $(pgrep -x surf)", check=True
     )
     killed_at = float(stdout[0].split()[0])
-    killed_mono = time.monotonic()
+    give_up_at = time.monotonic() + _GIVE_UP_SECONDS
 
     samples = []
-    outcome, reason = "not-restarted", ""
     recovered_s = None
     while True:
         try:
@@ -32,11 +31,11 @@ def test_browser_killed(board, panel, record_property):
         samples.append(sample)
         outcome, reason = verdict(before, samples)
         if outcome == "restarted":
+            # The board uptime of the first read showing the page back, so it overstates by up
+            # to one read plus the 0.5 s sleep.
             recovered_s = round(uptime_s - killed_at, 1)
             break
-        if time.monotonic() - killed_mono > _GIVE_UP_SECONDS:
-            break
-        if uptime_s is not None and uptime_s - killed_at > _GIVE_UP_SECONDS:
+        if time.monotonic() > give_up_at:
             break
         time.sleep(0.5)
 
@@ -45,8 +44,6 @@ def test_browser_killed(board, panel, record_property):
     record_property("killed_at_uptime_s", killed_at)
     record_property("recovered_s", recovered_s)
 
-    if outcome == "error":
-        raise RuntimeError(reason)
     assert outcome == "restarted", f"the instance did not come back on the panel: {reason}"
     assert recovered_s <= _BOUND_SECONDS, (
         f"back on the panel after {recovered_s} s; TST001's bound is {_BOUND_SECONDS} s"

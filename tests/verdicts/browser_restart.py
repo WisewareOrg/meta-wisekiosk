@@ -10,16 +10,13 @@ def verdict(before_sample, after_samples):
     """(outcome, reason) of the restart.
 
     Args:
-        before_sample (dict | None): the `read_sample` result read just before the kill.
+        before_sample (dict): the on-panel `read_sample` result read just before the kill.
         after_samples (list[dict | None]): the `read_sample` results read after it.
 
     Returns:
         tuple[str, str]: "restarted" once an after sample is on the panel with a nonce different
-            from `before_sample`'s; "not-restarted" if none is; "error" only when there was no
-            baseline to compare against. The reason is empty for "restarted".
+            from `before_sample`'s; "not-restarted" if none is. The reason is empty for "restarted".
     """
-    if before_sample is None:
-        return "error", "no probe payload before the kill"
     real = [sample for sample in after_samples if sample is not None]
     for sample in real:
         if on_panel(sample) and sample["nonce"] != before_sample["nonce"]:

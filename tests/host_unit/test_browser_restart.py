@@ -41,12 +41,6 @@ def test_not_restarted_when_the_new_nonce_is_from_a_foreign_origin():
     assert "on-panel" in reason
 
 
-def test_error_with_no_before_sample():
-    outcome, reason = verdict(None, [_sample(_NEW_NONCE)])
-    assert outcome == "error"
-    assert "before the kill" in reason
-
-
 def test_not_restarted_with_no_after_payload():
     outcome, reason = verdict(_sample(_OLD_NONCE), [None, None])
     assert outcome == "not-restarted"
