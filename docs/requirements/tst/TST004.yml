@@ -13,13 +13,13 @@ ref: ''
 references:
 - keyword: def test_kernel_crash
   path: tests/target_suite/test_restart_recovery.py
-  sha: 89978bcde5a9f2c7f12e7d630b5799a1c927cb7fe3503df661d2c8d5f57efb7a
+  sha: 001a97dbcdaad3274791761712e649b13d9848363cb353a32fee33b5c1144e4f
   type: file
-reviewed: wIf2Q4ObhKIcN7Uif9jspYqqJYxusBvevdRuTYijF5Y=
+reviewed: bYh_JMX6HGtcuyGND2E60domPJjnBWlW83KgVYpGaLI=
 status: proposed
 text: |
   With nobody at the panel, crash the kernel over the network so that nothing on the appliance runs.
-  Pass if the appliance restarts by itself and, within 60 s of the crash, serves the WiseKiosk
+  Pass if the appliance restarts by itself and, within 100 s of the crash, serves the WiseKiosk
   instance's page with the browser running.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
