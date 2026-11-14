@@ -22,6 +22,8 @@ READ_PAUSE_SECONDS = 1
 CUTOFF_MS = 250
 STALL_FROM_BIN = 3
 HIST_BINS = 7
+# TST009's bound: the most stalls a window may hold
+STALL_BOUND = 24
 # the least share of report ticks that caught a marquee scrolling for the window to count
 MOTION_FLOOR = 0.29
 
@@ -86,7 +88,7 @@ def _soak_samples_between(board, start_uptime, end_uptime):
 
 @pytest.mark.parametrize("proxy", [str(CARDS4_LIVE / "flows.har")], indirect=True)
 def test_motion_stutter(proxy, replay_window, panel, full_state, board, record_property):
-    """TST009 motion stutter measured: count frame stalls over a 320 s window of the replayed page.
+    """TST009 motion stutter measured: at most `STALL_BOUND` frame stalls in a 320 s window.
 
     The window opens `WARMUP_MS` of page time after the page first reads full state, and the
     host reads nothing from the board inside it. The window is invalid, never a pass or a
@@ -95,6 +97,7 @@ def test_motion_stutter(proxy, replay_window, panel, full_state, board, record_p
     """
     record_property("requirement", "TST009")
     record_property("cutoff_ms", CUTOFF_MS)
+    record_property("bound", STALL_BOUND)
     _, first = full_state
     first_el = int(first["el"])
 
@@ -157,4 +160,7 @@ def test_motion_stutter(proxy, replay_window, panel, full_state, board, record_p
     record_property("soak_samples_in_window", soak_samples)
 
     assert not problems, f"INVALID: {'; '.join(problems)}"
-    # TST009's bound is not yet set: the window records its stall count and passes.
+    assert stalls <= STALL_BOUND, (
+        f"{stalls} frame stalls of {CUTOFF_MS} ms or more in {WINDOW_MS // 1000} s; "
+        f"TST009's bound is {STALL_BOUND}"
+    )
