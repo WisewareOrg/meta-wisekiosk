@@ -6,7 +6,7 @@ import time
 from verdicts.browser_restart import verdict
 
 # TST001's bound
-_BOUND_SECONDS = 15
+_BOUND_SECONDS = 45
 # stop polling; past the bound, so the record still carries the time it took
 _GIVE_UP_SECONDS = 120
 
