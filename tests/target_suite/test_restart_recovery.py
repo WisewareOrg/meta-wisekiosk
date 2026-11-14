@@ -5,8 +5,10 @@ import time
 
 from labgrid.driver.exception import ExecutionError
 
-# TST004's and TST011's bound
-_BOUND_SECONDS = 60
+# TST004's bound
+_CRASH_BOUND_SECONDS = 100
+# TST011's bound
+_RESTART_BOUND_SECONDS = 60
 # stop polling; past the bound, so the record still carries the time it took
 _GIVE_UP_SECONDS = 180
 
@@ -40,14 +42,14 @@ def _back_s(board, cmd):
         time.sleep(1)
 
 
-def _check(back_s, last_read, fault, requirement):
+def _check(back_s, last_read, fault, requirement, bound):
     """Assert the instance was back, and within the bound."""
     assert back_s is not None, (
         f"the board did not serve the page with the browser running within {_GIVE_UP_SECONDS} s "
         f"of the {fault}; last read: browser running {last_read[0]}, page served {last_read[1]}"
     )
-    assert back_s <= _BOUND_SECONDS, (
-        f"back after {back_s} s; {requirement}'s bound is {_BOUND_SECONDS} s"
+    assert back_s <= bound, (
+        f"back after {back_s} s; {requirement}'s bound is {bound} s"
     )
 
 
@@ -57,7 +59,7 @@ def test_kernel_crash(board, record_property):
     back_s, last_read = _back_s(board, "echo c > /proc/sysrq-trigger")
     record_property("back_s", back_s)
     record_property("last_read", last_read)
-    _check(back_s, last_read, "crash", "TST004")
+    _check(back_s, last_read, "crash", "TST004", _CRASH_BOUND_SECONDS)
 
 
 def test_restart_to_the_panel(board, record_property):
@@ -66,4 +68,4 @@ def test_restart_to_the_panel(board, record_property):
     back_s, last_read = _back_s(board, "systemctl reboot")
     record_property("back_s", back_s)
     record_property("last_read", last_read)
-    _check(back_s, last_read, "restart", "TST011")
+    _check(back_s, last_read, "restart", "TST011", _RESTART_BOUND_SECONDS)

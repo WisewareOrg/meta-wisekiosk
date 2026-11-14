@@ -1,21 +1,26 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Rejoins after an outage
+  Rejoins after an outage
 level: 2.10.1
 links:
-- SRS017: 9fGovo9tja5uaKm5ugvZEAF704yZxuX1iMzDG1Xjv_4=
+- SRS017: 0tjIPS5PFiFtuMROxS5TQQJD82DbXkK7t8n4RSh3v10=
 normative: true
 rationale: |
-  Waits on its test, its bound, and on control of the site network at the bench, which the project
-  does not have.
+  The remote shell is how the operator configures, updates and services the appliance without a
+  visit. After the site network drops and comes back, the appliance has to be reachable again on its
+  own.
 ref: ''
-references: []
-reviewed: 2BnVcniuXHPFi00JeNs9eU9__mpqRvO5sad9Yrp_nHY=
+references:
+- keyword: def test_rejoins_after_an_outage
+  path: tests/target_suite/test_network.py
+  sha: 6ed1d980389ff88ce34322ef0dd7e8a63b2ee4830da3980c5f2bba4c3839d65e
+  type: file
+reviewed: WZQJac70EcJvf_PTN4XP4f4ocB_xUZAiuV6GkBRLsT0=
 status: proposed
 text: |
   Take the site network away from the running appliance, then restore it. Pass if the operator can
-  open a remote shell within a bound not yet set of the network returning.
+  open a remote shell within 30 s of the network returning.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.

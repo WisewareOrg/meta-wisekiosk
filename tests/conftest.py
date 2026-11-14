@@ -208,6 +208,60 @@ class Board:
         self.disconnect()
         self.connect()
 
+    def reconnect(self):
+        """Connect the SSHDriver, retrying every 1 s until the board answers.
+
+        Waits through a reboot in progress. A failed or nonzero read of `true` counts as not back
+        yet.
+
+        Raises:
+            AssertionError: the board did not answer within `RESTART_WAIT_SECONDS`.
+        """
+        deadline = time.monotonic() + self.RESTART_WAIT_SECONDS
+        while True:
+            try:
+                self.connect()
+            except Exception:  # labgrid's activation timeout is a bare Exception
+                connected = False
+            else:
+                connected = True
+                try:
+                    if self.run("true")[2] == 0:
+                        return
+                except (ExecutionError, subprocess.TimeoutExpired):
+                    pass
+            assert time.monotonic() < deadline, (
+                f"the board did not answer within {self.RESTART_WAIT_SECONDS} s"
+            )
+            if connected:
+                self.disconnect()
+            time.sleep(1)
+
+    def fresh_ssh_argv(self, *options):
+        """The argv of an ssh to the board over its own connection, short of the remote command.
+
+        Carries no control master: the connection is its own TCP session with its own
+        authentication, whatever the host's ssh config says.
+
+        Args:
+            *options (str): further `-o` options, each as `Name=value`.
+
+        Returns:
+            list[str]: `ssh`, the shared and given options, then `host`; the caller appends the
+                remote command.
+        """
+        shared = (
+            "BatchMode=yes",
+            "StrictHostKeyChecking=no",
+            "UserKnownHostsFile=/dev/null",
+            "ControlMaster=no",
+            "ControlPath=none",
+        )
+        argv = ["ssh"]
+        for option in (*shared, *options):
+            argv += ["-o", option]
+        return [*argv, self.host]
+
     def restart_by(self, cmd):
         """Take the board down with `cmd` over a one-shot ssh, then reconnect in a new boot.
 
@@ -231,14 +285,9 @@ class Board:
         try:
             sent = subprocess.run(
                 [
-                    "ssh",
-                    "-o", "BatchMode=yes",
-                    "-o", "StrictHostKeyChecking=no",
-                    "-o", "UserKnownHostsFile=/dev/null",
-                    "-o", "ConnectTimeout=10",
-                    "-o", "ServerAliveInterval=2",
-                    "-o", "ServerAliveCountMax=3",
-                    self.host,
+                    *self.fresh_ssh_argv(
+                        "ConnectTimeout=10", "ServerAliveInterval=2", "ServerAliveCountMax=3"
+                    ),
                     cmd,
                 ],
                 capture_output=True,
