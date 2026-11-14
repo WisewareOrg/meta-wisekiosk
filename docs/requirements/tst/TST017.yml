@@ -1,16 +1,21 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Refuses a foreign signature
+  Refuses a foreign signature
 level: 2.2.1
 links:
 - SRS009: gRU17d51Q07bnN11Ozhhb_PEZE8zvmCterf7NQIxrLs=
 normative: true
 rationale: |
-  Waits on its test.
+  An image update signed by a key none of the operators holds did not come from them. If the appliance
+  took it, whoever made it would decide what runs on the panel, with nobody there to notice.
 ref: ''
-references: []
-reviewed: qykM_0UeFvlGCqaS943dUhEXez0j6z-PP6HETbURCF8=
+references:
+- keyword: def test_foreign_signature
+  path: tests/target_suite/test_refused_updates.py
+  sha: 7a0ea88146f11b430a73ff9610d91d9319c09555f021805edad419d8f487b059
+  type: file
+reviewed: XkEML0fFZe0PVlINOXerR_qd4-S1zvvuQshVSSLXvEc=
 status: proposed
 text: |
   Offer the appliance an image update signed by a key none of its operators holds. Pass if it
