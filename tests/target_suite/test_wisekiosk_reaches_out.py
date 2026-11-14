@@ -6,8 +6,6 @@ from pathlib import Path
 
 import pytest
 
-from page import BOUND_SECONDS
-
 SET_DIR = Path(__file__).resolve().parent.parent / "replay" / "sets" / "cards4-live"
 CA_PATH = Path.home() / ".mitmproxy" / "mitmproxy-ca-cert.pem"
 
@@ -80,14 +78,14 @@ def replay_window(board, proxy, set_config, request):
 
 
 @pytest.mark.parametrize("proxy", [str(SET_DIR / "flows.har")], indirect=True)
-def test_instance_reaches_out(proxy, replay_window, record_property):
+def test_instance_reaches_out(board, proxy, replay_window, record_property):
     """The instance's own HTTPS fetches are answered from the recording, none unanswered.
 
-    Both halves are read once BOUND_SECONDS have passed since the browser start.
+    Both halves are read once `board.PAGE_BOUND_SECONDS` have passed since the browser start.
     """
     record_property("requirement", "TST010")
 
-    deadline = replay_window + BOUND_SECONDS
+    deadline = replay_window + board.PAGE_BOUND_SECONDS
     time.sleep(max(0, deadline - time.monotonic()))
 
     served = proxy.served()

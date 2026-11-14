@@ -2,8 +2,6 @@
 
 import pytest
 
-from page import poll_for_page
-
 _CONFIG_PATH = "/data/config/config.json"
 _CONFIG_COPY_PATH = "/tmp/kiosk-config.json"
 
@@ -56,11 +54,11 @@ def set_config(request, board):
 
         def _restart_backend_and_wait():
             board.run("systemctl restart wisekiosk.service", check=True)
-            assert poll_for_page(board), "page did not serve after the backend restart"
+            assert board.wait_for_page(), "page did not serve after the backend restart"
 
         board.run("systemctl restart wisekiosk.service", check=True)
         request.addfinalizer(_restart_backend_and_wait)
-        assert poll_for_page(board), "page did not serve after the backend restart"
+        assert board.wait_for_page(), "page did not serve after the backend restart"
 
         board.run("systemctl start kiosk.service", check=True)
         request.addfinalizer(lambda: board.run("systemctl stop kiosk.service", check=True))

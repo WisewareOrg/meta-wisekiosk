@@ -5,11 +5,10 @@ import time
 
 import pytest
 
-from page import POLL_INTERVAL_SECONDS
-
 # the bound is TST015's
 BOUND_SECONDS = 100
 AGREE_SECONDS = 5
+POLL_INTERVAL_SECONDS = 2
 SKEW_SECONDS = 3 * 24 * 3600
 STILL_WRONG_SECONDS = 24 * 3600
 CLOCK_FILE = "/data/systemd-timesync/clock"
