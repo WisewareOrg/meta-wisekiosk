@@ -6,11 +6,9 @@ import time
 import pytest
 from labgrid.driver.exception import ExecutionError
 
-from panel import FULL_CARDS
+from panel import FULL_STATE_WAIT_SECONDS
 from replay import CARDS4_LIVE
 
-# setup error, not a failure, if the page never reaches full state
-FULL_STATE_WAIT_SECONDS = 120
 WARMUP_MS = 40_000
 WINDOW_MS = 320_000
 # the host sleeps this long inside the window, making no board read
@@ -30,7 +28,7 @@ MOTION_FLOOR = 0.29
 _COUNTERS = ("el", "frames", "isum", "ticks", "moving", "changes", "cost")
 _SOC_TEMP_PATH = "/sys/class/thermal/thermal_zone0/temp"
 _SOAK_LOG_PATH = "/data/kiosk-soak.log"
-# well over an hour of samples at kiosk-soak's 300 s period, far past a window
+# more of kiosk-soak's samples than any window spans
 _SOAK_TAIL_LINES = 20
 
 
@@ -40,10 +38,6 @@ def _read(panel):
         return panel.read()
     except (ExecutionError, subprocess.TimeoutExpired):
         return None, None
-
-
-def _full(panel, sample):
-    return panel.on_panel(sample) and sample["cards"] == FULL_CARDS
 
 
 def _counters(sample):
@@ -59,12 +53,6 @@ def _counters(sample):
     except (KeyError, ValueError, AssertionError):
         raise AssertionError(f"the probe's counters are missing from {sample!r}") from None
     return values, hist
-
-
-@pytest.fixture
-def full_state(panel):
-    """Wait for the applied page on the board's own origin with every card live; return its read."""
-    return panel.wait_full_state(FULL_STATE_WAIT_SECONDS)
 
 
 def _soc_temperature(board):
@@ -88,7 +76,7 @@ def _soak_samples_between(board, start_uptime, end_uptime):
 
 @pytest.mark.parametrize("proxy", [str(CARDS4_LIVE / "flows.har")], indirect=True)
 def test_motion_stutter(proxy, replay_window, panel, full_state, board, record_property):
-    """TST009 motion stutter measured: at most `STALL_BOUND` frame stalls in a 320 s window.
+    """TST009 motion stutter measured: at most `STALL_BOUND` frame stalls in the window.
 
     The window opens `WARMUP_MS` of page time after the page first reads full state, and the
     host reads nothing from the board inside it. The window is invalid, never a pass or a
@@ -109,11 +97,11 @@ def test_motion_stutter(proxy, replay_window, panel, full_state, board, record_p
         assert time.monotonic() < deadline, f"the page stopped reporting; last: {start!r}"
         time.sleep(READ_PAUSE_SECONDS)
     start_temp = _soc_temperature(board)
+    start_counters, start_hist = _counters(start)
 
     time.sleep(WINDOW_SLEEP_SECONDS)
 
     deadline = time.monotonic() + END_WAIT_SECONDS
-    start_counters, start_hist = _counters(start)
     while True:
         end_uptime, end = _read(panel)
         if end is not None and end["load"] != start["load"]:
@@ -141,7 +129,7 @@ def test_motion_stutter(proxy, replay_window, panel, full_state, board, record_p
     problems = []
     if delta["changes"] != 0:
         problems.append("the page changed state inside the window")
-    if not (_full(panel, start) and _full(panel, end)):
+    if not (panel.is_full(start) and panel.is_full(end)):
         problems.append("a read was not the applied page, on the board's own origin, cards live")
     if moving_share < MOTION_FLOOR:
         problems.append(f"too little motion seen in the window: {moving_share:.2f}")

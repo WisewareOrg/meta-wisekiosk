@@ -173,6 +173,12 @@ def replay_window(board, proxy, set_config, request):
 
 
 @pytest.fixture
+def full_state(panel):
+    """Wait for the page in full state; return that read's (uptime, sample)."""
+    return panel.wait_full_state()
+
+
+@pytest.fixture
 def panel(request, board, record_property):
     """Load the probe into the browser and return the `Panel`; the page wait is the test's."""
     observation = Panel(board)

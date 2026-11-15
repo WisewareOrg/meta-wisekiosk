@@ -15,6 +15,7 @@ _SURF_SCRIPT_PATH = f"{_SURF_DIR}/script.js"
 _PANEL_WAIT_SECONDS = 90
 _PANEL_POLL_SECONDS = 1
 FULL_CARDS = "4/4"
+FULL_STATE_WAIT_SECONDS = 120
 OWN_ORIGINS = ("http://localhost:8080", "http://127.0.0.1:8080")
 _PROBE_FIELDS = ("nonce", "state", "cards", "origin")
 _WM_NAME = re.compile(r'WM_NAME\(\w+\) = "(.*)"$')
@@ -101,7 +102,12 @@ class Panel:
             )
             time.sleep(_PANEL_POLL_SECONDS)
 
-    def wait_full_state(self, timeout_s):
+    @staticmethod
+    def is_full(sample):
+        """The page on the panel with every card live."""
+        return Panel.on_panel(sample) and sample["cards"] == FULL_CARDS
+
+    def wait_full_state(self, timeout_s=FULL_STATE_WAIT_SECONDS):
         """Poll until the page is on the panel with every card live; return that read's (uptime, sample)."""
         deadline = time.monotonic() + timeout_s
         while True:
@@ -109,7 +115,7 @@ class Panel:
                 uptime_s, sample = self.read()
             except (ExecutionError, subprocess.TimeoutExpired):
                 sample = None
-            if self.on_panel(sample) and sample["cards"] == FULL_CARDS:
+            if self.is_full(sample):
                 return uptime_s, sample
             assert time.monotonic() < deadline, (
                 f"the page was not in full state within {timeout_s} s; last sample: {sample!r}"

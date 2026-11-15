@@ -13,11 +13,10 @@ from replay import CARDS4_LIVE
 PERIOD_SECONDS = 24 * 3600
 # TST014's bound: use below this share of usable memory in every sample
 USE_LIMIT = 0.80
-# kiosk-soak's own gap rule, 1.5 times its 300 s cadence
+# kiosk-soak.sh's own gap rule, as its --summary applies it
 MAX_GAP_SECONDS = 450
 # how often the host checks the boot, so a reboot ends the run early
 BOOT_CHECK_SECONDS = 600
-FULL_STATE_WAIT_SECONDS = 120
 
 _SOAK_LOG_PATH = "/data/kiosk-soak.log"
 _OOM = re.compile(r"^\[\s*(\d+\.\d+)\].*Out of memory")
@@ -47,12 +46,6 @@ def _oom_uptimes(board, boot_flag, start, end):
     )
     found = [float(m.group(1)) for line in stdout if (m := _OOM.match(line))]
     return returncode, [up for up in found if start <= up <= end]
-
-
-@pytest.fixture
-def full_state(panel):
-    """Wait for the page in full state; return its sample."""
-    return panel.wait_full_state(FULL_STATE_WAIT_SECONDS)[1]
 
 
 def _boot_id(board):
@@ -97,7 +90,7 @@ def _wait_period(board, boot_id):
 def test_memory_over_a_long_run(
     request, proxy, replay_window, panel, full_state, board, record_property
 ):
-    """TST014 memory over a long run: kiosk-soak's samples of memory in use stay under 80% of usable.
+    """TST014 memory over a long run: kiosk-soak's samples of memory in use stay under `USE_LIMIT` of usable.
 
     Usable is `MemTotal`; in use is `MemTotal - MemAvailable`. A sample at or above the limit, or
     a process killed for memory, fails. A run is invalid, never a pass or a failure, if the boot
@@ -117,7 +110,7 @@ def test_memory_over_a_long_run(
     start_uptime = float(_read_text(board, "cat /proc/uptime").split()[0])
     start_mem = _meminfo(board)
     total_mb = start_mem["MemTotal"] / 1024
-    start_sample = full_state
+    start_sample = full_state[1]
 
     new_boot, reconnects = _wait_period(board, boot_id)
     record_property("reconnects", reconnects)
@@ -126,7 +119,6 @@ def test_memory_over_a_long_run(
     problems = []
     failures = []
     if rebooted:
-        end_uptime = start_uptime + PERIOD_SECONDS
         returncode, oom = _oom_uptimes(board, "-b -1", start_uptime, float("inf"))
         if oom:
             failures.append(f"a process was killed for memory at uptime {oom[0]:.0f} s")
@@ -137,18 +129,21 @@ def test_memory_over_a_long_run(
                 else "the board rebooted and the previous boot's kernel log could not be read"
             )
         oom_count = len(oom)
-        lines = []
+        end_uptime = float("inf")
     else:
         end_uptime = float(_read_text(board, "cat /proc/uptime").split()[0])
-        _rc, oom = _oom_uptimes(board, "-b", start_uptime, end_uptime)
+        returncode, oom = _oom_uptimes(board, "-b", start_uptime, end_uptime)
+        if returncode != 0:
+            problems.append("the kernel log could not be read")
         oom_count = len(oom)
         if oom:
             failures.append(f"a process was killed for memory at uptime {oom[0]:.0f} s")
-        lines = [
-            line
-            for line in _soak_lines(board)
-            if line.get("boot") == boot_id[:8] and start_uptime <= float(line["up"]) <= end_uptime
-        ]
+
+    lines = [
+        line
+        for line in _soak_lines(board)
+        if line.get("boot") == boot_id[:8] and start_uptime <= float(line["up"]) <= end_uptime
+    ]
 
     peak, peak_at = 0.0, None
     for line in lines:
