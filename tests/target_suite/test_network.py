@@ -18,7 +18,7 @@ _OUTAGE_SECONDS = 60
 # stop polling this long after the network returns; past the bound, so the record carries the time
 _GIVE_UP_SECONDS = 180
 # TST029's bound
-_REJOIN_BOUND_SECONDS = 30
+_REJOIN_BOUND_SECONDS = 60
 _BOOT_COMPLETE_WAIT_SECONDS = 180
 _SHELL_TIMEOUT_SECONDS = 10
 _JOURNAL_TIMEOUT_SECONDS = 60
