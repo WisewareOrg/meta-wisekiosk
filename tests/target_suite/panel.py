@@ -63,7 +63,13 @@ class Panel:
 
         request.addfinalizer(lambda: board.run("systemctl restart kiosk.service", check=True))
         board.run(f"mount --bind {_PROBE_COPY_PATH} {_SURF_SCRIPT_PATH}", check=True)
-        request.addfinalizer(lambda: board.run(f"umount {_SURF_SCRIPT_PATH}", check=True))
+        request.addfinalizer(
+            lambda: board.run(
+                f"if grep -q ' {_SURF_SCRIPT_PATH} ' /proc/self/mountinfo; "
+                f"then umount {_SURF_SCRIPT_PATH}; fi",
+                check=True,
+            )
+        )
 
         board.run("systemctl restart kiosk.service", check=True)
 
