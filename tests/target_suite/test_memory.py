@@ -55,26 +55,41 @@ def full_state(panel):
     return panel.wait_full_state(FULL_STATE_WAIT_SECONDS)[1]
 
 
+def _boot_id(board):
+    """The boot id and the reconnects made to read it; the id is None if it could not be read."""
+    cmd = "cat /proc/sys/kernel/random/boot_id"
+    reconnects = 0
+    try:
+        return _read_text(board, cmd), reconnects
+    except _BOARD_ERRORS:
+        board.reconnect()
+        reconnects = 1
+    except AssertionError:
+        return None, reconnects
+    try:
+        return _read_text(board, cmd), reconnects
+    except (*_BOARD_ERRORS, AssertionError):
+        return None, reconnects
+
+
 def _wait_period(board, boot_id):
-    """Sleep out `PERIOD_SECONDS`; return the boot id, early if it changed, and the reconnects made."""
+    """Sleep out `PERIOD_SECONDS`, polling the boot; return the final boot id and reconnects made.
+
+    Ends early on a changed boot id. The final read, made once more after the loop, leaves the
+    session live for every read after it.
+    """
     reconnects = 0
     end = time.monotonic() + PERIOD_SECONDS
     while time.monotonic() < end:
         time.sleep(min(BOOT_CHECK_SECONDS, max(0, end - time.monotonic())))
-        try:
-            now = _read_text(board, "cat /proc/sys/kernel/random/boot_id")
-        except _BOARD_ERRORS:
-            board.reconnect()
-            reconnects += 1
-            try:
-                now = _read_text(board, "cat /proc/sys/kernel/random/boot_id")
-            except (*_BOARD_ERRORS, AssertionError):
-                continue
-        except AssertionError:
-            continue
-        if now != boot_id:
-            return now, reconnects
-    return boot_id, reconnects
+        now, made = _boot_id(board)
+        reconnects += made
+        if now is not None and now != boot_id:
+            break
+    final, made = _boot_id(board)
+    reconnects += made
+    assert final is not None, "the boot id could not be read after the period"
+    return final, reconnects
 
 
 @pytest.mark.soak
