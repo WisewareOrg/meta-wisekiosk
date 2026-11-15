@@ -56,17 +56,25 @@ def full_state(panel):
 
 
 def _wait_period(board, boot_id):
-    """Sleep out `PERIOD_SECONDS`; return early, with the new boot id, if the boot changed."""
+    """Sleep out `PERIOD_SECONDS`; return the boot id, early if it changed, and the reconnects made."""
+    reconnects = 0
     end = time.monotonic() + PERIOD_SECONDS
     while time.monotonic() < end:
         time.sleep(min(BOOT_CHECK_SECONDS, max(0, end - time.monotonic())))
         try:
             now = _read_text(board, "cat /proc/sys/kernel/random/boot_id")
-        except (*_BOARD_ERRORS, AssertionError):
+        except _BOARD_ERRORS:
+            board.reconnect()
+            reconnects += 1
+            try:
+                now = _read_text(board, "cat /proc/sys/kernel/random/boot_id")
+            except (*_BOARD_ERRORS, AssertionError):
+                continue
+        except AssertionError:
             continue
         if now != boot_id:
-            return now
-    return boot_id
+            return now, reconnects
+    return boot_id, reconnects
 
 
 @pytest.mark.soak
@@ -96,7 +104,8 @@ def test_memory_over_a_long_run(
     total_mb = start_mem["MemTotal"] / 1024
     start_sample = full_state
 
-    new_boot = _wait_period(board, boot_id)
+    new_boot, reconnects = _wait_period(board, boot_id)
+    record_property("reconnects", reconnects)
     rebooted = new_boot != boot_id
 
     problems = []
