@@ -8,13 +8,14 @@ from pathlib import Path
 
 from labgrid.driver.exception import ExecutionError
 
+from replay import FULL_CARDS
+
 _PROBE_SRC = Path(__file__).resolve().parent / "probe.js"
 _PROBE_COPY_PATH = "/tmp/kiosk-probe.js"
 _SURF_DIR = "/home/root/.surf"
 _SURF_SCRIPT_PATH = f"{_SURF_DIR}/script.js"
 _PANEL_WAIT_SECONDS = 90
 _PANEL_POLL_SECONDS = 1
-FULL_CARDS = "4/4"
 FULL_STATE_WAIT_SECONDS = 120
 OWN_ORIGINS = ("http://localhost:8080", "http://127.0.0.1:8080")
 _PROBE_FIELDS = ("nonce", "state", "cards", "origin")
@@ -56,21 +57,11 @@ class Panel:
         request.addfinalizer(lambda: board.run(f"rm -f {_PROBE_COPY_PATH}", check=True))
 
         board.run(f"mkdir -p {_SURF_DIR} && touch {_SURF_SCRIPT_PATH}", check=True)
-        board.run(
-            f"if grep -q ' {_SURF_SCRIPT_PATH} ' /proc/self/mountinfo; "
-            f"then umount {_SURF_SCRIPT_PATH}; fi",
-            check=True,
-        )
+        board.unmount_if_mounted(_SURF_SCRIPT_PATH)
 
         request.addfinalizer(lambda: board.run("systemctl restart kiosk.service", check=True))
         board.run(f"mount --bind {_PROBE_COPY_PATH} {_SURF_SCRIPT_PATH}", check=True)
-        request.addfinalizer(
-            lambda: board.run(
-                f"if grep -q ' {_SURF_SCRIPT_PATH} ' /proc/self/mountinfo; "
-                f"then umount {_SURF_SCRIPT_PATH}; fi",
-                check=True,
-            )
-        )
+        request.addfinalizer(lambda: board.unmount_if_mounted(_SURF_SCRIPT_PATH))
 
         board.run("systemctl restart kiosk.service", check=True)
 

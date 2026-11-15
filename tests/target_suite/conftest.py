@@ -78,21 +78,13 @@ def set_config(request, board):
         board.run("systemctl stop kiosk.service", check=True)
         request.addfinalizer(lambda: board.run("systemctl start kiosk.service", check=True))
 
-        board.run(
-            f"if grep -q ' {_CONFIG_PATH} ' /proc/self/mountinfo; then umount {_CONFIG_PATH}; fi",
-            check=True,
-        )
+        board.unmount_if_mounted(_CONFIG_PATH)
 
         board.put(str(path), _CONFIG_COPY_PATH)
         request.addfinalizer(lambda: board.run(f"rm -f {_CONFIG_COPY_PATH}", check=True))
 
         board.run(f"mount --bind {_CONFIG_COPY_PATH} {_CONFIG_PATH}", check=True)
-        request.addfinalizer(
-            lambda: board.run(
-                f"if grep -q ' {_CONFIG_PATH} ' /proc/self/mountinfo; then umount {_CONFIG_PATH}; fi",
-                check=True,
-            )
-        )
+        request.addfinalizer(lambda: board.unmount_if_mounted(_CONFIG_PATH))
 
         def _restart_backend_and_wait():
             board.run("systemctl restart wisekiosk.service", check=True)

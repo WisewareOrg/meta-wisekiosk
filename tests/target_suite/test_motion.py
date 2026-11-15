@@ -6,7 +6,6 @@ import time
 import pytest
 from labgrid.driver.exception import ExecutionError
 
-from panel import FULL_STATE_WAIT_SECONDS
 from replay import CARDS4_LIVE
 
 WARMUP_MS = 40_000
@@ -22,6 +21,8 @@ STALL_FROM_BIN = 3
 HIST_BINS = 7
 # TST009's bound: the most stalls a window may hold
 STALL_BOUND = 24
+# the longest the start read may take to reach the warm-up
+WARMUP_READ_WAIT_SECONDS = 120
 # the least share of report ticks that caught a marquee scrolling for the window to count
 MOTION_FLOOR = 0.29
 
@@ -79,7 +80,7 @@ def test_motion_stutter(proxy, replay_window, panel, full_state, board, record_p
     """TST009 motion stutter measured: at most `STALL_BOUND` frame stalls in the window.
 
     The window opens `WARMUP_MS` of page time after the page first reads full state, and the
-    host reads nothing from the board inside it. The window is invalid, never a pass or a
+    host reads nothing from the board between the start read's temperature and the end read. The window is invalid, never a pass or a
     failure, if the page reloaded or changed state, a read is not full state, too little motion
     was seen, or the replay killed a request.
     """
@@ -89,7 +90,7 @@ def test_motion_stutter(proxy, replay_window, panel, full_state, board, record_p
     _, first = full_state
     first_el = int(first["el"])
 
-    deadline = time.monotonic() + FULL_STATE_WAIT_SECONDS
+    deadline = time.monotonic() + WARMUP_READ_WAIT_SECONDS
     while True:
         start_uptime, start = _read(panel)
         if start is not None and int(start["el"]) >= first_el + WARMUP_MS:

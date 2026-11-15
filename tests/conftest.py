@@ -66,6 +66,19 @@ class Board:
             assert returncode == 0, f"{cmd!r} failed (rc {returncode}): {chr(10).join(output)}"
         return stdout, stderr, returncode
 
+    def unmount_if_mounted(self, path):
+        """Unmount `path` on the board if it is a mount point; a path that is not one is fine.
+
+        Args:
+            path (str): the mount point on the board.
+
+        Raises:
+            AssertionError: the path is mounted and `umount` fails.
+        """
+        self.run(
+            f"if grep -q ' {path} ' /proc/self/mountinfo; then umount {path}; fi", check=True
+        )
+
     def put(self, src, dst):
         """Copy the host file `src` to `dst` on the board.
 

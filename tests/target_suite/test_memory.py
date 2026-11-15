@@ -49,7 +49,7 @@ def _oom_uptimes(board, boot_flag, start, end):
 
 
 def _boot_id(board):
-    """The boot id and the reconnects made to read it; the id is None if it could not be read."""
+    """The boot id and the reconnects made to read it; None if it could not be read, and a failed `reconnect()` raises."""
     cmd = "cat /proc/sys/kernel/random/boot_id"
     reconnects = 0
     try:
