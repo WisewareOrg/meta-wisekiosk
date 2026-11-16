@@ -78,7 +78,7 @@ repos:
 
   meta-virtualization:
     url: "https://git.yoctoproject.org/meta-virtualization"
-    commit: 6e8e75775f1c73c7d5e8ffa9b1eb6040f7d10819
+    commit: e0b994c8457be2b32acf7b904fcc5408156de57a
     path: "sources/meta-virtualization"
 
   # A newer Go for the backend than poky scarthgap's 1.22.12; its conf/layer.conf
