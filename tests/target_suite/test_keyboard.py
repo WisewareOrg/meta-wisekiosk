@@ -165,7 +165,7 @@ def _record_x(board, record_property, when):
 
 
 def _restore_console(board, record_property):
-    """Type Ctrl+Alt+F1 on a new virtual keyboard, stop tty2's login, and assert vt1 is foreground.
+    """Type Ctrl+Alt+F1 on a new virtual keyboard, restart tty2's login, and assert vt1 is foreground.
 
     If vt1 is not foreground, restart `kiosk.service`, whose X starts on vt1 and takes the console.
     """
@@ -174,7 +174,7 @@ def _restore_console(board, record_property):
         check=True,
         timeout=_RESTORE_COMMAND_TIMEOUT_SECONDS,
     )
-    board.run("systemctl stop autovt@tty2.service", check=True)
+    board.run("systemctl restart getty@tty2.service", check=True)
     if _foreground_console(board) != "1":
         board.run("systemctl restart kiosk.service", check=True)
         deadline = time.monotonic() + _KIOSK_RESTART_WAIT_SECONDS
@@ -202,15 +202,12 @@ def test_shell_from_an_attached_keyboard(request, board, outage, helpers, tmp_pa
     units = f"{_UNIT}.timer {_UNIT}.service"
 
     request.addfinalizer(lambda: board.run(f"rm -rf {_DIR}"))
-    board.run(f"systemctl stop autovt@tty2.service {units}; systemctl reset-failed {units}")
+    board.run(f"systemctl stop {units}; systemctl reset-failed {units}")
     board.run(f"rm -rf {_DIR}; mkdir {_DIR}", check=True)
     assert _foreground_console(board) == "1", "vt1 is not the foreground console at the start"
     outage.wait_boot_complete()
-    # a full terminal reset: agetty runs with --noclear, so an earlier run's prompt would otherwise stay
-    board.run("printf '\\033c' > /dev/tty2", check=True)
-    assert board.run("grep -q 'login:' /dev/vcs2")[2] != 0, (
-        "tty2 still shows a login prompt after the terminal reset, so the console gate could pass early"
-    )
+    # a restart gives tty2 a fresh login prompt, with no earlier run's login left on it
+    board.run("systemctl restart getty@tty2.service", check=True)
 
     boot_id = board.run("cat /proc/sys/kernel/random/boot_id", check=True)[0][0]
     builtin = board.run("cat /lib/modules/$(uname -r)/modules.builtin", check=True)[0]

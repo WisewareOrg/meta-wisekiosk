@@ -58,6 +58,13 @@ do_install() {
     ln -sf /dev/null ${D}${sysconfdir}/systemd/system/systemd-userdbd.service
     ln -sf /dev/null ${D}${sysconfdir}/systemd/system/systemd-userdbd.socket
 
+    # With logind masked nothing starts autovt@tty2 on a console switch, so the
+    # login on tty2 is enabled at every boot: an attached keyboard's Ctrl+Alt+F2
+    # then lands on a login prompt, the console's last way in.
+    install -d ${D}${sysconfdir}/systemd/system/getty.target.wants
+    ln -sf ${systemd_system_unitdir}/getty@.service \
+        ${D}${sysconfdir}/systemd/system/getty.target.wants/getty@tty2.service
+
     # udev evaluates every rule file against all 345 device uevents. This board
     # has no sound card (/sys/class/sound empty), no V4L (/sys/class/video4linux
     # absent) and no DRM card -- yet the image still ships rules for cameras,
@@ -96,5 +103,6 @@ FILES:${PN} = " \
     ${sysconfdir}/systemd/system/systemd-logind.service \
     ${sysconfdir}/systemd/system/systemd-userdbd.service \
     ${sysconfdir}/systemd/system/systemd-userdbd.socket \
+    ${sysconfdir}/systemd/system/getty.target.wants/getty@tty2.service \
     ${sysconfdir}/udev/rules.d \
 "
