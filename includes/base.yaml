@@ -35,7 +35,7 @@ repos:
   meta-autonomos:
     url: "https://github.com/jsmith212/meta-autonomos.git"
     branch: main
-    commit: 1fd4eb55c2ef0902176986bb0dea90e7c34d02bf
+    commit: f07174676c0ea702fc1de4379f7bf79967620c25
     path: "sources/meta-autonomos"
     layers:
       meta-autonomos-core:
