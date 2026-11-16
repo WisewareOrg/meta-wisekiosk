@@ -164,6 +164,15 @@ def _record_x(board, record_property, when):
     )
 
 
+def _restart_tty2_login(board):
+    """Kill whatever runs on tty2, then restart `getty@tty2` for a fresh login prompt.
+
+    A logged-in shell outlasts a plain restart until systemd's stop timeout.
+    """
+    board.run("systemctl kill -s KILL getty@tty2.service", check=True)
+    board.run("systemctl restart getty@tty2.service", check=True)
+
+
 def _restore_console(board, record_property):
     """Type Ctrl+Alt+F1 on a new virtual keyboard, restart tty2's login, and assert vt1 is foreground.
 
@@ -174,7 +183,7 @@ def _restore_console(board, record_property):
         check=True,
         timeout=_RESTORE_COMMAND_TIMEOUT_SECONDS,
     )
-    board.run("systemctl restart getty@tty2.service", check=True)
+    _restart_tty2_login(board)
     if _foreground_console(board) != "1":
         board.run("systemctl restart kiosk.service", check=True)
         deadline = time.monotonic() + _KIOSK_RESTART_WAIT_SECONDS
@@ -207,7 +216,7 @@ def test_shell_from_an_attached_keyboard(request, board, outage, helpers, tmp_pa
     assert _foreground_console(board) == "1", "vt1 is not the foreground console at the start"
     outage.wait_boot_complete()
     # a restart gives tty2 a fresh login prompt, with no earlier run's login left on it
-    board.run("systemctl restart getty@tty2.service", check=True)
+    _restart_tty2_login(board)
 
     boot_id = board.run("cat /proc/sys/kernel/random/boot_id", check=True)[0][0]
     builtin = board.run("cat /lib/modules/$(uname -r)/modules.builtin", check=True)[0]
