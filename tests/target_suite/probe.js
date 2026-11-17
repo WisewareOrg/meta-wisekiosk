@@ -2,8 +2,8 @@
 // window title, so the probe writes its report there; the host reads it back
 // through xprop. Evaluated by surf in every page load. No network, no storage.
 // Payload: "WK1 " then key=value tokens. nonce is performance.timeOrigin (new
-// per page load); state is the app's own state; cards is <present>/<live>; layout is the page's
-// layout size, innerWidth x innerHeight in CSS pixels.
+// per page load); state is the app's own state; cards is <present>/<live>;
+// layout is the page's size.
 (function () {
   if (window.__wk1) { return; }
   window.__wk1 = true;
