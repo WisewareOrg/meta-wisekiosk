@@ -13,7 +13,7 @@ ref: ''
 references:
 - keyword: def test_restart_to_the_panel
   path: tests/target_suite/test_restart_recovery.py
-  sha: 001a97dbcdaad3274791761712e649b13d9848363cb353a32fee33b5c1144e4f
+  sha: 005a6f55dbdd13eff9e9a4764dfd156e22778abbfc214565bcd88758cca9b0fe
   type: file
 reviewed: jOhicpgPRF3X1stj1RZa0ACKJvB05xulJURZWDL42mk=
 status: proposed
@@ -23,5 +23,5 @@ text: |
 verification-justification: |
   Test. It measures against a stated bound; the pass condition needs no judgement.
   It stops at the page served with the browser running. A boot's own time to the instance on the
-  panel is TST012<!-- Pending: Cold boot to the panel -->'s.
+  panel is TST012<!-- Cold boot to the panel -->'s.
 verification-method: test

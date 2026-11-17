@@ -7,9 +7,8 @@ links:
 - SYS001: -Rxz0zHVT7c0BcB6q8kQPDmeL13UwTHOUppLZI49Bbw=
 normative: true
 rationale: |
-  TST012<!-- Pending: Cold boot to the panel --> waits on power control and its bound.
   TST011<!-- Restart to the panel --> settles the warm path only; it skips the cold-power
-  path a real outage takes.
+  path a real outage takes, which TST012<!-- Cold boot to the panel --> times.
 ref: ''
 reviewed: pMrkPQAaeBgYGuMlnKcDobFiERteEmnpN9myWlwSpu0=
 status: proposed
