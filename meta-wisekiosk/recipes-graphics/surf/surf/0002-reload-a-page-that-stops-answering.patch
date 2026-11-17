@@ -2,7 +2,7 @@ Reload a page that stops answering, in place
 
 Once a page has finished loading, ask it a trivial question every 5 s. If a
 question goes unanswered for SURF_PAGE_DEADLINE seconds, terminate the page's
-web process and load the launch URI in a fresh one. The browser and the X
+web process and load the launch argument again in a fresh one. The browser and the X
 server keep running.
 
 Off unless SURF_PAGE_DEADLINE is a positive integer, the same opt-in style as
@@ -55,10 +55,10 @@ Upstream-Status: Inappropriate [kiosk-specific]
 +/* Frozen-page recovery, off unless SURF_PAGE_DEADLINE is a positive integer.
 + * Once a page has finished loading, a trivial script is evaluated in it every
 + * PAGETICK seconds. If one goes unanswered for pagedeadline seconds the page's
-+ * web process is terminated and the launch URI is loaded in a fresh one. */
++ * web process is terminated and the launch argument is loaded again in a fresh one. */
 +#define PAGETICK 5
 +static int pagedeadline;
-+static char *launchuri;
++static Arg launcharg;
  static int overrideredirect;
  static gint64 surfstart_us;
  static void milestone(const char *name);
@@ -83,7 +83,7 @@ Upstream-Status: Inappropriate [kiosk-specific]
  		break;
  	}
  	updatetitle(c);
-@@ -1872,12 +1899,101 @@
+@@ -1872,12 +1899,102 @@
  webprocessterminated(WebKitWebView *v, WebKitWebProcessTerminationReason r,
                       Client *c)
  {
@@ -167,8 +167,9 @@ Upstream-Status: Inappropriate [kiosk-specific]
 +	g_free(pg);
 +}
 +
-+/* Brings the configured page back: loads the launch URI, whatever the view
-+ * shows now, in the view's web process, starting a fresh one if it has none. */
++/* Brings the configured page back: loads the launch argument as main() did,
++ * whatever the view shows now. On the same URI loaduri() reloads, and WebKit
++ * starts a fresh web process for a reload when the view has none. */
 +gboolean
 +bringpageback(gpointer p)
 +{
@@ -176,8 +177,8 @@ Upstream-Status: Inappropriate [kiosk-specific]
 +
 +	for (c = clients; c && c != p; c = c->next)
 +		;
-+	if (c && launchuri)
-+		webkit_web_view_load_uri(c->view, launchuri);
++	if (c && launcharg.v)
++		loaduri(c, &launcharg);
 +	return G_SOURCE_REMOVE;
 +}
 +
@@ -185,7 +186,7 @@ Upstream-Status: Inappropriate [kiosk-specific]
  closeview(WebKitWebView *v, Client *c)
  {
  	gtk_widget_destroy(c->win);
-@@ -2117,6 +2233,8 @@
+@@ -2117,6 +2234,8 @@
  	Client *c;
  	char ubuf[64];
  	FILE *uf;
@@ -194,7 +195,7 @@ Upstream-Status: Inappropriate [kiosk-specific]
  
  	surfstart_us = g_get_monotonic_time();
  	milestones = getenv("SURF_MILESTONES") != NULL;
-@@ -2132,6 +2250,11 @@
+@@ -2132,6 +2251,11 @@
  		fprintf(stderr, "SURFMS uptime_at_exec %s", ubuf);
  	}
  	milestone("main_entry");
@@ -206,11 +207,11 @@ Upstream-Status: Inappropriate [kiosk-specific]
  
  	memset(&arg, 0, sizeof(arg));
  
-@@ -2268,6 +2391,7 @@
+@@ -2268,6 +2392,7 @@
  	showview(NULL, c);
  	milestone("showview_done");
  
-+	launchuri = g_strdup(arg.v);
++	launcharg = arg;
  	loaduri(c, &arg);
  	milestone("loaduri_done");
  	updatetitle(c);
