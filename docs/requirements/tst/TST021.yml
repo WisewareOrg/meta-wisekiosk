@@ -4,7 +4,7 @@ header: |
   Configuration held across a power cut
 level: 2.3.3
 links:
-- SRS010: 7BSrI4LQ6IW3pkqKIa6bpxKuSbPkS9ssdM7zQ09rPIg=
+- SRS010: cXUUm3LnnNsW2-SqUXIWeXYkTUWlEIeSDrD3ofOF6Zg=
 normative: true
 rationale: |
   An operator who changes the appliance's configuration expects it to stay changed. A power cut is
@@ -16,7 +16,7 @@ references:
   path: tests/target_suite/test_configuration.py
   sha: e8b6490f80354e3e908125e12f64f1e4d5a091876cca0726b94915cbbe2f6468
   type: file
-reviewed: pwG9Mwgw_sTBXihMT0-IlZR80kNeu__l6SNqAmtasQk=
+reviewed: yiQmJiQsSp8QLrE7tcWUobtqI1c46__swbuEufHdlCo=
 status: proposed
 text: |
   With the appliance holding its configuration, cut its power without warning and restore it. Pass

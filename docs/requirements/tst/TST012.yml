@@ -4,7 +4,7 @@ header: |
   Cold boot to the panel
 level: 1.4.2
 links:
-- SRS004: VZ67Gi2Kxu0X-vGnKcaRPhQHbwrmubar9Kf_NbkBDOQ=
+- SRS004: WTbgq6CrI1y0n2ENIsBdm5fh-gz3_Zgn0SXtjI-qlto=
 normative: true
 rationale: |
   With nobody at the panel, a unit that has just had power applied shows nothing until the instance
@@ -15,7 +15,7 @@ references:
   path: tests/target_suite/test_restart_recovery.py
   sha: 005a6f55dbdd13eff9e9a4764dfd156e22778abbfc214565bcd88758cca9b0fe
   type: file
-reviewed: p5rf433LN0JT9CQxTrgs2CaXDGdk277koRYnb7iaIyA=
+reviewed: 9qZtVmz3QOHiY-vqaRixRCUvZQQoUvNnlQrXoq_BXyY=
 status: proposed
 text: |
   With the appliance powered off and nobody at the panel, apply power. Pass if, within 110 s of

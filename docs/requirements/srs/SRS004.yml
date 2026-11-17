@@ -10,7 +10,7 @@ rationale: |
   TST011<!-- Restart to the panel --> settles the warm path only; it skips the cold-power
   path a real outage takes, which TST012<!-- Cold boot to the panel --> times.
 ref: ''
-reviewed: pMrkPQAaeBgYGuMlnKcDobFiERteEmnpN9myWlwSpu0=
+reviewed: uTYFpPxTYvHVnjWuZNaKoAdaHtIgeoE1BWDWdO3qikI=
 status: proposed
 text: |
   After power is applied, the appliance shall bring the WiseKiosk instance onto the panel promptly.

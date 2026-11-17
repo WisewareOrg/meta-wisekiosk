@@ -15,7 +15,7 @@ references:
   path: tests/target_suite/test_restart_recovery.py
   sha: 005a6f55dbdd13eff9e9a4764dfd156e22778abbfc214565bcd88758cca9b0fe
   type: file
-reviewed: m381pDBStnOHZH-S89U5sdLDeweIILMja_w5n6-Lm5U=
+reviewed: KitWC5L8BxwFlXTtryj9YDn9lrADx8fNIMZDHj7a5wE=
 status: proposed
 text: |
   With the WiseKiosk instance on the panel, cut the appliance's power without warning, then restore

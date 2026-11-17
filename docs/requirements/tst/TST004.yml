@@ -15,7 +15,7 @@ references:
   path: tests/target_suite/test_restart_recovery.py
   sha: 005a6f55dbdd13eff9e9a4764dfd156e22778abbfc214565bcd88758cca9b0fe
   type: file
-reviewed: bYh_JMX6HGtcuyGND2E60domPJjnBWlW83KgVYpGaLI=
+reviewed: XUArgbp9MeSIpKnZy-L6MYE0eq8ASq9wQdTHXp5Kp2I=
 status: proposed
 text: |
   With nobody at the panel, crash the kernel over the network so that nothing on the appliance runs.
