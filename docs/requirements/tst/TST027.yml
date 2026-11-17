@@ -1,17 +1,21 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Shell from an attached keyboard
+  Shell from an attached keyboard
 level: 2.8.1
 links:
-- SRS015: BCw21-Oqpz2545jH8RZGKPDcRlK0WLo_kq-TtIroQJ4=
+- SRS015: 5zwfKQaDcducItVfcXNJPnX4wGSC4ZwvDwuGqNRWEYc=
 normative: true
 rationale: |
-  Waits on its test, and on a keyboard the bench can type on automatically, which the project does
-  not have.
+  Once every network path to the appliance is gone, a keyboard at the appliance is the operator's
+  last way in. If it gives no shell, the unit is recovered only by pulling its card.
 ref: ''
-references: []
-reviewed: 6dpFtaCX0OF37hUFwsLnu8bRzTHLEMnx6apYRjViMNk=
+references:
+- keyword: def test_shell_from_an_attached_keyboard
+  path: tests/target_suite/test_keyboard.py
+  sha: 8233ed51e75b26f5fe3c8a314ef044f46f98aecf9517b9b44b93f11931139b84
+  type: file
+reviewed: pAo_4GMESK9fJ2USmWQJzvfWp-hGPWfcXKgR9JqTgwQ=
 status: proposed
 text: |
   With the appliance's network unavailable, attach a keyboard and log in with it. Pass if a command

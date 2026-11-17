@@ -8,9 +8,9 @@ links:
 normative: true
 rationale: |
   The last way in once the operator's remote shell, image updates and configuration changes over the
-  air have all failed. Its check waits on a keyboard the bench can type on automatically.
+  air have all failed.
 ref: ''
-reviewed: uge1EeyWtlmC36K3mT3wjeD1SF_sp9pzKn5LpzX_WFY=
+reviewed: J9K5coaM1HFrE9VNFKTw3FaU4qtemQTiSM-jDa45HnE=
 status: proposed
 text: |
   When every path over the network is gone, a keyboard attached to the appliance shall give the

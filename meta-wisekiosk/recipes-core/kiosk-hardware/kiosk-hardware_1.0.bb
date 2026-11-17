@@ -58,12 +58,17 @@ do_install() {
     ln -sf /dev/null ${D}${sysconfdir}/systemd/system/systemd-userdbd.service
     ln -sf /dev/null ${D}${sysconfdir}/systemd/system/systemd-userdbd.socket
 
+    # With logind masked nothing starts autovt@tty2 on a console switch, so
+    # getty@tty2 is enabled at every boot.
+    install -d ${D}${sysconfdir}/systemd/system/getty.target.wants
+    ln -sf ${systemd_system_unitdir}/getty@.service \
+        ${D}${sysconfdir}/systemd/system/getty.target.wants/getty@tty2.service
+
     # udev evaluates every rule file against all 345 device uevents. This board
     # has no sound card (/sys/class/sound empty), no V4L (/sys/class/video4linux
-    # absent), no DRM card, and only the aggregate 'mice' input node -- yet the
-    # image still ships rules for cameras, joysticks, tape, MTD, CD-ROM,
-    # InfiniBand, FIDO and btrfs. Masking these took the effective rule set from
-    # 616 lines to 350 and udevd's CPU from 5091ms to 4513ms, measured n=3.
+    # absent) and no DRM card -- yet the image still ships rules for cameras,
+    # mice, touchpads, joysticks, tape, MTD, CD-ROM, InfiniBand, FIDO and btrfs.
+    # Masking these cuts the rule set udevd evaluates per uevent.
     #
     # A /dev/null symlink in /etc/udev/rules.d shadows the /usr/lib file of the
     # same name -- udev(7). Nothing under /usr/lib is modified, so this does not
@@ -71,7 +76,10 @@ do_install() {
     #
     # NOT masked, deliberately: 71-seat, 73-seat-late and 70-uaccess (logind
     # seat/ACL handling that Xorg may want), 60-drm (display), 60-persistent-
-    # storage and the net rules (SD card and lifeline).
+    # storage and the net rules (SD card and lifeline), and 60-input-id,
+    # 60-evdev and the libinput rules: 60-input-id sets the ID_INPUT_* tags Xorg
+    # adds an input device by, and the other two set the device's evdev and
+    # libinput properties.
     install -d ${D}${sysconfdir}/udev/rules.d
     for r in ${KIOSK_UDEV_RULES_MASKED}; do
         ln -sf /dev/null ${D}${sysconfdir}/udev/rules.d/$r.rules
@@ -80,8 +88,7 @@ do_install() {
 
 KIOSK_UDEV_RULES_MASKED = "\
     78-sound-card 60-persistent-alsa 60-persistent-v4l 70-camera \
-    60-persistent-input 60-evdev 60-input-id 70-mouse 70-touchpad 70-joystick \
-    90-libinput-fuzz-override 80-libinput-device-groups \
+    60-persistent-input 70-mouse 70-touchpad 70-joystick \
     60-persistent-storage-tape 60-persistent-storage-mtd 75-probe_mtd \
     60-cdrom_id 60-infiniband 60-fido-id 90-iocost 60-sensor 64-btrfs 75-casync \
 "
@@ -95,5 +102,6 @@ FILES:${PN} = " \
     ${sysconfdir}/systemd/system/systemd-logind.service \
     ${sysconfdir}/systemd/system/systemd-userdbd.service \
     ${sysconfdir}/systemd/system/systemd-userdbd.socket \
+    ${sysconfdir}/systemd/system/getty.target.wants/getty@tty2.service \
     ${sysconfdir}/udev/rules.d \
 "
