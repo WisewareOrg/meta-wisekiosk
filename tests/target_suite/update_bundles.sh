@@ -6,7 +6,7 @@
 #
 # Usage: update_bundles.sh <run-dir> <nonce> <stamp> <probe-js>
 #   run-dir   receives new-build.raucb, cannot-start.raucb, no-network.raucb and
-#             candidate-info.json
+#             candidate.hash
 #   nonce     the content /tmp/kiosk-update-nonce must hold on the board for the hook to accept
 #   stamp     the value the new-build bundle's page carries in its kiosk-test-stamp meta tag
 #   probe-js  the in-page probe, as a path inside the container
@@ -40,7 +40,9 @@ e2fs_sbin="$(bb_var STAGING_SBINDIR_NATIVE "$work/e2fsprogs-env.txt")"
 : "${e2fs_sbin:?}"
 export PATH="$rauc_bin:$e2fs_sbin:$PATH"
 
-rauc info --keyring="$keyring" --output-format=json "$candidate" > candidate-info.json
+eval "$(rauc info --keyring="$keyring" --output-format=shell "$candidate")"
+: "${RAUC_MF_HASH:?}"
+printf '%s\n' "$RAUC_MF_HASH" > candidate.hash
 rauc extract --keyring="$keyring" "$candidate" "$work/extracted"
 
 # The value of a manifest key within a section; empty when absent.

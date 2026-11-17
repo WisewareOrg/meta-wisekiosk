@@ -79,14 +79,14 @@ def update_bundles(request, bench_candidate):
         env={**os.environ, "KAS_RUN_TMP_DIR": run_dir},
         check=True,
     )
-    info = json.loads((Path(run_dir) / "candidate-info.json").read_text())
+    candidate_hash = (Path(run_dir) / "candidate.hash").read_text().strip()
     return UpdateBundles(
         Path(run_dir) / "new-build.raucb",
         Path(run_dir) / "cannot-start.raucb",
         Path(run_dir) / "no-network.raucb",
         nonce,
         stamp,
-        info["hash"],
+        candidate_hash,
         _CANDIDATE,
     )
 
