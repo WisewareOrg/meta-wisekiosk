@@ -181,6 +181,7 @@ fi
 EOF
         cat "$work/extracted/$(manifest_value hooks filename)"
     } > "$hook"
+    chmod 0755 "$hook"
 }
 
 write_manifest() {
