@@ -43,7 +43,7 @@ export PATH="$rauc_bin:$e2fs_sbin:$PATH"
 eval "$(rauc info --keyring="$keyring" --output-format=shell "$candidate")"
 : "${RAUC_MF_HASH:?}"
 printf '%s\n' "$RAUC_MF_HASH" > candidate.hash
-rauc extract --keyring="$keyring" "$candidate" "$work/extracted"
+rauc extract --trust-environment --keyring="$keyring" "$candidate" "$work/extracted"
 
 # The value of a manifest key within a section; empty when absent.
 manifest_value() {
