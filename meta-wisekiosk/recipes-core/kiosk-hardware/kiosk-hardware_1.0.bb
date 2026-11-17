@@ -58,9 +58,8 @@ do_install() {
     ln -sf /dev/null ${D}${sysconfdir}/systemd/system/systemd-userdbd.service
     ln -sf /dev/null ${D}${sysconfdir}/systemd/system/systemd-userdbd.socket
 
-    # With logind masked nothing starts autovt@tty2 on a console switch, so the
-    # login on tty2 is enabled at every boot: an attached keyboard's Ctrl+Alt+F2
-    # then lands on a login prompt, the console's last way in.
+    # With logind masked nothing starts autovt@tty2 on a console switch, so
+    # getty@tty2 is enabled at every boot.
     install -d ${D}${sysconfdir}/systemd/system/getty.target.wants
     ln -sf ${systemd_system_unitdir}/getty@.service \
         ${D}${sysconfdir}/systemd/system/getty.target.wants/getty@tty2.service
@@ -79,8 +78,7 @@ do_install() {
     # seat/ACL handling that Xorg may want), 60-drm (display), 60-persistent-
     # storage and the net rules (SD card and lifeline), and 60-input-id,
     # 60-evdev and the libinput rules: Xorg adds an input device only from
-    # udev's ID_INPUT_* tags, so an attached USB keyboard is the console's last
-    # way in only while those rules run.
+    # udev's ID_INPUT_* tags, which those rules set.
     install -d ${D}${sysconfdir}/udev/rules.d
     for r in ${KIOSK_UDEV_RULES_MASKED}; do
         ln -sf /dev/null ${D}${sysconfdir}/udev/rules.d/$r.rules

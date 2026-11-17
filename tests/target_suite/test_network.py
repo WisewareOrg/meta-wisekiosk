@@ -52,7 +52,7 @@ def test_rejoins_after_an_outage(request, board, outage, record_property):
     record_property("requirement", "TST029")
     outage.wait_boot_complete()
     boot_id = board.run("cat /proc/sys/kernel/random/boot_id", check=True)[0][0]
-    outage.arm(request, _OUTAGE_SECONDS, Outage.GIVE_UP_SECONDS)
+    outage.arm(request, _OUTAGE_SECONDS)
     deadline = time.monotonic() + Outage.ARM_DELAY_SECONDS + _OUTAGE_SECONDS + Outage.GIVE_UP_SECONDS
 
     last_attempt = "no attempt"

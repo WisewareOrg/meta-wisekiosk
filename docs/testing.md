@@ -47,7 +47,9 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   browser so the test can read what the page shows; teardown unmounts it and restarts the browser
   again. The device context (`device_context` in `conftest.py`) is recorded on every test. The
   refused-update tests build two small bundles through `tools/kas-run.sh`, so they need the
-  checkout's own build tree and the signing keys the bench host's environment file names. The keyboard test builds evemu-tools through `tools/kas-run.sh` the same way, so it needs the build tree too, and while it runs the panel shows the board's text console.
+  checkout's own build tree and the signing keys the bench host's environment file names. The
+  keyboard test builds evemu-tools through `tools/kas-run.sh` the same way, so it needs the build
+  tree too, and while it runs the panel shows the board's text console.
 
 `bench run` also reads `[github]` — the GitHub App that posts the `bench-pipeline` check run, and the
 path to its private key on the bench host — and `[run]`, naming the systemd unit it disables on the

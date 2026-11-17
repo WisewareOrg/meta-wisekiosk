@@ -6,7 +6,7 @@
 # command.events into it as each phase's condition holds, then removes it. Each phase writes
 # `phase <name> <uptime>` to the record, or `timeout <name> <uptime>` and stops if its bound passes.
 # `--chord` plays one events file into a new virtual keyboard and removes it.
-dir=/tmp/test-keyboard
+dir=$(dirname "$0")
 record=$dir/record
 LD_LIBRARY_PATH=$dir
 export LD_LIBRARY_PATH

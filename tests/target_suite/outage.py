@@ -15,7 +15,7 @@ class Outage:
         ARM_DELAY_SECONDS (int): the delay `systemd-run` waits before the script cuts, so the
             arming command returns first.
         GIVE_UP_SECONDS (int): how long after the network returns the script waits for an
-            address before it reboots the board; the callers' `give_up_s`.
+            address before it reboots the board.
         RECORD_PATH (str): the board path of the script's record.
         UNIT (str): the name of the `systemd-run` unit.
     """
@@ -41,7 +41,7 @@ class Outage:
             )
             time.sleep(1)
 
-    def arm(self, request, outage_s, give_up_s):
+    def arm(self, request, outage_s):
         """Copy the outage script to the board and start it on a timer; undo each step at teardown.
 
         The SSHDriver is disconnected last, while the board is still up. Teardown reconnects it,
@@ -62,7 +62,7 @@ class Outage:
 
         board.run(
             f"systemd-run --unit={self.UNIT} --on-active={self.ARM_DELAY_SECONDS} "
-            f"--timer-property=AccuracySec=100ms /bin/sh {_SCRIPT_PATH} {outage_s} {give_up_s}",
+            f"--timer-property=AccuracySec=100ms /bin/sh {_SCRIPT_PATH} {outage_s} {self.GIVE_UP_SECONDS}",
             check=True,
         )
         units = f"{self.UNIT}.timer {self.UNIT}.service"
