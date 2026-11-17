@@ -16,7 +16,7 @@ references:
   path: tests/target_suite/test_configuration.py
   sha: 8aae937a630324a2ee69dce2c7b704796dc0f2ff6459cb4999a69be73267726f
   type: file
-reviewed: kh2HfO2Jow_m8r2ezUmmIR5NqGyosVDyrK7KH1oKIRY=
+reviewed: cbO7lcGJtF61-JKKzKqmagW-BwJx5TsnpRkbfmzuVso=
 status: proposed
 text: |
   Change the appliance's configuration over the air, then install a valid image update over the air.
