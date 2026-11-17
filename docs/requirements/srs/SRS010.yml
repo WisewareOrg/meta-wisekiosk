@@ -12,7 +12,7 @@ rationale: |
   configuration the appliance holds, which is the application's own requirement; and that the
   operator can make the change.
 ref: ''
-reviewed: -MzBizWws4zslkRO38OtNBzW6sd8O0inp5BbMhyITpk=
+reviewed: S6O322toSGyFcexSjps7t3bW8w3X8--VDvjrqBj4aLM=
 status: proposed
 text: |
   The operator shall be able to change the appliance's configuration over the air, and the change

@@ -13,7 +13,7 @@ rationale: |
   an image update, which the check never tries, since its zone lives only until the check undoes
   it.
 ref: ''
-reviewed: zQCwJ9Zw6hKuPS-Ecvxa6wh2SzC_septC7hcY6s7dV4=
+reviewed: peGPFtkzylxFOtab6yFhtueofTqMlCpmgQqgyZ_YQHo=
 status: proposed
 text: |
   The operator shall be able to set the appliance's timezone over the air.
