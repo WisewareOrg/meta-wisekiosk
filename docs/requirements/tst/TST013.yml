@@ -13,7 +13,7 @@ ref: ''
 references:
 - keyword: def test_pointer_display_disabled
   path: tests/target_suite/test_display.py
-  sha: 0724ed0eabc355bff61e2c4ecdb0bca01e810c7daca942d5697bed221fe8aa30
+  sha: 2334edf9e7a38dcde04baaa56a7cae178a7d884170c298b2bf7f884af4ce3e70
   type: file
 reviewed: CeNNzx4FJuV9SpwgEcoBEUoRAnVyXfTWlIoZdloW0I0=
 status: proposed

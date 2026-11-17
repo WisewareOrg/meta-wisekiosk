@@ -13,7 +13,7 @@ ref: ''
 references:
 - keyword: def test_instance_covers_the_panel
   path: tests/target_suite/test_display.py
-  sha: 0724ed0eabc355bff61e2c4ecdb0bca01e810c7daca942d5697bed221fe8aa30
+  sha: 2334edf9e7a38dcde04baaa56a7cae178a7d884170c298b2bf7f884af4ce3e70
   type: file
 reviewed: uIX5gN1XCmP0p7J8o2UIsRdscfl5YQkXF4spSxxYz6c=
 status: proposed

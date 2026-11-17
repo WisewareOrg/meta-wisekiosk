@@ -129,6 +129,7 @@ def test_minimum_resolution(board, panel, record_property):
     record_property("xrandr", "\n".join(stdout))
     current = [line.strip() for line in stdout if "*" in line]
     assert current, "xrandr reports no current mode"
+    assert len(current) == 1, f"more than one current mode: {current}"
     mode = re.match(r"^(\d+)x(\d+)", current[0])
     assert mode, f"xrandr's current mode line is unreadable: {current[0]!r}"
 
