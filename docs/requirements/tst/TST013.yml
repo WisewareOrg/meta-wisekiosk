@@ -15,7 +15,7 @@ references:
   path: tests/target_suite/test_display.py
   sha: 0724ed0eabc355bff61e2c4ecdb0bca01e810c7daca942d5697bed221fe8aa30
   type: file
-reviewed: r2sJkITuBaRJnIsNd9-vLMyvEgEJfkp0buNjOiuQGuw=
+reviewed: CeNNzx4FJuV9SpwgEcoBEUoRAnVyXfTWlIoZdloW0I0=
 status: proposed
 text: |
   With the WiseKiosk instance on the panel, read the options its display server was started
