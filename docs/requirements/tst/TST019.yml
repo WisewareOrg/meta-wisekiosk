@@ -1,15 +1,21 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Configuration held across an image update
+  Configuration held across an image update
 level: 2.3.1
 links:
 - SRS010: AwaFoX_yAriClXD63RQ5h9A8DQz38RL7MypMTxlAX-w=
 normative: true
 rationale: |
-  Waits on its test.
+  An operator who changes the appliance's configuration expects it to stay changed. An image update
+  replaces the system the appliance runs, so a configuration lost with it would silently put the
+  appliance back on the settings the operator had moved away from.
 ref: ''
-references: []
+references:
+- keyword: def test_config_held_across_image_update
+  path: tests/target_suite/test_configuration.py
+  sha: 8aae937a630324a2ee69dce2c7b704796dc0f2ff6459cb4999a69be73267726f
+  type: file
 reviewed: kh2HfO2Jow_m8r2ezUmmIR5NqGyosVDyrK7KH1oKIRY=
 status: proposed
 text: |

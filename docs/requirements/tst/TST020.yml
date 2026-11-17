@@ -1,15 +1,21 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Configuration held across a restart
+  Configuration held across a restart
 level: 2.3.2
 links:
 - SRS010: AwaFoX_yAriClXD63RQ5h9A8DQz38RL7MypMTxlAX-w=
 normative: true
 rationale: |
-  Waits on its test.
+  An operator who changes the appliance's configuration expects it to stay changed. A restart is the
+  routine event the wall-mounted unit goes through, so a configuration that did not survive it would
+  silently put the appliance back on the settings the operator had moved away from.
 ref: ''
-references: []
+references:
+- keyword: def test_config_held_across_restart
+  path: tests/target_suite/test_configuration.py
+  sha: 8aae937a630324a2ee69dce2c7b704796dc0f2ff6459cb4999a69be73267726f
+  type: file
 reviewed: hkEw9myJznx64zZgfOviXgza_dZJBdZMvr4xIVsPzdo=
 status: proposed
 text: |
