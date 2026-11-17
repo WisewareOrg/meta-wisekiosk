@@ -138,6 +138,21 @@ class Board:
         assert line is not None, f"no meta-wisekiosk layer line in buildinfo:\n{chr(10).join(stdout)}"
         return line.split()[2].rsplit(":", 1)[-1]
 
+    def sha256(self, path):
+        """The sha256 of the file `path` on the board.
+
+        Args:
+            path (str): path on the board.
+
+        Returns:
+            str | None: the hash, or None if `sha256sum` returns nonzero (the file is missing or
+                unreadable).
+        """
+        stdout, _stderr, returncode = self.run(f"sha256sum {path}")
+        if returncode != 0:
+            return None
+        return stdout[0].split()[0]
+
     def fetch_page(self, timeout=PAGE_ATTEMPT_TIMEOUT_SECONDS):
         """Fetch `PAGE_URL` on the board.
 

@@ -6,10 +6,11 @@ from datetime import datetime, timezone
 
 import pytest
 
-from config_change import CONFIG_PATH as _CONFIG_PATH, ConfigChange
 from outage import Outage
 from panel import Panel
 
+_CONFIG_PATH = "/data/config/config.json"
+_DEFAULT_CONFIG_PATH = "/usr/share/wisekiosk/config.example.json"
 _CONFIG_COPY_PATH = "/tmp/kiosk-config.json"
 _BROWSER_WAIT_SECONDS = 90
 _BROWSER_POLL_SECONDS = 2
@@ -22,49 +23,30 @@ _HASHED_PATHS = (
 
 
 @pytest.fixture(scope="session")
-def config_across_update(request, board, bench_candidate, tmp_path_factory):
-    """Change the configuration, install the candidate, read the hash held, restore.
-
-    The change is made before `install_candidate` runs, by calling it from here, and undone
-    straight after the reading, so no other test runs on the changed configuration.
+def config_across_update(request, board, bench_candidate):
+    """Hash the board's config before and after `install_candidate`; writes nothing.
 
     Args:
-        request (pytest.FixtureRequest): runs `install_candidate` at the point of the change.
+        request (pytest.FixtureRequest): runs `install_candidate` between the two hashes.
         board (Board): the board under test (tests/conftest.py).
         bench_candidate (str | None): the commit under test, or None outside a build.
-        tmp_path_factory (pytest.TempPathFactory): holds the saved original.
 
     Returns:
-        tuple[str, str | None] | None: the sha256 written and the sha256 held after the install
-            (None if the file is missing); None when there is no candidate to install.
+        tuple[str | None, str | None, str | None] | None: the sha256 of the live config before
+            the install, after it, and of the image default after it (each None if the file is
+            missing); None when there is no candidate to install.
     """
     if bench_candidate is None:
         request.getfixturevalue("install_candidate")
         return None
-    change = ConfigChange(board, tmp_path_factory.mktemp("config"))
-    change.apply()
-    try:
-        request.getfixturevalue("install_candidate")
-        held = change.held_sha256()
-    finally:
-        change.restore()
-    return change.written_sha256, held
+    before = board.sha256(_CONFIG_PATH)
+    request.getfixturevalue("install_candidate")
+    return before, board.sha256(_CONFIG_PATH), board.sha256(_DEFAULT_CONFIG_PATH)
 
 
 @pytest.fixture(scope="session", autouse=True)
 def _install_candidate(config_across_update):
     """Activate `install_candidate` (tests/conftest.py) for every test in this suite, via `config_across_update`."""
-
-
-@pytest.fixture
-def changed_config(board, tmp_path):
-    """The `ConfigChange`, applied to the board's live config and restored at teardown."""
-    change = ConfigChange(board, tmp_path)
-    change.apply()
-    try:
-        yield change
-    finally:
-        change.restore()
 
 
 @pytest.fixture

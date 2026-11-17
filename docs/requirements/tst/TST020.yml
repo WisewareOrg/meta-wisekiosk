@@ -14,13 +14,13 @@ ref: ''
 references:
 - keyword: def test_config_held_across_restart
   path: tests/target_suite/test_configuration.py
-  sha: 8aae937a630324a2ee69dce2c7b704796dc0f2ff6459cb4999a69be73267726f
+  sha: cb6777c2d1d268a23860700b99d03d525578edca09de03a01ce87184a13afcb2
   type: file
 reviewed: G7AQM72mxx68FrdIBHhls84GbaWy6Wg-HCePDwcHhMk=
 status: proposed
 text: |
-  Change the appliance's configuration over the air, then restart the appliance over the network.
-  Pass if the configuration the appliance holds afterwards is the changed one.
+  Restart the appliance over the network. Pass if the configuration it holds afterwards is byte for
+  byte the one it held before.
 verification-justification: |
   Test. It exercises the capability and reads the result mechanically; the pass condition needs no
   judgement.
