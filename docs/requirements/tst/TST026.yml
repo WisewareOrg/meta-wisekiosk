@@ -1,16 +1,21 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Timezone set over the air
+  Timezone set over the air
 level: 2.7.1
 links:
-- SRS014: vVRtDgbH7lYVLVyxFg2jmXTKXcdxklUmCn0jEoHDSQA=
+- SRS014: KgsCbdFEW5vmexqdOQ9oZOdvTru9KhEQo4AJxV58i5Q=
 normative: true
 rationale: |
-  Waits on its test.
+  A timezone the operator sets must be the one the appliance keeps its local time in. Otherwise the
+  viewer is shown, or the application acts on, a time from the wrong place.
 ref: ''
-references: []
-reviewed: bY8yV7masMF-Z27tiq-Dp8eZdJ2ywmJ8QGPsm0B72eg=
+references:
+- keyword: def test_timezone_set_over_the_air
+  path: tests/target_suite/test_timezone.py
+  sha: cadaba5a2f06c4a9b46fc11491fd6683b1d3ef36439c0dbe4aab48c2e4eb69ce
+  type: file
+reviewed: 67xJty7tnswIUYRubZEI5wGjE8cS07VYo3Cjf2kXhDE=
 status: proposed
 text: |
   Set the appliance's timezone over the air to one different from its current timezone. Pass if the

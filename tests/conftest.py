@@ -14,6 +14,9 @@ class Board:
 
     Attributes:
         host (str): `user@address` of the board, as the `just kiosk-*` recipes take it.
+        CONFIG_PATH (str): the live configuration file on the board.
+        DEFAULT_CONFIG_PATH (str): the image's default configuration, which the board reseeds the
+            live file from when it holds none.
         PAGE_URL (str): the WiseKiosk instance's page, as the board fetches it. busybox wget
             returns 0 only on 2xx.
         PAGE_BOUND_SECONDS (int): how long `wait_for_page` waits for the page.
@@ -25,6 +28,8 @@ class Board:
             command.
     """
 
+    CONFIG_PATH = "/data/config/config.json"
+    DEFAULT_CONFIG_PATH = "/usr/share/wisekiosk/config.example.json"
     PAGE_URL = "http://127.0.0.1:8080/"
     PAGE_BOUND_SECONDS = 60
     PAGE_POLL_INTERVAL_SECONDS = 2
@@ -150,6 +155,21 @@ class Board:
         )
         assert line is not None, f"no meta-wisekiosk layer line in buildinfo:\n{chr(10).join(stdout)}"
         return line.split()[2].rsplit(":", 1)[-1]
+
+    def sha256(self, path):
+        """The sha256 of the file `path` on the board.
+
+        Args:
+            path (str): path on the board.
+
+        Returns:
+            str | None: the hash, or None if `sha256sum` returns nonzero (the file is missing or
+                unreadable).
+        """
+        stdout, _stderr, returncode = self.run(f"sha256sum {path}")
+        if returncode != 0:
+            return None
+        return stdout[0].split()[0]
 
     def fetch_page(self, timeout=PAGE_ATTEMPT_TIMEOUT_SECONDS):
         """Fetch `PAGE_URL` on the board.

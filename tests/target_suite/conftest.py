@@ -11,12 +11,10 @@ from outage import Outage
 from panel import Panel
 from replay import CA_PATH, CARDS4_LIVE
 
-_CONFIG_PATH = "/data/config/config.json"
 _CONFIG_COPY_PATH = "/tmp/kiosk-config.json"
 _BROWSER_WAIT_SECONDS = 90
 _BROWSER_POLL_SECONDS = 2
 _HASHED_PATHS = (
-    "/data/config/config.json",
     "/data/config/kiosk.conf",
     "/boot/config.txt",
     "/boot/cmdline.txt",
@@ -29,9 +27,34 @@ def pytest_addoption(parser):
     parser.addoption("--soak", action="store_true", default=False, help="run TST014 with its long period")
 
 
+@pytest.fixture(scope="session")
+def config_across_update(request, board, bench_candidate):
+    """Hash the board's config before and after `install_candidate`; writes nothing.
+
+    First unmounts a bind mount a dead run left over the live config path.
+
+    Args:
+        request (pytest.FixtureRequest): runs `install_candidate` between the two hashes.
+        board (Board): the board under test (tests/conftest.py).
+        bench_candidate (str | None): the commit under test, or None outside a build.
+
+    Returns:
+        tuple[str | None, str | None, str | None] | None: the sha256 of the live config before
+            the install, after it, and of the image default after it (each None if the file is
+            missing); None when there is no candidate to install.
+    """
+    board.unmount_if_mounted(board.CONFIG_PATH)
+    if bench_candidate is None:
+        request.getfixturevalue("install_candidate")
+        return None
+    before = board.sha256(board.CONFIG_PATH)
+    request.getfixturevalue("install_candidate")
+    return before, board.sha256(board.CONFIG_PATH), board.sha256(board.DEFAULT_CONFIG_PATH)
+
+
 @pytest.fixture(scope="session", autouse=True)
-def _install_candidate(install_candidate):
-    """Activate `install_candidate` (tests/conftest.py) for every test in this suite."""
+def _install_candidate(config_across_update):
+    """Activate `install_candidate` (tests/conftest.py) for every test in this suite, via `config_across_update`."""
 
 
 @pytest.fixture
@@ -64,13 +87,13 @@ def set_config(request, board):
         board.run("systemctl stop kiosk.service", check=True)
         request.addfinalizer(lambda: board.run("systemctl start kiosk.service", check=True))
 
-        board.unmount_if_mounted(_CONFIG_PATH)
+        board.unmount_if_mounted(board.CONFIG_PATH)
 
         board.put(str(path), _CONFIG_COPY_PATH)
         request.addfinalizer(lambda: board.run(f"rm -f {_CONFIG_COPY_PATH}", check=True))
 
-        board.run(f"mount --bind {_CONFIG_COPY_PATH} {_CONFIG_PATH}", check=True)
-        request.addfinalizer(lambda: board.unmount_if_mounted(_CONFIG_PATH))
+        board.run(f"mount --bind {_CONFIG_COPY_PATH} {board.CONFIG_PATH}", check=True)
+        request.addfinalizer(lambda: board.unmount_if_mounted(board.CONFIG_PATH))
 
         def _restart_backend_and_wait():
             board.run("systemctl restart wisekiosk.service", check=True)
@@ -193,7 +216,8 @@ def device_context(board, record_property):
     def read(cmd):
         return "\n".join(board.run(cmd, check=True)[0]).strip()
 
-    sums_out, sums_err, sums_rc = board.run("sha256sum " + " ".join(_HASHED_PATHS))
+    hashed = " ".join((board.CONFIG_PATH, *_HASHED_PATHS))
+    sums_out, sums_err, sums_rc = board.run("sha256sum " + hashed)
     assert sums_rc in (0, 1), f"sha256sum failed (rc {sums_rc}): {chr(10).join(sums_err)}"
     environ = read(f"tr '\\0' '\\n' < /proc/{pid}/environ").splitlines()
     xrandr = read("DISPLAY=:0 xrandr").splitlines()
