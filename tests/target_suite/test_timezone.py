@@ -11,10 +11,11 @@ _RUN_DIR = "/run/tst026"
 
 @pytest.fixture
 def zone_in_run(request, board):
-    """Overlay /etc with an upper layer in /run, with timedated started inside it; yield the original zone link.
+    """Overlay /etc with an upper layer in /run; return the original `/etc/localtime` link.
 
     timedated builds its own mount namespace when it starts, so it is stopped before the mount
-    and again before the unmount. Each step's undo is registered once that step succeeds; teardown unmounts, asserts the
+    and the test's own `timedatectl` starts it inside the overlay; it is stopped again before the
+    unmount. Each step's undo is registered once that step succeeds; teardown unmounts, asserts the
     overlay is gone and `/etc/localtime` points where it did, then removes the directory.
     """
     original = board.run("readlink /etc/localtime", check=True)[0][0].strip()
@@ -28,7 +29,7 @@ def zone_in_run(request, board):
     )
 
     def unmount():
-        board.run("systemctl stop systemd-timedated", check=True)
+        board.run("systemctl stop systemd-timedated")
         board.run("umount -l /etc", check=True)
         assert board.run("findmnt -n /etc")[2] != 0, "the /etc overlay is still mounted"
         restored = board.run("readlink /etc/localtime", check=True)[0][0].strip()

@@ -16,7 +16,7 @@ references:
   path: tests/target_suite/test_configuration.py
   sha: 0dc741e824fdb08c8049952ea1460d74df30503ea43a0fcc4821db2e1a6750ff
   type: file
-reviewed: F9AiSqRDhfP_w_7z-H4MBOgyQWwkdZvTTBSDzVix_Ys=
+reviewed: g7R0pO3bA1-UKJfEejBUCvUTLNZOby7N2Rs-1gDRI14=
 status: proposed
 text: |
   Restart the appliance over the network. Pass if the configuration it holds afterwards is byte for
