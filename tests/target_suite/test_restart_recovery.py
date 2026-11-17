@@ -13,6 +13,8 @@ _CRASH_BOUND_SECONDS = 100
 _RESTART_BOUND_SECONDS = 60
 # TST002's and TST003's bound
 _POWER_CUT_BOUND_SECONDS = 60
+# TST012's bound
+_COLD_BOOT_BOUND_SECONDS = 110
 # stop polling; past the bound, so the record still carries the time it took
 _GIVE_UP_SECONDS = 180
 
@@ -127,4 +129,7 @@ def test_cold_boot_to_the_panel(board, power_cut, record_property):
     assert on_panel_s is not None, (
         f"the browser had not finished loading the instance within {_GIVE_UP_SECONDS} s "
         f"of power returning; last window titles: {titles!r}"
+    )
+    assert on_panel_s <= _COLD_BOOT_BOUND_SECONDS, (
+        f"the browser finished loading after {on_panel_s} s; TST012's bound is {_COLD_BOOT_BOUND_SECONDS} s"
     )
