@@ -4,7 +4,7 @@ header: |
   Pending: Configuration held across a power cut
 level: 2.3.3
 links:
-- SRS010: AwaFoX_yAriClXD63RQ5h9A8DQz38RL7MypMTxlAX-w=
+- SRS010: OaRpNGv996UVHV21BuiZ3gsDwrcHe87NEVT2UhEbEXo=
 normative: true
 rationale: |
   Waits on its test, and on power control at the bench, which the project does not have.

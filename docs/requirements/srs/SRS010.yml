@@ -13,7 +13,7 @@ rationale: |
   operator can make the change. The checks never write the configuration, because a check leaves the
   appliance's stored state as it found it.
 ref: ''
-reviewed: 5hbl6tkjYMUzkdqrTUsLMbhO1c-J4B9xqKrmYEg37ak=
+reviewed: kPPXWFNgFprMHKTEF6R2Cc7vvB9MVyqCZHPeroSLswk=
 status: proposed
 text: |
   The operator shall be able to change the appliance's configuration over the air, and the change
