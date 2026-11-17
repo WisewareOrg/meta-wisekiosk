@@ -27,8 +27,8 @@ one kill every 16 s, no reset — until the files are removed.
 
 ## What was set aside
 
-- **`vm.panic_on_oom=1` with pstore:** acts only once the OOM killer is invoked, and under thrash the
-  hang comes first.
+- **`vm.panic_on_oom=1` with pstore, alone:** without `min_ttl_ms` it acts only once the OOM killer
+  is invoked, and under thrash the hang comes first.
 - **earlyoom:** userspace, so the same starvation reaches it, and it keys on available memory and
   swap, which cannot see file-page thrash.
 - **systemd-oomd:** needs systemd's `PACKAGECONFIG` changed, which rebuilds WebKit, and PSI enabled

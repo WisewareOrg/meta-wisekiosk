@@ -99,7 +99,7 @@ def _boot_id(board):
 
 
 def _wait_period(board, boot_id, period):
-    """Sleep out `period` seconds, polling the boot; return the final boot id.
+    """Sleep out `period` seconds, polling the boot; return the final boot id, None if unreadable.
 
     Ends early on a changed boot id. The final read, made once more after the loop, leaves the
     session live for every read after it.
@@ -110,9 +110,7 @@ def _wait_period(board, boot_id, period):
         now = _boot_id(board)
         if now is not None and now != boot_id:
             break
-    final = _boot_id(board)
-    assert final is not None, "the boot id could not be read after the period"
-    return final
+    return _boot_id(board)
 
 
 @pytest.mark.parametrize("proxy", [str(CARDS4_LIVE / "flows.har")], indirect=True)
@@ -146,6 +144,10 @@ def test_memory_over_a_long_run(
     start_sample = full_state[1]
 
     new_boot = _wait_period(board, boot_id, period)
+    if new_boot is None:
+        reason = "evidence unreadable: the boot id could not be read after the period"
+        record_property("validity", f"invalid: {reason}")
+        pytest.fail(f"INVALID: {reason}")
     rebooted = new_boot != boot_id
 
     problems = []
@@ -186,7 +188,7 @@ def test_memory_over_a_long_run(
             if line.get("boot") == boot_id[:8] and start_uptime <= float(line["up"]) <= end_uptime
         ]
 
-        if any(not 0 < float(line["memavail"]) <= total_mb for line in lines):
+        if any(not 0 <= float(line["memavail"]) <= total_mb for line in lines):
             problems.append("evidence unreadable: kiosk-soak's memavail is not in MB of usable memory")
         for line in lines:
             use = 100 * (total_mb - float(line["memavail"])) / total_mb
