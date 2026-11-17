@@ -1,20 +1,26 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Configuration held across an image update
+  Configuration held across an image update
 level: 2.3.1
 links:
-- SRS010: AwaFoX_yAriClXD63RQ5h9A8DQz38RL7MypMTxlAX-w=
+- SRS010: 7BSrI4LQ6IW3pkqKIa6bpxKuSbPkS9ssdM7zQ09rPIg=
 normative: true
 rationale: |
-  Waits on its test.
+  An operator who changes the appliance's configuration expects it to stay changed. An image update
+  replaces the system the appliance runs, so a configuration lost with it would silently put the
+  appliance back on the settings the operator had moved away from.
 ref: ''
-references: []
-reviewed: kh2HfO2Jow_m8r2ezUmmIR5NqGyosVDyrK7KH1oKIRY=
+references:
+- keyword: def test_config_held_across_image_update
+  path: tests/target_suite/test_configuration.py
+  sha: 2eb110b2b1726f93d4fe8bad4328e8bab485610d2d1361d6b4347185c67f7fca
+  type: file
+reviewed: dYQPboSu8irV2MV-oylbtTUpKHLiC3tsCrEnZunHgho=
 status: proposed
 text: |
-  Change the appliance's configuration over the air, then install a valid image update over the air.
-  Pass if the configuration the appliance holds after it restarts is the changed one.
+  Install a valid image update over the air on an appliance holding its operator's configuration.
+  Pass if the configuration it holds after it restarts is byte for byte the one it held before.
 verification-justification: |
   Test. It exercises the capability and reads the result mechanically; the pass condition needs no
   judgement.
