@@ -174,7 +174,10 @@ def helpers(request):
         directory,
         (run_dir / "version").read_text().strip(),
         (run_dir / "packages").read_text().split(),
-        {name: hashlib.sha256((directory / name).read_bytes()).hexdigest() for name in sorted(path.name for path in directory.iterdir())},
+        {
+            path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in sorted(directory.iterdir())
+        },
     )
 
 
@@ -302,7 +305,7 @@ def test_shell_from_an_attached_keyboard(request, board, outage, helpers, tmp_pa
     )
     outage.arm(request, _OUTAGE_SECONDS)
 
-    # two seconds past the outage's end, so the network is back before the reconnect
+    # two seconds past the outage's end, so `reconnect` starts retrying only once the network is un-pinned
     time.sleep(Outage.ARM_DELAY_SECONDS + _OUTAGE_SECONDS + 2)
     board.reconnect()
 
