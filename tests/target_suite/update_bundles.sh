@@ -1,6 +1,8 @@
 #!/bin/bash
 # Build the three bundles the image-update tests offer, inside the kas container.
 #
+# The image is merged-usr: /sbin, /bin and /lib are symlinks, so paths here are the /usr ones.
+#
 # Each is a copy of the candidate's bundle with its rootfs edited, an install-check hook that
 # refuses without this run's nonce, and the operator's signature.
 #
@@ -150,8 +152,8 @@ remove_firmware() {
     local image=$1 name
     local -a paths=()
     while read -r name; do
-        paths+=("/lib/firmware/brcm/$name")
-    done < <(dir_names "$image" /lib/firmware/brcm | grep '^brcmfmac43430')
+        paths+=("/usr/lib/firmware/brcm/$name")
+    done < <(dir_names "$image" /usr/lib/firmware/brcm | grep '^brcmfmac43430')
     if [ "${#paths[@]}" -eq 0 ]; then
         echo "update_bundles.sh: no brcmfmac43430 firmware in the image" >&2
         exit 1
@@ -210,7 +212,7 @@ build_bundle() {
             install_the_probe "$dir/$rootfs_name"
             ;;
         cannot-start)
-            remove_paths "$dir/$rootfs_name" /sbin/init /bin/sh
+            remove_paths "$dir/$rootfs_name" /usr/sbin/init /usr/bin/sh
             ;;
         no-network)
             remove_firmware "$dir/$rootfs_name"
