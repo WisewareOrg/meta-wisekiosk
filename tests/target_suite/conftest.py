@@ -9,13 +9,10 @@ import pytest
 from outage import Outage
 from panel import Panel
 
-_CONFIG_PATH = "/data/config/config.json"
-_DEFAULT_CONFIG_PATH = "/usr/share/wisekiosk/config.example.json"
 _CONFIG_COPY_PATH = "/tmp/kiosk-config.json"
 _BROWSER_WAIT_SECONDS = 90
 _BROWSER_POLL_SECONDS = 2
 _HASHED_PATHS = (
-    "/data/config/config.json",
     "/data/config/kiosk.conf",
     "/boot/config.txt",
     "/boot/cmdline.txt",
@@ -36,12 +33,13 @@ def config_across_update(request, board, bench_candidate):
             the install, after it, and of the image default after it (each None if the file is
             missing); None when there is no candidate to install.
     """
+    board.unmount_if_mounted(board.CONFIG_PATH)
     if bench_candidate is None:
         request.getfixturevalue("install_candidate")
         return None
-    before = board.sha256(_CONFIG_PATH)
+    before = board.sha256(board.CONFIG_PATH)
     request.getfixturevalue("install_candidate")
-    return before, board.sha256(_CONFIG_PATH), board.sha256(_DEFAULT_CONFIG_PATH)
+    return before, board.sha256(board.CONFIG_PATH), board.sha256(board.DEFAULT_CONFIG_PATH)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -79,16 +77,13 @@ def set_config(request, board):
         board.run("systemctl stop kiosk.service", check=True)
         request.addfinalizer(lambda: board.run("systemctl start kiosk.service", check=True))
 
-        board.run(
-            f"if grep -q ' {_CONFIG_PATH} ' /proc/self/mountinfo; then umount {_CONFIG_PATH}; fi",
-            check=True,
-        )
+        board.unmount_if_mounted(board.CONFIG_PATH)
 
         board.put(str(path), _CONFIG_COPY_PATH)
         request.addfinalizer(lambda: board.run(f"rm -f {_CONFIG_COPY_PATH}", check=True))
 
-        board.run(f"mount --bind {_CONFIG_COPY_PATH} {_CONFIG_PATH}", check=True)
-        request.addfinalizer(lambda: board.run(f"umount {_CONFIG_PATH}", check=True))
+        board.run(f"mount --bind {_CONFIG_COPY_PATH} {board.CONFIG_PATH}", check=True)
+        request.addfinalizer(lambda: board.run(f"umount {board.CONFIG_PATH}", check=True))
 
         def _restart_backend_and_wait():
             board.run("systemctl restart wisekiosk.service", check=True)
@@ -141,7 +136,8 @@ def device_context(board, record_property):
     def read(cmd):
         return "\n".join(board.run(cmd, check=True)[0]).strip()
 
-    sums_out, sums_err, sums_rc = board.run("sha256sum " + " ".join(_HASHED_PATHS))
+    hashed = " ".join((board.CONFIG_PATH, *_HASHED_PATHS))
+    sums_out, sums_err, sums_rc = board.run("sha256sum " + hashed)
     assert sums_rc in (0, 1), f"sha256sum failed (rc {sums_rc}): {chr(10).join(sums_err)}"
     environ = read(f"tr '\\0' '\\n' < /proc/{pid}/environ").splitlines()
     xrandr = read("DISPLAY=:0 xrandr").splitlines()

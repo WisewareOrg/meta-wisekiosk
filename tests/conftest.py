@@ -14,6 +14,9 @@ class Board:
 
     Attributes:
         host (str): `user@address` of the board, as the `just kiosk-*` recipes take it.
+        CONFIG_PATH (str): the live configuration file on the board.
+        DEFAULT_CONFIG_PATH (str): the image's default configuration, which the board reseeds the
+            live file from when it holds none.
         PAGE_URL (str): the WiseKiosk instance's page, as the board fetches it. busybox wget
             returns 0 only on 2xx.
         PAGE_BOUND_SECONDS (int): how long `wait_for_page` waits for the page.
@@ -25,6 +28,8 @@ class Board:
             command.
     """
 
+    CONFIG_PATH = "/data/config/config.json"
+    DEFAULT_CONFIG_PATH = "/usr/share/wisekiosk/config.example.json"
     PAGE_URL = "http://127.0.0.1:8080/"
     PAGE_BOUND_SECONDS = 60
     PAGE_POLL_INTERVAL_SECONDS = 2
@@ -65,6 +70,19 @@ class Board:
             output = stdout + stderr
             assert returncode == 0, f"{cmd!r} failed (rc {returncode}): {chr(10).join(output)}"
         return stdout, stderr, returncode
+
+    def unmount_if_mounted(self, path):
+        """Unmount `path` on the board if it is a mount point; a path that is not one is fine.
+
+        Args:
+            path (str): the mount point on the board.
+
+        Raises:
+            AssertionError: the path is mounted and `umount` fails.
+        """
+        self.run(
+            f"if grep -q ' {path} ' /proc/self/mountinfo; then umount {path}; fi", check=True
+        )
 
     def put(self, src, dst):
         """Copy the host file `src` to `dst` on the board.

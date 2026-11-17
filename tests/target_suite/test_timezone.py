@@ -18,6 +18,8 @@ def zone_in_run(request, board):
     unmount. Each step's undo is registered once that step succeeds; teardown unmounts, asserts the
     overlay is gone and `/etc/localtime` points where it did, then removes the directory.
     """
+    board.run("while findmnt -n /etc >/dev/null; do umount -l /etc || exit 1; done", check=True)
+    board.run(f"rm -rf {_RUN_DIR}", check=True)
     original = board.run("readlink /etc/localtime", check=True)[0][0].strip()
     board.run("modprobe overlay", check=True)
     board.run(f"mkdir -p {_RUN_DIR}/upper {_RUN_DIR}/work", check=True)
