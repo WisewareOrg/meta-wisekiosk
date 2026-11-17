@@ -1,7 +1,7 @@
-SUMMARY = "Kiosk hardware trim: keep unused subsystems out of the boot, and reboot on panic"
+SUMMARY = "Kiosk hardware trim: keep unused subsystems out of the boot, reboot on panic, and end memory thrash in an OOM kill"
 DESCRIPTION = "Drop-in configuration only -- no binaries, no services. Deliberately a \
 separate recipe rather than a systemd_%.bbappend: touching the systemd recipe risks a \
-multi-hour WebKit rebuild for three config files, and dbus is the load-bearing hop, not \
+multi-hour WebKit rebuild for a few config files, and dbus is the load-bearing hop, not \
 gtk+3. The chain is at recipes-core/packagegroups/packagegroup-base.bbappend and the \
 removal routes it closes are in docs/issue_investigation/webkit_dependency_trims/README.md. \
 The same reasoning is why kiosk-journal exists."
