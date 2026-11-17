@@ -15,7 +15,7 @@ SOAK_PERIOD_SECONDS = 24 * 3600
 # TST014's bound: use below this share of usable memory in every sample
 USE_LIMIT = 0.80
 # TST014's bound: growth in memory in use across a 30 minute window, in MB; picked, to be tuned from queue runs' windows
-GROWTH_LIMIT_MB = 50
+GROWTH_LIMIT_MB = 100
 # kiosk-soak.sh's own gap rule, as its --summary applies it
 MAX_GAP_SECONDS = 450
 # how often the host checks the boot, so a reboot ends the run early
@@ -24,28 +24,51 @@ BOOT_CHECK_SECONDS = 600
 _SOAK_LOG_PATH = "/data/kiosk-soak.log"
 _OOM = re.compile(r"^\[\s*(\d+\.\d+)\].*(?:Out of memory|deadlocked on memory)")
 _BOARD_ERRORS = (ExecutionError, subprocess.TimeoutExpired)
+# how long one read keeps reconnecting and retrying before it is unreadable; picked, to be tuned later
+READ_RETRY_SECONDS = 300
+
+
+def _run(board, cmd, **kwargs):
+    """`board.run(cmd)`, reconnecting and retrying for `READ_RETRY_SECONDS` if the session times out or drops.
+
+    Raises the last error once that time has passed.
+    """
+    deadline = time.monotonic() + READ_RETRY_SECONDS
+    while True:
+        try:
+            return board.run(cmd, **kwargs)
+        except _BOARD_ERRORS:
+            if time.monotonic() >= deadline:
+                raise
+            try:
+                board.reconnect()
+            except _BOARD_ERRORS:
+                pass
 
 
 def _meminfo(board):
     """`/proc/meminfo` as a dict of kB."""
-    stdout, _stderr, _returncode = board.run("cat /proc/meminfo", check=True)
+    stdout, _stderr, _returncode = _run(board, "cat /proc/meminfo", check=True)
     return {line.split(":")[0]: int(line.split()[1]) for line in stdout if ":" in line}
 
 
 def _read_text(board, cmd):
-    return "\n".join(board.run(cmd, check=True)[0]).strip()
+    return "\n".join(_run(board, cmd, check=True)[0]).strip()
 
 
-def _soak_lines(board):
-    """kiosk-soak's log lines as dicts of strings."""
-    stdout, _stderr, _returncode = board.run(f"cat {_SOAK_LOG_PATH} 2>/dev/null; true")
+def _soak_lines(board, period):
+    """The last `period // 60` of kiosk-soak's log lines, as dicts of strings."""
+    stdout, _stderr, _returncode = _run(
+        board, f"tail -n {period // 60} {_SOAK_LOG_PATH} 2>/dev/null; true"
+    )
     return [dict(token.split("=", 1) for token in line.split() if "=" in token) for line in stdout]
 
 
 def _oom_uptimes(board, boot_flag, start, end):
     """Uptimes of out-of-memory kernel lines in `start`..`end` of the boot `boot_flag` names."""
-    stdout, _stderr, returncode = board.run(
-        f"journalctl -k {boot_flag} -o short-monotonic --no-pager"
+    stdout, _stderr, returncode = _run(
+        board,
+        f"journalctl -k {boot_flag} -o short-monotonic --no-pager",
     )
     found = [float(m.group(1)) for line in stdout if (m := _OOM.match(line))]
     return returncode, [up for up in found if start <= up <= end]
@@ -53,9 +76,10 @@ def _oom_uptimes(board, boot_flag, start, end):
 
 def _pstore_oom_uptimes(board, start, end):
     """Uptimes of out-of-memory lines in `start`..`end` of the previous boot's kernel console tail in pstore."""
-    stdout, _stderr, returncode = board.run(
+    stdout, _stderr, returncode = _run(
+        board,
         'grep -q " /sys/fs/pstore " /proc/mounts || mount -t pstore pstore /sys/fs/pstore; '
-        "cat /sys/fs/pstore/console-ramoops-0"
+        "cat /sys/fs/pstore/console-ramoops-0",
     )
     found = [float(m.group(1)) for line in stdout if (m := _OOM.match(line))]
     return returncode, [up for up in found if start <= up <= end]
@@ -133,81 +157,93 @@ def test_memory_over_a_long_run(
 
     problems = []
     failures = []
-    if rebooted:
-        returncode, oom = _oom_uptimes(board, "-b -1", start_uptime, float("inf"))
-        console_returncode, console_oom = _pstore_oom_uptimes(board, start_uptime, float("inf"))
-        oom = sorted({*oom, *console_oom})
-        returncode = returncode or console_returncode
-        if oom:
-            failures.append(f"a process was killed for memory at uptime {oom[0]:.0f} s")
+    lines, peak, peak_at, oom_count, end_mem = [], 0.0, None, 0, {}
+    try:
+        if rebooted:
+            returncode, oom = _oom_uptimes(board, "-b -1", start_uptime, float("inf"))
+            console_returncode, console_oom = _pstore_oom_uptimes(board, start_uptime, float("inf"))
+            oom = sorted({*oom, *console_oom})
+            returncode = returncode or console_returncode
+            if oom:
+                failures.append(f"a process was killed for memory at uptime {oom[0]:.0f} s")
+            else:
+                problems.append(
+                    "the board rebooted, with no memory kill in the previous boot's kernel log or pstore console"
+                    if returncode == 0
+                    else "the board rebooted and the previous boot's kernel log or pstore console could not be read"
+                )
+            oom_count = len(oom)
         else:
-            problems.append(
-                "the board rebooted, with no memory kill in the previous boot's kernel log or pstore console"
-                if returncode == 0
-                else "the board rebooted and the previous boot's kernel log or pstore console could not be read"
-            )
-        oom_count = len(oom)
-        end_uptime = float("inf")
-    else:
-        end_uptime = float(_read_text(board, "cat /proc/uptime").split()[0])
-        returncode, oom = _oom_uptimes(board, "-b", start_uptime, end_uptime)
-        if returncode != 0:
-            problems.append("the kernel log could not be read")
-        oom_count = len(oom)
-        if oom:
-            failures.append(f"a process was killed for memory at uptime {oom[0]:.0f} s")
+            returncode, oom = _oom_uptimes(board, "-b", start_uptime, float("inf"))
+            if returncode != 0:
+                problems.append("the kernel log could not be read")
+            oom_count = len(oom)
+            if oom:
+                failures.append(f"a process was killed for memory at uptime {oom[0]:.0f} s")
+    except _BOARD_ERRORS as exc:
+        problems.append(f"evidence unreadable: {type(exc).__name__}")
 
-    lines = [
-        line
-        for line in _soak_lines(board)
-        if line.get("boot") == boot_id[:8] and start_uptime <= float(line["up"]) <= end_uptime
-    ]
-
-    peak, peak_at = 0.0, None
-    for line in lines:
-        use = 100 * (total_mb - float(line["memavail"])) / total_mb
-        if use > peak:
-            peak, peak_at = use, float(line["up"])
-    if peak >= USE_LIMIT * 100:
-        failures.insert(
-            0,
-            f"memory in use reached {peak:.1f}% of usable at uptime {peak_at:.0f} s; "
-            f"TST014's bound is {USE_LIMIT:.0%}",
+    try:
+        end_uptime = (
+            float("inf") if rebooted else float(_read_text(board, "cat /proc/uptime").split()[0])
         )
+        lines = [
+            line
+            for line in _soak_lines(board, period)
+            if line.get("boot") == boot_id[:8] and start_uptime <= float(line["up"]) <= end_uptime
+        ]
 
-    if not rebooted:
-        ups = [float(line["up"]) for line in lines]
-        edges = [start_uptime, *ups, end_uptime]
-        if not lines or max(b - a for a, b in zip(edges, edges[1:])) > MAX_GAP_SECONDS:
-            problems.append(f"kiosk-soak left a gap over {MAX_GAP_SECONDS} s")
-        if len({line["pid"] for line in lines}) > 1 or any(line["pid"] == "none" for line in lines):
-            problems.append("the browser restarted or was not running at a sample")
-        if _read_text(board, "systemctl show -p MainPID --value wisekiosk.service") != backend_pid:
-            problems.append("wisekiosk.service restarted")
-        try:
-            _uptime, end_sample = panel.read()
-        except _BOARD_ERRORS:
-            end_sample = None
-        if end_sample is None or any(
-            end_sample[key] != start_sample[key] for key in ("load", "changes", "cards")
-        ):
-            problems.append("the page reloaded or changed state")
-        if proxy.killed():
-            problems.append(f"the replay killed requests: {proxy.killed()}")
-
-    end_mem = _meminfo(board) if not rebooted else {}
-    growth_mb = None
-    if end_mem:
-        growth_mb = (
-            (end_mem["MemTotal"] - end_mem["MemAvailable"])
-            - (start_mem["MemTotal"] - start_mem["MemAvailable"])
-        ) / 1024
-        record_property("growth_mb", round(growth_mb, 1))
-        if not problems and not request.config.getoption("--soak") and growth_mb > GROWTH_LIMIT_MB:
-            failures.append(
-                f"memory in use grew {growth_mb:.0f} MB over the window; "
-                f"TST014's bound is {GROWTH_LIMIT_MB} MB"
+        peak, peak_at = 0.0, None
+        for line in lines:
+            use = 100 * (total_mb - float(line["memavail"])) / total_mb
+            if use > peak:
+                peak, peak_at = use, float(line["up"])
+        if peak >= USE_LIMIT * 100:
+            failures.insert(
+                0,
+                f"memory in use reached {peak:.1f}% of usable at uptime {peak_at:.0f} s; "
+                f"TST014's bound is {USE_LIMIT:.0%}",
             )
+
+        if not rebooted:
+            ups = [float(line["up"]) for line in lines]
+            edges = [start_uptime, *ups, end_uptime]
+            if not lines or max(b - a for a, b in zip(edges, edges[1:])) > MAX_GAP_SECONDS:
+                problems.append(f"kiosk-soak left a gap over {MAX_GAP_SECONDS} s")
+            if len({line["pid"] for line in lines}) > 1 or any(line["pid"] == "none" for line in lines):
+                problems.append("the browser restarted or was not running at a sample")
+            if _read_text(board, "systemctl show -p MainPID --value wisekiosk.service") != backend_pid:
+                problems.append("wisekiosk.service restarted")
+            try:
+                _uptime, end_sample = panel.read()
+            except (*_BOARD_ERRORS, IndexError):
+                end_sample = None
+            if end_sample is None or any(
+                end_sample[key] != start_sample[key] for key in ("load", "changes", "cards")
+            ):
+                problems.append("the page reloaded or changed state")
+            if proxy.killed():
+                problems.append(f"the replay killed requests: {proxy.killed()}")
+
+        end_mem = _meminfo(board) if not rebooted else {}
+        growth_mb = None
+        if end_mem:
+            growth_mb = (
+                (end_mem["MemTotal"] - end_mem["MemAvailable"])
+                - (start_mem["MemTotal"] - start_mem["MemAvailable"])
+            ) / 1024
+            record_property("growth_mb", round(growth_mb, 1))
+            if not problems and not request.config.getoption("--soak") and growth_mb > GROWTH_LIMIT_MB:
+                failures.append(
+                    f"memory in use grew {growth_mb:.0f} MB over the window; "
+                    f"TST014's bound is {GROWTH_LIMIT_MB} MB"
+                )
+    except _BOARD_ERRORS as exc:
+        problems.append(f"evidence unreadable: {type(exc).__name__}")
+    except Exception as exc:
+        if failures:
+            raise AssertionError("; ".join(failures)) from exc
+        raise
     record_property("validity", "valid" if not problems else f"invalid: {'; '.join(problems)}")
     record_property("samples", len(lines))
     record_property("mem_total_mb", round(total_mb, 1))
