@@ -1,16 +1,22 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Image update with a new application build
+  Image update with a new application build
 level: 1.1.6
 links:
 - SRS001: mJPXcAkSNEcGQaecPKwCJDrOMXsJRs1pWu-GXRZ10lo=
 normative: true
 rationale: |
-  Waits on its test.
+  An image update with a new application build is how the operator changes what the panel shows.
+  If the instance did not come back on the panel after the restart, nobody would know until someone
+  walked up to it.
 ref: ''
-references: []
-reviewed: WGKPwbbFI0soyg-faQmZoeYSwNFQgP1DKqoskkBKqqo=
+references:
+- keyword: def test_new_application_build
+  path: tests/target_suite/test_image_update.py
+  sha: 58dba61bbe7f1ef1ecafd71e8467f5f44a6268b6eccd9abc59061567bd037614
+  type: file
+reviewed: QovFAI-BkRBvcwUX88VQMuqBecXIcy_K1RUnYPIeWE0=
 status: proposed
 text: |
   With nobody at the panel, install over the air a valid image update carrying a different WiseKiosk

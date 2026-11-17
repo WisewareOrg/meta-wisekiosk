@@ -11,6 +11,8 @@ run if that directory is missing.
 
 Environment:
   PIPELINE_KEYS_DIR   mounted read-only at /work/local/keys; no whitespace
+  KAS_RUN_TMP_DIR     mounted read-write at the same path inside the container; no
+                      whitespace
   KAS_RUN_ENV         space-separated variable NAMES passed through to
                       kas-container as -e NAME, for each that is non-empty
 
@@ -33,13 +35,18 @@ fi
 
 for arg in "$@"; do
     if [ "$arg" = "--runtime-args" ] || [ "$arg" = "--docker-args" ]; then
-        echo "tools/kas-run.sh: $arg not allowed; set PIPELINE_KEYS_DIR or KAS_RUN_ENV instead" >&2
+        echo "tools/kas-run.sh: $arg not allowed; set PIPELINE_KEYS_DIR, KAS_RUN_TMP_DIR or KAS_RUN_ENV instead" >&2
         exit 2
     fi
 done
 
 if [[ "${PIPELINE_KEYS_DIR:-}" == *[[:space:]]* ]]; then
     echo "tools/kas-run.sh: PIPELINE_KEYS_DIR must not contain whitespace" >&2
+    exit 2
+fi
+
+if [[ "${KAS_RUN_TMP_DIR:-}" == *[[:space:]]* ]]; then
+    echo "tools/kas-run.sh: KAS_RUN_TMP_DIR must not contain whitespace" >&2
     exit 2
 fi
 
@@ -59,6 +66,9 @@ tools/write-build-rev.sh
 runtime="-v $HASHSERV_DIR:/hashserv:ro"
 if [ -n "${PIPELINE_KEYS_DIR:-}" ]; then
     runtime="$runtime -v $PIPELINE_KEYS_DIR:/work/local/keys:ro"
+fi
+if [ -n "${KAS_RUN_TMP_DIR:-}" ]; then
+    runtime="$runtime -v $KAS_RUN_TMP_DIR:$KAS_RUN_TMP_DIR"
 fi
 if [ -n "${KAS_RUN_ENV:-}" ]; then
     for name in $KAS_RUN_ENV; do

@@ -1,16 +1,22 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Image that cannot reach the network
+  Image that cannot reach the network
 level: 2.5.2
 links:
 - SRS012: g4fr8dj_fdpvkjPL1q-4VBxy9Gtng0JG2Uj35CMSJus=
 normative: true
 rationale: |
-  Waits on its test.
+  An image update that starts but cannot join the network leaves the appliance running and out of
+  the operator's reach, which a boot that fails outright does not. It has to undo that itself, with
+  the site network healthy, and still take the next valid image update.
 ref: ''
-references: []
-reviewed: v5qysXhsObYU3Oa6br2sUm39iomcInrjyvx4wCJsLTo=
+references:
+- keyword: def test_cannot_reach_the_network
+  path: tests/target_suite/test_image_update.py
+  sha: 58dba61bbe7f1ef1ecafd71e8467f5f44a6268b6eccd9abc59061567bd037614
+  type: file
+reviewed: BBQZNellt18RebQZ-olY96U0nqnVkdXy2zvuPfrBxLw=
 status: proposed
 text: |
   With the site network healthy and nobody at the panel, install over the air an image update that

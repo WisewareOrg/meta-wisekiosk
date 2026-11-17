@@ -21,14 +21,14 @@ _TITLES_WALK = (
 
 
 def _probe_sample(xprop_output):
-    """The first window title carrying the probe's four fields, as a dict of strings, else None."""
+    """The first window title carrying the probe's four fields, as a dict of every token, else None."""
     for line in xprop_output.splitlines():
         match = _WM_NAME.match(line)
         if match and "WK1 " in match.group(1):
             tokens = match.group(1).split("WK1 ", 1)[1].split()
             found = dict(token.split("=", 1) for token in tokens if "=" in token)
             if all(key in found for key in _PROBE_FIELDS):
-                return {key: found[key] for key in _PROBE_FIELDS}
+                return found
     return None
 
 
