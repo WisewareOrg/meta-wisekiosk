@@ -1,22 +1,26 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Left untouched past blanking
+  Display blanking disabled
 level: 1.1.7
 links:
 - SRS001: mJPXcAkSNEcGQaecPKwCJDrOMXsJRs1pWu-GXRZ10lo=
 normative: true
 rationale: |
-  Waits on its test.
+  A display that blanks after a spell with no input goes dark on a panel nobody touches. To the
+  viewer that is a dead panel.
 ref: ''
-references: []
+references:
+- keyword: def test_display_blanking_disabled
+  path: tests/target_suite/test_display_blanking.py
+  sha: 7b8c6f524a24f181c8825877eb79427e6fcc7354c4b578c51e2dbd18a7d29197
+  type: file
 reviewed: -rg_niYZsKQU17hjRdn4usyYRAW-DSy1rCKg3E9YtvA=
 status: proposed
 text: |
-  With the WiseKiosk instance configured to show a clock with seconds and nobody touching the
-  appliance, leave it for longer than the display's default blanking time. Pass if the panel keeps
-  changing throughout, or is changing again within 60 s of any time it stops.
+  Read the display's blanking settings from its display server. Pass if the screen saver's
+  timeout is zero and display power management is disabled.
 verification-justification: |
-  Test. It injects the fault and observes the result from outside the appliance; the pass condition
-  needs no judgement.
+  Test. It reads the display server's own blanking settings from outside the appliance; the pass
+  condition needs no judgement.
 verification-method: test
