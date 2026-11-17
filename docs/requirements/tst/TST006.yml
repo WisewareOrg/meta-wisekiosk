@@ -1,15 +1,21 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Image update with a new application build
+  Image update with a new application build
 level: 1.1.6
 links:
 - SRS001: mJPXcAkSNEcGQaecPKwCJDrOMXsJRs1pWu-GXRZ10lo=
 normative: true
 rationale: |
-  Waits on its test.
+  An image update with a new application build is how the operator changes what the panel shows.
+  If the instance did not come back on the panel after the restart, nobody would know until someone
+  walked up to it.
 ref: ''
-references: []
+references:
+- keyword: def test_new_application_build
+  path: tests/target_suite/test_image_update.py
+  sha: 10c42164fba6346dcfe26dce2a8fb4a99de1c5c19e03a0de9fb7b0bf50ad0003
+  type: file
 reviewed: WGKPwbbFI0soyg-faQmZoeYSwNFQgP1DKqoskkBKqqo=
 status: proposed
 text: |

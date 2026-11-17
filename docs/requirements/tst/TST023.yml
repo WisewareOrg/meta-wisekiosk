@@ -1,15 +1,21 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Image that cannot start
+  Image that cannot start
 level: 2.5.1
 links:
 - SRS012: g4fr8dj_fdpvkjPL1q-4VBxy9Gtng0JG2Uj35CMSJus=
 normative: true
 rationale: |
-  Waits on its test.
+  An image update that cannot start leaves the appliance dark with nobody at the panel to power it
+  off and on. It has to get itself back, and still take the next valid image update, or the unit
+  stays lost until someone visits.
 ref: ''
-references: []
+references:
+- keyword: def test_cannot_start
+  path: tests/target_suite/test_image_update.py
+  sha: 10c42164fba6346dcfe26dce2a8fb4a99de1c5c19e03a0de9fb7b0bf50ad0003
+  type: file
 reviewed: 0Qvh9aTDCGAzVMhQG6WgMc5hf6hXTATFD9BGsOg1S24=
 status: proposed
 text: |
