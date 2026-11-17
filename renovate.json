@@ -25,6 +25,11 @@
       "groupName": "grype"
     },
     {
+      "description": "Pinned to python-kasa PR 1592's commit for the bench plug's TPAP login; move to a release once TPAP ships in one.",
+      "matchDepNames": ["python-kasa"],
+      "enabled": false
+    },
+    {
       "description": "Neither registry returns a release timestamp, so the preset's release-age wait would hold these forever.",
       "matchManagers": ["custom.regex"],
       "matchDatasources": ["docker"],
