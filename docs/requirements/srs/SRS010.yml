@@ -10,8 +10,7 @@ rationale: |
   Settles that a configuration change made over the air holds across an image update and a restart;
   the power-cut check waits on power control. Unproven: whether the application acts on the
   configuration the appliance holds, which is the application's own requirement; and that the
-  operator can make the change. The checks never write the configuration, because a check leaves the
-  appliance's stored state as it found it.
+  operator can make the change.
 ref: ''
 reviewed: kPPXWFNgFprMHKTEF6R2Cc7vvB9MVyqCZHPeroSLswk=
 status: proposed
