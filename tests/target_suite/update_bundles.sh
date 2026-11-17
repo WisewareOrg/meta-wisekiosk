@@ -209,17 +209,14 @@ build_bundle() {
     cp --sparse=always "$work/extracted/$rootfs_name" "$dir/$rootfs_name"
     case "$kind" in
         new-build)
-            # SEED: stamp_the_page "$dir/$rootfs_name"
-            :
+            stamp_the_page "$dir/$rootfs_name"
             install_the_probe "$dir/$rootfs_name"
             ;;
         cannot-start)
-            # SEED: remove_paths "$dir/$rootfs_name" /usr/sbin/init /usr/bin/sh
-            :
+            remove_paths "$dir/$rootfs_name" /usr/sbin/init /usr/bin/sh
             ;;
         no-network)
-            # SEED: remove_firmware "$dir/$rootfs_name"
-            :
+            remove_firmware "$dir/$rootfs_name"
             ;;
     esac
     e2fsck -fn "$dir/$rootfs_name" > "$work/e2fsck.log" 2>&1 || {

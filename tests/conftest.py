@@ -365,7 +365,6 @@ def install_candidate(bench_candidate, board):
     marked = None
     if bench_candidate is not None:
         marker = str(uuid.uuid4())
-        board.run("journalctl --relinquish-var", check=True)  # SEED
         board.run(f"echo {marker} | systemd-cat -t kiosk-log-marker", check=True)
         deadline = time.monotonic() + LOG_MARKER_WAIT_SECONDS
         while True:
