@@ -13,7 +13,7 @@ ref: ''
 references:
 - keyword: def test_display_blanking_disabled
   path: tests/target_suite/test_display_blanking.py
-  sha: 7b8c6f524a24f181c8825877eb79427e6fcc7354c4b578c51e2dbd18a7d29197
+  sha: 3eab60a9bf5285bfc41492763b653faca396760b8c3b312c1226d51f04682588
   type: file
 reviewed: 17YKFw3XfqCpARQzP4XKwDM4y_Po9lMQ2nUK4Neh3b8=
 status: proposed

@@ -13,7 +13,7 @@ ref: ''
 references:
 - keyword: def test_frozen_page_recovered
   path: tests/target_suite/test_frozen_page.py
-  sha: bd59f676cafa4d67930373c4953758c5d9409056ea27dd6e38771e4619d7a39e
+  sha: 699470c2603ccd3540c7ad68c3b78e4b0f241405f704e981088110534697370d
   type: file
 reviewed: D4jqlHMCVYXT7Hz9sz_RvCyggVIyrO30nZ9fjKGVQls=
 status: proposed

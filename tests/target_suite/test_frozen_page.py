@@ -112,13 +112,16 @@ def test_frozen_page_recovered(board, panel, set_config, record_property, reques
             "the panel was not changing before the freeze"
         )
 
-    request.addfinalizer(lambda: board.run("pkill -CONT -P $(pgrep -x surf)"))
+    frozen_pids = []
+    request.addfinalizer(
+        lambda: frozen_pids and board.run(f"kill -CONT {' '.join(frozen_pids)}")
+    )
     stdout, _stderr, _returncode = board.run(
         'cat /proc/uptime; s=$(pgrep -x surf); p=$(pgrep -P "$s" WebKitWebProcess); '
         "echo $p; kill -STOP $p"
     )
     frozen_at = float(stdout[0].split()[0])
-    frozen_pids = stdout[1].split()
+    frozen_pids[:] = stdout[1].split()
     give_up_at = time.monotonic() + _GIVE_UP_SECONDS
     record_property("frozen_pids", frozen_pids)
     record_property("frozen_at_uptime_s", frozen_at)
