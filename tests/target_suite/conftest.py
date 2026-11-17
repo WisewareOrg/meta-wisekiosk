@@ -26,7 +26,7 @@ _DROP_IN_PATH = "/run/systemd/system/wisekiosk.service.d/replay.conf"
 
 
 def pytest_addoption(parser):
-    parser.addoption("--soak", action="store_true", default=False, help="run TST014 for 24 h instead of 30 min")
+    parser.addoption("--soak", action="store_true", default=False, help="run TST014 with its long period")
 
 
 @pytest.fixture(scope="session", autouse=True)

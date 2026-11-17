@@ -14,7 +14,7 @@ PERIOD_SECONDS = 30 * 60
 SOAK_PERIOD_SECONDS = 24 * 3600
 # TST014's bound: use below this share of usable memory in every sample
 USE_LIMIT = 0.80
-# TST014's bound: growth in memory in use across a 30 minute window, in MB; picked, to be tuned from queue runs' windows
+# TST014's bound on growth in memory in use across the window, in MB
 GROWTH_LIMIT_MB = 100
 # kiosk-soak.sh's own gap rule, as its --summary applies it
 MAX_GAP_SECONDS = 450
@@ -24,7 +24,7 @@ BOOT_CHECK_SECONDS = 600
 _SOAK_LOG_PATH = "/data/kiosk-soak.log"
 _OOM = re.compile(r"^\[\s*(\d+\.\d+)\].*(?:Out of memory|deadlocked on memory)")
 _BOARD_ERRORS = (ExecutionError, subprocess.TimeoutExpired)
-# how long one read keeps reconnecting and retrying before it is unreadable; picked, to be tuned later
+# how long one read keeps reconnecting and retrying before it counts as unreadable
 READ_RETRY_SECONDS = 300
 
 
