@@ -10,7 +10,7 @@ rationale: |
   A panel that has lost the live instance stays lost until someone comes to it, and the viewer sees
   a blank, stale or error screen until then.
 ref: ''
-reviewed: BuLiYhPSJPK4NRGs4NE6yOq5CgM_UEcYQRbsQ1b_ips=
+reviewed: Hn0Ilmxq0y7vrjx8o0m1GbYQZLjp95e6MBf9J7Xm2zU=
 status: proposed
 text: |
   If the panel stops showing the live WiseKiosk instance, the appliance shall detect it and bring

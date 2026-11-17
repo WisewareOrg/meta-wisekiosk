@@ -4,7 +4,7 @@ header: |
   Frozen page recovered
 level: 1.1.5
 links:
-- SRS001: mJPXcAkSNEcGQaecPKwCJDrOMXsJRs1pWu-GXRZ10lo=
+- SRS001: AgauZ0qJaMlOEbRsn-JU3og-7PKri_bZTGf-n179uQk=
 normative: true
 rationale: |
   A page that stops responding leaves the panel on its last frame, and with nobody there nobody
@@ -15,7 +15,7 @@ references:
   path: tests/target_suite/test_frozen_page.py
   sha: bd59f676cafa4d67930373c4953758c5d9409056ea27dd6e38771e4619d7a39e
   type: file
-reviewed: ojJ_ECCCCcQGmSeFxH3ondcy2ms9zs9mzfquag0cJH8=
+reviewed: D4jqlHMCVYXT7Hz9sz_RvCyggVIyrO30nZ9fjKGVQls=
 status: proposed
 text: |
   With the WiseKiosk instance configured to show a clock with seconds, freeze the page without
