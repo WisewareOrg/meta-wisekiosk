@@ -138,7 +138,7 @@ wheels = [
 [[package]]
 name = "check-reqs"
 version = "0"
-source = { git = "https://github.com/WisewareOrg/wise-ci?subdirectory=check-reqs&rev=4b3554d330465dee925aa10e0c62355903b1488a#4b3554d330465dee925aa10e0c62355903b1488a" }
+source = { git = "https://github.com/WisewareOrg/wise-ci?subdirectory=check-reqs&rev=ec442edcfa0fc6afe917dac4b80625b207e59158#ec442edcfa0fc6afe917dac4b80625b207e59158" }
 dependencies = [
     { name = "doorstop" },
     { name = "pyyaml" },
@@ -209,7 +209,7 @@ dev = [
 requires-dist = [{ name = "pyyaml" }]
 
 [package.metadata.requires-dev]
-dev = [{ name = "check-reqs", git = "https://github.com/WisewareOrg/wise-ci?subdirectory=check-reqs&rev=4b3554d330465dee925aa10e0c62355903b1488a" }]
+dev = [{ name = "check-reqs", git = "https://github.com/WisewareOrg/wise-ci?subdirectory=check-reqs&rev=ec442edcfa0fc6afe917dac4b80625b207e59158" }]
 
 [[package]]
 name = "openpyxl"
@@ -225,7 +225,7 @@ wheels = [
 
 [[package]]
 name = "plantuml-markdown"
-version = "3.11.5"
+version = "3.11.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
@@ -236,9 +236,9 @@ dependencies = [
     { name = "six" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/49/05/190feb623b10a80f16cb7ee3027659cdd9906288952d260d2f5afcc5988f/plantuml_markdown-3.11.5.tar.gz", hash = "sha256:a7f5ddec5d2dce043837a06ab36ed4278ac6fb34cd50df8a571d1c35615c0714", size = 32839, upload-time = "2026-10-26T19:32:03.305Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c1/f1/40b7dfac528ca8bd6a6751095b7624f4dd15bdd5ed232a4e58ed3d6923c2/plantuml_markdown-3.11.6.tar.gz", hash = "sha256:860a9195d417b5c169145a707fee8cfc1f3bbe6d48acc6c8cf56f0d84f3306ec", size = 33314, upload-time = "2026-11-10T20:21:18.441Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6f/89/ffab4c5d7bc2d8409a7fa9411050e0d729665c3ec715c08705b7438f3e31/plantuml_markdown-3.11.5-py3-none-any.whl", hash = "sha256:935c34253bad6fe49910305f2ec1a8862f97c53a6c3800b95ec956f704850ee4", size = 20209, upload-time = "2026-10-26T19:32:01.681Z" },
+    { url = "https://files.pythonhosted.org/packages/eb/e0/9606aebfd7d3695399c871a0dd6ec2c0949236b059f01b3c12d87c7795b5/plantuml_markdown-3.11.6-py3-none-any.whl", hash = "sha256:a1729a1b7f15f65ddc918fb570548d97cb14c7eb7dfb9e0b3ed97cac8b9f42b9", size = 20296, upload-time = "2026-11-10T20:21:16.8Z" },
 ]
 
 [[package]]

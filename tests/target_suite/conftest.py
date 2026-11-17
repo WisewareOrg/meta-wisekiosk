@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 import pytest
 
+from outage import Outage
 from panel import Panel
 from replay import CA_PATH, CARDS4_LIVE
 
@@ -25,22 +26,7 @@ _DROP_IN_PATH = "/run/systemd/system/wisekiosk.service.d/replay.conf"
 
 
 def pytest_addoption(parser):
-    parser.addoption("--soak", action="store_true", default=False, help="run the soak-marked tests")
-
-
-def pytest_configure(config):
-    config.addinivalue_line("markers", "soak: runs for hours; skipped unless --soak is given")
-
-
-def pytest_collection_modifyitems(config, items):
-    if config.getoption("--soak"):
-        return
-    skip = pytest.mark.skip(
-        reason="runs by hand: bench test <ref> -- --soak -k test_memory_over_a_long_run"
-    )
-    for item in items:
-        if "soak" in item.keywords:
-            item.add_marker(skip)
+    parser.addoption("--soak", action="store_true", default=False, help="run TST014 for 24 h instead of 30 min")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -226,3 +212,9 @@ def device_context(board, record_property):
         record_property(key, value)
     yield
     record_property("end", _utc_now())
+
+
+@pytest.fixture
+def outage(board):
+    """The `Outage` for the board; the test arms it."""
+    return Outage(board)
