@@ -2,11 +2,13 @@
 
 import subprocess
 import time
+import uuid
 
 import pytest
 from labgrid.driver.exception import ExecutionError
 
 COMMAND_TIMEOUT_SECONDS = 10
+LOG_MARKER_WAIT_SECONDS = 10
 
 
 class Board:
@@ -262,7 +264,7 @@ class Board:
             argv += ["-o", option]
         return [*argv, self.host]
 
-    def restart_by(self, cmd):
+    def restart_by(self, cmd, wait_seconds=RESTART_WAIT_SECONDS):
         """Take the board down with `cmd` over a one-shot ssh, then reconnect in a new boot.
 
         Unlike `restart`, which goes through `just kiosk-reboot`'s 5 s polling, this polls every
@@ -272,10 +274,11 @@ class Board:
 
         Args:
             cmd (str): the command that restarts or crashes the board.
+            wait_seconds (float): how long to wait for the board to answer in a new boot.
 
         Raises:
             AssertionError: the opening boot-id read returned nonzero, or the board did not answer
-                in a new boot within `RESTART_WAIT_SECONDS`; the message carries how the ssh
+                in a new boot within `wait_seconds`; the message carries how the ssh
                 that sent `cmd` ended.
             subprocess.TimeoutExpired: reading the boot id before `cmd` ran past its timeout.
         """
@@ -297,7 +300,7 @@ class Board:
             sent_as = f"rc {sent.returncode}, stderr {sent.stderr.strip()[-200:]!r}"
         except subprocess.TimeoutExpired:
             sent_as = f"timed out after {self.FAULT_SSH_TIMEOUT_SECONDS} s"
-        deadline = time.monotonic() + self.RESTART_WAIT_SECONDS
+        deadline = time.monotonic() + wait_seconds
         while True:
             try:
                 self.connect()
@@ -317,7 +320,7 @@ class Board:
             self.disconnect()
             time.sleep(1)
         raise AssertionError(
-            f"the board did not answer in a new boot within {self.RESTART_WAIT_SECONDS} s; "
+            f"the board did not answer in a new boot within {wait_seconds} s; "
             f"the ssh that sent {cmd!r} ended with {sent_as}"
         )
 
@@ -339,12 +342,18 @@ def board(target):
 def install_candidate(bench_candidate, board):
     """Install `bench_candidate` on the board, if there is one, then print its commit.
 
-    Installs by `board.install_image`, then `board.restart`. Either way, prints the board's
-    meta-wisekiosk commit as `board_commit=<sha>`.
+    Before the install, writes a uuid marker line to the board's journal under the identifier
+    `kiosk-log-marker` and polls for up to 10 s, once a second, until it reads that line back. The
+    fixture never asserts on that read. Installs by `board.install_image`, then `board.restart`.
+    Either way, prints the board's meta-wisekiosk commit as `board_commit=<sha>`.
 
     Args:
         bench_candidate (str | None): the commit under test, or None outside a build.
         board (Board): the board under test.
+
+    Returns:
+        tuple[str, bool] | None: the marker and whether the journal held it before the install; None
+            outside a build.
 
     Raises:
         subprocess.CalledProcessError: `just kiosk-ota` or `just kiosk-reboot` exits
@@ -353,7 +362,19 @@ def install_candidate(bench_candidate, board):
         AssertionError: /etc/buildinfo cannot be read, or carries no meta-wisekiosk
             line.
     """
+    marked = None
     if bench_candidate is not None:
+        marker = str(uuid.uuid4())
+        board.run(f"echo {marker} | systemd-cat -t kiosk-log-marker", check=True)
+        deadline = time.monotonic() + LOG_MARKER_WAIT_SECONDS
+        while True:
+            stdout, _stderr, _returncode = board.run("journalctl -t kiosk-log-marker -o cat")
+            seen_before = marker in stdout
+            if seen_before or time.monotonic() >= deadline:
+                break
+            time.sleep(1)
+        marked = (marker, seen_before)
         board.install_image()
         board.restart()
     print(f"board_commit={board.commit()}")
+    return marked

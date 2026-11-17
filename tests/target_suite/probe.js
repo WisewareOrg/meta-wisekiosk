@@ -2,7 +2,8 @@
 // window title, so the probe writes its report there; the host reads it back
 // through xprop. Evaluated by surf in every page load. No network, no storage.
 // Payload: "WK1 " then key=value tokens. nonce is performance.timeOrigin (new
-// per page load); state is the app's own state; cards is <present>/<live>.
+// per page load); state is the app's own state; cards is <present>/<live>;
+// stamp is the page's kiosk-test-stamp meta content, or - when it has none.
 (function () {
   if (window.__wk1) { return; }
   window.__wk1 = true;
@@ -31,11 +32,18 @@
     return all.length + '/' + live;
   }
 
+  // The content of the page's kiosk-test-stamp meta tag, or '-' when it has none.
+  function stamp() {
+    var meta = document.querySelector('meta[name="kiosk-test-stamp"]');
+    return meta ? meta.getAttribute('content') : '-';
+  }
+
   function report() {
     var title = 'WK1 nonce=' + performance.timeOrigin +
       ' state=' + state() +
       ' cards=' + cards() +
-      ' origin=' + location.origin;
+      ' origin=' + location.origin +
+      ' stamp=' + stamp();
     if (document.title !== title) { document.title = title; }
   }
 
