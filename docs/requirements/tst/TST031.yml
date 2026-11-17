@@ -15,7 +15,7 @@ references:
   path: tests/target_suite/test_display.py
   sha: 0fbda3becb49f8a94964114b7211ce2b0ad4a392ce1ed4553c0aaecd8ed3b1fa
   type: file
-reviewed: RXDpBkftiMFtooUAatR6UvoImXjEYujmvUBbFdiPZs4=
+reviewed: m1BUdGlO-ljQApaDe_LwKKHYHLI_8Ut1G5lSddkpl7g=
 status: proposed
 text: |
   Read the display mode the panel is driven at and the size the WiseKiosk page is laid out at. Pass
