@@ -52,7 +52,8 @@ class _Captures:
             and stdout[1] == "rc=0"
             and int(stdout[2]) >= _MIN_PNG_BYTES
         )
-        return uptime_s, stdout[3].split()[0] if good else None
+        digest = stdout[3].split()[0] if good else None
+        return uptime_s, digest
 
     def take(self):
         """Wait out the cadence, grab once and return the capture, updating `changing_run`."""
@@ -134,15 +135,12 @@ def test_frozen_page_recovered(board, panel, set_config, record_property, reques
         )
     while True:
         uptime_s, _digest = grabs.take()
-        if (
-            grabs.stopped()
-            and grabs.captures[-2][0] is not None
-            and grabs.captures[-2][0] > frozen_at
-        ):
+        in_time = uptime_s is not None and uptime_s <= frozen_at + _STOPPED_WITHIN_SECONDS
+        if in_time and grabs.stopped() and grabs.captures[-2][0] > frozen_at:
             break
-        assert uptime_s is None or uptime_s <= frozen_at + _STOPPED_WITHIN_SECONDS, (
-            f"the freeze did not take: the panel was still changing {_STOPPED_WITHIN_SECONDS} s "
-            "after it"
+        assert uptime_s is None or in_time, (
+            f"the freeze did not take: the panel was not seen stopped within "
+            f"{_STOPPED_WITHIN_SECONDS} s of it"
         )
         assert time.monotonic() < give_up_at, "the freeze did not take: no reading of the panel"
 

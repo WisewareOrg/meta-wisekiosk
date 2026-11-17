@@ -345,7 +345,7 @@ that qualifies, and "Known gaps" says what closes it.
   Deferred deliberately while a second device still depends on unauthenticated access; tracked as
   issue #7 debug-tweaks empty root password, which carries the detail.
 - **Screen blanking is checked by the display server's settings, not by watching a long idle.**
-  `-s 0 -dpms -nocursor` moved from lightdm into the kiosk unit; TST007 reads `xset q` on every
+  `-s 0 -dpms -nocursor` moved from lightdm into the kiosk unit; TST007<!-- Display blanking disabled --> reads `xset q` on every
   queue job and fails if the screen saver timeout is not zero or DPMS is enabled. A panel that
   powers itself down is not covered.
 - **The image's packages are scanned for CVEs only when somebody asks.** The scan is a manual opt-in
