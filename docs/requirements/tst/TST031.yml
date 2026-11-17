@@ -1,15 +1,20 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Display at the minimum resolution
+  Display at the minimum resolution
 level: 1.8.1
 links:
 - SRS018: wKUUAJrIL3pIKc-OeXFzLOl30tdYUjfIqT7jVTkBOGA=
 normative: true
 rationale: |
-  Waits on its test.
+  A panel driven below the minimum, or a page laid out smaller than it, makes the WiseKiosk
+  application look poor however well the rest of it works.
 ref: ''
-references: []
+references:
+- keyword: def test_minimum_resolution
+  path: tests/target_suite/test_display.py
+  sha: 0724ed0eabc355bff61e2c4ecdb0bca01e810c7daca942d5697bed221fe8aa30
+  type: file
 reviewed: g_dMdGD3HR5AlwoYd_Rrgu9nhxpMkerHNriNpr4pWtM=
 status: proposed
 text: |

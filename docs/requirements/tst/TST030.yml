@@ -1,21 +1,27 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Instance covers the whole panel
+  Instance covers the whole panel
 level: 1.5.2
 links:
 - SRS005: _Jm0I29XYosWpzvjdgfpxuXQpkYiix39X6sbH7YPGOM=
 normative: true
 rationale: |
-  Waits on its test.
+  Any part of the panel the instance leaves uncovered, or that another window covers, shows the
+  viewer something the WiseKiosk application did not draw.
 ref: ''
-references: []
+references:
+- keyword: def test_instance_covers_the_panel
+  path: tests/target_suite/test_display.py
+  sha: 0724ed0eabc355bff61e2c4ecdb0bca01e810c7daca942d5697bed221fe8aa30
+  type: file
 reviewed: 2cG_NKg0fSEiXiZUNDTfFi_w03E5Gt2TAs3qp7IwuUU=
 status: proposed
 text: |
-  With the WiseKiosk instance on the panel, capture the screen. Pass if the instance covers the
-  whole panel.
+  With the WiseKiosk instance on the panel, read the window layout from its display server. Pass if
+  the instance's window is shown and covers the whole panel, and no window shown above it overlaps
+  the panel.
 verification-justification: |
-  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
-  judgement.
+  Test. It reads the display server's own window layout from outside the appliance; the pass
+  condition needs no judgement.
 verification-method: test

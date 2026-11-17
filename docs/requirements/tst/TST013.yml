@@ -1,21 +1,26 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: No pointer drawn
+  Pointer display disabled
 level: 1.5.1
 links:
 - SRS005: _Jm0I29XYosWpzvjdgfpxuXQpkYiix39X6sbH7YPGOM=
 normative: true
 rationale: |
-  Waits on its test.
+  A pointer drawn on the panel sits over the instance where the viewer reads it, and with no mouse
+  at the appliance nobody can move it away.
 ref: ''
-references: []
+references:
+- keyword: def test_pointer_display_disabled
+  path: tests/target_suite/test_display.py
+  sha: 0724ed0eabc355bff61e2c4ecdb0bca01e810c7daca942d5697bed221fe8aa30
+  type: file
 reviewed: r2sJkITuBaRJnIsNd9-vLMyvEgEJfkp0buNjOiuQGuw=
 status: proposed
 text: |
-  With the WiseKiosk instance on the panel, read from the display whether it is drawing a pointer.
-  Pass if it is not.
+  With the WiseKiosk instance on the panel, read the options its display server was started
+  with. Pass if they disable the display of the pointer.
 verification-justification: |
-  Test. It exercises the capability and reads the result mechanically; the pass condition needs no
-  judgement.
+  Test. It reads the running display server's own start-up options from outside the appliance; the
+  pass condition needs no judgement.
 verification-method: test

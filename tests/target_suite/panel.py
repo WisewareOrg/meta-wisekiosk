@@ -12,7 +12,7 @@ _SURF_SCRIPT_PATH = f"{_SURF_DIR}/script.js"
 _PANEL_WAIT_SECONDS = 90
 _PANEL_POLL_SECONDS = 1
 OWN_ORIGINS = ("http://localhost:8080", "http://127.0.0.1:8080")
-_PROBE_FIELDS = ("nonce", "state", "cards", "origin")
+_PROBE_FIELDS = ("nonce", "state", "cards", "origin", "layout")
 _WM_NAME = re.compile(r'WM_NAME\(\w+\) = "(.*)"$')
 _TITLES_WALK = (
     "for id in $(DISPLAY=:0 xwininfo -root -tree 2>/dev/null | awk '/^ +0x/ { print $1 }'); do "
@@ -21,7 +21,7 @@ _TITLES_WALK = (
 
 
 def _probe_sample(xprop_output):
-    """The first window title carrying the probe's four fields, as a dict of strings, else None."""
+    """The first window title carrying the probe's fields, as a dict of strings, else None."""
     for line in xprop_output.splitlines():
         match = _WM_NAME.match(line)
         if match and "WK1 " in match.group(1):
