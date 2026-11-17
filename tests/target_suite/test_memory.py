@@ -9,17 +9,20 @@ from labgrid.driver.exception import ExecutionError
 
 from replay import CARDS4_LIVE
 
-# TST014's period
-PERIOD_SECONDS = 24 * 3600
+# TST014's period, and the period `--soak` gives it
+PERIOD_SECONDS = 30 * 60
+SOAK_PERIOD_SECONDS = 24 * 3600
 # TST014's bound: use below this share of usable memory in every sample
 USE_LIMIT = 0.80
+# TST014's bound: growth in memory in use across a 30 minute window, in MB; picked, to be tuned from queue runs' windows
+GROWTH_LIMIT_MB = 50
 # kiosk-soak.sh's own gap rule, as its --summary applies it
 MAX_GAP_SECONDS = 450
 # how often the host checks the boot, so a reboot ends the run early
 BOOT_CHECK_SECONDS = 600
 
 _SOAK_LOG_PATH = "/data/kiosk-soak.log"
-_OOM = re.compile(r"^\[\s*(\d+\.\d+)\].*Out of memory")
+_OOM = re.compile(r"^\[\s*(\d+\.\d+)\].*(?:Out of memory|deadlocked on memory)")
 _BOARD_ERRORS = (ExecutionError, subprocess.TimeoutExpired)
 
 
@@ -48,6 +51,16 @@ def _oom_uptimes(board, boot_flag, start, end):
     return returncode, [up for up in found if start <= up <= end]
 
 
+def _pstore_oom_uptimes(board, start, end):
+    """Uptimes of out-of-memory lines in `start`..`end` of the previous boot's kernel console tail in pstore."""
+    stdout, _stderr, returncode = board.run(
+        'grep -q " /sys/fs/pstore " /proc/mounts || mount -t pstore pstore /sys/fs/pstore; '
+        "cat /sys/fs/pstore/console-ramoops-0"
+    )
+    found = [float(m.group(1)) for line in stdout if (m := _OOM.match(line))]
+    return returncode, [up for up in found if start <= up <= end]
+
+
 def _boot_id(board):
     """The boot id and the reconnects made to read it; None if it could not be read, and a failed `reconnect()` raises."""
     cmd = "cat /proc/sys/kernel/random/boot_id"
@@ -65,14 +78,14 @@ def _boot_id(board):
         return None, reconnects
 
 
-def _wait_period(board, boot_id):
-    """Sleep out `PERIOD_SECONDS`, polling the boot; return the final boot id and reconnects made.
+def _wait_period(board, boot_id, period):
+    """Sleep out `period` seconds, polling the boot; return the final boot id and reconnects made.
 
     Ends early on a changed boot id. The final read, made once more after the loop, leaves the
     session live for every read after it.
     """
     reconnects = 0
-    end = time.monotonic() + PERIOD_SECONDS
+    end = time.monotonic() + period
     while time.monotonic() < end:
         time.sleep(min(BOOT_CHECK_SECONDS, max(0, end - time.monotonic())))
         now, made = _boot_id(board)
@@ -85,7 +98,6 @@ def _wait_period(board, boot_id):
     return final, reconnects
 
 
-@pytest.mark.soak
 @pytest.mark.parametrize("proxy", [str(CARDS4_LIVE / "flows.har")], indirect=True)
 def test_memory_over_a_long_run(
     request, proxy, replay_window, panel, full_state, board, record_property
@@ -93,12 +105,15 @@ def test_memory_over_a_long_run(
     """TST014 memory over a long run: kiosk-soak's samples of memory in use stay under `USE_LIMIT` of usable.
 
     Usable is `MemTotal`; in use is `MemTotal - MemAvailable`. A sample at or above the limit, or
-    a process killed for memory, fails. A run is invalid, never a pass or a failure, if the boot
+    a process killed for memory, or growth in use over a valid 30 minute window beyond
+    `GROWTH_LIMIT_MB` (not judged under `--soak`), fails; after a reset the kill is looked for in the previous
+    boot's journal and in pstore's console record. A run is invalid, never a pass or a failure, if the boot
     changed without a memory kill, the browser or backend restarted, the page reloaded or
     changed state, kiosk-soak left a gap, or the replay killed a request.
     """
     record_property("requirement", "TST014")
-    record_property("period_s", PERIOD_SECONDS)
+    period = SOAK_PERIOD_SECONDS if request.config.getoption("--soak") else PERIOD_SECONDS
+    record_property("period_s", period)
     timer_was_active = board.run("systemctl is-active kiosk-soak.timer")[2] == 0
     if not timer_was_active:
         request.addfinalizer(lambda: board.run("systemctl stop kiosk-soak.timer", check=True))
@@ -112,7 +127,7 @@ def test_memory_over_a_long_run(
     total_mb = start_mem["MemTotal"] / 1024
     start_sample = full_state[1]
 
-    new_boot, reconnects = _wait_period(board, boot_id)
+    new_boot, reconnects = _wait_period(board, boot_id, period)
     record_property("reconnects", reconnects)
     rebooted = new_boot != boot_id
 
@@ -120,13 +135,16 @@ def test_memory_over_a_long_run(
     failures = []
     if rebooted:
         returncode, oom = _oom_uptimes(board, "-b -1", start_uptime, float("inf"))
+        console_returncode, console_oom = _pstore_oom_uptimes(board, start_uptime, float("inf"))
+        oom = sorted({*oom, *console_oom})
+        returncode = returncode or console_returncode
         if oom:
             failures.append(f"a process was killed for memory at uptime {oom[0]:.0f} s")
         else:
             problems.append(
-                "the board rebooted, with no memory kill in the previous boot's kernel log"
+                "the board rebooted, with no memory kill in the previous boot's kernel log or pstore console"
                 if returncode == 0
-                else "the board rebooted and the previous boot's kernel log could not be read"
+                else "the board rebooted and the previous boot's kernel log or pstore console could not be read"
             )
         oom_count = len(oom)
         end_uptime = float("inf")
@@ -178,6 +196,18 @@ def test_memory_over_a_long_run(
             problems.append(f"the replay killed requests: {proxy.killed()}")
 
     end_mem = _meminfo(board) if not rebooted else {}
+    growth_mb = None
+    if end_mem:
+        growth_mb = (
+            (end_mem["MemTotal"] - end_mem["MemAvailable"])
+            - (start_mem["MemTotal"] - start_mem["MemAvailable"])
+        ) / 1024
+        record_property("growth_mb", round(growth_mb, 1))
+        if not problems and not request.config.getoption("--soak") and growth_mb > GROWTH_LIMIT_MB:
+            failures.append(
+                f"memory in use grew {growth_mb:.0f} MB over the window; "
+                f"TST014's bound is {GROWTH_LIMIT_MB} MB"
+            )
     record_property("validity", "valid" if not problems else f"invalid: {'; '.join(problems)}")
     record_property("samples", len(lines))
     record_property("mem_total_mb", round(total_mb, 1))
