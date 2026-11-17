@@ -323,7 +323,7 @@ that qualifies, and "Known gaps" says what closes it.
 | | |
 |---|---|
 | Engine | WebKitGTK 2.44.3, `ENABLE_JIT=OFF`, `USE_WOFF2=ON`, `MinSizeRel` — genuine ARMv6 (`Tag_CPU_arch: v6KZ`) |
-| Browser | `surf` 2.1 + the kiosk patch (milestones, override-redirect, shims) |
+| Browser | `surf` 2.1 + the kiosk patches (milestones, override-redirect, shims, frozen-page reload) |
 | Display | bare Xorg on vc4 firmware KMS at 1280x720, `xf86-video-modesetting` + mesa for glamor, WebKit painting in software, no display manager, no window manager — **measured on prod, never out of a build** |
 | Update | RAUC A/B over U-Boot — both slots visible |
 | Memory | 87 MB used of 428; zram present and never touched — **measured on the fbdev image** |

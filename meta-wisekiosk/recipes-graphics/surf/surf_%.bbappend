@@ -5,8 +5,9 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 #   SURF_MILESTONES=1        "SURFMS <name> <s-since-exec>" on stderr
 #   SURF_OVERRIDE_REDIRECT=1 map the window bypassing the window manager
 #   SURF_GEOMETRY=WxH        override the monitor size used for placement
-#   SURF_PAGE_DEADLINE=N     seconds a loaded page may go unanswering before surf
-#                            reloads it in a fresh web process (0002)
+#   SURF_PAGE_DEADLINE=N     seconds a loaded page may go without answering before
+#                            surf reloads it in a fresh web process; unset, 0 or
+#                            anything but a positive integer turns it off
 #
 # Ported from tools/surf-kiosk.patch in the kiosk-reference project, which
 # targets surf 2.0. Four hunks needed rework for 2.1: RunInFullscreen changed

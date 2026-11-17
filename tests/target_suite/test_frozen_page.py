@@ -14,7 +14,7 @@ _BOUND_SECONDS = 60
 # the freeze must show on the panel within this long, by board uptime
 _STOPPED_WITHIN_SECONDS = 15
 _CAPTURE_EVERY_SECONDS = 5
-# stop capturing; past the bound, so the record still carries the time it took
+# how long the test keeps capturing
 _GIVE_UP_SECONDS = 120
 # below this an import that returned 0 did not write a picture (kiosk-render-check.sh)
 _MIN_PNG_BYTES = 100

@@ -2,11 +2,8 @@ Reload a page that stops answering, in place
 
 Once a page has finished loading, ask it a trivial question every 5 s. If a
 question goes unanswered for SURF_PAGE_DEADLINE seconds, terminate the page's
-web process and load the launch argument again in a fresh one. The browser and the X
-server keep running.
-
-Off unless SURF_PAGE_DEADLINE is a positive integer, the same opt-in style as
-the variables in 0001.
+web process and load the launch argument again in a fresh one. The browser and
+the X server keep running.
 
 This is C inside surf's main loop and signal handlers, so it cannot be a
 bbappend change.
@@ -52,10 +49,10 @@ Upstream-Status: Inappropriate [kiosk-specific]
   *   SURF_GEOMETRY=WxH        override the monitor size used for that placement
   */
  static int milestones;
-+/* Frozen-page recovery, off unless SURF_PAGE_DEADLINE is a positive integer.
-+ * Once a page has finished loading, a trivial script is evaluated in it every
-+ * PAGETICK seconds. If one goes unanswered for pagedeadline seconds the page's
-+ * web process is terminated and the launch argument is loaded again in a fresh one. */
++/* Frozen-page recovery (SURF_PAGE_DEADLINE, see surf_%.bbappend): once a page
++ * has finished loading, a trivial script is evaluated in it every PAGETICK
++ * seconds, and one left unanswered for pagedeadline seconds ends the page's
++ * web process and loads the launch argument again. */
 +#define PAGETICK 5
 +static int pagedeadline;
 +static Arg launcharg;
