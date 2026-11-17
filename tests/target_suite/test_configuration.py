@@ -6,14 +6,22 @@ _CONFIG_PATH = "/data/config/config.json"
 _DEFAULT_CONFIG_PATH = "/usr/share/wisekiosk/config.example.json"
 
 
-def _check(before, after, default):
+def _check(before, after, default, record_property):
     """Assert the config held, and that a loss would have been seen.
 
     Args:
         before (str | None): sha256 of the live config before the update or restart.
         after (str | None): sha256 of the live config after it.
         default (str | None): sha256 of the image default the board reseeds from.
+        record_property (Callable): the test's `record_property`; `validity` is recorded first.
     """
+    if before is None:
+        validity = "invalid: the board held no config.json to keep"
+    elif before == default:
+        validity = "invalid: the board's config is the image default"
+    else:
+        validity = "valid"
+    record_property("validity", validity)
     assert before is not None, "INVALID CHECK, not an appliance failure: the board held no config.json to keep"
     assert after == before, (
         f"config held {'missing' if after is None else after}, expected the {before} it held before"
@@ -33,7 +41,7 @@ def test_config_held_across_image_update(config_across_update, bench_candidate, 
     record_property("config_before_sha256", before)
     record_property("config_after_sha256", after)
     record_property("config_default_sha256", default)
-    _check(before, after, default)
+    _check(before, after, default, record_property)
 
 
 def test_config_held_across_restart(board, record_property):
@@ -46,4 +54,4 @@ def test_config_held_across_restart(board, record_property):
     record_property("config_before_sha256", before)
     record_property("config_after_sha256", after)
     record_property("config_default_sha256", default)
-    _check(before, after, default)
+    _check(before, after, default, record_property)
