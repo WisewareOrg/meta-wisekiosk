@@ -23,6 +23,10 @@ export SURF_MILESTONES=1
 : "${WEBKIT_FORCE_VBLANK_TIMER:=1}"
 export WEBKIT_DISABLE_DMABUF_RENDERER WEBKIT_FORCE_VBLANK_TIMER
 
+# Frozen-page reload: see SURF_PAGE_DEADLINE in surf_%.bbappend.
+: "${SURF_PAGE_DEADLINE:=20}"
+export SURF_PAGE_DEADLINE
+
 # Remote Web Inspector. OFF by default for two reasons: it must not perturb a
 # complete-display measurement, and it should not listen unless asked. Turn it
 # on over SSH with no rebuild and no trip to the device:
