@@ -1,0 +1,216 @@
+Reload a page that stops answering, in place
+
+Once a page has finished loading, ask it a trivial question every 5 s. If a
+question goes unanswered for SURF_PAGE_DEADLINE seconds, terminate the page's
+web process and load the launch URI in a fresh one. The browser and the X
+server keep running.
+
+Off unless SURF_PAGE_DEADLINE is a positive integer, the same opt-in style as
+the variables in 0001.
+
+This is C inside surf's main loop and signal handlers, so it cannot be a
+bbappend change.
+
+Applies after 0001-kiosk-milestones-and-override-redirect.patch.
+
+Upstream-Status: Inappropriate [kiosk-specific]
+---
+--- a/surf.c
++++ b/surf.c
+@@ -113,10 +113,19 @@
+ 	int progress, fullscreen, https, insecure, errorpage;
+ 	const char *title, *overtitle, *targeturi;
+ 	const char *needle;
++	guint pagetimer, pingseq;
++	gint64 pingsent;
++	int armed;
++	GCancellable *pingcancel;
+ 	struct Client *next;
+ } Client;
+ 
+ typedef struct {
++	Client *c;
++	guint seq;
++} Ping;
++
++typedef struct {
+ 	guint mod;
+ 	guint keyval;
+ 	void (*func)(Client *c, const Arg *a);
+@@ -221,6 +230,10 @@
+                                  WebKitWebProcessTerminationReason r,
+                                  Client *c);
+ static void closeview(WebKitWebView *v, Client *c);
++static void armpagewatch(Client *c);
++static gboolean pagetick(gpointer p);
++static void pagepingdone(GObject *src, GAsyncResult *res, gpointer p);
++static gboolean bringpageback(gpointer p);
+ static void destroywin(GtkWidget* w, Client *c);
+ 
+ /* Hotkeys */
+@@ -313,6 +326,13 @@
+  *   SURF_GEOMETRY=WxH        override the monitor size used for that placement
+  */
+ static int milestones;
++/* Frozen-page recovery, off unless SURF_PAGE_DEADLINE is a positive integer.
++ * Once a page has finished loading, a trivial script is evaluated in it every
++ * PAGETICK seconds. If one goes unanswered for pagedeadline seconds the page's
++ * web process is terminated and the launch URI is loaded in a fresh one. */
++#define PAGETICK 5
++static int pagedeadline;
++static char *launchuri;
+ static int overrideredirect;
+ static gint64 surfstart_us;
+ static void milestone(const char *name);
+@@ -1098,6 +1118,12 @@
+ 		p->next = c->next;
+ 	else
+ 		clients = c->next;
++	if (c->pagetimer)
++		g_source_remove(c->pagetimer);
++	if (c->pingcancel) {
++		g_cancellable_cancel(c->pingcancel);
++		g_object_unref(c->pingcancel);
++	}
+ 	free(c);
+ }
+ 
+@@ -1627,6 +1653,7 @@
+ 		    enablescrollbars ? "auto" : "hidden");
+ 		*/
+ 		runscript(c);
++		armpagewatch(c);
+ 		break;
+ 	}
+ 	updatetitle(c);
+@@ -1872,12 +1899,101 @@
+ webprocessterminated(WebKitWebView *v, WebKitWebProcessTerminationReason r,
+                      Client *c)
+ {
++	if (r == WEBKIT_WEB_PROCESS_TERMINATED_BY_API) {
++		g_idle_add(bringpageback, c);
++		return;
++	}
+ 	fprintf(stderr, "web process terminated: %s\n",
+ 	        r == WEBKIT_WEB_PROCESS_CRASHED ? "crashed" : "no memory");
+ 	closeview(v, c);
+ }
+ 
+ void
++armpagewatch(Client *c)
++{
++	if (!pagedeadline)
++		return;
++	c->armed = 1;
++	c->pingsent = 0;
++	c->pingseq++;
++	if (!c->pingcancel)
++		c->pingcancel = g_cancellable_new();
++	if (!c->pagetimer)
++		c->pagetimer = g_timeout_add_seconds(PAGETICK, pagetick, c);
++}
++
++gboolean
++pagetick(gpointer p)
++{
++	Client *c = p;
++	Ping *pg;
++	gint64 now;
++
++	if (!c->armed)
++		return TRUE;
++
++	now = g_get_monotonic_time();
++	if (c->pingsent) {
++		if (now - c->pingsent >= (gint64)pagedeadline * G_USEC_PER_SEC) {
++			fprintf(stderr, "surf: page did not answer for %d s, "
++			        "reloading it\n",
++			        (int)((now - c->pingsent) / G_USEC_PER_SEC));
++			fflush(stderr);
++			c->armed = 0;
++			c->pingsent = 0;
++			c->pingseq++;
++			webkit_web_view_terminate_web_process(c->view);
++		}
++		return TRUE;
++	}
++
++	pg = g_new(Ping, 1);
++	pg->c = c;
++	pg->seq = ++c->pingseq;
++	c->pingsent = now;
++	webkit_web_view_evaluate_javascript(c->view, "0", -1, NULL, NULL,
++	                                    c->pingcancel, pagepingdone, pg);
++	return TRUE;
++}
++
++void
++pagepingdone(GObject *src, GAsyncResult *res, gpointer p)
++{
++	Ping *pg = p;
++	GError *err = NULL;
++	JSCValue *v;
++	gboolean cancelled;
++
++	v = webkit_web_view_evaluate_javascript_finish(WEBKIT_WEB_VIEW(src),
++	                                               res, &err);
++	cancelled = err && g_error_matches(err, G_IO_ERROR,
++	                                   G_IO_ERROR_CANCELLED);
++	/* Any completion is an answer, a script error included: the process
++	 * replied. A cancelled one means the client may be gone, so it must not
++	 * be touched. An older question's answer must not clear the current. */
++	if (!cancelled && pg->seq == pg->c->pingseq)
++		pg->c->pingsent = 0;
++	if (v)
++		g_object_unref(v);
++	g_clear_error(&err);
++	g_free(pg);
++}
++
++/* Brings the configured page back: loads the launch URI, whatever the view
++ * shows now, in the view's web process, starting a fresh one if it has none. */
++gboolean
++bringpageback(gpointer p)
++{
++	Client *c;
++
++	for (c = clients; c && c != p; c = c->next)
++		;
++	if (c && launchuri)
++		webkit_web_view_load_uri(c->view, launchuri);
++	return G_SOURCE_REMOVE;
++}
++
++void
+ closeview(WebKitWebView *v, Client *c)
+ {
+ 	gtk_widget_destroy(c->win);
+@@ -2117,6 +2233,8 @@
+ 	Client *c;
+ 	char ubuf[64];
+ 	FILE *uf;
++	char *deadlineend;
++	long deadline;
+ 
+ 	surfstart_us = g_get_monotonic_time();
+ 	milestones = getenv("SURF_MILESTONES") != NULL;
+@@ -2132,6 +2250,11 @@
+ 		fprintf(stderr, "SURFMS uptime_at_exec %s", ubuf);
+ 	}
+ 	milestone("main_entry");
++	if (getenv("SURF_PAGE_DEADLINE")) {
++		deadline = strtol(getenv("SURF_PAGE_DEADLINE"), &deadlineend, 10);
++		if (*deadlineend == '\0' && deadline > 0 && deadline <= INT_MAX)
++			pagedeadline = deadline;
++	}
+ 
+ 	memset(&arg, 0, sizeof(arg));
+ 
+@@ -2268,6 +2391,7 @@
+ 	showview(NULL, c);
+ 	milestone("showview_done");
+ 
++	launchuri = g_strdup(arg.v);
+ 	loaduri(c, &arg);
+ 	milestone("loaduri_done");
+ 	updatetitle(c);

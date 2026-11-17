@@ -23,6 +23,12 @@ export SURF_MILESTONES=1
 : "${WEBKIT_FORCE_VBLANK_TIMER:=1}"
 export WEBKIT_DISABLE_DMABUF_RENDERER WEBKIT_FORCE_VBLANK_TIMER
 
+# Seconds a loaded page may go without answering before surf reloads it in a
+# fresh web process; 0 turns it off. A default like the two above, so
+# kiosk.service's EnvironmentFile can override it.
+: "${SURF_PAGE_DEADLINE:=20}"
+export SURF_PAGE_DEADLINE
+
 # Remote Web Inspector. OFF by default for two reasons: it must not perturb a
 # complete-display measurement, and it should not listen unless asked. Turn it
 # on over SSH with no rebuild and no trip to the device:
