@@ -164,3 +164,42 @@ def device_context(board, record_property):
 def outage(board):
     """The `Outage` for the board; the test arms it."""
     return Outage(board)
+
+
+_POWER_OFF_SECONDS = 10
+_BOOT_ID_CMD = "cat /proc/sys/kernel/random/boot_id"
+
+
+@pytest.fixture
+def power_cut(target, board, request, record_property):
+    """Return `cut()`: switch the board's power off and on, and return when power returned.
+
+    `cut()` reads the boot id, drops the ssh connection, switches the `PowerProtocol` driver off,
+    waits `_POWER_OFF_SECONDS`, switches it on, reconnects, and asserts the boot id changed. It
+    returns the host `time.monotonic()` taken as the on command returned. A plug failure inside
+    `cut()` ends the whole session: the bench's own fault is not the candidate's. Power is
+    switched on again at teardown, registered before anything is cut.
+    """
+    power = target.get_driver("PowerProtocol")
+    request.addfinalizer(power.on)
+
+    def cut():
+        old_boot_id = board.run(_BOOT_ID_CMD, check=True)[0][0]
+        board.disconnect()
+        try:
+            power.off()
+            time.sleep(_POWER_OFF_SECONDS)
+            on_began = time.monotonic()
+            power.on()
+        except subprocess.CalledProcessError as error:
+            pytest.exit(f"the bench's power switch failed: {error}", returncode=1)
+        restored = time.monotonic()
+        record_property("power_on_command_s", round(restored - on_began, 1))
+        board.reconnect()
+        new_boot_id = board.run(_BOOT_ID_CMD, check=True)[0][0]
+        assert new_boot_id != old_boot_id, (
+            "the board answered in the same boot: the power cut did not land"
+        )
+        return restored
+
+    return cut

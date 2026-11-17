@@ -20,6 +20,11 @@ _TITLES_WALK = (
 )
 
 
+def _wm_names(xprop_output):
+    """Every WM_NAME string in the output of `_TITLES_WALK`."""
+    return [m.group(1) for m in map(_WM_NAME.match, xprop_output.splitlines()) if m]
+
+
 def _probe_sample(xprop_output):
     """The first window title carrying the probe's four fields, as a dict of strings, else None."""
     for line in xprop_output.splitlines():
@@ -78,6 +83,15 @@ class Panel:
         """
         stdout, _stderr, _returncode = self._board.run(f"cat /proc/uptime; {_TITLES_WALK}")
         return float(stdout[0].split()[0]), _probe_sample("\n".join(stdout[1:]))
+
+    def titles(self):
+        """The board's uptime and every window's WM_NAME, from one read-only walk.
+
+        Raises:
+            subprocess.TimeoutExpired: the command ran past `Board.run`'s timeout.
+        """
+        stdout, _stderr, _returncode = self._board.run(f"cat /proc/uptime; {_TITLES_WALK}")
+        return float(stdout[0].split()[0]), _wm_names("\n".join(stdout[1:]))
 
     def wait_on_panel(self, timeout_s=_PANEL_WAIT_SECONDS):
         """Poll until the instance is on the panel; return that read's (uptime, sample)."""
