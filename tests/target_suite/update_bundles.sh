@@ -36,7 +36,7 @@ candidate="$deploy_dir/update-bundle-$machine.raucb"
 
 bitbake e2fsprogs-native -c addto_recipe_sysroot
 bitbake -e e2fsprogs-native > "$work/e2fsprogs-env.txt"
-e2fs_sbin="$(bb_var STAGING_BASE_SBINDIR_NATIVE "$work/e2fsprogs-env.txt")"
+e2fs_sbin="$(bb_var STAGING_DIR_NATIVE "$work/e2fsprogs-env.txt")$(bb_var base_sbindir_native "$work/e2fsprogs-env.txt")"
 : "${e2fs_sbin:?}"
 export PATH="$rauc_bin:$e2fs_sbin:$PATH"
 command -v debugfs e2fsck > /dev/null || { echo "update_bundles.sh: no debugfs or e2fsck in $e2fs_sbin" >&2; exit 1; }
