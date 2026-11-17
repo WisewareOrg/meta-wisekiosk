@@ -13,7 +13,7 @@ ref: ''
 references:
 - keyword: def test_timezone_set_over_the_air
   path: tests/target_suite/test_timezone.py
-  sha: c2892d727f4365b82a2a8284ca56e52db009b63f274aa0d22abacd73b8e87db4
+  sha: cadaba5a2f06c4a9b46fc11491fd6683b1d3ef36439c0dbe4aab48c2e4eb69ce
   type: file
 reviewed: e_6HOcv4rTeXjnK_gL46xhJlyRS-Jmv0kOrUN0CTCXg=
 status: proposed

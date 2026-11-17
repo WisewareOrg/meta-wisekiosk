@@ -23,6 +23,8 @@ _HASHED_PATHS = (
 def config_across_update(request, board, bench_candidate):
     """Hash the board's config before and after `install_candidate`; writes nothing.
 
+    First unmounts a bind mount a dead run left over the live config path.
+
     Args:
         request (pytest.FixtureRequest): runs `install_candidate` between the two hashes.
         board (Board): the board under test (tests/conftest.py).

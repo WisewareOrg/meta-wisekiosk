@@ -13,6 +13,8 @@ _RUN_DIR = "/run/tst026"
 def zone_in_run(request, board):
     """Overlay /etc with an upper layer in /run; return the original `/etc/localtime` link.
 
+    First clears an overlay and `/run/tst026` that a dead run left behind.
+
     timedated builds its own mount namespace when it starts, so it is stopped before the mount
     and the test's own `timedatectl` starts it inside the overlay; it is stopped again before the
     unmount. Each step's undo is registered once that step succeeds; teardown unmounts, asserts the
