@@ -17,7 +17,7 @@ def _check(before, after, default, record_property):
     """
     if before is None:
         validity = "invalid: the board held no config.json to keep"
-    elif before == default:
+    elif after == before == default:
         validity = "invalid: the board's config is the image default"
     else:
         validity = "valid"

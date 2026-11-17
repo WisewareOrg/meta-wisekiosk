@@ -14,7 +14,7 @@ ref: ''
 references:
 - keyword: def test_config_held_across_restart
   path: tests/target_suite/test_configuration.py
-  sha: 0dc741e824fdb08c8049952ea1460d74df30503ea43a0fcc4821db2e1a6750ff
+  sha: 8c343eed291350c921b1d7b4e86ce997c84e0f116232c904215b528186c5aba4
   type: file
 reviewed: g7R0pO3bA1-UKJfEejBUCvUTLNZOby7N2Rs-1gDRI14=
 status: proposed
