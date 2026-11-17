@@ -13,7 +13,7 @@ ref: ''
 references:
 - keyword: def test_minimum_resolution
   path: tests/target_suite/test_display.py
-  sha: 2334edf9e7a38dcde04baaa56a7cae178a7d884170c298b2bf7f884af4ce3e70
+  sha: 0fbda3becb49f8a94964114b7211ce2b0ad4a392ce1ed4553c0aaecd8ed3b1fa
   type: file
 reviewed: RXDpBkftiMFtooUAatR6UvoImXjEYujmvUBbFdiPZs4=
 status: proposed

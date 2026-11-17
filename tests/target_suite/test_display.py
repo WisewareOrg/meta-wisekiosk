@@ -3,8 +3,8 @@
 import re
 
 # TST031's floor
-MIN_WIDTH = 1280
-MIN_HEIGHT = 720
+_MIN_WIDTH = 1280
+_MIN_HEIGHT = 720
 
 _SEPARATOR = "=== windows"
 _LAYOUT_READ = (
@@ -15,19 +15,19 @@ _LAYOUT_READ = (
 )
 _CONNECTED = re.compile(r"^\S+ connected (?:primary )?(\d+)x(\d+)\+(\d+)\+(\d+)")
 _WINDOW_ID = re.compile(r'^xwininfo: Window id: (0x[0-9a-fA-F]+)(?: "(.*)"| \(has no name\))?$')
-_FIELDS = {
+_INT_FIELDS = {
     "x": re.compile(r"^\s*Absolute upper-left X:\s+(-?\d+)"),
     "y": re.compile(r"^\s*Absolute upper-left Y:\s+(-?\d+)"),
     "width": re.compile(r"^\s*Width:\s+(\d+)"),
     "height": re.compile(r"^\s*Height:\s+(\d+)"),
     "border": re.compile(r"^\s*Border width:\s+(\d+)"),
-    "map_state": re.compile(r"^\s*Map State:\s+(\w+)"),
 }
+_MAP_STATE = re.compile(r"^\s*Map State:\s+(\w+)")
 
 
 def _x_pid(board):
     """The pid of the one running X server."""
-    stdout, _stderr, _returncode = board.run("pidof Xorg", check=True)
+    stdout, _stderr, _returncode = board.run("pidof Xorg")
     pids = " ".join(stdout).split()
     assert pids, "X is not running"
     assert len(pids) == 1, f"more than one X: {pids}"
@@ -35,31 +35,35 @@ def _x_pid(board):
 
 
 def _windows(lines):
-    """One dict per `xwininfo -id` block in `lines`, in the order read: id, name and `_FIELDS`."""
+    """One dict per `xwininfo -id` block in `lines`, in the order read: id, name, the integer
+    fields of `_INT_FIELDS` and `map_state`."""
     windows = []
     for line in lines:
         header = _WINDOW_ID.match(line)
         if header:
             windows.append({"id": header.group(1), "name": header.group(2) or ""})
             continue
-        for key, pattern in _FIELDS.items():
-            match = windows and pattern.match(line)
+        for key, pattern in _INT_FIELDS.items():
+            match = pattern.match(line)
             if match:
-                windows[-1][key] = match.group(1) if key == "map_state" else int(match.group(1))
+                windows[-1][key] = int(match.group(1))
+        match = _MAP_STATE.match(line)
+        if match:
+            windows[-1]["map_state"] = match.group(1)
     return windows
 
 
-def _overlaps(window, panel):
-    """Whether `window`'s outer rectangle, border included, overlaps `panel` with positive area."""
+def _overlaps(window, panel_area):
+    """Whether `window`'s outer rectangle, border included, overlaps `panel_area` with positive area."""
     left = window["x"] - window["border"]
     top = window["y"] - window["border"]
     right = window["x"] + window["width"] + window["border"]
     bottom = window["y"] + window["height"] + window["border"]
     return (
-        left < panel["x"] + panel["width"]
-        and right > panel["x"]
-        and top < panel["y"] + panel["height"]
-        and bottom > panel["y"]
+        left < panel_area["x"] + panel_area["width"]
+        and right > panel_area["x"]
+        and top < panel_area["y"] + panel_area["height"]
+        and bottom > panel_area["y"]
     )
 
 
@@ -97,7 +101,9 @@ def test_instance_covers_the_panel(board, panel, record_property):
     windows = _windows(window_lines)
     instances = [index for index, window in enumerate(windows) if "WK1 " in window["name"]]
     assert instances, "no window carries the instance's title"
-    assert len(instances) == 1, f"more than one window carries the instance's title: {instances}"
+    assert len(instances) == 1, (
+        f"more than one window carries the instance's title: {[windows[i]['id'] for i in instances]}"
+    )
     instance = windows[instances[0]]
     assert instance["map_state"] == "IsViewable", f"the instance's window is {instance['map_state']}"
 
@@ -124,6 +130,7 @@ def test_minimum_resolution(board, panel, record_property):
     """TST031 minimum resolution: the display mode and the page's layout size are each at least 1280x720."""
     record_property("requirement", "TST031")
     _uptime_s, sample = panel.wait_on_panel()
+    record_property("layout", sample["layout"])
 
     stdout, _stderr, _returncode = board.run("DISPLAY=:0 xrandr --current", check=True)
     record_property("xrandr", "\n".join(stdout))
@@ -135,11 +142,10 @@ def test_minimum_resolution(board, panel, record_property):
 
     layout = re.match(r"^(\d+)x(\d+)$", sample["layout"])
     assert layout, f"the probe's layout is unreadable: {sample['layout']!r}"
-    record_property("layout", sample["layout"])
 
     mode_width, mode_height = int(mode.group(1)), int(mode.group(2))
     layout_width, layout_height = int(layout.group(1)), int(layout.group(2))
-    assert mode_width >= MIN_WIDTH, f"display mode width {mode_width} is below {MIN_WIDTH}"
-    assert mode_height >= MIN_HEIGHT, f"display mode height {mode_height} is below {MIN_HEIGHT}"
-    assert layout_width >= MIN_WIDTH, f"layout width {layout_width} is below {MIN_WIDTH}"
-    assert layout_height >= MIN_HEIGHT, f"layout height {layout_height} is below {MIN_HEIGHT}"
+    assert mode_width >= _MIN_WIDTH, f"display mode width {mode_width} is below {_MIN_WIDTH}"
+    assert mode_height >= _MIN_HEIGHT, f"display mode height {mode_height} is below {_MIN_HEIGHT}"
+    assert layout_width >= _MIN_WIDTH, f"layout width {layout_width} is below {_MIN_WIDTH}"
+    assert layout_height >= _MIN_HEIGHT, f"layout height {layout_height} is below {_MIN_HEIGHT}"
