@@ -4,7 +4,7 @@ header: |
   Restart to the panel
 level: 1.4.1
 links:
-- SRS004: VZ67Gi2Kxu0X-vGnKcaRPhQHbwrmubar9Kf_NbkBDOQ=
+- SRS004: WTbgq6CrI1y0n2ENIsBdm5fh-gz3_Zgn0SXtjI-qlto=
 normative: true
 rationale: |
   A restart, for an image update or by the operator, takes the instance off the panel, and nobody
@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_restart_to_the_panel
   path: tests/target_suite/test_restart_recovery.py
-  sha: 001a97dbcdaad3274791761712e649b13d9848363cb353a32fee33b5c1144e4f
+  sha: 3946f76b019aa2fe074ed769cb07477fc9cebaedfcd8eea59d5141ee1fadcf99
   type: file
-reviewed: jOhicpgPRF3X1stj1RZa0ACKJvB05xulJURZWDL42mk=
+reviewed: HZPRgCi5RHmW75F6TVDL8auvvCepcAP9iBg-D4r-ubU=
 status: proposed
 text: |
   Restart the appliance over the network, with nobody at the panel. Pass if, within 60 s of the
@@ -23,5 +23,5 @@ text: |
 verification-justification: |
   Test. It measures against a stated bound; the pass condition needs no judgement.
   It stops at the page served with the browser running. A boot's own time to the instance on the
-  panel is TST012<!-- Pending: Cold boot to the panel -->'s.
+  panel is TST012<!-- Cold boot to the panel -->'s.
 verification-method: test

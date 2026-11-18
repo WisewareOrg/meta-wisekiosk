@@ -1,20 +1,27 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Cold boot to the panel
+  Cold boot to the panel
 level: 1.4.2
 links:
-- SRS004: VZ67Gi2Kxu0X-vGnKcaRPhQHbwrmubar9Kf_NbkBDOQ=
+- SRS004: WTbgq6CrI1y0n2ENIsBdm5fh-gz3_Zgn0SXtjI-qlto=
 normative: true
 rationale: |
-  Waits on its test, its bound, and on power control at the bench, which the project does not have.
+  With nobody at the panel, a unit that has just had power applied shows nothing until the instance
+  has loaded. The viewer needs it there promptly after power returns.
 ref: ''
-references: []
-reviewed: p5rf433LN0JT9CQxTrgs2CaXDGdk277koRYnb7iaIyA=
+references:
+- keyword: def test_cold_boot_to_the_panel
+  path: tests/target_suite/test_restart_recovery.py
+  sha: 3946f76b019aa2fe074ed769cb07477fc9cebaedfcd8eea59d5141ee1fadcf99
+  type: file
+reviewed: qp9Zrdhx-U8ZZlz89U8ZcEfN4pf3Hr9b3VtCze05NDs=
 status: proposed
 text: |
-  With the appliance powered off and nobody at the panel, apply power. Pass if the WiseKiosk
-  instance is on the panel within a bound not yet set.
+  With the appliance powered off and nobody at the panel, apply power. Pass if, within 110 s of
+  power returning, the browser has finished loading the WiseKiosk instance's page.
 verification-justification: |
   Test. It measures against a stated bound; the pass condition needs no judgement.
+  It stops at the page loaded in the browser: whether the app has applied its configuration is not
+  observed, because nothing can be placed on the appliance to see it across a power cut.
 verification-method: test

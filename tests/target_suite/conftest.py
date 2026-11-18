@@ -164,3 +164,40 @@ def device_context(board, record_property):
 def outage(board):
     """The `Outage` for the board; the test arms it."""
     return Outage(board)
+
+
+_POWER_OFF_SECONDS = 10
+_BOOT_ID_CMD = "cat /proc/sys/kernel/random/boot_id"
+
+
+@pytest.fixture
+def power_cut(target, board, request, record_property):
+    """Return `cut()`, which cuts and restores the board's power and returns the host `time.monotonic()` at which power returned.
+
+    Power is switched on again at teardown.
+    """
+    power = target.get_driver("PowerProtocol")
+    request.addfinalizer(power.on)
+
+    def cut():
+        old_boot_id = board.run(_BOOT_ID_CMD, check=True)[0][0]
+        board.disconnect()
+        try:
+            power.off()
+            time.sleep(_POWER_OFF_SECONDS)
+            on_began = time.monotonic()
+            power.on()
+        except (subprocess.CalledProcessError, OSError) as error:
+            pytest.exit(f"the bench's power switch failed: {error}", returncode=2)
+        restored = time.monotonic()
+        record_property("power_on_command_s", round(restored - on_began, 1))
+        board.reconnect()
+        if board.run(_BOOT_ID_CMD, check=True)[0][0] == old_boot_id:
+            pytest.exit(
+                f"the board answered in the same boot after {_POWER_OFF_SECONDS} s off: "
+                "the plug or its supply did not cut power",
+                returncode=2,
+            )
+        return restored
+
+    return cut

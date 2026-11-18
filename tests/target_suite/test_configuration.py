@@ -57,3 +57,16 @@ def test_config_held_across_restart(board, record_property):
     record_property("config_after_sha256", after)
     record_property("config_default_sha256", default)
     _check(before, after, default, record_property)
+
+
+def test_config_held_across_power_cut(board, power_cut, record_property):
+    """The config the board held before its power was cut is the one it holds after."""
+    record_property("requirement", "TST021")
+    before = board.sha256(board.CONFIG_PATH)
+    default = board.sha256(board.DEFAULT_CONFIG_PATH)
+    power_cut()
+    after = board.sha256(board.CONFIG_PATH)
+    record_property("config_before_sha256", before)
+    record_property("config_after_sha256", after)
+    record_property("config_default_sha256", default)
+    _check(before, after, default, record_property)

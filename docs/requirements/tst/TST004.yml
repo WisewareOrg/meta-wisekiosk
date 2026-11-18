@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_kernel_crash
   path: tests/target_suite/test_restart_recovery.py
-  sha: 001a97dbcdaad3274791761712e649b13d9848363cb353a32fee33b5c1144e4f
+  sha: 3946f76b019aa2fe074ed769cb07477fc9cebaedfcd8eea59d5141ee1fadcf99
   type: file
-reviewed: bYh_JMX6HGtcuyGND2E60domPJjnBWlW83KgVYpGaLI=
+reviewed: GA5icJ673R_Y7A4_u-OWGJ_aQdqfLkx3IgYo5JdPBjw=
 status: proposed
 text: |
   With nobody at the panel, crash the kernel over the network so that nothing on the appliance runs.
@@ -25,5 +25,5 @@ verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.
   It stops at the page served with the browser running. A boot's own time to the instance on the
-  panel is TST012<!-- Pending: Cold boot to the panel -->'s.
+  panel is TST012<!-- Cold boot to the panel -->'s.
 verification-method: test

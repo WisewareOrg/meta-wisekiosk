@@ -7,7 +7,7 @@ links:
 - SRS001: mJPXcAkSNEcGQaecPKwCJDrOMXsJRs1pWu-GXRZ10lo=
 normative: true
 rationale: |
-  Waits on its test, and on power control at the bench, which the project does not have.
+  Waits on its test.
 ref: ''
 references: []
 reviewed: Eh6mu0UAgmrqQCjvMn9365TP3ufhHNHRk6edqkly-VM=
