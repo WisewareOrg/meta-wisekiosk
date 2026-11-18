@@ -16,7 +16,7 @@ references:
   path: tests/target_suite/test_configuration.py
   sha: f5a7af9e6fece02dc8fa65cf9b5d35c4716fc05eb32c238dc8b11561f17481c5
   type: file
-reviewed: 4UqehHirFXqleO_5aLS0NQgT0lygI7Q6_rZmoxDdBbA=
+reviewed: ewn29AjcieE48IUZUJePnwSsBfqxmi-Px7DV0gulu9I=
 status: proposed
 text: |
   Install a valid image update over the air on an appliance holding its operator's configuration.

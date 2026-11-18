@@ -15,7 +15,7 @@ references:
   path: tests/target_suite/test_restart_recovery.py
   sha: 3946f76b019aa2fe074ed769cb07477fc9cebaedfcd8eea59d5141ee1fadcf99
   type: file
-reviewed: KitWC5L8BxwFlXTtryj9YDn9lrADx8fNIMZDHj7a5wE=
+reviewed: i_TKJ4CqtbdDjVOcbgpyCZG0By0rTdKmf_wrMKwrx6o=
 status: proposed
 text: |
   With the appliance serving the WiseKiosk instance's page and the browser running, cut its power
