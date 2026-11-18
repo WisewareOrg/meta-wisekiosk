@@ -89,4 +89,4 @@ On the bench host, `bench run`'s environment file sets `LG_ENV` and, for this la
 The power-cut tests also need a `PowerProtocol` driver in that file: an `ExternalPowerDriver` whose
 commands run `uv run --locked --env-file <file> kasa --host <plug> on` and `off` from the checkout,
 with the plug's login in a `KEY=value` file outside the tree, passed by `--env-file` and never
-shell-sourced. The `python-kasa` git pin in `pyproject.toml` is for that plug's login, and `renovate.json` records why it is pinned. A plug failure ends the session as the bench's fault, not the candidate's, so nothing is posted against the candidate.
+shell-sourced. The `python-kasa` git pin in `pyproject.toml` is for that plug's login, and `renovate.json` records why it is pinned. A plug failure ends the session as the bench's fault, not the candidate's: the session exits 2, which the runner reads as a bench failure, where exit 1 is a candidate's failed test.

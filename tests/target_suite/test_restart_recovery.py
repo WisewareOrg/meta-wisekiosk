@@ -32,19 +32,28 @@ def _instance_up(board):
     return browser == 0, page_served
 
 
-def _until_up(board, started):
-    """Poll from `started` until the instance is up; return seconds (None if never) and the last read.
+def _poll_from(started, read, done):
+    """Poll `read` once a second from `started` until `done(value)`; return seconds and the last value.
 
-    The power-cut callers start at `power_cut()`'s return, so they overstate by at most one read
-    plus the 1 s sleep.
+    Seconds is None when `_GIVE_UP_SECONDS` passed first. A read returning None is a failed read:
+    it does not replace the last value. The power-cut callers start at `power_cut()`'s return, so
+    they overstate by at most one read plus the 1 s sleep.
     """
+    last = None
     while True:
-        last_read = _instance_up(board)
-        if all(last_read):
-            return round(time.monotonic() - started, 1), last_read
+        value = read()
+        if value is not None:
+            last = value
+        if value is not None and done(value):
+            return round(time.monotonic() - started, 1), last
         if time.monotonic() - started > _GIVE_UP_SECONDS:
-            return None, last_read
+            return None, last
         time.sleep(1)
+
+
+def _until_up(board, started):
+    """Poll from `started` until the instance is up; return seconds (None if never) and the last read."""
+    return _poll_from(started, lambda: _instance_up(board), all)
 
 
 def _back_s(board, cmd):
@@ -89,7 +98,8 @@ def test_restart_to_the_panel(board, record_property):
 def test_power_cut_while_showing(board, power_cut, record_property):
     """Cut power with the instance up; time until the page is served with the browser running."""
     record_property("requirement", "TST002")
-    assert all(_instance_up(board)), "the instance was not up before the cut"
+    ready_s, read = _until_up(board, time.monotonic())
+    assert ready_s is not None, f"the instance was not up before the cut; last read: {read}"
     started = power_cut()
     back_s, last_read = _until_up(board, started)
     record_property("back_s", back_s)
@@ -102,27 +112,25 @@ def _loaded_instance(titles):
     return next((t for t in titles if t.endswith(" | WiseKiosk") and not t.startswith("[")), None)
 
 
+def _titles(panel):
+    """The window titles, or None when the read failed."""
+    try:
+        return panel.titles()
+    except (subprocess.TimeoutExpired, ExecutionError):
+        return None
+
+
 def test_cold_boot_to_the_panel(board, power_cut, record_property):
     """Cut power; time until the browser has finished loading the instance's page."""
     record_property("requirement", "TST012")
     panel = Panel(board)
     started = power_cut()
-    while True:
-        try:
-            _uptime_s, titles = panel.titles()
-            loaded = _loaded_instance(titles)
-        except (subprocess.TimeoutExpired, ExecutionError):
-            titles, loaded = [], None
-        if loaded is not None:
-            on_panel_s = round(time.monotonic() - started, 1)
-            break
-        if time.monotonic() - started > _GIVE_UP_SECONDS:
-            on_panel_s = None
-            break
-        time.sleep(1)
+    on_panel_s, titles = _poll_from(
+        started, lambda: _titles(panel), lambda t: _loaded_instance(t) is not None
+    )
     record_property("on_panel_s", on_panel_s)
     record_property("last_titles", titles)
-    record_property("loaded", loaded)
+    record_property("loaded", _loaded_instance(titles) if titles else None)
     assert on_panel_s is not None, (
         f"the browser had not finished loading the instance within {_GIVE_UP_SECONDS} s "
         f"of power returning; last window titles: {titles!r}"

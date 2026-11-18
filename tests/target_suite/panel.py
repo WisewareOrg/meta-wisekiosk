@@ -1,4 +1,4 @@
-"""The on-the-panel observation: an in-page probe read back through the browser's window titles."""
+"""The on-the-panel observation: window titles, with an in-page probe read back through them."""
 
 import hashlib
 import re
@@ -38,7 +38,7 @@ def _probe_sample(xprop_output):
 
 
 class Panel:
-    """What the panel shows, read through the probe `install` puts in the browser."""
+    """What the panel shows: the window titles, and the probe `install` puts in the browser."""
 
     def __init__(self, board):
         self._board = board
@@ -85,13 +85,13 @@ class Panel:
         return float(stdout[0].split()[0]), _probe_sample("\n".join(stdout[1:]))
 
     def titles(self):
-        """The board's uptime and every window's WM_NAME, from one read-only walk.
+        """Every window's WM_NAME, from one read-only walk.
 
         Raises:
             subprocess.TimeoutExpired: the command ran past `Board.run`'s timeout.
         """
-        stdout, _stderr, _returncode = self._board.run(f"cat /proc/uptime; {_TITLES_WALK}")
-        return float(stdout[0].split()[0]), _wm_names("\n".join(stdout[1:]))
+        stdout, _stderr, _returncode = self._board.run(_TITLES_WALK)
+        return _wm_names("\n".join(stdout))
 
     def wait_on_panel(self, timeout_s=_PANEL_WAIT_SECONDS):
         """Poll until the instance is on the panel; return that read's (uptime, sample)."""

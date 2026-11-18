@@ -13,7 +13,7 @@ ref: ''
 references:
 - keyword: def test_kernel_crash
   path: tests/target_suite/test_restart_recovery.py
-  sha: 87462110fd47bc709aff1f7e3729327844b6c42957c3ff5bf691da9258788271
+  sha: 3946f76b019aa2fe074ed769cb07477fc9cebaedfcd8eea59d5141ee1fadcf99
   type: file
 reviewed: XUArgbp9MeSIpKnZy-L6MYE0eq8ASq9wQdTHXp5Kp2I=
 status: proposed

@@ -187,15 +187,17 @@ def power_cut(target, board, request, record_property):
             time.sleep(_POWER_OFF_SECONDS)
             on_began = time.monotonic()
             power.on()
-        except subprocess.CalledProcessError as error:
-            pytest.exit(f"the bench's power switch failed: {error}", returncode=1)
+        except (subprocess.CalledProcessError, OSError) as error:
+            pytest.exit(f"the bench's power switch failed: {error}", returncode=2)
         restored = time.monotonic()
         record_property("power_on_command_s", round(restored - on_began, 1))
         board.reconnect()
-        new_boot_id = board.run(_BOOT_ID_CMD, check=True)[0][0]
-        assert new_boot_id != old_boot_id, (
-            "the board answered in the same boot: the power cut did not land"
-        )
+        if board.run(_BOOT_ID_CMD, check=True)[0][0] == old_boot_id:
+            pytest.exit(
+                f"the board answered in the same boot after {_POWER_OFF_SECONDS} s off: "
+                "the plug or its supply did not cut power",
+                returncode=2,
+            )
         return restored
 
     return cut

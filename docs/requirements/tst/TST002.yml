@@ -13,14 +13,14 @@ ref: ''
 references:
 - keyword: def test_power_cut_while_showing
   path: tests/target_suite/test_restart_recovery.py
-  sha: 87462110fd47bc709aff1f7e3729327844b6c42957c3ff5bf691da9258788271
+  sha: 3946f76b019aa2fe074ed769cb07477fc9cebaedfcd8eea59d5141ee1fadcf99
   type: file
 reviewed: KitWC5L8BxwFlXTtryj9YDn9lrADx8fNIMZDHj7a5wE=
 status: proposed
 text: |
-  With the WiseKiosk instance on the panel, cut the appliance's power without warning, then restore
-  it. Pass if, within 60 s of power returning, the appliance serves the instance's page with the
-  browser running.
+  With the appliance serving the WiseKiosk instance's page and the browser running, cut its power
+  without warning, then restore it. Pass if, within 60 s of power returning, the appliance serves
+  the instance's page with the browser running.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.
