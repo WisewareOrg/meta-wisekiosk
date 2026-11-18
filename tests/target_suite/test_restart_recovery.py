@@ -11,7 +11,7 @@ from panel import OWN_ORIGINS, Panel
 _CRASH_BOUND_SECONDS = 100
 # TST011's bound
 _RESTART_BOUND_SECONDS = 60
-# TST002's and TST003's bound
+# TST002's bound
 _POWER_CUT_BOUND_SECONDS = 60
 # TST012's bound
 _COLD_BOOT_BOUND_SECONDS = 110
@@ -83,7 +83,7 @@ def test_restart_to_the_panel(board, record_property):
 
 
 def test_power_cut_while_showing(board, power_cut, record_property):
-    """TST002 power cut while showing: cut power with the instance up; time until it is served again."""
+    """Cut power with the instance up; time until the page is served with the browser running."""
     record_property("requirement", "TST002")
     assert all(_instance_up(board)), "the instance was not up before the cut"
     started = power_cut()
@@ -106,7 +106,7 @@ def _loaded_instance(board, titles):
 
 
 def test_cold_boot_to_the_panel(board, power_cut, record_property):
-    """TST012 cold boot to the panel: cut power; time until surf has loaded the instance's own page."""
+    """Cut power; time until the browser has loaded the instance's page from the board's own backend."""
     record_property("requirement", "TST012")
     panel = Panel(board)
     started = power_cut()

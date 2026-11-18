@@ -25,7 +25,7 @@
       "groupName": "grype"
     },
     {
-      "description": "Pinned to python-kasa PR 1592's commit for the bench plug's TPAP login; move to a release once TPAP ships in one.",
+      "description": "Pinned to python-kasa/python-kasa PR 1592's commit for the bench plug's TPAP login; move to a release that carries TPAP.",
       "matchDepNames": ["python-kasa"],
       "enabled": false
     },

@@ -172,13 +172,9 @@ _BOOT_ID_CMD = "cat /proc/sys/kernel/random/boot_id"
 
 @pytest.fixture
 def power_cut(target, board, request, record_property):
-    """Return `cut()`: switch the board's power off and on, and return when power returned.
+    """Return `cut()`, which cuts and restores the board's power and returns the host `time.monotonic()` at which power returned.
 
-    `cut()` reads the boot id, drops the ssh connection, switches the `PowerProtocol` driver off,
-    waits `_POWER_OFF_SECONDS`, switches it on, reconnects, and asserts the boot id changed. It
-    returns the host `time.monotonic()` taken as the on command returned. A plug failure inside
-    `cut()` ends the whole session: the bench's own fault is not the candidate's. Power is
-    switched on again at teardown, registered before anything is cut.
+    Power is switched on again at teardown.
     """
     power = target.get_driver("PowerProtocol")
     request.addfinalizer(power.on)

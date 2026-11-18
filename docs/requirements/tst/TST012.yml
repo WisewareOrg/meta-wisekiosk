@@ -13,7 +13,7 @@ ref: ''
 references:
 - keyword: def test_cold_boot_to_the_panel
   path: tests/target_suite/test_restart_recovery.py
-  sha: 005a6f55dbdd13eff9e9a4764dfd156e22778abbfc214565bcd88758cca9b0fe
+  sha: e99c617398ae578962253597c7f3ec7d80cf5bedcc25213b8a5bc5c8f75cd62c
   type: file
 reviewed: 9qZtVmz3QOHiY-vqaRixRCUvZQQoUvNnlQrXoq_BXyY=
 status: proposed
