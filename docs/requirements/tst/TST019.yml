@@ -14,7 +14,7 @@ ref: ''
 references:
 - keyword: def test_config_held_across_image_update
   path: tests/target_suite/test_configuration.py
-  sha: e8b6490f80354e3e908125e12f64f1e4d5a091876cca0726b94915cbbe2f6468
+  sha: f5a7af9e6fece02dc8fa65cf9b5d35c4716fc05eb32c238dc8b11561f17481c5
   type: file
 reviewed: 4UqehHirFXqleO_5aLS0NQgT0lygI7Q6_rZmoxDdBbA=
 status: proposed

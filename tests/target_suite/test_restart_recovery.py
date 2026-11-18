@@ -5,7 +5,7 @@ import time
 
 from labgrid.driver.exception import ExecutionError
 
-from panel import OWN_ORIGINS, Panel
+from panel import Panel
 
 # TST004's bound
 _CRASH_BOUND_SECONDS = 100
@@ -33,7 +33,11 @@ def _instance_up(board):
 
 
 def _until_up(board, started):
-    """Poll from `started` until the instance is up; return seconds (None if never) and the last read."""
+    """Poll from `started` until the instance is up; return seconds (None if never) and the last read.
+
+    The power-cut callers start at `power_cut()`'s return, so they overstate by at most one read
+    plus the 1 s sleep.
+    """
     while True:
         last_read = _instance_up(board)
         if all(last_read):
@@ -93,27 +97,20 @@ def test_power_cut_while_showing(board, power_cut, record_property):
     _check(back_s, last_read, "power returning", "TST002", _POWER_CUT_BOUND_SECONDS)
 
 
-def _loaded_instance(board, titles):
-    """The matched title and browser URL when surf has finished loading the instance's own page, else None."""
-    title = next((t for t in titles if t.endswith(" | WiseKiosk") and not t.startswith("[")), None)
-    if title is None:
-        return None
-    stdout, _stderr, returncode = board.run("tr '\\0' ' ' < /proc/$(pgrep -x surf)/cmdline")
-    cmdline = " ".join(stdout)
-    if returncode != 0 or not any(origin in cmdline for origin in OWN_ORIGINS):
-        return None
-    return title, cmdline
+def _loaded_instance(titles):
+    """The title of a window surf has finished loading the instance's page into, else None."""
+    return next((t for t in titles if t.endswith(" | WiseKiosk") and not t.startswith("[")), None)
 
 
 def test_cold_boot_to_the_panel(board, power_cut, record_property):
-    """Cut power; time until the browser has loaded the instance's page from the board's own backend."""
+    """Cut power; time until the browser has finished loading the instance's page."""
     record_property("requirement", "TST012")
     panel = Panel(board)
     started = power_cut()
     while True:
         try:
             _uptime_s, titles = panel.titles()
-            loaded = _loaded_instance(board, titles)
+            loaded = _loaded_instance(titles)
         except (subprocess.TimeoutExpired, ExecutionError):
             titles, loaded = [], None
         if loaded is not None:

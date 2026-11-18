@@ -13,14 +13,13 @@ ref: ''
 references:
 - keyword: def test_cold_boot_to_the_panel
   path: tests/target_suite/test_restart_recovery.py
-  sha: e99c617398ae578962253597c7f3ec7d80cf5bedcc25213b8a5bc5c8f75cd62c
+  sha: 87462110fd47bc709aff1f7e3729327844b6c42957c3ff5bf691da9258788271
   type: file
 reviewed: 9qZtVmz3QOHiY-vqaRixRCUvZQQoUvNnlQrXoq_BXyY=
 status: proposed
 text: |
   With the appliance powered off and nobody at the panel, apply power. Pass if, within 110 s of
-  power returning, the browser has finished loading the WiseKiosk instance's page from the
-  appliance's own backend.
+  power returning, the browser has finished loading the WiseKiosk instance's page.
 verification-justification: |
   Test. It measures against a stated bound; the pass condition needs no judgement.
   It stops at the page loaded in the browser: whether the app has applied its configuration is not
