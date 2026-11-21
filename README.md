@@ -225,12 +225,12 @@ and a non-root run leaves them owned by the wrong uid — but only after the car
 ### Updating a running device
 
 ```sh
-just kiosk-ota      # bundle -> preflight -> verified scp -> rauc install
+just kiosk-ota      # bundle -> preflight -> stream -> rauc install
 just kiosk-reboot
 just kiosk-rollback # if the new slot comes up wrong
 ```
 
-Every recipe that defaults to a device — `kiosk-ota`, `kiosk-send-direct`, `kiosk-install`, `kiosk-reboot`,
+Every recipe that defaults to a device — `kiosk-ota`, `kiosk-install`, `kiosk-reboot`,
 `kiosk-rollback`, `kiosk-preflight`, `kiosk-backup`, `provision-device` — takes its default from one
 `kiosk-host` variable in the [`Justfile`](Justfile), so `export KIOSK_HOST=root@<addr>` retargets all
 of them at once. Boards get swapped on this unit; `just find <cidr>` is how you learn the address of
@@ -238,20 +238,22 @@ the one now on the bench. An explicit `host` argument still wins over both. The 
 captures what the board does while the slot is written, and what a reset left behind — its header
 in [`tools/kiosk-install.sh`](tools/kiosk-install.sh) says what.
 
-`kiosk-preflight` refuses a delivery that cannot work — wrong slot size, stale bundle, no room on
-`/data` — before the transfer. Every recipe that puts software on a board also refuses, with no
-override, a build from a dirty or unpushed tree, so a build shipped from this host is always one
-someone else can check out; tying a bundle to the rootfs inside it is #48 bundle-image-tie.
-Delivery is a single md5-verified `scp` (`kiosk-send-direct`, ~45s for the ~114MB bundle): the
-sustained-transfer wedge that once forced chunking was top-OPP memory corruption, fixed by the
-clock cap in
-[`kiosk-cpufreq`](meta-wisekiosk/recipes-core/kiosk-cpufreq/kiosk-cpufreq_1.0.bb), so the chunker was
-removed (issue #29 remove chunked bundle delivery, verified 5/5 on the capped board).
+`kiosk-preflight` refuses a delivery that cannot work — wrong slot size, stale bundle — before the
+install. Every recipe that puts software on a board also refuses, with no override, a build from a
+dirty or unpushed tree, so a build shipped from this host is always one someone else can check out;
+tying a bundle to the rootfs inside it is #48 bundle-image-tie.
 
-The bundle is adaptive (`block-hash-index`): `rauc install` hashes each 4 KiB block of the image
-against both slots and writes only the target-slot blocks that differ, keeping each slot's index in
-`/data/rauc`. On this board's SD card the write, not the read, is the slow part of an install. A slot's
-first adaptive install builds that slot's index on the spot, so it is the slowest one.
+Every install, by hand, by `tools/rauc-rotate.sh` or by a test, goes through
+[`tools/kiosk-install.sh`](tools/kiosk-install.sh), and the board streams the bundle. For the
+length of the install the tool serves the bundle, and nothing beside it, from a pinned `nginx`
+container on this host's port 80, and the board runs `rauc install` on its URL at the address its own
+ssh session comes from. The bundle is adaptive (`block-hash-index`): RAUC fetches only the blocks it
+finds in neither slot, writes only the target-slot blocks that differ, and keeps each slot's index in
+`/data/rauc`; a slot's first adaptive install builds that slot's index on the spot, so it is the
+slowest one. The rootfs image is sized to its content by Yocto's default overhead factor, not to the
+slot ([`core-image-base.bbappend`](meta-wisekiosk/recipes-core/images/core-image-base.bbappend)),
+so an install carries only real content, and `resize=true` in RAUC's `system.conf` grows the slot's
+filesystem to fill its partition after each write.
 
 ## Configuration and secrets
 

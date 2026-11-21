@@ -545,8 +545,7 @@ else
     # <justfile>:<recipe>:<required mode>
     for spec in \
         "justfiles/deploy.just:flash:--image" \
-        "justfiles/ota.just:kiosk-preflight:--image" \
-        "justfiles/ota.just:kiosk-send-direct:--tree"
+        "justfiles/ota.just:kiosk-preflight:--image"
     do
         jf10=${spec%%:*}
         rest10=${spec#*:}
@@ -575,7 +574,7 @@ else
     kitrim10=$(sed 's/^[[:space:]]*//;s/[[:space:]]*$//' <<< "$kirecipe10")
     if [ -z "$kirecipe10" ]; then
         bad "guard 10: justfiles/ota.just:kiosk-install(recipe-gone)"
-    elif [ "$kilines10" -ne 1 ] || [ "$kitrim10" != "$kioskinstall10 {{host}}" ]; then
+    elif [ "$kilines10" -ne 1 ] || [ "$kitrim10" != "$kioskinstall10 {{host}} {{bundle}}" ]; then
         bad "guard 10: justfiles/ota.just:kiosk-install does not invoke only $kioskinstall10"
     else
         ok "justfiles/ota.just:kiosk-install invokes only $kioskinstall10"

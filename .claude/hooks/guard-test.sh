@@ -111,7 +111,7 @@ t "prod reboot by name"   BLOCK "$(b "just kiosk-reboot host=root@$PHOST")"
 t "prod rauc install"     BLOCK "$(b "ssh root@$PROD rauc install /data/update.raucb")"
 t "prod bare reboot"      BLOCK "$(b "ssh root@$PROD reboot")"
 t "prod reprovision"      BLOCK "$(b "tools/provision.sh device root@$PROD")"
-t "prod scp-style target" BLOCK "$(b "just kiosk-send-direct host=root@$PROD:/data")"
+t "prod direct install tool" BLOCK "$(b "tools/kiosk-install.sh root@$PROD")"
 # The hostname in ssh-target position, with no `user@` to key on. `-l root <host>`
 # and a bare `ssh <host> <cmd>` are ordinary spellings, and matching the bare
 # TOKEN is not available here -- it is also the MACHINE name (see the ALLOW
@@ -226,7 +226,7 @@ t "bench OTA by name"     ALLOW "$(b 'just kiosk-ota host=root@fixture-bench')"
 # appears three times inside a legitimate bundle path aimed at the BENCH board.
 # Splitting the command on '/' would make each of those a bare token equal to
 # the prod hostname and false-block every explicit-path delivery.
-t "MACHINE name in paths" ALLOW "$(b "just kiosk-send-direct bundle=build/tmp-$PHOST/deploy/images/$PHOST/update-bundle-$PHOST.raucb host=root@$BENCH")"
+t "MACHINE name in paths" ALLOW "$(b "just kiosk-install host=root@$BENCH bundle=build/tmp-$PHOST/deploy/images/$PHOST/update-bundle-$PHOST.raucb")"
 t "MACHINE= assignment"   ALLOW "$(b "MACHINE=$PHOST just build")"
 t "MACHINE name, ls path" ALLOW "$(b "ls build/tmp-$PHOST/deploy/images/$PHOST/")"
 echo "--- must ALLOW: observing PROD is not destroying it ---"
@@ -439,7 +439,7 @@ KIOSK_PROD_AUTH_FILE="$GRANT_NON_INTEGER"  t "malformed grant: non-integer"     
 
 echo "--- W2: a valid grant allows every in-scope verb ---"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-ota"               ALLOW "$(b "just kiosk-ota host=root@$PROD")"
-KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-send-direct"       ALLOW "$(b "just kiosk-send-direct host=root@$PROD:/data")"
+KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: direct install tool"     ALLOW "$(b "tools/kiosk-install.sh root@$PROD")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-install"           ALLOW "$(b "just kiosk-install host=root@$PROD")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: rauc install literal"    ALLOW "$(b "ssh root@$PROD rauc install /data/update.raucb")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-reboot"            ALLOW "$(b "just kiosk-reboot host=root@$PHOST")"

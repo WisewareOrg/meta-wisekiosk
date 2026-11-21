@@ -122,14 +122,8 @@ casync-stats store:
     echo "Chunks: $CHUNKS"
     echo "Size: $SIZE"
 
-# === Tier 1 delivery: plain .raucb over a single verified scp ===
-#
-# Chunked delivery once worked around a sustained-transfer wedge that was really
-# top-OPP memory corruption; the clock cap in
-# meta-wisekiosk/recipes-core/kiosk-cpufreq fixed the root cause (see
-# docs/issue_investigation/wifi_instability/README.md), so a plain full-size
-# transfer is safe on a capped board -- verified 5/5 at ~45s vs the chunker's
-# ~6 min. The chunker was removed with #29.
+# === Tier 1 delivery: the board streams the bundle from this host ===
+# tools/kiosk-install.sh serves it and installs it; README.md §"Updating a running device".
 
 # NOT covered by `just build`, which makes the kas `target:` images
 # (core-image-base, kiosk-bootprof) only -- shipping a stale .raucb silently
@@ -144,11 +138,11 @@ casync-stats store:
 kiosk-bundle kconfig="kiosk-zero-w.yaml":
     tools/kas-run.sh shell {{kconfig}} -c "bitbake update-bundle"
 
-# Every check here catches a failure that otherwise surfaces only after the
-# transfer completes, or does not surface at all.
+# Every check here catches a failure that otherwise surfaces only mid-install,
+# or does not surface at all.
 [group('ota')]
 [script('bash')]
-[doc("Refuse a delivery that cannot work: slot size, stale bundle, /data space")]
+[doc("Refuse a delivery that cannot work: slot size, stale bundle")]
 kiosk-preflight image="build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/core-image-base-raspberrypi0-wifi.rootfs.ext4" bundle="build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/update-bundle-raspberrypi0-wifi.raucb" host=kiosk-host:
     set -euo pipefail
     SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10"
@@ -156,7 +150,6 @@ kiosk-preflight image="build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wi
     test -f "{{image}}"  || { echo "no rootfs image at {{image}}"; exit 1; }
     test -f "{{bundle}}" || { echo "no bundle at {{bundle}}"; exit 1; }
     IMAGE_B=$(stat -Lc %s "{{image}}")
-    BUNDLE_B=$(stat -Lc %s "{{bundle}}")
 
     # Checks the rootfs, not the bundle -- nothing binds the two (#48).
     tools/reproducibility-gate.sh --image "{{image}}" || exit 1
@@ -176,63 +169,13 @@ kiosk-preflight image="build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wi
             exit 1
         fi
     done
-
-    # A leftover destination LARGER than the new bundle would let a partial copy
-    # or a stale file masquerade as complete, and the install would then reinstall
-    # the PREVIOUS image. The end-to-end md5 does catch it, but only after the
-    # transfer. Removing it also returns ~130MB of the partition the bundle
-    # stages on.
-    $SSH {{host}} 'rm -f /data/update.raucb; sync'
-
-    FREE_KB=$($SSH {{host}} 'df -k /data | tail -n 1' | awk '{print $4}')
-    NEED_KB=$(( BUNDLE_B / 1024 + 8192 ))
-    echo "/data free    : ${FREE_KB}KB, need ${NEED_KB}KB"
-    if [ "$FREE_KB" -lt "$NEED_KB" ]; then
-        echo "REFUSING: not enough room on /data for the bundle"
-        exit 1
-    fi
     echo "preflight OK"
-
-# One plain scp, verified end to end by md5. A sustained receive with a
-# synchronous SD write was the worst case that wedged the UNCAPPED board; the
-# clock cap in meta-wisekiosk/recipes-core/kiosk-cpufreq root-caused and fixed
-# that (docs/issue_investigation/wifi_instability/README.md), so the straight
-# transfer is safe on a capped board -- verified 5/5 at ~45s for the ~114MB
-# bundle. Writes to /data/update.raucb, which kiosk-install then verifies and
-# installs.
-[group('ota')]
-[script('bash')]
-[doc("Deliver a bundle in one plain scp, verified end to end (capped-board path)")]
-kiosk-send-direct bundle="build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/update-bundle-raspberrypi0-wifi.raucb" host=kiosk-host:
-    set -euo pipefail
-    SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10"
-    SCP="scp -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10"
-    DEST=/data/update.raucb
-    test -f "{{bundle}}" || { echo "no bundle at {{bundle}}"; exit 1; }
-    # Directly invocable, so it cannot rely on kiosk-preflight having run.
-    # --tree: the argument is a .raucb and nothing binds it to a rootfs (#48).
-    tools/reproducibility-gate.sh --tree || exit 1
-    LOCAL_MD5=$(md5sum "{{bundle}}" | cut -d' ' -f1)
-    SIZE=$(stat -Lc%s "{{bundle}}")
-    echo "sending {{bundle}} ($SIZE B, md5 $LOCAL_MD5) -> {{host}}:$DEST"
-    # Clear any stale destination first to reclaim its space and start clean --
-    # scp overwrites in place, but a leftover bundle otherwise wastes ~114MB.
-    $SSH {{host}} "rm -f $DEST; sync"
-    t0=$(date +%s)
-    $SCP "{{bundle}}" "{{host}}:$DEST"
-    $SSH {{host}} "sync"
-    DT=$(( $(date +%s) - t0 ))
-    REMOTE_MD5=$($SSH {{host}} "md5sum $DEST" | cut -d' ' -f1)
-    echo "transferred in ${DT}s ($(( SIZE / 1024 / (DT>0?DT:1) )) KB/s)"
-    echo "  local  $LOCAL_MD5"
-    echo "  remote ${REMOTE_MD5:-<none>}"
-    [ "$LOCAL_MD5" = "$REMOTE_MD5" ] && echo "  MATCH" || { echo "  MISMATCH -- do not install"; exit 1; }
 
 # Does NOT reboot -- inspect `rauc status` first, then `just kiosk-reboot`.
 [group('ota')]
-[doc("Install a staged bundle and show slot state")]
-kiosk-install host=kiosk-host:
-    tools/kiosk-install.sh {{host}}
+[doc("Stream a bundle to the board, install it and show slot state")]
+kiosk-install host=kiosk-host bundle="build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/update-bundle-raspberrypi0-wifi.raucb":
+    tools/kiosk-install.sh {{host}} {{bundle}}
 
 # Reboot and wait for the kiosk to answer again.
 [group('ota')]
@@ -253,7 +196,7 @@ kiosk-reboot host=kiosk-host timeout="300":
 
 # Full Tier 1 OTA. Builds the bundle FIRST so a stale .raucb cannot be shipped.
 [group('ota')]
-kiosk-ota host=kiosk-host kconfig="kiosk-zero-w.yaml": (kiosk-bundle kconfig) (kiosk-preflight "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/core-image-base-raspberrypi0-wifi.rootfs.ext4" "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/update-bundle-raspberrypi0-wifi.raucb" host) (kiosk-send-direct "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/update-bundle-raspberrypi0-wifi.raucb" host) (kiosk-install host)
+kiosk-ota host=kiosk-host kconfig="kiosk-zero-w.yaml": (kiosk-bundle kconfig) (kiosk-preflight "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/core-image-base-raspberrypi0-wifi.rootfs.ext4" "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/update-bundle-raspberrypi0-wifi.raucb" host) (kiosk-install host)
     @echo "Delivered and installed. Verify, then: just kiosk-reboot {{host}}"
 
 # The [doc] attribute rather than a trailing comment: just takes the LAST

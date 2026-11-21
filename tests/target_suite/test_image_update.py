@@ -12,7 +12,6 @@ import tempfile
 import time
 import uuid
 from pathlib import Path
-from types import SimpleNamespace
 from typing import NamedTuple
 
 import pytest
@@ -122,17 +121,10 @@ def back_on_candidate(request, board, update_bundles):
         _slot, booted_hash = _booted_slot(snapshot(board)["rauc_status"])
         if booted_hash == update_bundles.hash:
             return
-        # a finalizer cannot add finalizers to its own test, so the board's copy is removed here
-        cleanups = []
-        teardown_request = SimpleNamespace(node=request.node, addfinalizer=cleanups.append)
-        try:
-            returncode, output, _seconds = install(
-                teardown_request, board, update_bundles.candidate, _INSTALL_TIMEOUT_SECONDS
-            )
-            assert returncode == 0, f"reinstalling the candidate returned {returncode}: {output}"
-        finally:
-            for cleanup in reversed(cleanups):
-                cleanup()
+        returncode, output, _seconds = install(
+            request, board, update_bundles.candidate, _INSTALL_TIMEOUT_SECONDS
+        )
+        assert returncode == 0, f"reinstalling the candidate returned {returncode}: {output}"
         board.restart_by("systemctl reboot")
 
     request.addfinalizer(restore)

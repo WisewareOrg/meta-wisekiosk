@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
-# Install a staged RAUC bundle over ssh and show slot state. Does NOT reboot
-# -- inspect `rauc status` first, then `just kiosk-reboot`.
+# Install a RAUC bundle on a board and show slot state. Does NOT reboot --
+# inspect `rauc status` first, then `just kiosk-reboot`.
 #
-#   tools/kiosk-install.sh root@<host>
+#   tools/kiosk-install.sh root@<host> [bundle]
 #   tools/kiosk-install.sh --check-only <before> <after>
+#
+# BUNDLE defaults to the built update bundle. The board streams it: for the
+# length of the install this script serves BUNDLE, and nothing beside it, from a
+# pinned nginx container on this host's port 80, and the board runs `rauc install`
+# on its URL at the address its own ssh session comes from (SSH_CLIENT).
 #
 # Checks, in order: the reproducibility gate against the tree containing this
 # script, regardless of the caller's working directory (--tree: what installs
 # is already on the device); the device clock's skew from the host (reported,
 # never set -- a cold clock after a fresh slot's first boot is the documented
 # cause of a "certificate is not yet valid" refusal below, see #31); the
-# bundle's signature against the device keyring (`rauc info`); and, after
+# bundle's signature against the device keyring (`rauc info` on the URL); and, after
 # `rauc install`, that BOOT_ORDER now leads with the slot that was NOT booted
 # before, with that slot's *_LEFT counter reset above 0 (target_activated).
 #
@@ -52,8 +57,12 @@ target_activated() {
     [[ "$new_order" == "$target"* ]] && [ "${target_left:-0}" -gt 0 ]
 }
 
+nginx_image="nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94"
+server=kiosk-bundle-server
+
 ssh=(ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
 host=
+url=
 prev_thresh=
 capture_pids=()
 
@@ -112,7 +121,7 @@ arm() {
 
 start_capture() {
     line_ts "capture started" >&2
-    trap stop_capture EXIT
+    trap 'stop_capture; stop_server' EXIT
     stream kernel 'dmesg -w --time-format iso'
     stream journal 'journalctl -f -o short-iso-precise'
     stream stats "$stats_cmd"
@@ -139,6 +148,28 @@ stop_capture() {
     capture_pids=()
     trap - EXIT
     return "$status"
+}
+
+# serve BUNDLE -- serves BUNDLE alone on this host's port 80 and sets url to it
+# at the address the board's ssh session comes from.
+serve() {
+    local bundle=$1 addr t0=$SECONDS
+    # shellcheck disable=SC2016 # the board's shell expands SSH_CLIENT
+    addr=$("${ssh[@]}" "$host" 'echo "${SSH_CLIENT%% *}"')
+    [ -n "$addr" ] || { echo "the board did not report its ssh client address"; return 1; }
+    docker rm -f "$server" >/dev/null 2>&1 || true
+    docker run -d --rm --name "$server" -p 80:80 \
+        -v "$bundle:/usr/share/nginx/html/$(basename "$bundle"):ro" "$nginx_image" >/dev/null
+    until curl -sf -o /dev/null -r 0-0 "http://127.0.0.1/$(basename "$bundle")"; do
+        (( SECONDS - t0 < 30 )) || { echo "the bundle server did not answer within 30s"; return 1; }
+        sleep 1
+    done
+    url="http://$addr/$(basename "$bundle")"
+    echo "== serving $bundle at $url"
+}
+
+stop_server() {
+    docker stop "$server" >/dev/null 2>&1 || true
 }
 
 # reset_readback BOOT_ID -- waits up to 300 s for the board to answer, as
@@ -175,8 +206,10 @@ main() {
     fi
     [ -n "${1:-}" ] || { usage >&2; exit 2; }
     host=$1
-    local root gate
+    local root gate bundle
     root=$(cd "$(dirname "$0")/.." && pwd)
+    bundle=$(readlink -f "${2:-$root/build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/update-bundle-raspberrypi0-wifi.raucb}")
+    [ -f "$bundle" ] || { echo "no bundle at $bundle"; exit 1; }
     gate="$root/tools/reproducibility-gate.sh"
     cd "$root"
 
@@ -196,8 +229,10 @@ main() {
         echo "   WARNING: device clock off by ${skew}s -- if rauc rejects the cert below,"
         echo "            this is why: clock persistence may have failed (see #31)."
     fi
+    trap stop_server EXIT
+    serve "$bundle" || exit 1
     echo "== verifying bundle signature against the device keyring"
-    "${ssh[@]}" "$host" 'rauc info /data/update.raucb' \
+    "${ssh[@]}" "$host" "rauc info $url" \
         || { echo "bundle did not verify -- refusing to install"; exit 1; }
     local boot_id
     boot_id=$("${ssh[@]}" "$host" 'cat /proc/sys/kernel/random/boot_id')
@@ -206,8 +241,9 @@ main() {
     start_capture
     arm "$root"
     local rc=0
-    "${ssh[@]}" -o ServerAliveInterval=5 -o ServerAliveCountMax=6 "$host" 'rauc install /data/update.raucb' || rc=$?
+    "${ssh[@]}" -o ServerAliveInterval=5 -o ServerAliveCountMax=6 "$host" "rauc install $url" || rc=$?
     stop_capture
+    stop_server
     if [ "$rc" -ne 0 ]; then
         [ "$rc" -ne 255 ] || reset_readback "$boot_id"
         exit "$rc"
