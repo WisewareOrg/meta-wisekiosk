@@ -16,6 +16,7 @@
 //   moving  ticks at which some [data-marquee] element's parent had
 //           scrollLeft > 0
 //   cost    the probe's own callback time
+//   layout  the viewport, in CSS pixels
 (function () {
   if (window.__wk1) { return; }
   window.__wk1 = true;
@@ -98,7 +99,8 @@
       ' changes=' + changes +
       ' ticks=' + ticks +
       ' moving=' + moving +
-      ' cost=' + Math.round(cost);
+      ' cost=' + Math.round(cost) +
+      ' layout=' + window.innerWidth + 'x' + window.innerHeight;
     if (document.title !== title) { document.title = title; }
     cost += performance.now() - begin;
   }
