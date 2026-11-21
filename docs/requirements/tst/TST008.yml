@@ -16,12 +16,12 @@ references:
   path: tests/target_suite/test_network.py
   sha: b9f31910ee21f7165d28305f68dee544d6dd058e04fef5f53da3b3b3e73e70ca
   type: file
-reviewed: Ye1Z8CZps2ud1VrxJ9YhtsuuTte3yNcBXFkJG5rIggA=
+reviewed: Ub8mTnPrSnVxk-03qXRp6otSoquHKpbL7QqyR0tVTMw=
 status: proposed
 text: |
-  With the WiseKiosk instance on the panel, hold the appliance's network under sustained load for
-  60 s. Pass if the panel shows the live instance throughout, or is back within 60 s of any time it
-  stops.
+  With the WiseKiosk instance on the panel, hold the appliance's network under sustained load from
+  one host for 60 s. Pass if the panel shows the live instance throughout, or is back within 60 s of
+  any time it stops.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.
