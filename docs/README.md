@@ -10,6 +10,7 @@
 | [`../tests/replay/README.md`](../tests/replay/README.md) | What does a replay set hold, and how do you re-record one by hand? |
 | [`requirements/README.md`](requirements/README.md) | What does the image own as an obligation, and which check discharges each one? |
 | [`../meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md`](../meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md) | How do you bump the WiseKiosk app pin, and why does the build regenerate its API client and types instead of committing them? |
+| [`../meta-wisekiosk/recipes-core/kiosk-hardware/README.md`](../meta-wisekiosk/recipes-core/kiosk-hardware/README.md) | Why does the image set MGLRU `min_ttl_ms`, and which other ways of handling memory exhaustion were set aside? |
 | [`issue_investigation/TEMPLATE.md`](issue_investigation/TEMPLATE.md) | What shape must an issue investigation take, and what must every test run in it name? |
 | [`issue_investigation/boot_cpu_saturation/`](issue_investigation/boot_cpu_saturation/README.md) | Across a boot, is the single core doing work, waiting on hardware, or queued behind something else? |
 | [`issue_investigation/wlan0_udev_queue/`](issue_investigation/wlan0_udev_queue/README.md) | What occupies the gap between the WiFi chip appearing on the bus and `wlan0` existing, and what is removing it worth? |

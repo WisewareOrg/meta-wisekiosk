@@ -23,6 +23,8 @@ bench test <ref> --skip-build  # by hand: the target suite only, against the boa
 bench run                      # on a timer: the merge queue's head entry, the same path
 ```
 
+`--soak` (`bench test <ref> -- --soak`) gives TST014<!-- Memory over a long run --> its long period in place of the queue period and does not judge its growth bound; `bench run` never passes it.
+
 `bench.toml`'s `[hooks]` carries a no-op `precondition` — the runner requires one; this layer's board
 needs no state check before a run — `build` (`just build`) and `bundle` (`just kiosk-bundle`).
 `[tests]` names the two suites:
