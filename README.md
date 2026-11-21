@@ -244,16 +244,13 @@ dirty or unpushed tree, so a build shipped from this host is always one someone 
 tying a bundle to the rootfs inside it is #48 bundle-image-tie.
 
 Every install, by hand, by `tools/rauc-rotate.sh` or by a test, goes through
-[`tools/kiosk-install.sh`](tools/kiosk-install.sh), and the board streams the bundle. For the
-length of the install the tool serves the bundle, and nothing beside it, from a pinned `nginx`
-container on this host's port 80, and the board runs `rauc install` on its URL at the address its own
-ssh session comes from. The bundle is adaptive (`block-hash-index`): RAUC fetches only the blocks it
-finds in neither slot, writes only the target-slot blocks that differ, and keeps each slot's index in
-`/data/rauc`; a slot's first adaptive install builds that slot's index on the spot, so it is the
-slowest one. The rootfs image is sized to its content by Yocto's default overhead factor, not to the
-slot ([`core-image-base.bbappend`](meta-wisekiosk/recipes-core/images/core-image-base.bbappend)),
-so an install carries only real content, and `resize=true` in RAUC's `system.conf` grows the slot's
-filesystem to fill its partition after each write.
+[`tools/kiosk-install.sh`](tools/kiosk-install.sh), and the board streams the bundle from a
+short-lived `nginx` container on this host; the script's header says how. The bundle is adaptive
+(`block-hash-index`): RAUC fetches and writes only the blocks the slots do not already hold, and
+keeps each slot's index in `/data/rauc`, so a slot's first adaptive install is the slowest. The
+rootfs image is sized to its content rather than to the slot
+([`core-image-base.bbappend`](meta-wisekiosk/recipes-core/images/core-image-base.bbappend)), and
+`resize=true` in RAUC's `system.conf` grows the slot's filesystem to its partition after each write.
 
 ## Configuration and secrets
 

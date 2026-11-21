@@ -6,6 +6,8 @@ import subprocess
 import time
 
 _INSTALL_TOOL = pathlib.Path(__file__).resolve().parents[2] / "tools" / "kiosk-install.sh"
+# how long the tool may take to clean up after a SIGTERM
+_CLEANUP_SECONDS = 120
 
 
 def snapshot(board):
@@ -43,10 +45,17 @@ def install(request, board, bundle, timeout):
     available_kb = next(line.split()[1] for line in meminfo if line.startswith("MemAvailable:"))
     request.node.user_properties.append(("mem_available_kb", available_kb))
     started = time.monotonic()
-    result = subprocess.run(
+    tool = subprocess.Popen(
         [str(_INSTALL_TOOL), board.host, str(bundle)],
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         text=True,
-        timeout=timeout,
     )
-    return result.returncode, result.stdout + result.stderr, round(time.monotonic() - started, 1)
+    try:
+        output, _ = tool.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        # SIGTERM, not SIGKILL: the tool's cleanup stops the bundle server and disarms the board.
+        tool.terminate()
+        tool.communicate(timeout=_CLEANUP_SECONDS)
+        raise
+    return tool.returncode, output, round(time.monotonic() - started, 1)

@@ -155,10 +155,10 @@ kiosk-preflight image="build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wi
     tools/reproducibility-gate.sh --image "{{image}}" || exit 1
 
     # Nothing ties the image inside the bundle to the slot that receives it. The
-    # two agree only because both derive from AUTONOMOS_ROOTFS_SIZE in the same
-    # build; a bundle built after that value changes cannot install on a device
-    # flashed with the old layout, and it fails on the DEVICE mid-install rather
-    # than in the build that produced it. Sector count is 512-byte units.
+    # image is sized to its content and capped at AUTONOMOS_ROOTFS_SIZE, the
+    # size the flashed layout gives each slot; a device flashed with a smaller
+    # layout would fail on the DEVICE mid-install rather than in the build that
+    # produced the image. Sector count is 512-byte units.
     A_BYTES=$(( $($SSH {{host}} 'cat /sys/class/block/mmcblk0p2/size') * 512 ))
     B_BYTES=$(( $($SSH {{host}} 'cat /sys/class/block/mmcblk0p3/size') * 512 ))
     echo "rootfs image  : $IMAGE_B"

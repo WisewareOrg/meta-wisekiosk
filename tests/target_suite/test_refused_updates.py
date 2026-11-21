@@ -17,8 +17,9 @@ _REPO = Path(__file__).resolve().parents[2]
 _WORK_ROOT = _REPO / "build" / "refused-updates"
 _CONTAINER_WORK_ROOT = "/work/build/refused-updates"
 _FOREIGN_KEY_CN = "Refused update test key"
-# only catches a hang; neither TST017 nor TST018 states a bound
-_INSTALL_TIMEOUT_SECONDS = 60
+# only catches a hang, with the install tool's own checks and bundle server included;
+# neither TST017 nor TST018 states a bound
+_INSTALL_TIMEOUT_SECONDS = 120
 
 pytestmark = pytest.mark.sends_update
 
@@ -92,7 +93,7 @@ def _assert_refused(request, board, panel, record_property, bundle, reasons):
     record_property("after", json.dumps(after))
 
     # rc 2 is a D-Bus error: the board could not say, which is not a refusal
-    assert returncode == 1, f"rauc install returned {returncode}, not a refusal (1): {output}"
+    assert returncode == 1, f"the install returned {returncode}, not a refusal (1): {output}"
     for reason in reasons:
         assert reason in output, f"refused, but not for the reason {reason!r}: {output}"
     assert after["boot_variables"] == before["boot_variables"], "the next boot's slot order changed"

@@ -948,6 +948,21 @@ else
         | sed 's/^/        /'
 fi
 
+# --- 20. one install path: only tools/kiosk-install.sh runs rauc install --
+# Every install -- just kiosk-ota, tools/rauc-rotate.sh, the update tests --
+# goes through tools/kiosk-install.sh (README.md §"Updating a running device"),
+# so a second path cannot quietly differ from the one the tests prove. Comment
+# lines are skipped; this file names the command in its own messages.
+hits20=$(git grep -n -E 'rauc[[:space:]]+install' -- tools justfiles Justfile tests \
+    ':!tools/kiosk-install.sh' ':!tools/ci-guards.sh' \
+    | grep -v -E '^[^:]+:[0-9]+:[[:space:]]*#' || true)
+if [ -n "$hits20" ]; then
+    bad "guard 20: an install outside tools/kiosk-install.sh -- every install goes through it:"
+    printf '%s\n' "$hits20" | sed 's/^/        /'
+else
+    ok "only tools/kiosk-install.sh runs rauc install"
+fi
+
 if [ "$fail" -ne 0 ]; then
     printf '\nguards FAILED\n'
     exit 1

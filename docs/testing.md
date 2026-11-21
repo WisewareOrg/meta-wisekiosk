@@ -58,6 +58,12 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   swaps the board onto `clock-seconds.json` through `set_config` and stops the browser's web
   processes, and a finalizer registered first resumes them.
 
+Every install the target suite makes goes through [`tools/kiosk-install.sh`](../tools/kiosk-install.sh),
+so the bench host needs Docker, a free port 80, and a board that reaches the host's port 80 at the
+address the host's ssh session comes from. A plain LAN meets that, and so does WSL2 with Docker
+Desktop, which publishes the port on the Windows side; NAT or an ssh jump between the board and the
+host does not, and the install then fails to fetch the bundle.
+
 `bench run` also reads `[github]` — the GitHub App that posts the `bench-pipeline` check run, and the
 path to its private key on the bench host — and `[run]`, naming the systemd unit it disables on the
 bench's own failure.

@@ -112,6 +112,10 @@ t "prod rauc install"     BLOCK "$(b "ssh root@$PROD rauc install /data/update.r
 t "prod bare reboot"      BLOCK "$(b "ssh root@$PROD reboot")"
 t "prod reprovision"      BLOCK "$(b "tools/provision.sh device root@$PROD")"
 t "prod direct install tool" BLOCK "$(b "tools/kiosk-install.sh root@$PROD")"
+t "prod direct install tool, quoted" BLOCK "$(b "\"tools/kiosk-install.sh\" root@$PROD b.raucb")"
+t "prod direct install tool, ./"     BLOCK "$(b "cd tools && ./kiosk-install.sh root@$PROD b.raucb")"
+t "prod direct install tool, //"     BLOCK "$(b "tools//kiosk-install.sh root@$PROD b.raucb")"
+t "bench direct install tool"        ALLOW "$(b "tools/kiosk-install.sh root@$BENCH b.raucb")"
 # The hostname in ssh-target position, with no `user@` to key on. `-l root <host>`
 # and a bare `ssh <host> <cmd>` are ordinary spellings, and matching the bare
 # TOKEN is not available here -- it is also the MACHINE name (see the ALLOW

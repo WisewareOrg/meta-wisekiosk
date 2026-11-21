@@ -29,7 +29,7 @@ _CANDIDATE = (
 _BUNDLES_SCRIPT = "/work/tests/target_suite/update_bundles.sh"
 _PROBE = "/work/tests/target_suite/probe.js"
 _NONCE_PATH = "/tmp/kiosk-update-nonce"
-# a hang backstop, about three times the measured 3 min 8 s slot write
+# a hang backstop, about three times the 3 min 8 s a full, non-adaptive slot write measured
 _INSTALL_TIMEOUT_SECONDS = 600
 # 3 * (180 s boot wait + 180 s netcheck TimeoutStartSec + 30 s RebootWatchdogSec) + 180 s for the
 # fallback boot; a backstop, the record carries the time it took
@@ -151,7 +151,7 @@ def _send_bundle(request, board, bundle, update_bundles, record_property):
     record_property("install_rc", returncode)
     record_property("install_output", output)
     record_property("install_s", seconds)
-    assert returncode == 0, f"rauc install returned {returncode}: {output}"
+    assert returncode == 0, f"the install returned {returncode}: {output}"
     assert snapshot(board)["boot_id"] == before["boot_id"], "the board restarted during the install"
     return before
 
@@ -187,6 +187,7 @@ def _fall_back_and_accept(
     assert order[0] == target, f"the update's slot {target} no longer leads BOOT_ORDER: {order}"
     assert left[target] == 0, f"slot {target} has {left[target]} attempts left, not 0"
     if count_boots:
+        # journalctl lists boot ids without the dashes /proc/sys/kernel/random/boot_id has
         failed = _boot_ids(board) - boots_before - {after["boot_id"].replace("-", "")}
         assert len(failed) == attempts, (
             f"{len(failed)} failed boots in the journal, expected {attempts}: the update did not start "

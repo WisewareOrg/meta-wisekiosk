@@ -25,6 +25,11 @@
       "groupName": "grype"
     },
     {
+      "description": "nginx's stable releases have even minor versions; the odd ones are mainline.",
+      "matchPackageNames": ["nginx"],
+      "allowedVersions": "/^1\\.\\d*[02468]\\.\\d+-alpine$/"
+    },
+    {
       "description": "Neither registry returns a release timestamp, so the preset's release-age wait would hold these forever.",
       "matchManagers": ["custom.regex"],
       "matchDatasources": ["docker"],
