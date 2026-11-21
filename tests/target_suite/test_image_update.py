@@ -195,7 +195,7 @@ def _fall_back_and_accept(
     assert order[0] == target, f"the update's slot {target} no longer leads BOOT_ORDER: {order}"
     assert left[target] == 0, f"slot {target} has {left[target]} attempts left, not 0"
     if count_boots:
-        failed = _boot_ids(board) - boots_before - {after["boot_id"]}
+        failed = _boot_ids(board) - boots_before - {after["boot_id"].replace("-", "")}
         assert len(failed) == attempts, (
             f"{len(failed)} failed boots in the journal, expected {attempts}: the update did not start "
             "and fail to reach the network the way the test means"
