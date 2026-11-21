@@ -15,12 +15,12 @@ references:
   path: tests/target_suite/test_refused_updates.py
   sha: 7a0ea88146f11b430a73ff9610d91d9319c09555f021805edad419d8f487b059
   type: file
-reviewed: XkEML0fFZe0PVlINOXerR_qd4-S1zvvuQshVSSLXvEc=
+reviewed: 1FvwqNezOdceJ7p7GbNZ483Gj8Bjf_Kv3CIfFEi57ls=
 status: proposed
 text: |
-  Offer the appliance an image update signed by a key none of its operators holds. Pass if it
-  refuses the image update and is still running the same build, with the WiseKiosk instance on the
-  panel.
+  Offer the appliance an image update signed by a self-signed key none of its operators holds. Pass
+  if it refuses the image update and is still running the same build, with the WiseKiosk instance on
+  the panel.
 verification-justification: |
   Test. It exercises the capability and reads the result mechanically; the pass condition needs no
   judgement.
