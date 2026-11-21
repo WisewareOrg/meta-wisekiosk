@@ -1,20 +1,29 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Memory over a long run
+  Memory over a long run
 level: 1.6.1
 links:
-- SRS006: c10pAuZ9MpgcRszOJG-Nx4UOguYGWxIya8WGXLHv1i8=
+- SRS006: 2qdrwx6oTyRcalfd8HdKlrJ4X-1fQbyB4eBlj8dw71o=
 normative: true
 rationale: |
-  Waits on its test and its bound.
+  A kill for memory takes the instance off the panel, and running out of memory can instead end in a
+  reset that leaves no record. The check has to catch growth before the kill, and has to find the
+  kill's evidence when one comes.
 ref: ''
-references: []
-reviewed: bUFBVtek1bS8J7kmjLImCzofQo0ctNFkJlCj5yCu6Nc=
+references:
+- keyword: def test_memory_over_a_long_run
+  path: tests/target_suite/test_memory.py
+  sha: 95771ba7a809198b4a21ff26ade7425d203c1669a608252e417eb7c4548921f7
+  type: file
+reviewed: 0jbw-LOc23DDAOPjf2a6zcEEPMu0p1mdW6hFa8Wc3HY=
 status: proposed
 text: |
-  With the WiseKiosk instance on the panel, run the appliance for a period not yet set, sampling its
-  memory use. Pass if it stays under 80% of usable memory throughout.
+  With the WiseKiosk instance on the panel, run the appliance for 30 minutes, sampling its memory
+  use. Pass if it stays under 80% of usable memory throughout, its use grows by no more than 100 MB
+  from the start of the window to its end, and no process is killed for memory. The check is invalid
+  if the board restarts without a memory kill, the browser or backend restarts, the page reloads or
+  changes state, the sampling leaves a gap, the replay kills a request, or the evidence is unreadable.
 verification-justification: |
   Test. It measures against a stated bound; the pass condition needs no judgement.
 verification-method: test

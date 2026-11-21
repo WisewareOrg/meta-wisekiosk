@@ -2,8 +2,13 @@
 
 import hashlib
 import re
+import subprocess
 import time
 from pathlib import Path
+
+from labgrid.driver.exception import ExecutionError
+
+from replay import FULL_CARDS
 
 _PROBE_SRC = Path(__file__).resolve().parent / "probe.js"
 _PROBE_COPY_PATH = "/tmp/kiosk-probe.js"
@@ -11,6 +16,7 @@ _SURF_DIR = "/home/root/.surf"
 _SURF_SCRIPT_PATH = f"{_SURF_DIR}/script.js"
 _PANEL_WAIT_SECONDS = 90
 _PANEL_POLL_SECONDS = 1
+FULL_STATE_WAIT_SECONDS = 120
 OWN_ORIGINS = ("http://localhost:8080", "http://127.0.0.1:8080")
 _PROBE_FIELDS = ("nonce", "state", "cards", "origin", "layout")
 _WM_NAME = re.compile(r'WM_NAME\(\w+\) = "(.*)"$')
@@ -21,14 +27,14 @@ _TITLES_WALK = (
 
 
 def _probe_sample(xprop_output):
-    """The first window title carrying the probe's fields, as a dict of strings, else None."""
+    """The first window title carrying the probe's required fields, as a dict of every token, else None."""
     for line in xprop_output.splitlines():
         match = _WM_NAME.match(line)
         if match and "WK1 " in match.group(1):
             tokens = match.group(1).split("WK1 ", 1)[1].split()
             found = dict(token.split("=", 1) for token in tokens if "=" in token)
             if all(key in found for key in _PROBE_FIELDS):
-                return {key: found[key] for key in _PROBE_FIELDS}
+                return found
     return None
 
 
@@ -51,15 +57,11 @@ class Panel:
         request.addfinalizer(lambda: board.run(f"rm -f {_PROBE_COPY_PATH}", check=True))
 
         board.run(f"mkdir -p {_SURF_DIR} && touch {_SURF_SCRIPT_PATH}", check=True)
-        board.run(
-            f"if grep -q ' {_SURF_SCRIPT_PATH} ' /proc/self/mountinfo; "
-            f"then umount {_SURF_SCRIPT_PATH}; fi",
-            check=True,
-        )
+        board.unmount_if_mounted(_SURF_SCRIPT_PATH)
 
         request.addfinalizer(lambda: board.run("systemctl restart kiosk.service", check=True))
         board.run(f"mount --bind {_PROBE_COPY_PATH} {_SURF_SCRIPT_PATH}", check=True)
-        request.addfinalizer(lambda: board.run(f"umount {_SURF_SCRIPT_PATH}", check=True))
+        request.addfinalizer(lambda: board.unmount_if_mounted(_SURF_SCRIPT_PATH))
 
         board.run("systemctl restart kiosk.service", check=True)
 
@@ -88,5 +90,25 @@ class Panel:
                 return uptime_s, sample
             assert time.monotonic() < deadline, (
                 f"the instance was not on the panel within {timeout_s} s; last sample: {sample!r}"
+            )
+            time.sleep(_PANEL_POLL_SECONDS)
+
+    @staticmethod
+    def is_full(sample):
+        """The page on the panel with every card live."""
+        return Panel.on_panel(sample) and sample["cards"] == FULL_CARDS
+
+    def wait_full_state(self, timeout_s=FULL_STATE_WAIT_SECONDS):
+        """Poll until the page is on the panel with every card live; return that read's (uptime, sample)."""
+        deadline = time.monotonic() + timeout_s
+        while True:
+            try:
+                uptime_s, sample = self.read()
+            except (ExecutionError, subprocess.TimeoutExpired):
+                sample = None
+            if self.is_full(sample):
+                return uptime_s, sample
+            assert time.monotonic() < deadline, (
+                f"the page was not in full state within {timeout_s} s; last sample: {sample!r}"
             )
             time.sleep(_PANEL_POLL_SECONDS)

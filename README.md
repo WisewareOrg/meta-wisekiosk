@@ -323,7 +323,7 @@ that qualifies, and "Known gaps" says what closes it.
 | | |
 |---|---|
 | Engine | WebKitGTK 2.44.3, `ENABLE_JIT=OFF`, `USE_WOFF2=ON`, `MinSizeRel` — genuine ARMv6 (`Tag_CPU_arch: v6KZ`) |
-| Browser | `surf` 2.1 + the kiosk patch (milestones, override-redirect, shims) |
+| Browser | `surf` 2.1 + the kiosk patches (milestones, override-redirect, shims, frozen-page reload) |
 | Display | bare Xorg on vc4 firmware KMS at 1280x720, `xf86-video-modesetting` + mesa for glamor, WebKit painting in software, no display manager, no window manager — **measured on prod, never out of a build** |
 | Update | RAUC A/B over U-Boot — both slots visible |
 | Memory | 87 MB used of 428; zram present and never touched — **measured on the fbdev image** |
@@ -344,8 +344,10 @@ that qualifies, and "Known gaps" says what closes it.
 - **Root login is unauthenticated.** The image carries `debug-tweaks`, so root has an empty password.
   Deferred deliberately while a second device still depends on unauthenticated access; tracked as
   issue #7 debug-tweaks empty root password, which carries the detail.
-- **Screen blanking over a long idle is unverified.** `-s 0 -dpms -nocursor` moved from lightdm into
-  the kiosk unit; that failure only appears after ~20 minutes.
+- **Screen blanking is checked by the display server's settings, not by watching a long idle.**
+  `-s 0 -dpms -nocursor` moved from lightdm into the kiosk unit; TST007<!-- Display blanking disabled --> reads `xset q` on every
+  queue job and fails if the screen saver timeout is not zero or DPMS is enabled. A panel that
+  powers itself down is not covered.
 - **The image's packages are scanned for CVEs only when somebody asks.** The scan is a manual opt-in
   audit build on a build host, and nothing detects that the last one was months ago. Deciding which
   finding matters is manual too. [CVE and SBOM](docs/cve-and-sbom.md)

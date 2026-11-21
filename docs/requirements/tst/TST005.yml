@@ -1,16 +1,21 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Frozen page recovered
+  Frozen page recovered
 level: 1.1.5
 links:
-- SRS001: mJPXcAkSNEcGQaecPKwCJDrOMXsJRs1pWu-GXRZ10lo=
+- SRS001: AgauZ0qJaMlOEbRsn-JU3og-7PKri_bZTGf-n179uQk=
 normative: true
 rationale: |
-  Waits on its test.
+  A page that stops responding leaves the panel on its last frame, and with nobody there nobody
+  reloads it. The viewer must see the live instance again without anyone coming.
 ref: ''
-references: []
-reviewed: ojJ_ECCCCcQGmSeFxH3ondcy2ms9zs9mzfquag0cJH8=
+references:
+- keyword: def test_frozen_page_recovered
+  path: tests/target_suite/test_frozen_page.py
+  sha: 44171e129ed4b1d683b74ccbeff9e01c97eec0ae7b5c587d74a56c1436fa4528
+  type: file
+reviewed: NOCOgOQ4hCS-8MRprIN48SOytz4fQSMrEf3k6xtzAPQ=
 status: proposed
 text: |
   With the WiseKiosk instance configured to show a clock with seconds, freeze the page without
