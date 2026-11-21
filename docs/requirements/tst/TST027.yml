@@ -15,11 +15,11 @@ references:
   path: tests/target_suite/test_keyboard.py
   sha: 8233ed51e75b26f5fe3c8a314ef044f46f98aecf9517b9b44b93f11931139b84
   type: file
-reviewed: pAo_4GMESK9fJ2USmWQJzvfWp-hGPWfcXKgR9JqTgwQ=
+reviewed: uwQ1vISNVPDYKiDVhGAYIaZeTBSwH5kgouz-Ocukyfs=
 status: proposed
 text: |
-  With the appliance's network unavailable, attach a keyboard and log in with it. Pass if a command
-  typed there runs.
+  With the appliance's network unavailable, attach a keyboard at the appliance's input layer and log
+  in with it. Pass if a command typed there runs.
 verification-justification: |
   Test. It exercises the capability and reads the result mechanically; the pass condition needs no
   judgement.
