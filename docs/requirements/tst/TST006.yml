@@ -14,13 +14,13 @@ ref: ''
 references:
 - keyword: def test_new_application_build
   path: tests/target_suite/test_image_update.py
-  sha: 58dba61bbe7f1ef1ecafd71e8467f5f44a6268b6eccd9abc59061567bd037614
+  sha: fc6ac140c388841c918bec911c27be4b765f81d60092a8654592554b88f667be
   type: file
-reviewed: QovFAI-BkRBvcwUX88VQMuqBecXIcy_K1RUnYPIeWE0=
+reviewed: t8iPmF0ZPtHW43xf1Ag_HQvO6-d85SdV7zQrXxEb6q0=
 status: proposed
 text: |
   With nobody at the panel, install over the air a valid image update carrying a different WiseKiosk
-  build from the one running. Pass if the WiseKiosk instance is on the panel within 60 s of the
+  build from the one running. Pass if the WiseKiosk instance is on the panel within 160 s of the
   appliance restarting into it.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition

@@ -15,3 +15,5 @@ LICENSE = "CLOSED"
 
 RAUC_BUNDLE_HOOKS[file] = "kiosk-slot-hook.sh"
 RAUC_SLOT_rootfs[hooks] = "post-install"
+# Adaptive install: see README.md §"Updating a running device".
+RAUC_SLOT_rootfs[adaptive] = "block-hash-index"

@@ -248,6 +248,11 @@ clock cap in
 [`kiosk-cpufreq`](meta-wisekiosk/recipes-core/kiosk-cpufreq/kiosk-cpufreq_1.0.bb), so the chunker was
 removed (issue #29 remove chunked bundle delivery, verified 5/5 on the capped board).
 
+The bundle is adaptive (`block-hash-index`): `rauc install` hashes each 4 KiB block of the image
+against both slots and writes only the target-slot blocks that differ, keeping each slot's index in
+`/data/rauc`. On this board's SD card the write, not the read, is the slow part of an install. A slot's
+first adaptive install builds that slot's index on the spot, so it is the slowest one.
+
 ## Configuration and secrets
 
 Every device-specific value lives **outside this repository**, in `~/.config/wisekiosk/secrets.yaml`

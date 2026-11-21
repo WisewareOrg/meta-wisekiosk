@@ -60,6 +60,7 @@ compatible="$(manifest_value update compatible)"
 version="$(manifest_value update version)"
 build="$(manifest_value update build)"
 rootfs_name="$(manifest_value image.rootfs filename)"
+adaptive="$(manifest_value image.rootfs adaptive)"
 : "${compatible:?}" "${rootfs_name:?}"
 
 # The names in a directory of an ext4 image, one per line.
@@ -200,6 +201,7 @@ write_manifest() {
         echo "[image.rootfs]"
         echo "filename=$rootfs_name"
         echo "hooks=post-install"
+        [ -z "$adaptive" ] || echo "adaptive=$adaptive"
     } > "$manifest"
 }
 

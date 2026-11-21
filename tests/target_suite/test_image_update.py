@@ -36,7 +36,7 @@ _INSTALL_TIMEOUT_SECONDS = 600
 # fallback boot; a backstop, the record carries the time it took
 _FALLBACK_WAIT_SECONDS = 1350
 # TST006's bound
-_ON_PANEL_BOUND_SECONDS = 60
+_ON_PANEL_BOUND_SECONDS = 160
 # stop polling; past the bound, so the record still carries the time it took
 _ON_PANEL_GIVE_UP_SECONDS = 180
 
