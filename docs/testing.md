@@ -54,7 +54,9 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   refused-update tests build two small bundles through `tools/kas-run.sh`, so they need the
   checkout's own build tree and the signing keys the bench host's environment file names. The
   keyboard test builds evemu-tools through `tools/kas-run.sh` the same way, so it needs the build
-  tree too, and while it runs the panel shows the board's text console.
+  tree too, and while it runs the panel shows the board's text console. The frozen-page test
+  swaps the board onto `clock-seconds.json` through `set_config` and stops the browser's web
+  processes, and a finalizer registered first resumes them.
 
 `bench run` also reads `[github]` — the GitHub App that posts the `bench-pipeline` check run, and the
 path to its private key on the bench host — and `[run]`, naming the systemd unit it disables on the
