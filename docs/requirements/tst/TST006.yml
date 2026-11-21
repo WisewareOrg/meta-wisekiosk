@@ -4,7 +4,7 @@ header: |
   Image update with a new application build
 level: 1.1.6
 links:
-- SRS001: mJPXcAkSNEcGQaecPKwCJDrOMXsJRs1pWu-GXRZ10lo=
+- SRS001: AgauZ0qJaMlOEbRsn-JU3og-7PKri_bZTGf-n179uQk=
 normative: true
 rationale: |
   An image update with a new application build is how the operator changes what the panel shows.

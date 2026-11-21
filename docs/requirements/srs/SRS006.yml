@@ -8,9 +8,9 @@ links:
 normative: true
 rationale: |
   Memory that grows over a long run ends in a process being killed, which takes the instance off the
-  panel. Its check waits on how long a run it samples.
+  panel.
 ref: ''
-reviewed: mrNH6Cszqkfl_lEnef-XYQVDTIh03qAVhgAPRLm2dx0=
+reviewed: GLASLqIjT5lbrlvvutjIHM7bV2JJduPa8eHskAvRpWU=
 status: proposed
 text: |
   The appliance's memory use shall stay bounded however long it runs.
