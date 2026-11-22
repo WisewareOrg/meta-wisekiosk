@@ -19,9 +19,9 @@ def snapshot(board):
         return "\n".join(board.run(cmd, check=True)[0])
 
     return {
-        "boot_variables": read("fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT"),
+        "boot_variables": read(board.BOOT_VARIABLES_CMD),
         "rauc_status": json.loads(read("rauc status --detailed --output-format=json")),
-        "boot_id": read("cat /proc/sys/kernel/random/boot_id"),
+        "boot_id": read(board.BOOT_ID_CMD),
         "commit": board.commit(),
     }
 

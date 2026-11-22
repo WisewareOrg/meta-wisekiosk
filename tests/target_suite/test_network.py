@@ -51,7 +51,7 @@ def test_rejoins_after_an_outage(request, board, outage, record_property):
     """TST029 rejoins after an outage: pin the board off its network, then time until a shell opens."""
     record_property("requirement", "TST029")
     outage.wait_boot_complete()
-    boot_id = board.run("cat /proc/sys/kernel/random/boot_id", check=True)[0][0]
+    boot_id = board.run(board.BOOT_ID_CMD, check=True)[0][0]
     outage.arm(request, _OUTAGE_SECONDS)
     deadline = time.monotonic() + Outage.ARM_DELAY_SECONDS + _OUTAGE_SECONDS + Outage.GIVE_UP_SECONDS
 

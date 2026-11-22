@@ -30,6 +30,7 @@ class Board:
         FAULT_SSH_TIMEOUT_SECONDS (int): the backstop on the one-shot ssh that sends `restart_by`'s
             command.
         BOOT_ID_CMD (str): prints the kernel's boot id, which differs in each boot.
+        BOOT_VARIABLES_CMD (str): prints BOOT_ORDER and each slot's BOOT_x_LEFT as name=value lines.
     """
 
     CONFIG_PATH = "/data/config/config.json"
@@ -42,6 +43,7 @@ class Board:
     RESTART_WAIT_SECONDS = 180
     FAULT_SSH_TIMEOUT_SECONDS = 30
     BOOT_ID_CMD = "cat /proc/sys/kernel/random/boot_id"
+    BOOT_VARIABLES_CMD = "fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT"
 
     def __init__(self, target):
         """Bind to the target's SSHDriver and NetworkService.
@@ -149,7 +151,7 @@ class Board:
         Returns:
             tuple[list[str], dict[str, int]]: the boot order, and the attempts left per bootname.
         """
-        stdout = self.run("fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT", check=True)[0]
+        stdout = self.run(self.BOOT_VARIABLES_CMD, check=True)[0]
         variables = dict(line.split("=", 1) for line in stdout)
         left = {name: int(variables[f"BOOT_{name}_LEFT"]) for name in ("A", "B")}
         return variables["BOOT_ORDER"].split(), left

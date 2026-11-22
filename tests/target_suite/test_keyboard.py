@@ -254,7 +254,7 @@ def test_shell_from_an_attached_keyboard(request, board, outage, helpers, tmp_pa
     outage.wait_boot_complete()
     _kill_tty2_login(board)
 
-    boot_id = board.run("cat /proc/sys/kernel/random/boot_id", check=True)[0][0]
+    boot_id = board.run(board.BOOT_ID_CMD, check=True)[0][0]
     builtin = board.run("cat /lib/modules/$(uname -r)/modules.builtin", check=True)[0]
     hid_drivers = [entry for entry in builtin if entry in (_USBHID, _HID_GENERIC)]
     record_property("modules_builtin_hid", "\n".join(hid_drivers))
@@ -309,7 +309,7 @@ def test_shell_from_an_attached_keyboard(request, board, outage, helpers, tmp_pa
     time.sleep(Outage.ARM_DELAY_SECONDS + _OUTAGE_SECONDS + 2)
     board.reconnect()
 
-    boot_id_after = board.run("cat /proc/sys/kernel/random/boot_id", check=True)[0][0]
+    boot_id_after = board.run(board.BOOT_ID_CMD, check=True)[0][0]
     keyboard_record = board.run(f"cat {_DIR}/record 2>/dev/null || true", check=True)[0]
     marker = board.run(f"cat {_DIR}/marker 2>/dev/null || true", check=True)[0]
     outage_record = outage.record_lines()

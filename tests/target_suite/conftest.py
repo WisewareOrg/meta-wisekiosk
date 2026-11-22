@@ -244,7 +244,7 @@ def device_context(board, record_property):
     environ = read(f"tr '\\0' '\\n' < /proc/{pid}/environ").splitlines()
     xrandr = read("DISPLAY=:0 xrandr").splitlines()
     facts = {
-        "boot_id": read("cat /proc/sys/kernel/random/boot_id"),
+        "boot_id": read(board.BOOT_ID_CMD),
         "uptime_s": float(read("cat /proc/uptime").split()[0]),
         "kernel": read("uname -r"),
         "file_sha256": "\n".join(sums_out),

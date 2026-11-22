@@ -4,7 +4,7 @@ BACKEND_DROP_IN_DIR = "/run/systemd/system/wisekiosk.service.d"
 # covers a daemon-reload plus a backend start
 RELOAD_TIMEOUT_SECONDS = 60
 _HOLD_PATH = f"{BACKEND_DROP_IN_DIR}/hold.conf"
-_MAIN_PID_CMD = "systemctl show -p MainPID --value wisekiosk.service"
+MAIN_PID_CMD = "systemctl show -p MainPID --value wisekiosk.service"
 
 
 def hold_restart(board, request, seconds):
@@ -35,7 +35,7 @@ def hold_restart(board, request, seconds):
 
 def main_pid(board):
     """The backend's MainPID as systemd reports it."""
-    return board.run(_MAIN_PID_CMD, check=True)[0][0].strip()
+    return board.run(MAIN_PID_CMD, check=True)[0][0].strip()
 
 
 def kill_backend(board):

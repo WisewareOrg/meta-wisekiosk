@@ -8,6 +8,7 @@ import pytest
 from labgrid.binding import StateError
 from labgrid.driver.exception import ExecutionError
 
+from backend import MAIN_PID_CMD
 from replay import CARDS4_LIVE
 
 # TST014's period, and the period `--soak` gives it
@@ -93,7 +94,7 @@ def _pstore_oom_uptimes(board, start, end):
 def _boot_id(board):
     """The boot id, or None if it could not be read."""
     try:
-        return _read_text(board, "cat /proc/sys/kernel/random/boot_id")
+        return _read_text(board, board.BOOT_ID_CMD)
     except _BOARD_ERRORS:
         return None
 
@@ -136,8 +137,8 @@ def test_memory_over_a_long_run(
     board.run("systemctl start kiosk-soak.timer", check=True)
     record_property("timer_was_active", timer_was_active)
 
-    boot_id = _read_text(board, "cat /proc/sys/kernel/random/boot_id")
-    backend_pid = _read_text(board, "systemctl show -p MainPID --value wisekiosk.service")
+    boot_id = _read_text(board, board.BOOT_ID_CMD)
+    backend_pid = _read_text(board, MAIN_PID_CMD)
     start_uptime = float(_read_text(board, "cat /proc/uptime").split()[0])
     start_mem = _meminfo(board)
     total_mb = start_mem["MemTotal"] / 1024
@@ -208,7 +209,7 @@ def test_memory_over_a_long_run(
                 problems.append(f"kiosk-soak left a gap over {MAX_GAP_SECONDS} s")
             if len({line["pid"] for line in lines}) > 1 or any(line["pid"] == "none" for line in lines):
                 problems.append("the browser restarted or was not running at a sample")
-            if _read_text(board, "systemctl show -p MainPID --value wisekiosk.service") != backend_pid:
+            if _read_text(board, MAIN_PID_CMD) != backend_pid:
                 problems.append("wisekiosk.service restarted")
             try:
                 _uptime, end_sample = panel.read()
