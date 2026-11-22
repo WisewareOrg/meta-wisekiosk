@@ -9,6 +9,7 @@ import pytest
 
 from outage import Outage
 from panel import Panel
+from recovery import BACKEND_DROP_IN_DIR
 from replay import CA_PATH, CARDS4_LIVE
 
 _CONFIG_COPY_PATH = "/tmp/kiosk-config.json"
@@ -20,7 +21,11 @@ _HASHED_PATHS = (
     "/boot/cmdline.txt",
 )
 _CA_BOARD_PATH = "/tmp/replay-ca.pem"
-_DROP_IN_PATH = "/run/systemd/system/wisekiosk.service.d/replay.conf"
+_DROP_IN_PATH = f"{BACKEND_DROP_IN_DIR}/replay.conf"
+_BACKEND_SWEEP = (
+    f"rm -rf {BACKEND_DROP_IN_DIR}; systemctl unmask --runtime wisekiosk.service; "
+    "systemctl daemon-reload; systemctl start wisekiosk.service"
+)
 
 
 def pytest_addoption(parser):
@@ -31,7 +36,8 @@ def pytest_addoption(parser):
 def config_across_update(request, board, bench_candidate):
     """Hash the board's config before and after `install_candidate`; writes nothing.
 
-    First unmounts a bind mount a dead run left over the live config path.
+    First clears what a dead run can leave in `/run`: a bind mount over the live config path, the
+    backend's runtime drop-ins and a runtime mask on it.
 
     Args:
         request (pytest.FixtureRequest): runs `install_candidate` between the two hashes.
@@ -44,6 +50,7 @@ def config_across_update(request, board, bench_candidate):
             missing); None when there is no candidate to install.
     """
     board.unmount_if_mounted(board.CONFIG_PATH)
+    board.run(_BACKEND_SWEEP, check=True)
     if bench_candidate is None:
         request.getfixturevalue("install_candidate")
         return None
@@ -147,7 +154,7 @@ def replay_window(board, proxy, set_config, request):
     request.addfinalizer(_remove_ca)
 
     stdout, stderr, returncode = board.run(
-        "mkdir -p /run/systemd/system/wisekiosk.service.d && "
+        f"mkdir -p {BACKEND_DROP_IN_DIR} && "
         f"printf '[Service]\\nEnvironment=HTTPS_PROXY=http://127.0.0.1:{proxy.port}\\n"
         f"Environment=SSL_CERT_FILE={_CA_BOARD_PATH}\\n' > {_DROP_IN_PATH} && "
         "systemctl daemon-reload",

@@ -40,17 +40,13 @@ def loaded_instance(titles):
     return next((t for t in titles if t.endswith(" | WiseKiosk") and not t.startswith("[")), None)
 
 
-def loaded_other_page(titles):
-    """The title of a window surf has finished loading a page other than the instance's into, else None.
+def finished_load(titles):
+    """The title of a window surf has finished loading a page with a title into, else None.
 
     A title with no page title after the ` | ` is a window that has loaded nothing yet.
     """
     return next(
-        (
-            t
-            for t in titles
-            if not t.startswith("[") and " | " in t and t.split(" | ", 1)[1] not in ("", "WiseKiosk")
-        ),
+        (t for t in titles if not t.startswith("[") and " | " in t and t.split(" | ", 1)[1]),
         None,
     )
 

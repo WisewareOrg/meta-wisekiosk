@@ -11,10 +11,11 @@ from typing import NamedTuple
 
 from labgrid.driver.exception import ExecutionError
 
-from panel import loaded_other_page
+from panel import OWN_ORIGINS, finished_load
 
 # stop polling; past every bound, so the record still carries the time it took
 GIVE_UP_SECONDS = 180
+_SETTLED_APP_STATES = ("error:configuration", "error:backend-unreachable")
 
 
 def instance_up(board):
@@ -78,10 +79,11 @@ class Held(NamedTuple):
     Attributes:
         running (bool): the browser is running.
         served (bool): the page is served.
-        shown (tuple | None): what the window shows that is not the instance --
-            `("probe", sample)` for a probe sample neither on the panel nor still loading,
-            `("title", title)` for a finished title that is not the instance's when there is no
-            sample, else None.
+        shown (tuple | None): a settled page the browser loaded without the backend --
+            `("probe", sample)` for a probe sample from another origin, or in the app's
+            configuration-error or unreachable-backend state; `("title", title)` for a finished
+            load's title when there is no sample; else None. On the app's own origin, a loading
+            or not-yet-mounted app is not settled.
     """
 
     running: bool
@@ -95,10 +97,10 @@ def held_state(board, panel):
     served = board.page_served()
     _, sample = panel.read()
     if sample is not None:
-        settled_off_panel = not panel.on_panel(sample) and sample["state"] != "loading"
-        shown = ("probe", sample) if settled_off_panel else None
+        settled = sample["origin"] not in OWN_ORIGINS or sample["state"] in _SETTLED_APP_STATES
+        shown = ("probe", sample) if settled else None
     else:
-        title = loaded_other_page(panel.titles())
+        title = finished_load(panel.titles())
         shown = ("title", title) if title else None
     return Held(running, served, shown)
 
@@ -169,8 +171,8 @@ def assert_on_panel_within(t0, on_panel_s, last, requirement, bound):
     )
 
 
-_HOLD_DIR = "/run/systemd/system/wisekiosk.service.d"
-_HOLD_PATH = f"{_HOLD_DIR}/hold.conf"
+BACKEND_DROP_IN_DIR = "/run/systemd/system/wisekiosk.service.d"
+_HOLD_PATH = f"{BACKEND_DROP_IN_DIR}/hold.conf"
 _MAIN_PID_CMD = "systemctl show -p MainPID --value wisekiosk.service"
 
 
@@ -190,7 +192,7 @@ def hold_restart(board, request, seconds):
 
     request.addfinalizer(unhold)
     board.run(
-        f"mkdir -p {_HOLD_DIR} && printf '[Service]\\nRestartSec={seconds}\\n' > {_HOLD_PATH} && "
+        f"mkdir -p {BACKEND_DROP_IN_DIR} && printf '[Service]\\nRestartSec={seconds}\\n' > {_HOLD_PATH} && "
         "systemctl daemon-reload",
         check=True,
     )

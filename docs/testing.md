@@ -65,7 +65,8 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   backend should the host be lost; teardown releases it too. The backend-crash tests kill the
   backend, and the browser-start one first delays its restart with a `RestartSec` drop-in in
   `/run`, which teardown removes. All of these live in `/run`, so a real reboot clears any a dead
-  run leaves.
+  run leaves, and `config_across_update` clears the backend's runtime drop-ins and mask at the
+  start of every session.
 
 Every install the target suite makes goes through [`tools/kiosk-install.sh`](../tools/kiosk-install.sh),
 so the bench host needs Docker, a free port 80, and a board that reaches the host's port 80 at the

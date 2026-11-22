@@ -108,12 +108,7 @@ def test_backend_late_at_boot(board, request, record_property):
 
     request.addfinalizer(lambda: _release(board))
     board.run("systemctl mask --runtime wisekiosk.service", check=True)
-    try:
-        board.restart_by("systemctl soft-reboot", boot_cmd=_USERSPACE_BOOT_CMD)
-    except AssertionError as error:
-        raise AssertionError(
-            f"INVALID CHECK, not an appliance failure: the soft-reboot did not complete: {error}"
-        ) from error
+    board.restart_by("systemctl soft-reboot", boot_cmd=_USERSPACE_BOOT_CMD)
 
     units = f"{_RELEASE_UNIT}.timer {_RELEASE_UNIT}.service"
     request.addfinalizer(lambda: board.run(f"systemctl stop {units}; systemctl reset-failed {units}"))
