@@ -4,15 +4,15 @@ import time
 
 from panel import Panel
 from recovery import (
-    assert_held,
+    GIVE_UP_SECONDS,
     assert_kill_landed,
     assert_on_panel_within,
+    check_held,
     hold_restart,
     kill_backend,
     or_none,
     panel_after_answer,
     uptime_and_served,
-    wait_held,
 )
 
 # TST032's bound
@@ -43,7 +43,7 @@ def test_backend_crash(board, panel, record_property):
     record_property("requirement", "TST032")
     _, before = panel.wait_on_panel()
     killed_at, old_pid = kill_backend(board)
-    give_up_at = time.monotonic() + _CRASH_BOUND_SECONDS
+    give_up_at = time.monotonic() + GIVE_UP_SECONDS
 
     answered_at = None
     left_panel = False
@@ -75,9 +75,12 @@ def test_backend_crash(board, panel, record_property):
     record_property("main_pid_before", old_pid)
     if answered_at is not None:
         record_property("main_pid_after", assert_kill_landed(board, old_pid))
-    assert on_panel_s is not None and on_panel_s <= _CRASH_BOUND_SECONDS, (
-        f"the instance was not on the panel with the backend answering within {_CRASH_BOUND_SECONDS} s "
+    assert on_panel_s is not None, (
+        f"the instance was not on the panel with the backend answering within {GIVE_UP_SECONDS} s "
         f"of the crash (backend answered at uptime {answered_at}); last sample: {sample!r}"
+    )
+    assert on_panel_s <= _CRASH_BOUND_SECONDS, (
+        f"on the panel {on_panel_s} s after the crash; TST032's bound is {_CRASH_BOUND_SECONDS} s"
     )
 
 
@@ -98,10 +101,7 @@ def test_backend_crash_during_browser_start(board, request, record_property):
     record_property("probe_sha256", panel.install(request))
     request.addfinalizer(unhold)
 
-    held_s, held = wait_held(board, panel)
-    record_property("held_state", held)
-    record_property("held_case", held[2][0] if held and held[2] else None)
-    assert_held(held_s, held)
+    check_held(board, panel, record_property)
 
     t0, on_panel_s, last = panel_after_answer(board, panel)
     record_property("backend_answered_uptime_s", t0)

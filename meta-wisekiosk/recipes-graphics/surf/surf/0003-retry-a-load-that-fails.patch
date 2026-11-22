@@ -24,7 +24,7 @@ Upstream-Status: Inappropriate [kiosk-specific]
  	gint64 pingsent;
  	int armed;
 +	guint retrytimer;
-+	int loadfailed, failpage, failstreak;
++	int lastloadfailed, failpage, failurelogged;
  	GCancellable *pingcancel;
  	struct Client *next;
  } Client;
@@ -154,7 +154,7 @@ Upstream-Status: Inappropriate [kiosk-specific]
 +		if (c->failpage)
 +			c->failpage = 0;
 +		else
-+			c->loadfailed = 0;
++			c->lastloadfailed = 0;
  		break;
  	case WEBKIT_LOAD_REDIRECTED:
  		setatom(c, AtomUri, uri);
@@ -162,8 +162,8 @@ Upstream-Status: Inappropriate [kiosk-specific]
  		*/
  		runscript(c);
  		armpagewatch(c);
-+		if (!c->loadfailed)
-+			c->failstreak = 0;
++		if (!c->lastloadfailed)
++			c->failurelogged = 0;
  		break;
  	}
  	updatetitle(c);
@@ -204,13 +204,13 @@ Upstream-Status: Inappropriate [kiosk-specific]
 +	        WEBKIT_POLICY_ERROR_FRAME_LOAD_INTERRUPTED_BY_POLICY_CHANGE))
 +		return FALSE;
 +
-+	if (!c->failstreak) {
++	if (!c->failurelogged) {
 +		fprintf(stderr, "surf: load of %s failed: %s, "
 +		        "retrying every %d s\n", uri, err->message, PAGETICK);
 +		fflush(stderr);
-+		c->failstreak = 1;
++		c->failurelogged = 1;
 +	}
-+	c->loadfailed = 1;
++	c->lastloadfailed = 1;
 +	c->failpage = 1;
 +	if (!c->retrytimer)
 +		c->retrytimer = g_timeout_add_seconds(PAGETICK, retryload, c);
@@ -224,7 +224,7 @@ Upstream-Status: Inappropriate [kiosk-specific]
 +	Client *c = p;
 +
 +	c->retrytimer = 0;
-+	if (c->loadfailed)
++	if (c->lastloadfailed)
 +		bringpageback(c);
  	return G_SOURCE_REMOVE;
  }

@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_backend_crash_during_browser_start
   path: tests/target_suite/test_wisekiosk.py
-  sha: b213e4dc9cc1bd9bf629d542d493bd039d5ae52cc50772330470bc293c279749
+  sha: 9a77e2ae020a6d852e8919b08d94f032daa1d2a15f46ff2b19499a81987c016d
   type: file
-reviewed: bmg11kr0HCWD2jNhgfYrTK05xvkF7kFOey4FPhoisW4=
+reviewed: x6QFdzqcqFuAR98eFZUEXUKDHvUoCmC3KF0WpVCE6hE=
 status: proposed
 text: |
   With nobody at the panel, crash the WiseKiosk backend by killing it outright, and have the browser

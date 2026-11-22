@@ -6,12 +6,11 @@ from panel import Panel, loaded_instance
 from recovery import (
     GIVE_UP_SECONDS,
     assert_back_within,
-    assert_held,
     assert_on_panel_within,
+    check_held,
     panel_after_answer,
     poll_from,
     until_up,
-    wait_held,
 )
 
 # TST004's bound
@@ -135,10 +134,7 @@ def test_backend_late_at_boot(board, request, record_property):
     record_property("probe_sha256", panel.install(request, restart_browser=False))
     request.addfinalizer(lambda: _release(board))
 
-    held_s, held = wait_held(board, panel)
-    record_property("held_state", held)
-    record_property("held_case", held[2][0] if held and held[2] else None)
-    assert_held(held_s, held)
+    check_held(board, panel, record_property)
 
     board.run(_RELEASE, check=True)
     t0, on_panel_s, last = panel_after_answer(board, panel)

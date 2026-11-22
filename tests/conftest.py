@@ -21,6 +21,7 @@ class Board:
             live file from when it holds none.
         PAGE_URL (str): the WiseKiosk instance's page, as the board fetches it. busybox wget
             returns 0 only on 2xx.
+        PAGE_FETCH_CMD (str): the board command that fetches `PAGE_URL` to stdout.
         PAGE_BOUND_SECONDS (int): how long `wait_for_page` waits for the page.
         PAGE_POLL_INTERVAL_SECONDS (int): the pause between `wait_for_page`'s attempts.
         PAGE_ATTEMPT_TIMEOUT_SECONDS (int): the longest one page fetch may take.
@@ -34,6 +35,7 @@ class Board:
     CONFIG_PATH = "/data/config/config.json"
     DEFAULT_CONFIG_PATH = "/usr/share/wisekiosk/config.example.json"
     PAGE_URL = "http://127.0.0.1:8080/"
+    PAGE_FETCH_CMD = f"wget -q -O- {PAGE_URL}"
     PAGE_BOUND_SECONDS = 60
     PAGE_POLL_INTERVAL_SECONDS = 2
     PAGE_ATTEMPT_TIMEOUT_SECONDS = 10
@@ -199,8 +201,13 @@ class Board:
         Raises:
             subprocess.TimeoutExpired: the fetch ran past `timeout`.
         """
-        stdout, stderr, returncode = self.run(f"wget -q -O- {self.PAGE_URL}", timeout=timeout)
+        stdout, stderr, returncode = self.run(self.PAGE_FETCH_CMD, timeout=timeout)
         return returncode, "\n".join(stdout + stderr).strip()
+
+    @staticmethod
+    def is_page(returncode, output):
+        """Whether a `PAGE_FETCH_CMD` run's return code and output are an HTML page served."""
+        return returncode == 0 and "<html" in output
 
     def page_served(self, timeout=PAGE_ATTEMPT_TIMEOUT_SECONDS):
         """Read `PAGE_URL` once and report whether it served an HTML page.
@@ -215,7 +222,7 @@ class Board:
             returncode, output = self.fetch_page(timeout=timeout)
         except subprocess.TimeoutExpired:
             return False
-        return returncode == 0 and "<html" in output
+        return self.is_page(returncode, output)
 
     def wait_for_page(self):
         """Poll `PAGE_URL` until it serves an HTML page or `PAGE_BOUND_SECONDS` elapse.

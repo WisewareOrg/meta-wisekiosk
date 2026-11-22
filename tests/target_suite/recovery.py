@@ -1,7 +1,13 @@
-"""Whether a board that went down serves the instance again: the page served with the browser running."""
+"""Recovery checks: whether a board that went down serves the instance again, and the backend faults.
+
+The browser running with the page served; the backend's crash and its held restart; the check that
+the browser has loaded without the backend; and the time from the backend's first answer to the
+instance on the panel.
+"""
 
 import subprocess
 import time
+from typing import NamedTuple
 
 from labgrid.driver.exception import ExecutionError
 
@@ -66,13 +72,25 @@ def or_none(read):
         return None
 
 
-def held_state(board, panel):
-    """Whether the browser runs, whether the page is served, and what it shows that is not the instance.
+class Held(NamedTuple):
+    """One read of the board while the backend is held.
 
-    The last is `("probe", sample)` for a probe sample neither on the panel nor still loading,
-    `("title", title)` for a finished title that is not the instance's when there is no sample,
-    else None.
+    Attributes:
+        running (bool): the browser is running.
+        served (bool): the page is served.
+        shown (tuple | None): what the window shows that is not the instance --
+            `("probe", sample)` for a probe sample neither on the panel nor still loading,
+            `("title", title)` for a finished title that is not the instance's when there is no
+            sample, else None.
     """
+
+    running: bool
+    served: bool
+    shown: tuple | None
+
+
+def held_state(board, panel):
+    """Read the board once as a `Held`."""
     running = board.run("pgrep -x surf")[2] == 0
     served = board.page_served()
     _, sample = panel.read()
@@ -82,37 +100,41 @@ def held_state(board, panel):
     else:
         title = loaded_other_page(panel.titles())
         shown = ("title", title) if title else None
-    return running, served, shown
+    return Held(running, served, shown)
 
 
-def wait_held(board, panel):
-    """Poll until the browser shows a page that is not the instance without the page served, or until
-    the page is served; return seconds (None if neither) and the last `held_state`."""
-    return poll_from(
+def check_held(board, panel, record_property):
+    """Wait until the browser shows a page that is not the instance with the page not served.
+
+    Records the last `Held` read and which case of `shown` matched.
+
+    Raises:
+        AssertionError: INVALID CHECK -- the page was served first, so the hold was too short, or
+            neither happened within `GIVE_UP_SECONDS`.
+    """
+    held_s, held = poll_from(
         time.monotonic(),
         lambda: or_none(lambda: held_state(board, panel)),
-        lambda state: state[1] or (state[0] and state[2] is not None),
+        lambda read: read.served or (read.running and read.shown is not None),
     )
-
-
-def assert_held(held_s, held):
-    """Assert `wait_held` saw the browser hold a page that is not the instance without the backend."""
+    record_property("held_state", held)
+    record_property("held_case", held.shown[0] if held and held.shown else None)
     assert held_s is not None, (
         f"INVALID CHECK, not an appliance failure: the browser had not finished a load without the "
-        f"backend within {GIVE_UP_SECONDS} s; last (browser running, page served, shown): {held!r}"
+        f"backend within {GIVE_UP_SECONDS} s; last read: {held!r}"
     )
-    assert not held[1], (
+    assert not held.served, (
         "INVALID CHECK, not an appliance failure: the page was served before the browser had "
-        f"finished a load without the backend, so the hold was too short; last: {held!r}"
+        f"finished a load without the backend, so the hold was too short; last read: {held!r}"
     )
 
 
 def uptime_and_served(board):
     """The board uptime and whether the page served, from one command."""
-    stdout, _stderr, returncode = board.run(
-        f"cat /proc/uptime; wget -q -O- {board.PAGE_URL}", timeout=board.PAGE_ATTEMPT_TIMEOUT_SECONDS
+    stdout, stderr, returncode = board.run(
+        f"cat /proc/uptime; {board.PAGE_FETCH_CMD}", timeout=board.PAGE_ATTEMPT_TIMEOUT_SECONDS
     )
-    return float(stdout[0].split()[0]), returncode == 0 and "<html" in "\n".join(stdout[1:])
+    return float(stdout[0].split()[0]), board.is_page(returncode, "\n".join(stdout[1:] + stderr))
 
 
 def panel_after_answer(board, panel):
