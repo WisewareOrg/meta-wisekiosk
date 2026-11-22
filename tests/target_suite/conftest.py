@@ -3,11 +3,16 @@
 import contextlib
 import subprocess
 import time
+from collections.abc import Iterator
 from datetime import UTC, datetime
 
 import pytest
+from board import Board
+from board_test import BoardTest
+from labgrid.pytestplugin.hooks import LABGRID_ENV_KEY
 from outage import Outage
 from panel import Panel
+from record import Record
 from recovery import BACKEND_DROP_IN_DIR, RELOAD_TIMEOUT_SECONDS
 from replay import CA_PATH, CARDS4_LIVE
 
@@ -195,6 +200,47 @@ def pytest_configure(config):
 def pytest_collection_modifyitems(items):
     """Run the tests marked `sends_update` last, each group in collection order."""
     items[:] = sorted(items, key=lambda item: item.get_closest_marker("sends_update") is not None)
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_setup(item: pytest.Item) -> Iterator[None]:
+    """Put a new Board and the test's Record on a BoardTest, before its setup_method runs.
+
+    Args:
+        item: the test about to be set up.
+
+    Yields:
+        None: pytest's own setup runs, the fixtures and `setup_method` among it.
+    """
+    if isinstance(item.instance, BoardTest):
+        env = item.config.stash[LABGRID_ENV_KEY]
+        if env is None:
+            pytest.skip("missing environment config (use --lg-env)")
+        item.instance.board = Board(env.get_target())
+        item.instance.record = Record(lambda name, value: item.user_properties.append((name, value)))
+    return (yield)
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_teardown(item: pytest.Item, nextitem: pytest.Item | None) -> Iterator[None]:
+    """Undo what the test changed on the board, last first, before the fixtures tear down.
+
+    The undo runs in `try` and pytest's teardown in `finally`, so a failing undo is reported as a
+    teardown error and the fixtures still tear down.
+
+    Args:
+        item: the test being torn down.
+        nextitem: the test after it, which pytest's own teardown reads.
+
+    Yields:
+        None: pytest's own teardown runs, the fixtures' among it.
+    """
+    try:
+        board = getattr(item.instance, "board", None)
+        if board is not None:
+            board.cleanup.close()
+    finally:
+        yield
 
 
 def _utc_now():
