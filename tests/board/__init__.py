@@ -25,18 +25,6 @@ if TYPE_CHECKING:
     from record import Record
 
 
-class InstanceState(NamedTuple):
-    """One read of whether the instance is up: the browser running and the page served.
-
-    Attributes:
-        browser_running: `pgrep -x surf` found the browser.
-        page_served: the page served an HTML document.
-    """
-
-    browser_running: bool
-    page_served: bool
-
-
 class BootOrder(NamedTuple):
     """The boot order and the attempts left, as `fw_printenv` holds them.
 
@@ -86,7 +74,6 @@ class Board:
         cleanup: undoes, last first, what the test changed on the board.
         console: the board's consoles, and a keyboard attached to them.
         host: `user@address` of the board, as the `just kiosk-*` recipes take it.
-        last_instance_state: the last read of `seconds_until_instance_up`, None before one.
         network: the board's network.
         screen: the board's screen.
         system: the board's operating system.
@@ -97,16 +84,12 @@ class Board:
         GIVE_UP_SECONDS: how long a test waits for the board; past every bound, so the record still
             carries the time it took.
         READ_RETRY_SECONDS: how long a read passed it as `retry_for` keeps reconnecting and retrying.
-        PAGE_FETCH_CMD: fetches the WiseKiosk instance's page on the board to stdout; busybox wget
-            returns 0 only on 2xx.
-        PAGE_ATTEMPT_TIMEOUT_SECONDS: the longest one page fetch may take.
     """
 
     app: App
     cleanup: contextlib.ExitStack
     console: Console
     host: str
-    last_instance_state: InstanceState | None
     network: Network
     screen: Screen
     system: System
@@ -116,11 +99,7 @@ class Board:
     ERRORS = (ExecutionError, StateError, subprocess.TimeoutExpired)
     GIVE_UP_SECONDS = 180
     READ_RETRY_SECONDS = 300
-    PAGE_FETCH_CMD = "wget -q -O- http://127.0.0.1:8080/"
-    PAGE_ATTEMPT_TIMEOUT_SECONDS = 10
     _COMMAND_TIMEOUT_SECONDS = 10
-    _PAGE_WAIT_SECONDS = 60
-    _PAGE_POLL_SECONDS = 2
     _RESTART_WAIT_SECONDS = 180
     _FAULT_SSH_TIMEOUT_SECONDS = 30
     _POWER_OFF_SECONDS = 10
@@ -138,7 +117,6 @@ class Board:
         service = target.get_resource("NetworkService")
         self.host = f"{service.username}@{service.address}"
         self.cleanup = contextlib.ExitStack()
-        self.last_instance_state = None
         self.app = App(Backend(self), Config(self), Page(self))
         self.screen = Screen(Display(self), Captures(self))
         self.console = Console(Terminals(self), Keyboard(self))
@@ -406,71 +384,6 @@ class Board:
             return None
         return result.stdout[0].split()[0]
 
-    def fetch_page(self, timeout: float = PAGE_ATTEMPT_TIMEOUT_SECONDS) -> tuple[int, str]:
-        """Fetch the WiseKiosk instance's page on the board once.
-
-        Args:
-            timeout: forwarded to `run`.
-
-        Returns:
-            The return code, and the stdout and stderr joined by newlines, stripped.
-        """
-        result = self.run(self.PAGE_FETCH_CMD, timeout=timeout)
-        return result.returncode, "\n".join(result.stdout + result.stderr).strip()
-
-    @staticmethod
-    def is_page(returncode: int, output: str) -> bool:
-        """Whether a page fetch's return code and output are an HTML page served.
-
-        Args:
-            returncode: the fetch's return code.
-            output: the fetch's stdout and stderr.
-
-        Returns:
-            True if the fetch returned 0 with `<html` in its output.
-        """
-        return returncode == 0 and "<html" in output
-
-    def page_served(self, timeout: float = PAGE_ATTEMPT_TIMEOUT_SECONDS) -> bool:
-        """Fetch the page once and say whether it served an HTML page.
-
-        Args:
-            timeout: forwarded to `fetch_page`.
-
-        Returns:
-            Whether the fetch served an HTML page; False if it timed out.
-        """
-        try:
-            return self.is_page(*self.fetch_page(timeout=timeout))
-        except subprocess.TimeoutExpired:
-            return False
-
-    def wait_for_page(self) -> None:
-        """Wait until the page serves an HTML document."""
-        served_s, _ = self.poll(
-            lambda: self.page_served() or None,
-            until=bool,
-            within=self._PAGE_WAIT_SECONDS,
-            every=self._PAGE_POLL_SECONDS,
-        )
-        assert served_s is not None, f"the page did not serve within {self._PAGE_WAIT_SECONDS} s"
-
-    def seconds_until_instance_up(self, since: float) -> tuple[float | None, InstanceState | None]:
-        """Wait until the instance is up: the page served and the browser running.
-
-        Resets `last_instance_state` first, so an earlier wait's read never stands in for this one's.
-
-        Args:
-            since: the `time.monotonic()` instant the time counts from.
-
-        Returns:
-            The seconds from `since` until the instance was up (None if it was not within
-            `GIVE_UP_SECONDS`), and `last_instance_state`.
-        """
-        self.last_instance_state = None
-        up_s, _ = self.poll(self._read_instance_state, until=all, within=self.GIVE_UP_SECONDS, since=since)
-        return up_s, self.last_instance_state
-
     def connect(self) -> None:
         """Activate the board's SSHDriver."""
         self._target.activate(self._ssh)
@@ -617,25 +530,6 @@ class Board:
             return self.run(self.BOOT_ID_CMD, check=True, retry_for=self.READ_RETRY_SECONDS).text
         except self.ERRORS:
             return None
-
-    def _read_instance_state(self) -> InstanceState:
-        """Read once whether the browser is running and the page is served, into `last_instance_state`.
-
-        A read that fails counts as the browser not running, or the page not served.
-
-        Returns:
-            The read.
-        """
-        try:
-            browser_running = self.run("pgrep -x surf").returncode == 0
-        except (ExecutionError, subprocess.TimeoutExpired):
-            browser_running = False
-        try:
-            page_served = self.page_served()
-        except ExecutionError:
-            page_served = False
-        self.last_instance_state = InstanceState(browser_running, page_served)
-        return self.last_instance_state
 
     def _reconnect_in_new_boot(self, within: float, boot_cmd: str, old: str | None = None) -> None:
         """Reconnect the SSHDriver, one attempt a second, until `boot_cmd` reads.

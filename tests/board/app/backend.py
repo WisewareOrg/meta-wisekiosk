@@ -99,7 +99,7 @@ class Backend(Part):
             check=True,
             timeout=self._RELOAD_TIMEOUT_SECONDS,
         )
-        self._board.wait_for_page()
+        self._board.app.page.wait_until_served()
 
     def put_behind(self, proxy: "Proxy", config: str | os.PathLike[str]) -> None:
         """Put the backend behind `proxy`, running the replay set's `config`, until the test ends.
@@ -158,7 +158,7 @@ class Backend(Part):
     def unmask_and_wait_for_page(self) -> None:
         """Unmask and start the backend, then wait for the page; safe to run twice."""
         self.unmask_and_start()
-        self._board.wait_for_page()
+        self._board.app.page.wait_until_served()
 
     def unmask_and_start_after(self, seconds: float) -> None:
         """Have a board-side timer unmask and start the backend in `seconds`, whatever the host does.

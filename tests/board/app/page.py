@@ -2,9 +2,12 @@
 
 import hashlib
 import re
+import subprocess
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
+
+from labgrid.driver.exception import ExecutionError
 
 from board.app.panel_watch import PanelWatch
 from board.part import Part
@@ -12,7 +15,13 @@ from board.part import Part
 if TYPE_CHECKING:
     from record import Record
 
+    from board import CommandResult
 
+# busybox wget returns 0 only on 2xx
+_PAGE_FETCH_CMD = "wget -q -O- http://127.0.0.1:8080/"
+_PAGE_ATTEMPT_TIMEOUT_SECONDS = 10
+_SERVED_WAIT_SECONDS = 60
+_SERVED_POLL_SECONDS = 2
 _PROBE_SRC = Path(__file__).resolve().parents[2] / "target_suite" / "probe.js"
 _SURF_DIR = "/home/root/.surf"
 _SURF_SCRIPT_PATH = f"{_SURF_DIR}/script.js"
@@ -32,6 +41,18 @@ _TITLES_WALK = (
     "for id in $(DISPLAY=:0 xwininfo -root -tree 2>/dev/null | awk '/^ +0x/ { print $1 }'); do "
     'DISPLAY=:0 xprop -id "$id" WM_NAME 2>/dev/null; done'
 )
+
+
+class InstanceState(NamedTuple):
+    """One read of whether the instance is up: the browser running and the page served.
+
+    Attributes:
+        browser_running: `pgrep -x surf` found the browser.
+        page_served: the page served an HTML document.
+    """
+
+    browser_running: bool
+    page_served: bool
 
 
 class PanelRead(NamedTuple):
@@ -118,9 +139,70 @@ class Page(Part):
 
     Attributes:
         last_read: the last read that succeeded, None before one; each wait on the panel resets it.
+        last_instance_state: the last read of `seconds_until_instance_up`, None before one.
     """
 
     last_read: PanelRead | None = None
+    last_instance_state: InstanceState | None = None
+
+    def fetch(self, with_uptime: bool = False) -> "CommandResult":
+        """Fetch the instance's page on the board once.
+
+        Args:
+            with_uptime: stamp the fetch with the board's uptime, as `Board.run` does.
+
+        Returns:
+            The fetch's output, return code and, when `with_uptime` is set, the board's uptime.
+        """
+        return self._board.run(_PAGE_FETCH_CMD, timeout=_PAGE_ATTEMPT_TIMEOUT_SECONDS, with_uptime=with_uptime)
+
+    @staticmethod
+    def served(fetch: "CommandResult") -> bool:
+        """Whether a fetch served an HTML page.
+
+        Args:
+            fetch: the fetch.
+
+        Returns:
+            True if it returned 0 with `<html` in its output.
+        """
+        return fetch.returncode == 0 and "<html" in "\n".join(fetch.stdout + fetch.stderr)
+
+    def is_served(self) -> bool:
+        """Fetch the page once and say whether it served an HTML page.
+
+        Returns:
+            Whether the fetch served an HTML page; False if it timed out.
+        """
+        try:
+            return self.served(self.fetch())
+        except subprocess.TimeoutExpired:
+            return False
+
+    def wait_until_served(self) -> None:
+        """Wait until the page serves an HTML document."""
+        served_s, _ = self._board.poll(
+            lambda: self.is_served() or None, until=bool, within=_SERVED_WAIT_SECONDS, every=_SERVED_POLL_SECONDS
+        )
+        assert served_s is not None, f"the page did not serve within {_SERVED_WAIT_SECONDS} s"
+
+    def seconds_until_instance_up(self, since: float) -> tuple[float | None, InstanceState | None]:
+        """Wait until the instance is up: the page served and the browser running.
+
+        Resets `last_instance_state` first, so an earlier wait's read never stands in for this one's.
+
+        Args:
+            since: the `time.monotonic()` instant the time counts from.
+
+        Returns:
+            The seconds from `since` until the instance was up (None if it was not within
+            `Board.GIVE_UP_SECONDS`), and `last_instance_state`.
+        """
+        self.last_instance_state = None
+        up_s, _ = self._board.poll(
+            self._read_instance_state, until=all, within=self._board.GIVE_UP_SECONDS, since=since
+        )
+        return up_s, self.last_instance_state
 
     def install_probe(self, restart_browser: bool = True) -> str:
         """Load the probe into the browser, until the test ends.
@@ -345,11 +427,11 @@ class Page(Part):
         """
         self.last_read = None
         answered_s, answered = self._board.poll(
-            self._uptime_and_served, until=lambda read: read[1], within=self._board.GIVE_UP_SECONDS
+            lambda: self.fetch(with_uptime=True), until=self.served, within=self._board.GIVE_UP_SECONDS
         )
         if answered_s is None:
             return None, None
-        answered_uptime_s = answered[0]
+        answered_uptime_s = answered.uptime_s
         self.poll(until=lambda read: self.shows_instance(read.sample), within=self._board.GIVE_UP_SECONDS)
         last = self.last_read
         on_panel_s = round(last.uptime - answered_uptime_s, 1) if last and self.shows_instance(last.sample) else None
@@ -380,11 +462,11 @@ class Page(Part):
             nonlocal answered_uptime_s, left_panel
             if answered_uptime_s is None:
                 try:
-                    uptime, served = self._uptime_and_served()
+                    fetch = self.fetch(with_uptime=True)
                 except self._board.ERRORS:
-                    served = False
-                if served:
-                    answered_uptime_s = uptime
+                    fetch = None
+                if fetch is not None and self.served(fetch):
+                    answered_uptime_s = fetch.uptime_s
             panel = self.read()
             left_panel = left_panel or not self.shows_instance(panel.sample)
             return panel
@@ -399,16 +481,24 @@ class Page(Part):
         on_panel_s = round(found.uptime - killed_at_uptime_s, 1) if found_s is not None else None
         return BackendKillRecovery(answered_uptime_s, on_panel_s, left_panel)
 
-    def _uptime_and_served(self) -> tuple[float, bool]:
-        """Fetch the page once, stamped with the board's uptime.
+    def _read_instance_state(self) -> InstanceState:
+        """Read once whether the browser is running and the page is served, into `last_instance_state`.
+
+        A read that fails counts as the browser not running, or the page not served.
 
         Returns:
-            The board's uptime at the fetch, and whether the page served.
+            The read.
         """
-        fetch = self._board.run(
-            self._board.PAGE_FETCH_CMD, timeout=self._board.PAGE_ATTEMPT_TIMEOUT_SECONDS, with_uptime=True
-        )
-        return fetch.uptime_s, self._board.is_page(fetch.returncode, "\n".join(fetch.stdout + fetch.stderr))
+        try:
+            browser_running = self._board.run("pgrep -x surf").returncode == 0
+        except (ExecutionError, subprocess.TimeoutExpired):
+            browser_running = False
+        try:
+            page_served = self.is_served()
+        except ExecutionError:
+            page_served = False
+        self.last_instance_state = InstanceState(browser_running, page_served)
+        return self.last_instance_state
 
     def _read_while_held(self, previous_title: str | None) -> HeldRead:
         """Read the board once while the backend is held.
@@ -423,7 +513,7 @@ class Page(Part):
             The read.
         """
         running = self._board.run("pgrep -x surf").returncode == 0
-        served = self._board.page_served()
+        served = self.is_served()
         _uptime, sample, titles = self.read()
         title = None
         if sample is not None:

@@ -28,10 +28,10 @@ class TestRestartRecovery(BoardTest):
     def test_kernel_crash(self) -> None:
         """TST004 kernel crash: crash the kernel and time until the page is served, browser running."""
         self.record(requirement="TST004")
-        self.board.wait_for_page()
+        self.board.app.page.wait_until_served()
 
         started = self.board.restart_with("echo c > /proc/sysrq-trigger")
-        back_s, last_read = self.board.seconds_until_instance_up(since=started)
+        back_s, last_read = self.board.app.page.seconds_until_instance_up(since=started)
 
         self.record(back_s=back_s, last_read=last_read)
         assert back_s is not None, f"not back within {Board.GIVE_UP_SECONDS} s of the crash; last read: {last_read}"
@@ -40,10 +40,10 @@ class TestRestartRecovery(BoardTest):
     def test_restart_to_the_panel(self) -> None:
         """TST011 restart to the panel: restart the board; time until the page is served, browser up."""
         self.record(requirement="TST011")
-        self.board.wait_for_page()
+        self.board.app.page.wait_until_served()
 
         started = self.board.restart_with("systemctl reboot")
-        back_s, last_read = self.board.seconds_until_instance_up(since=started)
+        back_s, last_read = self.board.app.page.seconds_until_instance_up(since=started)
 
         self.record(back_s=back_s, last_read=last_read)
         assert back_s is not None, f"not back within {Board.GIVE_UP_SECONDS} s of the restart; last read: {last_read}"
@@ -55,11 +55,11 @@ class TestRestartRecovery(BoardTest):
         Times from power returning until the page is served with the browser running.
         """
         self.record(requirement="TST002")
-        ready_s, last_read = self.board.seconds_until_instance_up(since=time.monotonic())
+        ready_s, last_read = self.board.app.page.seconds_until_instance_up(since=time.monotonic())
         assert ready_s is not None, f"the instance was not up before the cut; last read: {last_read}"
 
         on_began = self.board.cut_power(self.record)
-        back_s, last_read = self.board.seconds_until_instance_up(since=on_began)
+        back_s, last_read = self.board.app.page.seconds_until_instance_up(since=on_began)
 
         self.record(back_s=back_s, last_read=last_read)
         assert back_s is not None, (
@@ -106,7 +106,7 @@ class TestRestartRecovery(BoardTest):
         self.record(requirement="TST033")
         backend = self.board.app.backend
         page = self.board.app.page
-        self.board.wait_for_page()
+        self.board.app.page.wait_until_served()
         backend.mask()
         self.board.restart_with("systemctl soft-reboot", boot_cmd=_USERSPACE_BOOT_CMD)
         backend.unmask_and_start_after(Board.GIVE_UP_SECONDS)

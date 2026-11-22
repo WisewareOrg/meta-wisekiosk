@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_page_serves
   path: tests/target_suite/test_wisekiosk.py
-  sha: bf59ed82bd8a35fb4497fd91a286ff3a543f2704f7d0419a1e7c7ca93c269eac
+  sha: e636a4901d9e7957522dd034d9cfe08f10c12758e66ffe09e5d5719366381520
   type: file
-reviewed: -7eKkSrPUFLfmmk73rYuk_-zNtLAqKrN_1raXs0Izto=
+reviewed: 4FYqxSZBt7U2kR0ONV-JF0-MQgNtK0DDXs9pHtx-FSc=
 status: proposed
 text: |
   From another machine on the network, open a remote shell on the appliance and run a command in it.
