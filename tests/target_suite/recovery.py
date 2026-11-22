@@ -10,9 +10,8 @@ from typing import NamedTuple
 
 from labgrid.driver.exception import ExecutionError
 from panel import OWN_ORIGINS, finished_load
+from poll import GIVE_UP_SECONDS
 
-# stop polling; past every bound, so the record still carries the time it took
-GIVE_UP_SECONDS = 180
 _SETTLED_APP_STATES = ("error:configuration", "error:backend-unreachable")
 
 
@@ -49,8 +48,8 @@ def instance_up(board):
     except (ExecutionError, subprocess.TimeoutExpired):
         browser = None
     try:
-        page_served = board.page_served()
-    except ExecutionError:
+        page_served = board.page()[1]
+    except (ExecutionError, subprocess.TimeoutExpired):
         page_served = False
     return browser == 0, page_served
 
@@ -96,7 +95,7 @@ def held_state(board, panel, previous_title):
     page carrying the probe can show its title before the probe first writes.
     """
     running = board.run("pgrep -x surf")[2] == 0
-    served = board.page_served()
+    served = board.page()[1]
     _, sample = panel.read()
     title = None
     if sample is not None:
@@ -144,10 +143,8 @@ def check_held(board, panel, record_property):
 
 def uptime_and_served(board):
     """The board uptime and whether the page served, from one command."""
-    stdout, stderr, returncode = board.run(
-        f"cat /proc/uptime; {board.PAGE_FETCH_CMD}", timeout=board.PAGE_ATTEMPT_TIMEOUT_SECONDS
-    )
-    return float(stdout[0].split()[0]), board.is_page(returncode, "\n".join(stdout[1:] + stderr))
+    uptime, served, _output = board.page()
+    return uptime, served
 
 
 def panel_after_answer(board, panel):

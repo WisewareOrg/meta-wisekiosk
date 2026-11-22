@@ -12,7 +12,7 @@ def cut_power(board, power, record_property):
     """Cut the board's power, restore it, and reconnect once the board answers in a new boot.
 
     Args:
-        board (Board): the board under test (tests/conftest.py).
+        board (Board): the board under test (tests/board.py).
         power (labgrid.driver.ExternalPowerDriver): the bench's switched plug.
         record_property (Callable): the test's `record_property`; records `power_on_command_s`.
 

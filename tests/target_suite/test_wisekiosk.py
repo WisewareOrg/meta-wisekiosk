@@ -25,9 +25,8 @@ _HOLD_SECONDS = 60
 
 def test_page_serves(board, record_property):
     """The WiseKiosk instance's page is served on the appliance."""
-    returncode, output = board.fetch_page()
-    assert returncode == 0, f"GET / failed (rc {returncode}): {output}"
-    assert "<html" in output, f"GET / did not return an <html> body: {output}"
+    _, served, output = board.page()
+    assert served, f"GET / did not serve an HTML page: {output}"
     record_property("requirement", "TST022")
 
 
@@ -91,7 +90,7 @@ def test_backend_crash_during_browser_start(board, request, record_property):
     """
     record_property("requirement", "TST034")
     panel = Panel(board)
-    assert board.wait_for_page(), "the board did not serve the page before the crash"
+    board.wait_for_page()
     unhold = hold_restart(board, request, _HOLD_SECONDS)
     killed_at, old_pid = kill_backend(board)
     record_property("killed_at_uptime_s", killed_at)

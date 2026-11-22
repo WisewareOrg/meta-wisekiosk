@@ -56,7 +56,7 @@ def config_across_update(request, board, bench_candidate):
 
     Args:
         request (pytest.FixtureRequest): runs `install_candidate` between the two hashes.
-        board (Board): the board under test (tests/conftest.py).
+        board (Board): the board under test (tests/board.py).
         bench_candidate (str | None): the commit under test, or None outside a build.
 
     Returns:
@@ -145,7 +145,7 @@ def set_config(request, board):
 
     Args:
         request (pytest.FixtureRequest): registers each step's undo.
-        board (Board): the board under test (tests/conftest.py).
+        board (Board): the board under test (tests/board.py).
 
     Returns:
         Callable[[str | os.PathLike], None]: `apply(path)`.
@@ -170,11 +170,11 @@ def set_config(request, board):
 
         def _restart_backend_and_wait():
             board.run("systemctl restart wisekiosk.service", check=True)
-            assert board.wait_for_page(), "page did not serve after the backend restart"
+            board.wait_for_page()
 
         board.run("systemctl restart wisekiosk.service", check=True)
         request.addfinalizer(_restart_backend_and_wait)
-        assert board.wait_for_page(), "page did not serve after the backend restart"
+        board.wait_for_page()
 
         board.run("systemctl start kiosk.service", check=True)
         request.addfinalizer(lambda: board.run("systemctl stop kiosk.service", check=True))
@@ -194,7 +194,7 @@ def replay_window(board, proxy, set_config, request):
     order, then set_config's, then proxy's.
 
     Args:
-        board (Board): the board under test (tests/conftest.py).
+        board (Board): the board under test (tests/board.py).
         proxy (wisebench.proxy.Proxy): the running proxy this test replays through.
         set_config (Callable[[str | os.PathLike], None]): swaps the board onto a config file.
         request (pytest.FixtureRequest): registers each step's undo.

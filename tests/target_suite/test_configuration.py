@@ -45,7 +45,7 @@ def test_config_held_across_image_update(config_across_update, bench_candidate, 
 
 
 def test_config_held_across_restart(board, record_property):
-    """The config the board held before `just kiosk-reboot` is the one it holds after."""
+    """The config the board held before `Board.restart` is the one it holds after."""
     record_property("requirement", "TST020")
     before = board.sha256(board.CONFIG_PATH)
     default = board.sha256(board.DEFAULT_CONFIG_PATH)

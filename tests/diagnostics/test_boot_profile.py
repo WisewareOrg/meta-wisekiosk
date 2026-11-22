@@ -43,7 +43,7 @@ def _boot_id(board):
     """Read the board's current boot id.
 
     Args:
-        board (Board): the board under test (tests/conftest.py).
+        board (Board): the board under test (tests/board.py).
 
     Returns:
         str: the boot id.

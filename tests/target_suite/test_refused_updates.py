@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 import pytest
-from updates import install, snapshot
+from updates import install
 
 _REPO = Path(__file__).resolve().parents[2]
 _WORK_ROOT = _REPO / "build" / "refused-updates"
@@ -82,13 +82,13 @@ def bundles(request, board):
 def _assert_refused(request, board, panel, record_property, bundle, reasons):
     """Offer `bundle`; assert it was refused for each of `reasons`, nothing staged, same build, on the panel."""
     panel.wait_on_panel()
-    before = snapshot(board)
+    before = board.snapshot()
     record_property("before", json.dumps(before))
     returncode, output, duration_s = install(request, board, bundle, _INSTALL_TIMEOUT_SECONDS)
     record_property("install_rc", returncode)
     record_property("install_output", output)
     record_property("install_s", duration_s)
-    after = snapshot(board)
+    after = board.snapshot()
     record_property("after", json.dumps(after))
 
     # rc 2 is a D-Bus error: the board could not say, which is not a refusal

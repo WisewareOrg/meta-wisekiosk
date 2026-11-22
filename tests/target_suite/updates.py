@@ -1,6 +1,5 @@
 """Offering an image update to the board, and reading what the board would boot next."""
 
-import json
 import os
 import pathlib
 import signal
@@ -12,27 +11,13 @@ _INSTALL_TOOL = pathlib.Path(__file__).resolve().parents[2] / "tools" / "kiosk-i
 _CLEANUP_SECONDS = 120
 
 
-def snapshot(board):
-    """What the next boot and the running build are, read from the board."""
-
-    def read(cmd):
-        return "\n".join(board.run(cmd, check=True)[0])
-
-    return {
-        "boot_variables": read(board.BOOT_VARIABLES_CMD),
-        "rauc_status": json.loads(read("rauc status --detailed --output-format=json")),
-        "boot_id": read(board.BOOT_ID_CMD),
-        "commit": board.commit(),
-    }
-
-
 def install(request, board, bundle, timeout):
     """Install `bundle` through `tools/kiosk-install.sh`, the board's one install path.
 
     Args:
         request (pytest.FixtureRequest): the test's request; its test must carry the
             `sends_update` marker, which orders it after every test that does not.
-        board (Board): the board under test (tests/conftest.py).
+        board (Board): the board under test (tests/board.py).
         bundle (pathlib.Path): the bundle on the host.
         timeout (float): the longest the install may take.
 

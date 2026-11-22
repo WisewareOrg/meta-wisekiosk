@@ -20,7 +20,7 @@ import pytest
 from labgrid.driver.exception import ExecutionError
 from panel import Panel
 from recovery import GIVE_UP_SECONDS, assert_back_within, until_up
-from updates import install, snapshot
+from updates import install
 
 _REPO = Path(__file__).resolve().parents[2]
 _BUNDLES_SCRIPT = "/work/tests/target_suite/update_bundles.sh"
@@ -112,7 +112,7 @@ def back_on_candidate(request, board, update_bundles):
     """At teardown, put the board back on the candidate unless it runs it and will boot it next."""
 
     def restore():
-        rauc_status = snapshot(board)["rauc_status"]
+        rauc_status = board.snapshot()["rauc_status"]
         _slot, booted_hash = _booted_slot(rauc_status)
         order, _left = board.boot_variables()
         if booted_hash == update_bundles.hash and order[0] == rauc_status["booted"]:
@@ -131,22 +131,22 @@ def _refuse_then_install(request, board, bundle, update_bundles, record_property
         dict: the board's `snapshot` from before the install.
     """
     board.run(f"rm -f {_NONCE_PATH}", check=True)
-    before = snapshot(board)
+    before = board.snapshot()
     returncode, output, _seconds = install(request, board, bundle, _INSTALL_TIMEOUT_SECONDS)
     assert returncode == 1, f"the bundle without the nonce returned {returncode}, not a refusal (1): {output}"
     for reason in ("Bundle rejected", "test bundle: no run nonce"):
         assert reason in output, f"refused, but not for the reason {reason!r}: {output}"
-    assert snapshot(board) == before, "the board changed when it refused the bundle"
+    assert board.snapshot() == before, "the board changed when it refused the bundle"
 
     board.run(f"printf %s {update_bundles.nonce} > {_NONCE_PATH}", check=True)
     request.addfinalizer(lambda: board.run(f"rm -f {_NONCE_PATH}", check=True))
-    before = snapshot(board)
+    before = board.snapshot()
     returncode, output, seconds = install(request, board, bundle, _INSTALL_TIMEOUT_SECONDS)
     record_property("install_rc", returncode)
     record_property("install_output", output)
     record_property("install_s", seconds)
     assert returncode == 0, f"the install returned {returncode}: {output}"
-    assert snapshot(board)["boot_id"] == before["boot_id"], "the board restarted during the install"
+    assert board.snapshot()["boot_id"] == before["boot_id"], "the board restarted during the install"
     return before
 
 
@@ -170,7 +170,7 @@ def _fall_back_and_accept(request, board, bench_candidate, update_bundles, recor
     back_s = round(time.monotonic() - started, 1)
     record_property("back_s", back_s)
 
-    after = snapshot(board)
+    after = board.snapshot()
     assert _booted_slot(after["rauc_status"]) == _booted_slot(before["rauc_status"]), (
         "the board is not back on the previous slot and bundle"
     )
@@ -189,7 +189,7 @@ def _fall_back_and_accept(request, board, bench_candidate, update_bundles, recor
     returncode, output, _seconds = install(request, board, update_bundles.candidate, _INSTALL_TIMEOUT_SECONDS)
     assert returncode == 0, f"installing the candidate returned {returncode}: {output}"
     board.restart_by("systemctl reboot")
-    _slot, booted_hash = _booted_slot(snapshot(board)["rauc_status"])
+    _slot, booted_hash = _booted_slot(board.snapshot()["rauc_status"])
     assert booted_hash == update_bundles.hash, "the board is not on the candidate's bundle"
     assert board.commit() == bench_candidate, "the board is not on the candidate's build"
 
@@ -292,7 +292,7 @@ def test_power_cut_during_an_update(request, board, update_bundles, back_on_cand
     record_property("requirement", "TST003")
     board.run(f"printf %s {update_bundles.nonce} > {_NONCE_PATH}", check=True)
     request.addfinalizer(lambda: board.run(f"rm -f {_NONCE_PATH}"))
-    before = snapshot(board)
+    before = board.snapshot()
     device = _target_device(before["rauc_status"])
     idle = _install_state(board, device)
     assert idle, f"could not read RAUC's progress or {device}'s write count"
@@ -315,7 +315,7 @@ def test_power_cut_during_an_update(request, board, update_bundles, back_on_cand
     record_property("install_rc", returncode)
     record_property("install_output", output)
     record_property("install_s", seconds)
-    after = snapshot(board)
+    after = board.snapshot()
     record_property("booted_slot_before", before["rauc_status"]["booted"])
     record_property("booted_slot", after["rauc_status"]["booted"])
     record_property("boot_variables", after["boot_variables"])

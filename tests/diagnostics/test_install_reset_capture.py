@@ -23,7 +23,7 @@ def _booted_slot(board):
     """The slot the board booted from, as `rauc status` names it.
 
     Args:
-        board (Board): the board under test (tests/conftest.py).
+        board (Board): the board under test (tests/board.py).
 
     Returns:
         str: the `Booted from:` line.

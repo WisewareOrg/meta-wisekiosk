@@ -24,7 +24,7 @@ def hold_restart(board, request, seconds):
             check=True,
             timeout=RELOAD_TIMEOUT_SECONDS,
         )
-        assert board.wait_for_page(), "the page did not serve after the restart hold was removed"
+        board.wait_for_page()
 
     request.addfinalizer(unhold)
     board.run(

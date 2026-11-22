@@ -38,7 +38,7 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   (`tests/conftest.py`'s shared setup) through `config_across_update`, which hashes the board's
   `config.json` before and after the install for TST019<!-- Configuration held across an image update -->
   and writes nothing. `install_candidate` installs the candidate on the board through
-  `just kiosk-ota` and `just kiosk-reboot` when there is one, then reads the board's `/etc/buildinfo`
+  `just kiosk-ota` and `Board.restart` (`systemctl reboot` over ssh, reconnecting in the new boot) when there is one, then reads the board's `/etc/buildinfo`
   over the ssh connection `Board` opens before the install and `Board.restart` reconnects,
   printing its meta-wisekiosk commit into the run's own record on every run — so the record carries the board's commit even
   under a `-k`-filtered run where TST016<!-- Running the image update's build --> itself would not

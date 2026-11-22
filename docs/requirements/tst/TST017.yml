@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_foreign_signature
   path: tests/target_suite/test_refused_updates.py
-  sha: 2bf24c7b31b2a6e5140ff7775f641ab4b00ba467bfec6d9bad1244eb6dfc9bef
+  sha: bfb59f3c6541fdbcd4ef79e366867514b8a588d8e44191c945d7321dbcf75bd3
   type: file
-reviewed: 5i7EydIoNpOhOgsP3vR8AgfI-XtpB7ZW1AGV_tIojCw=
+reviewed: Lf-xvQnr681aalA8uX5Fr1if01uhRH-2i8lcv-uuM6M=
 status: proposed
 text: |
   Offer the appliance an image update signed by a self-signed key none of its operators holds. Pass

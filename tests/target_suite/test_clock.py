@@ -2,8 +2,11 @@
 
 import json
 import time
+from collections.abc import Callable, Iterator
 
 import pytest
+from board import Board
+from poll import poll
 
 # the bound is TST015's
 BOUND_SECONDS = 100
@@ -14,37 +17,32 @@ SKEW_TOLERANCE_SECONDS = 24 * 3600
 CLOCK_FILE = "/data/systemd-timesync/clock"
 
 
-def _restored_clock_offset(board):
-    """How far the host clock is ahead of timesyncd's first log entry this boot.
-
-    timesyncd restores the recorded clock at its own startup, before it logs anything, so
-    its earliest entry this boot carries the restored clock. Filters on the syslog
-    identifier rather than the unit, which would also match systemd's own earlier entries.
+def _clock(board: Board) -> tuple[float, float] | None:
+    """The board's uptime and its clock minus the host's, from one command.
 
     Args:
-        board (Board): the board under test.
+        board: the board under test.
 
     Returns:
-        float | None: host `time.time()` minus that entry's realtime in seconds, or None if
-            timesyncd logged nothing this boot.
+        The board's uptime in seconds and board `date +%s` minus host `time.time()`, or None if the
+        read returned nonzero.
 
     Raises:
-        AssertionError: the journal cannot be read.
+        ExecutionError: the session failed, as `Board.timed` raises.
+        subprocess.TimeoutExpired: the read ran past its timeout.
     """
-    cmd = "journalctl -q -b SYSLOG_IDENTIFIER=systemd-timesyncd -o json --no-pager"
-    stdout, stderr, _returncode = board.run(cmd, check=True)
-    entries = [line for line in stdout + stderr if line.startswith("{")]
-    if not entries:
+    uptime, stdout, _stderr, returncode = board.timed("date +%s")
+    if returncode != 0:
         return None
-    return time.time() - int(json.loads(entries[0])["__REALTIME_TIMESTAMP"]) / 1e6
+    return uptime, int(stdout[0].strip()) - time.time()
 
 
-def _set_board_clock(board, epoch):
+def _set_board_clock(board: Board, epoch: int) -> None:
     """Set the board's clock to `epoch` and record it as the persisted clock.
 
     Args:
-        board (Board): the board under test.
-        epoch (int): seconds since the epoch.
+        board: the board under test.
+        epoch: seconds since the epoch.
 
     Raises:
         AssertionError: setting the clock or touching the clock file fails.
@@ -54,15 +52,21 @@ def _set_board_clock(board, epoch):
 
 
 @pytest.fixture
-def restore_clock(board):
+def restore_clock(board: Board) -> Iterator[None]:
     """Leave the board's clock agreeing with the host's and timesyncd running, at teardown.
 
     Args:
-        board (Board): the board under test.
+        board: the board whose clock the test sets wrong.
+
+    Yields:
+        Nothing; the restoring runs after the test.
+
+    Raises:
+        AssertionError: the board's clock cannot be read or set, or timesyncd does not start.
     """
     yield
     try:
-        reading = board.clock()
+        reading = _clock(board)
         assert reading is not None, "the board's clock could not be read at teardown"
         _uptime, offset = reading
         if abs(offset) > AGREE_SECONDS:
@@ -71,7 +75,9 @@ def restore_clock(board):
         board.run("systemctl start systemd-timesyncd", check=True)
 
 
-def test_clock_set_wrong(restore_clock, board, record_property):
+def test_clock_set_wrong(
+    restore_clock: Iterator[None], board: Board, record_property: Callable[[str, object], None]
+) -> None:
     """The board's clock agrees with the host's within `BOUND_SECONDS` of its starting up again.
 
     Stops timesyncd, sets the clock three days back and records it as the persisted clock,
@@ -79,6 +85,14 @@ def test_clock_set_wrong(restore_clock, board, record_property):
     at the first agreeing read. A clock that never agrees fails, since it was still wrong
     after the restart. A clock that agrees counts only if this boot's first timesyncd journal
     entry carries the clock the stimulus set, to within a day; otherwise the check is invalid.
+
+    Args:
+        restore_clock: puts the clock right and starts timesyncd after the test.
+        board: the board under test.
+        record_property: records the requirement and the uptime at which the clock agreed.
+
+    Raises:
+        AssertionError: the clock never agreed, the check is invalid, or it agreed after the bound.
     """
     record_property("requirement", "TST015")
     board.run("systemctl stop systemd-timesyncd", check=True)
@@ -87,19 +101,21 @@ def test_clock_set_wrong(restore_clock, board, record_property):
     board.restart()
     returned = time.monotonic()
 
-    reading = None
-    while True:
-        latest = board.clock()
-        if latest is not None:
-            reading = latest
-            uptime, offset = reading
-            if abs(offset) <= AGREE_SECONDS or uptime > BOUND_SECONDS:
-                break
-        elif time.monotonic() - returned > BOUND_SECONDS:
-            break
-        time.sleep(POLL_INTERVAL_SECONDS)
+    _, reading = poll(
+        lambda: _clock(board),
+        lambda read: abs(read[1]) <= AGREE_SECONDS or read[0] > BOUND_SECONDS,
+        BOUND_SECONDS,
+        every=POLL_INTERVAL_SECONDS,
+        since=returned,
+    )
 
-    behind = _restored_clock_offset(board)
+    # timesyncd restores the recorded clock at its own startup, before it logs anything, so its
+    # earliest entry this boot carries the restored clock; the syslog identifier is filtered on
+    # because the unit would also match systemd's own earlier entries
+    journal_cmd = "journalctl -q -b SYSLOG_IDENTIFIER=systemd-timesyncd -o json --no-pager"
+    stdout, stderr, _returncode = board.run(journal_cmd, check=True)
+    entries = [line for line in stdout + stderr if line.startswith("{")]
+    behind = time.time() - int(json.loads(entries[0])["__REALTIME_TIMESTAMP"]) / 1e6 if entries else None
     stdout, stderr, _returncode = board.run("journalctl -b -u systemd-timesyncd --no-pager", check=True)
     print("\n".join(stdout + stderr))
 
