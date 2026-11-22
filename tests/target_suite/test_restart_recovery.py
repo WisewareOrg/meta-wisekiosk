@@ -8,6 +8,7 @@ from recovery import (
     assert_back_within,
     assert_on_panel_within,
     check_held,
+    or_none,
     panel_after_answer,
     poll_from,
     until_up,
@@ -68,7 +69,7 @@ def test_cold_boot_to_the_panel(board, power_cut, record_property):
     panel = Panel(board)
     started = power_cut()
     on_panel_s, titles = poll_from(
-        started, panel.titles_or_none, lambda t: loaded_instance(t) is not None
+        started, lambda: or_none(panel.titles), lambda t: loaded_instance(t) is not None
     )
     record_property("on_panel_s", on_panel_s)
     record_property("last_titles", titles)
@@ -136,5 +137,5 @@ def test_backend_late_at_boot(board, request, record_property):
     record_property("backend_answered_uptime_s", t0)
     record_property("on_panel_s", on_panel_s)
     record_property("last_sample", last[1] if last else None)
-    record_property("last_titles", panel.titles_or_none())
+    record_property("last_titles", or_none(panel.titles))
     assert_on_panel_within(t0, on_panel_s, last, "TST033", _LATE_BACKEND_BOUND_SECONDS)

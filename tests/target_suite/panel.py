@@ -117,13 +117,6 @@ class Panel:
         stdout, _stderr, _returncode = self._board.run(_TITLES_WALK)
         return _wm_names("\n".join(stdout))
 
-    def titles_or_none(self):
-        """`titles`, or None when the read failed."""
-        try:
-            return self.titles()
-        except (subprocess.TimeoutExpired, ExecutionError):
-            return None
-
     def wait_on_panel(self, timeout_s=_PANEL_WAIT_SECONDS):
         """Poll until the instance is on the panel; return that read's (uptime, sample)."""
         deadline = time.monotonic() + timeout_s

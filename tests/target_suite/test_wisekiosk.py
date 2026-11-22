@@ -106,7 +106,7 @@ def test_backend_crash_during_browser_start(board, request, record_property):
     record_property("backend_down_s", round(t0 - killed_at, 1) if t0 is not None else None)
     record_property("on_panel_s", on_panel_s)
     record_property("last_sample", last[1] if last else None)
-    record_property("last_titles", panel.titles_or_none())
+    record_property("last_titles", or_none(panel.titles))
     record_property("main_pid_before", old_pid)
     if t0 is not None:
         record_property("main_pid_after", assert_kill_landed(board, old_pid))
