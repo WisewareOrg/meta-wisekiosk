@@ -1,7 +1,9 @@
 """Offering an image update to the board, and reading what the board would boot next."""
 
 import json
+import os
 import pathlib
+import signal
 import subprocess
 import time
 
@@ -50,12 +52,14 @@ def install(request, board, bundle, timeout):
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        start_new_session=True,
     )
     try:
         output, _ = tool.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
-        # SIGTERM, not SIGKILL: the tool's cleanup stops the bundle server and disarms the board.
-        tool.terminate()
+        # SIGTERM to the whole group, not SIGKILL to the tool alone: the ssh running the install
+        # exits too, and the tool's cleanup stops the bundle server and disarms the board.
+        os.killpg(tool.pid, signal.SIGTERM)
         tool.communicate(timeout=_CLEANUP_SECONDS)
         raise
     return tool.returncode, output, round(time.monotonic() - started, 1)
