@@ -1,23 +1,10 @@
 """The board's memory, and the kernel's record of processes it killed for memory."""
 
 import re
-from typing import NamedTuple
 
 from board.part import Part
 
 _OOM = re.compile(r"^\[\s*(\d+\.\d+)\].*(?:Out of memory|deadlocked on memory)")
-
-
-class OomKills(NamedTuple):
-    """The kernel's out-of-memory lines from one log.
-
-    Attributes:
-        returncode: the read's return code; nonzero means the log could not be read.
-        uptimes: the board uptime of each out-of-memory line at or after the read's `since`.
-    """
-
-    returncode: int
-    uptimes: list[float]
 
 
 class Memory(Part):
@@ -36,7 +23,7 @@ class Memory(Part):
         stdout = self._board.run("cat /proc/meminfo", check=True, retry_for=self._board.READ_RETRY_SECONDS).stdout
         return {line.split(":")[0]: int(line.split()[1]) for line in stdout if ":" in line}
 
-    def oom_kills_in_journal(self, since: float, previous_boot: bool = False) -> OomKills:
+    def oom_kills_in_journal(self, since: float, previous_boot: bool = False) -> tuple[int, list[float]]:
         """Read a boot's kernel log for processes killed for memory.
 
         Args:
@@ -44,15 +31,16 @@ class Memory(Part):
             previous_boot: read the boot before this one, not this one.
 
         Returns:
-            The read's return code and the kills' uptimes.
+            The read's return code (nonzero if the log could not be read), then the board uptime of each
+            out-of-memory line at or after `since`.
         """
         journal = self._board.run(
             f"journalctl -k {'-b -1' if previous_boot else '-b'} -o short-monotonic --no-pager",
             retry_for=self._board.READ_RETRY_SECONDS,
         )
-        return OomKills(journal.returncode, self._uptimes_since(journal.stdout, since))
+        return journal.returncode, self._uptimes_since(journal.stdout, since)
 
-    def oom_kills_in_pstore(self, since: float) -> OomKills:
+    def oom_kills_in_pstore(self, since: float) -> tuple[int, list[float]]:
         """Read the previous boot's kernel console tail in pstore for processes killed for memory.
 
         Mounts pstore first if it is not mounted.
@@ -61,14 +49,15 @@ class Memory(Part):
             since: the previous boot's uptime from which a kill counts.
 
         Returns:
-            The read's return code and the kills' uptimes.
+            The read's return code (nonzero if the log could not be read), then the board uptime of each
+            out-of-memory line at or after `since`.
         """
         console = self._board.run(
             'grep -q " /sys/fs/pstore " /proc/mounts || mount -t pstore pstore /sys/fs/pstore; '
             "cat /sys/fs/pstore/console-ramoops-0",
             retry_for=self._board.READ_RETRY_SECONDS,
         )
-        return OomKills(console.returncode, self._uptimes_since(console.stdout, since))
+        return console.returncode, self._uptimes_since(console.stdout, since)
 
     @staticmethod
     def _uptimes_since(lines: list[str], since: float) -> list[float]:

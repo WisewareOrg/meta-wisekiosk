@@ -29,18 +29,16 @@ def test_fallback_probe(board: Board, record_property: Callable[[str, object], N
     record_property("before", json.dumps(board.updates.boot_order()))
 
     board.updates.install_built_image()
-    boot_order = board.updates.boot_order()
-    record_property("installed", json.dumps(boot_order))
-    assert boot_order.order[0] == other, f"slot {other} does not lead BOOT_ORDER after the install: {boot_order.order}"
-    assert boot_order.attempts_left[other] > 0, f"slot {other} has no attempts left after the install"
+    order, attempts_left = board.updates.boot_order()
+    record_property("installed", json.dumps([order, attempts_left]))
+    assert order[0] == other, f"slot {other} does not lead BOOT_ORDER after the install: {order}"
+    assert attempts_left[other] > 0, f"slot {other} has no attempts left after the install"
 
     board.run(f"fw_setenv BOOT_{other}_LEFT 0", check=True)
     board.restart_with("systemctl reboot")
 
-    boot_order = board.updates.boot_order()
-    record_property("after", json.dumps(boot_order))
+    order, attempts_left = board.updates.boot_order()
+    record_property("after", json.dumps([order, attempts_left]))
     assert board.updates.rauc_status()["booted"] == booted, f"the board is not back on slot {booted}"
-    assert boot_order.order[0] == other, f"slot {other} no longer leads BOOT_ORDER: {boot_order.order}"
-    assert boot_order.attempts_left[other] == 0, (
-        f"slot {other} has {boot_order.attempts_left[other]} attempts left, not 0"
-    )
+    assert order[0] == other, f"slot {other} no longer leads BOOT_ORDER: {order}"
+    assert attempts_left[other] == 0, f"slot {other} has {attempts_left[other]} attempts left, not 0"

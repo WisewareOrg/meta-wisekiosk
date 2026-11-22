@@ -1,7 +1,7 @@
 """The evemu keyboard `keyboard.sh` attaches to the board and types into its consoles."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING
 
 from board.part import Part
 
@@ -48,32 +48,6 @@ B: 00 0b 00 00 00 00 00 00 00
 B: 01 fe ff ff ff ff ff ff ff
 B: 01 ff ff ff ff ff ff ff ff
 """
-
-
-class KeyboardRecord(NamedTuple):
-    """What `keyboard.sh` recorded of its phases.
-
-    Attributes:
-        lines: the record's lines.
-        phases: the phases it reached.
-        after_login: what the shell showed after the login, or `not reached`.
-    """
-
-    lines: list[str]
-    phases: set[str]
-    after_login: str
-
-
-class TypedMarker(NamedTuple):
-    """The marker the typed command writes: the nonce, the terminal it ran on, and the uptime it ran at.
-
-    Attributes:
-        lines: the marker's lines.
-        fields: the first line's fields, empty if there is none.
-    """
-
-    lines: list[str]
-    fields: list[str]
 
 
 class Keyboard(Part):
@@ -144,28 +118,26 @@ class Keyboard(Part):
             f"/bin/sh {_DIR}/keyboard.sh --chord back.events", check=True, timeout=_RESTORE_COMMAND_TIMEOUT_SECONDS
         )
 
-    def typed_record(self) -> KeyboardRecord:
+    def typed_record(self) -> tuple[list[str], set[str], str]:
         """Read what `keyboard.sh` recorded of its phases.
 
         Returns:
-            The record and its parse.
+            The record's lines, then the phases it reached, then what the shell showed after the login
+            (`not reached` if it showed nothing).
         """
         lines = self._board.run(f"cat {_DIR}/record 2>/dev/null || true", check=True).stdout
         prompts = self._fields_of(lines, "prompt")
-        return KeyboardRecord(
-            lines,
-            {fields[0] for fields in self._fields_of(lines, "phase")},
-            prompts[0][0] if prompts else "not reached",
-        )
+        phases = {fields[0] for fields in self._fields_of(lines, "phase")}
+        return lines, phases, prompts[0][0] if prompts else "not reached"
 
-    def typed_marker(self) -> TypedMarker:
-        """Read the marker the typed command wrote.
+    def typed_marker(self) -> tuple[list[str], list[str]]:
+        """Read the marker the typed command wrote: the nonce, the terminal it ran on, and the uptime it ran at.
 
         Returns:
-            The marker and its first line's fields.
+            The marker's lines, then its first line's fields (empty if there is no line).
         """
         lines = self._board.run(f"cat {_DIR}/marker 2>/dev/null || true", check=True).stdout
-        return TypedMarker(lines, lines[0].split() if lines else [])
+        return lines, lines[0].split() if lines else []
 
     def journal(self) -> str:
         """Read `keyboard.sh`'s journal, from its timer unit.

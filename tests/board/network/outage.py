@@ -45,20 +45,6 @@ class OutageRecord(NamedTuple):
         return cls(first.get("cut"), first.get("t0"), lines)
 
 
-class FreshShellRead(NamedTuple):
-    """One attempt to open a new ssh shell on the board and read the outage record over it.
-
-    Attributes:
-        uptime_s: the board's uptime the shell read, None if no shell opened.
-        record: the outage record the shell read, None if no shell opened.
-        ended: how the attempt ended: `opened`, or why no shell opened.
-    """
-
-    uptime_s: float | None
-    record: OutageRecord | None
-    ended: str
-
-
 class Outage(Part):
     """A network outage `outage.sh` holds on the board, and the record it keeps of it.
 
@@ -114,11 +100,12 @@ class Outage(Part):
             self._board.run(f"cat {self.RECORD_PATH} 2>/dev/null || true", check=True).stdout
         )
 
-    def read_record_over_fresh_ssh(self) -> FreshShellRead:
+    def read_record_over_fresh_ssh(self) -> tuple[float | None, OutageRecord | None, str]:
         """Open a new ssh shell on the board, apart from the SSHDriver, and read the record over it.
 
         Returns:
-            The board's uptime and the record the shell read, or how the attempt failed.
+            The board's uptime the shell read, then the record it read (both None if no shell opened),
+            then how the attempt ended: `opened`, or why no shell opened.
         """
         try:
             done = subprocess.run(
@@ -131,11 +118,11 @@ class Outage(Part):
                 timeout=_FRESH_SHELL_TIMEOUT_SECONDS,
             )
         except subprocess.TimeoutExpired:
-            return FreshShellRead(None, None, f"timed out after {_FRESH_SHELL_TIMEOUT_SECONDS} s")
+            return None, None, f"timed out after {_FRESH_SHELL_TIMEOUT_SECONDS} s"
         if done.returncode != 0:
-            return FreshShellRead(None, None, f"rc {done.returncode}, stderr {done.stderr.strip()[-200:]!r}")
+            return None, None, f"rc {done.returncode}, stderr {done.stderr.strip()[-200:]!r}"
         lines = done.stdout.splitlines()
-        return FreshShellRead(float(lines[0].split()[0]), OutageRecord.from_lines(lines[1:]), "opened")
+        return float(lines[0].split()[0]), OutageRecord.from_lines(lines[1:]), "opened"
 
     def journal(self, boot_id: str) -> list[str]:
         """Reconnect the SSHDriver and read the outage unit's journal for its last run in the boot `boot_id`.

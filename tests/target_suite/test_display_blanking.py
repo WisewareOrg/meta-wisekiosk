@@ -10,9 +10,9 @@ class TestDisplayBlanking(BoardTest):
         """TST007 display blanking disabled: `xset q` shows a zero screen-saver timeout and DPMS off."""
         self.record(requirement="TST007")
 
-        query = self.board.screen.display.xset_query()
+        xset_text, screen_saver_timeout_s, dpms_disabled = self.board.screen.display.xset_query()
 
-        self.record(xset_q=query.text)
-        assert query.screen_saver_timeout_s is not None, f"no screen saver timeout in xset's output: {query.text!r}"
-        assert query.screen_saver_timeout_s == 0, f"the screen saver timeout is {query.screen_saver_timeout_s} s, not 0"
-        assert query.dpms_disabled, f"display power management is not off; xset q reads: {query.text!r}"
+        self.record(xset_q=xset_text)
+        assert screen_saver_timeout_s is not None, f"no screen saver timeout in xset's output: {xset_text!r}"
+        assert screen_saver_timeout_s == 0, f"the screen saver timeout is {screen_saver_timeout_s} s, not 0"
+        assert dpms_disabled, f"display power management is not off; xset q reads: {xset_text!r}"

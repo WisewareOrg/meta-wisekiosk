@@ -31,18 +31,6 @@ _COPY_STEP = "Copying image to "
 _STAT_SECTORS_WRITTEN = 6
 
 
-class BootOrder(NamedTuple):
-    """The boot order and the attempts left, as `fw_printenv` holds them.
-
-    Attributes:
-        order: the slots' bootnames in the order the bootloader tries them.
-        attempts_left: the attempts left per bootname.
-    """
-
-    order: list[str]
-    attempts_left: dict[str, int]
-
-
 class InstallProgress(NamedTuple):
     """One read of an install in progress.
 
@@ -69,16 +57,17 @@ class Updates(Part):
         """Install the image this checkout built on the board, through `just kiosk-ota`."""
         subprocess.run(["just", "kiosk-ota", self._board.host], check=True)
 
-    def boot_order(self) -> BootOrder:
+    def boot_order(self) -> tuple[list[str], dict[str, int]]:
         """Read BOOT_ORDER and each slot's BOOT_x_LEFT from `fw_printenv`.
 
         Returns:
-            The boot order, and the attempts left per bootname.
+            The slots' bootnames in the order the bootloader tries them, then the attempts left per
+            bootname.
         """
         stdout = self._board.run(_BOOT_VARIABLES_CMD, check=True).stdout
         variables = dict(line.split("=", 1) for line in stdout)
         attempts_left = {name: int(variables[f"BOOT_{name}_LEFT"]) for name in ("A", "B")}
-        return BootOrder(variables["BOOT_ORDER"].split(), attempts_left)
+        return variables["BOOT_ORDER"].split(), attempts_left
 
     def build_commit(self) -> str:
         """Read the meta-wisekiosk commit the board's image was built from.
@@ -211,9 +200,9 @@ class Updates(Part):
         """
         before = self.assert_refused_then_install(bundle, candidate.nonce, record)
         target = ({"A", "B"} - {before["rauc_status"]["booted"]}).pop()
-        boot_order = self.boot_order()
-        assert boot_order.order[0] == target, f"the update's slot {target} does not lead BOOT_ORDER: {boot_order.order}"
-        attempts = boot_order.attempts_left[target]
+        order, attempts_left = self.boot_order()
+        assert order[0] == target, f"the update's slot {target} does not lead BOOT_ORDER: {order}"
+        attempts = attempts_left[target]
         record(attempts=attempts)
         assert 0 < attempts <= 3, f"slot {target} has {attempts} attempts left, not 1 to 3"
         boots_before = self.journal_boot_ids() if count_boots else None
@@ -226,13 +215,9 @@ class Updates(Part):
             "the board is not back on the previous slot and bundle"
         )
         assert after["commit"] == before["commit"], "the board is not back on the previous build"
-        boot_order = self.boot_order()
-        assert boot_order.order[0] == target, (
-            f"the update's slot {target} no longer leads BOOT_ORDER: {boot_order.order}"
-        )
-        assert boot_order.attempts_left[target] == 0, (
-            f"slot {target} has {boot_order.attempts_left[target]} attempts left, not 0"
-        )
+        order, attempts_left = self.boot_order()
+        assert order[0] == target, f"the update's slot {target} no longer leads BOOT_ORDER: {order}"
+        assert attempts_left[target] == 0, f"slot {target} has {attempts_left[target]} attempts left, not 0"
         if count_boots:
             # journalctl lists boot ids without the dashes /proc/sys/kernel/random/boot_id has
             failed = self.journal_boot_ids() - boots_before - {after["boot_id"].replace("-", "")}
@@ -347,7 +332,8 @@ class Updates(Part):
         """
         status = self.next_boot_and_running_build()["rauc_status"]
         _slot, booted_hash = self._booted_slot(status)
-        if booted_hash == candidate.hash and self.boot_order().order[0] == status["booted"]:
+        order, _attempts_left = self.boot_order()
+        if booted_hash == candidate.hash and order[0] == status["booted"]:
             return
         returncode, output, _seconds = self.install_bundle(candidate.candidate, self.CANDIDATE_INSTALL_TIMEOUT_SECONDS)
         assert returncode == 0, f"reinstalling the candidate returned {returncode}: {output}"

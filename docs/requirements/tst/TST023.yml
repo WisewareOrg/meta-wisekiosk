@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_cannot_start
   path: tests/target_suite/test_image_update.py
-  sha: e59ebad5a9b8fb184a2f9c833ba7b92184ad5a448fe389fdd90cd9c8bff41a39
+  sha: 95d994db966abbf17a101b7c1b7c9089289a54e50ced5d4c1ead18a9f8defd15
   type: file
-reviewed: DyCl03P9D-Z2sqkyLHT0MXup7lV7z4sQizPFXcg0gbY=
+reviewed: 5ghywm6IRwjc0akoQZhdYnsiRueIG9xt9gEyD7TJef8=
 status: proposed
 text: |
   With nobody at the panel, install over the air an image update that cannot start. Pass if the

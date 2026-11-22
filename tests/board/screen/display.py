@@ -99,67 +99,6 @@ class Window(NamedTuple):
         )
 
 
-class WindowLayout(NamedTuple):
-    """The outputs X drives and its top-level windows, from one read.
-
-    Attributes:
-        outputs: each connected output that has a mode, as the area it covers.
-        windows: the top-level windows, in the order X lists them.
-        xrandr: `xrandr --current`'s output.
-        windows_text: `xwininfo`'s output for each window.
-    """
-
-    outputs: list[Area]
-    windows: list[Window]
-    xrandr: str
-    windows_text: str
-
-
-class CurrentMode(NamedTuple):
-    """The display's current mode, as `xrandr --current` reports it.
-
-    Attributes:
-        xrandr: `xrandr --current`'s output.
-        lines: the lines that mark a mode current.
-        width: the first such line's width, None if it is unreadable or there is none.
-        height: the first such line's height, None if it is unreadable or there is none.
-    """
-
-    xrandr: str
-    lines: list[str]
-    width: int | None
-    height: int | None
-
-
-class XsetQuery(NamedTuple):
-    """The X server's settings, as `xset q` reports them.
-
-    Attributes:
-        text: `xset q`'s output.
-    """
-
-    text: str
-
-    @property
-    def screen_saver_timeout_s(self) -> int | None:
-        """The screen saver's timeout.
-
-        Returns:
-            The timeout in seconds, or None if the output carries none.
-        """
-        match = _SCREEN_SAVER_TIMEOUT.search(self.text)
-        return int(match.group(1)) if match else None
-
-    @property
-    def dpms_disabled(self) -> bool:
-        """Whether display power management is off: disabled, or the server has no such extension.
-
-        Returns:
-            True if it is off.
-        """
-        return any(text in self.text for text in _DPMS_OFF)
-
-
 class Display(Part):
     """The X server on the board, and the output it drives."""
 
@@ -176,11 +115,12 @@ class Display(Part):
         assert len(pids) == 1, f"more than one X: {pids}"
         return self._board.run(f"tr '\\0' '\\n' < /proc/{pids[0]}/cmdline", check=True).stdout
 
-    def window_layout(self) -> WindowLayout:
+    def window_layout(self) -> tuple[list[Area], list[Window], str, str]:
         """Read the outputs X drives and its top-level windows, in one command.
 
         Returns:
-            The layout, with the raw text of both reads.
+            Each connected output that has a mode, as the area it covers; the top-level windows, in the
+            order X lists them; then the raw text of both reads, `xrandr --current`'s and `xwininfo`'s.
         """
         stdout = self._board.run(_LAYOUT_READ, check=True).stdout
         split = stdout.index(_SEPARATOR)
@@ -189,27 +129,31 @@ class Display(Part):
             Area(int(x), int(y), int(width), int(height))
             for width, height, x, y in (match.groups() for match in map(_CONNECTED.match, xrandr) if match)
         ]
-        return WindowLayout(outputs, self._parse_windows(window_lines), "\n".join(xrandr), "\n".join(window_lines))
+        return outputs, self._parse_windows(window_lines), "\n".join(xrandr), "\n".join(window_lines)
 
-    def mode(self) -> CurrentMode:
+    def mode(self) -> tuple[str, list[str], int | None, int | None]:
         """Read the display's current mode.
 
         Returns:
-            The mode, with `xrandr`'s raw output.
+            `xrandr --current`'s raw output; the lines that mark a mode current; then the first such
+            line's width and height, None if it is unreadable or there is none.
         """
         stdout = self._board.run("DISPLAY=:0 xrandr --current", check=True).stdout
         current = [line.strip() for line in stdout if "*" in line]
         mode = _MODE.match(current[0]) if current else None
         width, height = (int(mode.group(1)), int(mode.group(2))) if mode else (None, None)
-        return CurrentMode("\n".join(stdout), current, width, height)
+        return "\n".join(stdout), current, width, height
 
-    def xset_query(self) -> XsetQuery:
+    def xset_query(self) -> tuple[str, int | None, bool]:
         """Read the X server's settings with `xset q`.
 
         Returns:
-            The settings, with `xset q`'s raw output.
+            `xset q`'s raw output; the screen saver's timeout in seconds, None if the output carries none;
+            then whether display power management is off, disabled or absent from the server.
         """
-        return XsetQuery("\n".join(self._board.run("DISPLAY=:0 xset q", check=True).stdout))
+        text = "\n".join(self._board.run("DISPLAY=:0 xset q", check=True).stdout)
+        timeout = _SCREEN_SAVER_TIMEOUT.search(text)
+        return text, int(timeout.group(1)) if timeout else None, any(off in text for off in _DPMS_OFF)
 
     @staticmethod
     def _parse_windows(lines: list[str]) -> list[Window]:

@@ -119,22 +119,6 @@ class HeldRead(NamedTuple):
     title: str | None
 
 
-class BackendKillRecovery(NamedTuple):
-    """What the page and the panel showed after the backend was killed.
-
-    Attributes:
-        answered_uptime_s: the board uptime at which the page was first served after the kill, None if
-            it was not.
-        on_panel_s: the seconds from the kill to the first read showing the instance on the panel with
-            the backend answering, by board uptime, None if there was none.
-        left_panel: whether any read after the kill did not show the instance on the panel.
-    """
-
-    answered_uptime_s: float | None
-    on_panel_s: float | None
-    left_panel: bool
-
-
 class Page(Part):
     """The app's page in the browser, as the window titles and the probe report it.
 
@@ -438,7 +422,7 @@ class Page(Part):
         on_panel_s = round(last.uptime - answered_uptime_s, 1) if last and self.shows_instance(last.sample) else None
         return answered_uptime_s, on_panel_s
 
-    def time_on_panel_after_backend_kill(self, killed_at_uptime_s: float) -> BackendKillRecovery:
+    def time_on_panel_after_backend_kill(self, killed_at_uptime_s: float) -> tuple[float | None, float | None, bool]:
         """Time from a backend kill to the instance on the panel with the backend answering.
 
         Reads every 0.5 s: the page, until it is first served, and the panel each time. Only a panel
@@ -449,7 +433,10 @@ class Page(Part):
             killed_at_uptime_s: the board uptime at the kill.
 
         Returns:
-            What the reads showed, within `Board.GIVE_UP_SECONDS` of now.
+            Within `Board.GIVE_UP_SECONDS` of now: the board uptime at which the page was first served
+            after the kill (None if it was not); the seconds from the kill to the first read showing the
+            instance on the panel with the backend answering, by board uptime (None if there was none);
+            and whether any read did not show the instance on the panel.
         """
         answered_uptime_s = None
         left_panel = False
@@ -478,7 +465,7 @@ class Page(Part):
         )
         # the board uptime of the first passing read, so it overstates by up to one read
         on_panel_s = round(found.uptime - killed_at_uptime_s, 1) if found_s is not None else None
-        return BackendKillRecovery(answered_uptime_s, on_panel_s, left_panel)
+        return answered_uptime_s, on_panel_s, left_panel
 
     def _read_instance_state(self) -> InstanceState:
         """Read once whether the browser is running and the page is served, into `last_instance_state`.

@@ -35,20 +35,19 @@ class TestNetwork(BoardTest):
         rejoined_s = None
         record = OutageRecord.from_lines([])
         while time.monotonic() < deadline:
-            shell = outage.read_record_over_fresh_ssh()
-            last_attempt = shell.ended
-            if shell.record is None:
+            uptime_s, shell_record, last_attempt = outage.read_record_over_fresh_ssh()
+            if shell_record is None:
                 time.sleep(1)
                 continue
-            record = shell.record
-            if record.cut is None or shell.uptime_s < record.cut:
+            record = shell_record
+            if record.cut is None or uptime_s < record.cut:
                 shells_before_cut += 1
             elif record.restored is None:
                 shells_during_outage += 1
                 break
             else:
                 # Board uptime at both ends; overstates by up to one poll plus one connect attempt.
-                rejoined_s = round(shell.uptime_s - record.restored, 1)
+                rejoined_s = round(uptime_s - record.restored, 1)
                 break
             time.sleep(1)
 
