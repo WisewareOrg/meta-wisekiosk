@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_pointer_display_disabled
   path: tests/target_suite/test_display.py
-  sha: 1dfa7db0cf1d8bb7850c7ab569b31377bfaf9e8d33353d5d532fea2171d44f40
+  sha: e9fe9056977190e32b31a8a25b414b91035161b47aae58489839a046245898fe
   type: file
-reviewed: tl2DzGNShWH5t1nYoKSMLTnfznPdwdJqBElH-DNGmg4=
+reviewed: suvS2bZbz-JVmFfUpTBJNO1seN3qwa210-SUJ39oEfs=
 status: proposed
 text: |
   With the WiseKiosk instance on the panel, read the options its display server was started

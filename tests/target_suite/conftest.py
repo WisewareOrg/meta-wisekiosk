@@ -13,7 +13,6 @@ from candidate_bundles import CandidateBundles
 from evemu_helpers import EvemuHelpers
 from labgrid import Target
 from labgrid.pytestplugin.hooks import LABGRID_ENV_KEY
-from panel import Panel
 from record import Record
 from recovery import BACKEND_DROP_IN_DIR, RELOAD_TIMEOUT_SECONDS
 from refused_offers import RefusedOffers
@@ -220,14 +219,6 @@ def replay_window(board, proxy, set_config, request):
 
     set_config(CARDS4_LIVE / "config.json")
     return time.monotonic()
-
-
-@pytest.fixture
-def panel(request, board, record_property):
-    """Load the probe into the browser and return the `Panel`; the page wait is the test's."""
-    observation = Panel(board)
-    record_property("probe_sha256", observation.install(request))
-    return observation
 
 
 def pytest_configure(config):
