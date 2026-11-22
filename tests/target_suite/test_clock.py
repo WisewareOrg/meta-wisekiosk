@@ -6,7 +6,6 @@ from collections.abc import Callable, Iterator
 
 import pytest
 from board import Board
-from tenacity import Retrying, retry_if_exception_type, retry_if_result, stop_after_delay, wait_fixed
 
 # the bound is TST015's
 BOUND_SECONDS = 100
@@ -101,13 +100,13 @@ def test_clock_set_wrong(
     board.restart()
     returned = time.monotonic()
 
-    reading = Retrying(
-        stop=stop_after_delay(BOUND_SECONDS - (time.monotonic() - returned)),
-        wait=wait_fixed(POLL_INTERVAL_SECONDS),
-        retry=retry_if_exception_type(Board.ERRORS)
-        | retry_if_result(lambda read: read is None or not (abs(read[1]) <= AGREE_SECONDS or read[0] > BOUND_SECONDS)),
-        retry_error_callback=Board.last_read,
-    )(lambda: _clock(board))
+    _, reading = board.wait(
+        lambda: _clock(board),
+        lambda read: abs(read[1]) <= AGREE_SECONDS or read[0] > BOUND_SECONDS,
+        BOUND_SECONDS,
+        every=POLL_INTERVAL_SECONDS,
+        since=returned,
+    )
 
     # timesyncd restores the recorded clock at its own startup, before it logs anything, so its
     # earliest entry this boot carries the restored clock; the syslog identifier is filtered on

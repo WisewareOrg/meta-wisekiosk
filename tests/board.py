@@ -3,19 +3,13 @@
 import json
 import subprocess
 import time
+from collections.abc import Callable
 from contextlib import AbstractContextManager
 
 from labgrid import Target
 from labgrid.binding import StateError
 from labgrid.driver.exception import ExecutionError
-from tenacity import (
-    RetryCallState,
-    Retrying,
-    retry_if_exception_type,
-    retry_if_result,
-    stop_after_delay,
-    wait_fixed,
-)
+from tenacity import Retrying, retry_if_exception_type, retry_if_result, stop_after_delay, wait_fixed
 
 
 class Board:
@@ -32,6 +26,7 @@ class Board:
             from when it holds none.
         BOOT_ID_CMD: prints the kernel's boot id, which differs in each boot.
         BOOT_VARIABLES_CMD: prints BOOT_ORDER and each slot's BOOT_x_LEFT as name=value lines.
+        last_up: the last (browser running, page served) read of `until_up`, None if it read nothing.
         ERRORS: what a read of the board raises when the board does not answer; a wait retries these.
         GIVE_UP_SECONDS: how long a test waits for the board; past every bound, so the record still
             carries the time it took.
@@ -63,21 +58,45 @@ class Board:
             target: names the board's SSHDriver and NetworkService.
         """
         self._target = target
+        self.last_up: tuple[bool, bool] | None = None
         self._driver = target.get_driver("SSHDriver")
         service = target.get_resource("NetworkService")
         self.host = f"{service.username}@{service.address}"
 
-    @staticmethod
-    def last_read(state: RetryCallState) -> object | None:
-        """The value a wait gives back when it gives up, as tenacity's `retry_error_callback`.
+    def wait[T](
+        self,
+        read: Callable[[], T | None],
+        done: Callable[[T], object],
+        within: float,
+        every: float = 1,
+        since: float | None = None,
+    ) -> tuple[float | None, T | None]:
+        """Call `read` every `every` seconds until `done` accepts its value, or `within` seconds pass.
+
+        A read that raises one of `ERRORS`, or returns None, is a failed read: `done` is not asked.
+        The bound is checked after each failed read, so the last read may land one read past it.
 
         Args:
-            state: the wait's last attempt.
+            read: reads the board once; None means no answer yet.
+            done: whether a read value ends the wait.
+            within: seconds from `since` after which the wait gives up.
+            every: seconds slept between reads.
+            since: the `time.monotonic()` instant the wait counts from; now when None.
 
         Returns:
-            The last attempt's value, or None if that attempt raised.
+            The seconds from `since` to the read `done` accepted, rounded to 0.1 s (None if it gave
+            up), and the final read: that value, or on a give-up the last attempt's value, None if it
+            raised or returned None.
         """
-        return None if state.outcome.failed else state.outcome.result()
+        since = time.monotonic() if since is None else since
+        value = Retrying(
+            stop=stop_after_delay(within - (time.monotonic() - since)),
+            wait=wait_fixed(every),
+            retry=retry_if_exception_type(self.ERRORS)
+            | retry_if_result(lambda value: value is None or not done(value)),
+            retry_error_callback=lambda state: None if state.outcome.failed else state.outcome.result(),
+        )(read)
+        return (round(time.monotonic() - since, 1) if value is not None and done(value) else None), value
 
     def run(
         self, cmd: str, check: bool = False, timeout: float | None = _COMMAND_TIMEOUT_SECONDS
@@ -267,32 +286,36 @@ class Board:
         Raises:
             AssertionError: the page did not serve within `_PAGE_WAIT_SECONDS`.
         """
-        served = Retrying(
-            stop=stop_after_delay(self._PAGE_WAIT_SECONDS),
-            wait=wait_fixed(self._PAGE_POLL_SECONDS),
-            retry=retry_if_exception_type(self.ERRORS) | retry_if_result(lambda served: not served),
-            retry_error_callback=self.last_read,
-        )(lambda: self.page()[1] or None)
-        assert served, f"the page did not serve within {self._PAGE_WAIT_SECONDS} s"
+        served_s, _ = self.wait(
+            lambda: self.page()[1] or None, bool, self._PAGE_WAIT_SECONDS, every=self._PAGE_POLL_SECONDS
+        )
+        assert served_s is not None, f"the page did not serve within {self._PAGE_WAIT_SECONDS} s"
 
     def until_up(self, since: float) -> tuple[float | None, tuple[bool, bool] | None]:
         """Wait until the browser is running and the page is served.
+
+        Resets `last_up` first, so an earlier wait's read never stands in for this one's.
 
         Args:
             since: the `time.monotonic()` instant the time counts from.
 
         Returns:
             The seconds from `since` until the instance was up (None if it was not within
-            `GIVE_UP_SECONDS`), and the last read as (browser running, page served); None if the
-            last attempt raised.
+            `GIVE_UP_SECONDS`), and `last_up`: the last read as (browser running, page served), None if
+            no read succeeded.
         """
-        read = Retrying(
-            stop=stop_after_delay(self.GIVE_UP_SECONDS - (time.monotonic() - since)),
-            wait=wait_fixed(1),
-            retry=retry_if_exception_type(self.ERRORS) | retry_if_result(lambda read: not all(read)),
-            retry_error_callback=self.last_read,
-        )(lambda: (self.run("pgrep -x surf")[2] == 0, self.page()[1]))
-        return (round(time.monotonic() - since, 1) if read is not None and all(read) else None), read
+        self.last_up = None
+        up_s, _ = self.wait(self._up, all, self.GIVE_UP_SECONDS, since=since)
+        return up_s, self.last_up
+
+    def _up(self) -> tuple[bool, bool]:
+        """Read once whether the browser is running and the page is served, and keep it in `last_up`.
+
+        Returns:
+            Whether `pgrep -x surf` found the browser, and whether the page served.
+        """
+        self.last_up = (self.run("pgrep -x surf")[2] == 0, self.page()[1])
+        return self.last_up
 
     def install_image(self) -> None:
         """Install the built image on the board with `just kiosk-ota`.

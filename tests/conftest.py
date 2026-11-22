@@ -5,7 +5,6 @@ import uuid
 import pytest
 from board import Board
 from labgrid import Target
-from tenacity import Retrying, retry_if_exception_type, retry_if_result, stop_after_delay, wait_fixed
 
 
 @pytest.fixture(scope="session")
@@ -46,13 +45,10 @@ def install_candidate(bench_candidate: str | None, board: Board) -> tuple[str, b
     if bench_candidate is not None:
         marker = str(uuid.uuid4())
         board.run(f"echo {marker} | systemd-cat -t kiosk-log-marker", check=True)
-        seen = Retrying(
-            stop=stop_after_delay(10),
-            wait=wait_fixed(1),
-            retry=retry_if_exception_type(Board.ERRORS) | retry_if_result(lambda seen: not seen),
-            retry_error_callback=Board.last_read,
-        )(lambda: marker in board.run("journalctl -t kiosk-log-marker -o cat")[0] or None)
-        marked = (marker, bool(seen))
+        seen_s, _ = board.wait(
+            lambda: marker in board.run("journalctl -t kiosk-log-marker -o cat")[0] or None, bool, 10
+        )
+        marked = (marker, seen_s is not None)
         board.install_image()
         board.restart()
     print(f"board_commit={board.commit()}")
