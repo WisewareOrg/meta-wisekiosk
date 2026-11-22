@@ -22,15 +22,11 @@ from panel import Panel
 from updates import install, snapshot
 
 _REPO = Path(__file__).resolve().parents[2]
-_CANDIDATE = (
-    _REPO
-    / "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/update-bundle-raspberrypi0-wifi.raucb"
-)
 _BUNDLES_SCRIPT = "/work/tests/target_suite/update_bundles.sh"
 _PROBE = "/work/tests/target_suite/probe.js"
 _NONCE_PATH = "/tmp/kiosk-update-nonce"
-# a hang backstop, about three times the 3 min 8 s a full, non-adaptive slot write measured
-_INSTALL_TIMEOUT_SECONDS = 600
+# a hang backstop, well past a slot's first adaptive install, which hashes the whole slot
+_INSTALL_TIMEOUT_SECONDS = 1200
 # 3 * (180 s boot wait + 180 s netcheck TimeoutStartSec + 30 s RebootWatchdogSec) + 180 s for the
 # fallback boot; a backstop, the record carries the time it took
 _FALLBACK_WAIT_SECONDS = 1350
@@ -79,6 +75,7 @@ def update_bundles(request, bench_candidate):
         check=True,
     )
     candidate_hash = (Path(run_dir) / "candidate.hash").read_text().strip()
+    candidate = _REPO / (Path(run_dir) / "candidate.path").read_text().strip()
     return UpdateBundles(
         Path(run_dir) / "new-build.raucb",
         Path(run_dir) / "cannot-start.raucb",
@@ -86,7 +83,7 @@ def update_bundles(request, bench_candidate):
         nonce,
         stamp,
         candidate_hash,
-        _CANDIDATE,
+        candidate,
     )
 
 
@@ -99,12 +96,6 @@ def _booted_slot(rauc_status):
     raise AssertionError(f"no booted slot in rauc status: {rauc_status!r}")
 
 
-def _boot_variables(board):
-    """BOOT_ORDER as a list of slot names, and each slot's BOOT_x_LEFT, from `fw_printenv`."""
-    stdout = board.run("fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT", check=True)[0]
-    variables = dict(line.split("=", 1) for line in stdout)
-    left = {name: int(variables[f"BOOT_{name}_LEFT"]) for name in ("A", "B")}
-    return variables["BOOT_ORDER"].split(), left
 
 
 def _boot_ids(board):
@@ -115,11 +106,13 @@ def _boot_ids(board):
 
 @pytest.fixture
 def back_on_candidate(request, board, update_bundles):
-    """At teardown, put the board back on the candidate if it is on another image."""
+    """At teardown, put the board back on the candidate unless it runs it and will boot it next."""
 
     def restore():
-        _slot, booted_hash = _booted_slot(snapshot(board)["rauc_status"])
-        if booted_hash == update_bundles.hash:
+        rauc_status = snapshot(board)["rauc_status"]
+        _slot, booted_hash = _booted_slot(rauc_status)
+        order, _left = board.boot_variables()
+        if booted_hash == update_bundles.hash and order[0] == rauc_status["booted"]:
             return
         returncode, output, _seconds = install(
             request, board, update_bundles.candidate, _INSTALL_TIMEOUT_SECONDS
@@ -130,7 +123,7 @@ def back_on_candidate(request, board, update_bundles):
     request.addfinalizer(restore)
 
 
-def _send_bundle(request, board, bundle, update_bundles, record_property):
+def _refuse_then_install(request, board, bundle, update_bundles, record_property):
     """Offer `bundle` without the nonce and assert the refusal, then install it with the nonce.
 
     Returns:
@@ -164,9 +157,9 @@ def _fall_back_and_accept(
     Args:
         count_boots (bool): also assert that the journal holds one new boot per failed attempt.
     """
-    before = _send_bundle(request, board, bundle, update_bundles, record_property)
+    before = _refuse_then_install(request, board, bundle, update_bundles, record_property)
     target = ({"A", "B"} - {before["rauc_status"]["booted"]}).pop()
-    order, left = _boot_variables(board)
+    order, left = board.boot_variables()
     assert order[0] == target, f"the update's slot {target} does not lead BOOT_ORDER: {order}"
     attempts = left[target]
     record_property("attempts", attempts)
@@ -183,7 +176,7 @@ def _fall_back_and_accept(
         "the board is not back on the previous slot and bundle"
     )
     assert after["commit"] == before["commit"], "the board is not back on the previous build"
-    order, left = _boot_variables(board)
+    order, left = board.boot_variables()
     assert order[0] == target, f"the update's slot {target} no longer leads BOOT_ORDER: {order}"
     assert left[target] == 0, f"slot {target} has {left[target]} attempts left, not 0"
     if count_boots:
@@ -207,27 +200,27 @@ def _fall_back_and_accept(
 def test_new_application_build(
     request, board, update_bundles, back_on_candidate, record_property
 ):
-    """TST006 new application build: install an update with a different build; time until it is on the panel."""
+    """TST006 new application build: install an update with a different build; time until it is on the panel.
+
+    The clock starts as the restart is asked for, so it covers shutdown, boot and the page load.
+    """
     record_property("requirement", "TST006")
-    _send_bundle(request, board, update_bundles.new_build, update_bundles, record_property)
+    _refuse_then_install(request, board, update_bundles.new_build, update_bundles, record_property)
 
     started = time.monotonic()
     board.restart_by("systemctl reboot")
     panel = Panel(board)
     sample = None
-    while True:
+    on_panel_s = None
+    while time.monotonic() - started <= _ON_PANEL_GIVE_UP_SECONDS:
         try:
             _uptime_s, sample = panel.read()
         except (ExecutionError, subprocess.TimeoutExpired):
             sample = None
-        elapsed = time.monotonic() - started
         if panel.on_panel(sample) and sample["stamp"] == update_bundles.stamp:
-            break
-        if elapsed > _ON_PANEL_GIVE_UP_SECONDS:
-            elapsed = None
+            on_panel_s = round(time.monotonic() - started, 1)
             break
         time.sleep(1)
-    on_panel_s = None if elapsed is None else round(elapsed, 1)
     record_property("on_panel_s", on_panel_s)
     assert on_panel_s is not None, (
         f"the new build was not on the panel within {_ON_PANEL_GIVE_UP_SECONDS} s; last sample: {sample!r}"
@@ -240,7 +233,11 @@ def test_new_application_build(
 def test_cannot_start(
     request, board, bench_candidate, update_bundles, back_on_candidate, record_property
 ):
-    """TST023 cannot start: install an update that cannot start; the board falls back, then takes a valid update."""
+    """TST023 cannot start: install an update that cannot start; the board falls back, then takes a valid update.
+
+    The fallback alone does not show why the update could not start; update_bundles.sh's
+    `require_gone` checks are what show the bundle lacks init and sh.
+    """
     record_property("requirement", "TST023")
     _fall_back_and_accept(
         request,

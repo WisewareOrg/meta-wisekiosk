@@ -949,10 +949,11 @@ else
 fi
 
 # --- 20. one install path: only tools/kiosk-install.sh runs rauc install --
-# Every install -- just kiosk-ota, tools/rauc-rotate.sh, the update tests --
-# goes through tools/kiosk-install.sh (README.md §"Updating a running device"),
-# so a second path cannot quietly differ from the one the tests prove. Comment
-# lines are skipped; this file names the command in its own messages.
+# A second install path could quietly differ from the one the tests prove
+# (meta-wisekiosk/recipes-core/bundles/README.md). The match is the literal
+# words: a command built from a list or a variable is not seen, and a trailing
+# comment naming them is. Lines that start with `#` are skipped; this file
+# names the command in its own messages.
 hits20=$(git grep -n -E 'rauc[[:space:]]+install' -- tools justfiles Justfile tests \
     ':!tools/kiosk-install.sh' ':!tools/ci-guards.sh' \
     | grep -v -E '^[^:]+:[0-9]+:[[:space:]]*#' || true)
@@ -961,6 +962,20 @@ if [ -n "$hits20" ]; then
     printf '%s\n' "$hits20" | sed 's/^/        /'
 else
     ok "only tools/kiosk-install.sh runs rauc install"
+fi
+
+# --- 21. kiosk-netcheck's restart and proof decisions pass their self-test -
+# A wrong restart is a boot loop on the wall unit; a missing one leaves an image
+# that cannot reach the network booted. The self-test runs the shipped script
+# against a scratch /data with the board's commands stubbed.
+nettest21="tools/kiosk-netcheck-test.sh"
+if [ ! -f "$nettest21" ]; then
+    bad "guard 21: $nettest21 missing -- kiosk-netcheck's decisions are no longer self-tested"
+elif out21=$(bash "$nettest21" 2>&1); then
+    ok "kiosk-netcheck passes its self-test ($(printf '%s\n' "$out21" | tail -n1))"
+else
+    bad "kiosk-netcheck FAILS its own self-test:"
+    printf '%s\n' "$out21" | sed 's/^/        /'
 fi
 
 if [ "$fail" -ne 0 ]; then

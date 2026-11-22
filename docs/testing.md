@@ -50,7 +50,10 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   The timezone test overlays `/etc` from `/run` while it runs and unmounts it at teardown.
   The `panel` fixture bind-mounts a probe from `/tmp` over surf's script path and restarts the
   browser so the test can read what the page shows; teardown unmounts it and restarts the browser
-  again. The update tests (`test_image_update.py`, and the refused-update tests) build their bundles in the host's `/tmp` through `KAS_RUN_TMP_DIR` and run after every other test in the suite, because each sends an update. The device context (`device_context` in `conftest.py`) is recorded on every test. The
+  again. Every test marked `sends_update` runs after every other test in the suite, and an
+  install refuses to run for a test without the mark. The image-update tests build their
+  bundles in the host's `/tmp`, which `tools/kas-run.sh` mounts through `KAS_RUN_TMP_DIR`.
+  The device context (`device_context` in `conftest.py`) is recorded on every test. The
   refused-update tests build two small bundles through `tools/kas-run.sh`, so they need the
   checkout's own build tree and the signing keys the bench host's environment file names. The
   keyboard test builds evemu-tools through `tools/kas-run.sh` the same way, so it needs the build

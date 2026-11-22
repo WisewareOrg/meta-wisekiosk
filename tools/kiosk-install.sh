@@ -157,17 +157,23 @@ stop_capture() {
 # serve BUNDLE -- serves BUNDLE on this host's port 80 and sets url to it at the
 # address the board's ssh session comes from.
 serve() {
-    local bundle=$1 addr t0
+    local bundle=$1 addr t0 existing owner
     # shellcheck disable=SC2016 # the board's shell expands SSH_CLIENT
     addr=$("${ssh[@]}" "$host" 'echo "${SSH_CLIENT%% *}"')
     [ -n "$addr" ] || { echo "the board did not report its ssh client address"; return 1; }
-    if [ -n "$(docker ps -aq --filter "name=^${server}\$")" ]; then
-        echo "a bundle server is already running on this host (another install?); if not, run: docker stop $server"
-        return 1
+    existing=$(docker ps -aq --filter "name=^${server}\$")
+    if [ -n "$existing" ]; then
+        owner=$(docker inspect -f '{{index .Config.Labels "kiosk-install.pid"}}' "$existing" 2>/dev/null) || owner=
+        if [ -n "$owner" ] && kill -0 "$owner" 2>/dev/null; then
+            echo "another install on this host (pid $owner) is serving a bundle"
+            return 1
+        fi
+        # left by an install that was killed before its cleanup ran
+        docker rm -f "$existing" >/dev/null 2>&1 || true
     fi
     docker image inspect "$nginx_image" >/dev/null 2>&1 || docker pull -q "$nginx_image" >/dev/null \
         || { echo "could not pull $nginx_image"; return 1; }
-    docker run -d --rm --name "$server" -p 80:80 \
+    docker run -d --rm --name "$server" --label "kiosk-install.pid=$$" -p 80:80 \
         -v "$bundle:/usr/share/nginx/html/$(basename "$bundle"):ro" "$nginx_image" >/dev/null \
         || { echo "could not start the bundle server on port 80"; return 1; }
     served=1

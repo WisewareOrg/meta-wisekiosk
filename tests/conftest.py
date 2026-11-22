@@ -139,6 +139,17 @@ class Board:
             return None
         return float(stdout[0].split()[0]), int(stdout[1].strip()) - time.time()
 
+    def boot_variables(self):
+        """BOOT_ORDER as a list of slot bootnames, and each slot's BOOT_x_LEFT, from `fw_printenv`.
+
+        Returns:
+            tuple[list[str], dict[str, int]]: the boot order, and the attempts left per bootname.
+        """
+        stdout = self.run("fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT", check=True)[0]
+        variables = dict(line.split("=", 1) for line in stdout)
+        left = {name: int(variables[f"BOOT_{name}_LEFT"]) for name in ("A", "B")}
+        return variables["BOOT_ORDER"].split(), left
+
     def commit(self):
         """The meta-wisekiosk commit the board's image was built from.
 
@@ -376,7 +387,7 @@ def install_candidate(bench_candidate, board):
     """Install `bench_candidate` on the board, if there is one, then print its commit.
 
     Before the install, writes a uuid marker line to the board's journal under the identifier
-    `kiosk-log-marker` and polls for up to 10 s, once a second, until it reads that line back. The
+    `kiosk-log-marker` and polls for up to `LOG_MARKER_WAIT_SECONDS`, once a second, until it reads that line back. The
     fixture never asserts on that read. Installs by `board.install_image`, then `board.restart`.
     Either way, prints the board's meta-wisekiosk commit as `board_commit=<sha>`.
 

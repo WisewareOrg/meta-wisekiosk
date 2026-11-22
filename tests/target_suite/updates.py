@@ -30,8 +30,8 @@ def install(request, board, bundle, timeout):
     """Install `bundle` through `tools/kiosk-install.sh`, the board's one install path.
 
     Args:
-        request (pytest.FixtureRequest): records the board's `mem_available_kb` before the
-            install as a property of the test.
+        request (pytest.FixtureRequest): the test's request; its test must carry the
+            `sends_update` marker, which orders it after every test that does not.
         board (Board): the board under test (tests/conftest.py).
         bundle (pathlib.Path): the bundle on the host.
         timeout (float): the longest the install may take.
@@ -41,11 +41,12 @@ def install(request, board, bundle, timeout):
             the seconds it took.
 
     Raises:
+        AssertionError: the test is not marked `sends_update`.
         subprocess.TimeoutExpired: the install ran past `timeout`.
     """
-    meminfo = board.run("cat /proc/meminfo", check=True)[0]
-    available_kb = next(line.split()[1] for line in meminfo if line.startswith("MemAvailable:"))
-    request.node.user_properties.append(("mem_available_kb", available_kb))
+    assert request.node.get_closest_marker("sends_update"), (
+        f"{request.node.nodeid} sends an update but is not marked sends_update"
+    )
     started = time.monotonic()
     tool = subprocess.Popen(
         [str(_INSTALL_TOOL), board.host, str(bundle)],
@@ -57,8 +58,7 @@ def install(request, board, bundle, timeout):
     try:
         output, _ = tool.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
-        # SIGTERM to the whole group, not SIGKILL to the tool alone: the ssh running the install
-        # exits too, and the tool's cleanup stops the bundle server and disarms the board.
+        # the whole group, so the ssh running the install exits with the tool
         os.killpg(tool.pid, signal.SIGTERM)
         tool.communicate(timeout=_CLEANUP_SECONDS)
         raise

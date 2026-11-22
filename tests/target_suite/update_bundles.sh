@@ -7,8 +7,8 @@
 # refuses without this run's nonce, and the operator's signature.
 #
 # Usage: update_bundles.sh <run-dir> <nonce> <stamp> <probe-js>
-#   run-dir   receives new-build.raucb, cannot-start.raucb, no-network.raucb and
-#             candidate.hash
+#   run-dir   receives new-build.raucb, cannot-start.raucb, no-network.raucb,
+#             candidate.hash and candidate.path (the candidate bundle, relative to the repo)
 #   nonce     the content /tmp/kiosk-update-nonce must hold on the board for the hook to accept
 #   stamp     the value the new-build bundle's page carries in its kiosk-test-stamp meta tag
 #   probe-js  the in-page probe, as a path inside the container
@@ -46,6 +46,7 @@ command -v debugfs e2fsck > /dev/null || { echo "update_bundles.sh: no debugfs o
 eval "$(rauc info --keyring="$keyring" --output-format=shell "$candidate")"
 : "${RAUC_MF_HASH:?}"
 printf '%s\n' "$RAUC_MF_HASH" > candidate.hash
+printf '%s\n' "${candidate#/work/}" > candidate.path
 rauc extract --trust-environment --keyring="$keyring" "$candidate" "$work/extracted"
 
 # The value of a manifest key within a section; empty when absent.
@@ -61,9 +62,12 @@ version="$(manifest_value update version)"
 build="$(manifest_value update build)"
 rootfs_name="$(manifest_value image.rootfs filename)"
 adaptive="$(manifest_value image.rootfs adaptive)"
-: "${compatible:?}" "${rootfs_name:?}"
+format="$(manifest_value bundle format)"
+rootfs_hooks="$(manifest_value image.rootfs hooks)"
+: "${compatible:?}" "${rootfs_name:?}" "${format:?}"
 
-# The names in a directory of an ext4 image, one per line.
+# The names in a directory of an ext4 image, one per line. `ls -p` prints each entry as
+# /inode/mode/uid/gid/name/size/, so the name is the sixth field.
 dir_names() {
     debugfs -R "ls -p $2" "$1" 2> /dev/null | awk -F/ 'NF > 5 { print $6 }'
 }
@@ -75,9 +79,29 @@ exists() {
     grep -qxF "$(basename "$2")" <<< "$names"
 }
 
-# Run the debugfs commands on stdin against the image `$1`.
+# Run the debugfs commands on stdin against the image `$1`. debugfs exits 0 when a command
+# fails, so any output beyond its banner, the echoed commands, inode allocations and blank
+# lines fails.
 edit() {
     debugfs -w -f - "$1" > "$work/debugfs.log" 2>&1 || { cat "$work/debugfs.log" >&2; return 1; }
+    if grep -v -E '^(debugfs [0-9.]+ \(|debugfs: |Allocated inode: [0-9]+$|$)' "$work/debugfs.log" \
+        > "$work/debugfs.errors"; then
+        cat "$work/debugfs.log" >&2
+        return 1
+    fi
+}
+
+# Require that `$2` in the image `$1` has uid `$3`, gid `$4` and permission bits `$5`.
+require_inode() {
+    local fields uid gid mode
+    fields="$(debugfs -R "stat $2" "$1" 2> /dev/null)"
+    uid="$(sed -n 's/.*User: *\([0-9]*\).*/\1/p' <<< "$fields" | head -n 1)"
+    gid="$(sed -n 's/.*Group: *\([0-9]*\).*/\1/p' <<< "$fields" | head -n 1)"
+    mode="$(sed -n 's/.*Mode: *\([0-7]*\).*/\1/p' <<< "$fields" | head -n 1)"
+    if [ "$uid" != "$3" ] || [ "$gid" != "$4" ] || [ "$((8#${mode:-0}))" != "$((8#$5))" ]; then
+        echo "update_bundles.sh: $2 is $uid:$gid $mode, not $3:$4 $5" >&2
+        exit 1
+    fi
 }
 
 # Require that `$2` is gone from the image `$1`.
@@ -116,8 +140,14 @@ rm $page
 write $work/index.html $page
 set_inode_field $page uid $uid
 set_inode_field $page gid $gid
-set_inode_field $page mode 0100$mode
+set_inode_field $page mode $(printf '0%o' $((0100000 | 8#$mode)))
 EOF
+    debugfs -R "dump $page $work/index.check.html" "$image" 2> /dev/null
+    grep -qF "content=\"$stamp\"" "$work/index.check.html" || {
+        echo "update_bundles.sh: the stamp did not reach $page in the image" >&2
+        exit 1
+    }
+    require_inode "$image" "$page" "$uid" "$gid" "$mode"
 }
 
 install_the_probe() {
@@ -134,7 +164,8 @@ set_inode_field /home/root/.surf/script.js uid 0
 set_inode_field /home/root/.surf/script.js gid 0
 set_inode_field /home/root/.surf/script.js mode 0100644
 EOF
-    require_present "$image" /home/root/.surf/script.js
+    require_inode "$image" /home/root/.surf 0 0 0755
+    require_inode "$image" /home/root/.surf/script.js 0 0 0644
 }
 
 remove_paths() {
@@ -194,13 +225,13 @@ write_manifest() {
         [ -z "$build" ] || echo "build=$build"
         echo "description=test bundle: $kind"
         echo "[bundle]"
-        echo "format=verity"
+        echo "format=$format"
         echo "[hooks]"
         echo "filename=test-hook.sh"
         echo "hooks=install-check"
         echo "[image.rootfs]"
         echo "filename=$rootfs_name"
-        echo "hooks=post-install"
+        [ -z "$rootfs_hooks" ] || echo "hooks=$rootfs_hooks"
         [ -z "$adaptive" ] || echo "adaptive=$adaptive"
     } > "$manifest"
 }

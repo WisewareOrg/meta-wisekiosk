@@ -244,14 +244,8 @@ dirty or unpushed tree, so a build shipped from this host is always one someone 
 tying a bundle to the rootfs inside it is #48 bundle-image-tie.
 
 Every install, by hand, by `tools/rauc-rotate.sh` or by a test, goes through
-[`tools/kiosk-install.sh`](tools/kiosk-install.sh), and the board streams the bundle from a
-short-lived `nginx` container on this host; the script's header says how. The bundle is adaptive
-(`block-hash-index`): RAUC fetches and writes only the blocks the slots do not already hold, and
-keeps each slot's index in `/data/rauc`, so a slot's first adaptive install is the slowest. The
-rootfs image is sized to its content rather than to the slot
-([`core-image-base.bbappend`](meta-wisekiosk/recipes-core/images/core-image-base.bbappend)), and
-`resize=true` in RAUC's `system.conf` grows the slot's filesystem to its partition after each write;
-[the bundle recipe's README](meta-wisekiosk/recipes-core/bundles/README.md) says why.
+[`tools/kiosk-install.sh`](tools/kiosk-install.sh), and the board streams the bundle;
+[the bundle recipe's README](meta-wisekiosk/recipes-core/bundles/README.md) says how and why.
 
 ## Configuration and secrets
 

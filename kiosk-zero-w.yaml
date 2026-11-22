@@ -252,7 +252,7 @@ local_conf_header:
   rauc: |
     RAUC_SLOT_rootfs:pn-update-bundle = "core-image-base"
 
-    # Tier 1 -- the board streams the .raucb through tools/kiosk-install.sh -- is the fallback every later
+    # Tier 1 (meta-wisekiosk/recipes-core/bundles/README.md) is the fallback every later
     # delivery tier rests on, so it is what the first bundle has to be. casync
     # buys bandwidth that a LAN against a local mirror does not need, and adds a
     # convert step that can fail after the image itself is already built.

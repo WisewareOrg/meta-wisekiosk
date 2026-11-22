@@ -19,12 +19,6 @@ def _booted_bootname(board):
     return json.loads("\n".join(stdout))["booted"]
 
 
-def _boot_variables(board):
-    """BOOT_ORDER as a list of bootnames, and each slot's BOOT_x_LEFT, from `fw_printenv`."""
-    stdout = board.run("fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT", check=True)[0]
-    variables = dict(line.split("=", 1) for line in stdout)
-    left = {name: int(variables[f"BOOT_{name}_LEFT"]) for name in ("A", "B")}
-    return variables["BOOT_ORDER"].split(), left
 
 
 def test_fallback_probe(board, record_property):
@@ -32,10 +26,10 @@ def test_fallback_probe(board, record_property):
     booted = _booted_bootname(board)
     other = ({"A", "B"} - {booted}).pop()
     record_property("booted", booted)
-    record_property("before", json.dumps(_boot_variables(board)))
+    record_property("before", json.dumps(board.boot_variables()))
 
     board.install_image()
-    order, left = _boot_variables(board)
+    order, left = board.boot_variables()
     record_property("installed", json.dumps([order, left]))
     assert order[0] == other, f"slot {other} does not lead BOOT_ORDER after the install: {order}"
     assert left[other] > 0, f"slot {other} has no attempts left after the install"
@@ -43,7 +37,7 @@ def test_fallback_probe(board, record_property):
     board.run(f"fw_setenv BOOT_{other}_LEFT 0", check=True)
     board.restart_by("systemctl reboot")
 
-    order, left = _boot_variables(board)
+    order, left = board.boot_variables()
     record_property("after", json.dumps([order, left]))
     assert _booted_bootname(board) == booted, f"the board is not back on slot {booted}"
     assert order[0] == other, f"slot {other} no longer leads BOOT_ORDER: {order}"

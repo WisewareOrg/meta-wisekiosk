@@ -125,6 +125,9 @@ casync-stats store:
 # === Tier 1 delivery: the board streams the bundle from this host ===
 # tools/kiosk-install.sh serves it and installs it; README.md §"Updating a running device".
 
+kiosk-image-file := "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/core-image-base-raspberrypi0-wifi.rootfs.ext4"
+kiosk-bundle-file := "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/update-bundle-raspberrypi0-wifi.raucb"
+
 # NOT covered by `just build`, which makes the kas `target:` images
 # (core-image-base, kiosk-bootprof) only -- shipping a stale .raucb silently
 # reinstalls the previous image.
@@ -143,7 +146,7 @@ kiosk-bundle kconfig="kiosk-zero-w.yaml":
 [group('ota')]
 [script('bash')]
 [doc("Refuse a delivery that cannot work: slot size, stale bundle")]
-kiosk-preflight image="build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/core-image-base-raspberrypi0-wifi.rootfs.ext4" bundle="build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/update-bundle-raspberrypi0-wifi.raucb" host=kiosk-host:
+kiosk-preflight image=kiosk-image-file bundle=kiosk-bundle-file host=kiosk-host:
     set -euo pipefail
     SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10"
 
@@ -174,7 +177,7 @@ kiosk-preflight image="build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wi
 # Does NOT reboot -- inspect `rauc status` first, then `just kiosk-reboot`.
 [group('ota')]
 [doc("Stream a bundle to the board, install it and show slot state")]
-kiosk-install host=kiosk-host bundle="build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/update-bundle-raspberrypi0-wifi.raucb":
+kiosk-install host=kiosk-host bundle=kiosk-bundle-file:
     tools/kiosk-install.sh {{host}} {{bundle}}
 
 # Reboot and wait for the kiosk to answer again.
@@ -196,7 +199,7 @@ kiosk-reboot host=kiosk-host timeout="300":
 
 # Full Tier 1 OTA. Builds the bundle FIRST so a stale .raucb cannot be shipped.
 [group('ota')]
-kiosk-ota host=kiosk-host kconfig="kiosk-zero-w.yaml": (kiosk-bundle kconfig) (kiosk-preflight "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/core-image-base-raspberrypi0-wifi.rootfs.ext4" "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/update-bundle-raspberrypi0-wifi.raucb" host) (kiosk-install host)
+kiosk-ota host=kiosk-host kconfig="kiosk-zero-w.yaml": (kiosk-bundle kconfig) (kiosk-preflight kiosk-image-file kiosk-bundle-file host) (kiosk-install host kiosk-bundle-file)
     @echo "Delivered and installed. Verify, then: just kiosk-reboot {{host}}"
 
 # The [doc] attribute rather than a trailing comment: just takes the LAST
