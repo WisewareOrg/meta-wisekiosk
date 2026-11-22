@@ -1,4 +1,4 @@
-"""Target-suite setup: switch on the shared board setup for every test here."""
+"""Target-suite setup: the run's hooks and start-of-run install, each test's device record, and the fixtures that set the board's state, observe the panel and inject faults."""
 
 import contextlib
 import subprocess
@@ -35,6 +35,18 @@ def pytest_addoption(parser):
     parser.addoption("--soak", action="store_true", default=False, help="run TST014 with its long period")
 
 
+def pytest_configure(config):
+    """Register the `sends_update` marker."""
+    config.addinivalue_line(
+        "markers", "sends_update: the test sends an image update after the start-of-run install"
+    )
+
+
+def pytest_collection_modifyitems(items):
+    """Run the tests marked `sends_update` last, each group in collection order."""
+    items[:] = sorted(items, key=lambda item: item.get_closest_marker("sends_update") is not None)
+
+
 @pytest.fixture(scope="session")
 def config_across_update(request, board, bench_candidate):
     """Hash the board's config before and after `install_candidate`; writes nothing.
@@ -65,6 +77,57 @@ def config_across_update(request, board, bench_candidate):
 @pytest.fixture(scope="session", autouse=True)
 def _install_candidate(config_across_update):
     """Activate `install_candidate` (tests/conftest.py) for every test in this suite, via `config_across_update`."""
+
+
+def _utc_now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _browser_pid(board):
+    """The browser's pid; it starts some seconds after ssh does following a restart."""
+    deadline = time.monotonic() + _BROWSER_WAIT_SECONDS
+    while True:
+        try:
+            stdout, _stderr, returncode = board.run("pgrep -x surf")
+        except subprocess.TimeoutExpired:
+            stdout, returncode = [], 1
+        if returncode == 0 and stdout:
+            return stdout[0].strip()
+        assert time.monotonic() < deadline, "the browser never appeared"
+        time.sleep(_BROWSER_POLL_SECONDS)
+
+
+@pytest.fixture(autouse=True)
+def device_context(board, record_property):
+    """Record the board as the test found it, and the end time after the test.
+
+    Facts are raw board output: a missing file is simply absent from `file_sha256`.
+    """
+    pid = _browser_pid(board)
+
+    def read(cmd):
+        return "\n".join(board.run(cmd, check=True)[0]).strip()
+
+    hashed = " ".join((board.CONFIG_PATH, *_HASHED_PATHS))
+    sums_out, sums_err, sums_rc = board.run("sha256sum " + hashed)
+    assert sums_rc in (0, 1), f"sha256sum failed (rc {sums_rc}): {chr(10).join(sums_err)}"
+    environ = read(f"tr '\\0' '\\n' < /proc/{pid}/environ").splitlines()
+    xrandr = read("DISPLAY=:0 xrandr").splitlines()
+    facts = {
+        "boot_id": read(board.BOOT_ID_CMD),
+        "uptime_s": float(read("cat /proc/uptime").split()[0]),
+        "kernel": read("uname -r"),
+        "file_sha256": "\n".join(sums_out),
+        "browser_cmdline_sha256": read(f"sha256sum /proc/{pid}/cmdline").split()[0],
+        "browser_webkit_env": ",".join(line for line in environ if line.startswith("WEBKIT_")),
+        "display_mode": next((line.strip() for line in xrandr if "*" in line), ""),
+        "timesync": read("timedatectl show -p NTPSynchronized --value"),
+        "start": _utc_now(),
+    }
+    for key, value in facts.items():
+        record_property(key, value)
+    yield
+    record_property("end", _utc_now())
 
 
 @pytest.fixture
@@ -165,12 +228,6 @@ def replay_window(board, proxy, set_config, request):
 
 
 @pytest.fixture
-def full_state(panel):
-    """Wait for the page in full state; return that read's (uptime, sample)."""
-    return panel.wait_full_state()
-
-
-@pytest.fixture
 def panel(request, board, record_property):
     """Load the probe into the browser and return the `Panel`; the page wait is the test's."""
     observation = Panel(board)
@@ -178,67 +235,10 @@ def panel(request, board, record_property):
     return observation
 
 
-def pytest_configure(config):
-    """Register the `sends_update` marker."""
-    config.addinivalue_line(
-        "markers", "sends_update: the test sends an image update after the start-of-run install"
-    )
-
-
-def pytest_collection_modifyitems(items):
-    """Run the tests marked `sends_update` last, each group in collection order."""
-    items[:] = sorted(items, key=lambda item: item.get_closest_marker("sends_update") is not None)
-
-
-def _utc_now():
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _browser_pid(board):
-    """The browser's pid; it starts some seconds after ssh does following a restart."""
-    deadline = time.monotonic() + _BROWSER_WAIT_SECONDS
-    while True:
-        try:
-            stdout, _stderr, returncode = board.run("pgrep -x surf")
-        except subprocess.TimeoutExpired:
-            stdout, returncode = [], 1
-        if returncode == 0 and stdout:
-            return stdout[0].strip()
-        assert time.monotonic() < deadline, "the browser never appeared"
-        time.sleep(_BROWSER_POLL_SECONDS)
-
-
-@pytest.fixture(autouse=True)
-def device_context(board, record_property):
-    """Record the board as the test found it, and the end time after the test.
-
-    Facts are raw board output: a missing file is simply absent from `file_sha256`.
-    """
-    pid = _browser_pid(board)
-
-    def read(cmd):
-        return "\n".join(board.run(cmd, check=True)[0]).strip()
-
-    hashed = " ".join((board.CONFIG_PATH, *_HASHED_PATHS))
-    sums_out, sums_err, sums_rc = board.run("sha256sum " + hashed)
-    assert sums_rc in (0, 1), f"sha256sum failed (rc {sums_rc}): {chr(10).join(sums_err)}"
-    environ = read(f"tr '\\0' '\\n' < /proc/{pid}/environ").splitlines()
-    xrandr = read("DISPLAY=:0 xrandr").splitlines()
-    facts = {
-        "boot_id": read(board.BOOT_ID_CMD),
-        "uptime_s": float(read("cat /proc/uptime").split()[0]),
-        "kernel": read("uname -r"),
-        "file_sha256": "\n".join(sums_out),
-        "browser_cmdline_sha256": read(f"sha256sum /proc/{pid}/cmdline").split()[0],
-        "browser_webkit_env": ",".join(line for line in environ if line.startswith("WEBKIT_")),
-        "display_mode": next((line.strip() for line in xrandr if "*" in line), ""),
-        "timesync": read("timedatectl show -p NTPSynchronized --value"),
-        "start": _utc_now(),
-    }
-    for key, value in facts.items():
-        record_property(key, value)
-    yield
-    record_property("end", _utc_now())
+@pytest.fixture
+def full_state(panel):
+    """Wait for the page in full state; return that read's (uptime, sample)."""
+    return panel.wait_full_state()
 
 
 @pytest.fixture
