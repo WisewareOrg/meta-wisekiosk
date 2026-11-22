@@ -102,6 +102,22 @@ class Board:
         self.network = Network(self)
         self.updates = Updates(self)
 
+    def __enter__(self) -> "Board":
+        """Use the board for a span other than one test.
+
+        Returns:
+            The board.
+        """
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        """Undo, last first, what was changed on the board during the span.
+
+        Args:
+            *exc_info: the exception that ended the span, if any.
+        """
+        self.cleanup.close()
+
     def run(
         self, cmd: str, check: bool = False, timeout: float | None = _COMMAND_TIMEOUT_SECONDS
     ) -> tuple[list[str], list[str], int]:

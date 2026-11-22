@@ -88,6 +88,37 @@ class Updates:
             raise
         return tool.returncode, output, round(time.monotonic() - started, 1)
 
+    def assert_refused(self, bundle: pathlib.Path, reasons: tuple[str, ...], timeout: float, record: "Record") -> None:
+        """Offer `bundle`; assert it was refused for each of `reasons`, nothing staged, same build, on the panel.
+
+        Waits for the instance on the panel before the offer and again after it. Records the board's
+        state before the offer as `before`, the install's `install_rc`, `install_output` and
+        `install_s`, and the state after as `after`, then asserts.
+
+        Args:
+            bundle: the bundle on the host.
+            reasons: text the refusal's output must carry, each.
+            timeout: the longest the install may take.
+            record: the test's record.
+        """
+        self._board.app.page.wait_for_instance()
+        before = self.next_boot_and_running_build()
+        record(before=json.dumps(before))
+        returncode, output, duration_s = self.install_bundle(bundle, timeout)
+        record(install_rc=returncode, install_output=output, install_s=duration_s)
+        after = self.next_boot_and_running_build()
+        record(after=json.dumps(after))
+
+        # rc 2 is a D-Bus error: the board could not say, which is not a refusal
+        assert returncode == 1, f"the install returned {returncode}, not a refusal (1): {output}"
+        for reason in reasons:
+            assert reason in output, f"refused, but not for the reason {reason!r}: {output}"
+        assert after["boot_variables"] == before["boot_variables"], "the next boot's slot order changed"
+        assert after["rauc_status"] == before["rauc_status"], "rauc's slot status changed"
+        assert after["boot_id"] == before["boot_id"], "the board restarted"
+        assert after["commit"] == before["commit"], "the board runs a different build"
+        self._board.app.page.wait_for_instance()
+
     def allow_test_bundles(self, nonce: str) -> None:
         """Put this run's nonce in the board's `/tmp`, until the test ends, so a test bundle's hook accepts it.
 
@@ -190,6 +221,14 @@ class Updates:
             candidate: the candidate the board started the test on.
         """
         self._board.cleanup.callback(self._restore_candidate, candidate)
+
+    def compatible(self) -> str:
+        """Read the `compatible` the board's own `rauc` reports.
+
+        Returns:
+            The compatible.
+        """
+        return json.loads(self._board.read("rauc status --output-format=json"))["compatible"]
 
     def next_boot_and_running_build(self) -> dict:
         """Read what the next boot and the running build are.

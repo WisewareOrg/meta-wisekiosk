@@ -10,11 +10,13 @@ import pytest
 from board import Board
 from board_test import BoardTest
 from candidate_bundles import CandidateBundles
+from labgrid import Target
 from labgrid.pytestplugin.hooks import LABGRID_ENV_KEY
 from outage import Outage
 from panel import Panel
 from record import Record
 from recovery import BACKEND_DROP_IN_DIR, RELOAD_TIMEOUT_SECONDS
+from refused_offers import RefusedOffers
 from replay import CA_PATH, CARDS4_LIVE
 
 _CONFIG_COPY_PATH = "/tmp/kiosk-config.json"
@@ -84,6 +86,22 @@ def candidate_bundles(bench_candidate: str | None) -> Iterator[CandidateBundles]
     """
     with contextlib.ExitStack() as cleanup:
         yield CandidateBundles.build(cleanup, bench_candidate)
+
+
+@pytest.fixture(scope="module")
+def refused_offers(target: Target) -> Iterator[RefusedOffers]:
+    """Build the refused-update tests' bundles once per module, for the `compatible` the board reports.
+
+    Args:
+        target: the board's labgrid target; the compatible is read through a board of its own.
+
+    Yields:
+        RefusedOffers: the bundles, whose work directory is removed once the module ends.
+    """
+    with Board(target) as board:
+        compatible = board.updates.compatible()
+    with contextlib.ExitStack() as cleanup:
+        yield RefusedOffers.build(cleanup, compatible)
 
 
 @pytest.fixture
