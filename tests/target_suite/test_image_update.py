@@ -6,11 +6,13 @@ install-check hook that refuses unless this run's nonce is in the board's `/tmp`
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import NamedTuple
 
@@ -19,6 +21,7 @@ import pytest
 from labgrid.driver.exception import ExecutionError
 
 from panel import Panel
+from recovery import check, until_up
 from updates import install, snapshot
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -34,6 +37,10 @@ _FALLBACK_WAIT_SECONDS = 1350
 _ON_PANEL_BOUND_SECONDS = 160
 # stop polling; past the bound, so the record still carries the time it took
 _ON_PANEL_GIVE_UP_SECONDS = 180
+# TST003's bound
+_POWER_CUT_BOUND_SECONDS = 60
+_PROGRESS_CMD = "busctl get-property de.pengutronix.rauc / de.pengutronix.rauc.Installer Progress"
+_COPY_STEP = "Copying image to "
 
 pytestmark = pytest.mark.sends_update
 
@@ -262,3 +269,72 @@ def test_cannot_reach_the_network(
         update_bundles.no_network,
         count_boots=True,
     )
+
+
+def _install_state(board, device):
+    """RAUC's install step message and the sectors written to `device` so far, or None when the read failed."""
+    try:
+        stdout, _stderr, returncode = board.run(
+            f"{_PROGRESS_CMD}; cat /sys/class/block/{os.path.basename(device)}/stat"
+        )
+    except (ExecutionError, subprocess.TimeoutExpired):
+        return None
+    if returncode != 0 or len(stdout) != 2:
+        return None
+    progress = re.fullmatch(r'\(isi\) \d+ "(.*)" \d+', stdout[0].strip())
+    return progress and (progress[1], int(stdout[1].split()[6]))
+
+
+def _target_device(rauc_status):
+    """The device of the slot the board did not boot."""
+    for entry in rauc_status["slots"]:
+        for _name, slot in entry.items():
+            if slot["state"] != "booted":
+                return slot["device"]
+    raise AssertionError(f"no slot other than the booted one in rauc status: {rauc_status!r}")
+
+
+def test_power_cut_during_an_update(
+    request, board, update_bundles, back_on_candidate, power_cut, record_property
+):
+    """TST003 power cut during an image update: cut power once the update is being written into its slot.
+
+    Installs the new-build bundle, which no slot already holds, and cuts once RAUC reports its copy
+    step and the target slot's written-sector count has risen since the install began. Times from
+    power returning until the page is served with the browser running.
+    """
+    record_property("requirement", "TST003")
+    board.run(f"printf %s {update_bundles.nonce} > {_NONCE_PATH}", check=True)
+    request.addfinalizer(lambda: board.run(f"rm -f {_NONCE_PATH}"))
+    before = snapshot(board)
+    device = _target_device(before["rauc_status"])
+    idle = _install_state(board, device)
+    assert idle, f"could not read RAUC's progress or {device}'s write count"
+    written_before = idle[1]
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        installing = pool.submit(
+            install, request, board, update_bundles.new_build, _INSTALL_TIMEOUT_SECONDS
+        )
+        while True:
+            assert not installing.done(), (
+                f"the install ended before it wrote to {device}: {installing.result()}"
+            )
+            state = _install_state(board, device)
+            if state and state[0].startswith(_COPY_STEP) and state[1] > written_before:
+                break
+            time.sleep(1)
+        record_property("step_at_cut", state[0])
+        record_property("sectors_written_at_cut", state[1] - written_before)
+        started = power_cut()
+        back_s, last_read = until_up(board, started)
+        returncode, output, seconds = installing.result()
+    record_property("back_s", back_s)
+    record_property("last_read", last_read)
+    record_property("install_rc", returncode)
+    record_property("install_output", output)
+    record_property("install_s", seconds)
+    after = snapshot(board)
+    record_property("booted_slot", after["rauc_status"]["booted"])
+    record_property("commit", after["commit"])
+    assert returncode != 0, "the install completed: the cut did not land during it"
+    check(back_s, last_read, "power returning", "TST003", _POWER_CUT_BOUND_SECONDS)
