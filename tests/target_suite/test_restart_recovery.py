@@ -4,18 +4,12 @@ It restarted, crashed, lost power or started its backend late.
 """
 
 import time
+from collections.abc import Callable
 
+import pytest
+from backend import Backend
 from board import Board
-from panel import Panel, loaded_instance
-from recovery import (
-    assert_back_within,
-    assert_on_panel_within,
-    check_held,
-    or_none,
-    panel_after_answer,
-    poll_from,
-    until_up,
-)
+from panel import Panel
 
 # TST004's bound
 _CRASH_BOUND_SECONDS = 100
@@ -29,100 +23,182 @@ _COLD_BOOT_BOUND_SECONDS = 110
 _LATE_BACKEND_BOUND_SECONDS = 60
 
 _USERSPACE_BOOT_CMD = "systemctl show -p ActiveEnterTimestampMonotonic --value multi-user.target"
-_RELEASE = "systemctl unmask --runtime wisekiosk.service; systemctl start wisekiosk.service"
-_RELEASE_UNIT = "test-backend-release"
 
 
-def _back_s(board, cmd):
-    """Run `cmd`; return seconds until the instance is up (None if never) and the last read."""
+def _back_s(board: Board, cmd: str) -> tuple[float | None, tuple[bool, bool] | None]:
+    """Run `cmd` on the board and time until the instance is up.
+
+    Overstates by the boot-id read, the disconnect and the ssh connect before the fault lands.
+
+    Args:
+        board: the board under test.
+        cmd: the command that restarts or crashes the board.
+
+    Returns:
+        The seconds until the page is served with the browser running (None if never), and the last
+        read as (browser running, page served).
+
+    Raises:
+        AssertionError: the page was not served before the fault, or the board did not come back in
+            a new boot.
+    """
     board.wait_for_page()
     started = time.monotonic()
     board.restart_by(cmd)
-    # Overstates by the boot-id read, the disconnect and the ssh connect before the fault lands.
-    return until_up(board, started)
+    return board.until_up(started)
 
 
-def _release(board):
-    """Unmask and start the backend, then wait for the page; idempotent."""
-    board.run(_RELEASE, check=True)
-    board.wait_for_page()
+def _loaded(titles: list[str]) -> str | None:
+    """The title of a window surf has finished loading the instance's page into.
+
+    surf titles a window `<indicators>:<indicators> | <page title>`, prefixed `[NN%] ` while the page
+    loads; the instance's page title is `WiseKiosk`.
+
+    Args:
+        titles: every window's title.
+
+    Returns:
+        The title, or None if there is none.
+    """
+    return next((t for t in titles if t.endswith(" | WiseKiosk") and not t.startswith("[")), None)
 
 
-def test_kernel_crash(board, record_property):
-    """TST004 kernel crash: crash the kernel and time until the page is served, browser running."""
+def test_kernel_crash(board: Board, record_property: Callable[[str, object], None]) -> None:
+    """TST004 kernel crash: crash the kernel and time until the page is served, browser running.
+
+    Args:
+        board: the board under test, crashed here.
+        record_property: records the requirement, the time back and the last read.
+
+    Raises:
+        AssertionError: the instance was not back within `Board.GIVE_UP_SECONDS`, or after the bound.
+    """
     record_property("requirement", "TST004")
     back_s, last_read = _back_s(board, "echo c > /proc/sysrq-trigger")
     record_property("back_s", back_s)
     record_property("last_read", last_read)
-    assert_back_within(back_s, last_read, "crash", "TST004", _CRASH_BOUND_SECONDS)
+    assert back_s is not None and back_s <= _CRASH_BOUND_SECONDS, (
+        f"back after {back_s} s (None: not within {Board.GIVE_UP_SECONDS} s of the crash); "
+        f"bound {_CRASH_BOUND_SECONDS} s; last read {last_read}"
+    )
 
 
-def test_restart_to_the_panel(board, record_property):
-    """TST011 restart to the panel: restart the board; time until the page is served, browser up."""
+def test_restart_to_the_panel(board: Board, record_property: Callable[[str, object], None]) -> None:
+    """TST011 restart to the panel: restart the board; time until the page is served, browser up.
+
+    Args:
+        board: the board under test, restarted here.
+        record_property: records the requirement, the time back and the last read.
+
+    Raises:
+        AssertionError: the instance was not back within `Board.GIVE_UP_SECONDS`, or after the bound.
+    """
     record_property("requirement", "TST011")
     back_s, last_read = _back_s(board, "systemctl reboot")
     record_property("back_s", back_s)
     record_property("last_read", last_read)
-    assert_back_within(back_s, last_read, "restart", "TST011", _RESTART_BOUND_SECONDS)
+    assert back_s is not None and back_s <= _RESTART_BOUND_SECONDS, (
+        f"back after {back_s} s (None: not within {Board.GIVE_UP_SECONDS} s of the restart); "
+        f"bound {_RESTART_BOUND_SECONDS} s; last read {last_read}"
+    )
 
 
-def test_power_cut_while_showing(board, power_cut, record_property):
+def test_power_cut_while_showing(
+    board: Board, power_cut: Callable[[], float], record_property: Callable[[str, object], None]
+) -> None:
     """TST002 power cut while showing: cut power with the instance up.
 
     Times from power returning until the page is served with the browser running.
+
+    Args:
+        board: the board under test, whose power is cut.
+        power_cut: cuts the power and returns the instant it came back.
+        record_property: records the requirement, the time back and the last read.
+
+    Raises:
+        AssertionError: the instance was not up before the cut, was not back within
+            `Board.GIVE_UP_SECONDS`, or came back after the bound.
     """
     record_property("requirement", "TST002")
-    ready_s, last_read = until_up(board, time.monotonic())
+    ready_s, last_read = board.until_up(time.monotonic())
     assert ready_s is not None, f"the instance was not up before the cut; last read: {last_read}"
     started = power_cut()
-    back_s, last_read = until_up(board, started)
+    back_s, last_read = board.until_up(started)
     record_property("back_s", back_s)
     record_property("last_read", last_read)
-    assert_back_within(back_s, last_read, "power returning", "TST002", _POWER_CUT_BOUND_SECONDS)
+    assert back_s is not None and back_s <= _POWER_CUT_BOUND_SECONDS, (
+        f"back after {back_s} s (None: not within {Board.GIVE_UP_SECONDS} s of power returning); "
+        f"bound {_POWER_CUT_BOUND_SECONDS} s; last read {last_read}"
+    )
 
 
-def test_cold_boot_to_the_panel(board, power_cut, record_property):
+def test_cold_boot_to_the_panel(
+    board: Board,
+    power_cut: Callable[[], float],
+    request: pytest.FixtureRequest,
+    record_property: Callable[[str, object], None],
+) -> None:
     """TST012 cold boot to the panel: cut power.
 
     Times from power returning until the browser has finished loading the instance's page.
+
+    Args:
+        board: the board under test, whose power is cut.
+        power_cut: cuts the power and returns the instant it came back.
+        request: the test's request, which the panel registers its undos on.
+        record_property: records the requirement, the time, the last titles and the loaded title.
+
+    Raises:
+        AssertionError: the browser had not finished loading within `Board.GIVE_UP_SECONDS` of power
+            returning, or finished after the bound.
     """
     record_property("requirement", "TST012")
-    panel = Panel(board)
+    panel = Panel(board, request, record_property)
     started = power_cut()
-    on_panel_s, titles = poll_from(started, lambda: or_none(panel.titles), lambda t: loaded_instance(t) is not None)
+    on_panel_s, _ = panel.until(lambda read: _loaded(read[2]) is not None, Board.GIVE_UP_SECONDS, since=started)
+    titles = panel.last_reading[2] if panel.last_reading else None
     record_property("on_panel_s", on_panel_s)
     record_property("last_titles", titles)
-    record_property("loaded", loaded_instance(titles) if titles else None)
+    record_property("loaded", _loaded(titles) if titles else None)
     assert on_panel_s is not None, (
         f"the browser had not finished loading the instance within {Board.GIVE_UP_SECONDS} s "
         f"of power returning; last window titles: {titles!r}"
     )
     assert on_panel_s <= _COLD_BOOT_BOUND_SECONDS, (
-        f"the browser finished loading after {on_panel_s} s; TST012's bound is {_COLD_BOOT_BOUND_SECONDS} s"
+        f"the browser finished loading after {on_panel_s} s; bound {_COLD_BOOT_BOUND_SECONDS} s"
     )
 
 
-def test_backend_late_at_boot(board, request, record_property):
+def test_backend_late_at_boot(
+    board: Board,
+    backend: Backend,
+    request: pytest.FixtureRequest,
+    record_property: Callable[[str, object], None],
+) -> None:
     """TST033 backend late at boot: time from the held backend's first answer to the instance on the panel.
 
     The backend is masked across a soft-reboot and released three ways, each idempotent: by the
     test once the browser has finished a load without it, by a board-side timer armed on
     reconnect, and at teardown before the probe's own teardown restarts the browser.
+
+    Args:
+        board: the board under test, soft-rebooted here.
+        backend: masks and releases the backend.
+        request: the test's request, on which the probe's unmask is registered again so it runs
+            before the probe's teardown.
+        record_property: records the requirement and what the backend and the panel measure.
+
+    Raises:
+        AssertionError: the mask did not survive the soft-reboot or the browser never finished a
+            load without the backend (INVALID CHECK), or the instance was not on the panel in time.
     """
     record_property("requirement", "TST033")
-    panel = Panel(board)
+    panel = Panel(board, request, record_property)
     board.wait_for_page()
 
-    request.addfinalizer(lambda: _release(board))
-    board.run("systemctl mask --runtime wisekiosk.service", check=True)
+    backend.mask()
     board.restart_by("systemctl soft-reboot", boot_cmd=_USERSPACE_BOOT_CMD)
-
-    units = f"{_RELEASE_UNIT}.timer {_RELEASE_UNIT}.service"
-    request.addfinalizer(lambda: board.run(f"systemctl stop {units}; systemctl reset-failed {units}"))
-    board.run(
-        f"systemd-run --unit={_RELEASE_UNIT} --on-active={Board.GIVE_UP_SECONDS} /bin/sh -c '{_RELEASE}'",
-        check=True,
-    )
+    backend.release_after(Board.GIVE_UP_SECONDS)
 
     enabled = board.run("systemctl is-enabled wisekiosk.service")[0]
     active = board.run("systemctl is-active wisekiosk.service")[0]
@@ -133,15 +209,11 @@ def test_backend_late_at_boot(board, request, record_property):
         f"(is-enabled {enabled}, is-active {active})"
     )
 
-    record_property("probe_sha256", panel.install(request, restart_browser=False))
-    request.addfinalizer(lambda: _release(board))
+    panel.install(restart_browser=False)
+    request.addfinalizer(backend.unmask)
 
-    check_held(board, panel, record_property)
+    panel.held()
 
-    board.run(_RELEASE, check=True)
-    t0, on_panel_s, last = panel_after_answer(board, panel)
-    record_property("backend_answered_uptime_s", t0)
-    record_property("on_panel_s", on_panel_s)
-    record_property("last_sample", last[1] if last else None)
-    record_property("last_titles", or_none(panel.titles))
-    assert_on_panel_within(t0, on_panel_s, last, "TST033", _LATE_BACKEND_BOUND_SECONDS)
+    backend.release()
+    panel.after_answer()
+    panel.assert_on_panel_within(_LATE_BACKEND_BOUND_SECONDS)

@@ -131,7 +131,7 @@ def _watch(panel, seen, keep_going):
     while keep_going():
         seen["reads"] += 1
         try:
-            uptime_s, sample = panel.read()
+            uptime_s, sample, _titles = panel.read()
         except (ExecutionError, subprocess.TimeoutExpired):
             seen["failed"] += 1
             seen["off_panel"] += 1

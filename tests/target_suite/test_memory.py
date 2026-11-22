@@ -5,7 +5,7 @@ import subprocess
 import time
 
 import pytest
-from backend import MAIN_PID_CMD
+from backend import Backend
 from labgrid.binding import StateError
 from labgrid.driver.exception import ExecutionError
 from replay import CARDS4_LIVE
@@ -114,7 +114,7 @@ def _wait_period(board, boot_id, period):
 
 
 @pytest.mark.parametrize("proxy", [str(CARDS4_LIVE / "flows.har")], indirect=True)
-def test_memory_over_a_long_run(request, proxy, replay_window, panel, full_state, board, record_property):
+def test_memory_over_a_long_run(request, proxy, replay_window, panel, board, record_property):
     """TST014 memory over a long run: kiosk-soak's samples of memory in use stay under `USE_LIMIT` of usable.
 
     Usable is `MemTotal`; in use is `MemTotal - MemAvailable`. A sample at or above the limit, or
@@ -124,6 +124,7 @@ def test_memory_over_a_long_run(request, proxy, replay_window, panel, full_state
     changed without a memory kill, the browser or backend restarted, the page reloaded or
     changed state, kiosk-soak left a gap, the replay killed a request, or the evidence is unreadable.
     """
+    _, start_sample = panel.wait_on_panel(full=True)
     record_property("requirement", "TST014")
     soak = request.config.getoption("--soak")
     period = SOAK_PERIOD_SECONDS if soak else PERIOD_SECONDS
@@ -135,11 +136,10 @@ def test_memory_over_a_long_run(request, proxy, replay_window, panel, full_state
     record_property("timer_was_active", timer_was_active)
 
     boot_id = _read_text(board, board.BOOT_ID_CMD)
-    backend_pid = _read_text(board, MAIN_PID_CMD)
+    backend_pid = _read_text(board, Backend.MAIN_PID_CMD)
     start_uptime = float(_read_text(board, "cat /proc/uptime").split()[0])
     start_mem = _meminfo(board)
     total_mb = start_mem["MemTotal"] / 1024
-    start_sample = full_state[1]
 
     new_boot = _wait_period(board, boot_id, period)
     if new_boot is None:
@@ -204,11 +204,11 @@ def test_memory_over_a_long_run(request, proxy, replay_window, panel, full_state
                 problems.append(f"kiosk-soak left a gap over {MAX_GAP_SECONDS} s")
             if len({line["pid"] for line in lines}) > 1 or any(line["pid"] == "none" for line in lines):
                 problems.append("the browser restarted or was not running at a sample")
-            if _read_text(board, MAIN_PID_CMD) != backend_pid:
+            if _read_text(board, Backend.MAIN_PID_CMD) != backend_pid:
                 problems.append("wisekiosk.service restarted")
             try:
-                _uptime, end_sample = panel.read()
-            except (*_BOARD_ERRORS, IndexError):
+                _uptime, end_sample, _titles = panel.read()
+            except _BOARD_ERRORS:
                 end_sample = None
             if end_sample is None:
                 problems.append("the end page read failed")

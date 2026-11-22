@@ -20,7 +20,6 @@ import pytest
 from board import Board
 from labgrid.driver.exception import ExecutionError
 from panel import Panel
-from recovery import assert_back_within, until_up
 from updates import install
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -205,12 +204,12 @@ def test_new_application_build(request, board, update_bundles, back_on_candidate
 
     started = time.monotonic()
     board.restart_by("systemctl reboot")
-    panel = Panel(board)
+    panel = Panel(board, request, record_property)
     sample = None
     on_panel_s = None
     while time.monotonic() - started <= Board.GIVE_UP_SECONDS:
         try:
-            _uptime_s, sample = panel.read()
+            _uptime_s, sample, _titles = panel.read()
         except (ExecutionError, subprocess.TimeoutExpired):
             sample = None
         if panel.on_panel(sample) and sample["stamp"] == update_bundles.stamp:
@@ -309,7 +308,7 @@ def test_power_cut_during_an_update(request, board, update_bundles, back_on_cand
         record_property("step_at_cut", state[0])
         record_property("sectors_written_at_cut", state[1] - written_before)
         started = power_cut()
-        back_s, last_read = until_up(board, started)
+        back_s, last_read = board.until_up(started)
         returncode, output, seconds = installing.result()
     record_property("back_s", back_s)
     record_property("last_read", last_read)
@@ -330,4 +329,7 @@ def test_power_cut_during_an_update(request, board, update_bundles, back_on_cand
         f"INVALID CHECK, not an appliance failure: slot {target} was activated, so the cut landed after "
         "the update was written, not while it was"
     )
-    assert_back_within(back_s, last_read, "power returning", "TST003", _POWER_CUT_BOUND_SECONDS)
+    assert back_s is not None and back_s <= _POWER_CUT_BOUND_SECONDS, (
+        f"back after {back_s} s (None: not within {Board.GIVE_UP_SECONDS} s of power returning); "
+        f"bound {_POWER_CUT_BOUND_SECONDS} s; last read {last_read}"
+    )

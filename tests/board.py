@@ -1,11 +1,14 @@
 """The board under test as the tests drive it: its shell, page, boot state, image install and restarts."""
 
 import json
+import os
 import subprocess
 import time
 from collections.abc import Callable
 from contextlib import AbstractContextManager
+from pathlib import Path
 
+import pytest
 from labgrid import Target
 from labgrid.binding import StateError
 from labgrid.driver.exception import ExecutionError
@@ -316,6 +319,49 @@ class Board:
         """
         self.last_up = (self.run("pgrep -x surf")[2] == 0, self.page()[1])
         return self.last_up
+
+    def bind(self, request: pytest.FixtureRequest, src: str | os.PathLike[str], path: str) -> None:
+        """Bind-mount a copy of the host file `src` over `path` on the board, until `request`'s teardown.
+
+        Each undo is registered once its step has succeeded, so teardown unmounts, then removes the
+        copy.
+
+        Args:
+            request: registers each step's undo.
+            src: the file on the host; its copy on the board is `/tmp/kiosk-<its name>`.
+            path: the file on the board to mount it over; a stale mount a dead run left there is
+                unmounted first.
+
+        Raises:
+            AssertionError: a step on the board fails.
+        """
+        copy = f"/tmp/kiosk-{Path(src).name}"
+        self.put(str(src), copy)
+        request.addfinalizer(lambda: self.run(f"rm -f {copy}", check=True))
+        self.unmount_if_mounted(path)
+        self.run(f"mount --bind {copy} {path}", check=True)
+        request.addfinalizer(lambda: self.unmount_if_mounted(path))
+
+    def run_later(self, request: pytest.FixtureRequest, unit: str, delay: float, cmd: str) -> None:
+        """Start `cmd` on the board in `delay` seconds as the transient timer `unit`.
+
+        What a dead run left of the unit is cleared first, and the timer is stopped again at
+        `request`'s teardown.
+
+        Args:
+            request: registers the undo.
+            unit: the transient unit's name.
+            delay: seconds from now to the start.
+            cmd: the command line `systemd-run` runs.
+
+        Raises:
+            AssertionError: `systemd-run` fails.
+        """
+        units = f"{unit}.timer {unit}.service"
+        undo = f"systemctl stop {units}; systemctl reset-failed {units}"
+        self.run(undo)
+        self.run(f"systemd-run --unit={unit} --on-active={delay} --timer-property=AccuracySec=100ms {cmd}", check=True)
+        request.addfinalizer(lambda: self.run(undo))
 
     def install_image(self) -> None:
         """Install the built image on the board with `just kiosk-ota`.

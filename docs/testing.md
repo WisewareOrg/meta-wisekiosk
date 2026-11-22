@@ -58,7 +58,7 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   checkout's own build tree and the signing keys the bench host's environment file names. The
   keyboard test builds evemu-tools through `tools/kas-run.sh` the same way, so it needs the build
   tree too, and while it runs the panel shows the board's text console. The frozen-page test
-  swaps the board onto `clock-seconds.json` through `set_config` and stops the browser's web
+  swaps the board onto `clock-seconds.json` through `Backend.use_config` and stops the browser's web
   processes, and a finalizer registered first resumes them. The backend-late test masks
   `wisekiosk.service` in `/run`, soft-reboots the board's userspace with the mask held, binds the
   probe without restarting the browser, and arms a board-side `systemd-run` timer that releases the

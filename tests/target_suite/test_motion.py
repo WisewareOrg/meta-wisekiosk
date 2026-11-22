@@ -1,11 +1,16 @@
 """Target suite: the replayed page's motion stays within a bound of frame stalls."""
 
-import subprocess
 import time
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import pytest
-from labgrid.driver.exception import ExecutionError
+from board import Board
+from panel import Panel
 from replay import CARDS4_LIVE
+
+if TYPE_CHECKING:
+    from wisebench.proxy import Proxy
 
 WARMUP_MS = 40_000
 WINDOW_MS = 320_000
@@ -32,16 +37,14 @@ _SOAK_LOG_PATH = "/data/kiosk-soak.log"
 _SOAK_TAIL_LINES = 20
 
 
-def _read(panel):
-    """The panel's (uptime, sample), or (None, None) if the board did not answer."""
-    try:
-        return panel.read()
-    except (ExecutionError, subprocess.TimeoutExpired):
-        return None, None
-
-
-def _counters(sample):
+def _counters(sample: dict[str, str]) -> tuple[dict[str, int], list[int]]:
     """The probe's counters as ints, and its histogram as a list of ints.
+
+    Args:
+        sample: the probe's sample.
+
+    Returns:
+        The counters named in `_COUNTERS`, and the histogram's bins.
 
     Raises:
         AssertionError: a counter is missing or malformed.
@@ -55,13 +58,30 @@ def _counters(sample):
     return values, hist
 
 
-def _soc_temperature(board):
+def _soc_temperature(board: Board) -> float | None:
+    """The SoC temperature in degrees Celsius.
+
+    Args:
+        board: the board under test.
+
+    Returns:
+        The temperature, or None if the read returned nonzero or nothing.
+    """
     stdout, _stderr, returncode = board.run(f"cat {_SOC_TEMP_PATH}")
     return int(stdout[0]) / 1000 if returncode == 0 and stdout else None
 
 
-def _soak_samples_between(board, start_uptime, end_uptime):
-    """How many of kiosk-soak's last log lines, from this boot, fall inside the uptime span."""
+def _soak_samples_between(board: Board, start_uptime: float, end_uptime: float) -> int:
+    """How many of kiosk-soak's last log lines, from this boot, fall inside the uptime span.
+
+    Args:
+        board: the board under test.
+        start_uptime: the span's start, in board uptime seconds.
+        end_uptime: the span's end, in board uptime seconds.
+
+    Returns:
+        The count of log lines from this boot whose `up` field is inside the span.
+    """
     stdout, _stderr, _returncode = board.run(
         f"cut -c1-8 /proc/sys/kernel/random/boot_id; tail -n {_SOAK_TAIL_LINES} {_SOAK_LOG_PATH} 2>/dev/null; true"
     )
@@ -75,41 +95,60 @@ def _soak_samples_between(board, start_uptime, end_uptime):
 
 
 @pytest.mark.parametrize("proxy", [str(CARDS4_LIVE / "flows.har")], indirect=True)
-def test_motion_stutter(proxy, replay_window, panel, full_state, board, record_property):
+def test_motion_stutter(
+    proxy: "Proxy",
+    replay_window: float,
+    panel: Panel,
+    board: Board,
+    record_property: Callable[[str, object], None],
+) -> None:
     """TST009 motion stutter measured: at most `STALL_BOUND` frame stalls in the window.
 
     The window opens `WARMUP_MS` of page time after the page first reads full state, and the
     host reads nothing from the board between the start read's temperature and the end read.
     The window is invalid, never a pass or a failure, if the page reloaded or changed state, a read is not
     full state, too little motion was seen, or the replay killed a request.
+
+    Args:
+        proxy: the replaying proxy, asked how many requests it killed.
+        replay_window: puts the backend behind the proxy and the browser on the replayed page.
+        panel: the probe in the browser, read for the counters.
+        board: the board under test, whose temperature and soak log are read.
+        record_property: records the requirement and what the window measured.
+
+    Raises:
+        AssertionError: the page stopped reporting, the window is invalid, or it held more than
+            `STALL_BOUND` stalls.
+        Failed: the page reloaded inside the window (INVALID).
     """
     record_property("requirement", "TST009")
     record_property("cutoff_ms", CUTOFF_MS)
     record_property("bound", STALL_BOUND)
-    _, first = full_state
+    _, first = panel.wait_on_panel(full=True)
     first_el = int(first["el"])
 
-    deadline = time.monotonic() + WARMUP_READ_WAIT_SECONDS
-    while True:
-        start_uptime, start = _read(panel)
-        if start is not None and int(start["el"]) >= first_el + WARMUP_MS:
-            break
-        assert time.monotonic() < deadline, f"the page stopped reporting; last: {start!r}"
-        time.sleep(READ_PAUSE_SECONDS)
+    waited_s, start_read = panel.until(
+        lambda read: read[1] is not None and int(read[1]["el"]) >= first_el + WARMUP_MS,
+        WARMUP_READ_WAIT_SECONDS,
+        every=READ_PAUSE_SECONDS,
+    )
+    assert waited_s is not None, f"the page stopped reporting; last: {start_read!r}"
+    start_uptime, start, _ = start_read
     start_temp = _soc_temperature(board)
     start_counters, start_hist = _counters(start)
 
     time.sleep(WINDOW_SLEEP_SECONDS)
 
-    deadline = time.monotonic() + END_WAIT_SECONDS
-    while True:
-        end_uptime, end = _read(panel)
-        if end is not None and end["load"] != start["load"]:
-            break
-        if end is not None and int(end["el"]) >= start_counters["el"] + WINDOW_MS:
-            break
-        assert time.monotonic() < deadline, f"the page stopped reporting within {END_WAIT_SECONDS} s; last: {end!r}"
-        time.sleep(READ_PAUSE_SECONDS)
+    waited_s, end_read = panel.until(
+        lambda read: (
+            read[1] is not None
+            and (read[1]["load"] != start["load"] or int(read[1]["el"]) >= start_counters["el"] + WINDOW_MS)
+        ),
+        END_WAIT_SECONDS,
+        every=READ_PAUSE_SECONDS,
+    )
+    assert waited_s is not None, f"the page stopped reporting within {END_WAIT_SECONDS} s; last: {end_read!r}"
+    end_uptime, end, _ = end_read
     if end["load"] != start["load"]:
         reloaded = "the page reloaded inside the window"
         record_property("validity", f"invalid: {reloaded}")
@@ -151,5 +190,5 @@ def test_motion_stutter(proxy, replay_window, panel, full_state, board, record_p
 
     assert not problems, f"INVALID: {'; '.join(problems)}"
     assert stalls <= STALL_BOUND, (
-        f"{stalls} frame stalls of {CUTOFF_MS} ms or more in {WINDOW_MS // 1000} s; TST009's bound is {STALL_BOUND}"
+        f"{stalls} frame stalls of {CUTOFF_MS} ms or more in {WINDOW_MS // 1000} s; bound {STALL_BOUND}"
     )
