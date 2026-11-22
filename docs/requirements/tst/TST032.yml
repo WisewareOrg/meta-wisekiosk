@@ -12,13 +12,13 @@ ref: ''
 references:
 - keyword: def test_backend_crash
   path: tests/target_suite/test_wisekiosk.py
-  sha: 247c2f913b709eda6b417c8712d81d1975ad82ddb242fe6536bdb60e556660a9
+  sha: c23f2614d5128ffb7470d2fe4727d54c54fa0cf52b2e68a71b92c7f78ed48237
   type: file
-reviewed: cXnL02NXcn5UFOVpAX_-GQNM6KvUmCay0dqn9CtsCOI=
+reviewed: 6SFVk7EUrMeOICFvgYR5JCDRT32y8_OuTE_UyP42JpI=
 status: proposed
 text: |
   With nobody at the panel, crash the WiseKiosk backend by killing it outright. Pass if the
-  WiseKiosk instance's page is served on the appliance again within 60 s of the crash.
+  WiseKiosk instance's page is served to the panel's browser again within 60 s of the crash.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.

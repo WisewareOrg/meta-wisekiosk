@@ -28,6 +28,7 @@ class Board:
             boot.
         FAULT_SSH_TIMEOUT_SECONDS (int): the backstop on the one-shot ssh that sends `restart_by`'s
             command.
+        BOOT_ID_CMD (str): prints the kernel's boot id, which differs in each boot.
     """
 
     CONFIG_PATH = "/data/config/config.json"
@@ -38,6 +39,7 @@ class Board:
     PAGE_ATTEMPT_TIMEOUT_SECONDS = 10
     RESTART_WAIT_SECONDS = 180
     FAULT_SSH_TIMEOUT_SECONDS = 30
+    BOOT_ID_CMD = "cat /proc/sys/kernel/random/boot_id"
 
     def __init__(self, target):
         """Bind to the target's SSHDriver and NetworkService.
@@ -308,7 +310,7 @@ class Board:
             argv += ["-o", option]
         return [*argv, self.host]
 
-    def restart_by(self, cmd, wait_seconds=RESTART_WAIT_SECONDS):
+    def restart_by(self, cmd, wait_seconds=RESTART_WAIT_SECONDS, boot_cmd=BOOT_ID_CMD):
         """Take the board down with `cmd` over a one-shot ssh, then reconnect in a new boot.
 
         Unlike `restart`, which goes through `just kiosk-reboot`'s 5 s polling, this polls every
@@ -319,15 +321,15 @@ class Board:
         Args:
             cmd (str): the command that restarts or crashes the board.
             wait_seconds (float): how long to wait for the board to answer in a new boot.
+            boot_cmd (str): prints a value that differs in each new boot.
 
         Raises:
-            AssertionError: the opening boot-id read returned nonzero, or the board did not answer
-                in a new boot within `wait_seconds`; the message carries how the ssh
+            AssertionError: the opening `boot_cmd` read returned nonzero, or the board did not
+                answer in a new boot within `wait_seconds`; the message carries how the ssh
                 that sent `cmd` ended.
-            subprocess.TimeoutExpired: reading the boot id before `cmd` ran past its timeout.
+            subprocess.TimeoutExpired: reading `boot_cmd` before `cmd` ran past its timeout.
         """
-        boot_id_cmd = "cat /proc/sys/kernel/random/boot_id"
-        old_boot_id = self.run(boot_id_cmd, check=True)[0][0]
+        old_boot = self.run(boot_cmd, check=True)[0][0]
         self.disconnect()
         try:
             sent = subprocess.run(
@@ -354,8 +356,8 @@ class Board:
                 time.sleep(1)
                 continue
             try:
-                stdout, _stderr, returncode = self.run(boot_id_cmd)
-                if returncode == 0 and stdout and stdout[0] != old_boot_id:
+                stdout, _stderr, returncode = self.run(boot_cmd)
+                if returncode == 0 and stdout and stdout[0] != old_boot:
                     return
             except (ExecutionError, subprocess.TimeoutExpired):
                 pass

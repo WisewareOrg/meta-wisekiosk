@@ -18,9 +18,9 @@ references:
   type: file
 - keyword: EDGES
   path: tests/target_suite/probe.js
-  sha: c2726777e268a45c709bd17fa468538f918a4ff35262218c0c6907c988f1fcd7
+  sha: 3c581ccd18d0523d12175acd9fb0ed80fe92eb9bb0fb9287fd1584f4b44a9268
   type: file
-reviewed: C1KZ6TPTrpz9vPPi9pvvtEYATGjh4m_5bSZWu_csqX0=
+reviewed: AsVJ1xfBJK069FaIhsavIAHctJTquuV-D6_si0OYvCA=
 status: proposed
 text: |
   With the WiseKiosk instance showing the replayed page, four park cards live, ride names scrolling,

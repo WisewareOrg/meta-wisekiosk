@@ -4,7 +4,7 @@ header: |
   Restart to the panel
 level: 1.4.1
 links:
-- SRS004: WTbgq6CrI1y0n2ENIsBdm5fh-gz3_Zgn0SXtjI-qlto=
+- SRS004: Aix-S9_gDofPbc40R8z3Pydoucj7p1TPvoqFCSfRPJM=
 normative: true
 rationale: |
   A restart, for an image update or by the operator, takes the instance off the panel, and nobody
@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_restart_to_the_panel
   path: tests/target_suite/test_restart_recovery.py
-  sha: e0814d0425f341dcfce53d2f0ece9275fec4704262c29c61a8340b84d957ea80
+  sha: fa274308773f8dbd12aa6bc15092719d938bac45aa00de40a167d13efa194380
   type: file
-reviewed: y8TyOe2a3jvZRYbGZngje7_lQ1eKEteXjFQ1KfkHHIg=
+reviewed: vjZm9Rb9Xy6dKteqI6bDFBm4pd1V7FfTQcGTCY2-AAI=
 status: proposed
 text: |
   Restart the appliance over the network, with nobody at the panel. Pass if, within 60 s of the

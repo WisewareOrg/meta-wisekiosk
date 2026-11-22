@@ -257,7 +257,6 @@ def outage(board):
 
 
 _POWER_OFF_SECONDS = 10
-_BOOT_ID_CMD = "cat /proc/sys/kernel/random/boot_id"
 
 
 @pytest.fixture
@@ -271,7 +270,7 @@ def power_cut(target, board, request, record_property):
     request.addfinalizer(power.on)
 
     def cut():
-        old_boot_id = board.run(_BOOT_ID_CMD, check=True)[0][0]
+        old_boot_id = board.run(board.BOOT_ID_CMD, check=True)[0][0]
         board.disconnect()
         try:
             power.off()
@@ -282,7 +281,7 @@ def power_cut(target, board, request, record_property):
             pytest.exit(f"the bench's power switch failed: {error}", returncode=2)
         record_property("power_on_command_s", round(time.monotonic() - on_began, 1))
         board.reconnect()
-        if board.run(_BOOT_ID_CMD, check=True)[0][0] == old_boot_id:
+        if board.run(board.BOOT_ID_CMD, check=True)[0][0] == old_boot_id:
             pytest.exit(
                 f"the board answered in the same boot after {_POWER_OFF_SECONDS} s off: "
                 "the plug or its supply did not cut power",
