@@ -23,9 +23,13 @@ _HASHED_PATHS = (
 _CA_BOARD_PATH = "/tmp/replay-ca.pem"
 _DROP_IN_PATH = f"{BACKEND_DROP_IN_DIR}/replay.conf"
 _BACKEND_SWEEP = (
+    f"if [ -d {BACKEND_DROP_IN_DIR} ] || "
+    '[ "$(systemctl is-enabled wisekiosk.service)" = masked-runtime ]; then '
     f"rm -rf {BACKEND_DROP_IN_DIR}; systemctl unmask --runtime wisekiosk.service; "
-    "systemctl daemon-reload; systemctl start wisekiosk.service"
+    "systemctl daemon-reload; systemctl start wisekiosk.service; fi"
 )
+# covers a daemon-reload plus a backend start
+_BACKEND_SWEEP_TIMEOUT_SECONDS = 60
 
 
 def pytest_addoption(parser):
@@ -50,7 +54,7 @@ def config_across_update(request, board, bench_candidate):
             missing); None when there is no candidate to install.
     """
     board.unmount_if_mounted(board.CONFIG_PATH)
-    board.run(_BACKEND_SWEEP, check=True)
+    board.run(_BACKEND_SWEEP, check=True, timeout=_BACKEND_SWEEP_TIMEOUT_SECONDS)
     if bench_candidate is None:
         request.getfixturevalue("install_candidate")
         return None
