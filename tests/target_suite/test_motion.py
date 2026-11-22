@@ -81,8 +81,8 @@ def test_motion_stutter(proxy, replay_window, panel, full_state, board, record_p
 
     The window opens `WARMUP_MS` of page time after the page first reads full state, and the
     host reads nothing from the board between the start read's temperature and the end read.
-    The window is invalid, never a pass or a failure, if the page reloaded or changed state, a read is not full state, too little motion
-    was seen, or the replay killed a request.
+    The window is invalid, never a pass or a failure, if the page reloaded or changed state, a read is not
+    full state, too little motion was seen, or the replay killed a request.
     """
     record_property("requirement", "TST009")
     record_property("cutoff_ms", CUTOFF_MS)
