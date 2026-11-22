@@ -112,11 +112,11 @@ class Board:
         service = target.get_resource("NetworkService")
         self.host = f"{service.username}@{service.address}"
         self.cleanup = contextlib.ExitStack()
-        self.app = App(Backend(self), Config(self), Page(self))
-        self.screen = Screen(Display(self), Captures(self))
-        self.console = Console(Terminals(self), Keyboard(self))
-        self.system = System(Clock(self), Timezone(self), Memory(self), Soak(self))
-        self.network = Network(Outage(self), Load(self))
+        self.app = App(backend=Backend(self), config=Config(self), page=Page(self))
+        self.screen = Screen(display=Display(self), captures=Captures(self))
+        self.console = Console(terminals=Terminals(self), keyboard=Keyboard(self))
+        self.system = System(clock=Clock(self), timezone=Timezone(self), memory=Memory(self), soak=Soak(self))
+        self.network = Network(outage=Outage(self), load=Load(self))
         self.updates = Updates(self)
 
     def __enter__(self) -> "Board":

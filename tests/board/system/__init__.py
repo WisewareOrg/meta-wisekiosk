@@ -8,7 +8,7 @@ from board.system.soak import Soak
 from board.system.timezone import Timezone
 
 
-@dataclass
+@dataclass(kw_only=True)
 class System:
     """The board's operating system: its clock and time zone, its memory, and the kiosk-soak sampler.
 

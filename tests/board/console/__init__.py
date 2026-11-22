@@ -6,7 +6,7 @@ from board.console.keyboard import Keyboard
 from board.console.terminals import Terminals
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Console:
     """The board's consoles: its virtual terminals, and an evemu keyboard typing into them.
 

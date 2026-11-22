@@ -7,7 +7,7 @@ from board.app.config import Config
 from board.app.page import Page
 
 
-@dataclass
+@dataclass(kw_only=True)
 class App:
     """The WiseKiosk app on the board, end to end: its backend, its config and its page.
 

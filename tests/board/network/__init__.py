@@ -6,7 +6,7 @@ from board.network.load import Load
 from board.network.outage import Outage
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Network:
     """The board's network: an outage scheduled on the board, and a load pushed at it.
 

@@ -6,7 +6,7 @@ from board.screen.captures import Captures
 from board.screen.display import Display
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Screen:
     """The board's screen: the X server and its output, and screenshots of what the panel shows.
 
