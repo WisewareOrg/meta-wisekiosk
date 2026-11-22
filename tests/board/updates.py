@@ -257,12 +257,13 @@ class Updates(Part):
         self._board.cleanup.callback(self._restore_candidate, candidate)
 
     def rauc_status(self) -> dict:
-        """Read `rauc status` as the board's own `rauc` reports it.
+        """Read `rauc status --detailed` as the board's own `rauc` reports it.
 
         Returns:
-            The status, parsed from its JSON: the board's `compatible` and its `booted` slot among it.
+            The status, parsed from its JSON: the board's `compatible`, its `booted` slot, and each slot
+            with its state, device and installed bundle.
         """
-        return json.loads(self._board.run("rauc status --output-format=json", check=True).text)
+        return json.loads(self._board.run("rauc status --detailed --output-format=json", check=True).text)
 
     def next_boot_and_running_build(self) -> dict:
         """Read what the next boot and the running build are.
@@ -272,7 +273,7 @@ class Updates(Part):
         """
         return {
             "boot_variables": self._board.run(_BOOT_VARIABLES_CMD, check=True).text,
-            "rauc_status": json.loads(self._board.run("rauc status --detailed --output-format=json", check=True).text),
+            "rauc_status": self.rauc_status(),
             "boot_id": self._board.run(self._board.BOOT_ID_CMD, check=True).text,
             "commit": self.build_commit(),
         }
@@ -344,9 +345,9 @@ class Updates(Part):
         Args:
             candidate: the candidate the board started the test on.
         """
-        rauc_status = self.next_boot_and_running_build()["rauc_status"]
-        _slot, booted_hash = self._booted_slot(rauc_status)
-        if booted_hash == candidate.hash and self.boot_order().order[0] == rauc_status["booted"]:
+        status = self.next_boot_and_running_build()["rauc_status"]
+        _slot, booted_hash = self._booted_slot(status)
+        if booted_hash == candidate.hash and self.boot_order().order[0] == status["booted"]:
             return
         returncode, output, _seconds = self.install_bundle(candidate.candidate, self.CANDIDATE_INSTALL_TIMEOUT_SECONDS)
         assert returncode == 0, f"reinstalling the candidate returned {returncode}: {output}"
