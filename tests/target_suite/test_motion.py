@@ -5,7 +5,6 @@ import time
 
 import pytest
 from labgrid.driver.exception import ExecutionError
-
 from replay import CARDS4_LIVE
 
 WARMUP_MS = 40_000
@@ -81,8 +80,8 @@ def test_motion_stutter(proxy, replay_window, panel, full_state, board, record_p
 
     The window opens `WARMUP_MS` of page time after the page first reads full state, and the
     host reads nothing from the board between the start read's temperature and the end read.
-    The window is invalid, never a pass or a failure, if the page reloaded or changed state, a read is not full state, too little motion
-    was seen, or the replay killed a request.
+    The window is invalid, never a pass or a failure, if the page reloaded or changed state, a read is not full
+    state, too little motion was seen, or the replay killed a request.
     """
     record_property("requirement", "TST009")
     record_property("cutoff_ms", CUTOFF_MS)
@@ -109,9 +108,7 @@ def test_motion_stutter(proxy, replay_window, panel, full_state, board, record_p
             break
         if end is not None and int(end["el"]) >= start_counters["el"] + WINDOW_MS:
             break
-        assert time.monotonic() < deadline, (
-            f"the page stopped reporting within {END_WAIT_SECONDS} s; last: {end!r}"
-        )
+        assert time.monotonic() < deadline, f"the page stopped reporting within {END_WAIT_SECONDS} s; last: {end!r}"
         time.sleep(READ_PAUSE_SECONDS)
     if end["load"] != start["load"]:
         reloaded = "the page reloaded inside the window"
@@ -122,7 +119,7 @@ def test_motion_stutter(proxy, replay_window, panel, full_state, board, record_p
     soak_samples = _soak_samples_between(board, start_uptime, end_uptime)
 
     end_counters, end_hist = _counters(end)
-    hist = [after - before for before, after in zip(start_hist, end_hist)]
+    hist = [after - before for before, after in zip(start_hist, end_hist, strict=False)]
     delta = {key: end_counters[key] - start_counters[key] for key in _COUNTERS}
     stalls = sum(hist[STALL_FROM_BIN:])
     moving_share = delta["moving"] / delta["ticks"] if delta["ticks"] else 0.0
@@ -154,6 +151,5 @@ def test_motion_stutter(proxy, replay_window, panel, full_state, board, record_p
 
     assert not problems, f"INVALID: {'; '.join(problems)}"
     assert stalls <= STALL_BOUND, (
-        f"{stalls} frame stalls of {CUTOFF_MS} ms or more in {WINDOW_MS // 1000} s; "
-        f"TST009's bound is {STALL_BOUND}"
+        f"{stalls} frame stalls of {CUTOFF_MS} ms or more in {WINDOW_MS // 1000} s; TST009's bound is {STALL_BOUND}"
     )

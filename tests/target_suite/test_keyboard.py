@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import NamedTuple
 
 import pytest
-
 from outage import Outage
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -48,10 +47,10 @@ _KEY_LEFTALT = 56
 _KEY_F1 = 59
 _KEY_F2 = 60
 _KEYS = {
-    **{c: code for c, code in zip("qwertyuiop", range(16, 26))},
-    **{c: code for c, code in zip("asdfghjkl", range(30, 39))},
-    **{c: code for c, code in zip("zxcvbnm", range(44, 51))},
-    **{c: code for c, code in zip("1234567890", range(2, 12))},
+    **{c: code for c, code in zip("qwertyuiop", range(16, 26), strict=False)},
+    **{c: code for c, code in zip("asdfghjkl", range(30, 39), strict=False)},
+    **{c: code for c, code in zip("zxcvbnm", range(44, 51), strict=False)},
+    **{c: code for c, code in zip("1234567890", range(2, 12), strict=False)},
     " ": 57,
     "\n": 28,
     "/": 53,
@@ -174,10 +173,7 @@ def helpers(request):
         directory,
         (run_dir / "version").read_text().strip(),
         (run_dir / "packages").read_text().split(),
-        {
-            path.name: hashlib.sha256(path.read_bytes()).hexdigest()
-            for path in sorted(directory.iterdir())
-        },
+        {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(directory.iterdir())},
     )
 
 
@@ -284,9 +280,7 @@ def test_shell_from_an_attached_keyboard(request, board, outage, helpers, tmp_pa
     board.run("chmod 0755 " + " ".join(f"{_DIR}/{name}" for name in helpers.sha256), check=True)
 
     request.addfinalizer(lambda: _restore_console(board, record_property))
-    request.addfinalizer(
-        lambda: board.run(f"systemctl stop {units}; systemctl reset-failed {units}")
-    )
+    request.addfinalizer(lambda: board.run(f"systemctl stop {units}; systemctl reset-failed {units}"))
 
     bounds = " ".join(
         str(bound)
@@ -335,8 +329,7 @@ def test_shell_from_an_attached_keyboard(request, board, outage, helpers, tmp_pa
         "the board restarted during the outage (outage.sh's give-up), so the marker in /tmp is gone"
     )
     assert "device" in reached, (
-        "the virtual keyboard was not created (the test's own setup, not the appliance): "
-        f"{journal()}"
+        f"the virtual keyboard was not created (the test's own setup, not the appliance): {journal()}"
     )
     assert "x_opened" in reached, f"X never opened the attached keyboard: {journal()}"
     assert "console" in reached, f"Ctrl+Alt+F2 brought no login prompt on tty2: {journal()}"

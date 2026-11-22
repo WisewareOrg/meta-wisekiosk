@@ -14,9 +14,7 @@ def test_browser_killed(board, panel, record_property):
     record_property("requirement", "TST001")
     _, before = panel.wait_on_panel()
 
-    stdout, _stderr, _returncode = board.run(
-        "cat /proc/uptime; kill -KILL $(pgrep -x surf)", check=True
-    )
+    stdout, _stderr, _returncode = board.run("cat /proc/uptime; kill -KILL $(pgrep -x surf)", check=True)
     killed_at = float(stdout[0].split()[0])
     give_up_at = time.monotonic() + _GIVE_UP_SECONDS
 
@@ -43,9 +41,7 @@ def test_browser_killed(board, panel, record_property):
     record_property("recovered_s", recovered_s)
 
     assert recovered_s is not None, (
-        "no probe payload after the kill"
-        if not seen_payload
-        else "no sample on the panel carried a new nonce"
+        "no probe payload after the kill" if not seen_payload else "no sample on the panel carried a new nonce"
     )
     assert recovered_s <= _BOUND_SECONDS, (
         f"back on the panel after {recovered_s} s; TST001's bound is {_BOUND_SECONDS} s"

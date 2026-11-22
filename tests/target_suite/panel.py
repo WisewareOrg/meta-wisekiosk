@@ -7,7 +7,6 @@ import time
 from pathlib import Path
 
 from labgrid.driver.exception import ExecutionError
-
 from replay import FULL_CARDS
 
 _PROBE_SRC = Path(__file__).resolve().parent / "probe.js"
@@ -67,6 +66,11 @@ class Panel:
     """What the panel shows: the window titles, and the probe `install` puts in the browser."""
 
     def __init__(self, board):
+        """Hold the board whose panel is read.
+
+        Args:
+            board (Board): the board under test (tests/conftest.py).
+        """
         self._board = board
 
     def install(self, request, restart_browser=True):

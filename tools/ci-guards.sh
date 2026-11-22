@@ -976,6 +976,34 @@ else
     printf '%s\n' "$out21" | sed 's/^/        /'
 fi
 
+# --- 22. the tests' Python meets the lint and format checks ---------------
+# ruff check (the select in pyproject.toml, line length 120 included) and ruff format
+# --check, over the tracked tests/*.py. The repo-venv ruff is the pinned one;
+# cannot-check is not check-clean, so a missing ruff fails.
+pyfiles22=()
+while IFS= read -r f; do
+    [ -f "$f" ] && pyfiles22+=("$f")
+done < <(git ls-files -- 'tests/*.py')
+if [ ! -x ".venv/bin/ruff" ]; then
+    bad "guard 22 cannot check the tests' Python -- ruff missing from .venv/bin -- run uv sync"
+elif [ "${#pyfiles22[@]}" -eq 0 ]; then
+    bad "guard 22 cannot scan -- no tracked .py file under tests/"
+else
+    ok22=1
+    run22() {
+        local tool=$1
+        shift
+        if ! out22=$(".venv/bin/$tool" "$@" "${pyfiles22[@]}" 2>&1); then
+            bad "guard 22: $tool $* fails on the tests' Python:"
+            printf '%s\n' "$out22" | sed 's/^/        /'
+            ok22=0
+        fi
+    }
+    run22 ruff check --no-cache
+    run22 ruff format --check
+    [ "$ok22" -eq 1 ] && ok "the tests' Python passes ruff check and ruff format"
+fi
+
 if [ "$fail" -ne 0 ]; then
     printf '\nguards FAILED\n'
     exit 1

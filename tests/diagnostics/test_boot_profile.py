@@ -9,6 +9,7 @@ Outside the regression suite: this is a device procedure, not tied to a TST, and
 on-board run is its test.
 """
 
+import contextlib
 import subprocess
 import time
 from pathlib import Path
@@ -17,14 +18,10 @@ import pytest
 from labgrid.driver.exception import ExecutionError
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-ANALYZER = (
-    _REPO_ROOT / "meta-wisekiosk" / "recipes-core" / "kiosk-bootprof" / "files"
-    / "analyze-boot-cpu-io.py"
-)
+ANALYZER = _REPO_ROOT / "meta-wisekiosk" / "recipes-core" / "kiosk-bootprof" / "files" / "analyze-boot-cpu-io.py"
 UNIT_SOURCE = Path(__file__).resolve().parent / "kiosk-bootprofile.service"
 DEPLOYED_BINARY = (
-    _REPO_ROOT / "build" / "tmp-raspberrypi0-wifi" / "deploy" / "images" / "raspberrypi0-wifi"
-    / "kiosk-bootprof"
+    _REPO_ROOT / "build" / "tmp-raspberrypi0-wifi" / "deploy" / "images" / "raspberrypi0-wifi" / "kiosk-bootprof"
 )
 
 # The script's own defaults.
@@ -55,9 +52,7 @@ def _boot_id(board):
     Raises:
         AssertionError: the id could not be read, or came back empty.
     """
-    stdout, stderr, _returncode = board.run(
-        "cat /proc/sys/kernel/random/boot_id", timeout=None, check=True
-    )
+    stdout, stderr, _returncode = board.run("cat /proc/sys/kernel/random/boot_id", timeout=None, check=True)
     output = stdout + stderr
     boot_id = "".join(output).strip()
     assert boot_id, "empty boot id -- refusing to run blind"
@@ -140,10 +135,8 @@ def test_boot_profile(request, board):
 
     # 3. Reboot, then disconnect for the whole observer window -- a connection during it is
     # itself an instrument; see the bootprof README for the measured cost.
-    try:
+    with contextlib.suppress(ExecutionError, subprocess.TimeoutExpired):
         board.run("systemctl reboot", timeout=10)
-    except (ExecutionError, subprocess.TimeoutExpired):
-        pass
     board.disconnect()
     state["rebooted"] = True
     time.sleep(WAIT_SECONDS)
@@ -168,8 +161,7 @@ def test_boot_profile(request, board):
             break
         time.sleep(_RETRY_INTERVAL_SECONDS)
     assert sample_remote is not None, (
-        f"no /data/boot-cpu-io.{boot_after}.txt appeared -- "
-        "a sample from an earlier boot is not a profile of this one"
+        f"no /data/boot-cpu-io.{boot_after}.txt appeared -- a sample from an earlier boot is not a profile of this one"
     )
 
     # 5. Fetch the samples and the matching journal.
@@ -179,9 +171,7 @@ def test_boot_profile(request, board):
     journal_stdout, journal_stderr, journal_rc = board.run(
         f"journalctl -b {journal_id} -o short-monotonic", timeout=None
     )
-    assert journal_rc == 0, (
-        f"journalctl -b {journal_id} failed (rc {journal_rc}): {chr(10).join(journal_stderr)}"
-    )
+    assert journal_rc == 0, f"journalctl -b {journal_id} failed (rc {journal_rc}): {chr(10).join(journal_stderr)}"
     journal_text = "\n".join(journal_stdout)
     assert journal_text.strip(), f"journal for boot {journal_id} is empty"
     (outdir / f"{stem}.journal.txt").write_text(journal_text + "\n")

@@ -35,8 +35,10 @@ def _x_pid(board):
 
 
 def _windows(lines):
-    """One dict per `xwininfo -id` block in `lines`, in the order read: id, name, the integer
-    fields of `_INT_FIELDS` and `map_state`."""
+    """One dict per `xwininfo -id` block in `lines`, in the order read.
+
+    Each holds id, name, the integer fields of `_INT_FIELDS` and `map_state`.
+    """
     windows = []
     for line in lines:
         header = _WINDOW_ID.match(line)
@@ -73,9 +75,7 @@ def test_pointer_display_disabled(board, panel, record_property):
     panel.wait_on_panel()
 
     pid = _x_pid(board)
-    stdout, _stderr, _returncode = board.run(
-        f"tr '\\0' '\\n' < /proc/{pid}/cmdline", check=True
-    )
+    stdout, _stderr, _returncode = board.run(f"tr '\\0' '\\n' < /proc/{pid}/cmdline", check=True)
     record_property("x_cmdline", "\n".join(stdout))
 
     assert "-nocursor" in stdout, f"X runs without -nocursor: {stdout}"

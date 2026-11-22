@@ -34,11 +34,10 @@ def test_page_serves(board, record_property):
 
 
 def test_backend_crash(board, panel, record_property):
-    """TST032 backend crash: SIGKILL the backend under the loaded page; time until the instance is on
-    the panel again with the backend answering.
+    """TST032 backend crash: SIGKILL the backend; time until the instance is on the panel, backend answering.
 
-    Only a sample read once the backend has answered after the kill counts, so the page as it
-    stood at the kill cannot pass.
+    The backend is killed under the loaded page. Only a sample read once the backend has answered
+    after the kill counts, so the page as it stood at the kill cannot pass.
     """
     record_property("requirement", "TST032")
     _, before = panel.wait_on_panel()
@@ -85,8 +84,10 @@ def test_backend_crash(board, panel, record_property):
 
 
 def test_backend_crash_during_browser_start(board, request, record_property):
-    """TST034 browser start during a backend crash: SIGKILL the backend and restart the browser while
-    it is down; time from the backend's first answer again to the instance on the panel.
+    """TST034 browser start during a backend crash: restart the browser with the backend down.
+
+    SIGKILL the backend and restart the browser while it is down; time from the backend's first
+    answer again to the instance on the panel.
 
     The backend's own restart is held by a runtime drop-in, whose undo is registered again after
     the probe so it runs before the probe's own teardown restarts the browser.

@@ -3,7 +3,6 @@
 import time
 
 import pytest
-
 from replay import CARDS4_LIVE
 
 OBSERVE_AFTER_BROWSER_START_SECONDS = 60

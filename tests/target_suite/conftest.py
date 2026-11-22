@@ -3,10 +3,9 @@
 import contextlib
 import subprocess
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-
 from outage import Outage
 from panel import Panel
 from recovery import BACKEND_DROP_IN_DIR, RELOAD_TIMEOUT_SECONDS
@@ -31,6 +30,7 @@ _BACKEND_SWEEP = (
 
 
 def pytest_addoption(parser):
+    """Add `--soak`, which runs TST014 with its long period."""
     parser.addoption("--soak", action="store_true", default=False, help="run TST014 with its long period")
 
 
@@ -139,7 +139,6 @@ def replay_window(board, proxy, set_config, request):
         float: `time.monotonic()` taken once `set_config`'s `apply` has returned from starting
         `kiosk.service` -- the browser's start.
     """
-
     stack = contextlib.ExitStack()
     request.addfinalizer(stack.close)
     stack.enter_context(board.forward_remote_port(proxy.port, proxy.port))
@@ -149,9 +148,7 @@ def replay_window(board, proxy, set_config, request):
     def _remove_ca():
         stdout, stderr, returncode = board.run(f"rm -f {_CA_BOARD_PATH}", timeout=None)
         output = stdout + stderr
-        assert returncode == 0, (
-            f"could not remove the replay CA (rc {returncode}): {chr(10).join(output)}"
-        )
+        assert returncode == 0, f"could not remove the replay CA (rc {returncode}): {chr(10).join(output)}"
 
     request.addfinalizer(_remove_ca)
 
@@ -163,18 +160,12 @@ def replay_window(board, proxy, set_config, request):
         timeout=None,
     )
     output = stdout + stderr
-    assert returncode == 0, (
-        f"could not write the replay drop-in (rc {returncode}): {chr(10).join(output)}"
-    )
+    assert returncode == 0, f"could not write the replay drop-in (rc {returncode}): {chr(10).join(output)}"
 
     def _remove_drop_in():
-        stdout, stderr, returncode = board.run(
-            f"rm -f {_DROP_IN_PATH} && systemctl daemon-reload", timeout=None
-        )
+        stdout, stderr, returncode = board.run(f"rm -f {_DROP_IN_PATH} && systemctl daemon-reload", timeout=None)
         output = stdout + stderr
-        assert returncode == 0, (
-            f"could not remove the replay drop-in (rc {returncode}): {chr(10).join(output)}"
-        )
+        assert returncode == 0, f"could not remove the replay drop-in (rc {returncode}): {chr(10).join(output)}"
 
     request.addfinalizer(_remove_drop_in)
 
@@ -198,9 +189,7 @@ def panel(request, board, record_property):
 
 def pytest_configure(config):
     """Register the `sends_update` marker."""
-    config.addinivalue_line(
-        "markers", "sends_update: the test sends an image update after the start-of-run install"
-    )
+    config.addinivalue_line("markers", "sends_update: the test sends an image update after the start-of-run install")
 
 
 def pytest_collection_modifyitems(items):
@@ -209,7 +198,7 @@ def pytest_collection_modifyitems(items):
 
 
 def _utc_now():
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _browser_pid(board):

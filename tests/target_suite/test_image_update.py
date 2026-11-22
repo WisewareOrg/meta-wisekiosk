@@ -17,9 +17,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 import pytest
-
 from labgrid.driver.exception import ExecutionError
-
 from panel import Panel
 from recovery import assert_back_within, until_up
 from updates import install, snapshot
@@ -121,9 +119,7 @@ def back_on_candidate(request, board, update_bundles):
         order, _left = board.boot_variables()
         if booted_hash == update_bundles.hash and order[0] == rauc_status["booted"]:
             return
-        returncode, output, _seconds = install(
-            request, board, update_bundles.candidate, _INSTALL_TIMEOUT_SECONDS
-        )
+        returncode, output, _seconds = install(request, board, update_bundles.candidate, _INSTALL_TIMEOUT_SECONDS)
         assert returncode == 0, f"reinstalling the candidate returned {returncode}: {output}"
         board.restart_by("systemctl reboot")
 
@@ -156,12 +152,16 @@ def _refuse_then_install(request, board, bundle, update_bundles, record_property
     return before
 
 
-def _fall_back_and_accept(
-    request, board, bench_candidate, update_bundles, record_property, bundle, count_boots
-):
+def _fall_back_and_accept(request, board, bench_candidate, update_bundles, record_property, bundle, count_boots):
     """Install `bundle`, restart into it, and assert the board falls back and takes the candidate.
 
     Args:
+        request (pytest.FixtureRequest): the test's request, which `install` checks for `sends_update`.
+        board (Board): the board under test (tests/conftest.py).
+        bench_candidate (str): the commit under test.
+        update_bundles (UpdateBundles): the test bundles, this run's nonce and the candidate.
+        record_property (Callable): the test's `record_property`.
+        bundle (pathlib.Path): the bundle whose boots fail: one that cannot start, or cannot reach the network.
         count_boots (bool): also assert that the journal holds one new boot per failed attempt.
     """
     before = _refuse_then_install(request, board, bundle, update_bundles, record_property)
@@ -194,9 +194,7 @@ def _fall_back_and_accept(
             "and fail to reach the network the way the test means"
         )
 
-    returncode, output, _seconds = install(
-        request, board, update_bundles.candidate, _INSTALL_TIMEOUT_SECONDS
-    )
+    returncode, output, _seconds = install(request, board, update_bundles.candidate, _INSTALL_TIMEOUT_SECONDS)
     assert returncode == 0, f"installing the candidate returned {returncode}: {output}"
     board.restart_by("systemctl reboot")
     _slot, booted_hash = _booted_slot(snapshot(board)["rauc_status"])
@@ -204,9 +202,7 @@ def _fall_back_and_accept(
     assert board.commit() == bench_candidate, "the board is not on the candidate's build"
 
 
-def test_new_application_build(
-    request, board, update_bundles, back_on_candidate, record_property
-):
+def test_new_application_build(request, board, update_bundles, back_on_candidate, record_property):
     """TST006 new application build: install an update with a different build; time until it is on the panel.
 
     The clock starts as the restart is asked for, so it covers shutdown, boot and the page load.
@@ -237,9 +233,7 @@ def test_new_application_build(
     )
 
 
-def test_cannot_start(
-    request, board, bench_candidate, update_bundles, back_on_candidate, record_property
-):
+def test_cannot_start(request, board, bench_candidate, update_bundles, back_on_candidate, record_property):
     """TST023 cannot start: install an update that cannot start; the board falls back, then takes a valid update.
 
     The fallback alone does not show why the update could not start; update_bundles.sh's
@@ -257,9 +251,7 @@ def test_cannot_start(
     )
 
 
-def test_cannot_reach_the_network(
-    request, board, bench_candidate, update_bundles, back_on_candidate, record_property
-):
+def test_cannot_reach_the_network(request, board, bench_candidate, update_bundles, back_on_candidate, record_property):
     """TST024 cannot reach the network: install an update that starts but cannot join; the board falls back."""
     record_property("requirement", "TST024")
     _fall_back_and_accept(
@@ -298,9 +290,7 @@ def _target_device(rauc_status):
     raise AssertionError(f"no slot other than the booted one in rauc status: {rauc_status!r}")
 
 
-def test_power_cut_during_an_update(
-    request, board, update_bundles, back_on_candidate, power_cut, record_property
-):
+def test_power_cut_during_an_update(request, board, update_bundles, back_on_candidate, power_cut, record_property):
     """TST003 power cut during an image update: cut power once the update is being written into its slot.
 
     Installs the new-build bundle, which no slot already holds, and cuts once RAUC reports its copy
@@ -316,13 +306,9 @@ def test_power_cut_during_an_update(
     assert idle, f"could not read RAUC's progress or {device}'s write count"
     written_before = idle[1]
     with ThreadPoolExecutor(max_workers=1) as pool:
-        installing = pool.submit(
-            install, request, board, update_bundles.new_build, _INSTALL_TIMEOUT_SECONDS
-        )
+        installing = pool.submit(install, request, board, update_bundles.new_build, _INSTALL_TIMEOUT_SECONDS)
         while True:
-            assert not installing.done(), (
-                f"the install ended before it wrote to {device}: {installing.result()}"
-            )
+            assert not installing.done(), f"the install ended before it wrote to {device}: {installing.result()}"
             state = _install_state(board, device)
             if state and state[0].startswith(_COPY_STEP) and state[1] > written_before:
                 break

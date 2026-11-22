@@ -26,6 +26,11 @@ class Outage:
     UNIT = "test-outage"
 
     def __init__(self, board):
+        """Hold the board the outage is injected on.
+
+        Args:
+            board (Board): the board under test (tests/conftest.py).
+        """
         self._board = board
 
     def record_lines(self):
@@ -66,9 +71,7 @@ class Outage:
             check=True,
         )
         units = f"{self.UNIT}.timer {self.UNIT}.service"
-        request.addfinalizer(
-            lambda: board.run(f"systemctl stop {units}; systemctl reset-failed {units}")
-        )
+        request.addfinalizer(lambda: board.run(f"systemctl stop {units}; systemctl reset-failed {units}"))
 
         request.addfinalizer(board.reconnect)
         board.disconnect()

@@ -26,7 +26,7 @@ python-kasa = { git = "https://github.com/python-kasa/python-kasa", rev = "a1a6c
 line-length = 120
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "B", "SIM", "D", "D417"]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "D", "D417", "SLF001"]
 
 [tool.ruff.lint.pycodestyle]
 max-doc-length = 120
