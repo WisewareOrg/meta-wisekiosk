@@ -7,10 +7,10 @@ from datetime import datetime, timezone
 
 import pytest
 
+from backend import BACKEND_DROP_IN_DIR, RELOAD_TIMEOUT_SECONDS
 from outage import Outage
 from panel import Panel
 from power_cut import cut_power
-from recovery import BACKEND_DROP_IN_DIR, RELOAD_TIMEOUT_SECONDS
 from replay import CA_PATH, CARDS4_LIVE
 
 _CONFIG_COPY_PATH = "/tmp/kiosk-config.json"

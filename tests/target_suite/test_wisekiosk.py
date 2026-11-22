@@ -2,14 +2,12 @@
 
 import time
 
+from backend import assert_kill_landed, hold_restart, kill_backend
 from panel import Panel
 from recovery import (
     GIVE_UP_SECONDS,
-    assert_kill_landed,
     assert_on_panel_within,
     check_held,
-    hold_restart,
-    kill_backend,
     or_none,
     panel_after_answer,
     uptime_and_served,

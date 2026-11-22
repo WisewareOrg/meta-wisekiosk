@@ -1,8 +1,7 @@
-"""Recovery checks: whether a board that went down serves the instance again, and the backend faults.
+"""Recovery checks: whether a board that went down serves the instance again.
 
-The browser running with the page served; the backend's crash and its held restart; the check that
-the browser has loaded without the backend; and the time from the backend's first answer to the
-instance on the panel.
+The browser running with the page served; the check that the browser has loaded without the
+backend; and the time from the backend's first answer to the instance on the panel.
 """
 
 import subprocess
@@ -16,19 +15,6 @@ from panel import OWN_ORIGINS, finished_load
 # stop polling; past every bound, so the record still carries the time it took
 GIVE_UP_SECONDS = 180
 _SETTLED_APP_STATES = ("error:configuration", "error:backend-unreachable")
-
-
-def instance_up(board):
-    """Read whether the browser is running and whether the page is served, as a pair."""
-    try:
-        _, _, browser = board.run("pgrep -x surf")
-    except (ExecutionError, subprocess.TimeoutExpired):
-        browser = None
-    try:
-        page_served = board.page_served()
-    except ExecutionError:
-        page_served = False
-    return browser == 0, page_served
 
 
 def poll_from(started, read, done):
@@ -49,6 +35,27 @@ def poll_from(started, read, done):
         time.sleep(1)
 
 
+def or_none(read):
+    """`read()`, or None when the board read failed."""
+    try:
+        return read()
+    except (ExecutionError, subprocess.TimeoutExpired):
+        return None
+
+
+def instance_up(board):
+    """Read whether the browser is running and whether the page is served, as a pair."""
+    try:
+        _, _, browser = board.run("pgrep -x surf")
+    except (ExecutionError, subprocess.TimeoutExpired):
+        browser = None
+    try:
+        page_served = board.page_served()
+    except ExecutionError:
+        page_served = False
+    return browser == 0, page_served
+
+
 def until_up(board, started):
     """Poll from `started` until the instance is up; return seconds (None if never) and the last read."""
     return poll_from(started, lambda: instance_up(board), all)
@@ -63,14 +70,6 @@ def assert_back_within(back_s, last_read, fault, requirement, bound):
     assert back_s <= bound, (
         f"back after {back_s} s; {requirement}'s bound is {bound} s"
     )
-
-
-def or_none(read):
-    """`read()`, or None when the board read failed."""
-    try:
-        return read()
-    except (ExecutionError, subprocess.TimeoutExpired):
-        return None
 
 
 class Held(NamedTuple):
@@ -184,59 +183,3 @@ def assert_on_panel_within(t0, on_panel_s, last, requirement, bound):
     assert on_panel_s <= bound, (
         f"on the panel {on_panel_s} s after the backend answered; {requirement}'s bound is {bound} s"
     )
-
-
-BACKEND_DROP_IN_DIR = "/run/systemd/system/wisekiosk.service.d"
-# covers a daemon-reload plus a backend start
-RELOAD_TIMEOUT_SECONDS = 60
-_HOLD_PATH = f"{BACKEND_DROP_IN_DIR}/hold.conf"
-_MAIN_PID_CMD = "systemctl show -p MainPID --value wisekiosk.service"
-
-
-def hold_restart(board, request, seconds):
-    """Delay the backend's own restart to `seconds` with a runtime drop-in; undo it at teardown.
-
-    Returns:
-        Callable[[], None]: the undo -- remove the drop-in, start the backend and wait for the
-            page; idempotent, so a caller may register it again to run earlier at teardown.
-    """
-
-    def unhold():
-        board.run(
-            f"rm -f {_HOLD_PATH}; systemctl daemon-reload; systemctl start wisekiosk.service",
-            check=True,
-            timeout=RELOAD_TIMEOUT_SECONDS,
-        )
-        assert board.wait_for_page(), "the page did not serve after the restart hold was removed"
-
-    request.addfinalizer(unhold)
-    board.run(
-        f"mkdir -p {BACKEND_DROP_IN_DIR} && printf '[Service]\\nRestartSec={seconds}\\n' > {_HOLD_PATH} && "
-        "systemctl daemon-reload",
-        check=True,
-        timeout=RELOAD_TIMEOUT_SECONDS,
-    )
-    return unhold
-
-
-def main_pid(board):
-    """The backend's MainPID as systemd reports it."""
-    return board.run(_MAIN_PID_CMD, check=True)[0][0].strip()
-
-
-def kill_backend(board):
-    """SIGKILL the backend; return the board uptime of the kill and the MainPID before it."""
-    old_pid = main_pid(board)
-    stdout, _stderr, _returncode = board.run(
-        "cat /proc/uptime; systemctl kill --signal=KILL wisekiosk.service", check=True
-    )
-    return float(stdout[0].split()[0]), old_pid
-
-
-def assert_kill_landed(board, old_pid):
-    """Assert the backend answering after the kill is a new process; return its MainPID."""
-    new_pid = main_pid(board)
-    assert new_pid != old_pid, (
-        f"INVALID CHECK, not an appliance failure: the kill did not land (MainPID {old_pid} unchanged)"
-    )
-    return new_pid
