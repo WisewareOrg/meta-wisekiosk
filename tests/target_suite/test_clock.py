@@ -1,119 +1,55 @@
 """Target suite: a clock set wrong by days and persisted across a restart is corrected."""
 
-import json
 import time
 
-import pytest
+from board_test import BoardTest
 
-# the bound is TST015's
-BOUND_SECONDS = 100
-AGREE_SECONDS = 5
-POLL_INTERVAL_SECONDS = 2
-SKEW_SECONDS = 3 * 24 * 3600
-SKEW_TOLERANCE_SECONDS = 24 * 3600
-CLOCK_FILE = "/data/systemd-timesync/clock"
-
-
-def _restored_clock_offset(board):
-    """How far the host clock is ahead of timesyncd's first log entry this boot.
-
-    timesyncd restores the recorded clock at its own startup, before it logs anything, so
-    its earliest entry this boot carries the restored clock. Filters on the syslog
-    identifier rather than the unit, which would also match systemd's own earlier entries.
-
-    Args:
-        board (Board): the board under test.
-
-    Returns:
-        float | None: host `time.time()` minus that entry's realtime in seconds, or None if
-            timesyncd logged nothing this boot.
-
-    Raises:
-        AssertionError: the journal cannot be read.
-    """
-    cmd = "journalctl -q -b SYSLOG_IDENTIFIER=systemd-timesyncd -o json --no-pager"
-    stdout, stderr, _returncode = board.run(cmd, check=True)
-    entries = [line for line in stdout + stderr if line.startswith("{")]
-    if not entries:
-        return None
-    return time.time() - int(json.loads(entries[0])["__REALTIME_TIMESTAMP"]) / 1e6
+# TST015's bound, in seconds of the board's uptime
+_BOUND_SECONDS = 100
+# the clock agrees when it is this close to the host's
+_AGREE_SECONDS = 5
+_POLL_SECONDS = 2
+# the stimulus: three days back; timesyncd's first entry must show it to within a day
+_SKEW_SECONDS = 3 * 24 * 3600
+_SKEW_TOLERANCE_SECONDS = 24 * 3600
 
 
-def _set_board_clock(board, epoch):
-    """Set the board's clock to `epoch` and record it as the persisted clock.
+class TestClock(BoardTest):
+    """The board's clock is corrected after being set wrong and persisted across a restart."""
 
-    Args:
-        board (Board): the board under test.
-        epoch (int): seconds since the epoch.
+    def test_clock_set_wrong(self) -> None:
+        """TST015 clock set wrong: the clock agrees with the host's within `_BOUND_SECONDS` of uptime.
 
-    Raises:
-        AssertionError: setting the clock or touching the clock file fails.
-    """
-    board.run(f"date -s @{epoch}", check=True)
-    board.run(f"touch {CLOCK_FILE}", check=True)
+        A clock that agrees counts only if this boot's first timesyncd entry carries the clock the
+        stimulus set, to within a day; otherwise the check is invalid.
+        """
+        self.record(requirement="TST015")
+        clock = self.board.system.clock
+        clock.stop_sync()
+        clock.set(int(time.time()) - _SKEW_SECONDS)
 
+        self.board.reboot()
+        self.board.poll(
+            clock.read,
+            until=lambda reading: abs(reading.offset_s) <= _AGREE_SECONDS or reading.uptime_s > _BOUND_SECONDS,
+            within=_BOUND_SECONDS,
+            every=_POLL_SECONDS,
+        )
+        reading = clock.last_reading
+        behind_s = clock.first_sync_offset_s()
+        print(clock.sync_journal())
 
-@pytest.fixture
-def restore_clock(board):
-    """Leave the board's clock agreeing with the host's and timesyncd running, at teardown.
-
-    Args:
-        board (Board): the board under test.
-    """
-    yield
-    try:
-        reading = board.clock()
-        assert reading is not None, "the board's clock could not be read at teardown"
-        _uptime, offset = reading
-        if abs(offset) > AGREE_SECONDS:
-            _set_board_clock(board, int(time.time()))
-    finally:
-        board.run("systemctl start systemd-timesyncd", check=True)
-
-
-def test_clock_set_wrong(restore_clock, board, record_property):
-    """The board's clock agrees with the host's within `BOUND_SECONDS` of its starting up again.
-
-    Stops timesyncd, sets the clock three days back and records it as the persisted clock,
-    then restarts the board and polls until the clock agrees. The time is the board's uptime
-    at the first agreeing read. A clock that never agrees fails, since it was still wrong
-    after the restart. A clock that agrees counts only if this boot's first timesyncd journal
-    entry carries the clock the stimulus set, to within a day; otherwise the check is invalid.
-    """
-    record_property("requirement", "TST015")
-    board.run("systemctl stop systemd-timesyncd", check=True)
-    _set_board_clock(board, int(time.time()) - SKEW_SECONDS)
-
-    board.restart()
-    returned = time.monotonic()
-
-    reading = None
-    while True:
-        latest = board.clock()
-        if latest is not None:
-            reading = latest
-            uptime, offset = reading
-            if abs(offset) <= AGREE_SECONDS or uptime > BOUND_SECONDS:
-                break
-        elif time.monotonic() - returned > BOUND_SECONDS:
-            break
-        time.sleep(POLL_INTERVAL_SECONDS)
-
-    behind = _restored_clock_offset(board)
-    stdout, stderr, _returncode = board.run("journalctl -b -u systemd-timesyncd --no-pager", check=True)
-    print("\n".join(stdout + stderr))
-
-    assert reading is not None, "the board's clock could not be read after the restart"
-    uptime, offset = reading
-    print(f"clock_corrected_seconds={uptime:.1f} final_offset_seconds={offset:.1f}")
-    record_property("clock_corrected_seconds", uptime)
-    assert abs(offset) <= AGREE_SECONDS, (
-        f"clock still {offset:.0f}s off the network's time at uptime {uptime:.0f}s, bound {BOUND_SECONDS}s"
-    )
-
-    assert behind is not None, "INVALID CHECK, not an appliance failure: timesyncd logged nothing this boot"
-    assert abs(behind - SKEW_SECONDS) < SKEW_TOLERANCE_SECONDS, (
-        f"INVALID CHECK, not an appliance failure: timesyncd's first entry was {behind:.0f}s "
-        f"behind the host, not the {SKEW_SECONDS}s the stimulus set"
-    )
-    assert uptime <= BOUND_SECONDS, f"clock agreed only at uptime {uptime:.0f}s, bound {BOUND_SECONDS}s"
+        assert reading is not None, "the board's clock could not be read after the restart"
+        self.record(clock_corrected_seconds=reading.uptime_s)
+        assert abs(reading.offset_s) <= _AGREE_SECONDS, (
+            f"clock still {reading.offset_s:.0f}s off the network's time at uptime {reading.uptime_s:.0f}s, "
+            f"bound {_BOUND_SECONDS}s"
+        )
+        assert behind_s is not None, "INVALID CHECK, not an appliance failure: timesyncd logged nothing this boot"
+        assert abs(behind_s - _SKEW_SECONDS) < _SKEW_TOLERANCE_SECONDS, (
+            f"INVALID CHECK, not an appliance failure: timesyncd's first entry was {behind_s:.0f}s "
+            f"behind the host, not the {_SKEW_SECONDS}s the stimulus set"
+        )
+        assert reading.uptime_s <= _BOUND_SECONDS, (
+            f"clock agreed only at uptime {reading.uptime_s:.0f}s, bound {_BOUND_SECONDS}s"
+        )

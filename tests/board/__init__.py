@@ -463,6 +463,12 @@ class Board:
         """Deactivate the board's SSHDriver."""
         self._target.deactivate(self._ssh)
 
+    def reboot(self) -> None:
+        """Reboot the board through `just kiosk-reboot`, which waits up to 300 s for a new boot, then reconnect."""
+        subprocess.run(["just", "kiosk-reboot", self.host], check=True)
+        self.disconnect()
+        self.connect()
+
     def reconnect(self) -> None:
         """Connect the SSHDriver, one attempt a second, until the board answers; waits through a reboot."""
         self._reconnect_in_new_boot(self._RESTART_WAIT_SECONDS, self.BOOT_ID_CMD)

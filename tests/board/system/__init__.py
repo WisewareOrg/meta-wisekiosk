@@ -2,6 +2,7 @@
 
 from typing import TYPE_CHECKING
 
+from board.system.clock import Clock
 from board.system.memory import Memory
 from board.system.soak import Soak
 
@@ -10,13 +11,15 @@ if TYPE_CHECKING:
 
 
 class System:
-    """The board's operating system: its memory, and the kiosk-soak sampler.
+    """The board's operating system: its clock, its memory, and the kiosk-soak sampler.
 
     Attributes:
+        clock: the clock and its time sync.
         memory: memory and the kernel's out-of-memory record.
         soak: the kiosk-soak sampler, its timer and its log.
     """
 
+    clock: Clock
     memory: Memory
     soak: Soak
 
@@ -26,5 +29,6 @@ class System:
         Args:
             board: the board under test.
         """
+        self.clock = Clock(board)
         self.memory = Memory(board)
         self.soak = Soak(board)
