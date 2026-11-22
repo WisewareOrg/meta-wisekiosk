@@ -52,10 +52,6 @@ def _run(board: Board, cmd: str, **kwargs: object) -> tuple[list[str], list[str]
 
     Returns:
         What `Board.run` returns.
-
-    Raises:
-        ExecutionError: the last error, once that time has passed (likewise for the other errors in
-            `Board.ERRORS`).
     """
     for attempt in Retrying(
         stop=stop_after_delay(READ_RETRY_SECONDS), retry=retry_if_exception_type(Board.ERRORS), reraise=True
@@ -192,7 +188,7 @@ def test_memory_over_a_long_run(
     Raises:
         AssertionError: a sample reached `USE_LIMIT`, a process was killed for memory, memory in use
             grew past `GROWTH_LIMIT_MB`, or the run is invalid.
-        Failed: the boot id could not be read after the period (INVALID).
+        Exception: whatever the evidence reads raise, when no failure was found first.
     """
     _, start_sample = panel.wait_on_panel(full=True)
     record_property("requirement", "TST014")
@@ -269,7 +265,7 @@ def test_memory_over_a_long_run(
         if not rebooted:
             ups = [float(line["up"]) for line in lines]
             edges = [start_uptime, *ups, end_uptime]
-            if not lines or max(b - a for a, b in zip(edges, edges[1:])) > MAX_GAP_SECONDS:
+            if not lines or max(b - a for a, b in zip(edges, edges[1:], strict=False)) > MAX_GAP_SECONDS:
                 problems.append(f"kiosk-soak left a gap over {MAX_GAP_SECONDS} s")
             if len({line["pid"] for line in lines}) > 1 or any(line["pid"] == "none" for line in lines):
                 problems.append("the browser restarted or was not running at a sample")

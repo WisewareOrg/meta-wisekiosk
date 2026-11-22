@@ -976,24 +976,38 @@ else
     printf '%s\n' "$out21" | sed 's/^/        /'
 fi
 
-# --- 22. no Python line over 120 characters, docstrings included ---------
-# ruff's E501 and W505 only (--select overrides pyproject.toml's wider select),
-# over tests/. The repo-venv ruff is the pinned one; cannot-check is not
-# check-clean, so a missing ruff fails.
-RUFF=".venv/bin/ruff"
+# --- 22. the tests' Python meets the lint, format and docstring checks ---
+# ruff check (the select in pyproject.toml, line length 120 included), ruff format
+# --check, interrogate at 100 % and pydoclint, over the tracked tests/*.py. The repo-venv
+# tools are the pinned ones; cannot-check is not check-clean, so a missing tool fails.
 pyfiles22=()
 while IFS= read -r f; do
     [ -f "$f" ] && pyfiles22+=("$f")
 done < <(git ls-files -- 'tests/*.py')
-if [ ! -x "$RUFF" ]; then
-    bad "guard 22 cannot check line length: $RUFF missing -- run uv sync"
+missing22=""
+for tool22 in ruff interrogate pydoclint; do
+    [ -x ".venv/bin/$tool22" ] || missing22="$missing22 $tool22"
+done
+if [ -n "$missing22" ]; then
+    bad "guard 22 cannot check the tests' Python -- missing from .venv/bin:$missing22 -- run uv sync"
 elif [ "${#pyfiles22[@]}" -eq 0 ]; then
     bad "guard 22 cannot scan -- no tracked .py file under tests/"
-elif out22=$("$RUFF" check --no-cache --select E501,W505 "${pyfiles22[@]}" 2>&1); then
-    ok "no Python line over 120 characters"
 else
-    bad "Python lines over 120 characters:"
-    printf '%s\n' "$out22" | sed 's/^/        /'
+    ok22=1
+    run22() {
+        local tool=$1
+        shift
+        if ! out22=$(".venv/bin/$tool" "$@" "${pyfiles22[@]}" 2>&1); then
+            bad "guard 22: $tool $* fails on the tests' Python:"
+            printf '%s\n' "$out22" | sed 's/^/        /'
+            ok22=0
+        fi
+    }
+    run22 ruff check --no-cache
+    run22 ruff format --check
+    run22 interrogate -v --fail-under 100
+    run22 pydoclint
+    [ "$ok22" -eq 1 ] && ok "the tests' Python passes ruff, ruff format, interrogate and pydoclint"
 fi
 
 if [ "$fail" -ne 0 ]; then

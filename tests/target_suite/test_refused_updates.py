@@ -22,7 +22,13 @@ pytestmark = pytest.mark.sends_update
 
 
 class Bundles(NamedTuple):
-    """The two refused bundles' paths, and the `compatible` the other-hardware one carries."""
+    """The two refused bundles' paths, and the `compatible` the other-hardware one carries.
+
+    Attributes:
+        foreign_signature: the bundle signed by a key no operator holds.
+        other_hardware: the operator-signed bundle for other hardware.
+        other_hardware_compatible: the `compatible` the other-hardware bundle carries.
+    """
 
     foreign_signature: Path
     other_hardware: Path
@@ -41,10 +47,6 @@ def bundles(request: pytest.FixtureRequest, board: Board) -> Bundles:
 
     Returns:
         The two bundles' paths and the `compatible` of the other-hardware one.
-
-    Raises:
-        AssertionError: the board's `compatible` is not a plain identifier.
-        subprocess.CalledProcessError: the key generation or the build fails.
     """
     compatible = board.snapshot()["rauc_status"]["compatible"]
     # it is passed to the build container as an argument
@@ -92,10 +94,6 @@ def test_foreign_signature(
         panel: the probe in the browser, waited on before and after so the instance is on the panel.
         bundles: the bundles built for the module.
         record_property: records the requirement.
-
-    Raises:
-        AssertionError: the update was not refused for the reasons, the board changed, or the
-            instance was not on the panel.
     """
     record_property("requirement", "TST017")
     panel.wait_on_panel()
@@ -113,10 +111,6 @@ def test_another_hardware_type(
         panel: the probe in the browser, waited on before and after so the instance is on the panel.
         bundles: the bundles built for the module.
         record_property: records the requirement.
-
-    Raises:
-        AssertionError: the update was not refused for the reasons, the board changed, or the
-            instance was not on the panel.
     """
     record_property("requirement", "TST018")
     panel.wait_on_panel()

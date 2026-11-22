@@ -17,9 +17,6 @@ def test_display_blanking_disabled(board: Board, record_property: Callable[[str,
     Args:
         board: the board under test, whose X server is asked.
         record_property: records the requirement and `xset q`'s output.
-
-    Raises:
-        AssertionError: the screen saver timeout is missing or not 0, or power management is not off.
     """
     record_property("requirement", "TST007")
     output = board.read("DISPLAY=:0 xset q")

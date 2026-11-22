@@ -54,7 +54,6 @@ class Update:
             The tool's return code, its combined stdout and stderr, and the seconds it took.
 
         Raises:
-            AssertionError: the test is not marked `sends_update`.
             subprocess.TimeoutExpired: the install ran past the timeout.
         """
         assert self._request.node.get_closest_marker("sends_update"), (
@@ -89,10 +88,6 @@ class Update:
 
         Returns:
             The board's snapshot from before the offer.
-
-        Raises:
-            AssertionError: the install did not return 1, lacked a reason, or the board changed.
-            subprocess.TimeoutExpired: the install ran past the timeout.
         """
         before = self._board.snapshot()
         if self._record_property:

@@ -23,9 +23,6 @@ def test_page_serves(board: Board, record_property: Callable[[str, object], None
     Args:
         board: the board under test, whose page is fetched.
         record_property: records the requirement.
-
-    Raises:
-        AssertionError: the page did not serve an HTML document.
     """
     _, served, output = board.page()
     assert served, f"GET / did not serve an HTML page: {output}"
@@ -35,8 +32,9 @@ def test_page_serves(board: Board, record_property: Callable[[str, object], None
 def test_backend_crash(
     board: Board, backend: Backend, panel: Panel, record_property: Callable[[str, object], None]
 ) -> None:
-    """TST032 backend crash: SIGKILL the backend under the loaded page; time until the instance is on
-    the panel again with the backend answering.
+    """TST032 backend crash: SIGKILL the backend under the loaded page; time until the instance is back.
+
+    The time runs until the instance is on the panel again with the backend answering.
 
     Only a sample read once the backend has answered after the kill counts, so the page as it
     stood at the kill cannot pass.
@@ -46,10 +44,6 @@ def test_backend_crash(
         backend: killed here.
         panel: the probe in the browser, read for the instance on the panel.
         record_property: records the requirement and what the kill and the reads measure.
-
-    Raises:
-        AssertionError: the instance was not on the panel with the backend answering within
-            `Board.GIVE_UP_SECONDS`, or after the bound, or the kill did not land (INVALID CHECK).
     """
     record_property("requirement", "TST032")
     _, before = panel.wait_on_panel()
@@ -105,8 +99,9 @@ def test_backend_crash_during_browser_start(
     request: pytest.FixtureRequest,
     record_property: Callable[[str, object], None],
 ) -> None:
-    """TST034 browser start during a backend crash: SIGKILL the backend and restart the browser while
-    it is down; time from the backend's first answer again to the instance on the panel.
+    """TST034 browser start during a backend crash: SIGKILL the backend and restart the browser while it is down.
+
+    The time runs from the backend's first answer again to the instance on the panel.
 
     The backend's own restart is held by a runtime drop-in, whose undo is registered again after
     the probe so it runs before the probe's own teardown restarts the browser.
@@ -117,10 +112,6 @@ def test_backend_crash_during_browser_start(
         request: the test's request, on which the hold's undo is registered again so it runs
             before the probe's teardown.
         record_property: records the requirement and what the kill and the panel measure.
-
-    Raises:
-        AssertionError: the kill did not land or the browser never finished a load without the
-            backend (INVALID CHECK), or the instance was not on the panel in time.
     """
     record_property("requirement", "TST034")
     panel = Panel(board, request, record_property)

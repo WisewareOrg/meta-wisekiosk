@@ -18,10 +18,6 @@ def test_browser_killed(board: Board, panel: Panel, record_property: Callable[[s
         board: the board under test, whose browser is killed.
         panel: the probe in the browser, read for the instance back on the panel with a new nonce.
         record_property: records the requirement, the samples around the kill and the time back.
-
-    Raises:
-        AssertionError: no sample on the panel carried a new nonce within `_GIVE_UP_SECONDS`, or
-            the instance was back after the bound.
     """
     record_property("requirement", "TST001")
     _, before = panel.wait_on_panel()

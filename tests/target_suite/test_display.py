@@ -83,9 +83,6 @@ def test_pointer_display_disabled(board: Board, panel: Panel, record_property: C
         board: the board under test, whose X server's command line is read.
         panel: the probe in the browser, waited on so the instance is on the panel.
         record_property: records the requirement and X's command line.
-
-    Raises:
-        AssertionError: X is not running, more than one X runs, or X runs without `-nocursor`.
     """
     record_property("requirement", "TST013")
     panel.wait_on_panel()
@@ -107,10 +104,6 @@ def test_instance_covers_the_panel(board: Board, panel: Panel, record_property: 
         board: the board under test, whose X windows are read.
         panel: the probe in the browser, waited on so the instance is on the panel.
         record_property: records the requirement, the xrandr output and the window layout.
-
-    Raises:
-        AssertionError: the layout is unreadable, the instance's window is not the one viewable
-            window covering the panel, or a shown window overlies it.
     """
     record_property("requirement", "TST030")
     panel.wait_on_panel()
@@ -162,9 +155,6 @@ def test_minimum_resolution(board: Board, panel: Panel, record_property: Callabl
         board: the board under test, whose current display mode is read.
         panel: the probe in the browser, whose sample carries the page's layout size.
         record_property: records the requirement, the layout and the xrandr output.
-
-    Raises:
-        AssertionError: the mode or the layout is unreadable, or either is below the floor.
     """
     record_property("requirement", "TST031")
     _uptime_s, sample = panel.wait_on_panel()

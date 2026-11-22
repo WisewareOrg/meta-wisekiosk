@@ -76,9 +76,6 @@ def config_across_update(
     Returns:
         The sha256 of the live config before the install, after it, and of the image default after
         it (each None if the file is missing); None when there is no candidate to install.
-
-    Raises:
-        AssertionError: clearing what a dead run left fails.
     """
     board.unmount_if_mounted(board.CONFIG_PATH)
     board.run(Backend.SWEEP, check=True, timeout=Backend.RELOAD_TIMEOUT_SECONDS)
@@ -110,10 +107,7 @@ def device_context(board: Board, record_property: Callable[[str, object], None])
         record_property: records each fact and the end time.
 
     Yields:
-        Nothing; the end time is recorded after the test.
-
-    Raises:
-        AssertionError: the browser never appeared, or a read of the board fails.
+        None: the end time is recorded after the test.
     """
 
     def surf_pid() -> str | None:
@@ -186,9 +180,6 @@ def replay_window(board: Board, backend: Backend, proxy: "Proxy", request: pytes
     Returns:
         `time.monotonic()` taken once `backend.use_config` has returned from starting
         `kiosk.service` -- the browser's start.
-
-    Raises:
-        AssertionError: a step on the board fails.
     """
     stack = contextlib.ExitStack()
     request.addfinalizer(stack.close)

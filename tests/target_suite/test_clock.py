@@ -25,10 +25,6 @@ def _clock(board: Board) -> tuple[float, float] | None:
     Returns:
         The board's uptime in seconds and board `date +%s` minus host `time.time()`, or None if the
         read returned nonzero.
-
-    Raises:
-        ExecutionError: the session failed, as `Board.timed` raises.
-        subprocess.TimeoutExpired: the read ran past its timeout.
     """
     uptime, stdout, _stderr, returncode = board.timed("date +%s")
     if returncode != 0:
@@ -42,9 +38,6 @@ def _set_board_clock(board: Board, epoch: int) -> None:
     Args:
         board: the board under test.
         epoch: seconds since the epoch.
-
-    Raises:
-        AssertionError: setting the clock or touching the clock file fails.
     """
     board.run(f"date -s @{epoch}", check=True)
     board.run(f"touch {CLOCK_FILE}", check=True)
@@ -58,10 +51,7 @@ def restore_clock(board: Board) -> Iterator[None]:
         board: the board whose clock the test sets wrong.
 
     Yields:
-        Nothing; the restoring runs after the test.
-
-    Raises:
-        AssertionError: the board's clock cannot be read or set, or timesyncd does not start.
+        None: the restoring runs after the test.
     """
     yield
     try:
@@ -89,9 +79,6 @@ def test_clock_set_wrong(
         restore_clock: puts the clock right and starts timesyncd after the test.
         board: the board under test.
         record_property: records the requirement and the uptime at which the clock agreed.
-
-    Raises:
-        AssertionError: the clock never agreed, the check is invalid, or it agreed after the bound.
     """
     record_property("requirement", "TST015")
     board.run("systemctl stop systemd-timesyncd", check=True)

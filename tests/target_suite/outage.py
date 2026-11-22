@@ -44,18 +44,11 @@ class Outage:
 
         Returns:
             The lines; empty if the record is absent.
-
-        Raises:
-            AssertionError: reading the record fails.
         """
         return self._board.run(f"cat {self.RECORD_PATH} 2>/dev/null || true", check=True)[0]
 
     def wait_boot_complete(self) -> None:
-        """Wait for boot-complete.target, so an outage cannot land inside kiosk-netcheck's window.
-
-        Raises:
-            AssertionError: the target was not active within `_BOOT_COMPLETE_WAIT_SECONDS`.
-        """
+        """Wait for boot-complete.target, so an outage cannot land inside kiosk-netcheck's window."""
         active_s, _ = self._board.wait(
             lambda: self._board.run("systemctl is-active boot-complete.target")[2] == 0 or None,
             bool,
@@ -71,9 +64,6 @@ class Outage:
 
         Args:
             outage_s: how long the script holds the network off, in seconds.
-
-        Raises:
-            AssertionError: a step on the board fails.
         """
         board = self._board
         board.put(str(_SRC), _SCRIPT_PATH)

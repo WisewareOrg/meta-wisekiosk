@@ -9,11 +9,13 @@ Outside the regression suite: this is a device procedure, not tied to a TST, and
 on-board run is its test.
 """
 
+import contextlib
 import subprocess
 import time
 from pathlib import Path
 
 import pytest
+from board import Board
 from labgrid.driver.exception import ExecutionError
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -39,17 +41,14 @@ _CLEANUP_BOUND_SECONDS = 60
 _CLEANUP_POLL_SECONDS = 5
 
 
-def _boot_id(board):
+def _boot_id(board: Board) -> str:
     """Read the board's current boot id.
 
     Args:
-        board (Board): the board under test (tests/board.py).
+        board: the board under test.
 
     Returns:
-        str: the boot id.
-
-    Raises:
-        AssertionError: the id could not be read, or came back empty.
+        The boot id.
     """
     stdout, stderr, _returncode = board.run("cat /proc/sys/kernel/random/boot_id", timeout=None, check=True)
     output = stdout + stderr
@@ -58,20 +57,24 @@ def _boot_id(board):
     return boot_id
 
 
-def test_boot_profile(request, board):
+def test_boot_profile(request: pytest.FixtureRequest, board: Board) -> None:
     """Capture one boot profile end to end, leaving the board as it was found.
 
     Arms the sampler, reboots, waits out the observer window, pulls the samples and the
     matching journal, and runs the analyzer. Whatever happens, the finalizer below leaves the
     board with no copied binary, no copied unit, no enable link for it, and neither
     `/usr/local/bin` nor `/usr/local` -- no image ships either.
+
+    Args:
+        request: registers the cleanup that leaves the board as it was found.
+        board: the board under test, rebooted here.
     """
     outdir = Path(OUTPUT_DIR)
     outdir.mkdir(parents=True, exist_ok=True)
 
     state = {"rebooted": False}
 
-    def _cleanup():
+    def _cleanup() -> None:
         """Remove anything this run left on the board.
 
         Before the reboot, the driver is still on the boot this run started, so what was
@@ -134,10 +137,8 @@ def test_boot_profile(request, board):
 
     # 3. Reboot, then disconnect for the whole observer window -- a connection during it is
     # itself an instrument; see the bootprof README for the measured cost.
-    try:
+    with contextlib.suppress(ExecutionError, subprocess.TimeoutExpired):
         board.run("systemctl reboot", timeout=10)
-    except (ExecutionError, subprocess.TimeoutExpired):
-        pass
     board.disconnect()
     state["rebooted"] = True
     time.sleep(WAIT_SECONDS)

@@ -42,6 +42,9 @@ class Panel:
             title); None before one, and reset by `held`.
     """
 
+    last_reading: tuple[float, dict[str, str] | None, list[str]] | None = None
+    last_held: tuple[bool, bool, tuple | None, str | None] | None = None
+
     def __init__(
         self, board: Board, request: pytest.FixtureRequest, record_property: Callable[[str, object], None]
     ) -> None:
@@ -55,8 +58,8 @@ class Panel:
         self._board = board
         self._request = request
         self._record_property = record_property
-        self.last_reading: tuple[float, dict[str, str] | None, list[str]] | None = None
-        self.last_held: tuple[bool, bool, tuple | None, str | None] | None = None
+        self.last_reading = None
+        self.last_held = None
         # the held check's last finished title
         self._previous_title: str | None = None
         # what `after_answer` measured: the backend's first answer, the time to the panel, the last read
@@ -72,9 +75,6 @@ class Panel:
 
         Args:
             restart_browser: restart the browser now, so it loads the probe.
-
-        Raises:
-            AssertionError: a step on the board fails.
         """
         board = self._board
         board.run(f"mkdir -p {_SURF_DIR} && touch {_SURF_SCRIPT_PATH}", check=True)
@@ -113,10 +113,6 @@ class Panel:
 
         Returns:
             The board's uptime, the probe's sample (None = no payload) and every window's title.
-
-        Raises:
-            ExecutionError: the session failed, as `Board.timed` raises.
-            subprocess.TimeoutExpired: the walk ran past its timeout.
         """
         uptime, stdout, _stderr, _returncode = self._board.timed(_TITLES_WALK)
         titles = [match.group(1) for match in map(_WM_NAME.match, stdout) if match]
@@ -163,10 +159,6 @@ class Panel:
 
         Returns:
             The uptime and the sample of the read that found it.
-
-        Raises:
-            AssertionError: it was not on the panel within the wait; the message carries the last
-                sample.
         """
         judge = self.is_full if full else self.on_panel
         wait = _FULL_WAIT_SECONDS if full else _PANEL_WAIT_SECONDS
@@ -182,10 +174,6 @@ class Panel:
 
         Records the last read as `held_state` (browser running, page served, shown, title) and which
         case of `shown` matched as `held_case`.
-
-        Raises:
-            AssertionError: INVALID CHECK -- the page was served first, so the hold was too short, or
-                neither happened within `Board.GIVE_UP_SECONDS`.
         """
         self.last_held = None
         held_s, _ = self._board.wait(
@@ -237,8 +225,6 @@ class Panel:
             bound: the longest, in seconds, from the backend's answer to the instance on the panel.
 
         Raises:
-            AssertionError: the backend did not answer, the instance was not on the panel, or it
-                took longer than `bound`.
             RuntimeError: `after_answer` has not run.
         """
         if self._answered is None:

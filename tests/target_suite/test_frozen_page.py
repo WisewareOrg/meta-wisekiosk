@@ -39,14 +39,15 @@ class _Captures:
         changing_run: the changing reads ending at the latest capture.
     """
 
+    crop: str
+    captures: list[tuple[float | None, str | None]]
+    changing_run: int
+
     def __init__(self, board: Board) -> None:
         """Read the crop from the root window's size and start the cadence clock.
 
         Args:
             board: the board under test.
-
-        Raises:
-            AssertionError: `xdpyinfo` fails or reports no screen dimensions.
         """
         self._board = board
         match = _DIMENSIONS.search(board.read("DISPLAY=:0 xdpyinfo"))
@@ -54,7 +55,7 @@ class _Captures:
         width, height = int(match.group(1)), int(match.group(2))
         self.crop = f"{width}x{height // 3}+0+{height // 3}"
         self._next_at = time.monotonic()
-        self.captures: list[tuple[float | None, str | None]] = []
+        self.captures = []
         self.changing_run = 0
 
     def take(self) -> tuple[float | None, str | None]:
@@ -121,10 +122,6 @@ def test_frozen_page_recovered(
         record_property: records the requirement and what the captures and the freeze measure.
         request: the test's request, which removes the capture and continues the frozen processes
             at teardown.
-
-    Raises:
-        AssertionError: the panel was not changing before the freeze, the freeze did not take, or
-            the panel was not changing again within `_GIVE_UP_SECONDS` or after the bound.
     """
     record_property("requirement", "TST005")
     backend.use_config(_CLOCK_CONFIG)

@@ -29,9 +29,6 @@ def zone_in_run(request: pytest.FixtureRequest, board: Board) -> str:
 
     Returns:
         The link `/etc/localtime` held before the overlay.
-
-    Raises:
-        AssertionError: a step on the board fails, or the board is not restored at teardown.
     """
     board.run("while findmnt -n /etc >/dev/null; do umount -l /etc || exit 1; done", check=True)
     board.run(f"rm -rf {_RUN_DIR}", check=True)
@@ -46,11 +43,7 @@ def zone_in_run(request: pytest.FixtureRequest, board: Board) -> str:
     )
 
     def unmount() -> None:
-        """Stop timedated, remove the overlay and assert `/etc/localtime` is as it was.
-
-        Raises:
-            AssertionError: the overlay is still mounted, or `/etc/localtime` points elsewhere.
-        """
+        """Stop timedated, remove the overlay and assert `/etc/localtime` is as it was."""
         board.run("systemctl stop systemd-timedated")
         board.run("umount -l /etc", check=True)
         assert board.run("findmnt -n /etc")[2] != 0, "the /etc overlay is still mounted"
@@ -70,9 +63,6 @@ def test_timezone_set_over_the_air(
         zone_in_run: the original `/etc/localtime` link, with /etc overlaid for the test.
         board: the board under test, whose timezone is set.
         record_property: records the requirement and the zones and time reported.
-
-    Raises:
-        AssertionError: the board's reported offset is not the one of the zone set.
     """
     record_property("requirement", "TST026")
     current = board.read("date +%z")

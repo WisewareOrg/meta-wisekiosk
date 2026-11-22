@@ -65,10 +65,6 @@ def test_rejoins_after_an_outage(
         request: the test's request, which the outage registers its undos on.
         board: the board under test, whose network is pinned off.
         record_property: records the requirement and what the shells saw.
-
-    Raises:
-        AssertionError: a shell opened during the outage, none opened within `Outage.GIVE_UP_SECONDS`
-            of the network returning, or one opened after the bound.
     """
     record_property("requirement", "TST029")
     outage = Outage(board, request)
@@ -194,10 +190,6 @@ def test_sustained_network_load(
         board: the board under test, to which the bytes are pushed.
         panel: the probe in the browser, read for the instance on the panel throughout.
         record_property: records the requirement and what the load and the reads measured.
-
-    Raises:
-        AssertionError: the load was not applied, the board restarted, or the panel was off longer
-            than `_STOP_ALLOWANCE_SECONDS`.
     """
     record_property("requirement", "TST008")
     panel.wait_on_panel()
@@ -242,7 +234,7 @@ def test_sustained_network_load(
     # An interval runs from an on-panel read to the next; the last runs to the end of observation.
     starts = [at for at in on_panel_at if at <= load_end]
     ends = on_panel_at[1:] + [observation_end]
-    longest_stop = round(max(end - start for start, end in zip(starts, ends)), 1)
+    longest_stop = round(max(end - start for start, end in zip(starts, ends, strict=False)), 1)
     rate = result["sent"] / result["seconds"] / 1e6
     record_property("bytes", result["sent"])
     record_property("seconds", round(result["seconds"], 1))

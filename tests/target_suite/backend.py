@@ -60,9 +60,6 @@ class Backend:
 
         Args:
             path: the config file on the host.
-
-        Raises:
-            AssertionError: a step on the board fails, or the page does not serve.
         """
         board = self._board
         board.run("systemctl stop kiosk.service", check=True)
@@ -82,9 +79,6 @@ class Backend:
         Args:
             name: the drop-in's file name.
             body: the `[Service]` lines, one per line.
-
-        Raises:
-            AssertionError: the write or the reload fails.
         """
         text = "\\n".join(["[Service]", *body.splitlines()])
         self._board.run(
@@ -98,9 +92,6 @@ class Backend:
 
         Args:
             seconds: the `RestartSec` to hold it to.
-
-        Raises:
-            AssertionError: the write or the reload fails.
         """
         self._request.addfinalizer(self.unhold)
         self.write_drop_in("hold.conf", f"RestartSec={seconds}")
@@ -109,9 +100,6 @@ class Backend:
         """Remove the hold, start the backend and wait for the page; idempotent.
 
         A caller may register it again to run earlier at teardown.
-
-        Raises:
-            AssertionError: the commands fail, or the page does not serve.
         """
         self._board.run(
             f"rm -f {self.DROP_IN_DIR}/hold.conf; systemctl daemon-reload; systemctl start wisekiosk.service",
@@ -125,9 +113,6 @@ class Backend:
 
         Returns:
             The board's uptime at the kill.
-
-        Raises:
-            AssertionError: the kill fails.
         """
         self._killed_pid = self.main_pid()
         killed_at = self._board.timed("systemctl kill --signal=KILL wisekiosk.service", check=True)[0]
@@ -139,7 +124,6 @@ class Backend:
         """Assert the backend answering after the kill is a new process, and record `main_pid_after`.
 
         Raises:
-            AssertionError: INVALID CHECK -- the MainPID is the one `kill` took down.
             RuntimeError: `kill` has not run.
         """
         if self._killed_pid is None:
@@ -159,29 +143,18 @@ class Backend:
         return self._board.read(self.MAIN_PID_CMD)
 
     def mask(self) -> None:
-        """Mask the backend for this boot only, until `unmask`.
-
-        Raises:
-            AssertionError: the mask fails.
-        """
+        """Mask the backend for this boot only, until `unmask`."""
         self._request.addfinalizer(self.unmask)
         self._board.run("systemctl mask --runtime wisekiosk.service", check=True)
 
     def release(self) -> None:
-        """Unmask and start the backend, without waiting for the page.
-
-        Raises:
-            AssertionError: the commands fail.
-        """
+        """Unmask and start the backend, without waiting for the page."""
         self._board.run(self._RELEASE, check=True)
 
     def unmask(self) -> None:
         """Release the backend, then wait for the page; idempotent.
 
         A caller may register it again to run earlier at teardown.
-
-        Raises:
-            AssertionError: the commands fail, or the page does not serve.
         """
         self.release()
         self._board.wait_for_page()
@@ -191,17 +164,10 @@ class Backend:
 
         Args:
             seconds: the delay of the timer.
-
-        Raises:
-            AssertionError: arming the timer fails.
         """
         self._board.run_later(self._request, self._RELEASE_UNIT, seconds, f"/bin/sh -c '{self._RELEASE}'")
 
     def _restart_and_wait(self) -> None:
-        """Restart the backend and wait for the page.
-
-        Raises:
-            AssertionError: the restart fails, or the page does not serve.
-        """
+        """Restart the backend and wait for the page."""
         self._board.run("systemctl restart wisekiosk.service", check=True)
         self._board.wait_for_page()

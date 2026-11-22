@@ -115,11 +115,6 @@ def test_motion_stutter(
         panel: the probe in the browser, read for the counters.
         board: the board under test, whose temperature and soak log are read.
         record_property: records the requirement and what the window measured.
-
-    Raises:
-        AssertionError: the page stopped reporting, the window is invalid, or it held more than
-            `STALL_BOUND` stalls.
-        Failed: the page reloaded inside the window (INVALID).
     """
     record_property("requirement", "TST009")
     record_property("cutoff_ms", CUTOFF_MS)
@@ -158,7 +153,7 @@ def test_motion_stutter(
     soak_samples = _soak_samples_between(board, start_uptime, end_uptime)
 
     end_counters, end_hist = _counters(end)
-    hist = [after - before for before, after in zip(start_hist, end_hist)]
+    hist = [after - before for before, after in zip(start_hist, end_hist, strict=True)]
     delta = {key: end_counters[key] - start_counters[key] for key in _COUNTERS}
     stalls = sum(hist[STALL_FROM_BIN:])
     moving_share = delta["moving"] / delta["ticks"] if delta["ticks"] else 0.0

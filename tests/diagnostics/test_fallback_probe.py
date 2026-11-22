@@ -11,16 +11,31 @@ through the bench driver:
 """
 
 import json
+from collections.abc import Callable
+
+from board import Board
 
 
-def _booted_bootname(board):
-    """The bootname of the slot the board booted from, as `rauc status` names it."""
+def _booted_bootname(board: Board) -> str:
+    """The bootname of the slot the board booted from, as `rauc status` names it.
+
+    Args:
+        board: the board under test.
+
+    Returns:
+        The bootname.
+    """
     stdout = board.run("rauc status --output-format=json", check=True, timeout=None)[0]
     return json.loads("\n".join(stdout))["booted"]
 
 
-def test_fallback_probe(board, record_property):
-    """A slot with no attempts left is skipped and the board boots the other slot."""
+def test_fallback_probe(board: Board, record_property: Callable[[str, object], None]) -> None:
+    """A slot with no attempts left is skipped and the board boots the other slot.
+
+    Args:
+        board: the board under test, restarted here.
+        record_property: records the slot states before, after the install and after the restart.
+    """
     booted = _booted_bootname(board)
     other = ({"A", "B"} - {booted}).pop()
     record_property("booted", booted)

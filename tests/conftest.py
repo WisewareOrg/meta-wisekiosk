@@ -35,11 +35,6 @@ def install_candidate(bench_candidate: str | None, board: Board) -> tuple[str, b
 
     Returns:
         The marker and whether the journal held it before the install; None outside a build.
-
-    Raises:
-        subprocess.CalledProcessError: `just kiosk-ota` exits nonzero.
-        AssertionError: the board did not come back in a new boot, or /etc/buildinfo cannot be
-            read or carries no meta-wisekiosk line.
     """
     marked = None
     if bench_candidate is not None:

@@ -18,10 +18,6 @@ def test_log_kept(
         install_candidate: the marker and whether the journal held it before the install; None
             outside a build.
         record_property: records the requirement.
-
-    Raises:
-        AssertionError: the marker never reached the log before the update, the log cannot be read, or
-            the marker is not in it after the update.
     """
     if install_candidate is None:
         pytest.skip("no bench_candidate: a plain pytest run, or bench test --skip-build")

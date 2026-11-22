@@ -24,17 +24,19 @@ class Board:
 
     Attributes:
         host: `user@address` of the board, as the `just kiosk-*` recipes take it.
+        last_up: the last (browser running, page served) read of `until_up`, None if it read nothing.
         CONFIG_PATH: the live configuration file on the board.
         DEFAULT_CONFIG_PATH: the image's default configuration, which the board reseeds the live file
             from when it holds none.
         BOOT_ID_CMD: prints the kernel's boot id, which differs in each boot.
         BOOT_VARIABLES_CMD: prints BOOT_ORDER and each slot's BOOT_x_LEFT as name=value lines.
-        last_up: the last (browser running, page served) read of `until_up`, None if it read nothing.
         ERRORS: what a read of the board raises when the board does not answer; a wait retries these.
         GIVE_UP_SECONDS: how long a test waits for the board; past every bound, so the record still
             carries the time it took.
     """
 
+    host: str
+    last_up: tuple[bool, bool] | None = None
     CONFIG_PATH = "/data/config/config.json"
     DEFAULT_CONFIG_PATH = "/usr/share/wisekiosk/config.example.json"
     BOOT_ID_CMD = "cat /proc/sys/kernel/random/boot_id"
@@ -61,7 +63,7 @@ class Board:
             target: names the board's SSHDriver and NetworkService.
         """
         self._target = target
-        self.last_up: tuple[bool, bool] | None = None
+        self.last_up = None
         self._driver = target.get_driver("SSHDriver")
         service = target.get_resource("NetworkService")
         self.host = f"{service.username}@{service.address}"
@@ -113,10 +115,6 @@ class Board:
 
         Returns:
             The stdout lines, the stderr lines and the return code.
-
-        Raises:
-            AssertionError: `check` is set and `cmd` returned nonzero.
-            subprocess.TimeoutExpired: `cmd` ran past `timeout`.
         """
         stdout, stderr, returncode = self._driver.run(cmd, timeout=timeout)
         if check:
@@ -133,10 +131,6 @@ class Board:
 
         Returns:
             The stdout lines joined by newlines, stripped.
-
-        Raises:
-            AssertionError: `cmd` returned nonzero.
-            subprocess.TimeoutExpired: `cmd` ran past `timeout`.
         """
         return "\n".join(self.run(cmd, check=True, timeout=timeout)[0]).strip()
 
@@ -155,10 +149,8 @@ class Board:
             and `cmd`'s return code.
 
         Raises:
-            AssertionError: `check` is set and `cmd` returned nonzero.
             ExecutionError: stdout carries no uptime line, so the session failed; a wait takes it as
                 a failed read.
-            subprocess.TimeoutExpired: the command ran past `timeout`.
         """
         stdout, stderr, returncode = self.run(f"cat /proc/uptime; {cmd}", check=check, timeout=timeout)
         try:
@@ -172,9 +164,6 @@ class Board:
 
         Args:
             path: the mount point on the board.
-
-        Raises:
-            AssertionError: the path is mounted and `umount` fails.
         """
         self.run(f"if grep -q ' {path} ' /proc/self/mountinfo; then umount {path}; fi", check=True)
 
@@ -245,9 +234,6 @@ class Board:
 
         Returns:
             The commit named by the meta-wisekiosk line of /etc/buildinfo.
-
-        Raises:
-            AssertionError: /etc/buildinfo cannot be read, or carries no meta-wisekiosk line.
         """
         stdout = self.read("cat /etc/buildinfo", timeout=None).splitlines()
         line = next((entry for entry in stdout if entry.split()[:2] == ["meta-wisekiosk", "="]), None)
@@ -274,21 +260,13 @@ class Board:
         Returns:
             The board's uptime at the fetch, whether it served an HTML page (return code 0 with
             `<html` in the output), and the stdout and stderr joined by newlines, stripped.
-
-        Raises:
-            ExecutionError: the session failed, as `timed` raises.
-            subprocess.TimeoutExpired: the fetch ran past its timeout.
         """
         uptime, stdout, stderr, returncode = self.timed(self._PAGE_FETCH_CMD, timeout=self._PAGE_TIMEOUT_SECONDS)
         output = "\n".join(stdout + stderr).strip()
         return uptime, returncode == 0 and "<html" in output, output
 
     def wait_for_page(self) -> None:
-        """Wait until the page serves an HTML document.
-
-        Raises:
-            AssertionError: the page did not serve within `_PAGE_WAIT_SECONDS`.
-        """
+        """Wait until the page serves an HTML document."""
         served_s, _ = self.wait(
             lambda: self.page()[1] or None, bool, self._PAGE_WAIT_SECONDS, every=self._PAGE_POLL_SECONDS
         )
@@ -331,9 +309,6 @@ class Board:
             src: the file on the host; its copy on the board is `/tmp/kiosk-<its name>`.
             path: the file on the board to mount it over; a stale mount a dead run left there is
                 unmounted first.
-
-        Raises:
-            AssertionError: a step on the board fails.
         """
         copy = f"/tmp/kiosk-{Path(src).name}"
         self.put(str(src), copy)
@@ -353,9 +328,6 @@ class Board:
             unit: the transient unit's name.
             delay: seconds from now to the start.
             cmd: the command line `systemd-run` runs.
-
-        Raises:
-            AssertionError: `systemd-run` fails.
         """
         units = f"{unit}.timer {unit}.service"
         undo = f"systemctl stop {units}; systemctl reset-failed {units}"
@@ -364,28 +336,17 @@ class Board:
         request.addfinalizer(lambda: self.run(undo))
 
     def install_image(self) -> None:
-        """Install the built image on the board with `just kiosk-ota`.
-
-        Raises:
-            subprocess.CalledProcessError: `just kiosk-ota` exits nonzero.
-        """
+        """Install the built image on the board with `just kiosk-ota`."""
         subprocess.run(["just", "kiosk-ota", self.host], check=True)
 
     def restart(self) -> None:
-        """Restart the board with `systemctl reboot` and reconnect the SSHDriver in the new boot.
-
-        Raises:
-            AssertionError: the board did not answer in a new boot within `_REBOOT_WAIT_SECONDS`.
-        """
+        """Restart the board with `systemctl reboot` and reconnect the SSHDriver in the new boot."""
         self.restart_by("systemctl reboot", wait_seconds=self._REBOOT_WAIT_SECONDS)
 
     def reconnect(self) -> None:
         """Connect the SSHDriver, retrying every 1 s until the board answers.
 
         Waits through a reboot in progress.
-
-        Raises:
-            AssertionError: the board did not answer within `_RESTART_WAIT_SECONDS`.
         """
         self._wait_for_boot(self._RESTART_WAIT_SECONDS, self.BOOT_ID_CMD)
 
@@ -429,7 +390,6 @@ class Board:
             AssertionError: the opening `boot_cmd` read returned nonzero, or the board did not
                 answer in a new boot within `wait_seconds`; the message carries how the ssh that
                 sent `cmd` ended.
-            subprocess.TimeoutExpired: reading `boot_cmd` before `cmd` ran past its timeout.
         """
         old_boot = self.read(boot_cmd)
         self.disconnect()

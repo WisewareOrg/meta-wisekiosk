@@ -40,7 +40,18 @@ pytestmark = pytest.mark.sends_update
 
 
 class UpdateBundles(NamedTuple):
-    """The three test bundles, this run's nonce and stamp, and the candidate's bundle hash, path and commit."""
+    """The three test bundles, this run's nonce and stamp, and the candidate's bundle hash, path and commit.
+
+    Attributes:
+        new_build: the bundle with a different build.
+        cannot_start: the bundle that lacks init and sh.
+        no_network: the bundle that starts but cannot join the network.
+        nonce: this run's nonce, which the bundles' install-check hook requires on the board.
+        stamp: this run's stamp, which the new-build bundle's page carries.
+        hash: the candidate's bundle hash.
+        candidate: the candidate's bundle on the host.
+        commit: the candidate's commit.
+    """
 
     new_build: Path
     cannot_start: Path
@@ -64,9 +75,6 @@ def bundles(request: pytest.FixtureRequest, bench_candidate: str | None) -> Upda
 
     Returns:
         The bundles, this run's nonce and stamp, and the candidate's bundle hash, path and commit.
-
-    Raises:
-        subprocess.CalledProcessError: the build fails.
     """
     if bench_candidate is None:
         pytest.skip("no bench_candidate: a plain pytest run, or bench test --skip-build")
@@ -95,6 +103,8 @@ class _CandidateUpdate(Update):
     Attributes:
         bundles: the bundles the test offers.
     """
+
+    bundles: UpdateBundles
 
     def __init__(
         self,
@@ -168,11 +178,7 @@ class _CandidateUpdate(Update):
         return progress[1], int(stdout[1].split()[_STAT_SECTORS_WRITTEN])
 
     def allow(self) -> None:
-        """Put this run's nonce on the board, so the bundles' install-check hook accepts; remove it at teardown.
-
-        Raises:
-            AssertionError: writing the nonce fails.
-        """
+        """Put this run's nonce on the board, so the bundles' install-check hook accepts; remove it at teardown."""
         self._board.run(f"printf %s {self.bundles.nonce} > {_NONCE_PATH}", check=True)
         self._request.addfinalizer(lambda: self._board.run(f"rm -f {_NONCE_PATH}", check=True))
 
@@ -186,9 +192,6 @@ class _CandidateUpdate(Update):
 
         Returns:
             The board's snapshot from before the install.
-
-        Raises:
-            AssertionError: the refusal or the install is not as expected, or the board restarted.
         """
         board = self._board
         board.run(f"rm -f {_NONCE_PATH}", check=True)
@@ -210,9 +213,6 @@ class _CandidateUpdate(Update):
         Args:
             bundle: the bundle on the host.
             count_boots: also assert that the journal holds one new boot per failed attempt.
-
-        Raises:
-            AssertionError: the board does not fall back as expected, or does not take the candidate.
         """
         board = self._board
         before = self.refuse_then_install(bundle)
@@ -264,11 +264,7 @@ class _CandidateUpdate(Update):
         assert board.commit() == self.bundles.commit, "the board is not on the candidate's build"
 
     def onto_candidate(self) -> None:
-        """Install the candidate's bundle and restart into it.
-
-        Raises:
-            AssertionError: the install does not return 0, or the board does not come back.
-        """
+        """Install the candidate's bundle and restart into it."""
         returncode, output, _seconds = self.install(self.bundles.candidate)
         assert returncode == 0, f"installing the candidate returned {returncode}: {output}"
         self._board.restart_by("systemctl reboot")
@@ -319,10 +315,6 @@ def test_new_application_build(
         board: the board under test, restarted here.
         request: the test's request, which the panel registers its undos on.
         record_property: records the requirement and the time on the panel.
-
-    Raises:
-        AssertionError: the new build was not on the panel within `Board.GIVE_UP_SECONDS`, or
-            after the bound.
     """
     record_property("requirement", "TST006")
     update.refuse_then_install(update.bundles.new_build)
@@ -354,9 +346,6 @@ def test_cannot_start(update: _CandidateUpdate, record_property: Callable[[str, 
     Args:
         update: offers the bundle and restores the candidate at teardown.
         record_property: records the requirement and the fallback.
-
-    Raises:
-        AssertionError: the board does not fall back, or does not take the candidate afterwards.
     """
     record_property("requirement", "TST023")
     update.fall_back_and_accept(update.bundles.cannot_start, count_boots=False)
@@ -368,9 +357,6 @@ def test_cannot_reach_the_network(update: _CandidateUpdate, record_property: Cal
     Args:
         update: offers the bundle and restores the candidate at teardown.
         record_property: records the requirement and the fallback.
-
-    Raises:
-        AssertionError: the board does not fall back, or does not take the candidate afterwards.
     """
     record_property("requirement", "TST024")
     update.fall_back_and_accept(update.bundles.no_network, count_boots=True)
@@ -393,10 +379,6 @@ def test_power_cut_during_an_update(
         board: the board under test, whose power is cut.
         power_cut: cuts the power and returns the instant it came back.
         record_property: records the requirement and what the cut and the install measured.
-
-    Raises:
-        AssertionError: the install ended before the cut or completed (INVALID CHECK), the update
-            slot was activated, or the instance was not back in time.
     """
     record_property("requirement", "TST003")
     update.allow()

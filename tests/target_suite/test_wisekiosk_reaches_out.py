@@ -26,9 +26,6 @@ def test_instance_reaches_out(
         proxy: the replaying proxy, asked which URLs it served and which it killed.
         replay_window: the browser start, as a `time.monotonic()` instant.
         record_property: records the requirement.
-
-    Raises:
-        AssertionError: a URL was never served from the recording, or a request was killed.
     """
     record_property("requirement", "TST010")
 

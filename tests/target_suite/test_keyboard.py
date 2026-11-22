@@ -45,10 +45,10 @@ _KEY_LEFTALT = 56
 _KEY_F1 = 59
 _KEY_F2 = 60
 _KEYS = {
-    **{c: code for c, code in zip("qwertyuiop", range(16, 26))},
-    **{c: code for c, code in zip("asdfghjkl", range(30, 39))},
-    **{c: code for c, code in zip("zxcvbnm", range(44, 51))},
-    **{c: code for c, code in zip("1234567890", range(2, 12))},
+    **{c: code for c, code in zip("qwertyuiop", range(16, 26), strict=True)},
+    **{c: code for c, code in zip("asdfghjkl", range(30, 39), strict=True)},
+    **{c: code for c, code in zip("zxcvbnm", range(44, 51), strict=True)},
+    **{c: code for c, code in zip("1234567890", range(2, 12), strict=True)},
     " ": 57,
     "\n": 28,
     "/": 53,
@@ -178,7 +178,14 @@ _OUTAGE_SECONDS = math.ceil(
 
 
 class Helpers(NamedTuple):
-    """The built evemu files' directory, and what was built."""
+    """The built evemu files' directory, and what was built.
+
+    Attributes:
+        directory: where the built files are.
+        version: the evemu-tools version.
+        packages: the packages built.
+        sha256: each built file's sha256, by name.
+    """
 
     directory: Path
     version: str
@@ -195,9 +202,6 @@ def helpers(request: pytest.FixtureRequest) -> Helpers:
 
     Returns:
         The built files' directory, the version, the packages and each file's sha256.
-
-    Raises:
-        subprocess.CalledProcessError: the build fails.
     """
     work = ContainerDir(request)
     work.run("evemu_tools.sh")
@@ -228,9 +232,6 @@ class _Console:
 
         Returns:
             The terminal's number.
-
-        Raises:
-            AssertionError: `fgconsole` fails.
         """
         return self._board.read("fgconsole")
 
@@ -261,9 +262,6 @@ class _Console:
 
         Args:
             when: `before` or `after`, as the records are named.
-
-        Raises:
-            AssertionError: reading the restart count fails.
         """
         self._record_property(f"xorg_pid_{when}", " ".join(self._board.run("pidof Xorg")[0]))
         self._record_property(
@@ -271,11 +269,7 @@ class _Console:
         )
 
     def restore(self) -> None:
-        """Type Ctrl+Alt+F1 on a new virtual keyboard, kill tty2's login, and make vt1 foreground.
-
-        Raises:
-            AssertionError: a step fails, or vt1 is not the foreground console afterwards.
-        """
+        """Type Ctrl+Alt+F1 on a new virtual keyboard, kill tty2's login, and make vt1 foreground."""
         self._board.run(
             f"/bin/sh {_DIR}/keyboard.sh --chord back.events",
             check=True,
@@ -316,10 +310,6 @@ def test_shell_from_an_attached_keyboard(
         helpers: the evemu tools built for the module.
         tmp_path: where the event files are written before they are put on the board.
         record_property: records the requirement and what the console and the outage measured.
-
-    Raises:
-        AssertionError: the board restarted, a phase of the keyboard script was not reached, or the
-            typed command did not run at tty2 while the network was cut.
     """
     record_property("requirement", "TST027")
     record_property("evemu_tools_version", helpers.version)

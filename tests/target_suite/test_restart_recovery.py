@@ -37,10 +37,6 @@ def _back_s(board: Board, cmd: str) -> tuple[float | None, tuple[bool, bool] | N
     Returns:
         The seconds until the page is served with the browser running (None if never), and the last
         read as (browser running, page served).
-
-    Raises:
-        AssertionError: the page was not served before the fault, or the board did not come back in
-            a new boot.
     """
     board.wait_for_page()
     started = time.monotonic()
@@ -69,9 +65,6 @@ def test_kernel_crash(board: Board, record_property: Callable[[str, object], Non
     Args:
         board: the board under test, crashed here.
         record_property: records the requirement, the time back and the last read.
-
-    Raises:
-        AssertionError: the instance was not back within `Board.GIVE_UP_SECONDS`, or after the bound.
     """
     record_property("requirement", "TST004")
     back_s, last_read = _back_s(board, "echo c > /proc/sysrq-trigger")
@@ -89,9 +82,6 @@ def test_restart_to_the_panel(board: Board, record_property: Callable[[str, obje
     Args:
         board: the board under test, restarted here.
         record_property: records the requirement, the time back and the last read.
-
-    Raises:
-        AssertionError: the instance was not back within `Board.GIVE_UP_SECONDS`, or after the bound.
     """
     record_property("requirement", "TST011")
     back_s, last_read = _back_s(board, "systemctl reboot")
@@ -114,10 +104,6 @@ def test_power_cut_while_showing(
         board: the board under test, whose power is cut.
         power_cut: cuts the power and returns the instant it came back.
         record_property: records the requirement, the time back and the last read.
-
-    Raises:
-        AssertionError: the instance was not up before the cut, was not back within
-            `Board.GIVE_UP_SECONDS`, or came back after the bound.
     """
     record_property("requirement", "TST002")
     ready_s, last_read = board.until_up(time.monotonic())
@@ -147,10 +133,6 @@ def test_cold_boot_to_the_panel(
         power_cut: cuts the power and returns the instant it came back.
         request: the test's request, which the panel registers its undos on.
         record_property: records the requirement, the time, the last titles and the loaded title.
-
-    Raises:
-        AssertionError: the browser had not finished loading within `Board.GIVE_UP_SECONDS` of power
-            returning, or finished after the bound.
     """
     record_property("requirement", "TST012")
     panel = Panel(board, request, record_property)
@@ -187,10 +169,6 @@ def test_backend_late_at_boot(
         request: the test's request, on which the probe's unmask is registered again so it runs
             before the probe's teardown.
         record_property: records the requirement and what the backend and the panel measure.
-
-    Raises:
-        AssertionError: the mask did not survive the soft-reboot or the browser never finished a
-            load without the backend (INVALID CHECK), or the instance was not on the panel in time.
     """
     record_property("requirement", "TST033")
     panel = Panel(board, request, record_property)

@@ -18,6 +18,7 @@ class ContainerDir:
     """
 
     REPO = Path(__file__).resolve().parents[2]
+    path: Path
 
     def __init__(self, request: pytest.FixtureRequest) -> None:
         """Make the directory and register its removal.
@@ -34,9 +35,6 @@ class ContainerDir:
         Args:
             script: the script's file name.
             *args: its further arguments.
-
-        Raises:
-            subprocess.CalledProcessError: the script or the container fails.
         """
         words = " ".join((str(self.path), *args))
         subprocess.run(
