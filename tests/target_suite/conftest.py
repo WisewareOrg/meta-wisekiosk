@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 
 import pytest
 from board import Board
+from board.app.config import ConfigHashes
 from board_test import BoardTest
 from candidate_bundles import CandidateBundles
 from evemu_helpers import EvemuHelpers
@@ -42,7 +43,7 @@ def pytest_addoption(parser):
 
 
 @pytest.fixture(scope="session")
-def config_across_update(request, board, bench_candidate):
+def config_hashes_across_install(request, board, bench_candidate):
     """Hash the board's config before and after `install_candidate`; writes nothing.
 
     First clears what a dead run can leave in `/run`: a bind mount over the live config path, the
@@ -54,9 +55,9 @@ def config_across_update(request, board, bench_candidate):
         bench_candidate (str | None): the commit under test, or None outside a build.
 
     Returns:
-        tuple[str | None, str | None, str | None] | None: the sha256 of the live config before
-            the install, after it, and of the image default after it (each None if the file is
-            missing); None when there is no candidate to install.
+        ConfigHashes | None: the sha256 of the live config before the install, after it, and of the
+            image default after it (each None if the file is missing); None when there is no
+            candidate to install.
     """
     board.unmount_if_mounted(board.CONFIG_PATH)
     board.run(_BACKEND_SWEEP, check=True, timeout=RELOAD_TIMEOUT_SECONDS)
@@ -65,12 +66,12 @@ def config_across_update(request, board, bench_candidate):
         return None
     before = board.sha256(board.CONFIG_PATH)
     request.getfixturevalue("install_candidate")
-    return before, board.sha256(board.CONFIG_PATH), board.sha256(board.DEFAULT_CONFIG_PATH)
+    return ConfigHashes(before, board.sha256(board.CONFIG_PATH), board.sha256(board.DEFAULT_CONFIG_PATH))
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _install_candidate(config_across_update):
-    """Activate `install_candidate` (tests/conftest.py) for every test in this suite, via `config_across_update`."""
+def _install_candidate(config_hashes_across_install):
+    """Activate `install_candidate` (tests/conftest.py) for every test here, via `config_hashes_across_install`."""
 
 
 @pytest.fixture(scope="module")
@@ -321,39 +322,3 @@ def device_context(board, record_property):
         record_property(key, value)
     yield
     record_property("end", _utc_now())
-
-
-_POWER_OFF_SECONDS = 10
-
-
-@pytest.fixture
-def power_cut(target, board, request, record_property):
-    """Return `cut()`, which cuts and restores the board's power.
-
-    `cut()` returns the host `time.monotonic()` at which the `on` command started: power returns no
-    earlier, so a time taken from it errs high. Power is switched on again at teardown.
-    """
-    power = target.get_driver("ExternalPowerDriver")
-    request.addfinalizer(power.on)
-
-    def cut():
-        old_boot_id = board.run(board.BOOT_ID_CMD, check=True)[0][0]
-        board.disconnect()
-        try:
-            power.off()
-            time.sleep(_POWER_OFF_SECONDS)
-            on_began = time.monotonic()
-            power.on()
-        except (subprocess.CalledProcessError, OSError) as error:
-            pytest.exit(f"the bench's power switch failed: {error}", returncode=2)
-        record_property("power_on_command_s", round(time.monotonic() - on_began, 1))
-        board.reconnect()
-        if board.run(board.BOOT_ID_CMD, check=True)[0][0] == old_boot_id:
-            pytest.exit(
-                f"the board answered in the same boot after {_POWER_OFF_SECONDS} s off: "
-                "the plug or its supply did not cut power",
-                returncode=2,
-            )
-        return on_began
-
-    return cut

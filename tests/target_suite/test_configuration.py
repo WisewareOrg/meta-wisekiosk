@@ -1,67 +1,65 @@
 """Target suite: the board's own config file is byte for byte the same after an update, a restart and a power cut."""
 
 import pytest
+from board.app.config import ConfigHashes
+from board_test import BoardTest
 
 
-def _check(before, after, default, record_property):
-    """Assert the config held, and that a loss would have been seen.
+class TestConfiguration(BoardTest):
+    """The board's own config file survives an image update, a restart and a power cut unchanged."""
 
-    Args:
-        before (str | None): sha256 of the live config before the fault.
-        after (str | None): sha256 of the live config after it.
-        default (str | None): sha256 of the image default the board reseeds from.
-        record_property (Callable): the test's `record_property`; `validity` is recorded first.
-    """
-    if before is None:
-        validity = "invalid: the board held no config.json to keep"
-    elif after != before:
-        validity = "valid"
-    elif default is None or before == default:
-        validity = "invalid: the board's config is the image default, or the default is unreadable"
-    else:
-        validity = "valid"
-    record_property("validity", validity)
-    assert before is not None, "INVALID CHECK, not an appliance failure: the board held no config.json to keep"
-    assert after == before, f"config held {'missing' if after is None else after}, expected the {before} it held before"
-    assert default is not None, "INVALID CHECK, not an appliance failure: the image default could not be read"
-    assert before != default, (
-        "INVALID CHECK, not an appliance failure: the board's config is the image default, so losing it would go unseen"
-    )
+    def test_config_held_across_image_update(
+        self, config_hashes_across_install: ConfigHashes | None, bench_candidate: str | None
+    ) -> None:
+        """TST019: the config the board held before the candidate's image update is the one it holds after.
 
+        Args:
+            config_hashes_across_install: the config's hashes before and after the start-of-run install.
+            bench_candidate: the commit under test, or None outside a build.
+        """
+        if bench_candidate is None:
+            pytest.skip("no bench_candidate: a plain pytest run, or bench test --skip-build")
+        self.record(requirement="TST019")
+        hashes = config_hashes_across_install
 
-def test_config_held_across_image_update(config_across_update, bench_candidate, record_property):
-    """The config the board held before the candidate's image update is the one it holds after."""
-    if bench_candidate is None:
-        pytest.skip("no bench_candidate: a plain pytest run, or bench test --skip-build")
-    before, after, default = config_across_update
-    record_property("requirement", "TST019")
-    record_property("config_before_sha256", before)
-    record_property("config_after_sha256", after)
-    record_property("config_default_sha256", default)
-    _check(before, after, default, record_property)
+        self.record(
+            config_before_sha256=hashes.before,
+            config_after_sha256=hashes.after,
+            config_default_sha256=hashes.default,
+        )
+        hashes.assert_held(self.record)
 
+    def test_config_held_across_restart(self) -> None:
+        """TST020: the config the board held before `just kiosk-reboot` is the one it holds after."""
+        config = self.board.app.config
+        self.record(requirement="TST020")
+        before = config.live_sha256()
+        default = config.default_sha256()
 
-def test_config_held_across_restart(board, record_property):
-    """The config the board held before `just kiosk-reboot` is the one it holds after."""
-    record_property("requirement", "TST020")
-    before = board.sha256(board.CONFIG_PATH)
-    default = board.sha256(board.DEFAULT_CONFIG_PATH)
-    board.restart()
-    after = board.sha256(board.CONFIG_PATH)
-    record_property("config_before_sha256", before)
-    record_property("config_after_sha256", after)
-    record_property("config_default_sha256", default)
-    _check(before, after, default, record_property)
+        self.board.reboot()
+        hashes = ConfigHashes(before, config.live_sha256(), default)
 
+        self.record(
+            config_before_sha256=hashes.before,
+            config_after_sha256=hashes.after,
+            config_default_sha256=hashes.default,
+        )
+        hashes.assert_held(self.record)
 
-def test_config_held_across_power_cut(board, power_cut, record_property):
-    """The config the board held before its power was cut is the one it holds after."""
-    record_property("requirement", "TST021")
-    before = board.sha256(board.CONFIG_PATH)
-    default = board.sha256(board.DEFAULT_CONFIG_PATH)
-    power_cut()
-    after = board.sha256(board.CONFIG_PATH)
-    record_property("config_before_sha256", before)
-    record_property("config_after_sha256", after)
-    record_property("config_default_sha256", default)
-    _check(before, after, default, record_property)
+    def test_config_held_across_power_cut(self) -> None:
+        """TST021: the config the board held before its power was cut is the one it holds after."""
+        config = self.board.app.config
+        self.record(requirement="TST021")
+        before = config.live_sha256()
+        default = config.default_sha256()
+
+        _on_began, on_command_s = self.board.cut_power()
+        self.record(power_on_command_s=on_command_s)
+        hashes = ConfigHashes(before, config.live_sha256(), default)
+
+        self.record(
+            config_before_sha256=hashes.before,
+            config_after_sha256=hashes.after,
+            config_default_sha256=hashes.default,
+        )
+        hashes.assert_held(self.record)

@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_config_held_across_restart
   path: tests/target_suite/test_configuration.py
-  sha: eedf54f5d3141e774d3e5958f10c1c278af0d81cd3b6cb2a1fa7f5be4ef8506d
+  sha: 67efd86fadb872115c8a61b97dfda06a697321ed5376b0e0ddc94184c0a00775
   type: file
-reviewed: WPX4kftOWnM5PajMm0aL4uv7rPWcQonkYHbs0QEBehE=
+reviewed: j1nDzjI0fMZ4jWyr1AXWCaXKjGSjSgJ8T4WXXDPPRuo=
 status: proposed
 text: |
   Restart the appliance over the network. Pass if the configuration it holds afterwards is byte for

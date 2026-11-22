@@ -35,8 +35,8 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   and `systemctl is-enabled`, both `--root=`-pointed at it, against every unit this layer's recipes
   ship, so a unit that would strand the board never reaches it either.
 - `tests/target_suite` — one autouse fixture (`conftest.py`) switches on `install_candidate`
-  (`tests/conftest.py`'s shared setup) through `config_across_update`, which hashes the board's
-  `config.json` before and after the install for TST019<!-- Configuration held across an image update -->
+  (`tests/conftest.py`'s shared setup) through `config_hashes_across_install`, which hashes the
+  board's `config.json` before and after the install for TST019<!-- Configuration held across an image update -->
   and writes nothing. `install_candidate` installs the candidate on the board through
   `just kiosk-ota` and `just kiosk-reboot` when there is one, then reads the board's `/etc/buildinfo`
   over the ssh connection `Board` opens before the install and `Board.restart` reconnects,
@@ -65,8 +65,8 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   backend should the host be lost; teardown releases it too. The backend-crash tests kill the
   backend, and the browser-start one first delays its restart with a `RestartSec` drop-in in
   `/run`, which teardown removes. All of these live in `/run`, so a real reboot clears any a dead
-  run leaves, and `config_across_update` clears the backend's runtime drop-ins and mask at the
-  start of every session.
+  run leaves, and `config_hashes_across_install` clears the backend's runtime drop-ins and mask at
+  the start of every session.
 
 Every install the target suite makes goes through [`tools/kiosk-install.sh`](../tools/kiosk-install.sh),
 so the bench host needs Docker, a free port 80, and a board that reaches the host's port 80 at the
