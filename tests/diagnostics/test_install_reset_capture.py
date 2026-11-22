@@ -21,38 +21,6 @@ ARMED = re.compile(r"\[arm\] armed: record_ftrace=1 filter_entries=\d+ watchdog_
 SEED = "echo c > /proc/sysrq-trigger"
 
 
-def _crash(host: str) -> None:
-    """Crash the board with sysrq.
-
-    A plain ssh rather than the SSHDriver: the crash takes the connection down with it,
-    and the driver's shared connection would have to be torn down mid-command.
-
-    Args:
-        host: `user@address` of the board.
-    """
-    subprocess.Popen(
-        [
-            "ssh",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "StrictHostKeyChecking=no",
-            "-o",
-            "UserKnownHostsFile=/dev/null",
-            "-o",
-            "ConnectTimeout=10",
-            "-o",
-            "ServerAliveInterval=2",
-            "-o",
-            "ServerAliveCountMax=3",
-            host,
-            SEED,
-        ],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.STDOUT,
-    )
-
-
 def test_install_reset_capture(board: Board) -> None:
     """A crash mid-install leaves the panic and the ftrace ring in the install's output.
 
@@ -77,7 +45,12 @@ def test_install_reset_capture(board: Board) -> None:
         print(line, end="")
         lines.append(line.rstrip("\n"))
         if not seeded and RAUC_TAG in line and SLOT_WRITE in line:
-            _crash(host)
+            # its own ssh, not the SSHDriver: the crash takes the connection down with it
+            subprocess.Popen(
+                [*board.fresh_ssh_argv("ConnectTimeout=10", "ServerAliveInterval=2", "ServerAliveCountMax=3"), SEED],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.STDOUT,
+            )
             seeded = True
     rc = ota.wait()
     output = "\n".join(lines)
