@@ -14,7 +14,7 @@
 # whether the boot restarts, what it exits with, and what proof it leaves.
 #
 # TO WATCH THIS FAIL -- before trusting a green run: point $shipped at a scratch copy of the
-# script with one condition removed. Measured:
+# script with one condition removed. Seeds, each run once:
 #   * drop `! proven "$booted_name" "$booted_hash"` from the restart: "no-LAN, booted proven"
 #   * replace `proven "$fallback" "$fallback_hash"` with `true`: "no-LAN, fallback unproven"
 #     and "no-LAN, fallback proof stale"
@@ -123,6 +123,7 @@ setup no  yes  hA     -       good     hB     -       yes; check "no-LAN, fallba
 setup no  yes  hA     -       good     hB     old     yes; check "no-LAN, fallback proof stale: withhold, no restart" 1 no -
 setup no  yes  hA     -       good     hB     hB      no;  check "no-LAN, rauc unreadable: withhold, no restart" 1 no -
 setup no  yes  hA     -       bad      hB     hB      yes; check "no-LAN, no good fallback: mark good, no restart" 0 no -
+setup no  yes  ''     -       good     hB     hB      yes; check "no-LAN, booted hash empty (flashed slot): restart" 1 yes -
 
 echo "pass=$pass fail=$fail"
 [ "$fail" -eq 0 ]

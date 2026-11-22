@@ -387,8 +387,8 @@ def install_candidate(bench_candidate, board):
     """Install `bench_candidate` on the board, if there is one, then print its commit.
 
     Before the install, writes a uuid marker line to the board's journal under the identifier
-    `kiosk-log-marker` and polls for up to `LOG_MARKER_WAIT_SECONDS`, once a second, until it reads that line back. The
-    fixture never asserts on that read. Installs by `board.install_image`, then `board.restart`.
+    `kiosk-log-marker` and polls for up to `LOG_MARKER_WAIT_SECONDS`, once a second, until it
+    reads that line back. The fixture never asserts on that read. Installs by `board.install_image`, then `board.restart`.
     Either way, prints the board's meta-wisekiosk commit as `board_commit=<sha>`.
 
     Args:

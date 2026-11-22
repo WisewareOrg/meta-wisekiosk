@@ -85,7 +85,7 @@ exists() {
 edit() {
     debugfs -w -f - "$1" > "$work/debugfs.log" 2>&1 || { cat "$work/debugfs.log" >&2; return 1; }
     if grep -v -E '^(debugfs [0-9.]+ \(|debugfs: |Allocated inode: [0-9]+$|$)' "$work/debugfs.log" \
-        > "$work/debugfs.errors"; then
+        > /dev/null; then
         cat "$work/debugfs.log" >&2
         return 1
     fi
@@ -166,6 +166,11 @@ set_inode_field /home/root/.surf/script.js mode 0100644
 EOF
     require_inode "$image" /home/root/.surf 0 0 0755
     require_inode "$image" /home/root/.surf/script.js 0 0 0644
+    debugfs -R "dump /home/root/.surf/script.js $work/script.check.js" "$image" 2> /dev/null
+    cmp -s "$probe_js" "$work/script.check.js" || {
+        echo "update_bundles.sh: the probe did not reach the image intact" >&2
+        exit 1
+    }
 }
 
 remove_paths() {

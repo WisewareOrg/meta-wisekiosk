@@ -19,8 +19,6 @@ def _booted_bootname(board):
     return json.loads("\n".join(stdout))["booted"]
 
 
-
-
 def test_fallback_probe(board, record_property):
     """A slot with no attempts left is skipped and the board boots the other slot."""
     booted = _booted_bootname(board)

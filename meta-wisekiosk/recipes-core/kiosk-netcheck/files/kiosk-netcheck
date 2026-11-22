@@ -12,6 +12,11 @@
 # never reached the network, and only toward a fallback slot whose current image
 # has. A slot's proof is /data/kiosk-netcheck/reached.<bootname>, holding the
 # slot's RAUC bundle hash, so it lapses when the slot is rewritten.
+#
+# Consequences: a slot written by the card flash has no bundle hash, so it is never
+# proven, and a boot of it with no LAN restarts toward a proven fallback; a good
+# update whose first boots all meet a LAN outage longer than DEADLINE falls back;
+# and no slot is proven until an image that writes proofs has reached the network.
 
 set -u
 

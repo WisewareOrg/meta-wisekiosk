@@ -965,12 +965,10 @@ else
 fi
 
 # --- 21. kiosk-netcheck's restart and proof decisions pass their self-test -
-# A wrong restart is a boot loop on the wall unit; a missing one leaves an image
-# that cannot reach the network booted. The self-test runs the shipped script
-# against a scratch /data with the board's commands stubbed.
+# What it proves and how is the header of tools/kiosk-netcheck-test.sh.
 nettest21="tools/kiosk-netcheck-test.sh"
 if [ ! -f "$nettest21" ]; then
-    bad "guard 21: $nettest21 missing -- kiosk-netcheck's decisions are no longer self-tested"
+    bad "guard 21: $nettest21 missing -- kiosk-netcheck's decisions go untested"
 elif out21=$(bash "$nettest21" 2>&1); then
     ok "kiosk-netcheck passes its self-test ($(printf '%s\n' "$out21" | tail -n1))"
 else

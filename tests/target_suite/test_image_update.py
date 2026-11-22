@@ -96,8 +96,6 @@ def _booted_slot(rauc_status):
     raise AssertionError(f"no booted slot in rauc status: {rauc_status!r}")
 
 
-
-
 def _boot_ids(board):
     """The set of boot ids in the board's journal."""
     stdout = board.run("journalctl --list-boots -o json", check=True, timeout=None)[0]

@@ -164,7 +164,7 @@ serve() {
     existing=$(docker ps -aq --filter "name=^${server}\$")
     if [ -n "$existing" ]; then
         owner=$(docker inspect -f '{{index .Config.Labels "kiosk-install.pid"}}' "$existing" 2>/dev/null) || owner=
-        if [ -n "$owner" ] && kill -0 "$owner" 2>/dev/null; then
+        if [ -n "$owner" ] && ps -p "$owner" >/dev/null 2>&1; then
             echo "another install on this host (pid $owner) is serving a bundle"
             return 1
         fi

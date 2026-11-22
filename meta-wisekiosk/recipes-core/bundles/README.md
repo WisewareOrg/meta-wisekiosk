@@ -12,35 +12,21 @@ so RAUC fetches and writes only the blocks neither slot already holds, and keeps
 
 ## Why
 
-The distro sets `IMAGE_ROOTFS_SIZE` to the slot size, so the image an install wrote was the whole
-2 GB slot, most of it empty filesystem, and the bundle was copied to the board before the write began.
+The distro sets `IMAGE_ROOTFS_SIZE` to the slot size, so an image built that way fills its slot, most
+of it empty filesystem, and every install writes all of it.
 
 RAUC's documentation names adaptive updates as an optimisation for HTTP streaming: the
 `block-hash-index` method hashes both slots and fetches only blocks neither holds. Yocto's default
 sizing is the content times `IMAGE_OVERHEAD_FACTOR` (1.3), and RAUC's `resize=true` is its documented
 answer to an ext4 image smaller than its slot.
 
-## Measured
-
-`install_s` of the update tests on the bench board, each run named by its record and the commit it
-built. The figure is the whole of `tools/kiosk-install.sh`, which includes arming the install capture.
-
-| Install | Plain, copied first (`20261121T202406Z`, `65a20f6`) | Adaptive, copied first (`20261121T211210Z`, `519d731`) | Streamed adaptive, content-sized (`20261121T232604Z`, `555626c`) |
-|---|---|---|---|
-| A slot's first adaptive install (TST006) | 184.6 s | 402.5 s | 445.6 s |
-| A later install (TST023, TST024) | 159.7 s (TST023; TST024's install did not complete) | 141.5 s, 133.2 s | 103.2 s, 101.3 s |
-
-A run's first two installs each index a slot, so the board stage of the six update tests took about
-as long with streaming as without: 51 min in `20261121T211210Z` and 52 min in `20261121T232604Z`. The
-saving is in every install after a slot holds its index.
-
 ## Alternatives set aside
 
 - **Copy the bundle with `scp`, then install from `/data`** — moved the whole bundle every time, and
   the tests needed a second install path beside it.
-- **Adaptive bundles without streaming** — a slot's first install took 402.5 s against a plain
-  install's 184.6 s, and the bundle was still copied whole; RAUC documents adaptive mode as a
-  streaming optimisation.
+- **Adaptive bundles without streaming** — still copies the whole bundle, and on the bench a slot's
+  first install was slower than a plain one (PR 335 image update behaviour, "Install times");
+  RAUC documents adaptive mode as a streaming optimisation.
 - **An `ssh -R` tunnel to a server on the host's loopback** — not RAUC's documented setup; the board
   reaches the host directly where the host publishes port 80 on the LAN.
 - **A small Python server pinned in `uv.lock`** — a prebuilt, digest-pinned image needs no code of
