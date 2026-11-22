@@ -146,38 +146,19 @@ def replay_window(board, proxy, set_config, request):
     stack.enter_context(board.forward_remote_port(proxy.port, proxy.port))
 
     board.put(str(CA_PATH), _CA_BOARD_PATH)
+    request.addfinalizer(lambda: board.run(f"rm -f {_CA_BOARD_PATH}", check=True, timeout=None))
 
-    def _remove_ca():
-        stdout, stderr, returncode = board.run(f"rm -f {_CA_BOARD_PATH}", timeout=None)
-        output = stdout + stderr
-        assert returncode == 0, (
-            f"could not remove the replay CA (rc {returncode}): {chr(10).join(output)}"
-        )
-
-    request.addfinalizer(_remove_ca)
-
-    stdout, stderr, returncode = board.run(
+    board.run(
         f"mkdir -p {BACKEND_DROP_IN_DIR} && "
         f"printf '[Service]\\nEnvironment=HTTPS_PROXY=http://127.0.0.1:{proxy.port}\\n"
         f"Environment=SSL_CERT_FILE={_CA_BOARD_PATH}\\n' > {_DROP_IN_PATH} && "
         "systemctl daemon-reload",
+        check=True,
         timeout=None,
     )
-    output = stdout + stderr
-    assert returncode == 0, (
-        f"could not write the replay drop-in (rc {returncode}): {chr(10).join(output)}"
+    request.addfinalizer(
+        lambda: board.run(f"rm -f {_DROP_IN_PATH} && systemctl daemon-reload", check=True, timeout=None)
     )
-
-    def _remove_drop_in():
-        stdout, stderr, returncode = board.run(
-            f"rm -f {_DROP_IN_PATH} && systemctl daemon-reload", timeout=None
-        )
-        output = stdout + stderr
-        assert returncode == 0, (
-            f"could not remove the replay drop-in (rc {returncode}): {chr(10).join(output)}"
-        )
-
-    request.addfinalizer(_remove_drop_in)
 
     set_config(CARDS4_LIVE / "config.json")
     return time.monotonic()
