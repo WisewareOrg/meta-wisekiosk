@@ -18,7 +18,7 @@ from board.app import App, Backend, Config, Page
 from board.console import Console, Keyboard, Terminals
 from board.network import Load, Network, Outage
 from board.screen import Captures, Display, Screen
-from board.system import Clock, Memory, Soak, System, Timezone
+from board.system import Clock, Journal, Kernel, Memory, Soak, System, Timezone
 from board.updates import Updates
 
 if TYPE_CHECKING:
@@ -98,8 +98,6 @@ class Board:
     _RESTART_WAIT_SECONDS = 180
     _FAULT_SSH_TIMEOUT_SECONDS = 30
     _POWER_OFF_SECONDS = 10
-    # how often `sleep_watching_boot` reads the boot, so a reboot ends the sleep early
-    _BOOT_CHECK_SECONDS = 600
 
     def __init__(self, target: Target) -> None:
         """Bind to the target's SSHDriver and NetworkService, and build the board's parts.
@@ -115,7 +113,14 @@ class Board:
         self.app = App(backend=Backend(self), config=Config(self), page=Page(self))
         self.screen = Screen(display=Display(self), captures=Captures(self))
         self.console = Console(terminals=Terminals(self), keyboard=Keyboard(self))
-        self.system = System(clock=Clock(self), timezone=Timezone(self), memory=Memory(self), soak=Soak(self))
+        self.system = System(
+            clock=Clock(self),
+            timezone=Timezone(self),
+            memory=Memory(self),
+            soak=Soak(self),
+            kernel=Kernel(self),
+            journal=Journal(self),
+        )
         self.network = Network(outage=Outage(self), load=Load(self))
         self.updates = Updates(self)
 
@@ -185,27 +190,6 @@ class Board:
         except (IndexError, ValueError):
             raise ExecutionError(cmd, stdout, stderr) from None
         return CommandResult(stdout[1:], stderr, returncode, uptime)
-
-    def sleep_watching_boot(self, boot_id: str, seconds: float) -> str | None:
-        """Sleep out `seconds`, reading the boot every 600 s, and end early if the board booted again.
-
-        The final read, made once more after the sleep, leaves the session live for every read after
-        it.
-
-        Args:
-            boot_id: the boot the sleep starts in.
-            seconds: how long to sleep.
-
-        Returns:
-            The boot id at the end, or None if it could not be read.
-        """
-        end = time.monotonic() + seconds
-        while time.monotonic() < end:
-            time.sleep(min(self._BOOT_CHECK_SECONDS, max(0, end - time.monotonic())))
-            now = self._boot_id_or_none()
-            if now is not None and now != boot_id:
-                break
-        return self._boot_id_or_none()
 
     def put(self, src: str, dst: str) -> None:
         """Copy the host file `src` to `dst` on the board.
@@ -307,40 +291,6 @@ class Board:
         )(read)
         done = value is not None and until(value)
         return (round(time.monotonic() - since, 1) if done else None), value
-
-    def soc_temperature_c(self) -> float | None:
-        """Read the SoC's temperature.
-
-        Returns:
-            The temperature in degrees Celsius, or None if it could not be read.
-        """
-        result = self.run("cat /sys/class/thermal/thermal_zone0/temp")
-        return int(result.stdout[0]) / 1000 if result.returncode == 0 and result.stdout else None
-
-    def write_log_marker(self, text: str) -> None:
-        """Write `text` to the board's journal under the identifier `kiosk-log-marker`.
-
-        Args:
-            text: the marker line.
-        """
-        self.run(f"echo {text} | systemd-cat -t kiosk-log-marker", check=True)
-
-    def log_markers(self) -> list[str] | None:
-        """Read the marker lines written to the journal under the identifier `kiosk-log-marker`.
-
-        Returns:
-            The lines, or None if `journalctl` returned nonzero.
-        """
-        result = self.run("journalctl -t kiosk-log-marker -o cat")
-        return result.stdout if result.returncode == 0 else None
-
-    def builtin_modules(self) -> list[str]:
-        """Read the kernel modules built into the running kernel.
-
-        Returns:
-            The lines of its `modules.builtin`.
-        """
-        return self.run("cat /lib/modules/$(uname -r)/modules.builtin", check=True).stdout
 
     def connect(self) -> None:
         """Activate the board's SSHDriver."""
@@ -450,7 +400,7 @@ class Board:
         """
         power = self._target.get_driver("ExternalPowerDriver")
         self.cleanup.callback(power.on)
-        old_boot_id = self.run(self.BOOT_ID_CMD, check=True).text
+        old_boot_id = self.system.kernel.boot_id()
         self.disconnect()
         try:
             power.off()
@@ -461,7 +411,7 @@ class Board:
             pytest.exit(f"the bench's power switch failed: {error}", returncode=2)
         record(power_on_command_s=round(time.monotonic() - on_began, 1))
         self.reconnect()
-        if self.run(self.BOOT_ID_CMD, check=True).text == old_boot_id:
+        if self.system.kernel.boot_id() == old_boot_id:
             pytest.exit(
                 f"the board answered in the same boot after {self._POWER_OFF_SECONDS} s off: "
                 "the plug or its supply did not cut power",
@@ -473,17 +423,6 @@ class Board:
         """Reconnect the SSHDriver, and carry on if the board does not answer in time."""
         with contextlib.suppress(AssertionError):
             self.reconnect()
-
-    def _boot_id_or_none(self) -> str | None:
-        """Read the kernel's boot id, retrying through a dropped session for `READ_RETRY_SECONDS`.
-
-        Returns:
-            The boot id, or None if it could not be read.
-        """
-        try:
-            return self.run(self.BOOT_ID_CMD, check=True, retry_for=self.READ_RETRY_SECONDS).text
-        except self.ERRORS:
-            return None
 
     def _reconnect_in_new_boot(self, within: float, boot_cmd: str, old: str | None = None) -> None:
         """Reconnect the SSHDriver, one attempt a second, until `boot_cmd` reads.

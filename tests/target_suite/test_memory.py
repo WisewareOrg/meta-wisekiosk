@@ -45,6 +45,7 @@ class TestMemory(BoardTest):
         page = self.board.app.page
         memory = self.board.system.memory
         soak = self.board.system.soak
+        kernel = self.board.system.kernel
         self.board.app.backend.put_behind(proxy, CARDS4_LIVE / "config.json")
         self.record(probe_sha256=page.install_probe())
         _, start_sample = page.wait_for_instance(all_cards_live=True)
@@ -53,15 +54,13 @@ class TestMemory(BoardTest):
         period = SOAK_PERIOD_SECONDS if soak_run else PERIOD_SECONDS
         self.record(period_s=period)
         self.record(timer_was_active=soak.start_sampler())
-        boot_id = self.board.run(Board.BOOT_ID_CMD, check=True, retry_for=Board.READ_RETRY_SECONDS).text
+        boot_id = kernel.boot_id(retry_for=Board.READ_RETRY_SECONDS)
         backend_pid = self.board.app.backend.pid(retry_for=Board.READ_RETRY_SECONDS)
-        start_uptime = float(
-            self.board.run("cat /proc/uptime", check=True, retry_for=Board.READ_RETRY_SECONDS).text.split()[0]
-        )
+        start_uptime = kernel.uptime_s(retry_for=Board.READ_RETRY_SECONDS)
         start_mem = memory.meminfo_kb()
         total_mb = start_mem["MemTotal"] / 1024
 
-        new_boot = self.board.sleep_watching_boot(boot_id, period)
+        new_boot = kernel.sleep_watching_boot(boot_id, period)
         if new_boot is None:
             reason = "evidence unreadable: the boot id could not be read after the period"
             self.record(validity=f"invalid: {reason}")
@@ -97,13 +96,7 @@ class TestMemory(BoardTest):
             problems.append(f"evidence unreadable: {type(exc).__name__}")
 
         try:
-            end_uptime = (
-                float("inf")
-                if rebooted
-                else float(
-                    self.board.run("cat /proc/uptime", check=True, retry_for=Board.READ_RETRY_SECONDS).text.split()[0]
-                )
-            )
+            end_uptime = float("inf") if rebooted else kernel.uptime_s(retry_for=Board.READ_RETRY_SECONDS)
             lines = soak.samples(boot_id, start_uptime, end_uptime, period)
 
             if any(not 0 <= float(line["memavail"]) <= total_mb for line in lines):

@@ -30,9 +30,11 @@ def install_candidate(bench_candidate: str | None, target: Target) -> tuple[str,
     with Board(target) as board:
         if bench_candidate is not None:
             marker = str(uuid.uuid4())
-            board.write_log_marker(marker)
+            board.system.journal.write_marker(marker)
             seen_s, _ = board.poll(
-                lambda: marker in (board.log_markers() or []) or None, until=bool, within=LOG_MARKER_WAIT_SECONDS
+                lambda: marker in (board.system.journal.markers() or []) or None,
+                until=bool,
+                within=LOG_MARKER_WAIT_SECONDS,
             )
             marked = (marker, seen_s is not None)
             board.updates.install_built_image()

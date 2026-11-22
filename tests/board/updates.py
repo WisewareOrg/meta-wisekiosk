@@ -274,7 +274,7 @@ class Updates(Part):
         return {
             "boot_variables": self._board.run(_BOOT_VARIABLES_CMD, check=True).text,
             "rauc_status": self.rauc_status(),
-            "boot_id": self._board.run(self._board.BOOT_ID_CMD, check=True).text,
+            "boot_id": self._board.system.kernel.boot_id(),
             "commit": self.build_commit(),
         }
 

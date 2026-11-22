@@ -2,7 +2,6 @@
 
 import time
 
-from board import Board
 from board.network.outage import Outage
 from board_test import BoardTest
 
@@ -26,7 +25,7 @@ class TestNetwork(BoardTest):
         self.record(requirement="TST029")
         outage = self.board.network.outage
         outage.wait_boot_complete()
-        boot_id = self.board.run(Board.BOOT_ID_CMD, check=True).text
+        boot_id = self.board.system.kernel.boot_id()
 
         outage.schedule(_OUTAGE_SECONDS)
         deadline = time.monotonic() + Outage.CUT_DELAY_SECONDS + _OUTAGE_SECONDS + Outage.GIVE_UP_SECONDS

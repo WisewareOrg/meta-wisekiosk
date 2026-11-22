@@ -226,8 +226,8 @@ def device_context(target: Target, record_property: Callable[[str, object], None
         environ = board.run(f"tr '\\0' '\\n' < /proc/{pid}/environ", check=True).text.splitlines()
         xrandr = board.run("DISPLAY=:0 xrandr", check=True).text.splitlines()
         facts = {
-            "boot_id": board.run(Board.BOOT_ID_CMD, check=True).text,
-            "uptime_s": float(board.run("cat /proc/uptime", check=True).text.split()[0]),
+            "boot_id": board.system.kernel.boot_id(),
+            "uptime_s": board.system.kernel.uptime_s(),
             "kernel": board.run("uname -r", check=True).text,
             "file_sha256": "\n".join(sums.stdout),
             "browser_cmdline_sha256": board.run(f"sha256sum /proc/{pid}/cmdline", check=True).text.split()[0],

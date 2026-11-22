@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_log_kept
   path: tests/target_suite/test_log_kept.py
-  sha: b83d5cf2393113ba08d6025938d4c86f15de84eb8cc5aa4b4df7829422a91645
+  sha: ea234f32d4a1c4c37529b711c23459a1a039123fb9e790416f001016bd38aa9b
   type: file
-reviewed: 7L-_teikHn3_IfcYLUd37fw_SS2HiZRhPbkVu73hcyk=
+reviewed: UzrlRwbtJg1VIjp0fiiZeLw81A5nEfbwJuY7vabODEw=
 status: proposed
 text: |
   Write a marker line to the appliance's log, then install a valid image update over the air. Pass

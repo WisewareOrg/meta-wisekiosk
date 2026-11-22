@@ -39,7 +39,7 @@ class Soak(Part):
         for `Board.READ_RETRY_SECONDS` and raising the board's last error once that runs out.
 
         Args:
-            boot: the boot, as `Board.BOOT_ID_CMD` prints it.
+            boot: the boot, as `board.system.kernel.boot_id()` reads it.
             start: the span's first board uptime, in seconds.
             end: the span's last board uptime, in seconds; inf for no end.
             period: the seconds the span covers at most, which sizes the read.

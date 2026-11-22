@@ -153,7 +153,7 @@ class Outage(Part):
         """Reconnect the SSHDriver and read the outage unit's journal for its last run in the boot `boot_id`.
 
         Args:
-            boot_id: the boot, as `Board.BOOT_ID_CMD` prints it.
+            boot_id: the boot, as `board.system.kernel.boot_id()` reads it.
 
         Returns:
             The journal lines of the unit's last run, or a line naming the `journalctl` return code

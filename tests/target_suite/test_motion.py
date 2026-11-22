@@ -56,7 +56,7 @@ class TestMotion(BoardTest):
         assert warmed_s is not None, (
             f"the page stopped reporting; last: {page.last_read.sample if page.last_read else None!r}"
         )
-        start_temp = self.board.soc_temperature_c()
+        start_temp = self.board.system.kernel.soc_temperature_c()
         start_counters, start_hist = start.counters()
 
         time.sleep(WINDOW_SLEEP_SECONDS)
@@ -79,7 +79,7 @@ class TestMotion(BoardTest):
             reloaded = "the page reloaded inside the window"
             self.record(validity=f"invalid: {reloaded}")
             pytest.fail(f"INVALID: {reloaded}")
-        end_temp = self.board.soc_temperature_c()
+        end_temp = self.board.system.kernel.soc_temperature_c()
         killed = proxy.killed()
         soak_samples = self.board.system.soak.samples_in(start.uptime, end.uptime)
 

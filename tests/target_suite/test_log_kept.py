@@ -20,7 +20,7 @@ class TestLogKept(BoardTest):
         marker, seen_before = install_candidate
         assert seen_before, "the marker never reached the log before the update"
 
-        markers = self.board.log_markers()
+        markers = self.board.system.journal.markers()
 
         assert markers is not None, "reading the log failed"
         assert marker in markers, "the marker is not in the log after the update"
