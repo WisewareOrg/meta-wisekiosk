@@ -53,8 +53,7 @@ class TestConfiguration(BoardTest):
         before = config.live_sha256()
         default = config.default_sha256()
 
-        _on_began, on_command_s = self.board.cut_power()
-        self.record(power_on_command_s=on_command_s)
+        self.board.cut_power(self.record)
         hashes = ConfigHashes(before, config.live_sha256(), default)
 
         self.record(

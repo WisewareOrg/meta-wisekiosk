@@ -6,7 +6,7 @@ import subprocess
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 import pytest
 from labgrid import Target
@@ -20,6 +20,9 @@ from board.network import Network
 from board.screen import Screen
 from board.system import System
 from board.updates import Updates
+
+if TYPE_CHECKING:
+    from record import Record
 
 
 class InstanceState(NamedTuple):
@@ -581,15 +584,20 @@ class Board:
             raise AssertionError(f"{error}; the ssh that sent {cmd!r} ended with {sent_as}") from None
         return started
 
-    def cut_power(self) -> tuple[float, float]:
+    def cut_power(self, record: "Record") -> float:
         """Cut the board's power through the bench's switched plug, restore it, and reconnect in a new boot.
 
-        Power is switched back on when the test ends. The run exits if the plug fails, or if the board
-        answers in the same boot after the power was off.
+        Records how long the `on` command took as `power_on_command_s`, before the reconnect, so a
+        reconnect that fails still leaves it in the record. Power is switched back on when the test
+        ends. The run exits if the plug fails, or if the board answers in the same boot after the
+        power was off.
+
+        Args:
+            record: the test's record.
 
         Returns:
-            The host `time.monotonic()` at which the `on` command started (power returns no earlier,
-            so a time taken from it errs high), and the seconds that command took.
+            The host `time.monotonic()` at which the `on` command started; power returns no earlier,
+            so a time taken from it errs high.
         """
         power = self._target.get_driver("ExternalPowerDriver")
         self.cleanup.callback(power.on)
@@ -602,7 +610,7 @@ class Board:
             power.on()
         except (subprocess.CalledProcessError, OSError) as error:
             pytest.exit(f"the bench's power switch failed: {error}", returncode=2)
-        on_command_s = round(time.monotonic() - on_began, 1)
+        record(power_on_command_s=round(time.monotonic() - on_began, 1))
         self.reconnect()
         if self.read(self.BOOT_ID_CMD) == old_boot_id:
             pytest.exit(
@@ -610,7 +618,7 @@ class Board:
                 "the plug or its supply did not cut power",
                 returncode=2,
             )
-        return on_began, on_command_s
+        return on_began
 
     def _reconnect_if_it_answers(self) -> None:
         """Reconnect the SSHDriver, and carry on if the board does not answer in time."""

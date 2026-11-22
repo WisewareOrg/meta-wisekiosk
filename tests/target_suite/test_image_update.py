@@ -117,8 +117,7 @@ class TestImageUpdate(BoardTest):
             self.record(
                 step_at_cut=progress.step, sectors_written_at_cut=progress.sectors_written - idle.sectors_written
             )
-            on_began, on_command_s = self.board.cut_power()
-            self.record(power_on_command_s=on_command_s)
+            on_began = self.board.cut_power(self.record)
             back_s, last_read = self.board.seconds_until_instance_up(since=on_began)
             returncode, output, seconds = installing.result()
 

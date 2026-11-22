@@ -58,10 +58,10 @@ class TestRestartRecovery(BoardTest):
         ready_s, last_read = self.board.seconds_until_instance_up(since=time.monotonic())
         assert ready_s is not None, f"the instance was not up before the cut; last read: {last_read}"
 
-        on_began, on_command_s = self.board.cut_power()
+        on_began = self.board.cut_power(self.record)
         back_s, last_read = self.board.seconds_until_instance_up(since=on_began)
 
-        self.record(power_on_command_s=on_command_s, back_s=back_s, last_read=last_read)
+        self.record(back_s=back_s, last_read=last_read)
         assert back_s is not None, (
             f"not back within {Board.GIVE_UP_SECONDS} s of power returning; last read: {last_read}"
         )
@@ -77,14 +77,13 @@ class TestRestartRecovery(BoardTest):
         self.record(requirement="TST012")
         page = self.board.app.page
 
-        on_began, on_command_s = self.board.cut_power()
+        on_began = self.board.cut_power(self.record)
         on_panel_s, _ = page.poll(
             until=lambda read: read.instance_loaded_title is not None, within=Board.GIVE_UP_SECONDS, since=on_began
         )
 
         titles = page.last_read.titles if page.last_read else None
         self.record(
-            power_on_command_s=on_command_s,
             on_panel_s=on_panel_s,
             last_titles=titles,
             loaded=page.last_read.instance_loaded_title if page.last_read else None,

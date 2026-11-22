@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_restart_to_the_panel
   path: tests/target_suite/test_restart_recovery.py
-  sha: 7433ff60737c5207ed5e121232813d44bf27230ed31bcea91d8a8415e9122a3e
+  sha: e25ff60d00ec8352f49ad017210dfb66026240af54cfd063beaf30f357c75e11
   type: file
-reviewed: 9kQKDNM59_5vFDpAmXMuGOpZOSZKWHlzYz2D9_tYzkU=
+reviewed: qDqjX3wxYO_V9R3w0ggU8GK8vryNL0wylWMLRWIQoSE=
 status: proposed
 text: |
   Restart the appliance over the network, with nobody at the panel. Pass if, within 60 s of the
