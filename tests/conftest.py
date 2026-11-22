@@ -21,6 +21,7 @@ class Board:
             live file from when it holds none.
         PAGE_URL (str): the WiseKiosk instance's page, as the board fetches it. busybox wget
             returns 0 only on 2xx.
+        PAGE_FETCH_CMD (str): the board command that fetches `PAGE_URL` to stdout.
         PAGE_BOUND_SECONDS (int): how long `wait_for_page` waits for the page.
         PAGE_POLL_INTERVAL_SECONDS (int): the pause between `wait_for_page`'s attempts.
         PAGE_ATTEMPT_TIMEOUT_SECONDS (int): the longest one page fetch may take.
@@ -28,16 +29,19 @@ class Board:
             boot.
         FAULT_SSH_TIMEOUT_SECONDS (int): the backstop on the one-shot ssh that sends `restart_by`'s
             command.
+        BOOT_ID_CMD (str): prints the kernel's boot id, which differs in each boot.
     """
 
     CONFIG_PATH = "/data/config/config.json"
     DEFAULT_CONFIG_PATH = "/usr/share/wisekiosk/config.example.json"
     PAGE_URL = "http://127.0.0.1:8080/"
+    PAGE_FETCH_CMD = f"wget -q -O- {PAGE_URL}"
     PAGE_BOUND_SECONDS = 60
     PAGE_POLL_INTERVAL_SECONDS = 2
     PAGE_ATTEMPT_TIMEOUT_SECONDS = 10
     RESTART_WAIT_SECONDS = 180
     FAULT_SSH_TIMEOUT_SECONDS = 30
+    BOOT_ID_CMD = "cat /proc/sys/kernel/random/boot_id"
 
     def __init__(self, target):
         """Bind to the target's SSHDriver and NetworkService.
@@ -197,8 +201,13 @@ class Board:
         Raises:
             subprocess.TimeoutExpired: the fetch ran past `timeout`.
         """
-        stdout, stderr, returncode = self.run(f"wget -q -O- {self.PAGE_URL}", timeout=timeout)
+        stdout, stderr, returncode = self.run(self.PAGE_FETCH_CMD, timeout=timeout)
         return returncode, "\n".join(stdout + stderr).strip()
+
+    @staticmethod
+    def is_page(returncode, output):
+        """Whether a `PAGE_FETCH_CMD` run's return code and output are an HTML page served."""
+        return returncode == 0 and "<html" in output
 
     def page_served(self, timeout=PAGE_ATTEMPT_TIMEOUT_SECONDS):
         """Read `PAGE_URL` once and report whether it served an HTML page.
@@ -213,7 +222,7 @@ class Board:
             returncode, output = self.fetch_page(timeout=timeout)
         except subprocess.TimeoutExpired:
             return False
-        return returncode == 0 and "<html" in output
+        return self.is_page(returncode, output)
 
     def wait_for_page(self):
         """Poll `PAGE_URL` until it serves an HTML page or `PAGE_BOUND_SECONDS` elapse.
@@ -308,7 +317,7 @@ class Board:
             argv += ["-o", option]
         return [*argv, self.host]
 
-    def restart_by(self, cmd, wait_seconds=RESTART_WAIT_SECONDS):
+    def restart_by(self, cmd, wait_seconds=RESTART_WAIT_SECONDS, boot_cmd=BOOT_ID_CMD):
         """Take the board down with `cmd` over a one-shot ssh, then reconnect in a new boot.
 
         Unlike `restart`, which goes through `just kiosk-reboot`'s 5 s polling, this polls every
@@ -319,15 +328,15 @@ class Board:
         Args:
             cmd (str): the command that restarts or crashes the board.
             wait_seconds (float): how long to wait for the board to answer in a new boot.
+            boot_cmd (str): prints a value that differs in each new boot.
 
         Raises:
-            AssertionError: the opening boot-id read returned nonzero, or the board did not answer
-                in a new boot within `wait_seconds`; the message carries how the ssh
+            AssertionError: the opening `boot_cmd` read returned nonzero, or the board did not
+                answer in a new boot within `wait_seconds`; the message carries how the ssh
                 that sent `cmd` ended.
-            subprocess.TimeoutExpired: reading the boot id before `cmd` ran past its timeout.
+            subprocess.TimeoutExpired: reading `boot_cmd` before `cmd` ran past its timeout.
         """
-        boot_id_cmd = "cat /proc/sys/kernel/random/boot_id"
-        old_boot_id = self.run(boot_id_cmd, check=True)[0][0]
+        old_boot = self.run(boot_cmd, check=True)[0][0]
         self.disconnect()
         try:
             sent = subprocess.run(
@@ -354,8 +363,8 @@ class Board:
                 time.sleep(1)
                 continue
             try:
-                stdout, _stderr, returncode = self.run(boot_id_cmd)
-                if returncode == 0 and stdout and stdout[0] != old_boot_id:
+                stdout, _stderr, returncode = self.run(boot_cmd)
+                if returncode == 0 and stdout and stdout[0] != old_boot:
                     return
             except (ExecutionError, subprocess.TimeoutExpired):
                 pass

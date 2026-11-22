@@ -9,6 +9,7 @@ import pytest
 
 from outage import Outage
 from panel import Panel
+from recovery import BACKEND_DROP_IN_DIR, RELOAD_TIMEOUT_SECONDS
 from replay import CA_PATH, CARDS4_LIVE
 
 _CONFIG_COPY_PATH = "/tmp/kiosk-config.json"
@@ -20,7 +21,13 @@ _HASHED_PATHS = (
     "/boot/cmdline.txt",
 )
 _CA_BOARD_PATH = "/tmp/replay-ca.pem"
-_DROP_IN_PATH = "/run/systemd/system/wisekiosk.service.d/replay.conf"
+_DROP_IN_PATH = f"{BACKEND_DROP_IN_DIR}/replay.conf"
+_BACKEND_SWEEP = (
+    f"if [ -d {BACKEND_DROP_IN_DIR} ] || "
+    '[ "$(systemctl is-enabled wisekiosk.service)" = masked-runtime ]; then '
+    f"rm -rf {BACKEND_DROP_IN_DIR}; systemctl unmask --runtime wisekiosk.service; "
+    "systemctl daemon-reload; systemctl start wisekiosk.service; fi"
+)
 
 
 def pytest_addoption(parser):
@@ -31,7 +38,8 @@ def pytest_addoption(parser):
 def config_across_update(request, board, bench_candidate):
     """Hash the board's config before and after `install_candidate`; writes nothing.
 
-    First unmounts a bind mount a dead run left over the live config path.
+    First clears what a dead run can leave in `/run`: a bind mount over the live config path, the
+    backend's runtime drop-ins and a runtime mask on it.
 
     Args:
         request (pytest.FixtureRequest): runs `install_candidate` between the two hashes.
@@ -44,6 +52,7 @@ def config_across_update(request, board, bench_candidate):
             missing); None when there is no candidate to install.
     """
     board.unmount_if_mounted(board.CONFIG_PATH)
+    board.run(_BACKEND_SWEEP, check=True, timeout=RELOAD_TIMEOUT_SECONDS)
     if bench_candidate is None:
         request.getfixturevalue("install_candidate")
         return None
@@ -147,7 +156,7 @@ def replay_window(board, proxy, set_config, request):
     request.addfinalizer(_remove_ca)
 
     stdout, stderr, returncode = board.run(
-        "mkdir -p /run/systemd/system/wisekiosk.service.d && "
+        f"mkdir -p {BACKEND_DROP_IN_DIR} && "
         f"printf '[Service]\\nEnvironment=HTTPS_PROXY=http://127.0.0.1:{proxy.port}\\n"
         f"Environment=SSL_CERT_FILE={_CA_BOARD_PATH}\\n' > {_DROP_IN_PATH} && "
         "systemctl daemon-reload",
@@ -257,7 +266,6 @@ def outage(board):
 
 
 _POWER_OFF_SECONDS = 10
-_BOOT_ID_CMD = "cat /proc/sys/kernel/random/boot_id"
 
 
 @pytest.fixture
@@ -271,7 +279,7 @@ def power_cut(target, board, request, record_property):
     request.addfinalizer(power.on)
 
     def cut():
-        old_boot_id = board.run(_BOOT_ID_CMD, check=True)[0][0]
+        old_boot_id = board.run(board.BOOT_ID_CMD, check=True)[0][0]
         board.disconnect()
         try:
             power.off()
@@ -282,7 +290,7 @@ def power_cut(target, board, request, record_property):
             pytest.exit(f"the bench's power switch failed: {error}", returncode=2)
         record_property("power_on_command_s", round(time.monotonic() - on_began, 1))
         board.reconnect()
-        if board.run(_BOOT_ID_CMD, check=True)[0][0] == old_boot_id:
+        if board.run(board.BOOT_ID_CMD, check=True)[0][0] == old_boot_id:
             pytest.exit(
                 f"the board answered in the same boot after {_POWER_OFF_SECONDS} s off: "
                 "the plug or its supply did not cut power",

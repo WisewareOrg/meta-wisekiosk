@@ -1,0 +1,28 @@
+active: true
+derived: false
+header: |
+  Browser start during a backend crash
+level: 1.1.10
+links:
+- SRS001: AgauZ0qJaMlOEbRsn-JU3og-7PKri_bZTGf-n179uQk=
+normative: true
+rationale: |
+  A crashed backend leaves a gap in which the browser can start with nothing to load. A browser left
+  on a broken page from that gap stays there after the backend is back, with nobody at the panel to
+  bring the instance back.
+ref: ''
+references:
+- keyword: def test_backend_crash_during_browser_start
+  path: tests/target_suite/test_wisekiosk.py
+  sha: 9a77e2ae020a6d852e8919b08d94f032daa1d2a15f46ff2b19499a81987c016d
+  type: file
+reviewed: x6QFdzqcqFuAR98eFZUEXUKDHvUoCmC3KF0WpVCE6hE=
+status: proposed
+text: |
+  With nobody at the panel, crash the WiseKiosk backend by killing it outright, and have the browser
+  start again while the backend is down. Pass if the WiseKiosk instance is on the panel within 60 s
+  of the backend first answering again.
+verification-justification: |
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
+verification-method: test

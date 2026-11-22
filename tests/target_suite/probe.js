@@ -2,9 +2,9 @@
 // window title, so the probe writes its report there; the host reads it back
 // through xprop. Evaluated by surf in every page load. No network, no storage.
 // Payload: "WK1 " then key=value tokens. nonce is performance.timeOrigin; state
-// is the app's own state; cards is <present>/<live>. Every other token is
-// cumulative from the probe's own start in this page load, times in ms of
-// performance.now():
+// is the app's own state, its unreachable-backend band included; cards is
+// <present>/<live>. Every other token is cumulative from the probe's own start
+// in this page load, times in ms of performance.now():
 //   load    random token drawn once per page load (the page-load identity)
 //   el      this title write
 //   frames  requestAnimationFrame intervals counted
@@ -31,6 +31,9 @@
   function state() {
     if (document.querySelector('[data-configuration-error]')) {
       return 'error:configuration';
+    }
+    if (document.querySelector('[data-backend-unreachable]')) {
+      return 'error:backend-unreachable';
     }
     if (document.querySelector('[data-state="loading"]')) {
       return 'loading';

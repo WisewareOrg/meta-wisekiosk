@@ -8,9 +8,11 @@ links:
 normative: true
 rationale: |
   TST011<!-- Restart to the panel --> settles the warm path only; it skips the cold-power
-  path a real outage takes, which TST012<!-- Cold boot to the panel --> times.
+  path a real outage takes, which TST012<!-- Cold boot to the panel --> times. Neither holds the
+  backend back, so neither sees a browser that starts before the backend answers, which
+  TST033<!-- Backend late at boot --> brings about.
 ref: ''
-reviewed: uTYFpPxTYvHVnjWuZNaKoAdaHtIgeoE1BWDWdO3qikI=
+reviewed: qGbGJfBepvzYpHr3fV7V6TyjRks8nBRZKtJH0pVp_fo=
 status: proposed
 text: |
   After power is applied, the appliance shall bring the WiseKiosk instance onto the panel promptly.

@@ -31,6 +31,26 @@ def _wm_names(xprop_output):
     return [m.group(1) for m in map(_WM_NAME.match, xprop_output.splitlines()) if m]
 
 
+def loaded_instance(titles):
+    """The title of a window surf has finished loading the instance's page into, else None.
+
+    surf titles a window `<indicators>:<indicators> | <page title>`, prefixed `[NN%] ` while the page
+    loads; the instance's page title is `WiseKiosk`.
+    """
+    return next((t for t in titles if t.endswith(" | WiseKiosk") and not t.startswith("[")), None)
+
+
+def finished_load(titles):
+    """The title of a window surf has finished loading a page with a title into, else None.
+
+    A title with no page title after the ` | ` is a window that has loaded nothing yet.
+    """
+    return next(
+        (t for t in titles if not t.startswith("[") and " | " in t and t.split(" | ", 1)[1]),
+        None,
+    )
+
+
 def _probe_sample(xprop_output):
     """The first window title carrying the probe's required fields, as a dict of every token, else None."""
     for line in xprop_output.splitlines():
@@ -49,13 +69,14 @@ class Panel:
     def __init__(self, board):
         self._board = board
 
-    def install(self, request):
+    def install(self, request, restart_browser=True):
         """Load the probe into the browser and return its sha256.
 
         The probe is copied to `/tmp` and bind-mounted over surf's script path, then the browser
-        restarts to load it. Each undo is registered once its step has succeeded, except the
-        browser restart's, registered before the bind mount so teardown unmounts the probe,
-        then restarts the browser, then removes the copy.
+        restarts to load it; with `restart_browser` False the next load surf finishes loads it.
+        Each undo is registered once its step has succeeded, except the browser
+        restart's, registered before the bind mount so teardown unmounts the probe, then restarts
+        the browser, then removes the copy.
         """
         board = self._board
         board.put(str(_PROBE_SRC), _PROBE_COPY_PATH)
@@ -68,7 +89,8 @@ class Panel:
         board.run(f"mount --bind {_PROBE_COPY_PATH} {_SURF_SCRIPT_PATH}", check=True)
         request.addfinalizer(lambda: board.unmount_if_mounted(_SURF_SCRIPT_PATH))
 
-        board.run("systemctl restart kiosk.service", check=True)
+        if restart_browser:
+            board.run("systemctl restart kiosk.service", check=True)
 
         return hashlib.sha256(_PROBE_SRC.read_bytes()).hexdigest()
 
@@ -94,6 +116,13 @@ class Panel:
         """
         stdout, _stderr, _returncode = self._board.run(_TITLES_WALK)
         return _wm_names("\n".join(stdout))
+
+    def titles_or_none(self):
+        """`titles`, or None when the read failed."""
+        try:
+            return self.titles()
+        except (subprocess.TimeoutExpired, ExecutionError):
+            return None
 
     def wait_on_panel(self, timeout_s=_PANEL_WAIT_SECONDS):
         """Poll until the instance is on the panel; return that read's (uptime, sample)."""

@@ -1,0 +1,28 @@
+active: true
+derived: false
+header: |
+  Backend late at boot
+level: 1.4.3
+links:
+- SRS004: Aix-S9_gDofPbc40R8z3Pydoucj7p1TPvoqFCSfRPJM=
+normative: true
+rationale: |
+  At power-on the browser can start before the backend answers. A browser left on its own error
+  page keeps the instance off the panel, and with nobody at the panel nobody brings it back.
+ref: ''
+references:
+- keyword: def test_backend_late_at_boot
+  path: tests/target_suite/test_restart_recovery.py
+  sha: 05dc660e7d8a1765ff2b054a8e70805a3c6608f58b2ce711930569867defe4ec
+  type: file
+reviewed: 8f-5Qvm7nJW2IRCBcmEPooEX7Lt7z5zlGHEYgTh6GaM=
+status: proposed
+text: |
+  With nobody at the panel, restart the appliance with the WiseKiosk backend held back from starting
+  until after the browser has started. Pass if the WiseKiosk instance is on the panel within 60 s
+  of the backend first answering.
+verification-justification: |
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement. The restart is of the appliance's userspace only, because that is the restart
+  the backend can be held across with nothing written to the appliance's storage.
+verification-method: test
