@@ -2,7 +2,7 @@
 
 import time
 
-from board.network.outage import Outage
+from board.network.outage import Outage, OutageRecord
 from board_test import BoardTest
 
 _OUTAGE_SECONDS = 60
@@ -33,35 +33,34 @@ class TestNetwork(BoardTest):
         shells_before_cut = 0
         shells_during_outage = 0
         rejoined_s = None
-        cut_at = restored_at = None
-        lines = []
+        record = OutageRecord.from_lines([])
         while time.monotonic() < deadline:
             shell = outage.read_record_over_fresh_ssh()
             last_attempt = shell.ended
             if shell.record is None:
                 time.sleep(1)
                 continue
-            cut_at, restored_at, lines = shell.record
-            if cut_at is None or shell.uptime_s < cut_at:
+            record = shell.record
+            if record.cut is None or shell.uptime_s < record.cut:
                 shells_before_cut += 1
-            elif restored_at is None:
+            elif record.restored is None:
                 shells_during_outage += 1
                 break
             else:
                 # Board uptime at both ends; overstates by up to one poll plus one connect attempt.
-                rejoined_s = round(shell.uptime_s - restored_at, 1)
+                rejoined_s = round(shell.uptime_s - record.restored, 1)
                 break
             time.sleep(1)
 
         self.record(
             outage_s=_OUTAGE_SECONDS,
-            cut_uptime_s=cut_at,
-            t0_uptime_s=restored_at,
+            cut_uptime_s=record.cut,
+            t0_uptime_s=record.restored,
             rejoined_s=rejoined_s,
             shells_before_cut=shells_before_cut,
             shells_during_outage=shells_during_outage,
             last_attempt=last_attempt,
-            trace=[line for line in lines if line.startswith("trace ")],
+            trace=[line for line in record.lines if line.startswith("trace ")],
         )
         if rejoined_s is None and shells_during_outage == 0:
             self.record(journal_trace=outage.journal(boot_id))

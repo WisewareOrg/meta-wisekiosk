@@ -35,26 +35,14 @@ class OutageRecord(NamedTuple):
             lines: the record's lines, as the board holds them.
 
         Returns:
-            The record; a field with no line is None.
+            The record, from the first `cut` line and the first `t0` line; a field with no line is None.
         """
-        return cls(cls._number_after(lines, "cut"), cls._number_after(lines, "t0"), lines)
-
-    @staticmethod
-    def _number_after(lines: list[str], name: str) -> float | None:
-        """The number after the first `name` line of the record.
-
-        Args:
-            lines: the record's lines.
-            name: the line's first word.
-
-        Returns:
-            The number, or None if there is no such line.
-        """
+        first = {}
         for line in lines:
             fields = line.split()
-            if fields[:1] == [name]:
-                return float(fields[1])
-        return None
+            if fields[:1] in (["cut"], ["t0"]) and fields[0] not in first:
+                first[fields[0]] = float(fields[1])
+        return cls(first.get("cut"), first.get("t0"), lines)
 
 
 class FreshShellRead(NamedTuple):
