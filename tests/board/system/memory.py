@@ -36,27 +36,21 @@ class Memory(Part):
         stdout = self._board.run("cat /proc/meminfo", check=True, retry_for=self._board.READ_RETRY_SECONDS).stdout
         return {line.split(":")[0]: int(line.split()[1]) for line in stdout if ":" in line}
 
-    def oom_kills_this_boot(self, since: float) -> OomKills:
-        """Read this boot's kernel log for processes killed for memory.
+    def oom_kills_in_journal(self, since: float, previous_boot: bool = False) -> OomKills:
+        """Read a boot's kernel log for processes killed for memory.
 
         Args:
-            since: the board uptime from which a kill counts.
+            since: the boot's uptime from which a kill counts.
+            previous_boot: read the boot before this one, not this one.
 
         Returns:
             The read's return code and the kills' uptimes.
         """
-        return self._kernel_log_kills("-b", since)
-
-    def oom_kills_previous_boot(self, since: float) -> OomKills:
-        """Read the previous boot's kernel log for processes killed for memory.
-
-        Args:
-            since: the previous boot's uptime from which a kill counts.
-
-        Returns:
-            The read's return code and the kills' uptimes.
-        """
-        return self._kernel_log_kills("-b -1", since)
+        journal = self._board.run(
+            f"journalctl -k {'-b -1' if previous_boot else '-b'} -o short-monotonic --no-pager",
+            retry_for=self._board.READ_RETRY_SECONDS,
+        )
+        return OomKills(journal.returncode, self._uptimes_since(journal.stdout, since))
 
     def oom_kills_in_pstore(self, since: float) -> OomKills:
         """Read the previous boot's kernel console tail in pstore for processes killed for memory.
@@ -75,21 +69,6 @@ class Memory(Part):
             retry_for=self._board.READ_RETRY_SECONDS,
         )
         return OomKills(console.returncode, self._uptimes_since(console.stdout, since))
-
-    def _kernel_log_kills(self, boot_flag: str, since: float) -> OomKills:
-        """Read the kernel log of the boot `boot_flag` names for processes killed for memory.
-
-        Args:
-            boot_flag: `journalctl`'s boot selection.
-            since: the board uptime from which a kill counts.
-
-        Returns:
-            The read's return code and the kills' uptimes.
-        """
-        journal = self._board.run(
-            f"journalctl -k {boot_flag} -o short-monotonic --no-pager", retry_for=self._board.READ_RETRY_SECONDS
-        )
-        return OomKills(journal.returncode, self._uptimes_since(journal.stdout, since))
 
     @staticmethod
     def _uptimes_since(lines: list[str], since: float) -> list[float]:

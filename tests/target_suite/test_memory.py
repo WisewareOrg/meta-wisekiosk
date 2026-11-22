@@ -72,7 +72,7 @@ class TestMemory(BoardTest):
         lines, peak, peak_at, oom_count, end_mem = [], 0.0, None, 0, {}
         try:
             if rebooted:
-                journal_kills = memory.oom_kills_previous_boot(start_uptime)
+                journal_kills = memory.oom_kills_in_journal(start_uptime, previous_boot=True)
                 console_kills = memory.oom_kills_in_pstore(start_uptime)
                 oom = sorted({*journal_kills.uptimes, *console_kills.uptimes})
                 returncode = journal_kills.returncode or console_kills.returncode
@@ -86,7 +86,7 @@ class TestMemory(BoardTest):
                     )
                 oom_count = len(oom)
             else:
-                kills = memory.oom_kills_this_boot(start_uptime)
+                kills = memory.oom_kills_in_journal(start_uptime)
                 if kills.returncode != 0:
                     problems.append("the kernel log could not be read")
                 oom_count = len(kills.uptimes)
