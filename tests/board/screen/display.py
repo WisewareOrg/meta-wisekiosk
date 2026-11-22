@@ -180,10 +180,10 @@ class Display:
         Returns:
             Its arguments, the program first.
         """
-        pids = " ".join(self._board.run("pidof Xorg").lines).split()
+        pids = " ".join(self._board.run("pidof Xorg").stdout).split()
         assert pids, "X is not running"
         assert len(pids) == 1, f"more than one X: {pids}"
-        return self._board.run(f"tr '\\0' '\\n' < /proc/{pids[0]}/cmdline", check=True).lines
+        return self._board.run(f"tr '\\0' '\\n' < /proc/{pids[0]}/cmdline", check=True).stdout
 
     def window_layout(self) -> WindowLayout:
         """Read the outputs X drives and its top-level windows, in one command.
@@ -191,7 +191,7 @@ class Display:
         Returns:
             The layout, with the raw text of both reads.
         """
-        stdout = self._board.run(_LAYOUT_READ, check=True).lines
+        stdout = self._board.run(_LAYOUT_READ, check=True).stdout
         split = stdout.index(_SEPARATOR)
         xrandr, window_lines = stdout[:split], stdout[split + 1 :]
         outputs = [
@@ -206,7 +206,7 @@ class Display:
         Returns:
             The mode, with `xrandr`'s raw output.
         """
-        stdout = self._board.run("DISPLAY=:0 xrandr --current", check=True).lines
+        stdout = self._board.run("DISPLAY=:0 xrandr --current", check=True).stdout
         current = [line.strip() for line in stdout if "*" in line]
         mode = _MODE.match(current[0]) if current else None
         width, height = (int(mode.group(1)), int(mode.group(2))) if mode else (None, None)
@@ -218,7 +218,7 @@ class Display:
         Returns:
             The settings, with `xset q`'s raw output.
         """
-        return XsetQuery("\n".join(self._board.run("DISPLAY=:0 xset q", check=True).lines))
+        return XsetQuery("\n".join(self._board.run("DISPLAY=:0 xset q", check=True).stdout))
 
     @staticmethod
     def _parse_windows(lines: list[str]) -> list[Window]:

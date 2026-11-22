@@ -53,12 +53,12 @@ class Clock:
             The reading, kept as `last_reading`; None if the read failed.
         """
         try:
-            result = self._board.run("cat /proc/uptime; date +%s")
+            result = self._board.run("date +%s", with_uptime=True)
         except subprocess.TimeoutExpired:
             return None
         if result.returncode != 0:
             return None
-        self.last_reading = ClockReading(float(result.lines[0].split()[0]), int(result.lines[1].strip()) - time.time())
+        self.last_reading = ClockReading(result.uptime_s, int(result.stdout[0].strip()) - time.time())
         return self.last_reading
 
     def set(self, epoch: int) -> None:
@@ -88,7 +88,7 @@ class Clock:
             nothing this boot.
         """
         journal = self._board.run("journalctl -q -b SYSLOG_IDENTIFIER=systemd-timesyncd -o json --no-pager", check=True)
-        entries = [line for line in journal.lines + journal.stderr if line.startswith("{")]
+        entries = [line for line in journal.stdout + journal.stderr if line.startswith("{")]
         if not entries:
             return None
         return time.time() - int(json.loads(entries[0])["__REALTIME_TIMESTAMP"]) / 1e6
@@ -100,7 +100,7 @@ class Clock:
             The journal's lines, joined.
         """
         journal = self._board.run("journalctl -b -u systemd-timesyncd --no-pager", check=True)
-        return "\n".join(journal.lines + journal.stderr)
+        return "\n".join(journal.stdout + journal.stderr)
 
     def _put_right(self) -> None:
         """Set the clock to the host's if it is more than `_PUT_RIGHT_ABOVE_SECONDS` off."""

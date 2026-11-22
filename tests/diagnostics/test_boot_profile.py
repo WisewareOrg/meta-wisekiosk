@@ -51,7 +51,7 @@ def _boot_id(board: Board) -> str:
         The boot id.
     """
     result = board.run("cat /proc/sys/kernel/random/boot_id", timeout=None, check=True)
-    output = result.lines + result.stderr
+    output = result.stdout + result.stderr
     boot_id = "".join(output).strip()
     assert boot_id, "empty boot id -- refusing to run blind"
     return boot_id
@@ -92,7 +92,7 @@ def test_boot_profile(request: pytest.FixtureRequest, board: Board) -> None:
         leftover = []
         while True:
             board.connect()
-            active_out = board.run(f"systemctl is-active {_UNIT_NAME}", timeout=None).lines
+            active_out = board.run(f"systemctl is-active {_UNIT_NAME}", timeout=None).stdout
             rc_bin = board.run(f"test -e {BOARD_BINARY_PATH}", timeout=None).returncode
             rc_unit = board.run(f"test -e {_UNIT_REMOTE}", timeout=None).returncode
             rc_link = board.run(f"test -e {_ENABLE_LINK}", timeout=None).returncode
@@ -173,7 +173,7 @@ def test_boot_profile(request: pytest.FixtureRequest, board: Board) -> None:
     assert journal.returncode == 0, (
         f"journalctl -b {journal_id} failed (rc {journal.returncode}): {chr(10).join(journal.stderr)}"
     )
-    journal_text = "\n".join(journal.lines)
+    journal_text = "\n".join(journal.stdout)
     assert journal_text.strip(), f"journal for boot {journal_id} is empty"
     (outdir / f"{stem}.journal.txt").write_text(journal_text + "\n")
 

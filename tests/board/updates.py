@@ -275,13 +275,12 @@ class Updates:
             result = self._board.run(f"{_PROGRESS_CMD}; cat /sys/class/block/{os.path.basename(device)}/stat")
         except self._board.ERRORS:
             return None
-        stdout = result.lines
-        if result.returncode != 0 or len(stdout) != 2:
+        if result.returncode != 0 or len(result.stdout) != 2:
             return None
-        progress = re.fullmatch(r'\(isi\) \d+ "(.*)" \d+', stdout[0].strip())
+        progress = re.fullmatch(r'\(isi\) \d+ "(.*)" \d+', result.stdout[0].strip())
         if progress is None:
             return None
-        return InstallProgress(progress[1], int(stdout[1].split()[_STAT_SECTORS_WRITTEN]))
+        return InstallProgress(progress[1], int(result.stdout[1].split()[_STAT_SECTORS_WRITTEN]))
 
     @staticmethod
     def is_copying(progress: InstallProgress | None, since: int) -> bool:
@@ -302,7 +301,7 @@ class Updates:
         Returns:
             The boot ids, without dashes.
         """
-        stdout = self._board.run("journalctl --list-boots -o json", check=True, timeout=None).lines
+        stdout = self._board.run("journalctl --list-boots -o json", check=True, timeout=None).stdout
         return {boot["boot_id"] for boot in json.loads("\n".join(stdout))}
 
     def _restore_candidate(self, candidate: "CandidateBundles") -> None:

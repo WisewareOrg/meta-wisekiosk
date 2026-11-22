@@ -34,7 +34,7 @@ class Timezone:
         board = self._board
         board.run("while findmnt -n /etc >/dev/null; do umount -l /etc || exit 1; done", check=True)
         board.run(f"rm -rf {_RUN_DIR}", check=True)
-        original = board.run("readlink /etc/localtime", check=True).lines[0].strip()
+        original = board.run("readlink /etc/localtime", check=True).stdout[0].strip()
         board.run("modprobe overlay", check=True)
         board.run(f"mkdir -p {_RUN_DIR}/upper {_RUN_DIR}/work", check=True)
         board.cleanup.callback(board.run, f"rm -rf {_RUN_DIR}", check=True)
@@ -60,7 +60,7 @@ class Timezone:
         Returns:
             The offset, e.g. `+0900`.
         """
-        return self._board.run("date +%z", check=True).lines[0].strip()
+        return self._board.run("date +%z", check=True).stdout[0].strip()
 
     def local_time(self) -> str:
         """Read the local time with its offset and zone.
@@ -68,7 +68,7 @@ class Timezone:
         Returns:
             The time, as `date '+%Y-%m-%dT%H:%M:%S%z %Z'` prints it.
         """
-        return self._board.run("date '+%Y-%m-%dT%H:%M:%S%z %Z'", check=True).lines[0].strip()
+        return self._board.run("date '+%Y-%m-%dT%H:%M:%S%z %Z'", check=True).stdout[0].strip()
 
     def _unmount_etc(self, original: str) -> None:
         """Stop timedated and unmount the /etc overlay; assert it is gone and `/etc/localtime` is as it was.
@@ -79,5 +79,5 @@ class Timezone:
         self._board.run("systemctl stop systemd-timedated")
         self._board.run("umount -l /etc", check=True)
         assert self._board.run("findmnt -n /etc").returncode != 0, "the /etc overlay is still mounted"
-        restored = self._board.run("readlink /etc/localtime", check=True).lines[0].strip()
+        restored = self._board.run("readlink /etc/localtime", check=True).stdout[0].strip()
         assert restored == original, f"/etc/localtime is {restored}, expected {original}"

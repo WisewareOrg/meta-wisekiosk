@@ -131,7 +131,9 @@ class Outage:
         Returns:
             The record; empty if the board holds none.
         """
-        return OutageRecord.from_lines(self._board.run(f"cat {self.RECORD_PATH} 2>/dev/null || true", check=True).lines)
+        return OutageRecord.from_lines(
+            self._board.run(f"cat {self.RECORD_PATH} 2>/dev/null || true", check=True).stdout
+        )
 
     def read_record_over_fresh_ssh(self) -> FreshShellRead:
         """Open a new ssh shell on the board, apart from the SSHDriver, and read the record over it.
@@ -173,8 +175,8 @@ class Outage:
         )
         if journal.returncode != 0:
             return [f"journalctl rc {journal.returncode}", *journal.stderr]
-        last_run = max((n for n, line in enumerate(journal.lines) if line.startswith("id ")), default=0)
-        return journal.lines[last_run:]
+        last_run = max((n for n, line in enumerate(journal.stdout) if line.startswith("id ")), default=0)
+        return journal.stdout[last_run:]
 
     def _unpin(self) -> None:
         """Release the network the record names from the bssid the script pinned it to."""

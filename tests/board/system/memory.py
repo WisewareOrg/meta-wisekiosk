@@ -42,7 +42,7 @@ class Memory:
         Returns:
             Each field in kB, by name.
         """
-        stdout = self._board.run("cat /proc/meminfo", check=True, retry_for=self._board.READ_RETRY_SECONDS).lines
+        stdout = self._board.run("cat /proc/meminfo", check=True, retry_for=self._board.READ_RETRY_SECONDS).stdout
         return {line.split(":")[0]: int(line.split()[1]) for line in stdout if ":" in line}
 
     def oom_kills_this_boot(self, since: float) -> OomKills:
@@ -83,7 +83,7 @@ class Memory:
             "cat /sys/fs/pstore/console-ramoops-0",
             retry_for=self._board.READ_RETRY_SECONDS,
         )
-        return OomKills(console.returncode, self._uptimes_since(console.lines, since))
+        return OomKills(console.returncode, self._uptimes_since(console.stdout, since))
 
     def _kernel_log_kills(self, boot_flag: str, since: float) -> OomKills:
         """Read the kernel log of the boot `boot_flag` names for processes killed for memory.
@@ -98,7 +98,7 @@ class Memory:
         journal = self._board.run(
             f"journalctl -k {boot_flag} -o short-monotonic --no-pager", retry_for=self._board.READ_RETRY_SECONDS
         )
-        return OomKills(journal.returncode, self._uptimes_since(journal.lines, since))
+        return OomKills(journal.returncode, self._uptimes_since(journal.stdout, since))
 
     @staticmethod
     def _uptimes_since(lines: list[str], since: float) -> list[float]:

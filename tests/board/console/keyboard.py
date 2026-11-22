@@ -157,7 +157,7 @@ class Keyboard:
         Returns:
             The record and its parse.
         """
-        lines = self._board.run(f"cat {_DIR}/record 2>/dev/null || true", check=True).lines
+        lines = self._board.run(f"cat {_DIR}/record 2>/dev/null || true", check=True).stdout
         prompts = self._fields_of(lines, "prompt")
         return KeyboardRecord(
             lines,
@@ -171,7 +171,7 @@ class Keyboard:
         Returns:
             The marker and its first line's fields.
         """
-        lines = self._board.run(f"cat {_DIR}/marker 2>/dev/null || true", check=True).lines
+        lines = self._board.run(f"cat {_DIR}/marker 2>/dev/null || true", check=True).stdout
         return TypedMarker(lines, lines[0].split() if lines else [])
 
     def journal(self) -> str:
@@ -180,7 +180,7 @@ class Keyboard:
         Returns:
             The journal's lines, joined.
         """
-        return "\n".join(self._board.run(f"journalctl -u {_UNIT} -o cat --no-pager").lines)
+        return "\n".join(self._board.run(f"journalctl -u {_UNIT} -o cat --no-pager").stdout)
 
     @staticmethod
     def _marker_command(nonce: str) -> str:

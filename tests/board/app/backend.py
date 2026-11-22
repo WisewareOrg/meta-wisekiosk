@@ -151,8 +151,8 @@ class Backend:
         Returns:
             The stdout lines of `systemctl is-enabled` and of `systemctl is-active` for it.
         """
-        enabled = self._board.run("systemctl is-enabled wisekiosk.service").lines
-        active = self._board.run("systemctl is-active wisekiosk.service").lines
+        enabled = self._board.run("systemctl is-enabled wisekiosk.service").stdout
+        active = self._board.run("systemctl is-active wisekiosk.service").stdout
         return enabled, active
 
     def unmask_and_start(self) -> None:

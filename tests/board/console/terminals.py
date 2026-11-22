@@ -28,7 +28,7 @@ class Terminals:
         Returns:
             The terminal's number.
         """
-        return self._board.run("fgconsole", check=True).lines[0].strip()
+        return self._board.run("fgconsole", check=True).stdout[0].strip()
 
     def bring_vt1_forward(self, when: str, record: "Record") -> None:
         """Make vt1 the foreground terminal, restarting `kiosk.service` (whose X takes vt1) if it is not.
@@ -53,10 +53,10 @@ class Terminals:
         """
         record(
             **{
-                f"xorg_pid_{when}": " ".join(self._board.run("pidof Xorg").lines),
+                f"xorg_pid_{when}": " ".join(self._board.run("pidof Xorg").stdout),
                 f"kiosk_nrestarts_{when}": self._board.run(
                     "systemctl show -p NRestarts --value kiosk.service", check=True
-                ).lines[0],
+                ).stdout[0],
             }
         )
 

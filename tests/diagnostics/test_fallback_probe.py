@@ -25,7 +25,7 @@ def _booted_bootname(board: Board) -> str:
     Returns:
         The bootname.
     """
-    stdout = board.run("rauc status --output-format=json", check=True, timeout=None).lines
+    stdout = board.run("rauc status --output-format=json", check=True, timeout=None).stdout
     return json.loads("\n".join(stdout))["booted"]
 
 

@@ -97,7 +97,7 @@ class Captures:
             f"echo rc=$?; stat -c %s {_CAPTURE_PATH}; sha256sum {_CAPTURE_PATH}"
         )
         try:
-            stdout = self._board.run(cmd).lines
+            stdout = self._board.run(cmd).stdout
         except subprocess.TimeoutExpired:
             return None, None
         uptime_s = float(stdout[0].split()[0])

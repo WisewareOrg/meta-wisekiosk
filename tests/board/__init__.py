@@ -53,13 +53,13 @@ class CommandResult(NamedTuple):
     """What one command on the board printed and returned.
 
     Attributes:
-        lines: the stdout lines.
+        stdout: the stdout lines.
         stderr: the stderr lines.
         returncode: the return code.
         uptime_s: the board's uptime just before the command, when it was asked for.
     """
 
-    lines: list[str]
+    stdout: list[str]
     stderr: list[str]
     returncode: int
     uptime_s: float | None = None
@@ -71,7 +71,7 @@ class CommandResult(NamedTuple):
         Returns:
             The text.
         """
-        return "\n".join(self.lines).strip()
+        return "\n".join(self.stdout).strip()
 
 
 class Board:
@@ -186,11 +186,11 @@ class Board:
                 `cmd`.
 
         Returns:
-            The command's stdout lines (after the uptime line, `with_uptime`), stderr lines, return code
-            and, `with_uptime`, the board's uptime in seconds.
+            The command's stdout lines (after the uptime line when `with_uptime` is set), stderr lines,
+            return code and, when `with_uptime` is set, the board's uptime in seconds.
 
         Raises:
-            ExecutionError: `with_uptime`, and stdout carries no uptime line, so the session failed;
+            ExecutionError: `with_uptime` is set and stdout carries no uptime line, so the session failed;
                 `poll` takes it as a failed read.
         """
         ssh_run = self._ssh.run
@@ -342,7 +342,7 @@ class Board:
             The temperature in degrees Celsius, or None if it could not be read.
         """
         result = self.run("cat /sys/class/thermal/thermal_zone0/temp")
-        return int(result.lines[0]) / 1000 if result.returncode == 0 and result.lines else None
+        return int(result.stdout[0]) / 1000 if result.returncode == 0 and result.stdout else None
 
     def write_log_marker(self, text: str) -> None:
         """Write `text` to the board's journal under the identifier `kiosk-log-marker`.
@@ -359,7 +359,7 @@ class Board:
             The lines, or None if `journalctl` returned nonzero.
         """
         result = self.run("journalctl -t kiosk-log-marker -o cat")
-        return result.lines if result.returncode == 0 else None
+        return result.stdout if result.returncode == 0 else None
 
     def builtin_modules(self) -> list[str]:
         """Read the kernel modules built into the running kernel.
@@ -367,7 +367,7 @@ class Board:
         Returns:
             The lines of its `modules.builtin`.
         """
-        return self.run("cat /lib/modules/$(uname -r)/modules.builtin", check=True).lines
+        return self.run("cat /lib/modules/$(uname -r)/modules.builtin", check=True).stdout
 
     def boot_order(self) -> BootOrder:
         """Read BOOT_ORDER and each slot's BOOT_x_LEFT from `fw_printenv`.
@@ -375,7 +375,7 @@ class Board:
         Returns:
             The boot order, and the attempts left per bootname.
         """
-        stdout = self.run(self.BOOT_VARIABLES_CMD, check=True).lines
+        stdout = self.run(self.BOOT_VARIABLES_CMD, check=True).stdout
         variables = dict(line.split("=", 1) for line in stdout)
         attempts_left = {name: int(variables[f"BOOT_{name}_LEFT"]) for name in ("A", "B")}
         return BootOrder(variables["BOOT_ORDER"].split(), attempts_left)
@@ -387,10 +387,9 @@ class Board:
             The commit named by the meta-wisekiosk line of /etc/buildinfo.
         """
         result = self.run("cat /etc/buildinfo", timeout=None)
-        stdout = result.lines
         assert result.returncode == 0, "could not read /etc/buildinfo on the board"
-        line = next((entry for entry in stdout if entry.split()[:2] == ["meta-wisekiosk", "="]), None)
-        assert line is not None, f"no meta-wisekiosk layer line in buildinfo:\n{chr(10).join(stdout)}"
+        line = next((entry for entry in result.stdout if entry.split()[:2] == ["meta-wisekiosk", "="]), None)
+        assert line is not None, f"no meta-wisekiosk layer line in buildinfo:\n{chr(10).join(result.stdout)}"
         return line.split()[2].rsplit(":", 1)[-1]
 
     def file_sha256(self, path: str) -> str | None:
@@ -405,7 +404,7 @@ class Board:
         result = self.run(f"sha256sum {path}")
         if result.returncode != 0:
             return None
-        return result.lines[0].split()[0]
+        return result.stdout[0].split()[0]
 
     def fetch_page(self, timeout: float = PAGE_ATTEMPT_TIMEOUT_SECONDS) -> tuple[int, str]:
         """Fetch the WiseKiosk instance's page on the board once.
@@ -417,7 +416,7 @@ class Board:
             The return code, and the stdout and stderr joined by newlines, stripped.
         """
         result = self.run(self.PAGE_FETCH_CMD, timeout=timeout)
-        return result.returncode, "\n".join(result.lines + result.stderr).strip()
+        return result.returncode, "\n".join(result.stdout + result.stderr).strip()
 
     @staticmethod
     def is_page(returncode: int, output: str) -> bool:

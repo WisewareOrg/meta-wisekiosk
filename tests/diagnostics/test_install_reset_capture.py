@@ -33,10 +33,9 @@ def _booted_slot(board: Board) -> str:
         The `Booted from:` line.
     """
     result = board.run("rauc status", timeout=None)
-    stdout = result.lines
     assert result.returncode == 0, "rauc status failed"
-    line = next((entry for entry in stdout if entry.startswith("Booted from:")), None)
-    assert line is not None, f"no booted slot in rauc status:\n{chr(10).join(stdout)}"
+    line = next((entry for entry in result.stdout if entry.startswith("Booted from:")), None)
+    assert line is not None, f"no booted slot in rauc status:\n{chr(10).join(result.stdout)}"
     return line
 
 

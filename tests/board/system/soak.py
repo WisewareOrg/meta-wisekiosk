@@ -61,7 +61,7 @@ class Soak:
         stdout = self._board.run(
             f"tail -n {period // _INTERVAL_SECONDS + _TAIL_MARGIN} {_LOG_PATH} 2>/dev/null; true",
             retry_for=self._board.READ_RETRY_SECONDS,
-        ).lines
+        ).stdout
         samples = [self._fields(line) for line in stdout]
         return [sample for sample in samples if sample.get("boot") == boot[:8] and start <= float(sample["up"]) <= end]
 
@@ -97,7 +97,7 @@ class Soak:
         """
         stdout = self._board.run(
             f"cut -c1-8 /proc/sys/kernel/random/boot_id; tail -n {_WINDOW_TAIL_LINES} {_LOG_PATH} 2>/dev/null; true"
-        ).lines
+        ).stdout
         boot = stdout[0]
         samples = [self._fields(line) for line in stdout[1:]]
         return [sample for sample in samples if sample.get("boot") == boot and start <= float(sample["up"]) <= end]

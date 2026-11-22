@@ -198,7 +198,7 @@ def _browser_pid(board: Board) -> str:
             The pid, or None if the browser is not running.
         """
         pgrep = board.run("pgrep -x surf")
-        return pgrep.lines[0].strip() if pgrep.returncode == 0 and pgrep.lines else None
+        return pgrep.stdout[0].strip() if pgrep.returncode == 0 and pgrep.stdout else None
 
     found_s, pid = board.poll(surf_pid, until=bool, within=_BROWSER_WAIT_SECONDS, every=_BROWSER_POLL_SECONDS)
     assert found_s is not None, "the browser never appeared"
@@ -229,7 +229,7 @@ def device_context(target: Target, record_property: Callable[[str, object], None
             "boot_id": board.run(Board.BOOT_ID_CMD, check=True).text,
             "uptime_s": float(board.run("cat /proc/uptime", check=True).text.split()[0]),
             "kernel": board.run("uname -r", check=True).text,
-            "file_sha256": "\n".join(sums.lines),
+            "file_sha256": "\n".join(sums.stdout),
             "browser_cmdline_sha256": board.run(f"sha256sum /proc/{pid}/cmdline", check=True).text.split()[0],
             "browser_webkit_env": ",".join(line for line in environ if line.startswith("WEBKIT_")),
             "display_mode": next((line.strip() for line in xrandr if "*" in line), ""),
