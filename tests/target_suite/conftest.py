@@ -9,6 +9,7 @@ import pytest
 
 from outage import Outage
 from panel import Panel
+from power_cut import cut_power
 from recovery import BACKEND_DROP_IN_DIR, RELOAD_TIMEOUT_SECONDS
 from replay import CA_PATH, CARDS4_LIVE
 
@@ -265,37 +266,9 @@ def outage(board):
     return Outage(board)
 
 
-_POWER_OFF_SECONDS = 10
-
-
 @pytest.fixture
 def power_cut(target, board, request, record_property):
-    """Return `cut()`, which cuts and restores the board's power.
-
-    `cut()` returns the host `time.monotonic()` at which the `on` command started: power returns no
-    earlier, so a time taken from it errs high. Power is switched on again at teardown.
-    """
+    """Return `cut()`, which runs `cut_power` (power_cut.py) on the board; power is switched on again at teardown."""
     power = target.get_driver("ExternalPowerDriver")
     request.addfinalizer(power.on)
-
-    def cut():
-        old_boot_id = board.run(board.BOOT_ID_CMD, check=True)[0][0]
-        board.disconnect()
-        try:
-            power.off()
-            time.sleep(_POWER_OFF_SECONDS)
-            on_began = time.monotonic()
-            power.on()
-        except (subprocess.CalledProcessError, OSError) as error:
-            pytest.exit(f"the bench's power switch failed: {error}", returncode=2)
-        record_property("power_on_command_s", round(time.monotonic() - on_began, 1))
-        board.reconnect()
-        if board.run(board.BOOT_ID_CMD, check=True)[0][0] == old_boot_id:
-            pytest.exit(
-                f"the board answered in the same boot after {_POWER_OFF_SECONDS} s off: "
-                "the plug or its supply did not cut power",
-                returncode=2,
-            )
-        return on_began
-
-    return cut
+    return lambda: cut_power(board, power, record_property)
