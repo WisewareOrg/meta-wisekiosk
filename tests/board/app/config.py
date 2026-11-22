@@ -1,55 +1,12 @@
 """The config the WiseKiosk app runs with."""
 
 import os
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING
 
 from board.part import Part
 
 if TYPE_CHECKING:
     from record import Record
-
-
-class ConfigHashes(NamedTuple):
-    """The live config's hashes on either side of a fault, and the image default's.
-
-    Attributes:
-        before: the sha256 of the live config before the fault, None if it was missing.
-        after: the sha256 of the live config after the fault, None if it was missing.
-        default: the sha256 of the image default the board reseeds the live config from, None if it
-            was missing.
-    """
-
-    before: str | None
-    after: str | None
-    default: str | None
-
-    def assert_held(self, record: "Record") -> None:
-        """Assert the config held across the fault, and that a loss would have been seen.
-
-        Records `validity` first: invalid when the board held no config to keep, or held the image
-        default (or the default was unreadable) and kept it, so a loss and a reseed would look alike.
-
-        Args:
-            record: the test's record.
-        """
-        if self.before is None:
-            validity = "invalid: the board held no config.json to keep"
-        elif self.after != self.before:
-            validity = "valid"
-        elif self.default is None or self.before == self.default:
-            validity = "invalid: the board's config is the image default, or the default is unreadable"
-        else:
-            validity = "valid"
-        record(validity=validity)
-        assert self.before is not None, "INVALID CHECK, not an appliance failure: the board held no config.json to keep"
-        assert self.after == self.before, (
-            f"config held {'missing' if self.after is None else self.after}, expected the {self.before} it held before"
-        )
-        assert self.default is not None, "INVALID CHECK, not an appliance failure: the image default could not be read"
-        assert self.before != self.default, (
-            "INVALID CHECK, not an appliance failure: the board's config is the image default, "
-            "so losing it would go unseen"
-        )
 
 
 class Config(Part):
@@ -77,6 +34,40 @@ class Config(Part):
             The hash, or None if the file is missing or unreadable.
         """
         return self._sha256(self._DEFAULT_PATH)
+
+    def assert_held(self, before: str | None, after: str | None, default: str | None, record: "Record") -> None:
+        """Assert the live config held across a fault, and that a loss would have been seen.
+
+        Records the three hashes, then `validity`: invalid when the board held no config to keep, or held
+        the image default (or the default was unreadable) and kept it, so a loss and a reseed would look
+        alike.
+
+        Args:
+            before: the sha256 of the live config before the fault, None if it was missing.
+            after: the sha256 of the live config after the fault, None if it was missing.
+            default: the sha256 of the image default the board reseeds the live config from, None if it
+                was missing.
+            record: the test's record.
+        """
+        record(config_before_sha256=before, config_after_sha256=after, config_default_sha256=default)
+        if before is None:
+            validity = "invalid: the board held no config.json to keep"
+        elif after != before:
+            validity = "valid"
+        elif default is None or before == default:
+            validity = "invalid: the board's config is the image default, or the default is unreadable"
+        else:
+            validity = "valid"
+        record(validity=validity)
+        assert before is not None, "INVALID CHECK, not an appliance failure: the board held no config.json to keep"
+        assert after == before, (
+            f"config held {'missing' if after is None else after}, expected the {before} it held before"
+        )
+        assert default is not None, "INVALID CHECK, not an appliance failure: the image default could not be read"
+        assert before != default, (
+            "INVALID CHECK, not an appliance failure: the board's config is the image default, "
+            "so losing it would go unseen"
+        )
 
     def use(self, path: str | os.PathLike[str]) -> None:
         """Swap the app onto `path`'s config, and leave the instance running against it, until the test ends.

@@ -6,7 +6,6 @@ from datetime import UTC, datetime
 
 import pytest
 from board import Board
-from board.app.config import ConfigHashes
 from board_test import BoardTest
 from candidate_bundles import CandidateBundles
 from evemu_helpers import EvemuHelpers
@@ -36,7 +35,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 @pytest.fixture(scope="session")
 def config_hashes_across_install(
     request: pytest.FixtureRequest, target: Target, bench_candidate: str | None
-) -> ConfigHashes | None:
+) -> tuple[str | None, str | None, str | None] | None:
     """Hash the board's config before and after `install_candidate`, through a board of its own; writes nothing.
 
     First clears what a dead run can leave in `/run`: a bind mount over the live config path, the
@@ -60,11 +59,11 @@ def config_hashes_across_install(
             return None
         before = config.live_sha256()
         request.getfixturevalue("install_candidate")
-        return ConfigHashes(before, config.live_sha256(), config.default_sha256())
+        return before, config.live_sha256(), config.default_sha256()
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _install_candidate(config_hashes_across_install: ConfigHashes | None) -> None:
+def _install_candidate(config_hashes_across_install: tuple[str | None, str | None, str | None] | None) -> None:
     """Activate `install_candidate` (tests/conftest.py) for every test here, via `config_hashes_across_install`.
 
     Args:
