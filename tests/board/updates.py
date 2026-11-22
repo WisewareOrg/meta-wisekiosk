@@ -256,13 +256,13 @@ class Updates(Part):
         """
         self._board.cleanup.callback(self._restore_candidate, candidate)
 
-    def compatible(self) -> str:
-        """Read the `compatible` the board's own `rauc` reports.
+    def rauc_status(self) -> dict:
+        """Read `rauc status` as the board's own `rauc` reports it.
 
         Returns:
-            The compatible.
+            The status, parsed from its JSON: the board's `compatible` and its `booted` slot among it.
         """
-        return json.loads(self._board.run("rauc status --output-format=json", check=True).text)["compatible"]
+        return json.loads(self._board.run("rauc status --output-format=json", check=True).text)
 
     def next_boot_and_running_build(self) -> dict:
         """Read what the next boot and the running build are.

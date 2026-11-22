@@ -16,19 +16,6 @@ from collections.abc import Callable
 from board import Board
 
 
-def _booted_bootname(board: Board) -> str:
-    """Read the bootname of the slot the board booted from, as `rauc status` names it.
-
-    Args:
-        board: the board under test.
-
-    Returns:
-        The bootname.
-    """
-    stdout = board.run("rauc status --output-format=json", check=True, timeout=None).stdout
-    return json.loads("\n".join(stdout))["booted"]
-
-
 def test_fallback_probe(board: Board, record_property: Callable[[str, object], None]) -> None:
     """A slot with no attempts left is skipped and the board boots the other slot.
 
@@ -36,7 +23,7 @@ def test_fallback_probe(board: Board, record_property: Callable[[str, object], N
         board: the board under test.
         record_property: records the slots and the boot variables at each step.
     """
-    booted = _booted_bootname(board)
+    booted = board.updates.rauc_status()["booted"]
     other = ({"A", "B"} - {booted}).pop()
     record_property("booted", booted)
     record_property("before", json.dumps(board.updates.boot_order()))
@@ -52,7 +39,7 @@ def test_fallback_probe(board: Board, record_property: Callable[[str, object], N
 
     boot_order = board.updates.boot_order()
     record_property("after", json.dumps(boot_order))
-    assert _booted_bootname(board) == booted, f"the board is not back on slot {booted}"
+    assert board.updates.rauc_status()["booted"] == booted, f"the board is not back on slot {booted}"
     assert boot_order.order[0] == other, f"slot {other} no longer leads BOOT_ORDER: {boot_order.order}"
     assert boot_order.attempts_left[other] == 0, (
         f"slot {other} has {boot_order.attempts_left[other]} attempts left, not 0"

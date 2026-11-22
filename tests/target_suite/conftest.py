@@ -97,7 +97,7 @@ def refused_offers(target: Target) -> Iterator[RefusedOffers]:
         RefusedOffers: the bundles, whose work directory is removed once the module ends.
     """
     with Board(target) as board:
-        compatible = board.updates.compatible()
+        compatible = board.updates.rauc_status()["compatible"]
     with contextlib.ExitStack() as cleanup:
         yield RefusedOffers.build(cleanup, compatible)
 

@@ -21,24 +21,6 @@ ARMED = re.compile(r"\[arm\] armed: record_ftrace=1 filter_entries=\d+ watchdog_
 SEED = "echo c > /proc/sysrq-trigger"
 
 
-def _booted_slot(board: Board) -> str:
-    """Read the slot the board booted from, as `rauc status` names it.
-
-    Asserts `rauc status` succeeded and named a booted slot.
-
-    Args:
-        board: the board under test.
-
-    Returns:
-        The `Booted from:` line.
-    """
-    result = board.run("rauc status", timeout=None)
-    assert result.returncode == 0, "rauc status failed"
-    line = next((entry for entry in result.stdout if entry.startswith("Booted from:")), None)
-    assert line is not None, f"no booted slot in rauc status:\n{chr(10).join(result.stdout)}"
-    return line
-
-
 def _crash(host: str) -> None:
     """Crash the board with sysrq.
 
@@ -81,7 +63,7 @@ def test_install_reset_capture(board: Board) -> None:
         board: the board under test, crashed mid-install.
     """
     host = board.host
-    slot_before = _booted_slot(board)
+    slot_before = board.updates.rauc_status()["booted"]
 
     ota = subprocess.Popen(
         ["just", "kiosk-ota", host],
@@ -115,4 +97,4 @@ def test_install_reset_capture(board: Board) -> None:
 
     board.disconnect()
     board.connect()
-    assert _booted_slot(board) == slot_before, "the board did not come back on its own slot"
+    assert board.updates.rauc_status()["booted"] == slot_before, "the board did not come back on its own slot"
