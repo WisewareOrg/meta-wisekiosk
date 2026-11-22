@@ -1,4 +1,4 @@
-"""Target suite: image updates over the air, each with the board starting and ending on the candidate.
+"""Target suite: image updates over the air, each starting with the board on the candidate and leaving it there.
 
 The bundles are copies of the candidate, edited and re-signed by the operator key. Each carries an
 install-check hook that refuses unless this run's nonce is in the board's `/tmp`.
@@ -21,7 +21,7 @@ import pytest
 from labgrid.driver.exception import ExecutionError
 
 from panel import Panel
-from recovery import check, until_up
+from recovery import assert_back_within, until_up
 from updates import install, snapshot
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -41,6 +41,8 @@ _ON_PANEL_GIVE_UP_SECONDS = 180
 _POWER_CUT_BOUND_SECONDS = 60
 _PROGRESS_CMD = "busctl get-property de.pengutronix.rauc / de.pengutronix.rauc.Installer Progress"
 _COPY_STEP = "Copying image to "
+# the sectors-written field of /sys/class/block/<dev>/stat
+_STAT_SECTORS_WRITTEN = 6
 
 pytestmark = pytest.mark.sends_update
 
@@ -282,7 +284,9 @@ def _install_state(board, device):
     if returncode != 0 or len(stdout) != 2:
         return None
     progress = re.fullmatch(r'\(isi\) \d+ "(.*)" \d+', stdout[0].strip())
-    return progress and (progress[1], int(stdout[1].split()[6]))
+    if progress is None:
+        return None
+    return progress[1], int(stdout[1].split()[_STAT_SECTORS_WRITTEN])
 
 
 def _target_device(rauc_status):
@@ -334,7 +338,14 @@ def test_power_cut_during_an_update(
     record_property("install_output", output)
     record_property("install_s", seconds)
     after = snapshot(board)
+    record_property("booted_slot_before", before["rauc_status"]["booted"])
     record_property("booted_slot", after["rauc_status"]["booted"])
+    record_property("boot_variables", after["boot_variables"])
     record_property("commit", after["commit"])
     assert returncode != 0, "the install completed: the cut did not land during it"
-    check(back_s, last_read, "power returning", "TST003", _POWER_CUT_BOUND_SECONDS)
+    target = ({"A", "B"} - {before["rauc_status"]["booted"]}).pop()
+    order, left = board.boot_variables()
+    assert not (order[0] == target and left[target] > 0), (
+        f"slot {target} was activated: the cut landed after the update was written, not while it was"
+    )
+    assert_back_within(back_s, last_read, "power returning", "TST003", _POWER_CUT_BOUND_SECONDS)

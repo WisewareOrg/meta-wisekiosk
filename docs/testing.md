@@ -103,7 +103,13 @@ The board comes from labgrid's own env file, pointed at with `LG_ENV` — a targ
 On the bench host, `bench run`'s environment file sets `LG_ENV` and, for this layer,
 `PIPELINE_KEYS_DIR`.
 
-The power-cut tests also need a `PowerProtocol` driver in that file: an `ExternalPowerDriver` whose
-commands run `uv run --locked --env-file <file> kasa --host <plug> on` and `off` from the checkout,
-with the plug's login in a `KEY=value` file outside the tree, passed by `--env-file` and never
-shell-sourced. The `python-kasa` git pin in `pyproject.toml` is for that plug's login, and `renovate.json` records why it is pinned. A plug failure ends the session as the bench's fault, not the candidate's: the session exits 2, which the runner reads as a bench failure, where exit 1 is a candidate's failed test.
+The power-cut tests also need an `ExternalPowerDriver` in that file, whose commands run
+`uv run --locked --env-file <file> kasa --host <plug> on` and `off` from the checkout, with the
+plug's login in a `KEY=value` file outside the tree, passed by `--env-file` and never shell-sourced.
+The `python-kasa` git pin in `pyproject.toml` is for that plug's login, and `renovate.json` records
+why it is pinned.
+
+A failure of the plug, or a board that answers in the same boot after the cut, ends the session as
+the bench's failure rather than the candidate's, as
+[WiseBenchManager's job](https://github.com/WisewareOrg/WiseBenchManager#the-job) tells the two
+apart.

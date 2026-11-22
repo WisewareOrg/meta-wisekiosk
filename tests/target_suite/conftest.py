@@ -262,11 +262,12 @@ _BOOT_ID_CMD = "cat /proc/sys/kernel/random/boot_id"
 
 @pytest.fixture
 def power_cut(target, board, request, record_property):
-    """Return `cut()`, which cuts and restores the board's power and returns the host `time.monotonic()` at which power returned.
+    """Return `cut()`, which cuts and restores the board's power.
 
-    Power is switched on again at teardown.
+    `cut()` returns the host `time.monotonic()` at which the `on` command started: power returns no
+    earlier, so a time taken from it errs high. Power is switched on again at teardown.
     """
-    power = target.get_driver("PowerProtocol")
+    power = target.get_driver("ExternalPowerDriver")
     request.addfinalizer(power.on)
 
     def cut():
@@ -279,8 +280,7 @@ def power_cut(target, board, request, record_property):
             power.on()
         except (subprocess.CalledProcessError, OSError) as error:
             pytest.exit(f"the bench's power switch failed: {error}", returncode=2)
-        restored = time.monotonic()
-        record_property("power_on_command_s", round(restored - on_began, 1))
+        record_property("power_on_command_s", round(time.monotonic() - on_began, 1))
         board.reconnect()
         if board.run(_BOOT_ID_CMD, check=True)[0][0] == old_boot_id:
             pytest.exit(
@@ -288,6 +288,6 @@ def power_cut(target, board, request, record_property):
                 "the plug or its supply did not cut power",
                 returncode=2,
             )
-        return restored
+        return on_began
 
     return cut

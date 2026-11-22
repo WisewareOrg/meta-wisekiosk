@@ -1,4 +1,4 @@
-"""Target suite: the board's own configuration file is byte for byte the same after an image update and a restart."""
+"""Target suite: the board's own config file is byte for byte the same after an update, a restart and a power cut."""
 
 import pytest
 
@@ -7,7 +7,7 @@ def _check(before, after, default, record_property):
     """Assert the config held, and that a loss would have been seen.
 
     Args:
-        before (str | None): sha256 of the live config before the update or restart.
+        before (str | None): sha256 of the live config before the fault.
         after (str | None): sha256 of the live config after it.
         default (str | None): sha256 of the image default the board reseeds from.
         record_property (Callable): the test's `record_property`; `validity` is recorded first.

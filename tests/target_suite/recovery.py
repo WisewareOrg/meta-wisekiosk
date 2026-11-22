@@ -25,17 +25,16 @@ def instance_up(board):
 def poll_from(started, read, done):
     """Poll `read` once a second from `started` until `done(value)`; return seconds and the last value.
 
-    Seconds is None when `GIVE_UP_SECONDS` passed first. A read returning None is a failed read:
-    it does not replace the last value. The power-cut callers start at `power_cut()`'s return, so
-    they overstate by at most one read plus the 1 s sleep.
+    Seconds is None when `GIVE_UP_SECONDS` passed first, and overstates by at most one read plus the
+    1 s sleep. A read returning None is a failed read: it does not replace the last value.
     """
     last = None
     while True:
         value = read()
         if value is not None:
             last = value
-        if value is not None and done(value):
-            return round(time.monotonic() - started, 1), last
+            if done(value):
+                return round(time.monotonic() - started, 1), last
         if time.monotonic() - started > GIVE_UP_SECONDS:
             return None, last
         time.sleep(1)
@@ -46,7 +45,7 @@ def until_up(board, started):
     return poll_from(started, lambda: instance_up(board), all)
 
 
-def check(back_s, last_read, fault, requirement, bound):
+def assert_back_within(back_s, last_read, fault, requirement, bound):
     """Assert the instance was back, and within the bound."""
     assert back_s is not None, (
         f"the board did not serve the page with the browser running within {GIVE_UP_SECONDS} s "
