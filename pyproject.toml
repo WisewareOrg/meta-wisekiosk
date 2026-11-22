@@ -12,8 +12,18 @@ dependencies = [
 dev = [
     "check-reqs",
     "python-kasa",
+    "ruff>=0.17.6",
 ]
 
 [tool.uv.sources]
 check-reqs = { git = "https://github.com/WisewareOrg/wise-ci", subdirectory = "check-reqs", rev = "6f8840aacdd7eb0c431af64f7eaa7bf326b38e29" }
 python-kasa = { git = "https://github.com/python-kasa/python-kasa", rev = "a1a6c3854ace705b21357b357354d4ae8b6307b4" }
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E501", "W505"]
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 120

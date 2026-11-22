@@ -976,6 +976,25 @@ else
     printf '%s\n' "$out21" | sed 's/^/        /'
 fi
 
+# --- 22. no Python line over 120 characters, docstrings included ---------
+# ruff's E501 and W505 only, configured in pyproject.toml. The repo-venv ruff is
+# the pinned one; cannot-check is not check-clean, so a missing ruff fails.
+RUFF=".venv/bin/ruff"
+pyfiles22=()
+while IFS= read -r f; do
+    [ -f "$f" ] && pyfiles22+=("$f")
+done < <(git ls-files -- 'tests/*.py' 'tools/*.py')
+if [ ! -x "$RUFF" ]; then
+    bad "guard 22 cannot check line length: $RUFF missing -- run uv sync"
+elif [ "${#pyfiles22[@]}" -eq 0 ]; then
+    bad "guard 22 cannot scan -- no tracked .py file under tests/ or tools/"
+elif out22=$("$RUFF" check --no-cache "${pyfiles22[@]}" 2>&1); then
+    ok "no Python line over 120 characters"
+else
+    bad "Python lines over 120 characters:"
+    printf '%s\n' "$out22" | sed 's/^/        /'
+fi
+
 if [ "$fail" -ne 0 ]; then
     printf '\nguards FAILED\n'
     exit 1
