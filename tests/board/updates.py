@@ -20,6 +20,8 @@ _INSTALL_TOOL = pathlib.Path(__file__).resolve().parents[2] / "tools" / "kiosk-i
 # how long the install tool may take to clean up after a SIGTERM
 _CLEANUP_SECONDS = 120
 _NONCE_PATH = "/tmp/kiosk-update-nonce"
+# prints BOOT_ORDER and each slot's BOOT_x_LEFT as name=value lines
+_BOOT_VARIABLES_CMD = "fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT"
 # 3 * (180 s boot wait + 180 s netcheck TimeoutStartSec + 30 s RebootWatchdogSec) + 180 s for the
 # fallback boot; a backstop, the record carries the time it took
 _FALLBACK_WAIT_SECONDS = 1350
@@ -27,6 +29,18 @@ _PROGRESS_CMD = "busctl get-property de.pengutronix.rauc / de.pengutronix.rauc.I
 _COPY_STEP = "Copying image to "
 # the sectors-written field of /sys/class/block/<dev>/stat
 _STAT_SECTORS_WRITTEN = 6
+
+
+class BootOrder(NamedTuple):
+    """The boot order and the attempts left, as `fw_printenv` holds them.
+
+    Attributes:
+        order: the slots' bootnames in the order the bootloader tries them.
+        attempts_left: the attempts left per bootname.
+    """
+
+    order: list[str]
+    attempts_left: dict[str, int]
 
 
 class InstallProgress(NamedTuple):
@@ -50,6 +64,33 @@ class Updates(Part):
     """
 
     CANDIDATE_INSTALL_TIMEOUT_SECONDS = 1200
+
+    def install_built_image(self) -> None:
+        """Install the image this checkout built on the board, through `just kiosk-ota`."""
+        subprocess.run(["just", "kiosk-ota", self._board.host], check=True)
+
+    def boot_order(self) -> BootOrder:
+        """Read BOOT_ORDER and each slot's BOOT_x_LEFT from `fw_printenv`.
+
+        Returns:
+            The boot order, and the attempts left per bootname.
+        """
+        stdout = self._board.run(_BOOT_VARIABLES_CMD, check=True).stdout
+        variables = dict(line.split("=", 1) for line in stdout)
+        attempts_left = {name: int(variables[f"BOOT_{name}_LEFT"]) for name in ("A", "B")}
+        return BootOrder(variables["BOOT_ORDER"].split(), attempts_left)
+
+    def build_commit(self) -> str:
+        """Read the meta-wisekiosk commit the board's image was built from.
+
+        Returns:
+            The commit named by the meta-wisekiosk line of /etc/buildinfo.
+        """
+        result = self._board.run("cat /etc/buildinfo", timeout=None)
+        assert result.returncode == 0, "could not read /etc/buildinfo on the board"
+        line = next((entry for entry in result.stdout if entry.split()[:2] == ["meta-wisekiosk", "="]), None)
+        assert line is not None, f"no meta-wisekiosk layer line in buildinfo:\n{chr(10).join(result.stdout)}"
+        return line.split()[2].rsplit(":", 1)[-1]
 
     def install_bundle(self, bundle: pathlib.Path, timeout: float) -> tuple[int, str, float]:
         """Install `bundle` through `tools/kiosk-install.sh`, the board's one install path.
@@ -170,7 +211,7 @@ class Updates(Part):
         """
         before = self.assert_refused_then_install(bundle, candidate.nonce, record)
         target = ({"A", "B"} - {before["rauc_status"]["booted"]}).pop()
-        boot_order = self._board.boot_order()
+        boot_order = self.boot_order()
         assert boot_order.order[0] == target, f"the update's slot {target} does not lead BOOT_ORDER: {boot_order.order}"
         attempts = boot_order.attempts_left[target]
         record(attempts=attempts)
@@ -185,7 +226,7 @@ class Updates(Part):
             "the board is not back on the previous slot and bundle"
         )
         assert after["commit"] == before["commit"], "the board is not back on the previous build"
-        boot_order = self._board.boot_order()
+        boot_order = self.boot_order()
         assert boot_order.order[0] == target, (
             f"the update's slot {target} no longer leads BOOT_ORDER: {boot_order.order}"
         )
@@ -205,7 +246,7 @@ class Updates(Part):
         self._board.restart_with("systemctl reboot")
         _slot, booted_hash = self._booted_slot(self.next_boot_and_running_build()["rauc_status"])
         assert booted_hash == candidate.hash, "the board is not on the candidate's bundle"
-        assert self._board.build_commit() == candidate.commit, "the board is not on the candidate's build"
+        assert self.build_commit() == candidate.commit, "the board is not on the candidate's build"
 
     def return_to_candidate_after_test(self, candidate: "CandidateBundles") -> None:
         """When the test ends, put the board back on the candidate unless it runs it and will boot it next.
@@ -230,10 +271,10 @@ class Updates(Part):
             The raw `boot_variables` text, the parsed `rauc_status`, the `boot_id` and the `commit`.
         """
         return {
-            "boot_variables": self._board.run(self._board.BOOT_VARIABLES_CMD, check=True).text,
+            "boot_variables": self._board.run(_BOOT_VARIABLES_CMD, check=True).text,
             "rauc_status": json.loads(self._board.run("rauc status --detailed --output-format=json", check=True).text),
             "boot_id": self._board.run(self._board.BOOT_ID_CMD, check=True).text,
-            "commit": self._board.build_commit(),
+            "commit": self.build_commit(),
         }
 
     @staticmethod
@@ -305,7 +346,7 @@ class Updates(Part):
         """
         rauc_status = self.next_boot_and_running_build()["rauc_status"]
         _slot, booted_hash = self._booted_slot(rauc_status)
-        if booted_hash == candidate.hash and self._board.boot_order().order[0] == rauc_status["booted"]:
+        if booted_hash == candidate.hash and self.boot_order().order[0] == rauc_status["booted"]:
             return
         returncode, output, _seconds = self.install_bundle(candidate.candidate, self.CANDIDATE_INSTALL_TIMEOUT_SECONDS)
         assert returncode == 0, f"reinstalling the candidate returned {returncode}: {output}"

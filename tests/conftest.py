@@ -35,7 +35,7 @@ def install_candidate(bench_candidate: str | None, target: Target) -> tuple[str,
                 lambda: marker in (board.log_markers() or []) or None, until=bool, within=LOG_MARKER_WAIT_SECONDS
             )
             marked = (marker, seen_s is not None)
-            board.install_built_image()
+            board.updates.install_built_image()
             board.reboot()
-        print(f"board_commit={board.build_commit()}")
+        print(f"board_commit={board.updates.build_commit()}")
     return marked

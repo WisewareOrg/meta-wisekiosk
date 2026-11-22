@@ -17,6 +17,6 @@ class TestTargetCommit(BoardTest):
             pytest.skip("no bench_candidate: a plain pytest run, or bench test --skip-build")
         self.record(requirement="TST016")
 
-        commit = self.board.build_commit()
+        commit = self.board.updates.build_commit()
 
         assert commit == bench_candidate, f"board reports commit {commit}, expected {bench_candidate} (bench_candidate)"

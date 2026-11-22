@@ -133,7 +133,7 @@ class TestImageUpdate(BoardTest):
             "INVALID CHECK, not an appliance failure: the install completed, so the cut did not land during it"
         )
         target = ({"A", "B"} - {before["rauc_status"]["booted"]}).pop()
-        boot_order = self.board.boot_order()
+        boot_order = self.board.updates.boot_order()
         assert not (boot_order.order[0] == target and boot_order.attempts_left[target] > 0), (
             f"INVALID CHECK, not an appliance failure: slot {target} was activated, so the cut landed after "
             "the update was written, not while it was"

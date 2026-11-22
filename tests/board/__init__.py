@@ -25,18 +25,6 @@ if TYPE_CHECKING:
     from record import Record
 
 
-class BootOrder(NamedTuple):
-    """The boot order and the attempts left, as `fw_printenv` holds them.
-
-    Attributes:
-        order: the slots' bootnames in the order the bootloader tries them.
-        attempts_left: the attempts left per bootname.
-    """
-
-    order: list[str]
-    attempts_left: dict[str, int]
-
-
 class CommandResult(NamedTuple):
     """What one command on the board printed and returned.
 
@@ -88,7 +76,6 @@ class Board:
         system: the board's operating system.
         updates: RAUC and the board's install path.
         BOOT_ID_CMD: prints the kernel's boot id, which differs in each boot.
-        BOOT_VARIABLES_CMD: prints BOOT_ORDER and each slot's BOOT_x_LEFT as name=value lines.
         ERRORS: what a read of the board raises when the board does not answer; `poll` retries these.
         GIVE_UP_SECONDS: how long a test waits for the board; past every bound, so the record still
             carries the time it took.
@@ -104,7 +91,6 @@ class Board:
     system: System
     updates: Updates
     BOOT_ID_CMD = "cat /proc/sys/kernel/random/boot_id"
-    BOOT_VARIABLES_CMD = "fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT"
     ERRORS = (ExecutionError, StateError, subprocess.TimeoutExpired)
     GIVE_UP_SECONDS = 180
     READ_RETRY_SECONDS = 300
@@ -356,29 +342,6 @@ class Board:
         """
         return self.run("cat /lib/modules/$(uname -r)/modules.builtin", check=True).stdout
 
-    def boot_order(self) -> BootOrder:
-        """Read BOOT_ORDER and each slot's BOOT_x_LEFT from `fw_printenv`.
-
-        Returns:
-            The boot order, and the attempts left per bootname.
-        """
-        stdout = self.run(self.BOOT_VARIABLES_CMD, check=True).stdout
-        variables = dict(line.split("=", 1) for line in stdout)
-        attempts_left = {name: int(variables[f"BOOT_{name}_LEFT"]) for name in ("A", "B")}
-        return BootOrder(variables["BOOT_ORDER"].split(), attempts_left)
-
-    def build_commit(self) -> str:
-        """Read the meta-wisekiosk commit the board's image was built from.
-
-        Returns:
-            The commit named by the meta-wisekiosk line of /etc/buildinfo.
-        """
-        result = self.run("cat /etc/buildinfo", timeout=None)
-        assert result.returncode == 0, "could not read /etc/buildinfo on the board"
-        line = next((entry for entry in result.stdout if entry.split()[:2] == ["meta-wisekiosk", "="]), None)
-        assert line is not None, f"no meta-wisekiosk layer line in buildinfo:\n{chr(10).join(result.stdout)}"
-        return line.split()[2].rsplit(":", 1)[-1]
-
     def file_sha256(self, path: str) -> str | None:
         """Read the sha256 of the file `path` on the board.
 
@@ -400,10 +363,6 @@ class Board:
     def disconnect(self) -> None:
         """Deactivate the board's SSHDriver."""
         self._target.deactivate(self._ssh)
-
-    def install_built_image(self) -> None:
-        """Install the image this checkout built on the board, through `just kiosk-ota`."""
-        subprocess.run(["just", "kiosk-ota", self.host], check=True)
 
     def get(self, src: str, dst: str) -> None:
         """Copy `src` on the board to the host path `dst`.

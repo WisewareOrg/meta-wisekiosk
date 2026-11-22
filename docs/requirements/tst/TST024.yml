@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_cannot_reach_the_network
   path: tests/target_suite/test_image_update.py
-  sha: e82850e10749b06ada410b5f5cb86eae5030e57fa0b060d278505564dd4cad9a
+  sha: e59ebad5a9b8fb184a2f9c833ba7b92184ad5a448fe389fdd90cd9c8bff41a39
   type: file
-reviewed: ZLCJUUe2Ia2aO8uOurZepE3Bd6uMJy8UENv0ITjO7EY=
+reviewed: 3UWZ6l247PIvy6OwWIpw3VmCLhd0yvWGJCZkDnTYbHg=
 status: proposed
 text: |
   With the site network healthy and nobody at the panel, install over the air an image update that
