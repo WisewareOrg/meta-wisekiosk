@@ -8,7 +8,11 @@ _OOM = re.compile(r"^\[\s*(\d+\.\d+)\].*(?:Out of memory|deadlocked on memory)")
 
 
 class Memory(Part):
-    """The board's memory, and the kernel's out-of-memory record in this boot, the last, and pstore."""
+    """The board's memory, and the kernel's out-of-memory record in this boot, the last, and pstore.
+
+    Every read retries through a dropped session for `Board.READ_RETRY_SECONDS`, and raises the board's
+    last error once that runs out.
+    """
 
     def meminfo_kb(self) -> dict[str, int]:
         """Read `/proc/meminfo`.
