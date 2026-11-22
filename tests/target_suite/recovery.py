@@ -82,27 +82,34 @@ class Held(NamedTuple):
         shown (tuple | None): a settled page the browser loaded without the backend --
             `("probe", sample)` for a probe sample from another origin, or in the app's
             configuration-error or unreachable-backend state; `("title", title)` for a finished
-            load's title when there is no sample; else None. On the app's own origin, a loading
-            or not-yet-mounted app is not settled.
+            load's title seen with no sample on this read and the one before; else None. On the
+            app's own origin, a loading or not-yet-mounted app is not settled.
+        title (str | None): the finished load's title when there is no sample, else None.
     """
 
     running: bool
     served: bool
     shown: tuple | None
+    title: str | None
 
 
-def held_state(board, panel):
-    """Read the board once as a `Held`."""
+def held_state(board, panel, previous_title):
+    """Read the board once as a `Held`, given the previous read's `title`.
+
+    A finished title counts only once a second read shows it unchanged with still no sample: a
+    page carrying the probe can show its title before the probe first writes.
+    """
     running = board.run("pgrep -x surf")[2] == 0
     served = board.page_served()
     _, sample = panel.read()
+    title = None
     if sample is not None:
         settled = sample["origin"] not in OWN_ORIGINS or sample["state"] in _SETTLED_APP_STATES
         shown = ("probe", sample) if settled else None
     else:
         title = finished_load(panel.titles())
-        shown = ("title", title) if title else None
-    return Held(running, served, shown)
+        shown = ("title", title) if title and title == previous_title else None
+    return Held(running, served, shown, title)
 
 
 def check_held(board, panel, record_property):
@@ -114,10 +121,18 @@ def check_held(board, panel, record_property):
         AssertionError: INVALID CHECK -- the page was served first, so the hold was too short, or
             neither happened within `GIVE_UP_SECONDS`.
     """
+    previous_title = None
+
+    def read_held():
+        nonlocal previous_title
+        held = held_state(board, panel, previous_title)
+        previous_title = held.title
+        return held
+
     held_s, held = poll_from(
         time.monotonic(),
-        lambda: or_none(lambda: held_state(board, panel)),
-        lambda read: read.served or (read.running and read.shown is not None),
+        lambda: or_none(read_held),
+        lambda held: held.served or (held.running and held.shown is not None),
     )
     record_property("held_state", held)
     record_property("held_case", held.shown[0] if held and held.shown else None)
