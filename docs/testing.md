@@ -88,6 +88,11 @@ kiosk-ota` and crashes the board once rauc reports writing the slot, and passes 
 install's own output carries the reset and the board's pstore read back after it. It crashes the
 board on purpose, so it runs only by hand, never in the queue job.
 
+`tests/diagnostics -k fallback_probe` is the safe check of the slot fallback before any install meant
+to fail: it installs a good copy of the candidate in the slot not booted, zeroes that slot's boot
+attempts and restarts, and passes only when U-Boot boots the other slot. Both slots stay bootable, so
+it strands nothing.
+
 The board comes from labgrid's own env file, pointed at with `LG_ENV` — a target named `main`, a
 `NetworkService` resource carrying the board's address, an `SSHDriver` — kept untracked under
 `local/`, since this repository is public and the address is site-specific.

@@ -250,7 +250,8 @@ short-lived `nginx` container on this host; the script's header says how. The bu
 keeps each slot's index in `/data/rauc`, so a slot's first adaptive install is the slowest. The
 rootfs image is sized to its content rather than to the slot
 ([`core-image-base.bbappend`](meta-wisekiosk/recipes-core/images/core-image-base.bbappend)), and
-`resize=true` in RAUC's `system.conf` grows the slot's filesystem to its partition after each write.
+`resize=true` in RAUC's `system.conf` grows the slot's filesystem to its partition after each write;
+[the bundle recipe's README](meta-wisekiosk/recipes-core/bundles/README.md) says why.
 
 ## Configuration and secrets
 
