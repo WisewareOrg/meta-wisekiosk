@@ -26,6 +26,12 @@ class Backend:
     _PROXY_DROP_IN = f"{_DROP_IN_DIR}/replay.conf"
     # covers a daemon-reload plus a backend start
     _RELOAD_TIMEOUT_SECONDS = 60
+    _RUNTIME_OVERRIDES_SWEEP = (
+        f"if [ -d {_DROP_IN_DIR} ] || "
+        '[ "$(systemctl is-enabled wisekiosk.service)" = masked-runtime ]; then '
+        f"rm -rf {_DROP_IN_DIR}; systemctl unmask --runtime wisekiosk.service; "
+        "systemctl daemon-reload; systemctl start wisekiosk.service; fi"
+    )
     _RELEASE = "systemctl unmask --runtime wisekiosk.service; systemctl start wisekiosk.service"
     _RELEASE_UNIT = "test-backend-release"
 
@@ -36,6 +42,10 @@ class Backend:
             board: the board under test.
         """
         self._board = board
+
+    def clear_runtime_overrides(self) -> None:
+        """Remove the runtime drop-ins and the runtime mask a dead run left on the backend, and start it."""
+        self._board.run(self._RUNTIME_OVERRIDES_SWEEP, check=True, timeout=self._RELOAD_TIMEOUT_SECONDS)
 
     def pid(self) -> str:
         """Read the backend's MainPID as systemd reports it, retrying through a dropped session.

@@ -120,3 +120,53 @@ A failure of the plug, or a board that answers in the same boot after the cut, e
 the bench's failure rather than the candidate's, as
 [WiseBenchManager's job](https://github.com/WisewareOrg/WiseBenchManager#the-job) tells the two
 apart.
+
+## How a target-suite test is written
+
+**What every test needs comes from one place; what only some need is a fixture.** Before each test,
+`pytest_runtest_setup` in `tests/target_suite/conftest.py` puts a new `Board` and the test's
+`Record` on the test's instance. What only some tests need — the replay `proxy`, the
+`candidate_bundles`, `refused_offers` and `evemu_helpers` builds, `pytestconfig`, `tmp_path` — is an
+ordinary pytest fixture, taken as an argument by the test method that uses it.
+
+**A test file holds four things:** its imports; its requirement values (bounds, stimulus values and
+the test's own wait limits); its marks; and one class, `Test<Subject>(BoardTest)`. `BoardTest`
+(`tests/target_suite/board_test.py`) only declares `board` and `record`. The class holds test methods
+and, when every test in it starts from the same board state, a `setup_method` — gtest's `SetUp` —
+which registers its undos on `self.board.cleanup` and takes no fixture. No class writes
+`teardown_method`: it would run after the board's undo. Each test method reads arrange, act, assert,
+three blocks separated by single blank lines, and records through `self.record(name=value, ...)`,
+whose calls set the record's names, values and order.
+
+**The board is a tree of parts** (`tests/board/`): `board.app` (`backend`, `config`, `page`),
+`board.screen` (`display`, `captures`), `board.console` (`terminals`, `keyboard`), `board.system`
+(`clock`, `timezone`, `memory`, `soak`), `board.network` (`outage`, `load`) and `board.updates`, with
+the board-wide reads on `Board` itself. A part composes its sub-parts and does nothing else. A
+sub-part is one small class in its own module that holds only the board and registers its undos on
+`board.cleanup`; it reaches a sibling through the board's public path, never a private name (ruff's
+SLF001 gates that). It never holds the record: a method that records takes `record` as an argument
+— an `assert_…` that records before it fails, or a step whose evidence lands at teardown — and every
+other method returns what it measured for the test to record. What a test measured before a
+stimulus, the test holds. A read the test records beside its verdict returns the raw text with the
+parse, and a read the test polls keeps its last good result. `tests/board/` imports nothing from
+`tests/target_suite/` at run time, since the diagnostics import it without that directory on the
+path; the host-side objects (`Record`, `ContainerDir`, the bundle and helper builds) live in
+`tests/target_suite/`. The diagnostics get their own Board from a function-scoped `board` fixture in
+`tests/diagnostics/conftest.py`, and the session fixtures each open one with `with Board(target)`.
+
+**Teardown and record order.** For each test, in this order: the hook builds the Board and the
+Record; the autouse fixtures run, and `device_context` records the device facts; `setup_method`
+runs; the test's own fixtures start (the `proxy` records `recording_sha256`); the test runs;
+`pytest_runtest_teardown` closes the Board's cleanup, last first, while the fixtures are still
+alive; then the fixtures tear down (the `proxy` records `served_count` and `killed_count`, then
+`device_context` records `end`). The teardown hook runs the undo in `try` and pytest's own teardown
+in `finally: yield` — never `finally: return (yield)`, which would swallow a failing undo and pass
+the test. A replay test's arrange block puts the backend behind the proxy, then installs the probe,
+so its record reads device facts, `recording_sha256`, `probe_sha256`, then the test's own.
+
+**Ordering.** `@pytest.mark.sends_update` on the image-update and refused-update classes is the only
+ordering rule: `pytest_collection_modifyitems` runs the marked tests after every other.
+
+**The lint gate.** [`tools/ci-guards.sh`](../tools/ci-guards.sh) guard 22 runs the repo `.venv`'s
+pinned `ruff check` (the select in `pyproject.toml`), `ruff format --check`, `interrogate --fail-under
+100` and `pydoclint` over every tracked `tests/*.py`; a missing tool fails the guard.

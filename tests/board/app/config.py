@@ -53,9 +53,13 @@ class ConfigHashes(NamedTuple):
 
 
 class Config:
-    """The config the WiseKiosk app on the board runs with, and the image default it is reseeded from."""
+    """The config the WiseKiosk app on the board runs with, and the image default it is reseeded from.
 
-    _LIVE_PATH = "/data/config/config.json"
+    Attributes:
+        LIVE_PATH: the live config on the board.
+    """
+
+    LIVE_PATH = "/data/config/config.json"
     _DEFAULT_PATH = "/usr/share/wisekiosk/config.example.json"
 
     def __init__(self, board: "Board") -> None:
@@ -66,13 +70,17 @@ class Config:
         """
         self._board = board
 
+    def unmount_stale_bind(self) -> None:
+        """Unmount a bind mount a dead run left over the live config, if there is one."""
+        self._board.unmount_if_mounted(self.LIVE_PATH)
+
     def live_sha256(self) -> str | None:
         """Read the sha256 of the live config.
 
         Returns:
             The hash, or None if the file is missing or unreadable.
         """
-        return self._board.file_sha256(self._LIVE_PATH)
+        return self._board.file_sha256(self.LIVE_PATH)
 
     def default_sha256(self) -> str | None:
         """Read the sha256 of the image default the board reseeds the live config from.
@@ -96,7 +104,7 @@ class Config:
         """
         self._board.run("systemctl stop kiosk.service", check=True)
         self._board.cleanup.callback(self._board.run, "systemctl start kiosk.service", check=True)
-        self._board.bind_over(path, self._LIVE_PATH)
+        self._board.bind_over(path, self.LIVE_PATH)
         self._board.run("systemctl restart wisekiosk.service", check=True)
         self._board.cleanup.callback(self._restart_backend_and_wait)
         self._board.wait_for_page()

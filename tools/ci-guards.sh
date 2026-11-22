@@ -976,16 +976,20 @@ else
     printf '%s\n' "$out21" | sed 's/^/        /'
 fi
 
-# --- 22. the tests' Python meets the lint and format checks ---------------
-# ruff check (the select in pyproject.toml, line length 120 included) and ruff format
-# --check, over the tracked tests/*.py. The repo-venv ruff is the pinned one;
-# cannot-check is not check-clean, so a missing ruff fails.
+# --- 22. the tests' Python meets the lint, format and docstring checks ---
+# ruff check (the select in pyproject.toml, line length 120 included), ruff format
+# --check, interrogate at 100 % and pydoclint, over the tracked tests/*.py. The repo-venv
+# tools are the pinned ones; cannot-check is not check-clean, so a missing tool fails.
 pyfiles22=()
 while IFS= read -r f; do
     [ -f "$f" ] && pyfiles22+=("$f")
 done < <(git ls-files -- 'tests/*.py')
-if [ ! -x ".venv/bin/ruff" ]; then
-    bad "guard 22 cannot check the tests' Python -- ruff missing from .venv/bin -- run uv sync"
+missing22=""
+for tool22 in ruff interrogate pydoclint; do
+    [ -x ".venv/bin/$tool22" ] || missing22="$missing22 $tool22"
+done
+if [ -n "$missing22" ]; then
+    bad "guard 22 cannot check the tests' Python -- missing from .venv/bin:$missing22 -- run uv sync"
 elif [ "${#pyfiles22[@]}" -eq 0 ]; then
     bad "guard 22 cannot scan -- no tracked .py file under tests/"
 else
@@ -1001,7 +1005,9 @@ else
     }
     run22 ruff check --no-cache
     run22 ruff format --check
-    [ "$ok22" -eq 1 ] && ok "the tests' Python passes ruff check and ruff format"
+    run22 interrogate -v --fail-under 100
+    run22 pydoclint
+    [ "$ok22" -eq 1 ] && ok "the tests' Python passes ruff, ruff format, interrogate and pydoclint"
 fi
 
 if [ "$fail" -ne 0 ]; then

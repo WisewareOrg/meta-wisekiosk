@@ -1,9 +1,7 @@
-"""Target-suite setup: switch on the shared board setup for every test here."""
+"""Target-suite setup: the start-of-run install, the shared builds, the device context, and the Board hooks."""
 
 import contextlib
-import subprocess
-import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 
 import pytest
@@ -15,7 +13,6 @@ from evemu_helpers import EvemuHelpers
 from labgrid import Target
 from labgrid.pytestplugin.hooks import LABGRID_ENV_KEY
 from record import Record
-from recovery import BACKEND_DROP_IN_DIR, RELOAD_TIMEOUT_SECONDS
 from refused_offers import RefusedOffers
 
 _BROWSER_WAIT_SECONDS = 90
@@ -25,49 +22,54 @@ _HASHED_PATHS = (
     "/boot/config.txt",
     "/boot/cmdline.txt",
 )
-_BACKEND_SWEEP = (
-    f"if [ -d {BACKEND_DROP_IN_DIR} ] || "
-    '[ "$(systemctl is-enabled wisekiosk.service)" = masked-runtime ]; then '
-    f"rm -rf {BACKEND_DROP_IN_DIR}; systemctl unmask --runtime wisekiosk.service; "
-    "systemctl daemon-reload; systemctl start wisekiosk.service; fi"
-)
 
 
-def pytest_addoption(parser):
-    """Add `--soak`, which runs TST014 with its long period."""
+def pytest_addoption(parser: pytest.Parser) -> None:
+    """Add `--soak`, which runs TST014 with its long period.
+
+    Args:
+        parser: pytest's option parser.
+    """
     parser.addoption("--soak", action="store_true", default=False, help="run TST014 with its long period")
 
 
 @pytest.fixture(scope="session")
-def config_hashes_across_install(request, board, bench_candidate):
-    """Hash the board's config before and after `install_candidate`; writes nothing.
+def config_hashes_across_install(
+    request: pytest.FixtureRequest, target: Target, bench_candidate: str | None
+) -> ConfigHashes | None:
+    """Hash the board's config before and after `install_candidate`, through a board of its own; writes nothing.
 
     First clears what a dead run can leave in `/run`: a bind mount over the live config path, the
     backend's runtime drop-ins and a runtime mask on it.
 
     Args:
-        request (pytest.FixtureRequest): runs `install_candidate` between the two hashes.
-        board (Board): the board under test (tests/conftest.py).
-        bench_candidate (str | None): the commit under test, or None outside a build.
+        request: runs `install_candidate` between the two hashes.
+        target: the board's labgrid target.
+        bench_candidate: the commit under test, or None outside a build.
 
     Returns:
-        ConfigHashes | None: the sha256 of the live config before the install, after it, and of the
-            image default after it (each None if the file is missing); None when there is no
-            candidate to install.
+        The sha256 of the live config before the install, after it, and of the image default after it
+        (each None if the file is missing); None when there is no candidate to install.
     """
-    board.unmount_if_mounted(board.CONFIG_PATH)
-    board.run(_BACKEND_SWEEP, check=True, timeout=RELOAD_TIMEOUT_SECONDS)
-    if bench_candidate is None:
+    with Board(target) as board:
+        config = board.app.config
+        config.unmount_stale_bind()
+        board.app.backend.clear_runtime_overrides()
+        if bench_candidate is None:
+            request.getfixturevalue("install_candidate")
+            return None
+        before = config.live_sha256()
         request.getfixturevalue("install_candidate")
-        return None
-    before = board.sha256(board.CONFIG_PATH)
-    request.getfixturevalue("install_candidate")
-    return ConfigHashes(before, board.sha256(board.CONFIG_PATH), board.sha256(board.DEFAULT_CONFIG_PATH))
+        return ConfigHashes(before, config.live_sha256(), config.default_sha256())
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _install_candidate(config_hashes_across_install):
-    """Activate `install_candidate` (tests/conftest.py) for every test here, via `config_hashes_across_install`."""
+def _install_candidate(config_hashes_across_install: ConfigHashes | None) -> None:
+    """Activate `install_candidate` (tests/conftest.py) for every test here, via `config_hashes_across_install`.
+
+    Args:
+        config_hashes_across_install: the config's hashes across the start-of-run install.
+    """
 
 
 @pytest.fixture(scope="module")
@@ -111,13 +113,21 @@ def evemu_helpers() -> Iterator[EvemuHelpers]:
         yield EvemuHelpers.build(cleanup)
 
 
-def pytest_configure(config):
-    """Register the `sends_update` marker."""
+def pytest_configure(config: pytest.Config) -> None:
+    """Register the `sends_update` marker.
+
+    Args:
+        config: the run's config.
+    """
     config.addinivalue_line("markers", "sends_update: the test sends an image update after the start-of-run install")
 
 
-def pytest_collection_modifyitems(items):
-    """Run the tests marked `sends_update` last, each group in collection order."""
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Run the tests marked `sends_update` last, each group in collection order.
+
+    Args:
+        items: the collected tests, sorted in place.
+    """
     items[:] = sorted(items, key=lambda item: item.get_closest_marker("sends_update") is not None)
 
 
@@ -128,8 +138,8 @@ def pytest_runtest_setup(item: pytest.Item) -> Iterator[None]:
     Args:
         item: the test about to be set up.
 
-    Yields:
-        None: pytest's own setup runs, the fixtures and `setup_method` among it.
+    Returns:
+        What pytest's own setup returns, once it has run the fixtures and `setup_method`.
     """
     if isinstance(item.instance, BoardTest):
         env = item.config.stash[LABGRID_ENV_KEY]
@@ -162,51 +172,70 @@ def pytest_runtest_teardown(item: pytest.Item, nextitem: pytest.Item | None) -> 
         yield
 
 
-def _utc_now():
+def _utc_now() -> str:
+    """The time now, in UTC.
+
+    Returns:
+        The time, in ISO 8601.
+    """
     return datetime.now(UTC).isoformat()
 
 
-def _browser_pid(board):
-    """The browser's pid; it starts some seconds after ssh does following a restart."""
-    deadline = time.monotonic() + _BROWSER_WAIT_SECONDS
-    while True:
-        try:
-            stdout, _stderr, returncode = board.run("pgrep -x surf")
-        except subprocess.TimeoutExpired:
-            stdout, returncode = [], 1
-        if returncode == 0 and stdout:
-            return stdout[0].strip()
-        assert time.monotonic() < deadline, "the browser never appeared"
-        time.sleep(_BROWSER_POLL_SECONDS)
+def _browser_pid(board: Board) -> str:
+    """Wait for the browser, which starts some seconds after ssh does following a restart.
+
+    Args:
+        board: the board under test.
+
+    Returns:
+        The browser's pid.
+    """
+
+    def surf_pid() -> str | None:
+        """Read the browser's pid.
+
+        Returns:
+            The pid, or None if the browser is not running.
+        """
+        stdout, _stderr, returncode = board.run("pgrep -x surf")
+        return stdout[0].strip() if returncode == 0 and stdout else None
+
+    found_s, pid = board.poll(surf_pid, until=bool, within=_BROWSER_WAIT_SECONDS, every=_BROWSER_POLL_SECONDS)
+    assert found_s is not None, "the browser never appeared"
+    return pid
 
 
 @pytest.fixture(autouse=True)
-def device_context(board, record_property):
-    """Record the board as the test found it, and the end time after the test.
+def device_context(target: Target, record_property: Callable[[str, object], None]) -> Iterator[None]:
+    """Record the board as the test found it, through a board of its own, and the end time after the test.
 
     Facts are raw board output: a missing file is simply absent from `file_sha256`.
+
+    Args:
+        target: the board's labgrid target.
+        record_property: records each fact.
+
+    Yields:
+        None: the test runs, then `end` is recorded.
     """
-    pid = _browser_pid(board)
-
-    def read(cmd):
-        return "\n".join(board.run(cmd, check=True)[0]).strip()
-
-    hashed = " ".join((board.CONFIG_PATH, *_HASHED_PATHS))
-    sums_out, sums_err, sums_rc = board.run("sha256sum " + hashed)
-    assert sums_rc in (0, 1), f"sha256sum failed (rc {sums_rc}): {chr(10).join(sums_err)}"
-    environ = read(f"tr '\\0' '\\n' < /proc/{pid}/environ").splitlines()
-    xrandr = read("DISPLAY=:0 xrandr").splitlines()
-    facts = {
-        "boot_id": read("cat /proc/sys/kernel/random/boot_id"),
-        "uptime_s": float(read("cat /proc/uptime").split()[0]),
-        "kernel": read("uname -r"),
-        "file_sha256": "\n".join(sums_out),
-        "browser_cmdline_sha256": read(f"sha256sum /proc/{pid}/cmdline").split()[0],
-        "browser_webkit_env": ",".join(line for line in environ if line.startswith("WEBKIT_")),
-        "display_mode": next((line.strip() for line in xrandr if "*" in line), ""),
-        "timesync": read("timedatectl show -p NTPSynchronized --value"),
-        "start": _utc_now(),
-    }
+    with Board(target) as board:
+        pid = _browser_pid(board)
+        hashed = " ".join((board.app.config.LIVE_PATH, *_HASHED_PATHS))
+        sums_out, sums_err, sums_rc = board.run("sha256sum " + hashed)
+        assert sums_rc in (0, 1), f"sha256sum failed (rc {sums_rc}): {chr(10).join(sums_err)}"
+        environ = board.read(f"tr '\\0' '\\n' < /proc/{pid}/environ").splitlines()
+        xrandr = board.read("DISPLAY=:0 xrandr").splitlines()
+        facts = {
+            "boot_id": board.read(Board.BOOT_ID_CMD),
+            "uptime_s": float(board.read("cat /proc/uptime").split()[0]),
+            "kernel": board.read("uname -r"),
+            "file_sha256": "\n".join(sums_out),
+            "browser_cmdline_sha256": board.read(f"sha256sum /proc/{pid}/cmdline").split()[0],
+            "browser_webkit_env": ",".join(line for line in environ if line.startswith("WEBKIT_")),
+            "display_mode": next((line.strip() for line in xrandr if "*" in line), ""),
+            "timesync": board.read("timedatectl show -p NTPSynchronized --value"),
+            "start": _utc_now(),
+        }
     for key, value in facts.items():
         record_property(key, value)
     yield
