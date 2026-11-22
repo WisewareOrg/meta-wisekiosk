@@ -4,7 +4,7 @@ header: |
   Backend crash
 level: 1.1.9
 links:
-- SRS001: mJPXcAkSNEcGQaecPKwCJDrOMXsJRs1pWu-GXRZ10lo=
+- SRS001: AgauZ0qJaMlOEbRsn-JU3og-7PKri_bZTGf-n179uQk=
 normative: true
 rationale: |
   A crashed backend leaves the panel on the application's error, with nobody there to restart it.

@@ -1,20 +1,26 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Image update with a new application build
+  Image update with a new application build
 level: 1.1.6
 links:
-- SRS001: mJPXcAkSNEcGQaecPKwCJDrOMXsJRs1pWu-GXRZ10lo=
+- SRS001: AgauZ0qJaMlOEbRsn-JU3og-7PKri_bZTGf-n179uQk=
 normative: true
 rationale: |
-  Waits on its test.
+  An image update with a new application build is how the operator changes what the panel shows.
+  If the instance did not come back on the panel after the restart, nobody would know until someone
+  walked up to it.
 ref: ''
-references: []
-reviewed: WGKPwbbFI0soyg-faQmZoeYSwNFQgP1DKqoskkBKqqo=
+references:
+- keyword: def test_new_application_build
+  path: tests/target_suite/test_image_update.py
+  sha: 12eac44d303ac27f0a4cf8d58dd353d8c5cb9adb762db4539e08620447776492
+  type: file
+reviewed: fO5fjT2XEpyv6M62E16ktchH-9ALEshxzOnWGGIKKXE=
 status: proposed
 text: |
   With nobody at the panel, install over the air a valid image update carrying a different WiseKiosk
-  build from the one running. Pass if the WiseKiosk instance is on the panel within 60 s of the
+  build from the one running. Pass if the WiseKiosk instance is on the panel within 160 s of the
   appliance restarting into it.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition

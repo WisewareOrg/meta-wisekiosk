@@ -225,12 +225,12 @@ and a non-root run leaves them owned by the wrong uid — but only after the car
 ### Updating a running device
 
 ```sh
-just kiosk-ota      # bundle -> preflight -> verified scp -> rauc install
+just kiosk-ota      # bundle -> preflight -> stream -> rauc install
 just kiosk-reboot
 just kiosk-rollback # if the new slot comes up wrong
 ```
 
-Every recipe that defaults to a device — `kiosk-ota`, `kiosk-send-direct`, `kiosk-install`, `kiosk-reboot`,
+Every recipe that defaults to a device — `kiosk-ota`, `kiosk-install`, `kiosk-reboot`,
 `kiosk-rollback`, `kiosk-preflight`, `kiosk-backup`, `provision-device` — takes its default from one
 `kiosk-host` variable in the [`Justfile`](Justfile), so `export KIOSK_HOST=root@<addr>` retargets all
 of them at once. Boards get swapped on this unit; `just find <cidr>` is how you learn the address of
@@ -238,15 +238,14 @@ the one now on the bench. An explicit `host` argument still wins over both. The 
 captures what the board does while the slot is written, and what a reset left behind — its header
 in [`tools/kiosk-install.sh`](tools/kiosk-install.sh) says what.
 
-`kiosk-preflight` refuses a delivery that cannot work — wrong slot size, stale bundle, no room on
-`/data` — before the transfer. Every recipe that puts software on a board also refuses, with no
-override, a build from a dirty or unpushed tree, so a build shipped from this host is always one
-someone else can check out; tying a bundle to the rootfs inside it is #48 bundle-image-tie.
-Delivery is a single md5-verified `scp` (`kiosk-send-direct`, ~45s for the ~114MB bundle): the
-sustained-transfer wedge that once forced chunking was top-OPP memory corruption, fixed by the
-clock cap in
-[`kiosk-cpufreq`](meta-wisekiosk/recipes-core/kiosk-cpufreq/kiosk-cpufreq_1.0.bb), so the chunker was
-removed (issue #29 remove chunked bundle delivery, verified 5/5 on the capped board).
+`kiosk-preflight` refuses a delivery that cannot work — wrong slot size, stale bundle — before the
+install. Every recipe that puts software on a board also refuses, with no override, a build from a
+dirty or unpushed tree, so a build shipped from this host is always one someone else can check out;
+tying a bundle to the rootfs inside it is #48 bundle-image-tie.
+
+Every install, by hand, by `tools/rauc-rotate.sh` or by a test, goes through
+[`tools/kiosk-install.sh`](tools/kiosk-install.sh), and the board streams the bundle;
+[the bundle recipe's README](meta-wisekiosk/recipes-core/bundles/README.md) says how and why.
 
 ## Configuration and secrets
 
@@ -323,7 +322,7 @@ that qualifies, and "Known gaps" says what closes it.
 | | |
 |---|---|
 | Engine | WebKitGTK 2.44.3, `ENABLE_JIT=OFF`, `USE_WOFF2=ON`, `MinSizeRel` — genuine ARMv6 (`Tag_CPU_arch: v6KZ`) |
-| Browser | `surf` 2.1 + the kiosk patch (milestones, override-redirect, shims) |
+| Browser | `surf` 2.1 + the kiosk patches (milestones, override-redirect, shims, frozen-page reload) |
 | Display | bare Xorg on vc4 firmware KMS at 1280x720, `xf86-video-modesetting` + mesa for glamor, WebKit painting in software, no display manager, no window manager — **measured on prod, never out of a build** |
 | Update | RAUC A/B over U-Boot — both slots visible |
 | Memory | 87 MB used of 428; zram present and never touched — **measured on the fbdev image** |
@@ -344,8 +343,10 @@ that qualifies, and "Known gaps" says what closes it.
 - **Root login is unauthenticated.** The image carries `debug-tweaks`, so root has an empty password.
   Deferred deliberately while a second device still depends on unauthenticated access; tracked as
   issue #7 debug-tweaks empty root password, which carries the detail.
-- **Screen blanking over a long idle is unverified.** `-s 0 -dpms -nocursor` moved from lightdm into
-  the kiosk unit; that failure only appears after ~20 minutes.
+- **Screen blanking is checked by the display server's settings, not by watching a long idle.**
+  `-s 0 -dpms -nocursor` moved from lightdm into the kiosk unit; TST007<!-- Display blanking disabled --> reads `xset q` on every
+  queue job and fails if the screen saver timeout is not zero or DPMS is enabled. A panel that
+  powers itself down is not covered.
 - **The image's packages are scanned for CVEs only when somebody asks.** The scan is a manual opt-in
   audit build on a build host, and nothing detects that the last one was months ago. Deciding which
   finding matters is manual too. [CVE and SBOM](docs/cve-and-sbom.md)

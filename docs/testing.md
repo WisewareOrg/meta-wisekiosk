@@ -23,6 +23,8 @@ bench test <ref> --skip-build  # by hand: the target suite only, against the boa
 bench run                      # on a timer: the merge queue's head entry, the same path
 ```
 
+`--soak` (`bench test <ref> -- --soak`) gives TST014<!-- Memory over a long run --> its long period in place of the queue period and does not judge its growth bound; `bench run` never passes it.
+
 `bench.toml`'s `[hooks]` carries a no-op `precondition` — the runner requires one; this layer's board
 needs no state check before a run — `build` (`just build`) and `bundle` (`just kiosk-bundle`).
 `[tests]` names the two suites:
@@ -48,11 +50,22 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   The timezone test overlays `/etc` from `/run` while it runs and unmounts it at teardown.
   The `panel` fixture bind-mounts a probe from `/tmp` over surf's script path and restarts the
   browser so the test can read what the page shows; teardown unmounts it and restarts the browser
-  again. The device context (`device_context` in `conftest.py`) is recorded on every test. The
+  again. Every test marked `sends_update` runs after every other test in the suite, and an
+  install refuses to run for a test without the mark. The image-update tests build their
+  bundles in the host's `/tmp`, which `tools/kas-run.sh` mounts through `KAS_RUN_TMP_DIR`.
+  The device context (`device_context` in `conftest.py`) is recorded on every test. The
   refused-update tests build two small bundles through `tools/kas-run.sh`, so they need the
   checkout's own build tree and the signing keys the bench host's environment file names. The
   keyboard test builds evemu-tools through `tools/kas-run.sh` the same way, so it needs the build
-  tree too, and while it runs the panel shows the board's text console.
+  tree too, and while it runs the panel shows the board's text console. The frozen-page test
+  swaps the board onto `clock-seconds.json` through `set_config` and stops the browser's web
+  processes, and a finalizer registered first resumes them.
+
+Every install the target suite makes goes through [`tools/kiosk-install.sh`](../tools/kiosk-install.sh),
+so the bench host needs Docker, a free port 80, and a board that reaches the host's port 80 at the
+address the host's ssh session comes from. A plain LAN meets that, and so does WSL2 with Docker
+Desktop, which publishes the port on the Windows side; NAT or an ssh jump between the board and the
+host does not, and the install then fails to fetch the bundle.
 
 `bench run` also reads `[github]` — the GitHub App that posts the `bench-pipeline` check run, and the
 path to its private key on the bench host — and `[run]`, naming the systemd unit it disables on the
@@ -77,6 +90,11 @@ tests/diagnostics -k install_reset_capture -rP` installs the candidate, then run
 kiosk-ota` and crashes the board once rauc reports writing the slot, and passes only when that
 install's own output carries the reset and the board's pstore read back after it. It crashes the
 board on purpose, so it runs only by hand, never in the queue job.
+
+`tests/diagnostics -k fallback_probe` is the safe check of the slot fallback before any install meant
+to fail: it installs a good copy of the candidate in the slot not booted, zeroes that slot's boot
+attempts and restarts, and passes only when U-Boot boots the other slot. Both slots stay bootable, so
+it strands nothing.
 
 The board comes from labgrid's own env file, pointed at with `LG_ENV` — a target named `main`, a
 `NetworkService` resource carrying the board's address, an `SSHDriver` — kept untracked under

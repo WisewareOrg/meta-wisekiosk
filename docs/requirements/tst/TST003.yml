@@ -4,7 +4,7 @@ header: |
   Pending: Power cut during an image update
 level: 1.1.3
 links:
-- SRS001: mJPXcAkSNEcGQaecPKwCJDrOMXsJRs1pWu-GXRZ10lo=
+- SRS001: AgauZ0qJaMlOEbRsn-JU3og-7PKri_bZTGf-n179uQk=
 normative: true
 rationale: |
   Waits on its test.

@@ -1,5 +1,6 @@
 """Target-suite setup: switch on the shared board setup for every test here."""
 
+import contextlib
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -8,6 +9,7 @@ import pytest
 
 from outage import Outage
 from panel import Panel
+from replay import CA_PATH, CARDS4_LIVE
 
 _CONFIG_COPY_PATH = "/tmp/kiosk-config.json"
 _BROWSER_WAIT_SECONDS = 90
@@ -17,6 +19,12 @@ _HASHED_PATHS = (
     "/boot/config.txt",
     "/boot/cmdline.txt",
 )
+_CA_BOARD_PATH = "/tmp/replay-ca.pem"
+_DROP_IN_PATH = "/run/systemd/system/wisekiosk.service.d/replay.conf"
+
+
+def pytest_addoption(parser):
+    parser.addoption("--soak", action="store_true", default=False, help="run TST014 with its long period")
 
 
 @pytest.fixture(scope="session")
@@ -85,7 +93,7 @@ def set_config(request, board):
         request.addfinalizer(lambda: board.run(f"rm -f {_CONFIG_COPY_PATH}", check=True))
 
         board.run(f"mount --bind {_CONFIG_COPY_PATH} {board.CONFIG_PATH}", check=True)
-        request.addfinalizer(lambda: board.run(f"umount {board.CONFIG_PATH}", check=True))
+        request.addfinalizer(lambda: board.unmount_if_mounted(board.CONFIG_PATH))
 
         def _restart_backend_and_wait():
             board.run("systemctl restart wisekiosk.service", check=True)
@@ -102,11 +110,93 @@ def set_config(request, board):
 
 
 @pytest.fixture
+def replay_window(board, proxy, set_config, request):
+    """Put the backend behind `proxy` for this test's duration, and return the browser start.
+
+    Opens an `ssh -R` tunnel to the proxy's own loopback port, copies the proxy's CA to the
+    board, writes a drop-in that points wisekiosk.service at the proxy through `HTTPS_PROXY`
+    and adds the proxy's CA to its trust through `SSL_CERT_FILE`, then hands `set_config` the
+    set's config.json -- whose own backend restart puts the backend onto the proxy before the
+    browser starts. Teardown undoes each of this fixture's own steps in exactly the reverse
+    order, then set_config's, then proxy's.
+
+    Args:
+        board (Board): the board under test (tests/conftest.py).
+        proxy (wisebench.proxy.Proxy): the running proxy this test replays through.
+        set_config (Callable[[str | os.PathLike], None]): swaps the board onto a config file.
+        request (pytest.FixtureRequest): registers each step's undo.
+
+    Returns:
+        float: `time.monotonic()` taken once `set_config`'s `apply` has returned from starting
+        `kiosk.service` -- the browser's start.
+    """
+
+    stack = contextlib.ExitStack()
+    request.addfinalizer(stack.close)
+    stack.enter_context(board.forward_remote_port(proxy.port, proxy.port))
+
+    board.put(str(CA_PATH), _CA_BOARD_PATH)
+
+    def _remove_ca():
+        stdout, stderr, returncode = board.run(f"rm -f {_CA_BOARD_PATH}", timeout=None)
+        output = stdout + stderr
+        assert returncode == 0, (
+            f"could not remove the replay CA (rc {returncode}): {chr(10).join(output)}"
+        )
+
+    request.addfinalizer(_remove_ca)
+
+    stdout, stderr, returncode = board.run(
+        "mkdir -p /run/systemd/system/wisekiosk.service.d && "
+        f"printf '[Service]\\nEnvironment=HTTPS_PROXY=http://127.0.0.1:{proxy.port}\\n"
+        f"Environment=SSL_CERT_FILE={_CA_BOARD_PATH}\\n' > {_DROP_IN_PATH} && "
+        "systemctl daemon-reload",
+        timeout=None,
+    )
+    output = stdout + stderr
+    assert returncode == 0, (
+        f"could not write the replay drop-in (rc {returncode}): {chr(10).join(output)}"
+    )
+
+    def _remove_drop_in():
+        stdout, stderr, returncode = board.run(
+            f"rm -f {_DROP_IN_PATH} && systemctl daemon-reload", timeout=None
+        )
+        output = stdout + stderr
+        assert returncode == 0, (
+            f"could not remove the replay drop-in (rc {returncode}): {chr(10).join(output)}"
+        )
+
+    request.addfinalizer(_remove_drop_in)
+
+    set_config(CARDS4_LIVE / "config.json")
+    return time.monotonic()
+
+
+@pytest.fixture
+def full_state(panel):
+    """Wait for the page in full state; return that read's (uptime, sample)."""
+    return panel.wait_full_state()
+
+
+@pytest.fixture
 def panel(request, board, record_property):
     """Load the probe into the browser and return the `Panel`; the page wait is the test's."""
     observation = Panel(board)
     record_property("probe_sha256", observation.install(request))
     return observation
+
+
+def pytest_configure(config):
+    """Register the `sends_update` marker."""
+    config.addinivalue_line(
+        "markers", "sends_update: the test sends an image update after the start-of-run install"
+    )
+
+
+def pytest_collection_modifyitems(items):
+    """Run the tests marked `sends_update` last, each group in collection order."""
+    items[:] = sorted(items, key=lambda item: item.get_closest_marker("sends_update") is not None)
 
 
 def _utc_now():
