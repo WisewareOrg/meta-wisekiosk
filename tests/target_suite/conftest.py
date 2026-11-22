@@ -187,6 +187,18 @@ def panel(request, board, record_property):
     return observation
 
 
+def pytest_configure(config):
+    """Register the `sends_update` marker."""
+    config.addinivalue_line(
+        "markers", "sends_update: the test sends an image update after the start-of-run install"
+    )
+
+
+def pytest_collection_modifyitems(items):
+    """Run the tests marked `sends_update` last, each group in collection order."""
+    items[:] = sorted(items, key=lambda item: item.get_closest_marker("sends_update") is not None)
+
+
 def _utc_now():
     return datetime.now(timezone.utc).isoformat()
 

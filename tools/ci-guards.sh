@@ -545,8 +545,7 @@ else
     # <justfile>:<recipe>:<required mode>
     for spec in \
         "justfiles/deploy.just:flash:--image" \
-        "justfiles/ota.just:kiosk-preflight:--image" \
-        "justfiles/ota.just:kiosk-send-direct:--tree"
+        "justfiles/ota.just:kiosk-preflight:--image"
     do
         jf10=${spec%%:*}
         rest10=${spec#*:}
@@ -575,7 +574,7 @@ else
     kitrim10=$(sed 's/^[[:space:]]*//;s/[[:space:]]*$//' <<< "$kirecipe10")
     if [ -z "$kirecipe10" ]; then
         bad "guard 10: justfiles/ota.just:kiosk-install(recipe-gone)"
-    elif [ "$kilines10" -ne 1 ] || [ "$kitrim10" != "$kioskinstall10 {{host}}" ]; then
+    elif [ "$kilines10" -ne 1 ] || [ "$kitrim10" != "$kioskinstall10 {{host}} {{bundle}}" ]; then
         bad "guard 10: justfiles/ota.just:kiosk-install does not invoke only $kioskinstall10"
     else
         ok "justfiles/ota.just:kiosk-install invokes only $kioskinstall10"
@@ -947,6 +946,34 @@ else
     printf '%s\n' "$out19" \
         | grep -E '^(FAIL|SKIP|  |pass=|Traceback|[A-Za-z_][A-Za-z0-9_.]*:)' \
         | sed 's/^/        /'
+fi
+
+# --- 20. one install path: only tools/kiosk-install.sh runs rauc install --
+# A second install path could quietly differ from the one the tests prove
+# (meta-wisekiosk/recipes-core/bundles/README.md). The match is the literal
+# words: a command built from a list or a variable is not seen, and a trailing
+# comment naming them is. Lines that start with `#` are skipped; this file
+# names the command in its own messages.
+hits20=$(git grep -n -E 'rauc[[:space:]]+install' -- tools justfiles Justfile tests \
+    ':!tools/kiosk-install.sh' ':!tools/ci-guards.sh' \
+    | grep -v -E '^[^:]+:[0-9]+:[[:space:]]*#' || true)
+if [ -n "$hits20" ]; then
+    bad "guard 20: an install outside tools/kiosk-install.sh -- every install goes through it:"
+    printf '%s\n' "$hits20" | sed 's/^/        /'
+else
+    ok "only tools/kiosk-install.sh runs rauc install"
+fi
+
+# --- 21. kiosk-netcheck's restart and proof decisions pass their self-test -
+# What it proves and how is the header of tools/kiosk-netcheck-test.sh.
+nettest21="tools/kiosk-netcheck-test.sh"
+if [ ! -f "$nettest21" ]; then
+    bad "guard 21: $nettest21 missing -- kiosk-netcheck's decisions go untested"
+elif out21=$(bash "$nettest21" 2>&1); then
+    ok "kiosk-netcheck passes its self-test ($(printf '%s\n' "$out21" | tail -n1))"
+else
+    bad "kiosk-netcheck FAILS its own self-test:"
+    printf '%s\n' "$out21" | sed 's/^/        /'
 fi
 
 if [ "$fail" -ne 0 ]; then

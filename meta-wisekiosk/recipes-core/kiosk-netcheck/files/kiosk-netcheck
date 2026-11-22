@@ -7,8 +7,16 @@
 # slot from BOOT_ORDER. That converts "boots fine, unreachable" -- the one
 # failure class the A/B slots do not cover -- into the fallback that does work.
 #
-# It only ever WITHHOLDS. It never marks a slot bad: withholding is recoverable
-# from the other slot, marking bad is not.
+# It never marks a slot bad: withholding is recoverable from the other slot,
+# marking bad is not. It restarts the boot only for a slot whose current image has
+# never reached the network, and only toward a fallback slot whose current image
+# has. A slot's proof is /data/kiosk-netcheck/reached.<bootname>, holding the
+# slot's RAUC bundle hash, so it lapses when the slot is rewritten.
+#
+# Consequences: a slot written by the card flash has no bundle hash, so it is never
+# proven, and a boot of it with no LAN restarts toward a proven fallback; a good
+# update whose first boots all meet a LAN outage longer than DEADLINE falls back;
+# and no slot is proven until an image that writes proofs has reached the network.
 
 set -u
 
@@ -28,8 +36,42 @@ if [ -r "$CONF" ]; then
     . "$CONF"
 fi
 
+PROOF_DIR=/data/kiosk-netcheck
+
 log() { echo "kiosk-netcheck: $*"; }
 now() { cut -d. -f1 /proc/uptime; }   # monotonic: the wall clock jumps mid-boot
+
+# Read RAUC's slot status into the shell. Returns non-zero, with the variables
+# untouched, when the read fails.
+read_rauc() {
+    rauc_out=$(rauc status --detailed --output-format=shell) || return 1
+    eval "$rauc_out"
+}
+
+# Whether slot $1's image, with bundle hash $2, has reached the network.
+proven() {
+    [ -n "$2" ] && [ -r "$PROOF_DIR/reached.$1" ] && [ "$(cat "$PROOF_DIR/reached.$1")" = "$2" ]
+}
+
+# Set booted_name, booted_hash, fallback and fallback_hash from the slots read_rauc
+# gave. The fallback is a good slot other than the booted one.
+find_slots() {
+    booted_name='' booted_hash='' fallback='' fallback_hash=''
+    for i in $RAUC_SLOTS; do
+        # Cleared per slot: each eval below re-assigns, and an empty value can never
+        # match "booted"/"good", so a slot missing a field cannot inherit the last.
+        state='' status='' bootname='' hash=''
+        eval "state=\${RAUC_SLOT_STATE_$i:-}"
+        eval "status=\${RAUC_SLOT_BOOT_STATUS_$i:-}"
+        eval "bootname=\${RAUC_SLOT_BOOTNAME_$i:-}"
+        eval "hash=\${RAUC_SLOT_STATUS_BUNDLE_HASH_$i:-}"
+        if [ "$state" = "booted" ]; then
+            booted_name=$bootname booted_hash=$hash
+        elif [ "$status" = "good" ]; then
+            fallback=$bootname fallback_hash=$hash
+        fi
+    done
+}
 
 deadline=$(( $(now) + DEADLINE ))
 
@@ -41,6 +83,20 @@ while :; do
 
     if [ -n "$gw" ] && ping -c 1 -W 2 "$gw" > /dev/null; then
         log "LAN reachable via $gw at $(now)s uptime"
+        if grep -q ' /data ' /proc/mounts; then
+            if read_rauc; then
+                find_slots
+                if [ -n "$booted_name" ] && [ -n "$booted_hash" ] &&
+                    ! proven "$booted_name" "$booted_hash"; then
+                    if ! { mkdir -p "$PROOF_DIR" &&
+                        printf '%s\n' "$booted_hash" > "$PROOF_DIR/reached.$booted_name"; }; then
+                        log "could not record slot $booted_name as reached"
+                    fi
+                fi
+            else
+                log "could not read the RAUC slot status; recording nothing"
+            fi
+        fi
         exit 0
     fi
 
@@ -56,21 +112,20 @@ log "$(fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT | tr '\n' ' ')"
 # Never strand the board. Withhold only when there is a good slot to fall back
 # to; a kiosk nobody can reach still beats a card with no bootable slot, which
 # is the one failure that costs a person standing at the device.
-eval "$(rauc status --output-format=shell)"
-
-fallback=
-for i in $RAUC_SLOTS; do
-    # Cleared per slot: each eval below re-assigns, and an empty value can never
-    # match "booted"/"good", so a slot missing a field cannot inherit the last.
-    state='' status='' bootname=''
-    eval "state=\$RAUC_SLOT_STATE_$i"
-    eval "status=\$RAUC_SLOT_BOOT_STATUS_$i"
-    eval "bootname=\$RAUC_SLOT_BOOTNAME_$i"
-    [ "$state" = "booted" ] && continue
-    [ "$status" = "good" ] && fallback="$bootname"
-done
+if ! read_rauc; then
+    log "WITHHOLDING good-marking; could not read the RAUC slot status"
+    exit 1
+fi
+find_slots
 
 if [ -n "$fallback" ]; then
+    if [ -n "$booted_name" ] && ! proven "$booted_name" "$booted_hash" &&
+        proven "$fallback" "$fallback_hash"; then
+        log "RESTARTING: slot $booted_name ($booted_hash) never reached the network;" \
+            "slot $fallback ($fallback_hash) did"
+        systemctl --no-block reboot
+        exit 1
+    fi
     log "WITHHOLDING good-marking; slot $fallback is good and is the fallback"
     exit 1
 fi
