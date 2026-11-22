@@ -21,7 +21,7 @@ import pytest
 from labgrid.driver.exception import ExecutionError
 
 from panel import Panel
-from recovery import assert_back_within, until_up
+from recovery import GIVE_UP_SECONDS, assert_back_within, until_up
 from updates import install, snapshot
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -35,8 +35,6 @@ _INSTALL_TIMEOUT_SECONDS = 1200
 _FALLBACK_WAIT_SECONDS = 1350
 # TST006's bound
 _ON_PANEL_BOUND_SECONDS = 160
-# stop polling; past the bound, so the record still carries the time it took
-_ON_PANEL_GIVE_UP_SECONDS = 180
 # TST003's bound
 _POWER_CUT_BOUND_SECONDS = 60
 _PROGRESS_CMD = "busctl get-property de.pengutronix.rauc / de.pengutronix.rauc.Installer Progress"
@@ -219,7 +217,7 @@ def test_new_application_build(
     panel = Panel(board)
     sample = None
     on_panel_s = None
-    while time.monotonic() - started <= _ON_PANEL_GIVE_UP_SECONDS:
+    while time.monotonic() - started <= GIVE_UP_SECONDS:
         try:
             _uptime_s, sample = panel.read()
         except (ExecutionError, subprocess.TimeoutExpired):
@@ -230,7 +228,7 @@ def test_new_application_build(
         time.sleep(1)
     record_property("on_panel_s", on_panel_s)
     assert on_panel_s is not None, (
-        f"the new build was not on the panel within {_ON_PANEL_GIVE_UP_SECONDS} s; last sample: {sample!r}"
+        f"the new build was not on the panel within {GIVE_UP_SECONDS} s; last sample: {sample!r}"
     )
     assert on_panel_s <= _ON_PANEL_BOUND_SECONDS, (
         f"on the panel after {on_panel_s} s; TST006's bound is {_ON_PANEL_BOUND_SECONDS} s"
