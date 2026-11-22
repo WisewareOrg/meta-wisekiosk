@@ -187,6 +187,8 @@ def assert_on_panel_within(t0, on_panel_s, last, requirement, bound):
 
 
 BACKEND_DROP_IN_DIR = "/run/systemd/system/wisekiosk.service.d"
+# covers a daemon-reload plus a backend start
+RELOAD_TIMEOUT_SECONDS = 60
 _HOLD_PATH = f"{BACKEND_DROP_IN_DIR}/hold.conf"
 _MAIN_PID_CMD = "systemctl show -p MainPID --value wisekiosk.service"
 
@@ -201,7 +203,9 @@ def hold_restart(board, request, seconds):
 
     def unhold():
         board.run(
-            f"rm -f {_HOLD_PATH}; systemctl daemon-reload; systemctl start wisekiosk.service", check=True
+            f"rm -f {_HOLD_PATH}; systemctl daemon-reload; systemctl start wisekiosk.service",
+            check=True,
+            timeout=RELOAD_TIMEOUT_SECONDS,
         )
         assert board.wait_for_page(), "the page did not serve after the restart hold was removed"
 
@@ -210,6 +214,7 @@ def hold_restart(board, request, seconds):
         f"mkdir -p {BACKEND_DROP_IN_DIR} && printf '[Service]\\nRestartSec={seconds}\\n' > {_HOLD_PATH} && "
         "systemctl daemon-reload",
         check=True,
+        timeout=RELOAD_TIMEOUT_SECONDS,
     )
     return unhold
 

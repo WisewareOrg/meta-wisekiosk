@@ -9,7 +9,7 @@ import pytest
 
 from outage import Outage
 from panel import Panel
-from recovery import BACKEND_DROP_IN_DIR
+from recovery import BACKEND_DROP_IN_DIR, RELOAD_TIMEOUT_SECONDS
 from replay import CA_PATH, CARDS4_LIVE
 
 _CONFIG_COPY_PATH = "/tmp/kiosk-config.json"
@@ -28,8 +28,6 @@ _BACKEND_SWEEP = (
     f"rm -rf {BACKEND_DROP_IN_DIR}; systemctl unmask --runtime wisekiosk.service; "
     "systemctl daemon-reload; systemctl start wisekiosk.service; fi"
 )
-# covers a daemon-reload plus a backend start
-_BACKEND_SWEEP_TIMEOUT_SECONDS = 60
 
 
 def pytest_addoption(parser):
@@ -54,7 +52,7 @@ def config_across_update(request, board, bench_candidate):
             missing); None when there is no candidate to install.
     """
     board.unmount_if_mounted(board.CONFIG_PATH)
-    board.run(_BACKEND_SWEEP, check=True, timeout=_BACKEND_SWEEP_TIMEOUT_SECONDS)
+    board.run(_BACKEND_SWEEP, check=True, timeout=RELOAD_TIMEOUT_SECONDS)
     if bench_candidate is None:
         request.getfixturevalue("install_candidate")
         return None
