@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_memory_over_a_long_run
   path: tests/target_suite/test_memory.py
-  sha: a684e903d122021171325a73e7f91c1f1029ff1996e02cdef81553d61cafcfd0
+  sha: 8bf9c7a26d50e75cc92a01f50055d0a28d92f47f46207368cd3812686a588559
   type: file
-reviewed: _N2KEbfCMyGwkItQ1JqwFnhbwRC4wRRptX1ygDfMDUA=
+reviewed: TO8_WY_WihV0GImYuFS8Z1dcgZFItId9wdgFtYKKNR8=
 status: proposed
 text: |
   With the WiseKiosk instance on the panel, run the appliance for 30 minutes, sampling its memory

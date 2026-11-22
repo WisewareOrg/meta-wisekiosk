@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_timezone_set_over_the_air
   path: tests/target_suite/test_timezone.py
-  sha: cadaba5a2f06c4a9b46fc11491fd6683b1d3ef36439c0dbe4aab48c2e4eb69ce
+  sha: 0f8732822a0cb7a04a353b207249608c81e312c38b6ed27d14abf5e505eff585
   type: file
-reviewed: 67xJty7tnswIUYRubZEI5wGjE8cS07VYo3Cjf2kXhDE=
+reviewed: C2LC1hYMQf7Dwt7Vg-7rtIvXFNf2SBZWheDQuHiswcQ=
 status: proposed
 text: |
   Set the appliance's timezone over the air to one different from its current timezone. Pass if the

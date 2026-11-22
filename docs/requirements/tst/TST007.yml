@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_display_blanking_disabled
   path: tests/target_suite/test_display_blanking.py
-  sha: 3eab60a9bf5285bfc41492763b653faca396760b8c3b312c1226d51f04682588
+  sha: 7c8817fe5a5247d2b0e8a462ed475985df4049e07d64ef3631737fca7cfbf748
   type: file
-reviewed: Btd9LSJbNO4RhsYmtpb7QoKJhr8emCqjfp-LPlXhC7A=
+reviewed: Efy-DHDalMrhvgRS-0sxgK6avRxjMfbF7Q6hNOd7vf8=
 status: proposed
 text: |
   Read the display's blanking settings from its display server. Pass if the screen saver's

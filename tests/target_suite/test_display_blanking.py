@@ -1,6 +1,9 @@
 """Target suite: the display server's screen saver and power management are off."""
 
 import re
+from collections.abc import Callable
+
+from board import Board
 
 _TIMEOUT = re.compile(r"timeout:\s+(\d+)")
 _DPMS_HEADER = "DPMS (Display Power Management Signaling):"
@@ -8,11 +11,18 @@ _DPMS_HEADER = "DPMS (Display Power Management Signaling):"
 _DPMS_OFF = ("DPMS is Disabled", "Server does not have the DPMS Extension")
 
 
-def test_display_blanking_disabled(board, record_property):
-    """TST007 display blanking disabled: `xset q` shows a zero screen-saver timeout and DPMS off."""
+def test_display_blanking_disabled(board: Board, record_property: Callable[[str, object], None]) -> None:
+    """TST007 display blanking disabled: `xset q` shows a zero screen-saver timeout and DPMS off.
+
+    Args:
+        board: the board under test, whose X server is asked.
+        record_property: records the requirement and `xset q`'s output.
+
+    Raises:
+        AssertionError: the screen saver timeout is missing or not 0, or power management is not off.
+    """
     record_property("requirement", "TST007")
-    stdout, _stderr, _returncode = board.run("DISPLAY=:0 xset q", check=True)
-    output = "\n".join(stdout)
+    output = board.read("DISPLAY=:0 xset q")
     record_property("xset_q", output)
 
     match = _TIMEOUT.search(output)
