@@ -1,6 +1,7 @@
 """Target suite: the board's own config file is byte for byte the same after an update, a restart and a power cut."""
 
 import pytest
+from board.app.config import LiveAndDefaultHashes
 from board_test import BoardTest
 
 
@@ -8,9 +9,7 @@ class TestConfiguration(BoardTest):
     """The board's own config file survives an image update, a restart and a power cut unchanged."""
 
     def test_config_held_across_image_update(
-        self,
-        config_hashes_across_install: tuple[str | None, str | None, str | None] | None,
-        bench_candidate: str | None,
+        self, config_hashes_across_install: LiveAndDefaultHashes | None, bench_candidate: str | None
     ) -> None:
         """TST019: the config the board held before the candidate's image update is the one it holds after.
 

@@ -72,10 +72,10 @@ class TestMemory(BoardTest):
         lines, peak, peak_at, oom_count, end_mem = [], 0.0, None, 0, {}
         try:
             if rebooted:
-                returncode, oom = memory.oom_kills_in_journal(start_uptime, previous_boot=True)
+                journal_returncode, journal_oom = memory.oom_kills_in_journal(start_uptime, previous_boot=True)
                 console_returncode, console_oom = memory.oom_kills_in_pstore(start_uptime)
-                oom = sorted({*oom, *console_oom})
-                returncode = returncode or console_returncode
+                oom = sorted({*journal_oom, *console_oom})
+                returncode = journal_returncode or console_returncode
                 if oom:
                     failures.append(f"a process was killed for memory at uptime {oom[0]:.0f} s")
                 else:

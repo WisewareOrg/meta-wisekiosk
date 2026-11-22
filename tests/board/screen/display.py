@@ -99,6 +99,38 @@ class Window(NamedTuple):
         )
 
 
+class WindowLayout(NamedTuple):
+    """The outputs X drives and its top-level windows, from one read.
+
+    Attributes:
+        outputs: each connected output that has a mode, as the area it covers.
+        windows: the top-level windows, in the order X lists them.
+        xrandr: `xrandr --current`'s output.
+        windows_text: `xwininfo`'s output for each window.
+    """
+
+    outputs: list[Area]
+    windows: list[Window]
+    xrandr: str
+    windows_text: str
+
+
+class CurrentMode(NamedTuple):
+    """The display's current mode, as `xrandr --current` reports it.
+
+    Attributes:
+        xrandr: `xrandr --current`'s output.
+        lines: the lines that mark a mode current.
+        width: the first such line's width, None if it is unreadable or there is none.
+        height: the first such line's height, None if it is unreadable or there is none.
+    """
+
+    xrandr: str
+    lines: list[str]
+    width: int | None
+    height: int | None
+
+
 class Display(Part):
     """The X server on the board, and the output it drives."""
 
@@ -115,12 +147,11 @@ class Display(Part):
         assert len(pids) == 1, f"more than one X: {pids}"
         return self._board.run(f"tr '\\0' '\\n' < /proc/{pids[0]}/cmdline", check=True).stdout
 
-    def window_layout(self) -> tuple[list[Area], list[Window], str, str]:
+    def window_layout(self) -> WindowLayout:
         """Read the outputs X drives and its top-level windows, in one command.
 
         Returns:
-            Each connected output that has a mode, as the area it covers; the top-level windows, in the
-            order X lists them; then the raw text of both reads, `xrandr --current`'s and `xwininfo`'s.
+            The layout, with the raw text of both reads.
         """
         stdout = self._board.run(_LAYOUT_READ, check=True).stdout
         split = stdout.index(_SEPARATOR)
@@ -129,20 +160,19 @@ class Display(Part):
             Area(int(x), int(y), int(width), int(height))
             for width, height, x, y in (match.groups() for match in map(_CONNECTED.match, xrandr) if match)
         ]
-        return outputs, self._parse_windows(window_lines), "\n".join(xrandr), "\n".join(window_lines)
+        return WindowLayout(outputs, self._parse_windows(window_lines), "\n".join(xrandr), "\n".join(window_lines))
 
-    def mode(self) -> tuple[str, list[str], int | None, int | None]:
+    def mode(self) -> CurrentMode:
         """Read the display's current mode.
 
         Returns:
-            `xrandr --current`'s raw output; the lines that mark a mode current; then the first such
-            line's width and height, None if it is unreadable or there is none.
+            The mode, with `xrandr`'s raw output.
         """
         stdout = self._board.run("DISPLAY=:0 xrandr --current", check=True).stdout
         current = [line.strip() for line in stdout if "*" in line]
         mode = _MODE.match(current[0]) if current else None
         width, height = (int(mode.group(1)), int(mode.group(2))) if mode else (None, None)
-        return "\n".join(stdout), current, width, height
+        return CurrentMode("\n".join(stdout), current, width, height)
 
     def xset_query(self) -> tuple[str, int | None, bool]:
         """Read the X server's settings with `xset q`.

@@ -26,7 +26,8 @@ def test_fallback_probe(board: Board, record_property: Callable[[str, object], N
     booted = board.updates.rauc_status()["booted"]
     other = ({"A", "B"} - {booted}).pop()
     record_property("booted", booted)
-    record_property("before", json.dumps(board.updates.boot_order()))
+    order, attempts_left = board.updates.boot_order()
+    record_property("before", json.dumps([order, attempts_left]))
 
     board.updates.install_built_image()
     order, attempts_left = board.updates.boot_order()

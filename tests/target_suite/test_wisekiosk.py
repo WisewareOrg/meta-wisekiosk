@@ -37,27 +37,27 @@ class TestWisekiosk(BoardTest):
         pid_before = backend.pid()
 
         killed_at = backend.sigkill()
-        answered_uptime_s, on_panel_s, left_panel = page.time_on_panel_after_backend_kill(killed_at)
+        recovery = page.time_on_panel_after_backend_kill(killed_at)
 
         sample = page.last_read.sample if page.last_read else None
         self.record(
             killed_at_uptime_s=killed_at,
-            backend_answered_uptime_s=answered_uptime_s,
-            on_panel_s=on_panel_s,
-            left_panel=left_panel,
+            backend_answered_uptime_s=recovery.answered_uptime_s,
+            on_panel_s=recovery.on_panel_s,
+            left_panel=recovery.left_panel,
             nonce_before=before["nonce"],
             nonce_after=sample["nonce"] if sample else None,
             last_sample=sample,
             main_pid_before=pid_before,
         )
-        if answered_uptime_s is not None:
+        if recovery.answered_uptime_s is not None:
             self.record(main_pid_after=backend.assert_new_process_after_kill(pid_before))
-        assert on_panel_s is not None, (
+        assert recovery.on_panel_s is not None, (
             f"the instance was not on the panel with the backend answering within {Board.GIVE_UP_SECONDS} s "
-            f"of the crash (backend answered at uptime {answered_uptime_s}); last sample: {sample!r}"
+            f"of the crash (backend answered at uptime {recovery.answered_uptime_s}); last sample: {sample!r}"
         )
-        assert on_panel_s <= _CRASH_BOUND_SECONDS, (
-            f"on the panel {on_panel_s} s after the crash; TST032's bound is {_CRASH_BOUND_SECONDS} s"
+        assert recovery.on_panel_s <= _CRASH_BOUND_SECONDS, (
+            f"on the panel {recovery.on_panel_s} s after the crash; TST032's bound is {_CRASH_BOUND_SECONDS} s"
         )
 
     def test_backend_crash_during_browser_start(self) -> None:

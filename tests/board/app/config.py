@@ -9,6 +9,10 @@ if TYPE_CHECKING:
     from record import Record
 
 
+# the live config's sha256 before a fault and after it, and the image default's; each None if missing
+type LiveAndDefaultHashes = tuple[str | None, str | None, str | None]
+
+
 class Config(Part):
     """The config the WiseKiosk app on the board runs with, and the image default it is reseeded from.
 

@@ -88,13 +88,13 @@ class TestKeyboard(BoardTest):
 
         boot_id_after = self.board.system.kernel.boot_id()
         typed_lines, phases, after_login = keyboard.typed_record()
-        marker_lines, marker_fields = keyboard.typed_marker()
+        marker = keyboard.typed_marker()
         outage_record = outage.read_record()
         self.record(
             outage_s=_OUTAGE_SECONDS,
             keyboard_record="\n".join(typed_lines),
             after_login=after_login,
-            marker="\n".join(marker_lines),
+            marker="\n".join(marker.lines),
             cut_uptime_s=outage_record.cut,
             t0_uptime_s=outage_record.restored,
         )
@@ -107,12 +107,12 @@ class TestKeyboard(BoardTest):
         assert "x_opened" in phases, f"X never opened the attached keyboard: {keyboard.journal()}"
         assert "console" in phases, f"Ctrl+Alt+F2 brought no login prompt on tty2: {keyboard.journal()}"
         assert "shell" in phases, f"logging in as root on tty2 gave no shell (after login: {after_login})"
-        assert marker_fields[:1] == [nonce], f"the typed command did not run: marker {marker_lines!r}"
-        assert marker_fields[1:2] == ["/dev/tty2"], f"the command ran on {marker_fields[1:2]}, not at the tty2 login"
+        assert marker.fields[:1] == [nonce], f"the typed command did not run: marker {marker.lines!r}"
+        assert marker.fields[1:2] == ["/dev/tty2"], f"the command ran on {marker.fields[1:2]}, not at the tty2 login"
         assert outage_record.cut is not None and outage_record.restored is not None, (
             f"the outage record has no cut and t0: {outage_record.lines}"
         )
-        assert outage_record.cut < float(marker_fields[2]) < outage_record.restored, (
-            f"the command ran with the network up: it ran at {marker_fields[2]}, "
+        assert outage_record.cut < float(marker.fields[2]) < outage_record.restored, (
+            f"the command ran with the network up: it ran at {marker.fields[2]}, "
             f"the outage was {outage_record.cut} to {outage_record.restored}"
         )
