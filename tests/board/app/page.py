@@ -144,6 +144,45 @@ class Page:
         """
         return sample is not None and sample["state"] == "applied" and sample["origin"] in _OWN_ORIGINS
 
+    def freeze_browser(self) -> tuple[float, list[str]]:
+        """Stop every web process of the browser with SIGSTOP; they are continued when the test ends.
+
+        Returns:
+            The board's uptime at the stop, and the pids stopped.
+        """
+        frozen_at, stdout, _stderr, _returncode = self._board.run_with_uptime(
+            's=$(pgrep -x surf); p=$(pgrep -P "$s" WebKitWebProcess); echo $p; kill -STOP $p'
+        )
+        pids = stdout[0].split()
+        if pids:
+            self._board.cleanup.callback(self._board.run, f"kill -CONT {' '.join(pids)}")
+        return frozen_at, pids
+
+    def web_process_states(self, pids: list[str]) -> dict[str, str | None]:
+        """Read each web process's state, as `/proc/<pid>/status` names it.
+
+        Args:
+            pids: the web processes.
+
+        Returns:
+            Each pid's state letter (`T` for stopped), None where it could not be read.
+        """
+        states = {}
+        for pid in pids:
+            status = self._board.run(f"grep '^State:' /proc/{pid}/status")[0]
+            states[pid] = status[0].split()[1] if status else None
+        return states
+
+    def load_log(self) -> list[str]:
+        """Read the browser's page-load lines from this boot's journal.
+
+        Returns:
+            The lines, with their monotonic stamps.
+        """
+        return self._board.run(
+            "journalctl -b -u kiosk.service -o short-monotonic --no-pager | grep -F 'surf: page'", timeout=None
+        )[0]
+
     def wait_for_instance(self) -> tuple[float, dict[str, str]]:
         """Wait until the instance is on the panel.
 

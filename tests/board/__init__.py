@@ -17,6 +17,7 @@ from tenacity import Retrying, retry_if_exception_type, retry_if_result, stop_af
 from board.app import App
 from board.console import Console
 from board.network import Network
+from board.screen import Screen
 from board.updates import Updates
 
 
@@ -58,6 +59,7 @@ class Board:
         host: `user@address` of the board, as the `just kiosk-*` recipes take it.
         last_instance_state: the last read of `seconds_until_instance_up`, None before one.
         network: the board's network.
+        screen: the board's screen.
         updates: RAUC and the board's install path.
         BOOT_ID_CMD: prints the kernel's boot id, which differs in each boot.
         BOOT_VARIABLES_CMD: prints BOOT_ORDER and each slot's BOOT_x_LEFT as name=value lines.
@@ -75,6 +77,7 @@ class Board:
     host: str
     last_instance_state: InstanceState | None
     network: Network
+    screen: Screen
     updates: Updates
     BOOT_ID_CMD = "cat /proc/sys/kernel/random/boot_id"
     BOOT_VARIABLES_CMD = "fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT"
@@ -103,6 +106,7 @@ class Board:
         self.last_instance_state = None
         self.app = App(self)
         self.console = Console(self)
+        self.screen = Screen(self)
         self.network = Network(self)
         self.updates = Updates(self)
 

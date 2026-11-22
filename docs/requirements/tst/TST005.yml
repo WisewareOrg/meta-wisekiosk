@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_frozen_page_recovered
   path: tests/target_suite/test_frozen_page.py
-  sha: dfec1d871751a18b18f9b2cfed37acdae9b5fdee06886234f9c7785693f5c430
+  sha: fe9a4635944e68feb4f9ed199e538d9b80572995104db40101bb2814e825860c
   type: file
-reviewed: e9U2sBJQotmMxfd0e6l6_43Xz6yWS81rBKKhb84WrrU=
+reviewed: yeBHgtjcJXouIxoI1rq46aeII1-qkiaiV3Wn0HoQg34=
 status: proposed
 text: |
   With the WiseKiosk instance configured to show a clock with seconds, freeze the page without
