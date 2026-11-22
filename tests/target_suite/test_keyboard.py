@@ -6,7 +6,7 @@ import json
 import math
 import secrets
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from pathlib import Path
 from typing import NamedTuple
 
@@ -14,6 +14,7 @@ import pytest
 from board import Board
 from container_dir import ContainerDir
 from outage import Outage
+from record import Record
 
 _SRC_DIR = Path(__file__).resolve().parent
 _DIR = "/tmp/test-keyboard"
@@ -217,15 +218,15 @@ def helpers() -> Iterator[Helpers]:
 class _Console:
     """The board's virtual consoles as the test leaves them: foreground, X's pid, tty2's login."""
 
-    def __init__(self, board: Board, record_property: Callable[[str, object], None]) -> None:
+    def __init__(self, board: Board, record: Record) -> None:
         """Bind to the board.
 
         Args:
             board: the board under test.
-            record_property: records what the console steps measure.
+            record: records what the console steps measure.
         """
         self._board = board
-        self._record_property = record_property
+        self._record = record
 
     def foreground(self) -> str:
         """The virtual terminal in the foreground, as the board's `fgconsole` prints it.
@@ -244,7 +245,7 @@ class _Console:
             when: `before` or `after`, as the restart is recorded.
         """
         if self.foreground() != "1":
-            self._record_property("console_restored_by_restart", when)
+            self._record(console_restored_by_restart=when)
             self._board.run("systemctl restart kiosk.service", check=True)
             self._board.wait_until(self.foreground, lambda console: console == "1", _KIOSK_RESTART_WAIT_SECONDS)
 
@@ -263,9 +264,11 @@ class _Console:
         Args:
             when: `before` or `after`, as the records are named.
         """
-        self._record_property(f"xorg_pid_{when}", " ".join(self._board.run("pidof Xorg")[0]))
-        self._record_property(
-            f"kiosk_nrestarts_{when}", self._board.read("systemctl show -p NRestarts --value kiosk.service")
+        self._record(
+            **{
+                f"xorg_pid_{when}": " ".join(self._board.run("pidof Xorg")[0]),
+                f"kiosk_nrestarts_{when}": self._board.read("systemctl show -p NRestarts --value kiosk.service"),
+            }
         )
 
     def restore(self) -> None:
@@ -294,117 +297,131 @@ def _record_fields(lines: list[str], kind: str) -> list[list[str]]:
     return [line.split()[1:] for line in lines if line.split()[:1] == [kind]]
 
 
-def test_shell_from_an_attached_keyboard(
-    cleanup: contextlib.ExitStack,
-    board: Board,
-    helpers: Helpers,
-    tmp_path: Path,
-    record_property: Callable[[str, object], None],
-) -> None:
-    """TST027 shell from an attached keyboard: with the network cut, log in at the console and run a command.
+class TestKeyboard:
+    """With the network gone, a keyboard attached to the board gives a shell at its console."""
 
-    Args:
-        cleanup: the stack the console, the outage and the timers register their undos on.
-        board: the board under test, whose network is cut and which gets the virtual keyboard.
-        helpers: the evemu tools built for the module.
-        tmp_path: where the event files are written before they are put on the board.
-        record_property: records the requirement and what the console and the outage measured.
-    """
-    record_property("requirement", "TST027")
-    record_property("evemu_tools_version", helpers.version)
-    record_property("helper_sha256", json.dumps(helpers.sha256, sort_keys=True))
-    record_property("helper_packages", " ".join(helpers.packages))
-    nonce = secrets.token_hex(_NONCE_BYTES)
-    command = _marker_command(nonce)
-    console = _Console(board, record_property)
+    @pytest.fixture(autouse=True)
+    def setup(self, board: Board, record: Record, helpers: Helpers, tmp_path: Path) -> Iterator[None]:
+        """Keep what every test here uses, and undo what each test changed once it ends.
 
-    cleanup.callback(board.run, f"rm -rf {_DIR}")
-    board.run(f"rm -rf {_DIR}; mkdir {_DIR}", check=True)
-    console.take_vt1("before")
-    assert console.foreground() == "1", "vt1 is not the foreground console before the test"
-    outage = Outage(board, cleanup)
-    outage.wait_boot_complete()
-    console.kill_tty2_login()
+        Args:
+            board: the board under test.
+            record: the test's record.
+            helpers: the evemu tools built for the module.
+            tmp_path: where the event files are written before they are put on the board.
 
-    boot_id = board.read(board.BOOT_ID_CMD)
-    builtin = board.run("cat /lib/modules/$(uname -r)/modules.builtin", check=True)[0]
-    hid_drivers = [entry for entry in builtin if entry in (_USBHID, _HID_GENERIC)]
-    record_property("modules_builtin_hid", "\n".join(hid_drivers))
-    assert {_USBHID, _HID_GENERIC} <= set(builtin), (
-        "the USB keyboard drivers are not built in: CONFIG_USB_HID=y (usbhid.ko) and "
-        "CONFIG_HID_GENERIC=y (hid-generic.ko) must both be in modules.builtin"
-    )
-    console.record_x("before")
+        Yields:
+            None: the test runs, then `self.cleanup` undoes its changes, last first.
+        """
+        self.board = board
+        self.record = record
+        self.helpers = helpers
+        self.tmp_path = tmp_path
+        with contextlib.ExitStack() as self.cleanup:
+            yield
 
-    uinput_loaded = board.run("test -d /sys/module/uinput")[2] == 0
-    board.run("modprobe uinput", check=True)
-    if not uinput_loaded:
-        cleanup.callback(board.run, "rmmod uinput", check=True)
-
-    sources = tmp_path / "events"
-    sources.mkdir()
-    (sources / "keyboard.desc").write_text(_DESC)
-    (sources / "chord.events").write_text(_chord(_KEY_F2))
-    (sources / "login.events").write_text(_typed(_LOGIN))
-    (sources / "command.events").write_text(_typed(command))
-    (sources / "back.events").write_text(_chord(_KEY_F1))
-    for name in sorted(path.name for path in sources.iterdir()):
-        board.put(str(sources / name), f"{_DIR}/{name}")
-    for name in helpers.sha256:
-        board.put(str(helpers.directory / name), f"{_DIR}/{name}")
-    board.put(str(_SRC_DIR / "keyboard.sh"), f"{_DIR}/keyboard.sh")
-    board.run("chmod 0755 " + " ".join(f"{_DIR}/{name}" for name in helpers.sha256), check=True)
-
-    cleanup.callback(console.restore)
-
-    bounds = " ".join(
-        str(bound)
-        for bound in (
-            _DEVICE_BOUND_SECONDS,
-            _X_OPENED_BOUND_SECONDS,
-            _CONSOLE_BOUND_SECONDS,
-            _SHELL_BOUND_SECONDS,
-            _MARKER_BOUND_SECONDS,
+    def test_shell_from_an_attached_keyboard(self) -> None:
+        """TST027 shell from an attached keyboard: with the network cut, log in at the console and run a command."""
+        self.record(requirement="TST027")
+        self.record(
+            evemu_tools_version=self.helpers.version,
+            helper_sha256=json.dumps(self.helpers.sha256, sort_keys=True),
+            helper_packages=" ".join(self.helpers.packages),
         )
-    )
-    board.run_later(cleanup, _UNIT, _KEYBOARD_ARM_SECONDS, f"/bin/sh {_DIR}/keyboard.sh {bounds}")
-    outage.arm(_OUTAGE_SECONDS)
+        nonce = secrets.token_hex(_NONCE_BYTES)
+        command = _marker_command(nonce)
+        console = _Console(self.board, self.record)
 
-    # two seconds past the outage's end, so `reconnect` starts retrying only once the network is un-pinned
-    time.sleep(Outage.ARM_DELAY_SECONDS + _OUTAGE_SECONDS + 2)
-    board.reconnect()
+        self.cleanup.callback(self.board.run, f"rm -rf {_DIR}")
+        self.board.run(f"rm -rf {_DIR}; mkdir {_DIR}", check=True)
+        console.take_vt1("before")
+        assert console.foreground() == "1", "vt1 is not the foreground console before the test"
+        outage = Outage(self.board, self.cleanup)
+        outage.wait_boot_complete()
+        console.kill_tty2_login()
 
-    boot_id_after = board.read(board.BOOT_ID_CMD)
-    keyboard_record = board.run(f"cat {_DIR}/record 2>/dev/null || true", check=True)[0]
-    marker = board.run(f"cat {_DIR}/marker 2>/dev/null || true", check=True)[0]
-    outage_record = outage.record_lines()
-    cut = outage.field(outage_record, "cut")
-    t0 = outage.field(outage_record, "t0")
-    prompts = _record_fields(keyboard_record, "prompt")
-    after_login = prompts[0][0] if prompts else "not reached"
+        boot_id = self.board.read(self.board.BOOT_ID_CMD)
+        builtin = self.board.run("cat /lib/modules/$(uname -r)/modules.builtin", check=True)[0]
+        hid_drivers = [entry for entry in builtin if entry in (_USBHID, _HID_GENERIC)]
+        self.record(modules_builtin_hid="\n".join(hid_drivers))
+        assert {_USBHID, _HID_GENERIC} <= set(builtin), (
+            "the USB keyboard drivers are not built in: CONFIG_USB_HID=y (usbhid.ko) and "
+            "CONFIG_HID_GENERIC=y (hid-generic.ko) must both be in modules.builtin"
+        )
+        console.record_x("before")
 
-    record_property("outage_s", _OUTAGE_SECONDS)
-    record_property("keyboard_record", "\n".join(keyboard_record))
-    record_property("after_login", after_login)
-    record_property("marker", "\n".join(marker))
-    record_property("cut_uptime_s", cut)
-    record_property("t0_uptime_s", t0)
+        uinput_loaded = self.board.run("test -d /sys/module/uinput")[2] == 0
+        self.board.run("modprobe uinput", check=True)
+        if not uinput_loaded:
+            self.cleanup.callback(self.board.run, "rmmod uinput", check=True)
 
-    reached = {fields[0] for fields in _record_fields(keyboard_record, "phase")}
+        sources = self.tmp_path / "events"
+        sources.mkdir()
+        (sources / "keyboard.desc").write_text(_DESC)
+        (sources / "chord.events").write_text(_chord(_KEY_F2))
+        (sources / "login.events").write_text(_typed(_LOGIN))
+        (sources / "command.events").write_text(_typed(command))
+        (sources / "back.events").write_text(_chord(_KEY_F1))
+        for name in sorted(path.name for path in sources.iterdir()):
+            self.board.put(str(sources / name), f"{_DIR}/{name}")
+        for name in self.helpers.sha256:
+            self.board.put(str(self.helpers.directory / name), f"{_DIR}/{name}")
+        self.board.put(str(_SRC_DIR / "keyboard.sh"), f"{_DIR}/keyboard.sh")
+        self.board.run("chmod 0755 " + " ".join(f"{_DIR}/{name}" for name in self.helpers.sha256), check=True)
 
-    assert boot_id_after == boot_id, (
-        "the board restarted during the outage (outage.sh's give-up), so the marker in /tmp is gone"
-    )
-    assert "device" in reached, (
-        f"the virtual keyboard was not created (the test's own setup, not the appliance): {board.read(_JOURNAL_CMD)}"
-    )
-    assert "x_opened" in reached, f"X never opened the attached keyboard: {board.read(_JOURNAL_CMD)}"
-    assert "console" in reached, f"Ctrl+Alt+F2 brought no login prompt on tty2: {board.read(_JOURNAL_CMD)}"
-    assert "shell" in reached, f"logging in as root on tty2 gave no shell (after login: {after_login})"
-    fields = marker[0].split() if marker else []
-    assert fields[:1] == [nonce], f"the typed command did not run: marker {marker!r}"
-    assert fields[1:2] == ["/dev/tty2"], f"the command ran on {fields[1:2]}, not at the tty2 login"
-    assert cut is not None and t0 is not None, f"the outage record has no cut and t0: {outage_record}"
-    assert cut < float(fields[2]) < t0, (
-        f"the command ran with the network up: it ran at {fields[2]}, the outage was {cut} to {t0}"
-    )
+        self.cleanup.callback(console.restore)
+
+        bounds = " ".join(
+            str(bound)
+            for bound in (
+                _DEVICE_BOUND_SECONDS,
+                _X_OPENED_BOUND_SECONDS,
+                _CONSOLE_BOUND_SECONDS,
+                _SHELL_BOUND_SECONDS,
+                _MARKER_BOUND_SECONDS,
+            )
+        )
+        self.board.run_later(self.cleanup, _UNIT, _KEYBOARD_ARM_SECONDS, f"/bin/sh {_DIR}/keyboard.sh {bounds}")
+        outage.arm(_OUTAGE_SECONDS)
+
+        # two seconds past the outage's end, so `reconnect` starts retrying only once the network is un-pinned
+        time.sleep(Outage.ARM_DELAY_SECONDS + _OUTAGE_SECONDS + 2)
+        self.board.reconnect()
+
+        boot_id_after = self.board.read(self.board.BOOT_ID_CMD)
+        keyboard_record = self.board.run(f"cat {_DIR}/record 2>/dev/null || true", check=True)[0]
+        marker = self.board.run(f"cat {_DIR}/marker 2>/dev/null || true", check=True)[0]
+        outage_record = outage.record_lines()
+        cut = outage.field(outage_record, "cut")
+        t0 = outage.field(outage_record, "t0")
+        prompts = _record_fields(keyboard_record, "prompt")
+        after_login = prompts[0][0] if prompts else "not reached"
+
+        self.record(
+            outage_s=_OUTAGE_SECONDS,
+            keyboard_record="\n".join(keyboard_record),
+            after_login=after_login,
+            marker="\n".join(marker),
+            cut_uptime_s=cut,
+            t0_uptime_s=t0,
+        )
+
+        reached = {fields[0] for fields in _record_fields(keyboard_record, "phase")}
+
+        assert boot_id_after == boot_id, (
+            "the board restarted during the outage (outage.sh's give-up), so the marker in /tmp is gone"
+        )
+        assert "device" in reached, (
+            "the virtual keyboard was not created (the test's own setup, not the appliance): "
+            f"{self.board.read(_JOURNAL_CMD)}"
+        )
+        assert "x_opened" in reached, f"X never opened the attached keyboard: {self.board.read(_JOURNAL_CMD)}"
+        assert "console" in reached, f"Ctrl+Alt+F2 brought no login prompt on tty2: {self.board.read(_JOURNAL_CMD)}"
+        assert "shell" in reached, f"logging in as root on tty2 gave no shell (after login: {after_login})"
+        fields = marker[0].split() if marker else []
+        assert fields[:1] == [nonce], f"the typed command did not run: marker {marker!r}"
+        assert fields[1:2] == ["/dev/tty2"], f"the command ran on {fields[1:2]}, not at the tty2 login"
+        assert cut is not None and t0 is not None, f"the outage record has no cut and t0: {outage_record}"
+        assert cut < float(fields[2]) < t0, (
+            f"the command ran with the network up: it ran at {fields[2]}, the outage was {cut} to {t0}"
+        )

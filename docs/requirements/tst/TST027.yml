@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_shell_from_an_attached_keyboard
   path: tests/target_suite/test_keyboard.py
-  sha: 4c005ece7077456ed0ddead2527d3864a726138dfb3aa21470d5330ccfe5aaa7
+  sha: 0553131064d2696f97e70018e353f4a4936c62e460df1a71de840840f2f948b2
   type: file
-reviewed: BQKKm2fLQyc42KhzTSdN-HpfJuDCdqoMjJ2_pdnwI4s=
+reviewed: EtRNgvtST41mgO1yMwT_0O0lIsQKKWKZHmTUQEwsRBg=
 status: proposed
 text: |
   With the appliance's network unavailable, attach a keyboard at the appliance's input layer and log
