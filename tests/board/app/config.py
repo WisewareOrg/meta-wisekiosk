@@ -62,10 +62,6 @@ class Config(Part):
     LIVE_PATH = "/data/config/config.json"
     _DEFAULT_PATH = "/usr/share/wisekiosk/config.example.json"
 
-    def unmount_stale_bind(self) -> None:
-        """Unmount a bind mount a dead run left over the live config, if there is one."""
-        self._board.unmount_if_mounted(self.LIVE_PATH)
-
     def live_sha256(self) -> str | None:
         """Read the sha256 of the live config.
 

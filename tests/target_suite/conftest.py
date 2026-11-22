@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 import pytest
 from board import Board
-from board.app.config import ConfigHashes
+from board.app.config import Config, ConfigHashes
 from board_test import BoardTest
 from candidate_bundles import CandidateBundles
 from evemu_helpers import EvemuHelpers
@@ -53,7 +53,7 @@ def config_hashes_across_install(
     """
     with Board(target) as board:
         config = board.app.config
-        config.unmount_stale_bind()
+        board.unmount_if_mounted(Config.LIVE_PATH)
         board.app.backend.clear_runtime_overrides()
         if bench_candidate is None:
             request.getfixturevalue("install_candidate")
@@ -172,39 +172,6 @@ def pytest_runtest_teardown(item: pytest.Item, nextitem: pytest.Item | None) -> 
         yield
 
 
-def _utc_now() -> str:
-    """The time now, in UTC.
-
-    Returns:
-        The time, in ISO 8601.
-    """
-    return datetime.now(UTC).isoformat()
-
-
-def _browser_pid(board: Board) -> str:
-    """Wait for the browser, which starts some seconds after ssh does following a restart.
-
-    Args:
-        board: the board under test.
-
-    Returns:
-        The browser's pid.
-    """
-
-    def surf_pid() -> str | None:
-        """Read the browser's pid.
-
-        Returns:
-            The pid, or None if the browser is not running.
-        """
-        pgrep = board.run("pgrep -x surf")
-        return pgrep.stdout[0].strip() if pgrep.returncode == 0 and pgrep.stdout else None
-
-    found_s, pid = board.poll(surf_pid, until=bool, within=_BROWSER_WAIT_SECONDS, every=_BROWSER_POLL_SECONDS)
-    assert found_s is not None, "the browser never appeared"
-    return pid
-
-
 @pytest.fixture(autouse=True)
 def device_context(target: Target, record_property: Callable[[str, object], None]) -> Iterator[None]:
     """Record the board as the test found it, through a board of its own, and the end time after the test.
@@ -219,7 +186,14 @@ def device_context(target: Target, record_property: Callable[[str, object], None
         None: the test runs, then `end` is recorded.
     """
     with Board(target) as board:
-        pid = _browser_pid(board)
+        # the browser starts some seconds after ssh does following a restart
+        found_s, pid = board.poll(
+            lambda: board.run("pgrep -x surf").text.partition("\n")[0] or None,
+            until=bool,
+            within=_BROWSER_WAIT_SECONDS,
+            every=_BROWSER_POLL_SECONDS,
+        )
+        assert found_s is not None, "the browser never appeared"
         hashed = " ".join((board.app.config.LIVE_PATH, *_HASHED_PATHS))
         sums = board.run("sha256sum " + hashed)
         assert sums.returncode in (0, 1), f"sha256sum failed (rc {sums.returncode}): {chr(10).join(sums.stderr)}"
@@ -234,9 +208,9 @@ def device_context(target: Target, record_property: Callable[[str, object], None
             "browser_webkit_env": ",".join(line for line in environ if line.startswith("WEBKIT_")),
             "display_mode": next((line.strip() for line in xrandr if "*" in line), ""),
             "timesync": board.run("timedatectl show -p NTPSynchronized --value", check=True).text,
-            "start": _utc_now(),
+            "start": datetime.now(UTC).isoformat(),
         }
     for key, value in facts.items():
         record_property(key, value)
     yield
-    record_property("end", _utc_now())
+    record_property("end", datetime.now(UTC).isoformat())

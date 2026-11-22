@@ -70,7 +70,18 @@ class Captures(Part):
             self._board.cleanup.callback(self._board.run, f"rm -f {_CAPTURE_PATH}")
         time.sleep(max(0, self._next_at - time.monotonic()))
         self._next_at = time.monotonic() + _CAPTURE_EVERY_SECONDS
-        capture = self._grab()
+        cmd = (
+            f"rm -f {_CAPTURE_PATH}; cat /proc/uptime; "
+            f"DISPLAY=:0 import -window root -crop {self.crop} +repage {_CAPTURE_PATH}; "
+            f"echo rc=$?; stat -c %s {_CAPTURE_PATH}; sha256sum {_CAPTURE_PATH}"
+        )
+        try:
+            stdout = self._board.run(cmd).stdout
+        except subprocess.TimeoutExpired:
+            capture = (None, None)
+        else:
+            good = len(stdout) >= 4 and stdout[1] == "rc=0" and int(stdout[2]) >= _MIN_PNG_BYTES
+            capture = (float(stdout[0].split()[0]), stdout[3].split()[0] if good else None)
         previous = self.taken[-1] if self.taken else (None, None)
         if capture[1] is not None and previous[1] is not None and capture[1] != previous[1]:
             self.changing_run += 1
@@ -86,22 +97,3 @@ class Captures(Part):
             True if the last two captures are good and equal.
         """
         return len(self.taken) >= 2 and self.taken[-1][1] is not None and self.taken[-1][1] == self.taken[-2][1]
-
-    def _grab(self) -> tuple[float | None, str | None]:
-        """Grab the crop once.
-
-        Returns:
-            The board uptime just before the grab and the picture's sha256, as `take` returns them.
-        """
-        cmd = (
-            f"rm -f {_CAPTURE_PATH}; cat /proc/uptime; "
-            f"DISPLAY=:0 import -window root -crop {self.crop} +repage {_CAPTURE_PATH}; "
-            f"echo rc=$?; stat -c %s {_CAPTURE_PATH}; sha256sum {_CAPTURE_PATH}"
-        )
-        try:
-            stdout = self._board.run(cmd).stdout
-        except subprocess.TimeoutExpired:
-            return None, None
-        uptime_s = float(stdout[0].split()[0])
-        good = len(stdout) >= 4 and stdout[1] == "rc=0" and int(stdout[2]) >= _MIN_PNG_BYTES
-        return uptime_s, stdout[3].split()[0] if good else None
