@@ -89,9 +89,7 @@ def test_cold_boot_to_the_panel(board, power_cut, record_property):
     record_property("requirement", "TST012")
     panel = Panel(board)
     started = power_cut()
-    on_panel_s, titles = poll_from(
-        started, lambda: or_none(panel.titles), lambda t: loaded_instance(t) is not None
-    )
+    on_panel_s, titles = poll_from(started, lambda: or_none(panel.titles), lambda t: loaded_instance(t) is not None)
     record_property("on_panel_s", on_panel_s)
     record_property("last_titles", titles)
     record_property("loaded", loaded_instance(titles) if titles else None)

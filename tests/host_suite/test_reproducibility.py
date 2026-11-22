@@ -2,10 +2,7 @@
 
 import subprocess
 
-ROOTFS = (
-    "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/"
-    "core-image-base-raspberrypi0-wifi.rootfs.ext4"
-)
+ROOTFS = "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/core-image-base-raspberrypi0-wifi.rootfs.ext4"
 
 
 def test_reproducibility_gate():

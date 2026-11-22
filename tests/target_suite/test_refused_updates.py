@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import NamedTuple
 
 import pytest
-
 from updates import install, snapshot
 
 _REPO = Path(__file__).resolve().parents[2]

@@ -28,15 +28,10 @@ def _check(before, after, default, record_property):
         validity = "valid"
     record_property("validity", validity)
     assert before is not None, "INVALID CHECK, not an appliance failure: the board held no config.json to keep"
-    assert after == before, (
-        f"config held {'missing' if after is None else after}, expected the {before} it held before"
-    )
-    assert default is not None, (
-        "INVALID CHECK, not an appliance failure: the image default could not be read"
-    )
+    assert after == before, f"config held {'missing' if after is None else after}, expected the {before} it held before"
+    assert default is not None, "INVALID CHECK, not an appliance failure: the image default could not be read"
     assert before != default, (
-        "INVALID CHECK, not an appliance failure: the board's config is the image default, "
-        "so losing it would go unseen"
+        "INVALID CHECK, not an appliance failure: the board's config is the image default, so losing it would go unseen"
     )
 
 

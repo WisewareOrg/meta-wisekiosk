@@ -5,7 +5,6 @@ import time
 
 import pytest
 from labgrid.driver.exception import ExecutionError
-
 from replay import CARDS4_LIVE
 
 WARMUP_MS = 40_000
@@ -109,9 +108,7 @@ def test_motion_stutter(proxy, replay_window, panel, full_state, board, record_p
             break
         if end is not None and int(end["el"]) >= start_counters["el"] + WINDOW_MS:
             break
-        assert time.monotonic() < deadline, (
-            f"the page stopped reporting within {END_WAIT_SECONDS} s; last: {end!r}"
-        )
+        assert time.monotonic() < deadline, f"the page stopped reporting within {END_WAIT_SECONDS} s; last: {end!r}"
         time.sleep(READ_PAUSE_SECONDS)
     if end["load"] != start["load"]:
         reloaded = "the page reloaded inside the window"
@@ -154,6 +151,5 @@ def test_motion_stutter(proxy, replay_window, panel, full_state, board, record_p
 
     assert not problems, f"INVALID: {'; '.join(problems)}"
     assert stalls <= STALL_BOUND, (
-        f"{stalls} frame stalls of {CUTOFF_MS} ms or more in {WINDOW_MS // 1000} s; "
-        f"TST009's bound is {STALL_BOUND}"
+        f"{stalls} frame stalls of {CUTOFF_MS} ms or more in {WINDOW_MS // 1000} s; TST009's bound is {STALL_BOUND}"
     )

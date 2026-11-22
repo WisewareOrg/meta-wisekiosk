@@ -6,10 +6,9 @@ Also the fixtures that set the board's state, observe the panel and inject fault
 import contextlib
 import subprocess
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-
 from backend import BACKEND_DROP_IN_DIR, RELOAD_TIMEOUT_SECONDS
 from outage import Outage
 from panel import Panel
@@ -40,9 +39,7 @@ def pytest_addoption(parser):
 
 def pytest_configure(config):
     """Register the `sends_update` marker."""
-    config.addinivalue_line(
-        "markers", "sends_update: the test sends an image update after the start-of-run install"
-    )
+    config.addinivalue_line("markers", "sends_update: the test sends an image update after the start-of-run install")
 
 
 def pytest_collection_modifyitems(items):
@@ -83,7 +80,7 @@ def _install_candidate(config_across_update):
 
 
 def _utc_now():
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _browser_pid(board):
@@ -206,7 +203,6 @@ def replay_window(board, proxy, set_config, request):
         float: `time.monotonic()` taken once `set_config`'s `apply` has returned from starting
         `kiosk.service` -- the browser's start.
     """
-
     stack = contextlib.ExitStack()
     request.addfinalizer(stack.close)
     stack.enter_context(board.forward_remote_port(proxy.port, proxy.port))

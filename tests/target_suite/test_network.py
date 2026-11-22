@@ -6,7 +6,6 @@ import threading
 import time
 
 from labgrid.driver.exception import ExecutionError
-
 from outage import Outage
 
 _OUTAGE_SECONDS = 60
@@ -98,16 +97,13 @@ def test_rejoins_after_an_outage(request, board, outage, record_property):
         if journal_rc != 0:
             record_property("journal_trace", [f"journalctl rc {journal_rc}", *journal_err])
         else:
-            last_run = max(
-                (n for n, line in enumerate(journal) if line.startswith("id ")), default=0
-            )
+            last_run = max((n for n, line in enumerate(journal) if line.startswith("id ")), default=0)
             record_property("journal_trace", journal[last_run:])
 
     assert shells_during_outage == 0, "the network did not go away: a shell opened during the outage"
     assert rejoined_s is not None, f"no remote shell within {Outage.GIVE_UP_SECONDS} s of the network returning"
     assert rejoined_s <= _REJOIN_BOUND_SECONDS, (
-        f"a shell opened {rejoined_s} s after the network returned; "
-        f"TST029's bound is {_REJOIN_BOUND_SECONDS} s"
+        f"a shell opened {rejoined_s} s after the network returned; TST029's bound is {_REJOIN_BOUND_SECONDS} s"
     )
 
 
@@ -159,9 +155,7 @@ def test_sustained_network_load(request, board, panel, record_property):
 
     proc = subprocess.Popen(
         [
-            *board.fresh_ssh_argv(
-                "ConnectTimeout=10", "ServerAliveInterval=15", "ServerAliveCountMax=4"
-            ),
+            *board.fresh_ssh_argv("ConnectTimeout=10", "ServerAliveInterval=15", "ServerAliveCountMax=4"),
             "wc -c",
         ],
         stdin=subprocess.PIPE,
@@ -217,10 +211,7 @@ def test_sustained_network_load(request, board, panel, record_property):
         f"the load was not applied: {rate:.2f} MB/s over {result['seconds']:.0f} s; "
         f"the floor is {_LOAD_FLOOR_MB_S} MB/s for {_LOAD_SECONDS} s"
     )
-    assert seen["uptimes"] == sorted(seen["uptimes"]), (
-        "the board restarted during the test: its uptime went backwards"
-    )
+    assert seen["uptimes"] == sorted(seen["uptimes"]), "the board restarted during the test: its uptime went backwards"
     assert longest_stop <= _STOP_ALLOWANCE_SECONDS, (
-        f"the panel was off for {longest_stop} s under load; TST008's allowance is "
-        f"{_STOP_ALLOWANCE_SECONDS} s"
+        f"the panel was off for {longest_stop} s under load; TST008's allowance is {_STOP_ALLOWANCE_SECONDS} s"
     )

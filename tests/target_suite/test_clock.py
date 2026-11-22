@@ -108,13 +108,10 @@ def test_clock_set_wrong(restore_clock, board, record_property):
     print(f"clock_corrected_seconds={uptime:.1f} final_offset_seconds={offset:.1f}")
     record_property("clock_corrected_seconds", uptime)
     assert abs(offset) <= AGREE_SECONDS, (
-        f"clock still {offset:.0f}s off the network's time at uptime {uptime:.0f}s, "
-        f"bound {BOUND_SECONDS}s"
+        f"clock still {offset:.0f}s off the network's time at uptime {uptime:.0f}s, bound {BOUND_SECONDS}s"
     )
 
-    assert behind is not None, (
-        "INVALID CHECK, not an appliance failure: timesyncd logged nothing this boot"
-    )
+    assert behind is not None, "INVALID CHECK, not an appliance failure: timesyncd logged nothing this boot"
     assert abs(behind - SKEW_SECONDS) < SKEW_TOLERANCE_SECONDS, (
         f"INVALID CHECK, not an appliance failure: timesyncd's first entry was {behind:.0f}s "
         f"behind the host, not the {SKEW_SECONDS}s the stimulus set"

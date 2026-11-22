@@ -15,9 +15,7 @@ import subprocess
 
 RAUC_TAG = "rauc["
 SLOT_WRITE = "writing data to device"
-ARMED = re.compile(
-    r"\[arm\] armed: record_ftrace=1 filter_entries=\d+ watchdog_thresh=1 softlockup_panic=1$"
-)
+ARMED = re.compile(r"\[arm\] armed: record_ftrace=1 filter_entries=\d+ watchdog_thresh=1 softlockup_panic=1$")
 SEED = "echo c > /proc/sysrq-trigger"
 
 
@@ -50,11 +48,25 @@ def _crash(host):
         host (str): `user@address` of the board.
     """
     subprocess.Popen(
-        ["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=no",
-         "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=10",
-         "-o", "ServerAliveInterval=2",
-         "-o", "ServerAliveCountMax=3", host, SEED],
-        stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
+        [
+            "ssh",
+            "-o",
+            "BatchMode=yes",
+            "-o",
+            "StrictHostKeyChecking=no",
+            "-o",
+            "UserKnownHostsFile=/dev/null",
+            "-o",
+            "ConnectTimeout=10",
+            "-o",
+            "ServerAliveInterval=2",
+            "-o",
+            "ServerAliveCountMax=3",
+            host,
+            SEED,
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.STDOUT,
     )
 
 
@@ -69,7 +81,9 @@ def test_install_reset_capture(board):
 
     ota = subprocess.Popen(
         ["just", "kiosk-ota", host],
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
     )
     lines = []
     seeded = False
@@ -90,9 +104,7 @@ def test_install_reset_capture(board):
     assert any(line.endswith("== /sys/fs/pstore/dmesg-ramoops-0") for line in pstore), (
         "no dmesg-ramoops record in the read-back"
     )
-    assert any("sysrq triggered crash" in line for line in pstore), (
-        "the read-back does not carry the seeded panic"
-    )
+    assert any("sysrq triggered crash" in line for line in pstore), "the read-back does not carry the seeded panic"
     assert any(line.endswith("== /sys/fs/pstore/ftrace-ramoops-0") for line in pstore), (
         "no ftrace-ramoops record in the read-back"
     )

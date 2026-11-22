@@ -88,9 +88,7 @@ class Board:
         Raises:
             AssertionError: the path is mounted and `umount` fails.
         """
-        self.run(
-            f"if grep -q ' {path} ' /proc/self/mountinfo; then umount {path}; fi", check=True
-        )
+        self.run(f"if grep -q ' {path} ' /proc/self/mountinfo; then umount {path}; fi", check=True)
 
     def put(self, src, dst):
         """Copy the host file `src` to `dst` on the board.
@@ -287,9 +285,7 @@ class Board:
                         return
                 except (ExecutionError, subprocess.TimeoutExpired):
                     pass
-            assert time.monotonic() < deadline, (
-                f"the board did not answer within {self.RESTART_WAIT_SECONDS} s"
-            )
+            assert time.monotonic() < deadline, f"the board did not answer within {self.RESTART_WAIT_SECONDS} s"
             if connected:
                 self.disconnect()
             time.sleep(1)
@@ -343,9 +339,7 @@ class Board:
         try:
             sent = subprocess.run(
                 [
-                    *self.fresh_ssh_argv(
-                        "ConnectTimeout=10", "ServerAliveInterval=2", "ServerAliveCountMax=3"
-                    ),
+                    *self.fresh_ssh_argv("ConnectTimeout=10", "ServerAliveInterval=2", "ServerAliveCountMax=3"),
                     cmd,
                 ],
                 capture_output=True,

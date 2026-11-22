@@ -12,8 +12,7 @@ import subprocess
 from pathlib import Path
 
 ROOTFS_TARBALL = (
-    "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/"
-    "core-image-base-raspberrypi0-wifi.rootfs.tar.bz2"
+    "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/core-image-base-raspberrypi0-wifi.rootfs.tar.bz2"
 )
 
 
@@ -37,9 +36,7 @@ def test_units_verify_and_are_enabled(tmp_path):
 
     rootfs = tmp_path / "rootfs"
     rootfs.mkdir()
-    subprocess.run(
-        ["tar", "--exclude=./dev", "-xjf", ROOTFS_TARBALL, "-C", str(rootfs)], check=True
-    )
+    subprocess.run(["tar", "--exclude=./dev", "-xjf", ROOTFS_TARBALL, "-C", str(rootfs)], check=True)
 
     failures = []
     for unit in unit_names:

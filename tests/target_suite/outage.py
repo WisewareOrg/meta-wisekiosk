@@ -66,9 +66,7 @@ class Outage:
             check=True,
         )
         units = f"{self.UNIT}.timer {self.UNIT}.service"
-        request.addfinalizer(
-            lambda: board.run(f"systemctl stop {units}; systemctl reset-failed {units}")
-        )
+        request.addfinalizer(lambda: board.run(f"systemctl stop {units}; systemctl reset-failed {units}"))
 
         request.addfinalizer(board.reconnect)
         board.disconnect()

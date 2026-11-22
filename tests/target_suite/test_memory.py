@@ -5,10 +5,9 @@ import subprocess
 import time
 
 import pytest
+from backend import MAIN_PID_CMD
 from labgrid.binding import StateError
 from labgrid.driver.exception import ExecutionError
-
-from backend import MAIN_PID_CMD
 from replay import CARDS4_LIVE
 
 # TST014's period, and the period `--soak` gives it
@@ -115,9 +114,7 @@ def _wait_period(board, boot_id, period):
 
 
 @pytest.mark.parametrize("proxy", [str(CARDS4_LIVE / "flows.har")], indirect=True)
-def test_memory_over_a_long_run(
-    request, proxy, replay_window, panel, full_state, board, record_property
-):
+def test_memory_over_a_long_run(request, proxy, replay_window, panel, full_state, board, record_property):
     """TST014 memory over a long run: kiosk-soak's samples of memory in use stay under `USE_LIMIT` of usable.
 
     Usable is `MemTotal`; in use is `MemTotal - MemAvailable`. A sample at or above the limit, or
@@ -180,9 +177,7 @@ def test_memory_over_a_long_run(
         problems.append(f"evidence unreadable: {type(exc).__name__}")
 
     try:
-        end_uptime = (
-            float("inf") if rebooted else float(_read_text(board, "cat /proc/uptime").split()[0])
-        )
+        end_uptime = float("inf") if rebooted else float(_read_text(board, "cat /proc/uptime").split()[0])
         lines = [
             line
             for line in _soak_lines(board, period)
@@ -225,14 +220,12 @@ def test_memory_over_a_long_run(
         end_mem = _meminfo(board) if not rebooted else {}
         if end_mem:
             growth_mb = (
-                (end_mem["MemTotal"] - end_mem["MemAvailable"])
-                - (start_mem["MemTotal"] - start_mem["MemAvailable"])
+                (end_mem["MemTotal"] - end_mem["MemAvailable"]) - (start_mem["MemTotal"] - start_mem["MemAvailable"])
             ) / 1024
             record_property("growth_mb", round(growth_mb, 1))
             if not problems and not soak and growth_mb > GROWTH_LIMIT_MB:
                 failures.append(
-                    f"memory in use grew {growth_mb:.0f} MB over the window; "
-                    f"TST014's bound is {GROWTH_LIMIT_MB} MB"
+                    f"memory in use grew {growth_mb:.0f} MB over the window; TST014's bound is {GROWTH_LIMIT_MB} MB"
                 )
     except _BOARD_ERRORS as exc:
         problems.append(f"evidence unreadable: {type(exc).__name__}")

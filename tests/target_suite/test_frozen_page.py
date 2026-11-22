@@ -47,11 +47,7 @@ class _Captures:
         except subprocess.TimeoutExpired:
             return None, None
         uptime_s = float(stdout[0].split()[0])
-        good = (
-            len(stdout) >= 4
-            and stdout[1] == "rc=0"
-            and int(stdout[2]) >= _MIN_PNG_BYTES
-        )
+        good = len(stdout) >= 4 and stdout[1] == "rc=0" and int(stdout[2]) >= _MIN_PNG_BYTES
         digest = stdout[3].split()[0] if good else None
         return uptime_s, digest
 
@@ -109,17 +105,12 @@ def test_frozen_page_recovered(board, panel, set_config, record_property, reques
         grabs.take()
         if grabs.changing_run >= _CHANGING_READS:
             break
-        assert time.monotonic() - started <= _GIVE_UP_SECONDS, (
-            "the panel was not changing before the freeze"
-        )
+        assert time.monotonic() - started <= _GIVE_UP_SECONDS, "the panel was not changing before the freeze"
 
     frozen_pids = []
-    request.addfinalizer(
-        lambda: frozen_pids and board.run(f"kill -CONT {' '.join(frozen_pids)}")
-    )
+    request.addfinalizer(lambda: frozen_pids and board.run(f"kill -CONT {' '.join(frozen_pids)}"))
     stdout, _stderr, _returncode = board.run(
-        'cat /proc/uptime; s=$(pgrep -x surf); p=$(pgrep -P "$s" WebKitWebProcess); '
-        "echo $p; kill -STOP $p"
+        'cat /proc/uptime; s=$(pgrep -x surf); p=$(pgrep -P "$s" WebKitWebProcess); echo $p; kill -STOP $p'
     )
     frozen_at = float(stdout[0].split()[0])
     frozen_pids[:] = stdout[1].split()
@@ -139,8 +130,7 @@ def test_frozen_page_recovered(board, panel, set_config, record_property, reques
         if in_time and grabs.stopped() and grabs.captures[-2][0] > frozen_at:
             break
         assert uptime_s is None or in_time, (
-            f"the freeze did not take: the panel was not seen stopped within "
-            f"{_STOPPED_WITHIN_SECONDS} s of it"
+            f"the freeze did not take: the panel was not seen stopped within {_STOPPED_WITHIN_SECONDS} s of it"
         )
         assert time.monotonic() < give_up_at, "the freeze did not take: no reading of the panel"
 
@@ -165,9 +155,5 @@ def test_frozen_page_recovered(board, panel, set_config, record_property, reques
     record_property("captures", grabs.captures)
     record_property("recovered_s", recovered_s)
 
-    assert recovered_s is not None, (
-        f"the panel was not changing again within {_GIVE_UP_SECONDS} s of the freeze"
-    )
-    assert recovered_s <= _BOUND_SECONDS, (
-        f"changing again after {recovered_s} s; TST005's bound is {_BOUND_SECONDS} s"
-    )
+    assert recovered_s is not None, f"the panel was not changing again within {_GIVE_UP_SECONDS} s of the freeze"
+    assert recovered_s <= _BOUND_SECONDS, f"changing again after {recovered_s} s; TST005's bound is {_BOUND_SECONDS} s"

@@ -10,7 +10,6 @@ import time
 from pathlib import Path
 
 from labgrid.driver.exception import ExecutionError
-
 from replay import FULL_CARDS
 
 _PROBE_SRC = Path(__file__).resolve().parent / "probe.js"

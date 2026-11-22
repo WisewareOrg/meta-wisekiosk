@@ -9,7 +9,6 @@ import time
 from typing import NamedTuple
 
 from labgrid.driver.exception import ExecutionError
-
 from panel import OWN_ORIGINS, finished_load
 
 # stop polling; past every bound, so the record still carries the time it took
@@ -67,9 +66,7 @@ def assert_back_within(back_s, last_read, fault, requirement, bound):
         f"the board did not serve the page with the browser running within {GIVE_UP_SECONDS} s "
         f"of the {fault}; last read: browser running {last_read[0]}, page served {last_read[1]}"
     )
-    assert back_s <= bound, (
-        f"back after {back_s} s; {requirement}'s bound is {bound} s"
-    )
+    assert back_s <= bound, f"back after {back_s} s; {requirement}'s bound is {bound} s"
 
 
 class Held(NamedTuple):
