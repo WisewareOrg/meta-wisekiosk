@@ -4,12 +4,13 @@ The bundles are copies of the candidate, edited and re-signed by the operator ke
 install-check hook that refuses unless this run's nonce is in the board's `/tmp`.
 """
 
+import contextlib
 import json
 import os
 import re
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import NamedTuple
@@ -65,34 +66,35 @@ class UpdateBundles(NamedTuple):
 
 
 @pytest.fixture(scope="module")
-def bundles(request: pytest.FixtureRequest, bench_candidate: str | None) -> UpdateBundles:
+def bundles(bench_candidate: str | None) -> Iterator[UpdateBundles]:
     """Build the three test bundles in the host's `/tmp` through `tools/kas-run.sh`.
 
     Skips outside a build, where there is no candidate bundle to copy.
 
     Args:
-        request: removes the build directory at the end of the module.
         bench_candidate: the commit under test, or None outside a build.
 
-    Returns:
-        The bundles, this run's nonce and stamp, and the candidate's bundle hash, path and commit.
+    Yields:
+        UpdateBundles: The bundles, this run's nonce and stamp, and the candidate's bundle hash, path and commit; the
+        build directory is removed once the module ends.
     """
     if bench_candidate is None:
         pytest.skip("no bench_candidate: a plain pytest run, or bench test --skip-build")
-    work = ContainerDir(request)
-    nonce = uuid.uuid4().hex
-    stamp = uuid.uuid4().hex
-    work.run("update_bundles.sh", nonce, stamp, _PROBE)
-    return UpdateBundles(
-        work.path / "new-build.raucb",
-        work.path / "cannot-start.raucb",
-        work.path / "no-network.raucb",
-        nonce,
-        stamp,
-        (work.path / "candidate.hash").read_text().strip(),
-        work.REPO / (work.path / "candidate.path").read_text().strip(),
-        bench_candidate,
-    )
+    with contextlib.ExitStack() as cleanup:
+        work = ContainerDir(cleanup)
+        nonce = uuid.uuid4().hex
+        stamp = uuid.uuid4().hex
+        work.run("update_bundles.sh", nonce, stamp, _PROBE)
+        yield UpdateBundles(
+            work.path / "new-build.raucb",
+            work.path / "cannot-start.raucb",
+            work.path / "no-network.raucb",
+            nonce,
+            stamp,
+            (work.path / "candidate.hash").read_text().strip(),
+            work.REPO / (work.path / "candidate.path").read_text().strip(),
+            bench_candidate,
+        )
 
 
 class _CandidateUpdate(Update):
@@ -110,7 +112,7 @@ class _CandidateUpdate(Update):
     def __init__(
         self,
         board: Board,
-        request: pytest.FixtureRequest,
+        cleanup: contextlib.ExitStack,
         record_property: Callable[[str, object], None],
         bundles: UpdateBundles,
     ) -> None:
@@ -118,14 +120,14 @@ class _CandidateUpdate(Update):
 
         Args:
             board: the board under test.
-            request: the test's request, on which the restore is registered.
+            cleanup: the stack on which the restore and the nonce's removal are registered.
             record_property: records the accepted install and the fallback.
             bundles: the bundles the test offers.
         """
-        super().__init__(board, request, _INSTALL_TIMEOUT_SECONDS)
+        super().__init__(board, cleanup, _INSTALL_TIMEOUT_SECONDS)
         self._record = record_property
         self.bundles = bundles
-        request.addfinalizer(self._back_on_candidate)
+        cleanup.callback(self._back_on_candidate)
 
     @staticmethod
     def slot(rauc_status: dict, booted: bool) -> tuple[str, dict]:
@@ -181,7 +183,7 @@ class _CandidateUpdate(Update):
     def allow(self) -> None:
         """Put this run's nonce on the board, so the bundles' install-check hook accepts; remove it at teardown."""
         self._board.run(f"printf %s {self.bundles.nonce} > {_NONCE_PATH}", check=True)
-        self._request.addfinalizer(lambda: self._board.run(f"rm -f {_NONCE_PATH}", check=True))
+        self._cleanup.callback(self._board.run, f"rm -f {_NONCE_PATH}", check=True)
 
     def refuse_then_install(self, bundle: Path) -> dict:
         """Offer `bundle` without the nonce and assert the refusal, then install it with the nonce.
@@ -286,7 +288,7 @@ def update(
     request: pytest.FixtureRequest,
     record_property: Callable[[str, object], None],
     bundles: UpdateBundles,
-) -> _CandidateUpdate:
+) -> Iterator[_CandidateUpdate]:
     """The `_CandidateUpdate` for the test; at teardown it puts the board back on the candidate.
 
     Args:
@@ -295,16 +297,20 @@ def update(
         record_property: records the accepted install and the fallback.
         bundles: the bundles the test offers.
 
-    Returns:
-        The update.
+    Yields:
+        _CandidateUpdate: The update; the restore of the candidate runs once the test ends.
     """
-    return _CandidateUpdate(board, request, record_property, bundles)
+    assert request.node.get_closest_marker("sends_update"), (
+        f"{request.node.nodeid} sends an update but is not marked sends_update"
+    )
+    with contextlib.ExitStack() as cleanup:
+        yield _CandidateUpdate(board, cleanup, record_property, bundles)
 
 
 def test_new_application_build(
     update: _CandidateUpdate,
     board: Board,
-    request: pytest.FixtureRequest,
+    cleanup: contextlib.ExitStack,
     record_property: Callable[[str, object], None],
     record: Record,
 ) -> None:
@@ -315,7 +321,7 @@ def test_new_application_build(
     Args:
         update: offers the new-build bundle and restores the candidate at teardown.
         board: the board under test, restarted here.
-        request: the test's request, which the panel registers its undos on.
+        cleanup: the stack the panel registers its undos on.
         record_property: records the requirement and the time on the panel.
         record: records what the panel's reads measure.
     """
@@ -324,7 +330,7 @@ def test_new_application_build(
 
     started = time.monotonic()
     board.restart_by("systemctl reboot")
-    panel = Panel(board, request, record)
+    panel = Panel(board, cleanup, record)
     on_panel_s, final = panel.wait_until(
         lambda read: panel.on_panel(read[1]) and read[1]["stamp"] == update.bundles.stamp,
         Board.GIVE_UP_SECONDS,

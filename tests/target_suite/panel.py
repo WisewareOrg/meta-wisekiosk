@@ -3,13 +3,13 @@
 The titles also say which load surf has finished.
 """
 
+import contextlib
 import hashlib
 import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import NamedTuple
 
-import pytest
 from board import Board
 from record import Record
 from replay import FULL_CARDS
@@ -78,16 +78,16 @@ class Panel:
     last_reading: PanelRead | None = None
     last_held: Held | None = None
 
-    def __init__(self, board: Board, request: pytest.FixtureRequest, record: Record) -> None:
-        """Bind to the board, and to the request whose teardown undoes `install`.
+    def __init__(self, board: Board, cleanup: contextlib.ExitStack, record: Record) -> None:
+        """Bind to the board, and to the stack that undoes `install`.
 
         Args:
             board: the board under test.
-            request: registers `install`'s undos.
+            cleanup: registers `install`'s undos.
             record: records the probe's hash and what `assert_loaded_without_backend` read.
         """
         self._board = board
-        self._request = request
+        self._cleanup = cleanup
         self._record = record
         self.last_reading = None
         self.last_held = None
@@ -107,8 +107,8 @@ class Panel:
         """
         board = self._board
         board.run(f"mkdir -p {_SURF_DIR} && touch {_SURF_SCRIPT_PATH}", check=True)
-        self._request.addfinalizer(lambda: board.run("systemctl restart kiosk.service", check=True))
-        board.bind(self._request, _PROBE_SRC, _SURF_SCRIPT_PATH)
+        self._cleanup.callback(board.run, "systemctl restart kiosk.service", check=True)
+        board.bind(self._cleanup, _PROBE_SRC, _SURF_SCRIPT_PATH)
         if restart_browser:
             board.run("systemctl restart kiosk.service", check=True)
         self._record(probe_sha256=hashlib.sha256(_PROBE_SRC.read_bytes()).hexdigest())

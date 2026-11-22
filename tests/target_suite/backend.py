@@ -1,15 +1,15 @@
 """The WiseKiosk backend as a test drives it: its config, a held restart, a kill and a mask."""
 
+import contextlib
 import os
 
-import pytest
 from board import Board
 
 
 class Backend:
     """wisekiosk.service for one test: its config, its runtime drop-ins in `/run`, a kill and a mask.
 
-    Each change registers its undo once it has taken, on the request the backend was built with.
+    Each change registers its undo once it has taken, on the cleanup the backend was built with.
     `kill` keeps the MainPID that `assert_kill_landed` compares against, and `SWEEP` clears what a
     dead run left in `/run`.
 
@@ -32,15 +32,15 @@ class Backend:
     _RELEASE = "systemctl unmask --runtime wisekiosk.service; systemctl start wisekiosk.service"
     _RELEASE_UNIT = "test-backend-release"
 
-    def __init__(self, board: Board, request: pytest.FixtureRequest) -> None:
-        """Bind to the board, and to the request whose teardown undoes each change.
+    def __init__(self, board: Board, cleanup: contextlib.ExitStack) -> None:
+        """Bind to the board, and to the stack that undoes each change.
 
         Args:
             board: the board under test.
-            request: registers each change's undo.
+            cleanup: registers each change's undo.
         """
         self._board = board
-        self._request = request
+        self._cleanup = cleanup
         # the MainPID `kill` took down
         self._killed_pid: str | None = None
 
@@ -58,13 +58,13 @@ class Backend:
         """
         board = self._board
         board.run("systemctl stop kiosk.service", check=True)
-        self._request.addfinalizer(lambda: board.run("systemctl start kiosk.service", check=True))
-        board.bind(self._request, path, board.CONFIG_PATH)
+        self._cleanup.callback(board.run, "systemctl start kiosk.service", check=True)
+        board.bind(self._cleanup, path, board.CONFIG_PATH)
         board.run("systemctl restart wisekiosk.service", check=True)
-        self._request.addfinalizer(self._restart_and_wait)
+        self._cleanup.callback(self._restart_and_wait)
         board.wait_for_page()
         board.run("systemctl start kiosk.service", check=True)
-        self._request.addfinalizer(lambda: board.run("systemctl stop kiosk.service", check=True))
+        self._cleanup.callback(board.run, "systemctl stop kiosk.service", check=True)
 
     def write_drop_in(self, name: str, body: str) -> None:
         """Write the runtime drop-in `name` with `body` as its `[Service]` section and reload systemd.
@@ -88,7 +88,7 @@ class Backend:
         Args:
             seconds: the `RestartSec` to hold it to.
         """
-        self._request.addfinalizer(self.unhold)
+        self._cleanup.callback(self.unhold)
         self.write_drop_in("hold.conf", f"RestartSec={seconds}")
 
     def unhold(self) -> None:
@@ -140,7 +140,7 @@ class Backend:
 
     def mask(self) -> None:
         """Mask the backend for this boot only, until `unmask`."""
-        self._request.addfinalizer(self.unmask)
+        self._cleanup.callback(self.unmask)
         self._board.run("systemctl mask --runtime wisekiosk.service", check=True)
 
     def release(self) -> None:
@@ -161,7 +161,7 @@ class Backend:
         Args:
             seconds: the delay of the timer.
         """
-        self._board.run_later(self._request, self._RELEASE_UNIT, seconds, f"/bin/sh -c '{self._RELEASE}'")
+        self._board.run_later(self._cleanup, self._RELEASE_UNIT, seconds, f"/bin/sh -c '{self._RELEASE}'")
 
     def _restart_and_wait(self) -> None:
         """Restart the backend and wait for the page."""

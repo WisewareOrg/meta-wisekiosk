@@ -1,16 +1,15 @@
 """A scratch directory in `/tmp` that a script run in the kas build container fills."""
 
+import contextlib
 import os
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 
-import pytest
-
 
 class ContainerDir:
-    """A fresh directory in `/tmp`, removed at the request's teardown, that a container script writes into.
+    """A fresh directory in `/tmp`, removed when the cleanup unwinds, that a container script writes into.
 
     Attributes:
         REPO: the repository root, from which `tools/kas-run.sh` runs.
@@ -20,14 +19,14 @@ class ContainerDir:
     REPO = Path(__file__).resolve().parents[2]
     path: Path
 
-    def __init__(self, request: pytest.FixtureRequest) -> None:
+    def __init__(self, cleanup: contextlib.ExitStack) -> None:
         """Make the directory and register its removal.
 
         Args:
-            request: removes the directory at its teardown.
+            cleanup: removes the directory when it unwinds.
         """
         self.path = Path(tempfile.mkdtemp(prefix="kiosk-test-", dir="/tmp"))
-        request.addfinalizer(lambda: shutil.rmtree(self.path))
+        cleanup.callback(shutil.rmtree, self.path)
 
     def run(self, script: str, *args: str) -> None:
         """Run `tests/target_suite/<script>` in the kas build container with `path` as its first argument.

@@ -1,8 +1,8 @@
 """Target suite: the WiseKiosk instance's page, and its recovery to the panel from a backend crash."""
 
+import contextlib
 from collections.abc import Callable
 
-import pytest
 from backend import Backend
 from board import Board
 from panel import Panel, PanelRead
@@ -97,7 +97,7 @@ def test_backend_crash(board: Board, backend: Backend, panel: Panel, record: Rec
 
 
 def test_backend_crash_during_browser_start(
-    board: Board, backend: Backend, request: pytest.FixtureRequest, record: Record
+    board: Board, backend: Backend, cleanup: contextlib.ExitStack, record: Record
 ) -> None:
     """TST034 browser start during a backend crash: SIGKILL the backend and restart the browser while it is down.
 
@@ -109,19 +109,19 @@ def test_backend_crash_during_browser_start(
     Args:
         board: the board under test, whose page is awaited before the crash.
         backend: held and killed here.
-        request: the test's request, on which the hold's undo is registered again so it runs
-            before the probe's teardown.
+        cleanup: the stack the panel's undos and the hold's re-registered undo go on, so the hold is
+            undone before the probe's teardown.
         record: records the requirement and what the kill and the panel measure.
     """
     record(requirement="TST034")
-    panel = Panel(board, request, record)
+    panel = Panel(board, cleanup, record)
     board.wait_for_page()
     backend.hold(_HOLD_SECONDS)
     killed_at, pid_before = backend.kill()
     record(killed_at_uptime_s=killed_at)
 
     panel.install()
-    request.addfinalizer(backend.unhold)
+    cleanup.callback(backend.unhold)
 
     panel.assert_loaded_without_backend()
 

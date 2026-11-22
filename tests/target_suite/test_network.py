@@ -1,5 +1,6 @@
 """Target suite: the board rejoins after a network outage, and holds the panel under network load."""
 
+import contextlib
 import os
 import subprocess
 import threading
@@ -57,17 +58,17 @@ def _shell(board: Board) -> tuple[tuple[float, list[str]] | None, str]:
 
 
 def test_rejoins_after_an_outage(
-    request: pytest.FixtureRequest, board: Board, record_property: Callable[[str, object], None]
+    cleanup: contextlib.ExitStack, board: Board, record_property: Callable[[str, object], None]
 ) -> None:
     """TST029 rejoins after an outage: pin the board off its network, then time until a shell opens.
 
     Args:
-        request: the test's request, which the outage registers its undos on.
+        cleanup: the stack the outage registers its undos on.
         board: the board under test, whose network is pinned off.
         record_property: records the requirement and what the shells saw.
     """
     record_property("requirement", "TST029")
-    outage = Outage(board, request)
+    outage = Outage(board, cleanup)
     outage.wait_boot_complete()
     boot_id = board.read(board.BOOT_ID_CMD)
     outage.arm(_OUTAGE_SECONDS)

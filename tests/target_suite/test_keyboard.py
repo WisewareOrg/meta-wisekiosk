@@ -1,11 +1,12 @@
 """Target suite: with the network gone, a keyboard attached to the board gives a shell at its console."""
 
+import contextlib
 import hashlib
 import json
 import math
 import secrets
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import NamedTuple
 
@@ -194,24 +195,23 @@ class Helpers(NamedTuple):
 
 
 @pytest.fixture(scope="module")
-def helpers(request: pytest.FixtureRequest) -> Helpers:
+def helpers() -> Iterator[Helpers]:
     """Build evemu-tools and its library through `tools/kas-run.sh`; return their `Helpers`.
 
-    Args:
-        request: removes the build directory at the end of the module.
-
-    Returns:
-        The built files' directory, the version, the packages and each file's sha256.
+    Yields:
+        Helpers: The built files' directory, the version, the packages and each file's sha256; the build
+        directory is removed once the module ends.
     """
-    work = ContainerDir(request)
-    work.run("evemu_tools.sh")
-    directory = work.path / "helpers"
-    return Helpers(
-        directory,
-        (work.path / "version").read_text().strip(),
-        (work.path / "packages").read_text().split(),
-        {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(directory.iterdir())},
-    )
+    with contextlib.ExitStack() as cleanup:
+        work = ContainerDir(cleanup)
+        work.run("evemu_tools.sh")
+        directory = work.path / "helpers"
+        yield Helpers(
+            directory,
+            (work.path / "version").read_text().strip(),
+            (work.path / "packages").read_text().split(),
+            {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(directory.iterdir())},
+        )
 
 
 class _Console:
@@ -295,7 +295,7 @@ def _record_fields(lines: list[str], kind: str) -> list[list[str]]:
 
 
 def test_shell_from_an_attached_keyboard(
-    request: pytest.FixtureRequest,
+    cleanup: contextlib.ExitStack,
     board: Board,
     helpers: Helpers,
     tmp_path: Path,
@@ -304,8 +304,7 @@ def test_shell_from_an_attached_keyboard(
     """TST027 shell from an attached keyboard: with the network cut, log in at the console and run a command.
 
     Args:
-        request: the test's request, which the console, the outage and the timers register their
-            undos on.
+        cleanup: the stack the console, the outage and the timers register their undos on.
         board: the board under test, whose network is cut and which gets the virtual keyboard.
         helpers: the evemu tools built for the module.
         tmp_path: where the event files are written before they are put on the board.
@@ -319,11 +318,11 @@ def test_shell_from_an_attached_keyboard(
     command = _marker_command(nonce)
     console = _Console(board, record_property)
 
-    request.addfinalizer(lambda: board.run(f"rm -rf {_DIR}"))
+    cleanup.callback(board.run, f"rm -rf {_DIR}")
     board.run(f"rm -rf {_DIR}; mkdir {_DIR}", check=True)
     console.take_vt1("before")
     assert console.foreground() == "1", "vt1 is not the foreground console before the test"
-    outage = Outage(board, request)
+    outage = Outage(board, cleanup)
     outage.wait_boot_complete()
     console.kill_tty2_login()
 
@@ -340,7 +339,7 @@ def test_shell_from_an_attached_keyboard(
     uinput_loaded = board.run("test -d /sys/module/uinput")[2] == 0
     board.run("modprobe uinput", check=True)
     if not uinput_loaded:
-        request.addfinalizer(lambda: board.run("rmmod uinput", check=True))
+        cleanup.callback(board.run, "rmmod uinput", check=True)
 
     sources = tmp_path / "events"
     sources.mkdir()
@@ -356,7 +355,7 @@ def test_shell_from_an_attached_keyboard(
     board.put(str(_SRC_DIR / "keyboard.sh"), f"{_DIR}/keyboard.sh")
     board.run("chmod 0755 " + " ".join(f"{_DIR}/{name}" for name in helpers.sha256), check=True)
 
-    request.addfinalizer(console.restore)
+    cleanup.callback(console.restore)
 
     bounds = " ".join(
         str(bound)
@@ -368,7 +367,7 @@ def test_shell_from_an_attached_keyboard(
             _MARKER_BOUND_SECONDS,
         )
     )
-    board.run_later(request, _UNIT, _KEYBOARD_ARM_SECONDS, f"/bin/sh {_DIR}/keyboard.sh {bounds}")
+    board.run_later(cleanup, _UNIT, _KEYBOARD_ARM_SECONDS, f"/bin/sh {_DIR}/keyboard.sh {bounds}")
     outage.arm(_OUTAGE_SECONDS)
 
     # two seconds past the outage's end, so `reconnect` starts retrying only once the network is un-pinned

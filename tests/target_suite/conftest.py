@@ -4,7 +4,6 @@ Also the fixtures that set the board's state, observe the panel and inject fault
 """
 
 import contextlib
-import subprocess
 import time
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
@@ -13,7 +12,6 @@ from typing import TYPE_CHECKING
 import pytest
 from backend import Backend
 from board import Board, PowerCut
-from labgrid import Target
 from panel import Panel
 from record import Record
 from replay import CA_PATH, CARDS4_LIVE
@@ -30,7 +28,6 @@ _HASHED_PATHS = (
 )
 _CA_BOARD_PATH = "/tmp/replay-ca.pem"
 _DROP_IN_PATH = f"{Backend.DROP_IN_DIR}/replay.conf"
-_POWER_OFF_SECONDS = 10
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -159,17 +156,17 @@ def device_context(board: Board, record: Record) -> Iterator[None]:
 
 
 @pytest.fixture
-def backend(board: Board, request: pytest.FixtureRequest) -> Backend:
+def backend(board: Board) -> Iterator[Backend]:
     """The `Backend` for the board; its changes are undone at this fixture's teardown.
 
     Args:
         board: the board under test.
-        request: registers the backend's undos, which run after the test's own finalizers.
 
-    Returns:
-        The backend, with nothing changed yet.
+    Yields:
+        Backend: The backend, with nothing changed yet.
     """
-    return Backend(board, request)
+    with contextlib.ExitStack() as cleanup:
+        yield Backend(board, cleanup)
 
 
 @pytest.fixture
@@ -213,64 +210,56 @@ def replay_window(board: Board, backend: Backend, proxy: "Proxy", request: pytes
 
 
 @pytest.fixture
-def panel(board: Board, request: pytest.FixtureRequest, record: Record) -> Panel:
+def panel(board: Board, record: Record) -> Iterator[Panel]:
     """Load the probe into the browser and return the `Panel`; the page wait is the test's.
 
     Args:
         board: the board under test.
-        request: registers the probe's undos, which run at this fixture's teardown.
         record: records the probe's hash.
 
-    Returns:
-        The panel, with the probe installed.
+    Yields:
+        Panel: The panel, with the probe installed; its undos run at this fixture's teardown.
     """
-    observation = Panel(board, request, record)
-    observation.install()
-    return observation
+    with contextlib.ExitStack() as cleanup:
+        observation = Panel(board, cleanup, record)
+        observation.install()
+        yield observation
 
 
 @pytest.fixture
-def power_cut(target: Target, board: Board, request: pytest.FixtureRequest, record: Record) -> PowerCut:
+def cleanup() -> Iterator[contextlib.ExitStack]:
+    """A stack of undos for a test that is not yet a class; it unwinds, last first, at the test's end.
+
+    Yields:
+        contextlib.ExitStack: The stack.
+    """
+    with contextlib.ExitStack() as stack:
+        yield stack
+
+
+@pytest.fixture
+def power_cut(board: Board, record: Record) -> Iterator[PowerCut]:
     """A power cut through the bench's switched plug; power is switched back on at teardown.
 
     Args:
-        target: names the bench's switched plug, the `ExternalPowerDriver`.
         board: the board under test.
-        request: registers the switching back on.
         record: records `power_on_command_s`.
 
-    Returns:
-        The `cut()` the test calls. It cuts the board's power, restores it and reconnects once the
+    Yields:
+        PowerCut: The `cut()` the test calls. It cuts the board's power, restores it and reconnects once the
         board answers in a new boot, and returns the host `time.monotonic()` at which the `on`
-        command started. Power returns no earlier, so a time taken from it errs high. It exits the
-        run if the plug fails, or if the board answers in the same boot after the power was off.
+        command started.
     """
-    power = target.get_driver("ExternalPowerDriver")
-    request.addfinalizer(power.on)
+    with contextlib.ExitStack() as cleanup:
 
-    def cut() -> float:
-        """Cut power, restore it, and reconnect in a new boot.
+        def cut() -> float:
+            """Cut power, restore it, and reconnect in a new boot.
 
-        Returns:
-            The host `time.monotonic()` at which the `on` command started.
-        """
-        old_boot_id = board.read(board.BOOT_ID_CMD)
-        board.disconnect()
-        try:
-            power.off()
-            time.sleep(_POWER_OFF_SECONDS)
-            on_began = time.monotonic()
-            power.on()
-        except (subprocess.CalledProcessError, OSError) as error:
-            pytest.exit(f"the bench's power switch failed: {error}", returncode=2)
-        record(power_on_command_s=round(time.monotonic() - on_began, 1))
-        board.reconnect()
-        if board.read(board.BOOT_ID_CMD) == old_boot_id:
-            pytest.exit(
-                f"the board answered in the same boot after {_POWER_OFF_SECONDS} s off: "
-                "the plug or its supply did not cut power",
-                returncode=2,
-            )
-        return on_began
+            Returns:
+                The host `time.monotonic()` at which the `on` command started.
+            """
+            on_began, on_command_s = board.cut_power(cleanup)
+            record(power_on_command_s=on_command_s)
+            return on_began
 
-    return cut
+        yield cut

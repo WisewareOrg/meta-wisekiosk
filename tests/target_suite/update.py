@@ -1,5 +1,6 @@
 """Offering an image update to the board through the one install path."""
 
+import contextlib
 import json
 import os
 import pathlib
@@ -8,7 +9,6 @@ import subprocess
 import time
 from collections.abc import Callable
 
-import pytest
 from board import Board
 
 _INSTALL_TOOL = pathlib.Path(__file__).resolve().parents[2] / "tools" / "kiosk-install.sh"
@@ -19,7 +19,8 @@ _CLEANUP_SECONDS = 120
 class Update:
     """Image updates offered to the board through `tools/kiosk-install.sh`, the board's one install path.
 
-    The test must carry the `sends_update` marker, which orders it after every test that does not.
+    The test must carry the `sends_update` marker, which orders it after every test that does not;
+    the fixture that builds the update asserts that.
     A `record_property` makes `refuse` record the refused offer; the image-update tests pass none,
     because they record their accepted install under the same names.
     """
@@ -27,7 +28,7 @@ class Update:
     def __init__(
         self,
         board: Board,
-        request: pytest.FixtureRequest,
+        cleanup: contextlib.ExitStack,
         timeout: float,
         record_property: Callable[[str, object], None] | None = None,
     ) -> None:
@@ -35,12 +36,12 @@ class Update:
 
         Args:
             board: the board under test.
-            request: the test's request; its test must carry the `sends_update` marker.
+            cleanup: registers the undos of a subclass's changes.
             timeout: the longest an install may take.
             record_property: records the refused offer, or None to record nothing.
         """
         self._board = board
-        self._request = request
+        self._cleanup = cleanup
         self._timeout = timeout
         self._record_property = record_property
 
@@ -56,9 +57,6 @@ class Update:
         Raises:
             subprocess.TimeoutExpired: the install ran past the timeout.
         """
-        assert self._request.node.get_closest_marker("sends_update"), (
-            f"{self._request.node.nodeid} sends an update but is not marked sends_update"
-        )
         started = time.monotonic()
         tool = subprocess.Popen(
             [str(_INSTALL_TOOL), self._board.host, str(bundle)],

@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_cold_boot_to_the_panel
   path: tests/target_suite/test_restart_recovery.py
-  sha: 0af5e7b3658b613e928b9034c02adcc07eb8a04f39da29e72875754f7d289e2c
+  sha: e835daebd176d25cfbdfed5952dabbfd88d0603163eea73db9578588b3cd4c7f
   type: file
-reviewed: KAtYHLfLk0ro74_-IN_AGQV2x5ueftXiaWjGHW31NnA=
+reviewed: 1jbWCqNCkBM0N5gJOKO-n03azcnxlI8EpdtgMUYmvrs=
 status: proposed
 text: |
   With the appliance powered off and nobody at the panel, apply power. Pass if, within 110 s of

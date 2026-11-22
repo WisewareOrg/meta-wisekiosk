@@ -3,7 +3,9 @@
 It restarted, crashed, lost power or started its backend late.
 """
 
+import contextlib
 import time
+from collections.abc import Iterator
 
 import pytest
 from backend import Backend
@@ -44,18 +46,20 @@ class TestRestartRecovery:
     """A board that went down is back on the panel in time."""
 
     @pytest.fixture(autouse=True)
-    def setup(self, board: Board, record: Record, request: pytest.FixtureRequest) -> None:
-        """Keep what every test here uses.
+    def setup(self, board: Board, record: Record) -> Iterator[None]:
+        """Keep what every test here uses, and undo what each test changed once it ends.
 
         Args:
             board: the board under test.
             record: the test's record.
-            request: the test's request; objects a test builds register their undos on it, and
-                fixtures only some tests need are fetched through it.
+
+        Yields:
+            None: the test runs, then `self.cleanup` undoes its changes, last first.
         """
         self.board = board
         self.record = record
-        self.request = request
+        with contextlib.ExitStack() as self.cleanup:
+            yield
 
     def _time_back_after(self, cmd: str) -> tuple[float | None, Up | None]:
         """Run `cmd` on the board and time until the instance is up.
@@ -76,13 +80,12 @@ class TestRestartRecovery:
     def _cut_power(self) -> float:
         """Cut the board's power and bring it back; return the host time the power came back.
 
-        The `power_cut` fixture is fetched here, not in setup, so a test that does not cut power
-        never fetches the plug's driver or switches it on at teardown.
-
         Returns:
             The host `time.monotonic()` at which the power-on command started.
         """
-        return self.request.getfixturevalue("power_cut")()
+        on_began, on_command_s = self.board.cut_power(self.cleanup)
+        self.record(power_on_command_s=on_command_s)
+        return on_began
 
     def test_kernel_crash(self) -> None:
         """TST004 kernel crash: crash the kernel and time until the page is served, browser running."""
@@ -124,7 +127,7 @@ class TestRestartRecovery:
         Times from power returning until the browser has finished loading the instance's page.
         """
         self.record(requirement="TST012")
-        panel = Panel(self.board, self.request, self.record)
+        panel = Panel(self.board, self.cleanup, self.record)
         started = self._cut_power()
         on_panel_s, _ = panel.wait_until(lambda read: _loaded(read.titles), Board.GIVE_UP_SECONDS, since=started)
         titles = panel.last_reading.titles if panel.last_reading else None
@@ -145,8 +148,8 @@ class TestRestartRecovery:
         reconnect, and at teardown before the probe's own teardown restarts the browser.
         """
         self.record(requirement="TST033")
-        panel = Panel(self.board, self.request, self.record)
-        backend = Backend(self.board, self.request)
+        panel = Panel(self.board, self.cleanup, self.record)
+        backend = Backend(self.board, self.cleanup)
         self.board.wait_for_page()
 
         backend.mask()
@@ -162,7 +165,7 @@ class TestRestartRecovery:
         )
 
         panel.install(restart_browser=False)
-        self.request.addfinalizer(backend.unmask)
+        self.cleanup.callback(backend.unmask)
 
         panel.assert_loaded_without_backend()
 

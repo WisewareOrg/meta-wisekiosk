@@ -1,8 +1,8 @@
 """The network outage `outage.sh` injects: arm it on the board, read its record back."""
 
+import contextlib
 from pathlib import Path
 
-import pytest
 from board import Board
 
 _SRC = Path(__file__).resolve().parent / "outage.sh"
@@ -13,7 +13,7 @@ _BOOT_COMPLETE_WAIT_SECONDS = 180
 class Outage:
     """The outage record's paths and timings, and the steps that arm and read one.
 
-    Each step registers its undo on the request the outage was built with, once it has succeeded.
+    Each step registers its undo on the cleanup the outage was built with, once it has succeeded.
 
     Attributes:
         ARM_DELAY_SECONDS: the delay `systemd-run` waits before the script cuts, so the arming
@@ -29,15 +29,15 @@ class Outage:
     RECORD_PATH = "/tmp/test-outage.record"
     UNIT = "test-outage"
 
-    def __init__(self, board: Board, request: pytest.FixtureRequest) -> None:
-        """Bind to the board, and to the request whose teardown undoes `arm`.
+    def __init__(self, board: Board, cleanup: contextlib.ExitStack) -> None:
+        """Bind to the board, and to the stack that undoes `arm`.
 
         Args:
             board: the board under test.
-            request: registers `arm`'s undos.
+            cleanup: registers `arm`'s undos.
         """
         self._board = board
-        self._request = request
+        self._cleanup = cleanup
 
     def record_lines(self) -> list[str]:
         """The record's lines as the board holds them, on the SSHDriver.
@@ -67,15 +67,15 @@ class Outage:
         """
         board = self._board
         board.put(str(_SRC), _SCRIPT_PATH)
-        self._request.addfinalizer(lambda: board.run(f"rm -f {_SCRIPT_PATH} {self.RECORD_PATH}"))
-        self._request.addfinalizer(self._unpin)
+        self._cleanup.callback(board.run, f"rm -f {_SCRIPT_PATH} {self.RECORD_PATH}")
+        self._cleanup.callback(self._unpin)
         board.run_later(
-            self._request,
+            self._cleanup,
             self.UNIT,
             self.ARM_DELAY_SECONDS,
             f"/bin/sh {_SCRIPT_PATH} {outage_s} {self.GIVE_UP_SECONDS}",
         )
-        self._request.addfinalizer(board.reconnect)
+        self._cleanup.callback(board.reconnect)
         board.disconnect()
 
     @staticmethod

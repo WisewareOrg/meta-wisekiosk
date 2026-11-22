@@ -1,9 +1,10 @@
 """Target suite: an image update not meant for the board is refused, and the board is left as it was."""
 
 import configparser
+import contextlib
 import re
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import NamedTuple
 
@@ -36,41 +37,44 @@ class Bundles(NamedTuple):
 
 
 @pytest.fixture(scope="module")
-def bundles(request: pytest.FixtureRequest, board: Board) -> Bundles:
+def bundles(board: Board) -> Iterator[Bundles]:
     """Build both refused bundles through `tools/kas-run.sh`; return their `Bundles`.
 
     No bundle is both operator-signed and carries the board's own `compatible`.
 
     Args:
-        request: removes the build directory at the end of the module.
         board: the board under test, whose own `compatible` the bundles must not carry.
 
-    Returns:
-        The two bundles' paths and the `compatible` of the other-hardware one.
+    Yields:
+        Bundles: The two bundles' paths and the `compatible` of the other-hardware one; the build directory is
+        removed once the module ends.
     """
     compatible = board.snapshot()["rauc_status"]["compatible"]
     # it is passed to the build container as an argument
     assert re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", compatible), (
         f"the board's compatible {compatible!r} is not a plain identifier"
     )
-    work = ContainerDir(request)
-    subprocess.run(
-        [str(work.REPO / "tools" / "rauc-keygen.sh"), str(work.path / "foreign-key"), _FOREIGN_KEY_CN],
-        check=True,
-    )
-    work.run("refused_bundles.sh", compatible)
-    # refused_bundles.sh is the one owner of the other-hardware `compatible`
-    manifest = configparser.ConfigParser()
-    manifest.read(work.path / "other-hardware" / "manifest.raucm")
-    return Bundles(
-        work.path / "foreign-signature.raucb",
-        work.path / "other-hardware.raucb",
-        manifest["update"]["compatible"],
-    )
+    with contextlib.ExitStack() as cleanup:
+        work = ContainerDir(cleanup)
+        subprocess.run(
+            [str(work.REPO / "tools" / "rauc-keygen.sh"), str(work.path / "foreign-key"), _FOREIGN_KEY_CN],
+            check=True,
+        )
+        work.run("refused_bundles.sh", compatible)
+        # refused_bundles.sh is the one owner of the other-hardware `compatible`
+        manifest = configparser.ConfigParser()
+        manifest.read(work.path / "other-hardware" / "manifest.raucm")
+        yield Bundles(
+            work.path / "foreign-signature.raucb",
+            work.path / "other-hardware.raucb",
+            manifest["update"]["compatible"],
+        )
 
 
 @pytest.fixture
-def update(board: Board, request: pytest.FixtureRequest, record_property: Callable[[str, object], None]) -> Update:
+def update(
+    board: Board, request: pytest.FixtureRequest, record_property: Callable[[str, object], None]
+) -> Iterator[Update]:
     """The `Update` that records the refused offer; it registers no undo.
 
     Args:
@@ -78,10 +82,14 @@ def update(board: Board, request: pytest.FixtureRequest, record_property: Callab
         request: the test's request, whose test must carry `sends_update`.
         record_property: records the refused offer.
 
-    Returns:
-        The update, with `_INSTALL_TIMEOUT_SECONDS` as its timeout.
+    Yields:
+        Update: The update, with `_INSTALL_TIMEOUT_SECONDS` as its timeout.
     """
-    return Update(board, request, _INSTALL_TIMEOUT_SECONDS, record_property)
+    assert request.node.get_closest_marker("sends_update"), (
+        f"{request.node.nodeid} sends an update but is not marked sends_update"
+    )
+    with contextlib.ExitStack() as cleanup:
+        yield Update(board, cleanup, _INSTALL_TIMEOUT_SECONDS, record_property)
 
 
 def test_foreign_signature(

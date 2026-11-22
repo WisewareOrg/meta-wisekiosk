@@ -1,5 +1,6 @@
 """The board under test as the tests drive it: its shell, page, boot state, image install and restarts."""
 
+import contextlib
 import json
 import os
 import subprocess
@@ -69,6 +70,7 @@ class Board:
     # `just kiosk-reboot`'s wait
     _REBOOT_WAIT_SECONDS = 300
     _FAULT_SSH_TIMEOUT_SECONDS = 30
+    _POWER_OFF_SECONDS = 10
 
     def __init__(self, target: Target) -> None:
         """Bind to the target's SSHDriver and NetworkService.
@@ -315,33 +317,33 @@ class Board:
         self.last_up = Up(self.run("pgrep -x surf")[2] == 0, self.fetch_page()[1])
         return self.last_up
 
-    def bind(self, request: pytest.FixtureRequest, src: str | os.PathLike[str], path: str) -> None:
-        """Bind-mount a copy of the host file `src` over `path` on the board, until `request`'s teardown.
+    def bind(self, cleanup: contextlib.ExitStack, src: str | os.PathLike[str], path: str) -> None:
+        """Bind-mount a copy of the host file `src` over `path` on the board, until `cleanup` unwinds.
 
         Each undo is registered once its step has succeeded, so teardown unmounts, then removes the
         copy.
 
         Args:
-            request: registers each step's undo.
+            cleanup: registers each step's undo.
             src: the file on the host; its copy on the board is `/tmp/kiosk-<its name>`.
             path: the file on the board to mount it over; a stale mount a dead run left there is
                 unmounted first.
         """
         copy = f"/tmp/kiosk-{Path(src).name}"
         self.put(str(src), copy)
-        request.addfinalizer(lambda: self.run(f"rm -f {copy}", check=True))
+        cleanup.callback(self.run, f"rm -f {copy}", check=True)
         self.unmount_if_mounted(path)
         self.run(f"mount --bind {copy} {path}", check=True)
-        request.addfinalizer(lambda: self.unmount_if_mounted(path))
+        cleanup.callback(self.unmount_if_mounted, path)
 
-    def run_later(self, request: pytest.FixtureRequest, unit: str, delay: float, cmd: str) -> None:
+    def run_later(self, cleanup: contextlib.ExitStack, unit: str, delay: float, cmd: str) -> None:
         """Start `cmd` on the board in `delay` seconds as the transient timer `unit`.
 
-        What a dead run left of the unit is cleared first, and the timer is stopped again at
-        `request`'s teardown.
+        What a dead run left of the unit is cleared first, and the timer is stopped again when
+        `cleanup` unwinds.
 
         Args:
-            request: registers the undo.
+            cleanup: registers the undo.
             unit: the transient unit's name.
             delay: seconds from now to the start.
             cmd: the command line `systemd-run` runs.
@@ -350,7 +352,42 @@ class Board:
         undo = f"systemctl stop {units}; systemctl reset-failed {units}"
         self.run(undo)
         self.run(f"systemd-run --unit={unit} --on-active={delay} --timer-property=AccuracySec=100ms {cmd}", check=True)
-        request.addfinalizer(lambda: self.run(undo))
+        cleanup.callback(self.run, undo)
+
+    def cut_power(self, cleanup: contextlib.ExitStack) -> tuple[float, float]:
+        """Cut the board's power through the bench's switched plug, restore it, and reconnect in a new boot.
+
+        The plug's driver is fetched here, so a test that never cuts power never touches it. Power is
+        switched back on when `cleanup` unwinds. The run exits if the plug fails, or if the board
+        answers in the same boot after the power was off.
+
+        Args:
+            cleanup: registers the switching back on.
+
+        Returns:
+            The host `time.monotonic()` at which the `on` command started (power returns no earlier,
+            so a time taken from it errs high), and the seconds that command took.
+        """
+        power = self._target.get_driver("ExternalPowerDriver")
+        cleanup.callback(power.on)
+        old_boot_id = self.read(self.BOOT_ID_CMD)
+        self.disconnect()
+        try:
+            power.off()
+            time.sleep(self._POWER_OFF_SECONDS)
+            on_began = time.monotonic()
+            power.on()
+        except (subprocess.CalledProcessError, OSError) as error:
+            pytest.exit(f"the bench's power switch failed: {error}", returncode=2)
+        on_command_s = round(time.monotonic() - on_began, 1)
+        self.reconnect()
+        if self.read(self.BOOT_ID_CMD) == old_boot_id:
+            pytest.exit(
+                f"the board answered in the same boot after {self._POWER_OFF_SECONDS} s off: "
+                "the plug or its supply did not cut power",
+                returncode=2,
+            )
+        return on_began, on_command_s
 
     def install_image(self) -> None:
         """Install the built image on the board with `just kiosk-ota`."""
