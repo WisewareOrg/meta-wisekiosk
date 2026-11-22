@@ -29,7 +29,7 @@ _SHELL_BOUND_SECONDS = 20
 _MARKER_BOUND_SECONDS = 10
 # the supplicant's leaving COMPLETED after the outage cuts, before `keyboard.sh` starts
 _SUPPLICANT_LEAVES_COMPLETED_SECONDS = 5
-_KEYBOARD_ARM_SECONDS = Outage.ARM_DELAY_SECONDS + _SUPPLICANT_LEAVES_COMPLETED_SECONDS
+_KEYBOARD_START_SECONDS = Outage.CUT_DELAY_SECONDS + _SUPPLICANT_LEAVES_COMPLETED_SECONDS
 # the `sleep 1` in `keyboard.sh` between the shell prompt and the typed command
 _SCRIPT_PAUSE_SECONDS = 1
 _OUTAGE_MARGIN_SECONDS = 12
@@ -168,7 +168,7 @@ _TYPING_SECONDS = (
     + _typing_seconds(_marker_command("0" * 2 * _NONCE_BYTES))
 )
 _OUTAGE_SECONDS = math.ceil(
-    _KEYBOARD_ARM_SECONDS
+    _KEYBOARD_START_SECONDS
     + _DEVICE_BOUND_SECONDS
     + _X_OPENED_BOUND_SECONDS
     + _CONSOLE_BOUND_SECONDS
@@ -381,11 +381,11 @@ class TestKeyboard:
                 _MARKER_BOUND_SECONDS,
             )
         )
-        self.board.run_later(self.cleanup, _UNIT, _KEYBOARD_ARM_SECONDS, f"/bin/sh {_DIR}/keyboard.sh {bounds}")
+        self.board.run_later(self.cleanup, _UNIT, _KEYBOARD_START_SECONDS, f"/bin/sh {_DIR}/keyboard.sh {bounds}")
         outage.schedule(_OUTAGE_SECONDS)
 
         # two seconds past the outage's end, so `reconnect` starts retrying only once the network is un-pinned
-        time.sleep(Outage.ARM_DELAY_SECONDS + _OUTAGE_SECONDS + 2)
+        time.sleep(Outage.CUT_DELAY_SECONDS + _OUTAGE_SECONDS + 2)
         self.board.reconnect()
 
         boot_id_after = self.board.read(self.board.BOOT_ID_CMD)

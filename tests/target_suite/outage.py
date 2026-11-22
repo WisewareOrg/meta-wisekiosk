@@ -61,7 +61,7 @@ class Outage:
     Each step registers its undo on the cleanup the outage was built with, once it has succeeded.
 
     Attributes:
-        ARM_DELAY_SECONDS: the delay `systemd-run` waits before the script cuts, so the arming
+        CUT_DELAY_SECONDS: the delay `systemd-run` waits before the script cuts, so the scheduling
             command returns first.
         GIVE_UP_SECONDS: how long after the network returns the script waits for an address before
             it reboots the board.
@@ -69,7 +69,7 @@ class Outage:
         UNIT: the name of the `systemd-run` unit.
     """
 
-    ARM_DELAY_SECONDS = 3
+    CUT_DELAY_SECONDS = 3
     GIVE_UP_SECONDS = 180
     RECORD_PATH = "/tmp/test-outage.record"
     UNIT = "test-outage"
@@ -117,7 +117,7 @@ class Outage:
         board.run_later(
             self._cleanup,
             self.UNIT,
-            self.ARM_DELAY_SECONDS,
+            self.CUT_DELAY_SECONDS,
             f"/bin/sh {_SCRIPT_PATH} {outage_s} {self.GIVE_UP_SECONDS}",
         )
         self._cleanup.callback(board.reconnect)
