@@ -49,7 +49,7 @@ def bundles(board: Board) -> Iterator[Bundles]:
         Bundles: The two bundles' paths and the `compatible` of the other-hardware one; the build directory is
         removed once the module ends.
     """
-    compatible = board.snapshot()["rauc_status"]["compatible"]
+    compatible = board.next_boot_and_running_build()["rauc_status"]["compatible"]
     # it is passed to the build container as an argument
     assert re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", compatible), (
         f"the board's compatible {compatible!r} is not a plain identifier"
@@ -60,7 +60,7 @@ def bundles(board: Board) -> Iterator[Bundles]:
             [str(work.REPO / "tools" / "rauc-keygen.sh"), str(work.path / "foreign-key"), _FOREIGN_KEY_CN],
             check=True,
         )
-        work.run("refused_bundles.sh", compatible)
+        work.run_script("refused_bundles.sh", compatible)
         # refused_bundles.sh is the one owner of the other-hardware `compatible`
         manifest = configparser.ConfigParser()
         manifest.read(work.path / "other-hardware" / "manifest.raucm")
@@ -104,9 +104,9 @@ def test_foreign_signature(
         record_property: records the requirement.
     """
     record_property("requirement", "TST017")
-    panel.wait_on_panel()
+    panel.wait_for_instance()
     update.assert_refused(bundles.foreign_signature, ("signature verification failed", "self-signed certificate"))
-    panel.wait_on_panel()
+    panel.wait_for_instance()
 
 
 def test_another_hardware_type(
@@ -121,6 +121,6 @@ def test_another_hardware_type(
         record_property: records the requirement.
     """
     record_property("requirement", "TST018")
-    panel.wait_on_panel()
+    panel.wait_for_instance()
     update.assert_refused(bundles.other_hardware, ("Compatible mismatch", bundles.other_hardware_compatible))
-    panel.wait_on_panel()
+    panel.wait_for_instance()

@@ -20,7 +20,7 @@ from tenacity import Retrying, retry_if_exception_type, retry_if_result, stop_af
 PowerCut = Callable[[], float]
 
 
-class Up(NamedTuple):
+class InstanceState(NamedTuple):
     """One read of whether the instance is up: the browser running and the page served.
 
     Attributes:
@@ -32,6 +32,18 @@ class Up(NamedTuple):
     page_served: bool
 
 
+class BootOrder(NamedTuple):
+    """The boot order and the attempts left, as `fw_printenv` holds them.
+
+    Attributes:
+        order: the slots' bootnames in the order the bootloader tries them.
+        attempts_left: the attempts left per bootname.
+    """
+
+    order: list[str]
+    attempts_left: dict[str, int]
+
+
 class Board:
     """The board under test: its remote shell, page, commit, image install and restarts.
 
@@ -41,7 +53,8 @@ class Board:
 
     Attributes:
         host: `user@address` of the board, as the `just kiosk-*` recipes take it.
-        last_up: the last `Up` read of `time_until_up`, None if it read nothing.
+        last_instance_state: the last `InstanceState` read of `seconds_until_instance_up`, None if it
+            read nothing.
         CONFIG_PATH: the live configuration file on the board.
         DEFAULT_CONFIG_PATH: the image's default configuration, which the board reseeds the live file
             from when it holds none.
@@ -53,7 +66,7 @@ class Board:
     """
 
     host: str
-    last_up: Up | None = None
+    last_instance_state: InstanceState | None = None
     CONFIG_PATH = "/data/config/config.json"
     DEFAULT_CONFIG_PATH = "/usr/share/wisekiosk/config.example.json"
     BOOT_ID_CMD = "cat /proc/sys/kernel/random/boot_id"
@@ -81,33 +94,34 @@ class Board:
             target: names the board's SSHDriver and NetworkService.
         """
         self._target = target
-        self.last_up = None
+        self.last_instance_state = None
         self._driver = target.get_driver("SSHDriver")
         service = target.get_resource("NetworkService")
         self.host = f"{service.username}@{service.address}"
 
-    def wait_until[T](
+    def poll[T](
         self,
         read: Callable[[], T | None],
-        done: Callable[[T], object],
+        *,
+        until: Callable[[T], object],
         within: float,
         every: float = 1,
         since: float | None = None,
     ) -> tuple[float | None, T | None]:
-        """Call `read` every `every` seconds until `done` accepts its value, or `within` seconds pass.
+        """Call `read` every `every` seconds until `until` accepts its value, or `within` seconds pass.
 
-        A read that raises one of `ERRORS`, or returns None, is a failed read: `done` is not asked.
+        A read that raises one of `ERRORS`, or returns None, is a failed read: `until` is not asked.
         The bound is checked after each failed read, so the last read may land one read past it.
 
         Args:
             read: reads the board once; None means no answer yet.
-            done: whether a read value ends the wait.
+            until: whether a read value ends the wait.
             within: seconds from `since` after which the wait gives up.
             every: seconds slept between reads.
             since: the `time.monotonic()` instant the wait counts from; now when None.
 
         Returns:
-            The seconds from `since` to the read `done` accepted, rounded to 0.1 s (None if it gave
+            The seconds from `since` to the read `until` accepted, rounded to 0.1 s (None if it gave
             up), and the final read: that value, or on a give-up the last attempt's value, None if it
             raised or returned None.
         """
@@ -116,10 +130,10 @@ class Board:
             stop=stop_after_delay(within - (time.monotonic() - since)),
             wait=wait_fixed(every),
             retry=retry_if_exception_type(self.ERRORS)
-            | retry_if_result(lambda value: value is None or not done(value)),
+            | retry_if_result(lambda value: value is None or not until(value)),
             retry_error_callback=lambda state: None if state.outcome.failed else state.outcome.result(),
         )(read)
-        return (round(time.monotonic() - since, 1) if value is not None and done(value) else None), value
+        return (round(time.monotonic() - since, 1) if value is not None and until(value) else None), value
 
     def run(
         self, cmd: str, check: bool = False, timeout: float | None = _COMMAND_TIMEOUT_SECONDS
@@ -223,7 +237,7 @@ class Board:
         """Deactivate the board's SSHDriver."""
         self._target.deactivate(self._driver)
 
-    def boot_variables(self) -> tuple[list[str], dict[str, int]]:
+    def boot_order(self) -> BootOrder:
         """BOOT_ORDER as a list of slot bootnames, and each slot's BOOT_x_LEFT, from `fw_printenv`.
 
         Returns:
@@ -232,9 +246,9 @@ class Board:
         stdout = self.run(self.BOOT_VARIABLES_CMD, check=True)[0]
         variables = dict(line.split("=", 1) for line in stdout)
         left = {name: int(variables[f"BOOT_{name}_LEFT"]) for name in ("A", "B")}
-        return variables["BOOT_ORDER"].split(), left
+        return BootOrder(variables["BOOT_ORDER"].split(), left)
 
-    def snapshot(self) -> dict:
+    def next_boot_and_running_build(self) -> dict:
         """What the next boot and the running build are, read from the board.
 
         Returns:
@@ -244,10 +258,10 @@ class Board:
             "boot_variables": self.read(self.BOOT_VARIABLES_CMD),
             "rauc_status": json.loads(self.read("rauc status --detailed --output-format=json")),
             "boot_id": self.read(self.BOOT_ID_CMD),
-            "commit": self.commit(),
+            "commit": self.build_commit(),
         }
 
-    def commit(self) -> str:
+    def build_commit(self) -> str:
         """The meta-wisekiosk commit the board's image was built from.
 
         Returns:
@@ -258,7 +272,7 @@ class Board:
         assert line is not None, f"no meta-wisekiosk layer line in buildinfo:\n{chr(10).join(stdout)}"
         return line.split()[2].rsplit(":", 1)[-1]
 
-    def sha256(self, path: str) -> str | None:
+    def file_sha256(self, path: str) -> str | None:
         """The sha256 of the file `path` on the board.
 
         Args:
@@ -287,37 +301,40 @@ class Board:
 
     def wait_for_page(self) -> None:
         """Wait until the page serves an HTML document."""
-        served_s, _ = self.wait_until(
-            lambda: self.fetch_page()[1] or None, bool, self._PAGE_WAIT_SECONDS, every=self._PAGE_POLL_SECONDS
+        served_s, _ = self.poll(
+            lambda: self.fetch_page()[1] or None,
+            until=bool,
+            within=self._PAGE_WAIT_SECONDS,
+            every=self._PAGE_POLL_SECONDS,
         )
         assert served_s is not None, f"the page did not serve within {self._PAGE_WAIT_SECONDS} s"
 
-    def time_until_up(self, since: float) -> tuple[float | None, Up | None]:
+    def seconds_until_instance_up(self, since: float) -> tuple[float | None, InstanceState | None]:
         """Wait until the instance is up: the page served and the browser running.
 
-        Resets `last_up` first, so an earlier wait's read never stands in for this one's.
+        Resets `last_instance_state` first, so an earlier wait's read never stands in for this one's.
 
         Args:
             since: the `time.monotonic()` instant the time counts from.
 
         Returns:
             The seconds from `since` until the instance was up (None if it was not within
-            `GIVE_UP_SECONDS`), and `last_up`: the last read, None if no read succeeded.
+            `GIVE_UP_SECONDS`), and `last_instance_state`: the last read, None if no read succeeded.
         """
-        self.last_up = None
-        up_s, _ = self.wait_until(self._up, all, self.GIVE_UP_SECONDS, since=since)
-        return up_s, self.last_up
+        self.last_instance_state = None
+        up_s, _ = self.poll(self._read_instance_state, until=all, within=self.GIVE_UP_SECONDS, since=since)
+        return up_s, self.last_instance_state
 
-    def _up(self) -> Up:
-        """Read once whether the browser is running and the page is served, and keep it in `last_up`.
+    def _read_instance_state(self) -> InstanceState:
+        """Read once whether the browser is running and the page is served, and keep it in `last_instance_state`.
 
         Returns:
             The read.
         """
-        self.last_up = Up(self.run("pgrep -x surf")[2] == 0, self.fetch_page()[1])
-        return self.last_up
+        self.last_instance_state = InstanceState(self.run("pgrep -x surf")[2] == 0, self.fetch_page()[1])
+        return self.last_instance_state
 
-    def bind(self, cleanup: contextlib.ExitStack, src: str | os.PathLike[str], path: str) -> None:
+    def bind_over(self, cleanup: contextlib.ExitStack, src: str | os.PathLike[str], path: str) -> None:
         """Bind-mount a copy of the host file `src` over `path` on the board, until `cleanup` unwinds.
 
         Each undo is registered once its step has succeeded, so teardown unmounts, then removes the
@@ -389,20 +406,20 @@ class Board:
             )
         return on_began, on_command_s
 
-    def install_image(self) -> None:
+    def install_built_image(self) -> None:
         """Install the built image on the board with `just kiosk-ota`."""
         subprocess.run(["just", "kiosk-ota", self.host], check=True)
 
-    def restart(self) -> None:
+    def reboot(self) -> None:
         """Restart the board with `systemctl reboot` and reconnect the SSHDriver in the new boot."""
-        self.restart_by("systemctl reboot", wait_seconds=self._REBOOT_WAIT_SECONDS)
+        self.restart_with("systemctl reboot", within=self._REBOOT_WAIT_SECONDS)
 
     def reconnect(self) -> None:
         """Connect the SSHDriver, retrying every 1 s until the board answers.
 
         Waits through a reboot in progress.
         """
-        self._wait_for_boot(self._RESTART_WAIT_SECONDS, self.BOOT_ID_CMD)
+        self._reconnect_in_new_boot(self._RESTART_WAIT_SECONDS, self.BOOT_ID_CMD)
 
     def fresh_ssh_argv(self, *options: str) -> list[str]:
         """The argv of an ssh to the board over its own connection, short of the remote command.
@@ -428,23 +445,30 @@ class Board:
             argv += ["-o", option]
         return [*argv, self.host]
 
-    def restart_by(self, cmd: str, wait_seconds: float = _RESTART_WAIT_SECONDS, boot_cmd: str = BOOT_ID_CMD) -> None:
+    def restart_with(self, cmd: str, within: float = _RESTART_WAIT_SECONDS, boot_cmd: str = BOOT_ID_CMD) -> float:
         """Take the board down with `cmd` over a one-shot ssh, then reconnect in a new boot.
 
-        Attempts a reconnect every 1 s, so a test can time the restart. It disconnects the SSHDriver before
-        sending `cmd`, while the board is still up. If the board never answers in a new boot, the
-        SSHDriver is left as the last attempt left it, connected if the last connect succeeded.
+        Attempts a reconnect every 1 s, so a test can time the restart from the returned instant. It
+        disconnects the SSHDriver before sending `cmd`, while the board is still up. If the board
+        never answers in a new boot, the SSHDriver is left as the last attempt left it, connected if
+        the last connect succeeded. A time taken from the returned instant overstates by the boot-id
+        read, the disconnect and the ssh connect before the fault lands.
 
         Args:
             cmd: the command that restarts or crashes the board.
-            wait_seconds: how long to wait for the board to answer in a new boot.
+            within: how long to wait for the board to answer in a new boot.
             boot_cmd: prints a value that differs in each new boot.
+
+        Returns:
+            The host `time.monotonic()` taken just before the command, the instant the recovery is
+            timed from.
 
         Raises:
             AssertionError: the opening `boot_cmd` read returned nonzero, or the board did not
-                answer in a new boot within `wait_seconds`; the message carries how the ssh that
+                answer in a new boot within `within`; the message carries how the ssh that
                 sent `cmd` ended.
         """
+        started = time.monotonic()
         old_boot = self.read(boot_cmd)
         self.disconnect()
         try:
@@ -461,11 +485,12 @@ class Board:
         except subprocess.TimeoutExpired:
             sent_as = f"timed out after {self._FAULT_SSH_TIMEOUT_SECONDS} s"
         try:
-            self._wait_for_boot(wait_seconds, boot_cmd, old_boot)
+            self._reconnect_in_new_boot(within, boot_cmd, old_boot)
         except AssertionError as error:
             raise AssertionError(f"{error}; the ssh that sent {cmd!r} ended with {sent_as}") from None
+        return started
 
-    def _wait_for_boot(self, within: float, boot_cmd: str, old: str | None = None) -> None:
+    def _reconnect_in_new_boot(self, within: float, boot_cmd: str, old: str | None = None) -> None:
         """Reconnect the SSHDriver, one attempt a second, until `boot_cmd` reads.
 
         Each attempt disconnects, connects and reads `boot_cmd`; with `old` given, a read equal to it

@@ -205,7 +205,7 @@ def helpers() -> Iterator[Helpers]:
     """
     with contextlib.ExitStack() as cleanup:
         work = ContainerDir(cleanup)
-        work.run("evemu_tools.sh")
+        work.run_script("evemu_tools.sh")
         directory = work.path / "helpers"
         yield Helpers(
             directory,
@@ -247,7 +247,7 @@ class _Console:
         if self.foreground() != "1":
             self._record(console_restored_by_restart=when)
             self._board.run("systemctl restart kiosk.service", check=True)
-            self._board.wait_until(self.foreground, lambda console: console == "1", _KIOSK_RESTART_WAIT_SECONDS)
+            self._board.poll(self.foreground, until=lambda console: console == "1", within=_KIOSK_RESTART_WAIT_SECONDS)
 
     def kill_tty2_login(self) -> None:
         """Kill whatever runs on tty2; `getty@.service`'s `Restart=always` brings back a fresh prompt.
@@ -382,7 +382,7 @@ class TestKeyboard:
             )
         )
         self.board.run_later(self.cleanup, _UNIT, _KEYBOARD_ARM_SECONDS, f"/bin/sh {_DIR}/keyboard.sh {bounds}")
-        outage.arm(_OUTAGE_SECONDS)
+        outage.schedule(_OUTAGE_SECONDS)
 
         # two seconds past the outage's end, so `reconnect` starts retrying only once the network is un-pinned
         time.sleep(Outage.ARM_DELAY_SECONDS + _OUTAGE_SECONDS + 2)
@@ -391,9 +391,9 @@ class TestKeyboard:
         boot_id_after = self.board.read(self.board.BOOT_ID_CMD)
         keyboard_record = self.board.run(f"cat {_DIR}/record 2>/dev/null || true", check=True)[0]
         marker = self.board.run(f"cat {_DIR}/marker 2>/dev/null || true", check=True)[0]
-        outage_record = outage.record_lines()
-        cut = outage.field(outage_record, "cut")
-        t0 = outage.field(outage_record, "t0")
+        outage_record = outage.read_record()
+        cut = outage_record.cut
+        t0 = outage_record.restored
         prompts = _record_fields(keyboard_record, "prompt")
         after_login = prompts[0][0] if prompts else "not reached"
 
@@ -421,7 +421,7 @@ class TestKeyboard:
         fields = marker[0].split() if marker else []
         assert fields[:1] == [nonce], f"the typed command did not run: marker {marker!r}"
         assert fields[1:2] == ["/dev/tty2"], f"the command ran on {fields[1:2]}, not at the tty2 login"
-        assert cut is not None and t0 is not None, f"the outage record has no cut and t0: {outage_record}"
+        assert cut is not None and t0 is not None, f"the outage record has no cut and t0: {outage_record.lines}"
         assert cut < float(fields[2]) < t0, (
             f"the command ran with the network up: it ran at {fields[2]}, the outage was {cut} to {t0}"
         )

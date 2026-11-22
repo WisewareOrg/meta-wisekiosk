@@ -58,7 +58,7 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 
 
 @pytest.fixture(scope="session")
-def config_across_update(
+def config_hashes_across_install(
     request: pytest.FixtureRequest, board: Board, bench_candidate: str | None
 ) -> tuple[str | None, str | None, str | None] | None:
     """Hash the board's config before and after `install_candidate`; writes nothing.
@@ -80,17 +80,17 @@ def config_across_update(
     if bench_candidate is None:
         request.getfixturevalue("install_candidate")
         return None
-    before = board.sha256(board.CONFIG_PATH)
+    before = board.file_sha256(board.CONFIG_PATH)
     request.getfixturevalue("install_candidate")
-    return before, board.sha256(board.CONFIG_PATH), board.sha256(board.DEFAULT_CONFIG_PATH)
+    return before, board.file_sha256(board.CONFIG_PATH), board.file_sha256(board.DEFAULT_CONFIG_PATH)
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _install_candidate(config_across_update: tuple[str | None, str | None, str | None] | None) -> None:
-    """Activate `install_candidate` (tests/conftest.py) for every test in this suite, via `config_across_update`.
+def _install_candidate(config_hashes_across_install: tuple[str | None, str | None, str | None] | None) -> None:
+    """Activate `install_candidate` (tests/conftest.py) for every test, via `config_hashes_across_install`.
 
     Args:
-        config_across_update: runs `install_candidate` between its two hashes.
+        config_hashes_across_install: runs `install_candidate` between its two hashes.
     """
 
 
@@ -131,7 +131,7 @@ def device_context(board: Board, record: Record) -> Iterator[None]:
         return stdout[0].strip() if returncode == 0 and stdout else None
 
     # the browser starts some seconds after ssh does following a restart
-    appeared_s, pid = board.wait_until(surf_pid, bool, _BROWSER_WAIT_SECONDS, every=_BROWSER_POLL_SECONDS)
+    appeared_s, pid = board.poll(surf_pid, until=bool, within=_BROWSER_WAIT_SECONDS, every=_BROWSER_POLL_SECONDS)
     assert appeared_s is not None, "the browser never appeared"
 
     hashed = " ".join((board.CONFIG_PATH, *_HASHED_PATHS))
@@ -170,7 +170,7 @@ def backend(board: Board) -> Iterator[Backend]:
 
 
 @pytest.fixture
-def replay_window(board: Board, backend: Backend, proxy: "Proxy", request: pytest.FixtureRequest) -> float:
+def backend_on_replay(board: Board, backend: Backend, proxy: "Proxy", request: pytest.FixtureRequest) -> float:
     """Put the backend behind `proxy` for this test's duration, and return the browser start.
 
     Opens an `ssh -R` tunnel to the proxy's own loopback port, copies the proxy's CA to the
@@ -222,7 +222,7 @@ def panel(board: Board, record: Record) -> Iterator[Panel]:
     """
     with contextlib.ExitStack() as cleanup:
         observation = Panel(board, cleanup, record)
-        observation.install()
+        observation.install_probe()
         yield observation
 
 

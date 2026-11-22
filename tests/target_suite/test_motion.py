@@ -97,7 +97,7 @@ def _soak_samples_between(board: Board, start_uptime: float, end_uptime: float) 
 @pytest.mark.parametrize("proxy", [str(CARDS4_LIVE / "flows.har")], indirect=True)
 def test_motion_stutter(
     proxy: "Proxy",
-    replay_window: float,
+    backend_on_replay: float,
     panel: Panel,
     board: Board,
     record_property: Callable[[str, object], None],
@@ -111,7 +111,7 @@ def test_motion_stutter(
 
     Args:
         proxy: the replaying proxy, asked how many requests it killed.
-        replay_window: puts the backend behind the proxy and the browser on the replayed page.
+        backend_on_replay: puts the backend behind the proxy and the browser on the replayed page.
         panel: the probe in the browser, read for the counters.
         board: the board under test, whose temperature and soak log are read.
         record_property: records the requirement and what the window measured.
@@ -119,12 +119,12 @@ def test_motion_stutter(
     record_property("requirement", "TST009")
     record_property("cutoff_ms", CUTOFF_MS)
     record_property("bound", STALL_BOUND)
-    _, first = panel.wait_on_panel(full=True)
+    _, first = panel.wait_for_instance(all_cards_live=True)
     first_el = int(first["el"])
 
-    waited_s, start_read = panel.wait_until(
-        lambda read: read[1] is not None and int(read[1]["el"]) >= first_el + WARMUP_MS,
-        WARMUP_READ_WAIT_SECONDS,
+    waited_s, start_read = panel.poll(
+        until=lambda read: read[1] is not None and int(read[1]["el"]) >= first_el + WARMUP_MS,
+        within=WARMUP_READ_WAIT_SECONDS,
         every=READ_PAUSE_SECONDS,
     )
     assert waited_s is not None, f"the page stopped reporting; last: {start_read!r}"
@@ -134,12 +134,12 @@ def test_motion_stutter(
 
     time.sleep(WINDOW_SLEEP_SECONDS)
 
-    waited_s, end_read = panel.wait_until(
-        lambda read: (
+    waited_s, end_read = panel.poll(
+        until=lambda read: (
             read[1] is not None
             and (read[1]["load"] != start["load"] or int(read[1]["el"]) >= start_counters["el"] + WINDOW_MS)
         ),
-        END_WAIT_SECONDS,
+        within=END_WAIT_SECONDS,
         every=READ_PAUSE_SECONDS,
     )
     assert waited_s is not None, f"the page stopped reporting within {END_WAIT_SECONDS} s; last: {end_read!r}"
@@ -161,7 +161,7 @@ def test_motion_stutter(
     problems = []
     if delta["changes"] != 0:
         problems.append("the page changed state inside the window")
-    if not (panel.is_full(start) and panel.is_full(end)):
+    if not (panel.shows_all_cards_live(start) and panel.shows_all_cards_live(end)):
         problems.append("a read was not the applied page, on the board's own origin, cards live")
     if moving_share < MOTION_FLOOR:
         problems.append(f"too little motion seen in the window: {moving_share:.2f}")

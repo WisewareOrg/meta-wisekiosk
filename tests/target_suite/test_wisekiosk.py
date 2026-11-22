@@ -53,7 +53,7 @@ class _RecoveryWatch:
             if served:
                 self.answered_at = uptime
         walk = self._panel.read()
-        self.left_panel = self.left_panel or not self._panel.on_panel(walk.sample)
+        self.left_panel = self.left_panel or not self._panel.shows_instance(walk.sample)
         return walk
 
 
@@ -94,15 +94,15 @@ class TestWisekiosk:
         """
         self.record(requirement="TST032")
         panel = Panel(self.board, self.cleanup, self.record)
-        panel.install()
+        panel.install_probe()
         backend = Backend(self.board, self.cleanup)
-        _, before = panel.wait_on_panel()
+        _, before = panel.wait_for_instance()
         watch = _RecoveryWatch(self.board, panel)
 
-        killed_at, pid_before = backend.kill()
-        found_s, found = panel.wait_until(
-            lambda walk: watch.answered_at is not None and panel.on_panel(walk.sample),
-            Board.GIVE_UP_SECONDS,
+        killed_at, pid_before = backend.sigkill()
+        found_s, found = panel.poll(
+            until=lambda walk: watch.answered_at is not None and panel.shows_instance(walk.sample),
+            within=Board.GIVE_UP_SECONDS,
             every=_POLL_SECONDS,
             read=watch.read,
         )
@@ -122,7 +122,7 @@ class TestWisekiosk:
             main_pid_before=pid_before,
         )
         if watch.answered_at is not None:
-            self.record(main_pid_after=backend.assert_kill_landed())
+            self.record(main_pid_after=backend.assert_new_process_after_kill())
         assert on_panel_s is not None, (
             f"the instance was not on the panel with the backend answering within {Board.GIVE_UP_SECONDS} s "
             f"of the crash (backend answered at uptime {watch.answered_at}); last sample: {sample!r}"
@@ -143,11 +143,11 @@ class TestWisekiosk:
         panel = Panel(self.board, self.cleanup, self.record)
         backend = Backend(self.board, self.cleanup)
         self.board.wait_for_page()
-        backend.hold(_HOLD_SECONDS)
-        killed_at, pid_before = backend.kill()
+        backend.delay_restart(_HOLD_SECONDS)
+        killed_at, pid_before = backend.sigkill()
         self.record(killed_at_uptime_s=killed_at)
-        panel.install()
-        self.cleanup.callback(backend.unhold)
+        panel.install_probe()
+        self.cleanup.callback(backend.undo_restart_delay)
         panel.assert_loaded_without_backend()
 
         answered_uptime_s, on_panel_s = panel.time_on_panel_after_backend_answers()
@@ -162,7 +162,7 @@ class TestWisekiosk:
             main_pid_before=pid_before,
         )
         if answered_uptime_s is not None:
-            self.record(main_pid_after=backend.assert_kill_landed())
+            self.record(main_pid_after=backend.assert_new_process_after_kill())
         assert answered_uptime_s is not None, f"the backend did not answer within {Board.GIVE_UP_SECONDS} s"
         assert on_panel_s is not None, (
             f"the instance was not on the panel within {Board.GIVE_UP_SECONDS} s of the backend answering; "

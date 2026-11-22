@@ -20,7 +20,7 @@ def test_browser_killed(board: Board, panel: Panel, record_property: Callable[[s
         record_property: records the requirement, the samples around the kill and the time back.
     """
     record_property("requirement", "TST001")
-    _, before = panel.wait_on_panel()
+    _, before = panel.wait_for_instance()
 
     killed_at = board.run_with_uptime("kill -KILL $(pgrep -x surf)", check=True)[0]
 
@@ -33,11 +33,11 @@ def test_browser_killed(board: Board, panel: Panel, record_property: Callable[[s
         Returns:
             True if the instance is on the panel and the nonce is not the one before the kill.
         """
-        return panel.on_panel(read[1]) and read[1]["nonce"] != before["nonce"]
+        return panel.shows_instance(read[1]) and read[1]["nonce"] != before["nonce"]
 
     # The board uptime of the first read showing the page back, so it overstates by up to one
     # read plus the 0.5 s sleep.
-    back_s, final = panel.wait_until(back, _GIVE_UP_SECONDS, every=0.5)
+    back_s, final = panel.poll(until=back, within=_GIVE_UP_SECONDS, every=0.5)
     recovered_s = round(final[0] - killed_at, 1) if back_s is not None else None
 
     record_property("before", before)

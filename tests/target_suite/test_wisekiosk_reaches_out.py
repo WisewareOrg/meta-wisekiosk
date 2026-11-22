@@ -15,7 +15,7 @@ OBSERVE_AFTER_BROWSER_START_SECONDS = 60
 
 @pytest.mark.parametrize("proxy", [str(CARDS4_LIVE / "flows.har")], indirect=True)
 def test_instance_reaches_out(
-    proxy: "Proxy", replay_window: float, record_property: Callable[[str, object], None]
+    proxy: "Proxy", backend_on_replay: float, record_property: Callable[[str, object], None]
 ) -> None:
     """The instance's own HTTPS fetches are answered from the recording, none unanswered.
 
@@ -24,12 +24,12 @@ def test_instance_reaches_out(
 
     Args:
         proxy: the replaying proxy, asked which URLs it served and which it killed.
-        replay_window: the browser start, as a `time.monotonic()` instant.
+        backend_on_replay: the browser start, as a `time.monotonic()` instant.
         record_property: records the requirement.
     """
     record_property("requirement", "TST010")
 
-    deadline = replay_window + OBSERVE_AFTER_BROWSER_START_SECONDS
+    deadline = backend_on_replay + OBSERVE_AFTER_BROWSER_START_SECONDS
     time.sleep(max(0, deadline - time.monotonic()))
 
     served = proxy.served()

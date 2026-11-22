@@ -85,7 +85,7 @@ def test_pointer_display_disabled(board: Board, panel: Panel, record_property: C
         record_property: records the requirement and X's command line.
     """
     record_property("requirement", "TST013")
-    panel.wait_on_panel()
+    panel.wait_for_instance()
 
     pids = board.run("pidof Xorg")[0]
     pids = " ".join(pids).split()
@@ -106,7 +106,7 @@ def test_instance_covers_the_panel(board: Board, panel: Panel, record_property: 
         record_property: records the requirement, the xrandr output and the window layout.
     """
     record_property("requirement", "TST030")
-    panel.wait_on_panel()
+    panel.wait_for_instance()
 
     stdout, _stderr, _returncode = board.run(_LAYOUT_READ, check=True)
     split = stdout.index(_SEPARATOR)
@@ -157,7 +157,7 @@ def test_minimum_resolution(board: Board, panel: Panel, record_property: Callabl
         record_property: records the requirement, the layout and the xrandr output.
     """
     record_property("requirement", "TST031")
-    _uptime_s, sample = panel.wait_on_panel()
+    _uptime_s, sample = panel.wait_for_instance()
     record_property("layout", sample["layout"])
 
     xrandr = board.read("DISPLAY=:0 xrandr --current")

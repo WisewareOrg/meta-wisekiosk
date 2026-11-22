@@ -39,18 +39,18 @@ def test_fallback_probe(board: Board, record_property: Callable[[str, object], N
     booted = _booted_bootname(board)
     other = ({"A", "B"} - {booted}).pop()
     record_property("booted", booted)
-    record_property("before", json.dumps(board.boot_variables()))
+    record_property("before", json.dumps(board.boot_order()))
 
-    board.install_image()
-    order, left = board.boot_variables()
+    board.install_built_image()
+    order, left = board.boot_order()
     record_property("installed", json.dumps([order, left]))
     assert order[0] == other, f"slot {other} does not lead BOOT_ORDER after the install: {order}"
     assert left[other] > 0, f"slot {other} has no attempts left after the install"
 
     board.run(f"fw_setenv BOOT_{other}_LEFT 0", check=True)
-    board.restart_by("systemctl reboot")
+    board.restart_with("systemctl reboot")
 
-    order, left = board.boot_variables()
+    order, left = board.boot_order()
     record_property("after", json.dumps([order, left]))
     assert _booted_bootname(board) == booted, f"the board is not back on slot {booted}"
     assert order[0] == other, f"slot {other} no longer leads BOOT_ORDER: {order}"

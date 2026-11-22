@@ -20,5 +20,5 @@ def test_buildinfo_names_commit(
         pytest.skip("no bench_candidate: a plain pytest run, or bench test --skip-build")
     record_property("requirement", "TST016")
     expected = bench_candidate
-    commit = board.commit()
+    commit = board.build_commit()
     assert commit == expected, f"board reports commit {commit}, expected {expected} (bench_candidate)"

@@ -9,7 +9,7 @@ from collections.abc import Iterator
 
 import pytest
 from backend import Backend
-from board import Board, Up
+from board import Board
 from panel import Panel
 from record import Record
 
@@ -25,21 +25,6 @@ _COLD_BOOT_BOUND_SECONDS = 110
 _LATE_BACKEND_BOUND_SECONDS = 60
 
 _USERSPACE_BOOT_CMD = "systemctl show -p ActiveEnterTimestampMonotonic --value multi-user.target"
-
-
-def _loaded(titles: list[str]) -> str | None:
-    """The title of a window surf has finished loading the instance's page into.
-
-    surf titles a window `<indicators>:<indicators> | <page title>`, prefixed `[NN%] ` while the page
-    loads; the instance's page title is `WiseKiosk`.
-
-    Args:
-        titles: every window's title.
-
-    Returns:
-        The title, or None if there is none.
-    """
-    return next((t for t in titles if t.endswith(" | WiseKiosk") and not t.startswith("[")), None)
 
 
 class TestRestartRecovery:
@@ -61,27 +46,13 @@ class TestRestartRecovery:
         with contextlib.ExitStack() as self.cleanup:
             yield
 
-    def _time_back_after(self, cmd: str) -> tuple[float | None, Up | None]:
-        """Run `cmd` on the board and time until the instance is up.
-
-        Overstates by the boot-id read, the disconnect and the ssh connect before the fault lands.
-
-        Args:
-            cmd: the command that restarts or crashes the board.
-
-        Returns:
-            The seconds until the instance is up (None if never), and the last read of it.
-        """
-        started = time.monotonic()
-        self.board.restart_by(cmd)
-        return self.board.time_until_up(started)
-
     def test_kernel_crash(self) -> None:
         """TST004 kernel crash: crash the kernel and time until the page is served, browser running."""
         self.record(requirement="TST004")
         self.board.wait_for_page()
 
-        back_s, last_read = self._time_back_after("echo c > /proc/sysrq-trigger")
+        started = self.board.restart_with("echo c > /proc/sysrq-trigger")
+        back_s, last_read = self.board.seconds_until_instance_up(since=started)
 
         self.record(back_s=back_s, last_read=last_read)
         assert back_s is not None, f"not back within {Board.GIVE_UP_SECONDS} s of the crash; last read: {last_read}"
@@ -92,7 +63,8 @@ class TestRestartRecovery:
         self.record(requirement="TST011")
         self.board.wait_for_page()
 
-        back_s, last_read = self._time_back_after("systemctl reboot")
+        started = self.board.restart_with("systemctl reboot")
+        back_s, last_read = self.board.seconds_until_instance_up(since=started)
 
         self.record(back_s=back_s, last_read=last_read)
         assert back_s is not None, f"not back within {Board.GIVE_UP_SECONDS} s of the restart; last read: {last_read}"
@@ -104,11 +76,11 @@ class TestRestartRecovery:
         Times from power returning until the page is served with the browser running.
         """
         self.record(requirement="TST002")
-        ready_s, last_read = self.board.time_until_up(time.monotonic())
+        ready_s, last_read = self.board.seconds_until_instance_up(since=time.monotonic())
         assert ready_s is not None, f"the instance was not up before the cut; last read: {last_read}"
 
         on_began, on_command_s = self.board.cut_power(self.cleanup)
-        back_s, last_read = self.board.time_until_up(on_began)
+        back_s, last_read = self.board.seconds_until_instance_up(since=on_began)
 
         self.record(power_on_command_s=on_command_s, back_s=back_s, last_read=last_read)
         assert back_s is not None, (
@@ -127,14 +99,17 @@ class TestRestartRecovery:
         panel = Panel(self.board, self.cleanup, self.record)
 
         on_began, on_command_s = self.board.cut_power(self.cleanup)
-        on_panel_s, _ = panel.wait_until(lambda read: _loaded(read.titles), Board.GIVE_UP_SECONDS, since=on_began)
+        on_panel_s, _ = panel.poll(
+            until=lambda read: read.instance_loaded_title, within=Board.GIVE_UP_SECONDS, since=on_began
+        )
 
-        titles = panel.last_reading.titles if panel.last_reading else None
+        reading = panel.last_reading
+        titles = reading.titles if reading else None
         self.record(
             power_on_command_s=on_command_s,
             on_panel_s=on_panel_s,
             last_titles=titles,
-            loaded=_loaded(titles) if titles else None,
+            loaded=reading.instance_loaded_title if reading else None,
         )
         assert on_panel_s is not None, (
             f"the browser had not finished loading the instance within {Board.GIVE_UP_SECONDS} s "
@@ -157,8 +132,8 @@ class TestRestartRecovery:
         self.board.wait_for_page()
 
         backend.mask()
-        self.board.restart_by("systemctl soft-reboot", boot_cmd=_USERSPACE_BOOT_CMD)
-        backend.release_after(Board.GIVE_UP_SECONDS)
+        self.board.restart_with("systemctl soft-reboot", boot_cmd=_USERSPACE_BOOT_CMD)
+        backend.unmask_and_start_after(Board.GIVE_UP_SECONDS)
 
         enabled = self.board.run("systemctl is-enabled wisekiosk.service")[0]
         active = self.board.run("systemctl is-active wisekiosk.service")[0]
@@ -168,12 +143,12 @@ class TestRestartRecovery:
             f"(is-enabled {enabled}, is-active {active})"
         )
 
-        panel.install(restart_browser=False)
-        self.cleanup.callback(backend.unmask)
+        panel.install_probe(restart_browser=False)
+        self.cleanup.callback(backend.unmask_and_wait_for_page)
 
         panel.assert_loaded_without_backend()
 
-        backend.release()
+        backend.unmask_and_start()
         answered_uptime_s, on_panel_s = panel.time_on_panel_after_backend_answers()
 
         last = panel.last_reading

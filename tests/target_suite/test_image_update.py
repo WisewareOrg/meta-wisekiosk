@@ -84,7 +84,7 @@ def bundles(bench_candidate: str | None) -> Iterator[UpdateBundles]:
         work = ContainerDir(cleanup)
         nonce = uuid.uuid4().hex
         stamp = uuid.uuid4().hex
-        work.run("update_bundles.sh", nonce, stamp, _PROBE)
+        work.run_script("update_bundles.sh", nonce, stamp, _PROBE)
         yield UpdateBundles(
             work.path / "new-build.raucb",
             work.path / "cannot-start.raucb",
@@ -201,13 +201,15 @@ class _CandidateUpdate(Update):
         self.assert_refused(bundle, ("Bundle rejected", "test bundle: no run nonce"))
 
         self.allow()
-        before = board.snapshot()
-        returncode, output, seconds = self.install(bundle)
+        before = board.next_boot_and_running_build()
+        returncode, output, seconds = self.install_bundle(bundle)
         self._record("install_rc", returncode)
         self._record("install_output", output)
         self._record("install_s", seconds)
         assert returncode == 0, f"the install returned {returncode}: {output}"
-        assert board.snapshot()["boot_id"] == before["boot_id"], "the board restarted during the install"
+        assert board.next_boot_and_running_build()["boot_id"] == before["boot_id"], (
+            "the board restarted during the install"
+        )
         return before
 
     def fall_back_and_accept(self, bundle: Path, count_boots: bool) -> None:
@@ -220,18 +222,17 @@ class _CandidateUpdate(Update):
         board = self._board
         before = self.refuse_then_install(bundle)
         target = ({"A", "B"} - {before["rauc_status"]["booted"]}).pop()
-        order, left = board.boot_variables()
+        order, left = board.boot_order()
         assert order[0] == target, f"the update's slot {target} does not lead BOOT_ORDER: {order}"
         attempts = left[target]
         self._record("attempts", attempts)
         assert 0 < attempts <= 3, f"slot {target} has {attempts} attempts left, not 1 to 3"
         boots_before = self.boot_ids() if count_boots else None
 
-        started = time.monotonic()
-        board.restart_by("systemctl reboot", wait_seconds=_FALLBACK_WAIT_SECONDS)
+        started = board.restart_with("systemctl reboot", within=_FALLBACK_WAIT_SECONDS)
         self._record("back_s", round(time.monotonic() - started, 1))
 
-        after = board.snapshot()
+        after = board.next_boot_and_running_build()
 
         def booted(rauc_status: dict) -> tuple[str, str]:
             """The booted slot's name and the hash of the bundle it was installed from.
@@ -249,7 +250,7 @@ class _CandidateUpdate(Update):
             "the board is not back on the previous slot and bundle"
         )
         assert after["commit"] == before["commit"], "the board is not back on the previous build"
-        order, left = board.boot_variables()
+        order, left = board.boot_order()
         assert order[0] == target, f"the update's slot {target} no longer leads BOOT_ORDER: {order}"
         assert left[target] == 0, f"slot {target} has {left[target]} attempts left, not 0"
         if count_boots:
@@ -261,22 +262,22 @@ class _CandidateUpdate(Update):
             )
 
         self.onto_candidate()
-        assert booted(board.snapshot()["rauc_status"])[1] == self.bundles.hash, (
+        assert booted(board.next_boot_and_running_build()["rauc_status"])[1] == self.bundles.hash, (
             "the board is not on the candidate's bundle"
         )
-        assert board.commit() == self.bundles.commit, "the board is not on the candidate's build"
+        assert board.build_commit() == self.bundles.commit, "the board is not on the candidate's build"
 
     def onto_candidate(self) -> None:
         """Install the candidate's bundle and restart into it."""
-        returncode, output, _seconds = self.install(self.bundles.candidate)
+        returncode, output, _seconds = self.install_bundle(self.bundles.candidate)
         assert returncode == 0, f"installing the candidate returned {returncode}: {output}"
-        self._board.restart_by("systemctl reboot")
+        self._board.restart_with("systemctl reboot")
 
     def _back_on_candidate(self) -> None:
         """Put the board back on the candidate unless it runs it and will boot it next."""
-        rauc_status = self._board.snapshot()["rauc_status"]
+        rauc_status = self._board.next_boot_and_running_build()["rauc_status"]
         _name, booted = self.slot(rauc_status, booted=True)
-        order, _left = self._board.boot_variables()
+        order, _left = self._board.boot_order()
         if booted["slot_status"]["bundle"]["hash"] == self.bundles.hash and order[0] == rauc_status["booted"]:
             return
         self.onto_candidate()
@@ -328,12 +329,11 @@ def test_new_application_build(
     record_property("requirement", "TST006")
     update.refuse_then_install(update.bundles.new_build)
 
-    started = time.monotonic()
-    board.restart_by("systemctl reboot")
+    started = board.restart_with("systemctl reboot")
     panel = Panel(board, cleanup, record)
-    on_panel_s, final = panel.wait_until(
-        lambda read: panel.on_panel(read[1]) and read[1]["stamp"] == update.bundles.stamp,
-        Board.GIVE_UP_SECONDS,
+    on_panel_s, final = panel.poll(
+        until=lambda read: panel.shows_instance(read[1]) and read[1]["stamp"] == update.bundles.stamp,
+        within=Board.GIVE_UP_SECONDS,
         since=started,
     )
     record_property("on_panel_s", on_panel_s)
@@ -391,18 +391,20 @@ def test_power_cut_during_an_update(
     """
     record_property("requirement", "TST003")
     update.allow()
-    before = board.snapshot()
+    before = board.next_boot_and_running_build()
     _name, other = update.slot(before["rauc_status"], booted=False)
     device = other["device"]
     idle = update.install_state(device)
     assert idle, f"could not read RAUC's progress or {device}'s write count"
     written_before = idle[1]
     with ThreadPoolExecutor(max_workers=1) as pool:
-        installing = pool.submit(update.install, update.bundles.new_build)
-        copying_s, final = board.wait_until(
+        installing = pool.submit(update.install_bundle, update.bundles.new_build)
+        copying_s, final = board.poll(
             lambda: (installing.done(), update.install_state(device)),
-            lambda read: read[0] or (read[1] and read[1][0].startswith(_COPY_STEP) and read[1][1] > written_before),
-            _INSTALL_TIMEOUT_SECONDS,
+            until=lambda read: (
+                read[0] or (read[1] and read[1][0].startswith(_COPY_STEP) and read[1][1] > written_before)
+            ),
+            within=_INSTALL_TIMEOUT_SECONDS,
         )
         assert not final[0], f"the install ended before it wrote to {device}: {installing.result()}"
         assert copying_s is not None, f"the install did not reach its copy step within {_INSTALL_TIMEOUT_SECONDS} s"
@@ -410,14 +412,14 @@ def test_power_cut_during_an_update(
         record_property("step_at_cut", state[0])
         record_property("sectors_written_at_cut", state[1] - written_before)
         started = power_cut()
-        back_s, last_read = board.time_until_up(started)
+        back_s, last_read = board.seconds_until_instance_up(started)
         returncode, output, seconds = installing.result()
     record_property("back_s", back_s)
     record_property("last_read", last_read)
     record_property("install_rc", returncode)
     record_property("install_output", output)
     record_property("install_s", seconds)
-    after = board.snapshot()
+    after = board.next_boot_and_running_build()
     record_property("booted_slot_before", before["rauc_status"]["booted"])
     record_property("booted_slot", after["rauc_status"]["booted"])
     record_property("boot_variables", after["boot_variables"])
@@ -426,7 +428,7 @@ def test_power_cut_during_an_update(
         "INVALID CHECK, not an appliance failure: the install completed, so the cut did not land during it"
     )
     target = ({"A", "B"} - {before["rauc_status"]["booted"]}).pop()
-    order, left = board.boot_variables()
+    order, left = board.boot_order()
     assert not (order[0] == target and left[target] > 0), (
         f"INVALID CHECK, not an appliance failure: slot {target} was activated, so the cut landed after "
         "the update was written, not while it was"

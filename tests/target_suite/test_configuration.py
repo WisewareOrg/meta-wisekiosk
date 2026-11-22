@@ -38,21 +38,21 @@ def _check(record_property: Callable[[str, object], None], hashes: tuple[str | N
 
 
 def test_config_held_across_image_update(
-    config_across_update: tuple[str | None, str | None, str | None] | None,
+    config_hashes_across_install: tuple[str | None, str | None, str | None] | None,
     bench_candidate: str | None,
     record_property: Callable[[str, object], None],
 ) -> None:
     """The config the board held before the candidate's image update is the one it holds after.
 
     Args:
-        config_across_update: the config's hashes before and after the start-of-run install.
+        config_hashes_across_install: the config's hashes before and after the start-of-run install.
         bench_candidate: the commit under test, or None outside a build.
         record_property: records the requirement and the hashes.
     """
     if bench_candidate is None:
         pytest.skip("no bench_candidate: a plain pytest run, or bench test --skip-build")
     record_property("requirement", "TST019")
-    _check(record_property, config_across_update)
+    _check(record_property, config_hashes_across_install)
 
 
 def test_config_held_across_restart(board: Board, record_property: Callable[[str, object], None]) -> None:
@@ -63,10 +63,10 @@ def test_config_held_across_restart(board: Board, record_property: Callable[[str
         record_property: records the requirement and the hashes.
     """
     record_property("requirement", "TST020")
-    before = board.sha256(board.CONFIG_PATH)
-    default = board.sha256(board.DEFAULT_CONFIG_PATH)
-    board.restart()
-    after = board.sha256(board.CONFIG_PATH)
+    before = board.file_sha256(board.CONFIG_PATH)
+    default = board.file_sha256(board.DEFAULT_CONFIG_PATH)
+    board.reboot()
+    after = board.file_sha256(board.CONFIG_PATH)
     _check(record_property, (before, after, default))
 
 
@@ -81,8 +81,8 @@ def test_config_held_across_power_cut(
         record_property: records the requirement and the hashes.
     """
     record_property("requirement", "TST021")
-    before = board.sha256(board.CONFIG_PATH)
-    default = board.sha256(board.DEFAULT_CONFIG_PATH)
+    before = board.file_sha256(board.CONFIG_PATH)
+    default = board.file_sha256(board.DEFAULT_CONFIG_PATH)
     power_cut()
-    after = board.sha256(board.CONFIG_PATH)
+    after = board.file_sha256(board.CONFIG_PATH)
     _check(record_property, (before, after, default))

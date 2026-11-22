@@ -42,8 +42,20 @@ class PanelRead(NamedTuple):
     sample: dict[str, str] | None
     titles: list[str]
 
+    @property
+    def instance_loaded_title(self) -> str | None:
+        """The title of a window surf has finished loading the instance's page into.
 
-class Held(NamedTuple):
+        surf titles a window `<indicators>:<indicators> | <page title>`, prefixed `[NN%] ` while the
+        page loads; the instance's page title is `WiseKiosk`.
+
+        Returns:
+            The title, or None if there is none.
+        """
+        return next((t for t in self.titles if t.endswith(" | WiseKiosk") and not t.startswith("[")), None)
+
+
+class HeldRead(NamedTuple):
     """One read of the board while the backend is held.
 
     Attributes:
@@ -62,9 +74,9 @@ class Held(NamedTuple):
 
 
 class Panel:
-    """What the panel shows: the window titles, and the probe `install` puts in the browser.
+    """What the panel shows: the window titles, and the probe `install_probe` puts in the browser.
 
-    `install` puts the probe in the browser and records `probe_sha256`. Every read is one walk of the
+    `install_probe` puts the probe in the browser and records `probe_sha256`. Every read is one walk of the
     windows. `assert_loaded_without_backend` waits until the browser has finished a load without the
     backend; `time_on_panel_after_backend_answers` then times from the backend's first answer to the
     instance on the panel.
@@ -76,14 +88,14 @@ class Panel:
     """
 
     last_reading: PanelRead | None = None
-    last_held: Held | None = None
+    last_held: HeldRead | None = None
 
     def __init__(self, board: Board, cleanup: contextlib.ExitStack, record: Record) -> None:
-        """Bind to the board, and to the stack that undoes `install`.
+        """Bind to the board, and to the stack that undoes `install_probe`.
 
         Args:
             board: the board under test.
-            cleanup: registers `install`'s undos.
+            cleanup: registers `install_probe`'s undos.
             record: records the probe's hash and what `assert_loaded_without_backend` read.
         """
         self._board = board
@@ -94,7 +106,7 @@ class Panel:
         # the held check's last finished title
         self._previous_title: str | None = None
 
-    def install(self, restart_browser: bool = True) -> None:
+    def install_probe(self, restart_browser: bool = True) -> None:
         """Load the probe into the browser and record its sha256 as `probe_sha256`.
 
         The probe is bind-mounted over surf's script path, then the browser restarts to load it;
@@ -108,13 +120,13 @@ class Panel:
         board = self._board
         board.run(f"mkdir -p {_SURF_DIR} && touch {_SURF_SCRIPT_PATH}", check=True)
         self._cleanup.callback(board.run, "systemctl restart kiosk.service", check=True)
-        board.bind(self._cleanup, _PROBE_SRC, _SURF_SCRIPT_PATH)
+        board.bind_over(self._cleanup, _PROBE_SRC, _SURF_SCRIPT_PATH)
         if restart_browser:
             board.run("systemctl restart kiosk.service", check=True)
         self._record(probe_sha256=hashlib.sha256(_PROBE_SRC.read_bytes()).hexdigest())
 
     @staticmethod
-    def on_panel(sample: dict[str, str] | None) -> bool:
+    def shows_instance(sample: dict[str, str] | None) -> bool:
         """The app applied, served by the board's own backend; the card count is never judged.
 
         Args:
@@ -126,7 +138,7 @@ class Panel:
         return sample is not None and sample["state"] == "applied" and sample["origin"] in _OWN_ORIGINS
 
     @staticmethod
-    def is_full(sample: dict[str, str] | None) -> bool:
+    def shows_all_cards_live(sample: dict[str, str] | None) -> bool:
         """The page on the panel with every card live.
 
         Args:
@@ -135,7 +147,7 @@ class Panel:
         Returns:
             Whether the sample shows the instance on the panel with every card live.
         """
-        return Panel.on_panel(sample) and sample["cards"] == FULL_CARDS
+        return Panel.shows_instance(sample) and sample["cards"] == FULL_CARDS
 
     def read(self) -> PanelRead:
         """Walk the windows once.
@@ -156,9 +168,10 @@ class Panel:
         self.last_reading = PanelRead(uptime, sample, titles)
         return self.last_reading
 
-    def wait_until(
+    def poll(
         self,
-        done: Callable[[PanelRead], object],
+        *,
+        until: Callable[[PanelRead], object],
         within: float,
         every: float = 1,
         since: float | None = None,
@@ -169,33 +182,33 @@ class Panel:
         Resets `last_reading` first, so an earlier wait's read never stands in for this one's.
 
         Args:
-            done: whether a read ends the wait.
+            until: whether a read ends the wait.
             within: seconds from `since` after which the wait gives up.
             every: seconds slept between reads.
             since: the `time.monotonic()` instant the wait counts from; now when None.
             read: the read to repeat; it must return `Panel.read()`'s result (default: `self.read`).
 
         Returns:
-            What `Board.wait_until` returns: the seconds to the done read (None if it gave up) and the
+            What `Board.poll` returns: the seconds to the done read (None if it gave up) and the
             final read.
         """
         self.last_reading = None
-        return self._board.wait_until(read or self.read, done, within, every, since)
+        return self._board.poll(read or self.read, until=until, within=within, every=every, since=since)
 
-    def wait_on_panel(self, full: bool = False) -> tuple[float, dict[str, str]]:
-        """Wait until the instance is on the panel, with every card live when `full`.
+    def wait_for_instance(self, all_cards_live: bool = False) -> tuple[float, dict[str, str]]:
+        """Wait until the instance is on the panel, with every card live when `all_cards_live`.
 
         Args:
-            full: wait for every card live, not just the instance applied.
+            all_cards_live: wait for every card live, not just the instance applied.
 
         Returns:
             The uptime and the sample of the read that found it.
         """
-        judge = self.is_full if full else self.on_panel
-        wait = _FULL_WAIT_SECONDS if full else _PANEL_WAIT_SECONDS
-        seconds, found = self.wait_until(lambda read: judge(read.sample), wait)
+        judge = self.shows_all_cards_live if all_cards_live else self.shows_instance
+        wait = _FULL_WAIT_SECONDS if all_cards_live else _PANEL_WAIT_SECONDS
+        seconds, found = self.poll(until=lambda read: judge(read.sample), within=wait)
         assert seconds is not None, (
-            f"the page was not {'in full state' if full else 'on the panel'} within {wait} s; "
+            f"the page was not {'in full state' if all_cards_live else 'on the panel'} within {wait} s; "
             f"last sample: {self.last_reading.sample if self.last_reading else None!r}"
         )
         return found.uptime, found.sample
@@ -208,8 +221,10 @@ class Panel:
         or the page was served first, so the hold was too short.
         """
         self.last_held = None
-        held_s, _ = self._board.wait_until(
-            self._held, lambda read: read.served or (read.running and read.shown is not None), Board.GIVE_UP_SECONDS
+        held_s, _ = self._board.poll(
+            self._read_while_held,
+            until=lambda read: read.served or (read.running and read.shown is not None),
+            within=Board.GIVE_UP_SECONDS,
         )
         held = self.last_held
         self._record(held_state=held, held_case=held.shown[0] if held and held.shown else None)
@@ -234,19 +249,19 @@ class Panel:
             there was no answer or it did not come within `Board.GIVE_UP_SECONDS`.
         """
         self.last_reading = None
-        answered_s, answered = self._board.wait_until(
-            self._board.fetch_page, lambda read: read[1], Board.GIVE_UP_SECONDS
+        answered_s, answered = self._board.poll(
+            self._board.fetch_page, until=lambda read: read[1], within=Board.GIVE_UP_SECONDS
         )
         answered_uptime_s = answered[0] if answered_s is not None else None
         on_panel_s = None
         if answered_uptime_s is not None:
-            self.wait_until(lambda read: self.on_panel(read.sample), Board.GIVE_UP_SECONDS)
+            self.poll(until=lambda read: self.shows_instance(read.sample), within=Board.GIVE_UP_SECONDS)
             last = self.last_reading
-            if last and self.on_panel(last.sample):
+            if last and self.shows_instance(last.sample):
                 on_panel_s = round(last.uptime - answered_uptime_s, 1)
         return answered_uptime_s, on_panel_s
 
-    def _held(self) -> Held:
+    def _read_while_held(self) -> HeldRead:
         """Read the board once for `assert_loaded_without_backend`, against the previous read's title.
 
         A finished title counts only once a second read shows it unchanged with still no sample: a
@@ -270,5 +285,5 @@ class Panel:
             )
             shown = ("title", title) if title and title == self._previous_title else None
         self._previous_title = title
-        self.last_held = Held(running, served, shown, title)
+        self.last_held = HeldRead(running, served, shown, title)
         return self.last_held

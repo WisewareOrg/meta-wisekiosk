@@ -84,13 +84,13 @@ def test_clock_set_wrong(
     board.run("systemctl stop systemd-timesyncd", check=True)
     _set_board_clock(board, int(time.time()) - SKEW_SECONDS)
 
-    board.restart()
+    board.reboot()
     returned = time.monotonic()
 
-    _, reading = board.wait_until(
+    _, reading = board.poll(
         lambda: _clock(board),
-        lambda read: abs(read[1]) <= AGREE_SECONDS or read[0] > BOUND_SECONDS,
-        BOUND_SECONDS,
+        until=lambda read: abs(read[1]) <= AGREE_SECONDS or read[0] > BOUND_SECONDS,
+        within=BOUND_SECONDS,
         every=POLL_INTERVAL_SECONDS,
         since=returned,
     )

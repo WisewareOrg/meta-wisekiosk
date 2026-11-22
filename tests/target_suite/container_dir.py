@@ -13,7 +13,7 @@ class ContainerDir:
 
     Attributes:
         REPO: the repository root, from which `tools/kas-run.sh` runs.
-        path: the directory; `run` mounts it at the same path in the container.
+        path: the directory; `run_script` mounts it at the same path in the container.
     """
 
     REPO = Path(__file__).resolve().parents[2]
@@ -28,7 +28,7 @@ class ContainerDir:
         self.path = Path(tempfile.mkdtemp(prefix="kiosk-test-", dir="/tmp"))
         cleanup.callback(shutil.rmtree, self.path)
 
-    def run(self, script: str, *args: str) -> None:
+    def run_script(self, script: str, *args: str) -> None:
         """Run `tests/target_suite/<script>` in the kas build container with `path` as its first argument.
 
         Args:

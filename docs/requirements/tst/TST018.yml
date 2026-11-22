@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_another_hardware_type
   path: tests/target_suite/test_refused_updates.py
-  sha: a0afc4219ba382f34749a0d7fd41dc0dcfe0f8a82ee895477d1da3bf8df61784
+  sha: e4e8fb70c7c0f080ef07f0c447db8859c15061d521c97b231007ffd220610545
   type: file
-reviewed: YUIUN-KsNuonwjROFJr_rKaI7lpFCsBJxBMz5aziLvY=
+reviewed: 5PiCM4Rto-TSaOmgtvsk1jAuwOzxgKccxkocgmmEkEM=
 status: proposed
 text: |
   Offer the appliance an image update signed by one of its operators but built for a different kind

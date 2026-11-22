@@ -162,7 +162,7 @@ def _wait_period(board: Board, boot_id: str, period: float) -> str | None:
 def test_memory_over_a_long_run(
     request: pytest.FixtureRequest,
     proxy: "Proxy",
-    replay_window: float,
+    backend_on_replay: float,
     panel: Panel,
     board: Board,
     record_property: Callable[[str, object], None],
@@ -180,7 +180,7 @@ def test_memory_over_a_long_run(
         request: the test's request, whose option `--soak` picks the period and which stops the
             soak timer at teardown if the test started it.
         proxy: the replaying proxy, asked how many requests it killed.
-        replay_window: puts the backend behind the proxy and the browser on the replayed page.
+        backend_on_replay: puts the backend behind the proxy and the browser on the replayed page.
         panel: the probe in the browser, read at the start and the end for the page's state.
         board: the board under test, whose memory, kernel log and soak log are read.
         record_property: records the requirement and what the window measured.
@@ -190,7 +190,7 @@ def test_memory_over_a_long_run(
             grew past `GROWTH_LIMIT_MB`, or the run is invalid.
         Exception: whatever the evidence reads raise, when no failure was found first.
     """
-    _, start_sample = panel.wait_on_panel(full=True)
+    _, start_sample = panel.wait_for_instance(all_cards_live=True)
     record_property("requirement", "TST014")
     soak = request.config.getoption("--soak")
     period = SOAK_PERIOD_SECONDS if soak else PERIOD_SECONDS

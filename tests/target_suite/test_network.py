@@ -9,7 +9,7 @@ from collections.abc import Callable, Iterator
 
 import pytest
 from board import Board
-from outage import Outage
+from outage import Outage, OutageRecord
 from panel import Panel
 from record import Record
 
@@ -74,7 +74,7 @@ def _watch(panel: Panel, seen: dict, keep_going: Callable[[], bool]) -> None:
             seen["uptimes"].append(read.uptime)
             if read.sample is None:
                 seen["failed"] += 1
-            if panel.on_panel(read.sample):
+            if panel.shows_instance(read.sample):
                 seen["on_panel_at"].append(read.uptime)
                 seen["nonces"].add(read.sample["nonce"])
             else:
@@ -130,7 +130,7 @@ class TestNetwork:
         outage = Outage(self.board, self.cleanup)
         outage.wait_boot_complete()
         boot_id = self.board.read(self.board.BOOT_ID_CMD)
-        outage.arm(_OUTAGE_SECONDS)
+        outage.schedule(_OUTAGE_SECONDS)
         deadline = time.monotonic() + Outage.ARM_DELAY_SECONDS + _OUTAGE_SECONDS + Outage.GIVE_UP_SECONDS
 
         last_attempt = "no attempt"
@@ -145,8 +145,7 @@ class TestNetwork:
                 time.sleep(1)
                 continue
             t1, lines = opened
-            cut_at = outage.field(lines, "cut")
-            t0 = outage.field(lines, "t0")
+            cut_at, t0, _ = OutageRecord.from_lines(lines)
             if cut_at is None or t1 < cut_at:
                 shells_before_cut += 1
             elif t0 is None:
@@ -191,8 +190,8 @@ class TestNetwork:
         """TST008 sustained network load: push bytes at the board; no stop of the panel may exceed 60 s."""
         self.record(requirement="TST008")
         panel = Panel(self.board, self.cleanup, self.record)
-        panel.install()
-        panel.wait_on_panel()
+        panel.install_probe()
+        panel.wait_for_instance()
         load_start = self.board.run_with_uptime(check=True)[0]
 
         proc = subprocess.Popen(

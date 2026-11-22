@@ -45,7 +45,7 @@ class Update:
         self._timeout = timeout
         self._record_property = record_property
 
-    def install(self, bundle: pathlib.Path) -> tuple[int, str, float]:
+    def install_bundle(self, bundle: pathlib.Path) -> tuple[int, str, float]:
         """Install `bundle` through `tools/kiosk-install.sh`.
 
         Args:
@@ -87,11 +87,11 @@ class Update:
         Returns:
             The board's snapshot from before the offer.
         """
-        before = self._board.snapshot()
+        before = self._board.next_boot_and_running_build()
         if self._record_property:
             self._record_property("before", json.dumps(before))
-        returncode, output, seconds = self.install(bundle)
-        after = self._board.snapshot()
+        returncode, output, seconds = self.install_bundle(bundle)
+        after = self._board.next_boot_and_running_build()
         if self._record_property:
             self._record_property("install_rc", returncode)
             self._record_property("install_output", output)
