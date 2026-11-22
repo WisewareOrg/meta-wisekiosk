@@ -166,6 +166,14 @@ class Page:
         """
         return sample is not None and sample["state"] == "applied" and sample["origin"] in _OWN_ORIGINS
 
+    def kill_browser(self) -> float:
+        """SIGKILL the browser.
+
+        Returns:
+            The board's uptime at the kill.
+        """
+        return self._board.run_with_uptime("kill -KILL $(pgrep -x surf)", check=True)[0]
+
     def freeze_browser(self) -> tuple[float, list[str]]:
         """Stop every web process of the browser with SIGSTOP; they are continued when the test ends.
 
