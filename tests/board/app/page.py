@@ -325,15 +325,7 @@ class Page(Part):
         """
         walk = self._board.run(_TITLES_WALK, with_uptime=True)
         titles = [match.group(1) for match in map(_WM_NAME.match, walk.stdout) if match]
-        sample = None
-        for title in titles:
-            if "WK1 " in title:
-                tokens = title.split("WK1 ", 1)[1].split()
-                found = dict(token.split("=", 1) for token in tokens if "=" in token)
-                if all(key in found for key in _PROBE_FIELDS):
-                    sample = found
-                    break
-        self.last_read = PanelRead(walk.uptime_s, sample, titles)
+        self.last_read = PanelRead(walk.uptime_s, self._probe_sample(titles), titles)
         return self.last_read
 
     def read_titles(self) -> list[str] | None:
@@ -531,3 +523,21 @@ class Page(Part):
             title = next((t for t in titles if not t.startswith("[") and " | " in t and t.split(" | ", 1)[1]), None)
             shown = ("title", title) if title and title == previous_title else None
         return HeldRead(running, served, shown, title)
+
+    @staticmethod
+    def _probe_sample(titles: list[str]) -> dict[str, str] | None:
+        """The first title carrying the probe's required fields, as a dict of every token.
+
+        Args:
+            titles: every window's title.
+
+        Returns:
+            The sample, or None if no title carries one.
+        """
+        for title in titles:
+            if "WK1 " in title:
+                tokens = title.split("WK1 ", 1)[1].split()
+                found = dict(token.split("=", 1) for token in tokens if "=" in token)
+                if all(key in found for key in _PROBE_FIELDS):
+                    return found
+        return None

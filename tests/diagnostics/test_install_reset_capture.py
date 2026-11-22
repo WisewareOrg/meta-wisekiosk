@@ -30,11 +30,10 @@ def test_install_reset_capture(board: Board) -> None:
     Args:
         board: the board under test, crashed mid-install.
     """
-    host = board.host
     slot_before = board.updates.rauc_status()["booted"]
 
     ota = subprocess.Popen(
-        ["just", "kiosk-ota", host],
+        ["just", "kiosk-ota", board.host],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -47,7 +46,7 @@ def test_install_reset_capture(board: Board) -> None:
         if not seeded and RAUC_TAG in line and SLOT_WRITE in line:
             # its own ssh, not the SSHDriver: the crash takes the connection down with it
             subprocess.Popen(
-                [*board.fresh_ssh_argv("ConnectTimeout=10", "ServerAliveInterval=2", "ServerAliveCountMax=3"), SEED],
+                [*board.fresh_ssh_argv(*Board.FAULT_SSH_OPTIONS), SEED],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.STDOUT,
             )

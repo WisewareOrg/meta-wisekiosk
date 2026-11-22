@@ -94,9 +94,9 @@ class Keyboard(Part):
         """
         return (
             _CHORD_HOLD_US / 1_000_000
-            + len(_LOGIN) * (_KEY_HOLD_US + _KEY_GAP_US) / 1_000_000
+            + Keyboard._typing_seconds(_LOGIN)
             + _SCRIPT_PAUSE_SECONDS
-            + len(Keyboard._marker_command("0" * 2 * Keyboard.NONCE_BYTES)) * (_KEY_HOLD_US + _KEY_GAP_US) / 1_000_000
+            + Keyboard._typing_seconds(Keyboard._marker_command("0" * 2 * Keyboard.NONCE_BYTES))
         )
 
     def install(self, helpers: "EvemuHelpers", nonce: str, events_dir: Path) -> None:
@@ -186,6 +186,18 @@ class Keyboard(Part):
             The command line, with its newline.
         """
         return f"echo {nonce} $(readlink /proc/self/fd/0) $(cat /proc/uptime) >{_DIR}/marker\n"
+
+    @staticmethod
+    def _typing_seconds(text: str) -> float:
+        """How long typing `text` takes to replay.
+
+        Args:
+            text: the text typed.
+
+        Returns:
+            The seconds.
+        """
+        return len(text) * (_KEY_HOLD_US + _KEY_GAP_US) / 1_000_000
 
     @staticmethod
     def _append_key_frame(lines: list[str], t_us: int, keys: list[tuple[int, int]]) -> None:

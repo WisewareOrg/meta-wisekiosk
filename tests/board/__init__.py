@@ -77,6 +77,8 @@ class Board:
         updates: RAUC and the board's install path.
         BOOT_ID_CMD: prints the kernel's boot id, which differs in each boot.
         ERRORS: what a read of the board raises when the board does not answer; `poll` retries these.
+        FAULT_SSH_OPTIONS: the `fresh_ssh_argv` options for an ssh that sends a fault taking the board
+            down, so it gives up soon once the board stops answering.
         GIVE_UP_SECONDS: how long a test waits for the board; past every bound, so the record still
             carries the time it took.
         READ_RETRY_SECONDS: how long a read passed it as `retry_for` keeps reconnecting and retrying.
@@ -92,6 +94,7 @@ class Board:
     updates: Updates
     BOOT_ID_CMD = "cat /proc/sys/kernel/random/boot_id"
     ERRORS = (ExecutionError, StateError, subprocess.TimeoutExpired)
+    FAULT_SSH_OPTIONS = ("ConnectTimeout=10", "ServerAliveInterval=2", "ServerAliveCountMax=3")
     GIVE_UP_SECONDS = 180
     READ_RETRY_SECONDS = 300
     _COMMAND_TIMEOUT_SECONDS = 10
@@ -369,7 +372,7 @@ class Board:
         self.disconnect()
         try:
             sent = subprocess.run(
-                [*self.fresh_ssh_argv("ConnectTimeout=10", "ServerAliveInterval=2", "ServerAliveCountMax=3"), cmd],
+                [*self.fresh_ssh_argv(*self.FAULT_SSH_OPTIONS), cmd],
                 capture_output=True,
                 text=True,
                 timeout=self._FAULT_SSH_TIMEOUT_SECONDS,

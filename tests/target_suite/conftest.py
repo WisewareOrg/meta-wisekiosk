@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 
 import pytest
 from board import Board
-from board.app.config import Config, ConfigHashes
+from board.app.config import ConfigHashes
 from board_test import BoardTest
 from candidate_bundles import CandidateBundles
 from evemu_helpers import EvemuHelpers
@@ -53,7 +53,7 @@ def config_hashes_across_install(
     """
     with Board(target) as board:
         config = board.app.config
-        board.unmount_if_mounted(Config.LIVE_PATH)
+        board.unmount_if_mounted(config.LIVE_PATH)
         board.app.backend.clear_runtime_overrides()
         if bench_candidate is None:
             request.getfixturevalue("install_candidate")

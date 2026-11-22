@@ -189,21 +189,7 @@ class Display(Part):
             Area(int(x), int(y), int(width), int(height))
             for width, height, x, y in (match.groups() for match in map(_CONNECTED.match, xrandr) if match)
         ]
-        parsed: list[dict] = []
-        for line in window_lines:
-            header = _WINDOW_ID.match(line)
-            if header:
-                parsed.append({"id": header.group(1), "name": header.group(2) or ""})
-                continue
-            for key, pattern in _INT_FIELDS.items():
-                match = pattern.match(line)
-                if match:
-                    parsed[-1][key] = int(match.group(1))
-            match = _MAP_STATE.match(line)
-            if match:
-                parsed[-1]["map_state"] = match.group(1)
-        windows = [Window(**fields) for fields in parsed]
-        return WindowLayout(outputs, windows, "\n".join(xrandr), "\n".join(window_lines))
+        return WindowLayout(outputs, self._parse_windows(window_lines), "\n".join(xrandr), "\n".join(window_lines))
 
     def mode(self) -> CurrentMode:
         """Read the display's current mode.
@@ -224,3 +210,28 @@ class Display(Part):
             The settings, with `xset q`'s raw output.
         """
         return XsetQuery("\n".join(self._board.run("DISPLAY=:0 xset q", check=True).stdout))
+
+    @staticmethod
+    def _parse_windows(lines: list[str]) -> list[Window]:
+        """One window per `xwininfo -id` block in `lines`, in the order read.
+
+        Args:
+            lines: `xwininfo`'s output for each window.
+
+        Returns:
+            The windows.
+        """
+        windows: list[dict] = []
+        for line in lines:
+            header = _WINDOW_ID.match(line)
+            if header:
+                windows.append({"id": header.group(1), "name": header.group(2) or ""})
+                continue
+            for key, pattern in _INT_FIELDS.items():
+                match = pattern.match(line)
+                if match:
+                    windows[-1][key] = int(match.group(1))
+            match = _MAP_STATE.match(line)
+            if match:
+                windows[-1]["map_state"] = match.group(1)
+        return [Window(**window) for window in windows]
