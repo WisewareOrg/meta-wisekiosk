@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_rejoins_after_an_outage
   path: tests/target_suite/test_network.py
-  sha: cb446bd1d94a0ebe781f3098a4a1afd5fa8beb4b0e170b8001ff14368bb7af20
+  sha: 36b012e22426c08dc370673a54f48b6bdcf2767eb9a9e9af5d5c79ae6461bbed
   type: file
-reviewed: oT3wWqnM96twjQiTQ0w6vL-KVPsk0x14w8oFXm971Nw=
+reviewed: xWfDhpzuHcris2c6aqbgWeLsqPzRV6XHz1sWtP1BrVc=
 status: proposed
 text: |
   Cut the running appliance off the site network at the appliance itself, then restore it. Pass if

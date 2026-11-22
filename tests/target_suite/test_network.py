@@ -5,12 +5,13 @@ import os
 import subprocess
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 
 import pytest
 from board import Board
 from outage import Outage
 from panel import Panel
+from record import Record
 
 _OUTAGE_SECONDS = 60
 # TST029's bound
@@ -28,103 +29,6 @@ _STOP_ALLOWANCE_SECONDS = 60
 # how long past the load the push may run before it is killed as hung
 _PUSH_GRACE_SECONDS = 60
 _READ_PAUSE_SECONDS = 1
-
-
-def _shell(board: Board) -> tuple[tuple[float, list[str]] | None, str]:
-    """Open a new ssh shell and read the board's uptime and the outage record over it.
-
-    Args:
-        board: the board under test.
-
-    Returns:
-        The uptime and the record's lines, or None if no shell opened, and how the attempt ended.
-    """
-    try:
-        done = subprocess.run(
-            [
-                *board.fresh_ssh_argv("ConnectTimeout=5"),
-                f"cat /proc/uptime; cat {Outage.RECORD_PATH} 2>/dev/null; true",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=_SHELL_TIMEOUT_SECONDS,
-        )
-    except subprocess.TimeoutExpired:
-        return None, f"timed out after {_SHELL_TIMEOUT_SECONDS} s"
-    if done.returncode != 0:
-        return None, f"rc {done.returncode}, stderr {done.stderr.strip()[-200:]!r}"
-    lines = done.stdout.splitlines()
-    return (float(lines[0].split()[0]), lines[1:]), "opened"
-
-
-def test_rejoins_after_an_outage(
-    cleanup: contextlib.ExitStack, board: Board, record_property: Callable[[str, object], None]
-) -> None:
-    """TST029 rejoins after an outage: pin the board off its network, then time until a shell opens.
-
-    Args:
-        cleanup: the stack the outage registers its undos on.
-        board: the board under test, whose network is pinned off.
-        record_property: records the requirement and what the shells saw.
-    """
-    record_property("requirement", "TST029")
-    outage = Outage(board, cleanup)
-    outage.wait_boot_complete()
-    boot_id = board.read(board.BOOT_ID_CMD)
-    outage.arm(_OUTAGE_SECONDS)
-    deadline = time.monotonic() + Outage.ARM_DELAY_SECONDS + _OUTAGE_SECONDS + Outage.GIVE_UP_SECONDS
-
-    last_attempt = "no attempt"
-    shells_before_cut = 0
-    shells_during_outage = 0
-    rejoined_s = None
-    cut_at = t0 = None
-    lines = []
-    while time.monotonic() < deadline:
-        opened, last_attempt = _shell(board)
-        if opened is None:
-            time.sleep(1)
-            continue
-        t1, lines = opened
-        cut_at = outage.field(lines, "cut")
-        t0 = outage.field(lines, "t0")
-        if cut_at is None or t1 < cut_at:
-            shells_before_cut += 1
-        elif t0 is None:
-            shells_during_outage += 1
-            break
-        else:
-            # Board uptime at both ends; overstates by up to one poll plus one connect attempt.
-            rejoined_s = round(t1 - t0, 1)
-            break
-        time.sleep(1)
-
-    record_property("outage_s", _OUTAGE_SECONDS)
-    record_property("cut_uptime_s", cut_at)
-    record_property("t0_uptime_s", t0)
-    record_property("rejoined_s", rejoined_s)
-    record_property("shells_before_cut", shells_before_cut)
-    record_property("shells_during_outage", shells_during_outage)
-    record_property("last_attempt", last_attempt)
-    record_property("trace", [line for line in lines if line.startswith("trace ")])
-
-    if rejoined_s is None and shells_during_outage == 0:
-        board.reconnect()
-        journal, journal_err, journal_rc = board.run(
-            f"journalctl -b {boot_id.replace('-', '')} -u {Outage.UNIT} -o cat --no-pager",
-            timeout=_JOURNAL_TIMEOUT_SECONDS,
-        )
-        if journal_rc != 0:
-            record_property("journal_trace", [f"journalctl rc {journal_rc}", *journal_err])
-        else:
-            last_run = max((n for n, line in enumerate(journal) if line.startswith("id ")), default=0)
-            record_property("journal_trace", journal[last_run:])
-
-    assert shells_during_outage == 0, "the network did not go away: a shell opened during the outage"
-    assert rejoined_s is not None, f"no remote shell within {Outage.GIVE_UP_SECONDS} s of the network returning"
-    assert rejoined_s <= _REJOIN_BOUND_SECONDS, (
-        f"a shell opened {rejoined_s} s after the network returned; bound {_REJOIN_BOUND_SECONDS} s"
-    )
 
 
 def _push(proc: subprocess.Popen, result: dict) -> None:
@@ -162,99 +66,198 @@ def _watch(panel: Panel, seen: dict, keep_going: Callable[[], bool]) -> None:
     while keep_going():
         seen["reads"] += 1
         try:
-            uptime_s, sample, _titles = panel.read()
+            read = panel.read()
         except Board.ERRORS:
             seen["failed"] += 1
             seen["off_panel"] += 1
         else:
-            seen["uptimes"].append(uptime_s)
-            if sample is None:
+            seen["uptimes"].append(read.uptime)
+            if read.sample is None:
                 seen["failed"] += 1
-            if panel.on_panel(sample):
-                seen["on_panel_at"].append(uptime_s)
-                seen["nonces"].add(sample["nonce"])
+            if panel.on_panel(read.sample):
+                seen["on_panel_at"].append(read.uptime)
+                seen["nonces"].add(read.sample["nonce"])
             else:
                 seen["off_panel"] += 1
         time.sleep(_READ_PAUSE_SECONDS)
 
 
-def test_sustained_network_load(
-    request: pytest.FixtureRequest,
-    board: Board,
-    panel: Panel,
-    record_property: Callable[[str, object], None],
-) -> None:
-    """TST008 sustained network load: push bytes at the board; no stop of the panel may exceed 60 s.
+class TestNetwork:
+    """The board rejoins after a network outage, and holds the panel under network load."""
 
-    Args:
-        request: the test's request, which stops the push and its watchdog at teardown.
-        board: the board under test, to which the bytes are pushed.
-        panel: the probe in the browser, read for the instance on the panel throughout.
-        record_property: records the requirement and what the load and the reads measured.
-    """
-    record_property("requirement", "TST008")
-    panel.wait_on_panel()
-    load_start = board.run_with_uptime(check=True)[0]
+    @pytest.fixture(autouse=True)
+    def setup(self, board: Board, record: Record) -> Iterator[None]:
+        """Keep what every test here uses, and undo what each test changed once it ends.
 
-    proc = subprocess.Popen(
-        [
-            *board.fresh_ssh_argv("ConnectTimeout=10", "ServerAliveInterval=15", "ServerAliveCountMax=4"),
-            "wc -c",
-        ],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-    )
-    request.addfinalizer(proc.wait)
-    request.addfinalizer(proc.kill)
-    result = {}
-    pusher = threading.Thread(target=_push, args=(proc, result))
-    watchdog = threading.Timer(_LOAD_SECONDS + _PUSH_GRACE_SECONDS, proc.kill)
-    request.addfinalizer(watchdog.cancel)
-    watchdog.start()
-    pusher.start()
+        Args:
+            board: the board under test.
+            record: the test's record.
 
-    seen = {
-        "reads": 0,
-        "failed": 0,
-        "off_panel": 0,
-        "uptimes": [load_start],
-        "on_panel_at": [load_start],
-        "nonces": set(),
-    }
+        Yields:
+            None: the test runs, then `self.cleanup` undoes its changes, last first.
+        """
+        self.board = board
+        self.record = record
+        with contextlib.ExitStack() as self.cleanup:
+            yield
 
-    _watch(panel, seen, pusher.is_alive)
-    pusher.join()
-    watchdog.cancel()
-    load_end = board.run_with_uptime(check=True)[0]
-    seen["uptimes"].append(load_end)
-    observe_until = time.monotonic() + _STOP_ALLOWANCE_SECONDS
-    _watch(panel, seen, lambda: time.monotonic() < observe_until)
+    def _shell(self) -> tuple[tuple[float, list[str]] | None, str]:
+        """Open a new ssh shell and read the board's uptime and the outage record over it.
 
-    observation_end = load_end + _STOP_ALLOWANCE_SECONDS
-    on_panel_at = seen["on_panel_at"]
-    # An interval runs from an on-panel read to the next; the last runs to the end of observation.
-    starts = [at for at in on_panel_at if at <= load_end]
-    ends = on_panel_at[1:] + [observation_end]
-    longest_stop = round(max(end - start for start, end in zip(starts, ends, strict=False)), 1)
-    rate = result["sent"] / result["seconds"] / 1e6
-    record_property("bytes", result["sent"])
-    record_property("seconds", round(result["seconds"], 1))
-    record_property("rate_mb_s", round(rate, 2))
-    record_property("longest_stop_s", longest_stop)
-    record_property("reads", seen["reads"])
-    record_property("off_panel_reads", seen["off_panel"])
-    record_property("failed_reads", seen["failed"])
-    record_property("nonces", sorted(seen["nonces"]))
+        Returns:
+            The uptime and the record's lines, or None if no shell opened, and how the attempt ended.
+        """
+        try:
+            done = subprocess.run(
+                [
+                    *self.board.fresh_ssh_argv("ConnectTimeout=5"),
+                    f"cat /proc/uptime; cat {Outage.RECORD_PATH} 2>/dev/null; true",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=_SHELL_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired:
+            return None, f"timed out after {_SHELL_TIMEOUT_SECONDS} s"
+        if done.returncode != 0:
+            return None, f"rc {done.returncode}, stderr {done.stderr.strip()[-200:]!r}"
+        lines = done.stdout.splitlines()
+        return (float(lines[0].split()[0]), lines[1:]), "opened"
 
-    assert result["returncode"] == 0 and result["received"] == str(result["sent"]), (
-        f"the load was not applied: ssh returned {result['returncode']}, sent {result['sent']} B, "
-        f"the board counted {result['received']!r}"
-    )
-    assert result["seconds"] >= _LOAD_SECONDS and rate >= _LOAD_FLOOR_MB_S, (
-        f"the load was not applied: {rate:.2f} MB/s over {result['seconds']:.0f} s; "
-        f"the floor is {_LOAD_FLOOR_MB_S} MB/s for {_LOAD_SECONDS} s"
-    )
-    assert seen["uptimes"] == sorted(seen["uptimes"]), "the board restarted during the test: its uptime went backwards"
-    assert longest_stop <= _STOP_ALLOWANCE_SECONDS, (
-        f"the panel was off for {longest_stop} s under load; allowance {_STOP_ALLOWANCE_SECONDS} s"
-    )
+    def test_rejoins_after_an_outage(self) -> None:
+        """TST029 rejoins after an outage: pin the board off its network, then time until a shell opens."""
+        self.record(requirement="TST029")
+        outage = Outage(self.board, self.cleanup)
+        outage.wait_boot_complete()
+        boot_id = self.board.read(self.board.BOOT_ID_CMD)
+        outage.arm(_OUTAGE_SECONDS)
+        deadline = time.monotonic() + Outage.ARM_DELAY_SECONDS + _OUTAGE_SECONDS + Outage.GIVE_UP_SECONDS
+
+        last_attempt = "no attempt"
+        shells_before_cut = 0
+        shells_during_outage = 0
+        rejoined_s = None
+        cut_at = t0 = None
+        lines = []
+        while time.monotonic() < deadline:
+            opened, last_attempt = self._shell()
+            if opened is None:
+                time.sleep(1)
+                continue
+            t1, lines = opened
+            cut_at = outage.field(lines, "cut")
+            t0 = outage.field(lines, "t0")
+            if cut_at is None or t1 < cut_at:
+                shells_before_cut += 1
+            elif t0 is None:
+                shells_during_outage += 1
+                break
+            else:
+                # Board uptime at both ends; overstates by up to one poll plus one connect attempt.
+                rejoined_s = round(t1 - t0, 1)
+                break
+            time.sleep(1)
+
+        self.record(
+            outage_s=_OUTAGE_SECONDS,
+            cut_uptime_s=cut_at,
+            t0_uptime_s=t0,
+            rejoined_s=rejoined_s,
+            shells_before_cut=shells_before_cut,
+            shells_during_outage=shells_during_outage,
+            last_attempt=last_attempt,
+            trace=[line for line in lines if line.startswith("trace ")],
+        )
+
+        if rejoined_s is None and shells_during_outage == 0:
+            self.board.reconnect()
+            journal, journal_err, journal_rc = self.board.run(
+                f"journalctl -b {boot_id.replace('-', '')} -u {Outage.UNIT} -o cat --no-pager",
+                timeout=_JOURNAL_TIMEOUT_SECONDS,
+            )
+            if journal_rc != 0:
+                self.record(journal_trace=[f"journalctl rc {journal_rc}", *journal_err])
+            else:
+                last_run = max((n for n, line in enumerate(journal) if line.startswith("id ")), default=0)
+                self.record(journal_trace=journal[last_run:])
+
+        assert shells_during_outage == 0, "the network did not go away: a shell opened during the outage"
+        assert rejoined_s is not None, f"no remote shell within {Outage.GIVE_UP_SECONDS} s of the network returning"
+        assert rejoined_s <= _REJOIN_BOUND_SECONDS, (
+            f"a shell opened {rejoined_s} s after the network returned; TST029's bound is {_REJOIN_BOUND_SECONDS} s"
+        )
+
+    def test_sustained_network_load(self) -> None:
+        """TST008 sustained network load: push bytes at the board; no stop of the panel may exceed 60 s."""
+        self.record(requirement="TST008")
+        panel = Panel(self.board, self.cleanup, self.record)
+        panel.install()
+        panel.wait_on_panel()
+        load_start = self.board.run_with_uptime(check=True)[0]
+
+        proc = subprocess.Popen(
+            [
+                *self.board.fresh_ssh_argv("ConnectTimeout=10", "ServerAliveInterval=15", "ServerAliveCountMax=4"),
+                "wc -c",
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+        )
+        self.cleanup.callback(proc.wait)
+        self.cleanup.callback(proc.kill)
+        result = {}
+        pusher = threading.Thread(target=_push, args=(proc, result))
+        watchdog = threading.Timer(_LOAD_SECONDS + _PUSH_GRACE_SECONDS, proc.kill)
+        self.cleanup.callback(watchdog.cancel)
+        watchdog.start()
+        pusher.start()
+
+        seen = {
+            "reads": 0,
+            "failed": 0,
+            "off_panel": 0,
+            "uptimes": [load_start],
+            "on_panel_at": [load_start],
+            "nonces": set(),
+        }
+
+        _watch(panel, seen, pusher.is_alive)
+        pusher.join()
+        watchdog.cancel()
+        load_end = self.board.run_with_uptime(check=True)[0]
+        seen["uptimes"].append(load_end)
+        observe_until = time.monotonic() + _STOP_ALLOWANCE_SECONDS
+        _watch(panel, seen, lambda: time.monotonic() < observe_until)
+
+        observation_end = load_end + _STOP_ALLOWANCE_SECONDS
+        on_panel_at = seen["on_panel_at"]
+        # An interval runs from an on-panel read to the next; the last runs to the end of observation.
+        starts = [at for at in on_panel_at if at <= load_end]
+        ends = on_panel_at[1:] + [observation_end]
+        longest_stop = round(max(end - start for start, end in zip(starts, ends, strict=False)), 1)
+        rate = result["sent"] / result["seconds"] / 1e6
+        self.record(
+            bytes=result["sent"],
+            seconds=round(result["seconds"], 1),
+            rate_mb_s=round(rate, 2),
+            longest_stop_s=longest_stop,
+            reads=seen["reads"],
+            off_panel_reads=seen["off_panel"],
+            failed_reads=seen["failed"],
+            nonces=sorted(seen["nonces"]),
+        )
+
+        assert result["returncode"] == 0 and result["received"] == str(result["sent"]), (
+            f"the load was not applied: ssh returned {result['returncode']}, sent {result['sent']} B, "
+            f"the board counted {result['received']!r}"
+        )
+        assert result["seconds"] >= _LOAD_SECONDS and rate >= _LOAD_FLOOR_MB_S, (
+            f"the load was not applied: {rate:.2f} MB/s over {result['seconds']:.0f} s; "
+            f"the floor is {_LOAD_FLOOR_MB_S} MB/s for {_LOAD_SECONDS} s"
+        )
+        assert seen["uptimes"] == sorted(seen["uptimes"]), (
+            "the board restarted during the test: its uptime went backwards"
+        )
+        assert longest_stop <= _STOP_ALLOWANCE_SECONDS, (
+            f"the panel was off for {longest_stop} s under load; TST008's allowance is {_STOP_ALLOWANCE_SECONDS} s"
+        )
