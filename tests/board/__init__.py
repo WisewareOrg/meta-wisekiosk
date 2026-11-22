@@ -342,20 +342,6 @@ class Board:
         """
         return self.run("cat /lib/modules/$(uname -r)/modules.builtin", check=True).stdout
 
-    def file_sha256(self, path: str) -> str | None:
-        """Read the sha256 of the file `path` on the board.
-
-        Args:
-            path: the file on the board.
-
-        Returns:
-            The hash, or None if `sha256sum` returns nonzero (the file is missing or unreadable).
-        """
-        result = self.run(f"sha256sum {path}")
-        if result.returncode != 0:
-            return None
-        return result.stdout[0].split()[0]
-
     def connect(self) -> None:
         """Activate the board's SSHDriver."""
         self._target.activate(self._ssh)

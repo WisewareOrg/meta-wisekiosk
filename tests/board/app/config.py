@@ -72,7 +72,7 @@ class Config(Part):
         Returns:
             The hash, or None if the file is missing or unreadable.
         """
-        return self._board.file_sha256(self.LIVE_PATH)
+        return self._sha256(self.LIVE_PATH)
 
     def default_sha256(self) -> str | None:
         """Read the sha256 of the image default the board reseeds the live config from.
@@ -80,7 +80,7 @@ class Config(Part):
         Returns:
             The hash, or None if the file is missing or unreadable.
         """
-        return self._board.file_sha256(self._DEFAULT_PATH)
+        return self._sha256(self._DEFAULT_PATH)
 
     def use(self, path: str | os.PathLike[str]) -> None:
         """Swap the app onto `path`'s config, and leave the instance running against it, until the test ends.
@@ -102,6 +102,20 @@ class Config(Part):
         self._board.app.page.wait_until_served()
         self._board.run("systemctl start kiosk.service", check=True)
         self._board.cleanup.callback(self._board.run, "systemctl stop kiosk.service", check=True)
+
+    def _sha256(self, path: str) -> str | None:
+        """Read the sha256 of the file `path` on the board.
+
+        Args:
+            path: the file on the board.
+
+        Returns:
+            The hash, or None if `sha256sum` returns nonzero (the file is missing or unreadable).
+        """
+        result = self._board.run(f"sha256sum {path}")
+        if result.returncode != 0:
+            return None
+        return result.stdout[0].split()[0]
 
     def _restart_backend_and_wait(self) -> None:
         """Restart the backend and wait for the page."""
