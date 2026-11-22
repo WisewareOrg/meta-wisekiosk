@@ -14,13 +14,13 @@ ref: ''
 references:
 - keyword: def test_motion_stutter
   path: tests/target_suite/test_motion.py
-  sha: 0fde12a158c3093b295511088eb4fb0b134bbe5b5cb4fc70eb83c681df4cdecc
+  sha: 645186c829bc0c50653194679b603859faa7b4bdbabbac59acc58db04e8ff1cc
   type: file
 - keyword: EDGES
   path: tests/target_suite/probe.js
   sha: ccfa9ac4a799aabb3c2f142b6df0fc38d7fb4141f310e4b7be6f9bdfc8717209
   type: file
-reviewed: HR-54QfZ59_qAi-rycbNrj1eW1g9DUF3rt19s754vm8=
+reviewed: biW7xH_StSFNrfPeuUsWfBwGuyHqY2DaTvP3Jz7-ISE=
 status: proposed
 text: |
   With the WiseKiosk instance showing the replayed page, four park cards live, ride names scrolling,

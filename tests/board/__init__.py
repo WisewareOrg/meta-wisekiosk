@@ -18,6 +18,7 @@ from board.app import App
 from board.console import Console
 from board.network import Network
 from board.screen import Screen
+from board.system import System
 from board.updates import Updates
 
 
@@ -60,6 +61,7 @@ class Board:
         last_instance_state: the last read of `seconds_until_instance_up`, None before one.
         network: the board's network.
         screen: the board's screen.
+        system: the board's operating system.
         updates: RAUC and the board's install path.
         BOOT_ID_CMD: prints the kernel's boot id, which differs in each boot.
         BOOT_VARIABLES_CMD: prints BOOT_ORDER and each slot's BOOT_x_LEFT as name=value lines.
@@ -78,6 +80,7 @@ class Board:
     last_instance_state: InstanceState | None
     network: Network
     screen: Screen
+    system: System
     updates: Updates
     BOOT_ID_CMD = "cat /proc/sys/kernel/random/boot_id"
     BOOT_VARIABLES_CMD = "fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT"
@@ -107,6 +110,7 @@ class Board:
         self.app = App(self)
         self.console = Console(self)
         self.screen = Screen(self)
+        self.system = System(self)
         self.network = Network(self)
         self.updates = Updates(self)
 
@@ -191,6 +195,18 @@ class Board:
         """
         self._ssh.put(src, dst)
 
+    def forward_remote_port(self, local: int, remote: int) -> contextlib.AbstractContextManager:
+        """Forward the board's port `remote` to the host's port `local`.
+
+        Args:
+            local: port on the host.
+            remote: port on the board.
+
+        Returns:
+            labgrid's forwarding context manager.
+        """
+        return self._ssh.forward_remote_port(remoteport=remote, localport=local)
+
     def unmount_if_mounted(self, path: str) -> None:
         """Unmount `path` on the board if it is a mount point; a path that is not one is fine.
 
@@ -270,6 +286,15 @@ class Board:
         )(read)
         done = value is not None and until(value)
         return (round(time.monotonic() - since, 1) if done else None), value
+
+    def soc_temperature_c(self) -> float | None:
+        """Read the SoC's temperature.
+
+        Returns:
+            The temperature in degrees Celsius, or None if it could not be read.
+        """
+        stdout, _stderr, returncode = self.run("cat /sys/class/thermal/thermal_zone0/temp")
+        return int(stdout[0]) / 1000 if returncode == 0 and stdout else None
 
     def builtin_modules(self) -> list[str]:
         """Read the kernel modules built into the running kernel.

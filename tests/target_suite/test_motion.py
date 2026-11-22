@@ -1,11 +1,14 @@
 """Target suite: the replayed page's motion stays within a bound of frame stalls."""
 
-import subprocess
 import time
+from typing import TYPE_CHECKING
 
 import pytest
-from labgrid.driver.exception import ExecutionError
+from board_test import BoardTest
 from replay import CARDS4_LIVE
+
+if TYPE_CHECKING:
+    from wisebench.proxy import Proxy
 
 WARMUP_MS = 40_000
 WINDOW_MS = 320_000
@@ -17,7 +20,6 @@ READ_PAUSE_SECONDS = 1
 # a stall is a frame interval at or above this; the histogram's bin 3 starts here
 CUTOFF_MS = 250
 STALL_FROM_BIN = 3
-HIST_BINS = 7
 # TST009's bound: the most stalls a window may hold
 STALL_BOUND = 24
 # the longest the start read may take to reach the warm-up
@@ -25,131 +27,93 @@ WARMUP_READ_WAIT_SECONDS = 120
 # the least share of report ticks that caught a marquee scrolling for the window to count
 MOTION_FLOOR = 0.29
 
-_COUNTERS = ("el", "frames", "isum", "ticks", "moving", "changes", "cost")
-_SOC_TEMP_PATH = "/sys/class/thermal/thermal_zone0/temp"
-_SOAK_LOG_PATH = "/data/kiosk-soak.log"
-# more of kiosk-soak's samples than any window spans
-_SOAK_TAIL_LINES = 20
 
+class TestMotion(BoardTest):
+    """The replayed page's motion stays within a bound of frame stalls."""
 
-def _read(panel):
-    """The panel's (uptime, sample), or (None, None) if the board did not answer."""
-    try:
-        return panel.read()
-    except (ExecutionError, subprocess.TimeoutExpired):
-        return None, None
+    @pytest.mark.parametrize("proxy", [str(CARDS4_LIVE / "flows.har")], indirect=True)
+    def test_motion_stutter(self, proxy: "Proxy") -> None:
+        """TST009 motion stutter measured: at most `STALL_BOUND` frame stalls in the window.
 
+        The window opens `WARMUP_MS` of page time after the page first reads full state, and the
+        host reads nothing from the board between the start read's temperature and the end read.
+        The window is invalid, never a pass or a failure, if the page reloaded or changed state, a read
+        is not full state, too little motion was seen, or the replay killed a request.
 
-def _counters(sample):
-    """The probe's counters as ints, and its histogram as a list of ints.
+        Args:
+            proxy: the proxy replaying the cards4-live recording.
+        """
+        page = self.board.app.page
+        self.board.app.backend.put_behind(proxy, CARDS4_LIVE / "config.json")
+        self.record(probe_sha256=page.install_probe())
+        _, first = page.wait_for_instance(all_cards_live=True)
+        self.record(requirement="TST009", cutoff_ms=CUTOFF_MS, bound=STALL_BOUND)
+        warmed_s, start = page.poll(
+            until=lambda read: read.sample is not None and int(read.sample["el"]) >= int(first["el"]) + WARMUP_MS,
+            within=WARMUP_READ_WAIT_SECONDS,
+            every=READ_PAUSE_SECONDS,
+        )
+        assert warmed_s is not None, (
+            f"the page stopped reporting; last: {page.last_read.sample if page.last_read else None!r}"
+        )
+        start_temp = self.board.soc_temperature_c()
+        start_counters, start_hist = start.counters()
 
-    Raises:
-        AssertionError: a counter is missing or malformed.
-    """
-    try:
-        values = {key: int(sample[key]) for key in _COUNTERS}
-        hist = [int(count) for count in sample["hist"].split(",")]
-        assert len(hist) == HIST_BINS
-    except (KeyError, ValueError, AssertionError):
-        raise AssertionError(f"the probe's counters are missing from {sample!r}") from None
-    return values, hist
+        time.sleep(WINDOW_SLEEP_SECONDS)
+        ended_s, end = page.poll(
+            until=lambda read: (
+                read.sample is not None
+                and (
+                    read.sample["load"] != start.sample["load"]
+                    or int(read.sample["el"]) >= start_counters["el"] + WINDOW_MS
+                )
+            ),
+            within=END_WAIT_SECONDS,
+            every=READ_PAUSE_SECONDS,
+        )
+        assert ended_s is not None, (
+            f"the page stopped reporting within {END_WAIT_SECONDS} s; "
+            f"last: {page.last_read.sample if page.last_read else None!r}"
+        )
+        if end.sample["load"] != start.sample["load"]:
+            reloaded = "the page reloaded inside the window"
+            self.record(validity=f"invalid: {reloaded}")
+            pytest.fail(f"INVALID: {reloaded}")
+        end_temp = self.board.soc_temperature_c()
+        killed = proxy.killed()
+        soak_samples = self.board.system.soak.samples_in(start.uptime, end.uptime)
 
-
-def _soc_temperature(board):
-    stdout, _stderr, returncode = board.run(f"cat {_SOC_TEMP_PATH}")
-    return int(stdout[0]) / 1000 if returncode == 0 and stdout else None
-
-
-def _soak_samples_between(board, start_uptime, end_uptime):
-    """How many of kiosk-soak's last log lines, from this boot, fall inside the uptime span."""
-    stdout, _stderr, _returncode = board.run(
-        f"cut -c1-8 /proc/sys/kernel/random/boot_id; tail -n {_SOAK_TAIL_LINES} {_SOAK_LOG_PATH} 2>/dev/null; true"
-    )
-    boot = stdout[0]
-    count = 0
-    for line in stdout[1:]:
-        fields = dict(token.split("=", 1) for token in line.split() if "=" in token)
-        if fields.get("boot") == boot and start_uptime <= float(fields["up"]) <= end_uptime:
-            count += 1
-    return count
-
-
-@pytest.mark.parametrize("proxy", [str(CARDS4_LIVE / "flows.har")], indirect=True)
-def test_motion_stutter(proxy, replay_window, panel, full_state, board, record_property):
-    """TST009 motion stutter measured: at most `STALL_BOUND` frame stalls in the window.
-
-    The window opens `WARMUP_MS` of page time after the page first reads full state, and the
-    host reads nothing from the board between the start read's temperature and the end read.
-    The window is invalid, never a pass or a failure, if the page reloaded or changed state, a read is not full
-    state, too little motion was seen, or the replay killed a request.
-    """
-    record_property("requirement", "TST009")
-    record_property("cutoff_ms", CUTOFF_MS)
-    record_property("bound", STALL_BOUND)
-    _, first = full_state
-    first_el = int(first["el"])
-
-    deadline = time.monotonic() + WARMUP_READ_WAIT_SECONDS
-    while True:
-        start_uptime, start = _read(panel)
-        if start is not None and int(start["el"]) >= first_el + WARMUP_MS:
-            break
-        assert time.monotonic() < deadline, f"the page stopped reporting; last: {start!r}"
-        time.sleep(READ_PAUSE_SECONDS)
-    start_temp = _soc_temperature(board)
-    start_counters, start_hist = _counters(start)
-
-    time.sleep(WINDOW_SLEEP_SECONDS)
-
-    deadline = time.monotonic() + END_WAIT_SECONDS
-    while True:
-        end_uptime, end = _read(panel)
-        if end is not None and end["load"] != start["load"]:
-            break
-        if end is not None and int(end["el"]) >= start_counters["el"] + WINDOW_MS:
-            break
-        assert time.monotonic() < deadline, f"the page stopped reporting within {END_WAIT_SECONDS} s; last: {end!r}"
-        time.sleep(READ_PAUSE_SECONDS)
-    if end["load"] != start["load"]:
-        reloaded = "the page reloaded inside the window"
-        record_property("validity", f"invalid: {reloaded}")
-        pytest.fail(f"INVALID: {reloaded}")
-    end_temp = _soc_temperature(board)
-    killed = proxy.killed()
-    soak_samples = _soak_samples_between(board, start_uptime, end_uptime)
-
-    end_counters, end_hist = _counters(end)
-    hist = [after - before for before, after in zip(start_hist, end_hist, strict=False)]
-    delta = {key: end_counters[key] - start_counters[key] for key in _COUNTERS}
-    stalls = sum(hist[STALL_FROM_BIN:])
-    moving_share = delta["moving"] / delta["ticks"] if delta["ticks"] else 0.0
-
-    problems = []
-    if delta["changes"] != 0:
-        problems.append("the page changed state inside the window")
-    if not (panel.is_full(start) and panel.is_full(end)):
-        problems.append("a read was not the applied page, on the board's own origin, cards live")
-    if moving_share < MOTION_FLOOR:
-        problems.append(f"too little motion seen in the window: {moving_share:.2f}")
-    if killed:
-        problems.append(f"the replay killed requests: {killed}")
-
-    record_property("validity", "valid" if not problems else f"invalid: {'; '.join(problems)}")
-    record_property("stalls", stalls)
-    record_property("window_ms", delta["el"])
-    record_property("frames", delta["frames"])
-    record_property("fps", round(delta["frames"] * 1000 / delta["isum"], 2) if delta["isum"] else None)
-    record_property("hist", ",".join(map(str, hist)))
-    record_property("moving_share", round(moving_share, 3))
-    record_property("probe_cost_ms", delta["cost"])
-    record_property("load", end["load"])
-    record_property("uptime_start", start_uptime)
-    record_property("uptime_end", end_uptime)
-    record_property("soc_temp_start", start_temp)
-    record_property("soc_temp_end", end_temp)
-    record_property("soak_samples_in_window", soak_samples)
-
-    assert not problems, f"INVALID: {'; '.join(problems)}"
-    assert stalls <= STALL_BOUND, (
-        f"{stalls} frame stalls of {CUTOFF_MS} ms or more in {WINDOW_MS // 1000} s; TST009's bound is {STALL_BOUND}"
-    )
+        end_counters, end_hist = end.counters()
+        hist = [after - before for before, after in zip(start_hist, end_hist, strict=False)]
+        delta = {key: end_counters[key] - start_counters[key] for key in start_counters}
+        stalls = sum(hist[STALL_FROM_BIN:])
+        moving_share = delta["moving"] / delta["ticks"] if delta["ticks"] else 0.0
+        problems = []
+        if delta["changes"] != 0:
+            problems.append("the page changed state inside the window")
+        if not (page.shows_all_cards_live(start.sample) and page.shows_all_cards_live(end.sample)):
+            problems.append("a read was not the applied page, on the board's own origin, cards live")
+        if moving_share < MOTION_FLOOR:
+            problems.append(f"too little motion seen in the window: {moving_share:.2f}")
+        if killed:
+            problems.append(f"the replay killed requests: {killed}")
+        self.record(
+            validity="valid" if not problems else f"invalid: {'; '.join(problems)}",
+            stalls=stalls,
+            window_ms=delta["el"],
+            frames=delta["frames"],
+            fps=round(delta["frames"] * 1000 / delta["isum"], 2) if delta["isum"] else None,
+            hist=",".join(map(str, hist)),
+            moving_share=round(moving_share, 3),
+            probe_cost_ms=delta["cost"],
+            load=end.sample["load"],
+            uptime_start=start.uptime,
+            uptime_end=end.uptime,
+            soc_temp_start=start_temp,
+            soc_temp_end=end_temp,
+            soak_samples_in_window=len(soak_samples),
+        )
+        assert not problems, f"INVALID: {'; '.join(problems)}"
+        assert stalls <= STALL_BOUND, (
+            f"{stalls} frame stalls of {CUTOFF_MS} ms or more in {WINDOW_MS // 1000} s; TST009's bound is {STALL_BOUND}"
+        )

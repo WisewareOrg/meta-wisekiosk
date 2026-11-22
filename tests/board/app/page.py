@@ -17,6 +17,11 @@ _PROBE_SRC = Path(__file__).resolve().parents[2] / "target_suite" / "probe.js"
 _SURF_DIR = "/home/root/.surf"
 _SURF_SCRIPT_PATH = f"{_SURF_DIR}/script.js"
 _PANEL_WAIT_SECONDS = 90
+_ALL_CARDS_LIVE_WAIT_SECONDS = 120
+# the page under replay: four park cards, all live
+_ALL_CARDS_LIVE = "4/4"
+_COUNTERS = ("el", "frames", "isum", "ticks", "moving", "changes", "cost")
+_HISTOGRAM_BINS = 7
 # how often TST032's watch reads the page and the panel after the kill
 _KILL_WATCH_POLL_SECONDS = 0.5
 _OWN_ORIGINS = ("http://localhost:8080", "http://127.0.0.1:8080")
@@ -53,6 +58,23 @@ class PanelRead(NamedTuple):
             The title, or None if there is none.
         """
         return next((t for t in self.titles if t.endswith(" | WiseKiosk") and not t.startswith("[")), None)
+
+    def counters(self) -> tuple[dict[str, int], list[int]]:
+        """The probe's counters, and its histogram of frame intervals.
+
+        Returns:
+            Each counter as an int, by name, and the histogram's counts, one per bin.
+
+        Raises:
+            AssertionError: a counter is missing or malformed.
+        """
+        try:
+            values = {key: int(self.sample[key]) for key in _COUNTERS}
+            histogram = [int(count) for count in self.sample["hist"].split(",")]
+            assert len(histogram) == _HISTOGRAM_BINS
+        except (KeyError, ValueError, AssertionError):
+            raise AssertionError(f"the probe's counters are missing from {self.sample!r}") from None
+        return values, histogram
 
 
 class HeldRead(NamedTuple):
@@ -183,15 +205,32 @@ class Page:
             "journalctl -b -u kiosk.service -o short-monotonic --no-pager | grep -F 'surf: page'", timeout=None
         )[0]
 
-    def wait_for_instance(self) -> tuple[float, dict[str, str]]:
-        """Wait until the instance is on the panel.
+    @staticmethod
+    def shows_all_cards_live(sample: dict[str, str] | None) -> bool:
+        """Whether a sample shows the instance on the panel with every card of the replayed page live.
+
+        Args:
+            sample: the probe's sample, or None.
+
+        Returns:
+            True if the sample shows the instance with all four cards live.
+        """
+        return Page.shows_instance(sample) and sample["cards"] == _ALL_CARDS_LIVE
+
+    def wait_for_instance(self, all_cards_live: bool = False) -> tuple[float, dict[str, str]]:
+        """Wait until the instance is on the panel, with every card live when `all_cards_live`.
+
+        Args:
+            all_cards_live: wait for every card of the replayed page live, not only the instance.
 
         Returns:
             The board uptime and the sample of the read that found it.
         """
-        found_s, found = self.poll(until=lambda read: self.shows_instance(read.sample), within=_PANEL_WAIT_SECONDS)
+        shows = self.shows_all_cards_live if all_cards_live else self.shows_instance
+        within = _ALL_CARDS_LIVE_WAIT_SECONDS if all_cards_live else _PANEL_WAIT_SECONDS
+        found_s, found = self.poll(until=lambda read: shows(read.sample), within=within)
         assert found_s is not None, (
-            f"the instance was not on the panel within {_PANEL_WAIT_SECONDS} s; "
+            f"the page was not {'in full state' if all_cards_live else 'on the panel'} within {within} s; "
             f"last sample: {self.last_read.sample if self.last_read else None!r}"
         )
         return found.uptime, found.sample
