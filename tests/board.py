@@ -2,11 +2,20 @@
 
 import json
 import subprocess
+import time
 from contextlib import AbstractContextManager
 
 from labgrid import Target
+from labgrid.binding import StateError
 from labgrid.driver.exception import ExecutionError
-from poll import GIVE_UP_SECONDS, poll
+from tenacity import (
+    RetryCallState,
+    Retrying,
+    retry_if_exception_type,
+    retry_if_result,
+    stop_after_delay,
+    wait_fixed,
+)
 
 
 class Board:
@@ -23,12 +32,17 @@ class Board:
             from when it holds none.
         BOOT_ID_CMD: prints the kernel's boot id, which differs in each boot.
         BOOT_VARIABLES_CMD: prints BOOT_ORDER and each slot's BOOT_x_LEFT as name=value lines.
+        ERRORS: what a read of the board raises when the board does not answer; a wait retries these.
+        GIVE_UP_SECONDS: how long a test waits for the board; past every bound, so the record still
+            carries the time it took.
     """
 
     CONFIG_PATH = "/data/config/config.json"
     DEFAULT_CONFIG_PATH = "/usr/share/wisekiosk/config.example.json"
     BOOT_ID_CMD = "cat /proc/sys/kernel/random/boot_id"
     BOOT_VARIABLES_CMD = "fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT"
+    ERRORS = (ExecutionError, StateError, subprocess.TimeoutExpired)
+    GIVE_UP_SECONDS = 180
     _COMMAND_TIMEOUT_SECONDS = 10
     # busybox wget returns 0 only on 2xx
     _PAGE_FETCH_CMD = "wget -q -O- http://127.0.0.1:8080/"
@@ -52,6 +66,18 @@ class Board:
         self._driver = target.get_driver("SSHDriver")
         service = target.get_resource("NetworkService")
         self.host = f"{service.username}@{service.address}"
+
+    @staticmethod
+    def last_read(state: RetryCallState) -> object | None:
+        """The value a wait gives back when it gives up, as tenacity's `retry_error_callback`.
+
+        Args:
+            state: the wait's last attempt.
+
+        Returns:
+            The last attempt's value, or None if that attempt raised.
+        """
+        return None if state.outcome.failed else state.outcome.result()
 
     def run(
         self, cmd: str, check: bool = False, timeout: float | None = _COMMAND_TIMEOUT_SECONDS
@@ -108,7 +134,7 @@ class Board:
 
         Raises:
             AssertionError: `check` is set and `cmd` returned nonzero.
-            ExecutionError: stdout carries no uptime line, so the session failed; a poll takes it as
+            ExecutionError: stdout carries no uptime line, so the session failed; a wait takes it as
                 a failed read.
             subprocess.TimeoutExpired: the command ran past `timeout`.
         """
@@ -236,25 +262,37 @@ class Board:
         return uptime, returncode == 0 and "<html" in output, output
 
     def wait_for_page(self) -> None:
-        """Poll until the page serves an HTML document.
+        """Wait until the page serves an HTML document.
 
         Raises:
             AssertionError: the page did not serve within `_PAGE_WAIT_SECONDS`.
         """
-        served_s, _ = poll(lambda: self.page()[1] or None, bool, self._PAGE_WAIT_SECONDS, every=self._PAGE_POLL_SECONDS)
-        assert served_s is not None, f"the page did not serve within {self._PAGE_WAIT_SECONDS} s"
+        served = Retrying(
+            stop=stop_after_delay(self._PAGE_WAIT_SECONDS),
+            wait=wait_fixed(self._PAGE_POLL_SECONDS),
+            retry=retry_if_exception_type(self.ERRORS) | retry_if_result(lambda served: not served),
+            retry_error_callback=self.last_read,
+        )(lambda: self.page()[1] or None)
+        assert served, f"the page did not serve within {self._PAGE_WAIT_SECONDS} s"
 
     def until_up(self, since: float) -> tuple[float | None, tuple[bool, bool] | None]:
-        """Poll until the browser is running and the page is served.
+        """Wait until the browser is running and the page is served.
 
         Args:
             since: the `time.monotonic()` instant the time counts from.
 
         Returns:
             The seconds from `since` until the instance was up (None if it was not within
-            `GIVE_UP_SECONDS`), and the last read as (browser running, page served).
+            `GIVE_UP_SECONDS`), and the last read as (browser running, page served); None if the
+            last attempt raised.
         """
-        return poll(lambda: (self.run("pgrep -x surf")[2] == 0, self.page()[1]), all, GIVE_UP_SECONDS, since=since)
+        read = Retrying(
+            stop=stop_after_delay(self.GIVE_UP_SECONDS - (time.monotonic() - since)),
+            wait=wait_fixed(1),
+            retry=retry_if_exception_type(self.ERRORS) | retry_if_result(lambda read: not all(read)),
+            retry_error_callback=self.last_read,
+        )(lambda: (self.run("pgrep -x surf")[2] == 0, self.page()[1]))
+        return (round(time.monotonic() - since, 1) if read is not None and all(read) else None), read
 
     def install_image(self) -> None:
         """Install the built image on the board with `just kiosk-ota`.
@@ -280,8 +318,7 @@ class Board:
         Raises:
             AssertionError: the board did not answer within `_RESTART_WAIT_SECONDS`.
         """
-        answered_s, _ = poll(lambda: self._answer(self.BOOT_ID_CMD), bool, self._RESTART_WAIT_SECONDS)
-        assert answered_s is not None, f"the board did not answer within {self._RESTART_WAIT_SECONDS} s"
+        self._wait_for_boot(self._RESTART_WAIT_SECONDS, self.BOOT_ID_CMD)
 
     def fresh_ssh_argv(self, *options: str) -> list[str]:
         """The argv of an ssh to the board over its own connection, short of the remote command.
@@ -310,7 +347,7 @@ class Board:
     def restart_by(self, cmd: str, wait_seconds: float = _RESTART_WAIT_SECONDS, boot_cmd: str = BOOT_ID_CMD) -> None:
         """Take the board down with `cmd` over a one-shot ssh, then reconnect in a new boot.
 
-        Polls every 1 s, so a test can time the restart. It disconnects the SSHDriver before
+        Attempts a reconnect every 1 s, so a test can time the restart. It disconnects the SSHDriver before
         sending `cmd`, while the board is still up. If the board never answers in a new boot, the
         SSHDriver is left as the last attempt left it, connected if the last connect succeeded.
 
@@ -340,26 +377,32 @@ class Board:
             sent_as = f"rc {sent.returncode}, stderr {sent.stderr.strip()[-200:]!r}"
         except subprocess.TimeoutExpired:
             sent_as = f"timed out after {self._FAULT_SSH_TIMEOUT_SECONDS} s"
-        back_s, _ = poll(lambda: self._answer(boot_cmd), lambda boot: boot != old_boot, wait_seconds)
-        assert back_s is not None, (
-            f"the board did not answer in a new boot within {wait_seconds} s; "
-            f"the ssh that sent {cmd!r} ended with {sent_as}"
-        )
+        try:
+            self._wait_for_boot(wait_seconds, boot_cmd, old_boot)
+        except AssertionError as error:
+            raise AssertionError(f"{error}; the ssh that sent {cmd!r} ended with {sent_as}") from None
 
-    def _answer(self, boot_cmd: str) -> str | None:
-        """Reconnect the SSHDriver and read `boot_cmd` once.
+    def _wait_for_boot(self, within: float, boot_cmd: str, old: str | None = None) -> None:
+        """Reconnect the SSHDriver, one attempt a second, until `boot_cmd` reads.
+
+        Each attempt disconnects, connects and reads `boot_cmd`; with `old` given, a read equal to it
+        is the old boot and the attempt fails.
 
         Args:
+            within: seconds after which the wait gives up.
             boot_cmd: prints a value that differs in each boot.
+            old: the value `boot_cmd` printed before the restart, or None for no such value.
 
-        Returns:
-            The first line of its output, stripped; None if the board did not connect or the
-            command returned nonzero or printed nothing.
+        Raises:
+            AssertionError: the board did not answer, in a new boot when `old` is given, within
+                `within` seconds.
         """
-        self.disconnect()
         try:
-            self.connect()
-        except Exception:  # labgrid's activation timeout is a bare Exception
-            return None
-        stdout, _stderr, returncode = self.run(boot_cmd)
-        return stdout[0].strip() if returncode == 0 and stdout else None
+            for attempt in Retrying(stop=stop_after_delay(within), wait=wait_fixed(1), reraise=True):
+                with attempt:
+                    self.disconnect()
+                    self.connect()
+                    assert self.read(boot_cmd) != old, "the board is still in the old boot"
+        except Exception as error:  # labgrid's activation timeout is a bare Exception
+            kind = " in a new boot" if old is not None else ""
+            raise AssertionError(f"the board did not answer{kind} within {within} s") from error

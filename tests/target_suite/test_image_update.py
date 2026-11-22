@@ -17,9 +17,10 @@ from pathlib import Path
 from typing import NamedTuple
 
 import pytest
+from board import Board
 from labgrid.driver.exception import ExecutionError
 from panel import Panel
-from recovery import GIVE_UP_SECONDS, assert_back_within, until_up
+from recovery import assert_back_within, until_up
 from updates import install
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -207,7 +208,7 @@ def test_new_application_build(request, board, update_bundles, back_on_candidate
     panel = Panel(board)
     sample = None
     on_panel_s = None
-    while time.monotonic() - started <= GIVE_UP_SECONDS:
+    while time.monotonic() - started <= Board.GIVE_UP_SECONDS:
         try:
             _uptime_s, sample = panel.read()
         except (ExecutionError, subprocess.TimeoutExpired):
@@ -218,7 +219,7 @@ def test_new_application_build(request, board, update_bundles, back_on_candidate
         time.sleep(1)
     record_property("on_panel_s", on_panel_s)
     assert on_panel_s is not None, (
-        f"the new build was not on the panel within {GIVE_UP_SECONDS} s; last sample: {sample!r}"
+        f"the new build was not on the panel within {Board.GIVE_UP_SECONDS} s; last sample: {sample!r}"
     )
     assert on_panel_s <= _ON_PANEL_BOUND_SECONDS, (
         f"on the panel after {on_panel_s} s; TST006's bound is {_ON_PANEL_BOUND_SECONDS} s"

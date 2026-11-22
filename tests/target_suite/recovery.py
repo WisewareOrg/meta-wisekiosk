@@ -8,9 +8,9 @@ import subprocess
 import time
 from typing import NamedTuple
 
+from board import Board
 from labgrid.driver.exception import ExecutionError
 from panel import OWN_ORIGINS, finished_load
-from poll import GIVE_UP_SECONDS
 
 _SETTLED_APP_STATES = ("error:configuration", "error:backend-unreachable")
 
@@ -18,7 +18,7 @@ _SETTLED_APP_STATES = ("error:configuration", "error:backend-unreachable")
 def poll_from(started, read, done):
     """Poll `read` once a second from `started` until `done(value)`; return seconds and the last value.
 
-    Seconds is None when `GIVE_UP_SECONDS` passed first, and overstates by at most one read plus the
+    Seconds is None when `Board.GIVE_UP_SECONDS` passed first, and overstates by at most one read plus the
     1 s sleep. A read returning None is a failed read: it does not replace the last value.
     """
     last = None
@@ -28,7 +28,7 @@ def poll_from(started, read, done):
             last = value
             if done(value):
                 return round(time.monotonic() - started, 1), last
-        if time.monotonic() - started > GIVE_UP_SECONDS:
+        if time.monotonic() - started > Board.GIVE_UP_SECONDS:
             return None, last
         time.sleep(1)
 
@@ -62,7 +62,7 @@ def until_up(board, started):
 def assert_back_within(back_s, last_read, fault, requirement, bound):
     """Assert the instance was back, and within the bound."""
     assert back_s is not None, (
-        f"the board did not serve the page with the browser running within {GIVE_UP_SECONDS} s "
+        f"the board did not serve the page with the browser running within {Board.GIVE_UP_SECONDS} s "
         f"of the {fault}; last read: browser running {last_read[0]}, page served {last_read[1]}"
     )
     assert back_s <= bound, f"back after {back_s} s; {requirement}'s bound is {bound} s"
@@ -114,7 +114,7 @@ def check_held(board, panel, record_property):
 
     Raises:
         AssertionError: INVALID CHECK -- the page was served first, so the hold was too short, or
-            neither happened within `GIVE_UP_SECONDS`.
+            neither happened within `Board.GIVE_UP_SECONDS`.
     """
     previous_title = None
 
@@ -133,7 +133,7 @@ def check_held(board, panel, record_property):
     record_property("held_case", held.shown[0] if held and held.shown else None)
     assert held_s is not None, (
         f"INVALID CHECK, not an appliance failure: the browser had not finished a load without the "
-        f"backend within {GIVE_UP_SECONDS} s; last read: {held!r}"
+        f"backend within {Board.GIVE_UP_SECONDS} s; last read: {held!r}"
     )
     assert not held.served, (
         "INVALID CHECK, not an appliance failure: the page was served before the browser had "
@@ -169,9 +169,9 @@ def panel_after_answer(board, panel):
 
 def assert_on_panel_within(t0, on_panel_s, last, requirement, bound):
     """Assert the backend answered and the instance was then on the panel within `bound`."""
-    assert t0 is not None, f"the backend did not answer within {GIVE_UP_SECONDS} s"
+    assert t0 is not None, f"the backend did not answer within {Board.GIVE_UP_SECONDS} s"
     assert on_panel_s is not None, (
-        f"the instance was not on the panel within {GIVE_UP_SECONDS} s of the backend answering; "
+        f"the instance was not on the panel within {Board.GIVE_UP_SECONDS} s of the backend answering; "
         f"last panel read: {last!r}"
     )
     assert on_panel_s <= bound, (

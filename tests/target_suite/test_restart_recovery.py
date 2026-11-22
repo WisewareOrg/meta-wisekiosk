@@ -5,9 +5,9 @@ It restarted, crashed, lost power or started its backend late.
 
 import time
 
+from board import Board
 from panel import Panel, loaded_instance
 from recovery import (
-    GIVE_UP_SECONDS,
     assert_back_within,
     assert_on_panel_within,
     check_held,
@@ -94,7 +94,7 @@ def test_cold_boot_to_the_panel(board, power_cut, record_property):
     record_property("last_titles", titles)
     record_property("loaded", loaded_instance(titles) if titles else None)
     assert on_panel_s is not None, (
-        f"the browser had not finished loading the instance within {GIVE_UP_SECONDS} s "
+        f"the browser had not finished loading the instance within {Board.GIVE_UP_SECONDS} s "
         f"of power returning; last window titles: {titles!r}"
     )
     assert on_panel_s <= _COLD_BOOT_BOUND_SECONDS, (
@@ -120,7 +120,7 @@ def test_backend_late_at_boot(board, request, record_property):
     units = f"{_RELEASE_UNIT}.timer {_RELEASE_UNIT}.service"
     request.addfinalizer(lambda: board.run(f"systemctl stop {units}; systemctl reset-failed {units}"))
     board.run(
-        f"systemd-run --unit={_RELEASE_UNIT} --on-active={GIVE_UP_SECONDS} /bin/sh -c '{_RELEASE}'",
+        f"systemd-run --unit={_RELEASE_UNIT} --on-active={Board.GIVE_UP_SECONDS} /bin/sh -c '{_RELEASE}'",
         check=True,
     )
 

@@ -3,9 +3,9 @@
 import time
 
 from backend import assert_kill_landed, hold_restart, kill_backend
+from board import Board
 from panel import Panel
 from recovery import (
-    GIVE_UP_SECONDS,
     assert_on_panel_within,
     check_held,
     or_none,
@@ -40,7 +40,7 @@ def test_backend_crash(board, panel, record_property):
     record_property("requirement", "TST032")
     _, before = panel.wait_on_panel()
     killed_at, old_pid = kill_backend(board)
-    give_up_at = time.monotonic() + GIVE_UP_SECONDS
+    give_up_at = time.monotonic() + Board.GIVE_UP_SECONDS
 
     answered_at = None
     left_panel = False
@@ -73,7 +73,7 @@ def test_backend_crash(board, panel, record_property):
     if answered_at is not None:
         record_property("main_pid_after", assert_kill_landed(board, old_pid))
     assert on_panel_s is not None, (
-        f"the instance was not on the panel with the backend answering within {GIVE_UP_SECONDS} s "
+        f"the instance was not on the panel with the backend answering within {Board.GIVE_UP_SECONDS} s "
         f"of the crash (backend answered at uptime {answered_at}); last sample: {sample!r}"
     )
     assert on_panel_s <= _CRASH_BOUND_SECONDS, (
