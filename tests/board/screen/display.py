@@ -24,6 +24,9 @@ _INT_FIELDS = {
 }
 _MAP_STATE = re.compile(r"^\s*Map State:\s+(\w+)")
 _MODE = re.compile(r"^(\d+)x(\d+)")
+_SCREEN_SAVER_TIMEOUT = re.compile(r"timeout:\s+(\d+)")
+# power management is off when it is disabled, or the server has no such extension
+_DPMS_OFF = ("DPMS is Disabled", "Server does not have the DPMS Extension")
 
 
 class Area(NamedTuple):
@@ -129,6 +132,35 @@ class CurrentMode(NamedTuple):
     height: int | None
 
 
+class XsetQuery(NamedTuple):
+    """The X server's settings, as `xset q` reports them.
+
+    Attributes:
+        text: `xset q`'s output.
+    """
+
+    text: str
+
+    @property
+    def screen_saver_timeout_s(self) -> int | None:
+        """The screen saver's timeout.
+
+        Returns:
+            The timeout in seconds, or None if the output carries none.
+        """
+        match = _SCREEN_SAVER_TIMEOUT.search(self.text)
+        return int(match.group(1)) if match else None
+
+    @property
+    def dpms_disabled(self) -> bool:
+        """Whether display power management is off: disabled, or the server has no such extension.
+
+        Returns:
+            True if it is off.
+        """
+        return any(text in self.text for text in _DPMS_OFF)
+
+
 class Display:
     """The X server on the board, and the output it drives."""
 
@@ -179,6 +211,14 @@ class Display:
         mode = _MODE.match(current[0]) if current else None
         width, height = (int(mode.group(1)), int(mode.group(2))) if mode else (None, None)
         return CurrentMode("\n".join(stdout), current, width, height)
+
+    def xset_query(self) -> XsetQuery:
+        """Read the X server's settings with `xset q`.
+
+        Returns:
+            The settings, with `xset q`'s raw output.
+        """
+        return XsetQuery("\n".join(self._board.run("DISPLAY=:0 xset q", check=True)[0]))
 
     @staticmethod
     def _parse_windows(lines: list[str]) -> list[Window]:
