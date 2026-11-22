@@ -99,8 +99,20 @@ def _or_none(read):
 
 
 def _held_state(board, panel):
-    """Whether the browser runs, whether the page is served, and a finished load that is not the instance."""
-    return board.run("pgrep -x surf")[2] == 0, board.page_served(), loaded_other_page(panel.titles())
+    """Whether the browser runs, whether the page is served, and what it shows that is not the instance.
+
+    The last is `("probe", sample)` for a probe sample not on the panel, `("title", title)` for a
+    finished title that is not the instance's when there is no sample, else None.
+    """
+    running = board.run("pgrep -x surf")[2] == 0
+    served = board.page_served()
+    _, sample = panel.read()
+    if sample is not None:
+        shown = None if panel.on_panel(sample) else ("probe", sample)
+    else:
+        title = loaded_other_page(panel.titles())
+        shown = ("title", title) if title else None
+    return running, served, shown
 
 
 def _uptime_and_served(board):
@@ -156,9 +168,10 @@ def test_backend_late_at_boot(board, request, record_property):
         lambda state: state[0] and not state[1] and state[2] is not None,
     )
     record_property("held_state", held)
+    record_property("held_case", held[2][0] if held and held[2] else None)
     assert held_s is not None, (
         f"INVALID CHECK, not an appliance failure: the browser had not finished a load without the "
-        f"backend within {GIVE_UP_SECONDS} s; last (browser running, page served, title): {held!r}"
+        f"backend within {GIVE_UP_SECONDS} s; last (browser running, page served, shown): {held!r}"
     )
 
     board.run(_RELEASE, check=True)
