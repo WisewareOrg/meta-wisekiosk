@@ -39,7 +39,7 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   board's `config.json` before and after the install for TST019<!-- Configuration held across an image update -->
   and writes nothing. `install_candidate` installs the candidate on the board through
   `just kiosk-ota` and `just kiosk-reboot` when there is one, then reads the board's `/etc/buildinfo`
-  over the ssh connection `Board` opens before the install and `Board.restart` reconnects,
+  over the ssh connection `Board` opens before the install and `Board.reboot` reconnects,
   printing its meta-wisekiosk commit into the run's own record on every run — so the record carries the board's commit even
   under a `-k`-filtered run where TST016<!-- Running the image update's build --> itself would not
   execute. The commit under test comes from the runner's own `bench_candidate` fixture, never an

@@ -13,23 +13,24 @@ through the bench driver:
 import re
 import subprocess
 
+from board import Board
+
 RAUC_TAG = "rauc["
 SLOT_WRITE = "writing data to device"
 ARMED = re.compile(r"\[arm\] armed: record_ftrace=1 filter_entries=\d+ watchdog_thresh=1 softlockup_panic=1$")
 SEED = "echo c > /proc/sysrq-trigger"
 
 
-def _booted_slot(board):
-    """The slot the board booted from, as `rauc status` names it.
+def _booted_slot(board: Board) -> str:
+    """Read the slot the board booted from, as `rauc status` names it.
+
+    Asserts `rauc status` succeeded and named a booted slot.
 
     Args:
-        board (Board): the board under test (tests/conftest.py).
+        board: the board under test.
 
     Returns:
-        str: the `Booted from:` line.
-
-    Raises:
-        AssertionError: `rauc status` failed or named no booted slot.
+        The `Booted from:` line.
     """
     stdout, _stderr, returncode = board.run("rauc status", timeout=None)
     assert returncode == 0, "rauc status failed"
@@ -38,14 +39,14 @@ def _booted_slot(board):
     return line
 
 
-def _crash(host):
+def _crash(host: str) -> None:
     """Crash the board with sysrq.
 
     A plain ssh rather than the SSHDriver: the crash takes the connection down with it,
     and the driver's shared connection would have to be torn down mid-command.
 
     Args:
-        host (str): `user@address` of the board.
+        host: `user@address` of the board.
     """
     subprocess.Popen(
         [
@@ -70,11 +71,14 @@ def _crash(host):
     )
 
 
-def test_install_reset_capture(board):
+def test_install_reset_capture(board: Board) -> None:
     """A crash mid-install leaves the panic and the ftrace ring in the install's output.
 
     The crashed install never activates the slot it was writing, so the board comes back
     on the slot it booted from before.
+
+    Args:
+        board: the board under test, crashed mid-install.
     """
     host = board.host
     slot_before = _booted_slot(board)

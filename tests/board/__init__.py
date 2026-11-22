@@ -359,6 +359,14 @@ class Board:
         stdout, _stderr, returncode = self.run("cat /sys/class/thermal/thermal_zone0/temp")
         return int(stdout[0]) / 1000 if returncode == 0 and stdout else None
 
+    def write_log_marker(self, text: str) -> None:
+        """Write `text` to the board's journal under the identifier `kiosk-log-marker`.
+
+        Args:
+            text: the marker line.
+        """
+        self.run(f"echo {text} | systemd-cat -t kiosk-log-marker", check=True)
+
     def log_markers(self) -> list[str] | None:
         """Read the marker lines written to the journal under the identifier `kiosk-log-marker`.
 
@@ -485,6 +493,19 @@ class Board:
     def disconnect(self) -> None:
         """Deactivate the board's SSHDriver."""
         self._target.deactivate(self._ssh)
+
+    def install_built_image(self) -> None:
+        """Install the image this checkout built on the board, through `just kiosk-ota`."""
+        subprocess.run(["just", "kiosk-ota", self.host], check=True)
+
+    def get(self, src: str, dst: str) -> None:
+        """Copy `src` on the board to the host path `dst`.
+
+        Args:
+            src: path on the board.
+            dst: path on the host.
+        """
+        self._ssh.get(src, dst)
 
     def reboot(self) -> None:
         """Reboot the board through `just kiosk-reboot`, which waits up to 300 s for a new boot, then reconnect."""

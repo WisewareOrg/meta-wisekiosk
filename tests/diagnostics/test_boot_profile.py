@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 
 import pytest
+from board import Board
 from labgrid.driver.exception import ExecutionError
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -40,17 +41,14 @@ _CLEANUP_BOUND_SECONDS = 60
 _CLEANUP_POLL_SECONDS = 5
 
 
-def _boot_id(board):
-    """Read the board's current boot id.
+def _boot_id(board: Board) -> str:
+    """Read the board's current boot id, asserting it read and is not empty.
 
     Args:
-        board (Board): the board under test (tests/conftest.py).
+        board: the board under test.
 
     Returns:
-        str: the boot id.
-
-    Raises:
-        AssertionError: the id could not be read, or came back empty.
+        The boot id.
     """
     stdout, stderr, _returncode = board.run("cat /proc/sys/kernel/random/boot_id", timeout=None, check=True)
     output = stdout + stderr
@@ -59,20 +57,24 @@ def _boot_id(board):
     return boot_id
 
 
-def test_boot_profile(request, board):
+def test_boot_profile(request: pytest.FixtureRequest, board: Board) -> None:
     """Capture one boot profile end to end, leaving the board as it was found.
 
     Arms the sampler, reboots, waits out the observer window, pulls the samples and the
     matching journal, and runs the analyzer. Whatever happens, the finalizer below leaves the
     board with no copied binary, no copied unit, no enable link for it, and neither
     `/usr/local/bin` nor `/usr/local` -- no image ships either.
+
+    Args:
+        request: registers the board's cleanup.
+        board: the board under test, profiled across one reboot.
     """
     outdir = Path(OUTPUT_DIR)
     outdir.mkdir(parents=True, exist_ok=True)
 
     state = {"rebooted": False}
 
-    def _cleanup():
+    def _cleanup() -> None:
         """Remove anything this run left on the board.
 
         Before the reboot, the driver is still on the boot this run started, so what was

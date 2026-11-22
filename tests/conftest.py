@@ -5,6 +5,8 @@ import time
 import uuid
 
 import pytest
+from board import Board as NewBoard
+from labgrid import Target
 from labgrid.driver.exception import ExecutionError
 
 COMMAND_TIMEOUT_SECONDS = 10
@@ -386,43 +388,32 @@ def board(target):
 
 
 @pytest.fixture(scope="session")
-def install_candidate(bench_candidate, board):
+def install_candidate(bench_candidate: str | None, target: Target) -> tuple[str, bool] | None:
     """Install `bench_candidate` on the board, if there is one, then print its commit.
 
-    Before the install, writes a uuid marker line to the board's journal under the identifier
-    `kiosk-log-marker` and polls for up to `LOG_MARKER_WAIT_SECONDS`, once a second, until it
-    reads that line back. The fixture never asserts on that read. Installs by `board.install_image`, then
-    `board.restart`.
-    Either way, prints the board's meta-wisekiosk commit as `board_commit=<sha>`.
+    Works through a board of its own. Before the install, writes a uuid marker line to the board's
+    journal under the identifier `kiosk-log-marker` and polls for up to `LOG_MARKER_WAIT_SECONDS`,
+    once a second, until it reads that line back; it never asserts on that read. Installs with
+    `just kiosk-ota`, then reboots with `just kiosk-reboot`. Either way, prints the board's
+    meta-wisekiosk commit as `board_commit=<sha>`.
 
     Args:
-        bench_candidate (str | None): the commit under test, or None outside a build.
-        board (Board): the board under test.
+        bench_candidate: the commit under test, or None outside a build.
+        target: the board's labgrid target.
 
     Returns:
-        tuple[str, bool] | None: the marker and whether the journal held it before the install; None
-            outside a build.
-
-    Raises:
-        subprocess.CalledProcessError: `just kiosk-ota` or `just kiosk-reboot` exits
-            nonzero.
-        Exception: the SSHDriver's own activation times out reaching the board.
-        AssertionError: /etc/buildinfo cannot be read, or carries no meta-wisekiosk
-            line.
+        The marker and whether the journal held it before the install; None outside a build.
     """
     marked = None
-    if bench_candidate is not None:
-        marker = str(uuid.uuid4())
-        board.run(f"echo {marker} | systemd-cat -t kiosk-log-marker", check=True)
-        deadline = time.monotonic() + LOG_MARKER_WAIT_SECONDS
-        while True:
-            stdout, _stderr, _returncode = board.run("journalctl -t kiosk-log-marker -o cat")
-            seen_before = marker in stdout
-            if seen_before or time.monotonic() >= deadline:
-                break
-            time.sleep(1)
-        marked = (marker, seen_before)
-        board.install_image()
-        board.restart()
-    print(f"board_commit={board.commit()}")
+    with NewBoard(target) as board:
+        if bench_candidate is not None:
+            marker = str(uuid.uuid4())
+            board.write_log_marker(marker)
+            seen_s, _ = board.poll(
+                lambda: marker in (board.log_markers() or []) or None, until=bool, within=LOG_MARKER_WAIT_SECONDS
+            )
+            marked = (marker, seen_s is not None)
+            board.install_built_image()
+            board.reboot()
+        print(f"board_commit={board.build_commit()}")
     return marked
