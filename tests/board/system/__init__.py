@@ -1,16 +1,14 @@
 """The board's operating system, as tests read and set it."""
 
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
 
 from board.system.clock import Clock
 from board.system.memory import Memory
 from board.system.soak import Soak
 from board.system.timezone import Timezone
 
-if TYPE_CHECKING:
-    from board import Board
 
-
+@dataclass
 class System:
     """The board's operating system: its clock and time zone, its memory, and the kiosk-soak sampler.
 
@@ -25,14 +23,3 @@ class System:
     timezone: Timezone
     memory: Memory
     soak: Soak
-
-    def __init__(self, board: "Board") -> None:
-        """Build the system's parts on `board`.
-
-        Args:
-            board: the board under test.
-        """
-        self.clock = Clock(board)
-        self.timezone = Timezone(board)
-        self.memory = Memory(board)
-        self.soak = Soak(board)

@@ -14,11 +14,11 @@ from labgrid.binding import StateError
 from labgrid.driver.exception import ExecutionError
 from tenacity import Retrying, retry_if_exception_type, retry_if_result, stop_after_delay, wait_fixed
 
-from board.app import App
-from board.console import Console
-from board.network import Network
-from board.screen import Screen
-from board.system import System
+from board.app import App, Backend, Config, Page
+from board.console import Console, Keyboard, Terminals
+from board.network import Load, Network, Outage
+from board.screen import Captures, Display, Screen
+from board.system import Clock, Memory, Soak, System, Timezone
 from board.updates import Updates
 
 if TYPE_CHECKING:
@@ -139,11 +139,11 @@ class Board:
         self.host = f"{service.username}@{service.address}"
         self.cleanup = contextlib.ExitStack()
         self.last_instance_state = None
-        self.app = App(self)
-        self.console = Console(self)
-        self.screen = Screen(self)
-        self.system = System(self)
-        self.network = Network(self)
+        self.app = App(Backend(self), Config(self), Page(self))
+        self.screen = Screen(Display(self), Captures(self))
+        self.console = Console(Terminals(self), Keyboard(self))
+        self.system = System(Clock(self), Timezone(self), Memory(self), Soak(self))
+        self.network = Network(Outage(self), Load(self))
         self.updates = Updates(self)
 
     def __enter__(self) -> "Board":

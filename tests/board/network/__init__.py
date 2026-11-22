@@ -1,14 +1,12 @@
 """The board's network, as tests take it away and load it."""
 
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
 
 from board.network.load import Load
 from board.network.outage import Outage
 
-if TYPE_CHECKING:
-    from board import Board
 
-
+@dataclass
 class Network:
     """The board's network: an outage scheduled on the board, and a load pushed at it.
 
@@ -19,12 +17,3 @@ class Network:
 
     outage: Outage
     load: Load
-
-    def __init__(self, board: "Board") -> None:
-        """Build the network's parts on `board`.
-
-        Args:
-            board: the board under test.
-        """
-        self.outage = Outage(board)
-        self.load = Load(board)
