@@ -15,6 +15,7 @@ from labgrid.driver.exception import ExecutionError
 from tenacity import Retrying, retry_if_exception_type, retry_if_result, stop_after_delay, wait_fixed
 
 from board.app import App
+from board.network import Network
 
 
 class InstanceState(NamedTuple):
@@ -41,6 +42,7 @@ class Board:
         cleanup: undoes, last first, what the test changed on the board.
         host: `user@address` of the board, as the `just kiosk-*` recipes take it.
         last_instance_state: the last read of `seconds_until_instance_up`, None before one.
+        network: the board's network.
         BOOT_ID_CMD: prints the kernel's boot id, which differs in each boot.
         ERRORS: what a read of the board raises when the board does not answer; `poll` retries these.
         GIVE_UP_SECONDS: how long a test waits for the board; past every bound, so the record still
@@ -54,6 +56,7 @@ class Board:
     cleanup: contextlib.ExitStack
     host: str
     last_instance_state: InstanceState | None
+    network: Network
     BOOT_ID_CMD = "cat /proc/sys/kernel/random/boot_id"
     ERRORS = (ExecutionError, StateError, subprocess.TimeoutExpired)
     GIVE_UP_SECONDS = 180
@@ -79,6 +82,7 @@ class Board:
         self.cleanup = contextlib.ExitStack()
         self.last_instance_state = None
         self.app = App(self)
+        self.network = Network(self)
 
     def run(
         self, cmd: str, check: bool = False, timeout: float | None = _COMMAND_TIMEOUT_SECONDS

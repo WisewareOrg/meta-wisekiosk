@@ -6,6 +6,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
+from board.app.panel_watch import PanelWatch
+
 if TYPE_CHECKING:
     from record import Record
 
@@ -177,6 +179,17 @@ class Page:
         except self._board.ERRORS:
             return None
         return [match.group(1) for match in map(_WM_NAME.match, stdout) if match]
+
+    def watch(self, from_uptime: float) -> PanelWatch:
+        """Start a tally of the panel's reads over a span.
+
+        Args:
+            from_uptime: the board uptime at which the span starts.
+
+        Returns:
+            The tally; the test reads the panel through it.
+        """
+        return PanelWatch(self, from_uptime)
 
     def poll(
         self,
