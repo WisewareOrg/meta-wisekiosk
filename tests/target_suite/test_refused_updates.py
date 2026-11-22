@@ -97,7 +97,7 @@ def test_foreign_signature(
     """
     record_property("requirement", "TST017")
     panel.wait_on_panel()
-    update.refuse(bundles.foreign_signature, ("signature verification failed", "self-signed certificate"))
+    update.assert_refused(bundles.foreign_signature, ("signature verification failed", "self-signed certificate"))
     panel.wait_on_panel()
 
 
@@ -114,5 +114,5 @@ def test_another_hardware_type(
     """
     record_property("requirement", "TST018")
     panel.wait_on_panel()
-    update.refuse(bundles.other_hardware, ("Compatible mismatch", bundles.other_hardware_compatible))
+    update.assert_refused(bundles.other_hardware, ("Compatible mismatch", bundles.other_hardware_compatible))
     panel.wait_on_panel()

@@ -7,7 +7,7 @@ import time
 
 import pytest
 from backend import Backend
-from board import Board, PowerCut
+from board import Board, PowerCut, Up
 from panel import Panel
 from record import Record
 
@@ -25,7 +25,7 @@ _LATE_BACKEND_BOUND_SECONDS = 60
 _USERSPACE_BOOT_CMD = "systemctl show -p ActiveEnterTimestampMonotonic --value multi-user.target"
 
 
-def _back_s(board: Board, cmd: str) -> tuple[float | None, tuple[bool, bool] | None]:
+def _time_back_after(board: Board, cmd: str) -> tuple[float | None, Up | None]:
     """Run `cmd` on the board and time until the instance is up.
 
     Overstates by the boot-id read, the disconnect and the ssh connect before the fault lands.
@@ -35,13 +35,12 @@ def _back_s(board: Board, cmd: str) -> tuple[float | None, tuple[bool, bool] | N
         cmd: the command that restarts or crashes the board.
 
     Returns:
-        The seconds until the page is served with the browser running (None if never), and the last
-        read as (browser running, page served).
+        The seconds until the instance is up (None if never), and the last read of it.
     """
     board.wait_for_page()
     started = time.monotonic()
     board.restart_by(cmd)
-    return board.until_up(started)
+    return board.time_until_up(started)
 
 
 def _loaded(titles: list[str]) -> str | None:
@@ -67,12 +66,10 @@ def test_kernel_crash(board: Board, record: Record) -> None:
         record: records the requirement, the time back and the last read.
     """
     record(requirement="TST004")
-    back_s, last_read = _back_s(board, "echo c > /proc/sysrq-trigger")
+    back_s, last_read = _time_back_after(board, "echo c > /proc/sysrq-trigger")
     record(back_s=back_s, last_read=last_read)
-    assert back_s is not None and back_s <= _CRASH_BOUND_SECONDS, (
-        f"back after {back_s} s (None: not within {Board.GIVE_UP_SECONDS} s of the crash); "
-        f"bound {_CRASH_BOUND_SECONDS} s; last read {last_read}"
-    )
+    assert back_s is not None, f"not back within {Board.GIVE_UP_SECONDS} s of the crash; last read: {last_read}"
+    assert back_s <= _CRASH_BOUND_SECONDS, f"back after {back_s} s; TST004's bound is {_CRASH_BOUND_SECONDS} s"
 
 
 def test_restart_to_the_panel(board: Board, record: Record) -> None:
@@ -83,12 +80,10 @@ def test_restart_to_the_panel(board: Board, record: Record) -> None:
         record: records the requirement, the time back and the last read.
     """
     record(requirement="TST011")
-    back_s, last_read = _back_s(board, "systemctl reboot")
+    back_s, last_read = _time_back_after(board, "systemctl reboot")
     record(back_s=back_s, last_read=last_read)
-    assert back_s is not None and back_s <= _RESTART_BOUND_SECONDS, (
-        f"back after {back_s} s (None: not within {Board.GIVE_UP_SECONDS} s of the restart); "
-        f"bound {_RESTART_BOUND_SECONDS} s; last read {last_read}"
-    )
+    assert back_s is not None, f"not back within {Board.GIVE_UP_SECONDS} s of the restart; last read: {last_read}"
+    assert back_s <= _RESTART_BOUND_SECONDS, f"back after {back_s} s; TST011's bound is {_RESTART_BOUND_SECONDS} s"
 
 
 def test_power_cut_while_showing(board: Board, power_cut: PowerCut, record: Record) -> None:
@@ -102,15 +97,13 @@ def test_power_cut_while_showing(board: Board, power_cut: PowerCut, record: Reco
         record: records the requirement, the time back and the last read.
     """
     record(requirement="TST002")
-    ready_s, last_read = board.until_up(time.monotonic())
+    ready_s, last_read = board.time_until_up(time.monotonic())
     assert ready_s is not None, f"the instance was not up before the cut; last read: {last_read}"
     started = power_cut()
-    back_s, last_read = board.until_up(started)
+    back_s, last_read = board.time_until_up(started)
     record(back_s=back_s, last_read=last_read)
-    assert back_s is not None and back_s <= _POWER_CUT_BOUND_SECONDS, (
-        f"back after {back_s} s (None: not within {Board.GIVE_UP_SECONDS} s of power returning); "
-        f"bound {_POWER_CUT_BOUND_SECONDS} s; last read {last_read}"
-    )
+    assert back_s is not None, f"not back within {Board.GIVE_UP_SECONDS} s of power returning; last read: {last_read}"
+    assert back_s <= _POWER_CUT_BOUND_SECONDS, f"back after {back_s} s; TST002's bound is {_POWER_CUT_BOUND_SECONDS} s"
 
 
 def test_cold_boot_to_the_panel(
@@ -132,15 +125,15 @@ def test_cold_boot_to_the_panel(
     record(requirement="TST012")
     panel = Panel(board, request, record)
     started = power_cut()
-    on_panel_s, _ = panel.until(lambda read: _loaded(read[2]) is not None, Board.GIVE_UP_SECONDS, since=started)
-    titles = panel.last_reading[2] if panel.last_reading else None
+    on_panel_s, _ = panel.wait_until(lambda read: _loaded(read.titles), Board.GIVE_UP_SECONDS, since=started)
+    titles = panel.last_reading.titles if panel.last_reading else None
     record(on_panel_s=on_panel_s, last_titles=titles, loaded=_loaded(titles) if titles else None)
     assert on_panel_s is not None, (
         f"the browser had not finished loading the instance within {Board.GIVE_UP_SECONDS} s "
         f"of power returning; last window titles: {titles!r}"
     )
     assert on_panel_s <= _COLD_BOOT_BOUND_SECONDS, (
-        f"the browser finished loading after {on_panel_s} s; bound {_COLD_BOOT_BOUND_SECONDS} s"
+        f"the browser finished loading after {on_panel_s} s; TST012's bound is {_COLD_BOOT_BOUND_SECONDS} s"
     )
 
 
@@ -182,8 +175,22 @@ def test_backend_late_at_boot(
     panel.install(restart_browser=False)
     request.addfinalizer(backend.unmask)
 
-    panel.held()
+    panel.assert_loaded_without_backend()
 
     backend.release()
-    panel.after_answer()
-    panel.assert_on_panel_within(_LATE_BACKEND_BOUND_SECONDS)
+    answered_uptime_s, on_panel_s = panel.time_on_panel_after_backend_answers()
+    last = panel.last_reading
+    record(
+        backend_answered_uptime_s=answered_uptime_s,
+        on_panel_s=on_panel_s,
+        last_sample=last.sample if last else None,
+        last_titles=last.titles if last else None,
+    )
+    assert answered_uptime_s is not None, f"the backend did not answer within {Board.GIVE_UP_SECONDS} s"
+    assert on_panel_s is not None, (
+        f"the instance was not on the panel within {Board.GIVE_UP_SECONDS} s of the backend answering; "
+        f"last panel read: {last!r}"
+    )
+    assert on_panel_s <= _LATE_BACKEND_BOUND_SECONDS, (
+        f"on the panel {on_panel_s} s after the backend answered; TST033's bound is {_LATE_BACKEND_BOUND_SECONDS} s"
+    )

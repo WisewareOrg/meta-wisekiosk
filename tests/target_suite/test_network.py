@@ -193,7 +193,7 @@ def test_sustained_network_load(
     """
     record_property("requirement", "TST008")
     panel.wait_on_panel()
-    load_start = board.timed(check=True)[0]
+    load_start = board.run_with_uptime(check=True)[0]
 
     proc = subprocess.Popen(
         [
@@ -224,7 +224,7 @@ def test_sustained_network_load(
     _watch(panel, seen, pusher.is_alive)
     pusher.join()
     watchdog.cancel()
-    load_end = board.timed(check=True)[0]
+    load_end = board.run_with_uptime(check=True)[0]
     seen["uptimes"].append(load_end)
     observe_until = time.monotonic() + _STOP_ALLOWANCE_SECONDS
     _watch(panel, seen, lambda: time.monotonic() < observe_until)

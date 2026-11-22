@@ -7,6 +7,7 @@ import hashlib
 import re
 from collections.abc import Callable
 from pathlib import Path
+from typing import NamedTuple
 
 import pytest
 from board import Board
@@ -28,23 +29,54 @@ _TITLES_WALK = (
 )
 
 
+class PanelRead(NamedTuple):
+    """One walk of the windows.
+
+    Attributes:
+        uptime: the board's uptime at the walk, in seconds.
+        sample: the probe's sample, None if no window carried a payload.
+        titles: every window's title.
+    """
+
+    uptime: float
+    sample: dict[str, str] | None
+    titles: list[str]
+
+
+class Held(NamedTuple):
+    """One read of the board while the backend is held.
+
+    Attributes:
+        running: the browser is running.
+        served: the page is served.
+        shown: what the browser shows: `("probe", sample)` for a settled page from another origin or
+            in the app's configuration-error or unreachable-backend state; `("title", title)` for a
+            finished load's title seen on this read and the one before with no sample; else None.
+        title: the finished load's title when there is no sample, else None.
+    """
+
+    running: bool
+    served: bool
+    shown: tuple | None
+    title: str | None
+
+
 class Panel:
     """What the panel shows: the window titles, and the probe `install` puts in the browser.
 
     `install` puts the probe in the browser and records `probe_sha256`. Every read is one walk of the
-    windows. `held` waits until the browser has finished a load without the backend; `after_answer`
-    then times from the backend's first answer to the instance on the panel, and
-    `assert_on_panel_within` judges that time.
+    windows. `assert_loaded_without_backend` waits until the browser has finished a load without the
+    backend; `time_on_panel_after_backend_answers` then times from the backend's first answer to the
+    instance on the panel.
 
     Attributes:
-        last_reading: the last successful `read`, as (uptime, sample, titles); None before one, and
-            reset by each wait on the panel.
-        last_held: the last successful read of `held`, as (browser running, page served, shown,
-            title); None before one, and reset by `held`.
+        last_reading: the last successful `read`, None before one, and reset by each wait on the panel.
+        last_held: the last successful read of `assert_loaded_without_backend`, None before one, and
+            reset by it.
     """
 
-    last_reading: tuple[float, dict[str, str] | None, list[str]] | None = None
-    last_held: tuple[bool, bool, tuple | None, str | None] | None = None
+    last_reading: PanelRead | None = None
+    last_held: Held | None = None
 
     def __init__(self, board: Board, request: pytest.FixtureRequest, record: Record) -> None:
         """Bind to the board, and to the request whose teardown undoes `install`.
@@ -52,7 +84,7 @@ class Panel:
         Args:
             board: the board under test.
             request: registers `install`'s undos.
-            record: records the probe's hash and what `held` and `after_answer` measure.
+            record: records the probe's hash and what `assert_loaded_without_backend` read.
         """
         self._board = board
         self._request = request
@@ -61,8 +93,6 @@ class Panel:
         self.last_held = None
         # the held check's last finished title
         self._previous_title: str | None = None
-        # what `after_answer` measured: the backend's first answer, the time to the panel, the last read
-        self._answered: tuple[float | None, float | None, tuple | None] | None = None
 
     def install(self, restart_browser: bool = True) -> None:
         """Load the probe into the browser and record its sha256 as `probe_sha256`.
@@ -107,13 +137,13 @@ class Panel:
         """
         return Panel.on_panel(sample) and sample["cards"] == FULL_CARDS
 
-    def read(self) -> tuple[float, dict[str, str] | None, list[str]]:
+    def read(self) -> PanelRead:
         """Walk the windows once.
 
         Returns:
-            The board's uptime, the probe's sample (None = no payload) and every window's title.
+            The read.
         """
-        uptime, stdout, _stderr, _returncode = self._board.timed(_TITLES_WALK)
+        uptime, stdout, _stderr, _returncode = self._board.run_with_uptime(_TITLES_WALK)
         titles = [match.group(1) for match in map(_WM_NAME.match, stdout) if match]
         sample = None
         for title in titles:
@@ -123,32 +153,32 @@ class Panel:
                 if all(key in found for key in _PROBE_FIELDS):
                     sample = found
                     break
-        self.last_reading = (uptime, sample, titles)
+        self.last_reading = PanelRead(uptime, sample, titles)
         return self.last_reading
 
-    def until(
+    def wait_until(
         self,
-        done: Callable[[tuple[float, dict[str, str] | None, list[str]]], object],
+        done: Callable[[PanelRead], object],
         within: float,
         every: float = 1,
         since: float | None = None,
-    ) -> tuple[float | None, tuple[float, dict[str, str] | None, list[str]] | None]:
+    ) -> tuple[float | None, PanelRead | None]:
         """Read the panel every `every` seconds until `done` accepts a read, or `within` seconds pass.
 
         Resets `last_reading` first, so an earlier wait's read never stands in for this one's.
 
         Args:
-            done: whether a read, as (uptime, sample, titles), ends the wait.
+            done: whether a read ends the wait.
             within: seconds from `since` after which the wait gives up.
             every: seconds slept between reads.
             since: the `time.monotonic()` instant the wait counts from; now when None.
 
         Returns:
-            What `Board.wait` returns: the seconds to the done read (None if it gave up) and the
+            What `Board.wait_until` returns: the seconds to the done read (None if it gave up) and the
             final read.
         """
         self.last_reading = None
-        return self._board.wait(self.read, done, within, every, since)
+        return self._board.wait_until(self.read, done, within, every, since)
 
     def wait_on_panel(self, full: bool = False) -> tuple[float, dict[str, str]]:
         """Wait until the instance is on the panel, with every card live when `full`.
@@ -161,98 +191,71 @@ class Panel:
         """
         judge = self.is_full if full else self.on_panel
         wait = _FULL_WAIT_SECONDS if full else _PANEL_WAIT_SECONDS
-        seconds, found = self.until(lambda read: judge(read[1]), wait)
+        seconds, found = self.wait_until(lambda read: judge(read.sample), wait)
         assert seconds is not None, (
             f"the page was not {'in full state' if full else 'on the panel'} within {wait} s; "
-            f"last sample: {self.last_reading[1] if self.last_reading else None!r}"
+            f"last sample: {self.last_reading.sample if self.last_reading else None!r}"
         )
-        return found[0], found[1]
+        return found.uptime, found.sample
 
-    def held(self) -> None:
+    def assert_loaded_without_backend(self) -> None:
         """Wait until the browser has finished a load without the backend, the page not served.
 
-        Records the last read as `held_state` (browser running, page served, shown, title) and which
-        case of `shown` matched as `held_case`.
+        Records the last read as `held_state` and which case of `shown` matched as `held_case`, then
+        fails the test as INVALID if the browser never finished the load within `Board.GIVE_UP_SECONDS`
+        or the page was served first, so the hold was too short.
         """
         self.last_held = None
-        held_s, _ = self._board.wait(
-            self._held, lambda read: read[1] or (read[0] and read[2] is not None), Board.GIVE_UP_SECONDS
+        held_s, _ = self._board.wait_until(
+            self._held, lambda read: read.served or (read.running and read.shown is not None), Board.GIVE_UP_SECONDS
         )
         held = self.last_held
-        self._record(held_state=held, held_case=held[2][0] if held and held[2] else None)
+        self._record(held_state=held, held_case=held.shown[0] if held and held.shown else None)
         assert held_s is not None, (
             f"INVALID CHECK, not an appliance failure: the browser had not finished a load without the "
             f"backend within {Board.GIVE_UP_SECONDS} s; last read: {held!r}"
         )
-        assert not held[1], (
+        assert not held.served, (
             "INVALID CHECK, not an appliance failure: the page was served before the browser had "
             f"finished a load without the backend, so the hold was too short; last read: {held!r}"
         )
 
-    def after_answer(self) -> float | None:
+    def time_on_panel_after_backend_answers(self) -> tuple[float | None, float | None]:
         """Time from the backend's first answer to the instance on the panel.
 
         Waits until the page is first served, so the answer is read up to one read late, then until
-        the instance is on the panel. Records `backend_answered_uptime_s`, `on_panel_s`,
-        `last_sample` and `last_titles`, and keeps them for `assert_on_panel_within`.
+        the instance is on the panel. Resets `last_reading`, which holds the last panel read after.
 
         Returns:
-            The board uptime of the page's first serve; None if it was not served within
-            `Board.GIVE_UP_SECONDS`.
+            The board uptime of the page's first serve, None if it was not served within
+            `Board.GIVE_UP_SECONDS`; and the seconds from it to the instance on the panel, None if
+            there was no answer or it did not come within `Board.GIVE_UP_SECONDS`.
         """
         self.last_reading = None
-        answered_s, answered = self._board.wait(self._board.page, lambda read: read[1], Board.GIVE_UP_SECONDS)
-        t0 = answered[0] if answered_s is not None else None
+        answered_s, answered = self._board.wait_until(
+            self._board.fetch_page, lambda read: read[1], Board.GIVE_UP_SECONDS
+        )
+        answered_uptime_s = answered[0] if answered_s is not None else None
         on_panel_s = None
-        if t0 is not None:
-            self.until(lambda read: self.on_panel(read[1]), Board.GIVE_UP_SECONDS)
+        if answered_uptime_s is not None:
+            self.wait_until(lambda read: self.on_panel(read.sample), Board.GIVE_UP_SECONDS)
             last = self.last_reading
-            on_panel_s = round(last[0] - t0, 1) if last and self.on_panel(last[1]) else None
-        last = self.last_reading
-        self._answered = (t0, on_panel_s, last)
-        self._record(
-            backend_answered_uptime_s=t0,
-            on_panel_s=on_panel_s,
-            last_sample=last[1] if last else None,
-            last_titles=last[2] if last else None,
-        )
-        return t0
+            if last and self.on_panel(last.sample):
+                on_panel_s = round(last.uptime - answered_uptime_s, 1)
+        return answered_uptime_s, on_panel_s
 
-    def assert_on_panel_within(self, bound: float) -> None:
-        """Assert the backend answered and the instance was then on the panel within `bound`.
-
-        Args:
-            bound: the longest, in seconds, from the backend's answer to the instance on the panel.
-
-        Raises:
-            RuntimeError: `after_answer` has not run.
-        """
-        if self._answered is None:
-            raise RuntimeError("assert_on_panel_within needs after_answer to have run")
-        t0, on_panel_s, last = self._answered
-        assert t0 is not None, f"the backend did not answer within {Board.GIVE_UP_SECONDS} s"
-        assert on_panel_s is not None, (
-            f"the instance was not on the panel within {Board.GIVE_UP_SECONDS} s of the backend answering; "
-            f"last panel read: {last!r}"
-        )
-        assert on_panel_s <= bound, f"on the panel {on_panel_s} s after the backend answered; bound {bound} s"
-
-    def _held(self) -> tuple[bool, bool, tuple | None, str | None]:
-        """Read the board once for `held`, against the previous read's title.
+    def _held(self) -> Held:
+        """Read the board once for `assert_loaded_without_backend`, against the previous read's title.
 
         A finished title counts only once a second read shows it unchanged with still no sample: a
         page carrying the probe can show its title before the probe first writes.
 
         Returns:
-            Whether the browser is running, whether the page is served, what the browser shows
-            (`("probe", sample)` for a settled page from another origin or in the app's
-            configuration-error or unreachable-backend state; `("title", title)` for a finished load's
-            title seen on this read and the one before with no sample; else None), and the finished
-            load's title when there is no sample.
+            The read.
         """
         running = self._board.run("pgrep -x surf")[2] == 0
-        served = self._board.page()[1]
-        _, sample, titles = self.read()
+        served = self._board.fetch_page()[1]
+        _uptime, sample, titles = self.read()
         title = None
         if sample is not None:
             settled = sample["origin"] not in _OWN_ORIGINS or sample["state"] in _SETTLED_APP_STATES
@@ -265,5 +268,5 @@ class Panel:
             )
             shown = ("title", title) if title and title == self._previous_title else None
         self._previous_title = title
-        self.last_held = (running, served, shown, title)
+        self.last_held = Held(running, served, shown, title)
         return self.last_held

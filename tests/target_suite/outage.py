@@ -49,7 +49,7 @@ class Outage:
 
     def wait_boot_complete(self) -> None:
         """Wait for boot-complete.target, so an outage cannot land inside kiosk-netcheck's window."""
-        active_s, _ = self._board.wait(
+        active_s, _ = self._board.wait_until(
             lambda: self._board.run("systemctl is-active boot-complete.target")[2] == 0 or None,
             bool,
             _BOOT_COMPLETE_WAIT_SECONDS,

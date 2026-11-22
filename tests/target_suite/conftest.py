@@ -134,7 +134,7 @@ def device_context(board: Board, record: Record) -> Iterator[None]:
         return stdout[0].strip() if returncode == 0 and stdout else None
 
     # the browser starts some seconds after ssh does following a restart
-    appeared_s, pid = board.wait(surf_pid, bool, _BROWSER_WAIT_SECONDS, every=_BROWSER_POLL_SECONDS)
+    appeared_s, pid = board.wait_until(surf_pid, bool, _BROWSER_WAIT_SECONDS, every=_BROWSER_POLL_SECONDS)
     assert appeared_s is not None, "the browser never appeared"
 
     hashed = " ".join((board.CONFIG_PATH, *_HASHED_PATHS))
@@ -159,18 +159,17 @@ def device_context(board: Board, record: Record) -> Iterator[None]:
 
 
 @pytest.fixture
-def backend(board: Board, request: pytest.FixtureRequest, record: Record) -> Backend:
+def backend(board: Board, request: pytest.FixtureRequest) -> Backend:
     """The `Backend` for the board; its changes are undone at this fixture's teardown.
 
     Args:
         board: the board under test.
         request: registers the backend's undos, which run after the test's own finalizers.
-        record: records what the backend's kill measures.
 
     Returns:
         The backend, with nothing changed yet.
     """
-    return Backend(board, request, record)
+    return Backend(board, request)
 
 
 @pytest.fixture

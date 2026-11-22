@@ -26,7 +26,7 @@ def _clock(board: Board) -> tuple[float, float] | None:
         The board's uptime in seconds and board `date +%s` minus host `time.time()`, or None if the
         read returned nonzero.
     """
-    uptime, stdout, _stderr, returncode = board.timed("date +%s")
+    uptime, stdout, _stderr, returncode = board.run_with_uptime("date +%s")
     if returncode != 0:
         return None
     return uptime, int(stdout[0].strip()) - time.time()
@@ -87,7 +87,7 @@ def test_clock_set_wrong(
     board.restart()
     returned = time.monotonic()
 
-    _, reading = board.wait(
+    _, reading = board.wait_until(
         lambda: _clock(board),
         lambda read: abs(read[1]) <= AGREE_SECONDS or read[0] > BOUND_SECONDS,
         BOUND_SECONDS,

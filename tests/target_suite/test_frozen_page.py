@@ -72,7 +72,7 @@ class _Captures:
             f"echo rc=$?; stat -c %s {_CAPTURE_PATH}; sha256sum {_CAPTURE_PATH}"
         )
         try:
-            uptime, stdout, _stderr, _returncode = self._board.timed(cmd)
+            uptime, stdout, _stderr, _returncode = self._board.run_with_uptime(cmd)
         except Board.ERRORS:
             capture = (None, None)
         else:
@@ -131,14 +131,14 @@ def test_frozen_page_recovered(
     grabs = _Captures(board)
     record_property("crop", grabs.crop)
 
-    changing_s, _ = board.wait(
+    changing_s, _ = board.wait_until(
         grabs.take, lambda _capture: grabs.changing_run >= _CHANGING_READS, _GIVE_UP_SECONDS, every=0
     )
     assert changing_s is not None, "the panel was not changing before the freeze"
 
     frozen_pids: list[str] = []
     request.addfinalizer(lambda: frozen_pids and board.run(f"kill -CONT {' '.join(frozen_pids)}"))
-    frozen_at, stdout, _stderr, _returncode = board.timed(
+    frozen_at, stdout, _stderr, _returncode = board.run_with_uptime(
         's=$(pgrep -x surf); p=$(pgrep -P "$s" WebKitWebProcess); echo $p; kill -STOP $p'
     )
     frozen = time.monotonic()
@@ -176,13 +176,13 @@ def test_frozen_page_recovered(
         past_window = capture[0] is not None and not in_time(capture)
         return past_window or (in_time(capture) and grabs.stopped() and grabs.captures[-2][0] > frozen_at)
 
-    stopped_s, last = board.wait(grabs.take, seen_stopped, _GIVE_UP_SECONDS, every=0, since=frozen)
+    stopped_s, last = board.wait_until(grabs.take, seen_stopped, _GIVE_UP_SECONDS, every=0, since=frozen)
     assert stopped_s is not None, "the freeze did not take: no reading of the panel"
     assert in_time(last), (
         f"the freeze did not take: the panel was not seen stopped within {_STOPPED_WITHIN_SECONDS} s of it"
     )
 
-    changing_again_s, _ = board.wait(
+    changing_again_s, _ = board.wait_until(
         grabs.take, lambda _capture: grabs.changing_run == _CHANGING_READS, _GIVE_UP_SECONDS, every=0, since=frozen
     )
     recovered_s = round(grabs.captures[-_CHANGING_READS][0] - frozen_at, 1) if changing_again_s is not None else None

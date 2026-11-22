@@ -76,7 +76,7 @@ class Update:
             raise
         return tool.returncode, output, round(time.monotonic() - started, 1)
 
-    def refuse(self, bundle: pathlib.Path, reasons: tuple[str, ...]) -> dict:
+    def assert_refused(self, bundle: pathlib.Path, reasons: tuple[str, ...]) -> dict:
         """Offer `bundle` and assert it was refused for each of `reasons`, leaving the board as it was.
 
         With a `record_property`, records `before`, `install_rc`, `install_output`, `install_s` and

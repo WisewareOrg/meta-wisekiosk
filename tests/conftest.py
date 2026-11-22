@@ -40,7 +40,7 @@ def install_candidate(bench_candidate: str | None, board: Board) -> tuple[str, b
     if bench_candidate is not None:
         marker = str(uuid.uuid4())
         board.run(f"echo {marker} | systemd-cat -t kiosk-log-marker", check=True)
-        seen_s, _ = board.wait(
+        seen_s, _ = board.wait_until(
             lambda: marker in board.run("journalctl -t kiosk-log-marker -o cat")[0] or None, bool, 10
         )
         marked = (marker, seen_s is not None)

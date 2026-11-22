@@ -122,7 +122,7 @@ def test_motion_stutter(
     _, first = panel.wait_on_panel(full=True)
     first_el = int(first["el"])
 
-    waited_s, start_read = panel.until(
+    waited_s, start_read = panel.wait_until(
         lambda read: read[1] is not None and int(read[1]["el"]) >= first_el + WARMUP_MS,
         WARMUP_READ_WAIT_SECONDS,
         every=READ_PAUSE_SECONDS,
@@ -134,7 +134,7 @@ def test_motion_stutter(
 
     time.sleep(WINDOW_SLEEP_SECONDS)
 
-    waited_s, end_read = panel.until(
+    waited_s, end_read = panel.wait_until(
         lambda read: (
             read[1] is not None
             and (read[1]["load"] != start["load"] or int(read[1]["el"]) >= start_counters["el"] + WINDOW_MS)

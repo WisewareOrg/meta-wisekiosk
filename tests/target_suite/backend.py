@@ -4,7 +4,6 @@ import os
 
 import pytest
 from board import Board
-from record import Record
 
 
 class Backend:
@@ -33,17 +32,15 @@ class Backend:
     _RELEASE = "systemctl unmask --runtime wisekiosk.service; systemctl start wisekiosk.service"
     _RELEASE_UNIT = "test-backend-release"
 
-    def __init__(self, board: Board, request: pytest.FixtureRequest, record: Record) -> None:
+    def __init__(self, board: Board, request: pytest.FixtureRequest) -> None:
         """Bind to the board, and to the request whose teardown undoes each change.
 
         Args:
             board: the board under test.
             request: registers each change's undo.
-            record: records what `kill` and `assert_kill_landed` measure.
         """
         self._board = board
         self._request = request
-        self._record = record
         # the MainPID `kill` took down
         self._killed_pid: str | None = None
 
@@ -106,19 +103,21 @@ class Backend:
         )
         self._board.wait_for_page()
 
-    def kill(self) -> float:
-        """SIGKILL the backend, keeping its MainPID, and record `killed_at_uptime_s` and `main_pid_before`.
+    def kill(self) -> tuple[float, str]:
+        """SIGKILL the backend, keeping its MainPID for `assert_kill_landed`.
 
         Returns:
-            The board's uptime at the kill.
+            The board's uptime at the kill, and the MainPID the kill took down.
         """
         self._killed_pid = self.main_pid()
-        killed_at = self._board.timed("systemctl kill --signal=KILL wisekiosk.service", check=True)[0]
-        self._record(killed_at_uptime_s=killed_at, main_pid_before=self._killed_pid)
-        return killed_at
+        killed_at = self._board.run_with_uptime("systemctl kill --signal=KILL wisekiosk.service", check=True)[0]
+        return killed_at, self._killed_pid
 
-    def assert_kill_landed(self) -> None:
-        """Assert the backend answering after the kill is a new process, and record `main_pid_after`.
+    def assert_kill_landed(self) -> str:
+        """Assert the backend answering after the kill is a new process.
+
+        Returns:
+            The new MainPID.
 
         Raises:
             RuntimeError: `kill` has not run.
@@ -126,10 +125,10 @@ class Backend:
         if self._killed_pid is None:
             raise RuntimeError("assert_kill_landed needs kill to have run")
         new_pid = self.main_pid()
-        self._record(main_pid_after=new_pid)
         assert new_pid != self._killed_pid, (
             f"INVALID CHECK, not an appliance failure: the kill did not land (MainPID {self._killed_pid} unchanged)"
         )
+        return new_pid
 
     def main_pid(self) -> str:
         """The backend's MainPID as systemd reports it.

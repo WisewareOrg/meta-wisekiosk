@@ -22,7 +22,7 @@ def test_browser_killed(board: Board, panel: Panel, record_property: Callable[[s
     record_property("requirement", "TST001")
     _, before = panel.wait_on_panel()
 
-    killed_at = board.timed("kill -KILL $(pgrep -x surf)", check=True)[0]
+    killed_at = board.run_with_uptime("kill -KILL $(pgrep -x surf)", check=True)[0]
 
     def back(read: tuple[float, dict[str, str] | None, list[str]]) -> bool:
         """Whether a panel read shows the instance back with a new nonce.
@@ -37,7 +37,7 @@ def test_browser_killed(board: Board, panel: Panel, record_property: Callable[[s
 
     # The board uptime of the first read showing the page back, so it overstates by up to one
     # read plus the 0.5 s sleep.
-    back_s, final = panel.until(back, _GIVE_UP_SECONDS, every=0.5)
+    back_s, final = panel.wait_until(back, _GIVE_UP_SECONDS, every=0.5)
     recovered_s = round(final[0] - killed_at, 1) if back_s is not None else None
 
     record_property("before", before)

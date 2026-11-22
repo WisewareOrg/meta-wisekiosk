@@ -246,7 +246,7 @@ class _Console:
         if self.foreground() != "1":
             self._record_property("console_restored_by_restart", when)
             self._board.run("systemctl restart kiosk.service", check=True)
-            self._board.wait(self.foreground, lambda console: console == "1", _KIOSK_RESTART_WAIT_SECONDS)
+            self._board.wait_until(self.foreground, lambda console: console == "1", _KIOSK_RESTART_WAIT_SECONDS)
 
     def kill_tty2_login(self) -> None:
         """Kill whatever runs on tty2; `getty@.service`'s `Restart=always` brings back a fresh prompt.

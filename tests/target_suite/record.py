@@ -9,7 +9,7 @@ class Record:
     Every property the target suite records goes through one `Record`: the test calls it, and
     `Panel`, `Backend` and `Update` hold it. A call records its keyword arguments in the order they
     are written, so a run of properties is one call, and the record's names, values and order are
-    the calls'. `verdict` records `validity` from a check's problems.
+    the calls'. `validity` records `validity` from a check's problems.
     """
 
     def __init__(self, record_property: Callable[[str, object], None]) -> None:
@@ -29,7 +29,7 @@ class Record:
         for name, value in properties.items():
             self._record_property(name, value)
 
-    def verdict(self, problems: list[str]) -> None:
+    def validity(self, problems: list[str]) -> None:
         """Record `validity`: `valid` with no problems, else `invalid: ` and the problems joined by `; `.
 
         Args:

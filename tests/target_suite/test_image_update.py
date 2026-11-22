@@ -196,7 +196,7 @@ class _CandidateUpdate(Update):
         """
         board = self._board
         board.run(f"rm -f {_NONCE_PATH}", check=True)
-        self.refuse(bundle, ("Bundle rejected", "test bundle: no run nonce"))
+        self.assert_refused(bundle, ("Bundle rejected", "test bundle: no run nonce"))
 
         self.allow()
         before = board.snapshot()
@@ -325,7 +325,7 @@ def test_new_application_build(
     started = time.monotonic()
     board.restart_by("systemctl reboot")
     panel = Panel(board, request, record)
-    on_panel_s, final = panel.until(
+    on_panel_s, final = panel.wait_until(
         lambda read: panel.on_panel(read[1]) and read[1]["stamp"] == update.bundles.stamp,
         Board.GIVE_UP_SECONDS,
         since=started,
@@ -393,7 +393,7 @@ def test_power_cut_during_an_update(
     written_before = idle[1]
     with ThreadPoolExecutor(max_workers=1) as pool:
         installing = pool.submit(update.install, update.bundles.new_build)
-        copying_s, final = board.wait(
+        copying_s, final = board.wait_until(
             lambda: (installing.done(), update.install_state(device)),
             lambda read: read[0] or (read[1] and read[1][0].startswith(_COPY_STEP) and read[1][1] > written_before),
             _INSTALL_TIMEOUT_SECONDS,
@@ -404,7 +404,7 @@ def test_power_cut_during_an_update(
         record_property("step_at_cut", state[0])
         record_property("sectors_written_at_cut", state[1] - written_before)
         started = power_cut()
-        back_s, last_read = board.until_up(started)
+        back_s, last_read = board.time_until_up(started)
         returncode, output, seconds = installing.result()
     record_property("back_s", back_s)
     record_property("last_read", last_read)

@@ -7,6 +7,7 @@ import time
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from pathlib import Path
+from typing import NamedTuple
 
 import pytest
 from labgrid import Target
@@ -18,16 +19,28 @@ from tenacity import Retrying, retry_if_exception_type, retry_if_result, stop_af
 PowerCut = Callable[[], float]
 
 
+class Up(NamedTuple):
+    """One read of whether the instance is up: the browser running and the page served.
+
+    Attributes:
+        browser_running: `pgrep -x surf` found the browser.
+        page_served: the page served an HTML document.
+    """
+
+    browser_running: bool
+    page_served: bool
+
+
 class Board:
     """The board under test: its remote shell, page, commit, image install and restarts.
 
     Wraps the target's SSHDriver and carries every call to it, so no test reaches the driver. Every
     other method is a read or a restart the tests make; a read that needs a clock stamp takes the
-    board's uptime from the same command (`timed`).
+    board's uptime from the same command (`run_with_uptime`).
 
     Attributes:
         host: `user@address` of the board, as the `just kiosk-*` recipes take it.
-        last_up: the last (browser running, page served) read of `until_up`, None if it read nothing.
+        last_up: the last `Up` read of `time_until_up`, None if it read nothing.
         CONFIG_PATH: the live configuration file on the board.
         DEFAULT_CONFIG_PATH: the image's default configuration, which the board reseeds the live file
             from when it holds none.
@@ -39,7 +52,7 @@ class Board:
     """
 
     host: str
-    last_up: tuple[bool, bool] | None = None
+    last_up: Up | None = None
     CONFIG_PATH = "/data/config/config.json"
     DEFAULT_CONFIG_PATH = "/usr/share/wisekiosk/config.example.json"
     BOOT_ID_CMD = "cat /proc/sys/kernel/random/boot_id"
@@ -71,7 +84,7 @@ class Board:
         service = target.get_resource("NetworkService")
         self.host = f"{service.username}@{service.address}"
 
-    def wait[T](
+    def wait_until[T](
         self,
         read: Callable[[], T | None],
         done: Callable[[T], object],
@@ -137,7 +150,7 @@ class Board:
         """
         return "\n".join(self.run(cmd, check=True, timeout=timeout)[0]).strip()
 
-    def timed(
+    def run_with_uptime(
         self, cmd: str = "true", check: bool = False, timeout: float | None = _COMMAND_TIMEOUT_SECONDS
     ) -> tuple[float, list[str], list[str], int]:
         """Run `cmd` on the board, stamped with the board's uptime at its start.
@@ -257,26 +270,28 @@ class Board:
             return None
         return stdout[0].split()[0]
 
-    def page(self) -> tuple[float, bool, str]:
+    def fetch_page(self) -> tuple[float, bool, str]:
         """Fetch the WiseKiosk instance's page on the board once.
 
         Returns:
             The board's uptime at the fetch, whether it served an HTML page (return code 0 with
             `<html` in the output), and the stdout and stderr joined by newlines, stripped.
         """
-        uptime, stdout, stderr, returncode = self.timed(self._PAGE_FETCH_CMD, timeout=self._PAGE_TIMEOUT_SECONDS)
+        uptime, stdout, stderr, returncode = self.run_with_uptime(
+            self._PAGE_FETCH_CMD, timeout=self._PAGE_TIMEOUT_SECONDS
+        )
         output = "\n".join(stdout + stderr).strip()
         return uptime, returncode == 0 and "<html" in output, output
 
     def wait_for_page(self) -> None:
         """Wait until the page serves an HTML document."""
-        served_s, _ = self.wait(
-            lambda: self.page()[1] or None, bool, self._PAGE_WAIT_SECONDS, every=self._PAGE_POLL_SECONDS
+        served_s, _ = self.wait_until(
+            lambda: self.fetch_page()[1] or None, bool, self._PAGE_WAIT_SECONDS, every=self._PAGE_POLL_SECONDS
         )
         assert served_s is not None, f"the page did not serve within {self._PAGE_WAIT_SECONDS} s"
 
-    def until_up(self, since: float) -> tuple[float | None, tuple[bool, bool] | None]:
-        """Wait until the browser is running and the page is served.
+    def time_until_up(self, since: float) -> tuple[float | None, Up | None]:
+        """Wait until the instance is up: the page served and the browser running.
 
         Resets `last_up` first, so an earlier wait's read never stands in for this one's.
 
@@ -285,20 +300,19 @@ class Board:
 
         Returns:
             The seconds from `since` until the instance was up (None if it was not within
-            `GIVE_UP_SECONDS`), and `last_up`: the last read as (browser running, page served), None if
-            no read succeeded.
+            `GIVE_UP_SECONDS`), and `last_up`: the last read, None if no read succeeded.
         """
         self.last_up = None
-        up_s, _ = self.wait(self._up, all, self.GIVE_UP_SECONDS, since=since)
+        up_s, _ = self.wait_until(self._up, all, self.GIVE_UP_SECONDS, since=since)
         return up_s, self.last_up
 
-    def _up(self) -> tuple[bool, bool]:
+    def _up(self) -> Up:
         """Read once whether the browser is running and the page is served, and keep it in `last_up`.
 
         Returns:
-            Whether `pgrep -x surf` found the browser, and whether the page served.
+            The read.
         """
-        self.last_up = (self.run("pgrep -x surf")[2] == 0, self.page()[1])
+        self.last_up = Up(self.run("pgrep -x surf")[2] == 0, self.fetch_page()[1])
         return self.last_up
 
     def bind(self, request: pytest.FixtureRequest, src: str | os.PathLike[str], path: str) -> None:
