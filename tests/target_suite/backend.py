@@ -1,10 +1,10 @@
 """The WiseKiosk backend as a test drives it: its config, a held restart, a kill and a mask."""
 
 import os
-from collections.abc import Callable
 
 import pytest
 from board import Board
+from record import Record
 
 
 class Backend:
@@ -33,19 +33,17 @@ class Backend:
     _RELEASE = "systemctl unmask --runtime wisekiosk.service; systemctl start wisekiosk.service"
     _RELEASE_UNIT = "test-backend-release"
 
-    def __init__(
-        self, board: Board, request: pytest.FixtureRequest, record_property: Callable[[str, object], None]
-    ) -> None:
+    def __init__(self, board: Board, request: pytest.FixtureRequest, record: Record) -> None:
         """Bind to the board, and to the request whose teardown undoes each change.
 
         Args:
             board: the board under test.
             request: registers each change's undo.
-            record_property: records what `kill` and `assert_kill_landed` measure.
+            record: records what `kill` and `assert_kill_landed` measure.
         """
         self._board = board
         self._request = request
-        self._record_property = record_property
+        self._record = record
         # the MainPID `kill` took down
         self._killed_pid: str | None = None
 
@@ -116,8 +114,7 @@ class Backend:
         """
         self._killed_pid = self.main_pid()
         killed_at = self._board.timed("systemctl kill --signal=KILL wisekiosk.service", check=True)[0]
-        self._record_property("killed_at_uptime_s", killed_at)
-        self._record_property("main_pid_before", self._killed_pid)
+        self._record(killed_at_uptime_s=killed_at, main_pid_before=self._killed_pid)
         return killed_at
 
     def assert_kill_landed(self) -> None:
@@ -129,7 +126,7 @@ class Backend:
         if self._killed_pid is None:
             raise RuntimeError("assert_kill_landed needs kill to have run")
         new_pid = self.main_pid()
-        self._record_property("main_pid_after", new_pid)
+        self._record(main_pid_after=new_pid)
         assert new_pid != self._killed_pid, (
             f"INVALID CHECK, not an appliance failure: the kill did not land (MainPID {self._killed_pid} unchanged)"
         )

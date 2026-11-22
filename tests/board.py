@@ -14,6 +14,9 @@ from labgrid.binding import StateError
 from labgrid.driver.exception import ExecutionError
 from tenacity import Retrying, retry_if_exception_type, retry_if_result, stop_after_delay, wait_fixed
 
+# the power_cut fixture's callable: cut, restore, reconnect; returns when power returned
+PowerCut = Callable[[], float]
+
 
 class Board:
     """The board under test: its remote shell, page, commit, image install and restarts.

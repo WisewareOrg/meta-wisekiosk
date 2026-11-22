@@ -12,9 +12,10 @@ from typing import TYPE_CHECKING
 
 import pytest
 from backend import Backend
-from board import Board
+from board import Board, PowerCut
 from labgrid import Target
 from panel import Panel
+from record import Record
 from replay import CA_PATH, CARDS4_LIVE
 
 if TYPE_CHECKING:
@@ -96,15 +97,28 @@ def _install_candidate(config_across_update: tuple[str | None, str | None, str |
     """
 
 
+@pytest.fixture
+def record(record_property: Callable[[str, object], None]) -> Record:
+    """The test's `Record`.
+
+    Args:
+        record_property: pytest's fixture for this test.
+
+    Returns:
+        The test's `Record`.
+    """
+    return Record(record_property)
+
+
 @pytest.fixture(autouse=True)
-def device_context(board: Board, record_property: Callable[[str, object], None]) -> Iterator[None]:
+def device_context(board: Board, record: Record) -> Iterator[None]:
     """Record the board as the test found it, and the end time after the test.
 
     Facts are raw board output: a missing file is simply absent from `file_sha256`.
 
     Args:
         board: the board under test.
-        record_property: records each fact and the end time.
+        record: records each fact and the end time.
 
     Yields:
         None: the end time is recorded after the test.
@@ -139,25 +153,24 @@ def device_context(board: Board, record_property: Callable[[str, object], None])
         "timesync": board.read("timedatectl show -p NTPSynchronized --value"),
         "start": datetime.now(UTC).isoformat(),
     }
-    for key, value in facts.items():
-        record_property(key, value)
+    record(**facts)
     yield
-    record_property("end", datetime.now(UTC).isoformat())
+    record(end=datetime.now(UTC).isoformat())
 
 
 @pytest.fixture
-def backend(board: Board, request: pytest.FixtureRequest, record_property: Callable[[str, object], None]) -> Backend:
+def backend(board: Board, request: pytest.FixtureRequest, record: Record) -> Backend:
     """The `Backend` for the board; its changes are undone at this fixture's teardown.
 
     Args:
         board: the board under test.
         request: registers the backend's undos, which run after the test's own finalizers.
-        record_property: records what the backend's kill measures.
+        record: records what the backend's kill measures.
 
     Returns:
         The backend, with nothing changed yet.
     """
-    return Backend(board, request, record_property)
+    return Backend(board, request, record)
 
 
 @pytest.fixture
@@ -201,18 +214,18 @@ def replay_window(board: Board, backend: Backend, proxy: "Proxy", request: pytes
 
 
 @pytest.fixture
-def panel(board: Board, request: pytest.FixtureRequest, record_property: Callable[[str, object], None]) -> Panel:
+def panel(board: Board, request: pytest.FixtureRequest, record: Record) -> Panel:
     """Load the probe into the browser and return the `Panel`; the page wait is the test's.
 
     Args:
         board: the board under test.
         request: registers the probe's undos, which run at this fixture's teardown.
-        record_property: records the probe's hash.
+        record: records the probe's hash.
 
     Returns:
         The panel, with the probe installed.
     """
-    observation = Panel(board, request, record_property)
+    observation = Panel(board, request, record)
     observation.install()
     return observation
 
@@ -222,15 +235,15 @@ def power_cut(
     target: Target,
     board: Board,
     request: pytest.FixtureRequest,
-    record_property: Callable[[str, object], None],
-) -> Callable[[], float]:
+    record: Record,
+) -> PowerCut:
     """A power cut through the bench's switched plug; power is switched back on at teardown.
 
     Args:
         target: names the bench's switched plug, the `ExternalPowerDriver`.
         board: the board under test.
         request: registers the switching back on.
-        record_property: records `power_on_command_s`.
+        record: records `power_on_command_s`.
 
     Returns:
         The `cut()` the test calls. It cuts the board's power, restores it and reconnects once the
@@ -256,7 +269,7 @@ def power_cut(
             power.on()
         except (subprocess.CalledProcessError, OSError) as error:
             pytest.exit(f"the bench's power switch failed: {error}", returncode=2)
-        record_property("power_on_command_s", round(time.monotonic() - on_began, 1))
+        record(power_on_command_s=round(time.monotonic() - on_began, 1))
         board.reconnect()
         if board.read(board.BOOT_ID_CMD) == old_boot_id:
             pytest.exit(

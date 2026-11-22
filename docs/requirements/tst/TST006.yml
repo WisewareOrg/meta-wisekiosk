@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_new_application_build
   path: tests/target_suite/test_image_update.py
-  sha: 7679a9232d4b5a1ca17f1e4c6836b5c415f80b78d17a1cef3e8f1d001c281d1c
+  sha: ddc6052858d6452ffbecb9bad530bae53500d11d3c19dbd0f78c534149342db1
   type: file
-reviewed: Ib6TosO1NO46YaZbuqseYn4S1FmOsn9rhj33HF9IUUs=
+reviewed: CYuDCUEBGx_RCuotVlv1QmG0rM-rkSJ9UIqx4nEq7zU=
 status: proposed
 text: |
   With nobody at the panel, install over the air a valid image update carrying a different WiseKiosk

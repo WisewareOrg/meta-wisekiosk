@@ -18,6 +18,7 @@ import pytest
 from board import Board
 from container_dir import ContainerDir
 from panel import Panel
+from record import Record
 from update import Update
 
 _PROBE = "/work/tests/target_suite/probe.js"
@@ -305,6 +306,7 @@ def test_new_application_build(
     board: Board,
     request: pytest.FixtureRequest,
     record_property: Callable[[str, object], None],
+    record: Record,
 ) -> None:
     """TST006 new application build: install an update with a different build; time until it is on the panel.
 
@@ -315,13 +317,14 @@ def test_new_application_build(
         board: the board under test, restarted here.
         request: the test's request, which the panel registers its undos on.
         record_property: records the requirement and the time on the panel.
+        record: records what the panel's reads measure.
     """
     record_property("requirement", "TST006")
     update.refuse_then_install(update.bundles.new_build)
 
     started = time.monotonic()
     board.restart_by("systemctl reboot")
-    panel = Panel(board, request, record_property)
+    panel = Panel(board, request, record)
     on_panel_s, final = panel.until(
         lambda read: panel.on_panel(read[1]) and read[1]["stamp"] == update.bundles.stamp,
         Board.GIVE_UP_SECONDS,

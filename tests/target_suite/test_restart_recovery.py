@@ -4,12 +4,12 @@ It restarted, crashed, lost power or started its backend late.
 """
 
 import time
-from collections.abc import Callable
 
 import pytest
 from backend import Backend
-from board import Board
+from board import Board, PowerCut
 from panel import Panel
+from record import Record
 
 # TST004's bound
 _CRASH_BOUND_SECONDS = 100
@@ -59,43 +59,39 @@ def _loaded(titles: list[str]) -> str | None:
     return next((t for t in titles if t.endswith(" | WiseKiosk") and not t.startswith("[")), None)
 
 
-def test_kernel_crash(board: Board, record_property: Callable[[str, object], None]) -> None:
+def test_kernel_crash(board: Board, record: Record) -> None:
     """TST004 kernel crash: crash the kernel and time until the page is served, browser running.
 
     Args:
         board: the board under test, crashed here.
-        record_property: records the requirement, the time back and the last read.
+        record: records the requirement, the time back and the last read.
     """
-    record_property("requirement", "TST004")
+    record(requirement="TST004")
     back_s, last_read = _back_s(board, "echo c > /proc/sysrq-trigger")
-    record_property("back_s", back_s)
-    record_property("last_read", last_read)
+    record(back_s=back_s, last_read=last_read)
     assert back_s is not None and back_s <= _CRASH_BOUND_SECONDS, (
         f"back after {back_s} s (None: not within {Board.GIVE_UP_SECONDS} s of the crash); "
         f"bound {_CRASH_BOUND_SECONDS} s; last read {last_read}"
     )
 
 
-def test_restart_to_the_panel(board: Board, record_property: Callable[[str, object], None]) -> None:
+def test_restart_to_the_panel(board: Board, record: Record) -> None:
     """TST011 restart to the panel: restart the board; time until the page is served, browser up.
 
     Args:
         board: the board under test, restarted here.
-        record_property: records the requirement, the time back and the last read.
+        record: records the requirement, the time back and the last read.
     """
-    record_property("requirement", "TST011")
+    record(requirement="TST011")
     back_s, last_read = _back_s(board, "systemctl reboot")
-    record_property("back_s", back_s)
-    record_property("last_read", last_read)
+    record(back_s=back_s, last_read=last_read)
     assert back_s is not None and back_s <= _RESTART_BOUND_SECONDS, (
         f"back after {back_s} s (None: not within {Board.GIVE_UP_SECONDS} s of the restart); "
         f"bound {_RESTART_BOUND_SECONDS} s; last read {last_read}"
     )
 
 
-def test_power_cut_while_showing(
-    board: Board, power_cut: Callable[[], float], record_property: Callable[[str, object], None]
-) -> None:
+def test_power_cut_while_showing(board: Board, power_cut: PowerCut, record: Record) -> None:
     """TST002 power cut while showing: cut power with the instance up.
 
     Times from power returning until the page is served with the browser running.
@@ -103,15 +99,14 @@ def test_power_cut_while_showing(
     Args:
         board: the board under test, whose power is cut.
         power_cut: cuts the power and returns the instant it came back.
-        record_property: records the requirement, the time back and the last read.
+        record: records the requirement, the time back and the last read.
     """
-    record_property("requirement", "TST002")
+    record(requirement="TST002")
     ready_s, last_read = board.until_up(time.monotonic())
     assert ready_s is not None, f"the instance was not up before the cut; last read: {last_read}"
     started = power_cut()
     back_s, last_read = board.until_up(started)
-    record_property("back_s", back_s)
-    record_property("last_read", last_read)
+    record(back_s=back_s, last_read=last_read)
     assert back_s is not None and back_s <= _POWER_CUT_BOUND_SECONDS, (
         f"back after {back_s} s (None: not within {Board.GIVE_UP_SECONDS} s of power returning); "
         f"bound {_POWER_CUT_BOUND_SECONDS} s; last read {last_read}"
@@ -120,9 +115,9 @@ def test_power_cut_while_showing(
 
 def test_cold_boot_to_the_panel(
     board: Board,
-    power_cut: Callable[[], float],
+    power_cut: PowerCut,
     request: pytest.FixtureRequest,
-    record_property: Callable[[str, object], None],
+    record: Record,
 ) -> None:
     """TST012 cold boot to the panel: cut power.
 
@@ -132,16 +127,14 @@ def test_cold_boot_to_the_panel(
         board: the board under test, whose power is cut.
         power_cut: cuts the power and returns the instant it came back.
         request: the test's request, which the panel registers its undos on.
-        record_property: records the requirement, the time, the last titles and the loaded title.
+        record: records the requirement, the time, the last titles and the loaded title.
     """
-    record_property("requirement", "TST012")
-    panel = Panel(board, request, record_property)
+    record(requirement="TST012")
+    panel = Panel(board, request, record)
     started = power_cut()
     on_panel_s, _ = panel.until(lambda read: _loaded(read[2]) is not None, Board.GIVE_UP_SECONDS, since=started)
     titles = panel.last_reading[2] if panel.last_reading else None
-    record_property("on_panel_s", on_panel_s)
-    record_property("last_titles", titles)
-    record_property("loaded", _loaded(titles) if titles else None)
+    record(on_panel_s=on_panel_s, last_titles=titles, loaded=_loaded(titles) if titles else None)
     assert on_panel_s is not None, (
         f"the browser had not finished loading the instance within {Board.GIVE_UP_SECONDS} s "
         f"of power returning; last window titles: {titles!r}"
@@ -155,7 +148,7 @@ def test_backend_late_at_boot(
     board: Board,
     backend: Backend,
     request: pytest.FixtureRequest,
-    record_property: Callable[[str, object], None],
+    record: Record,
 ) -> None:
     """TST033 backend late at boot: time from the held backend's first answer to the instance on the panel.
 
@@ -168,10 +161,10 @@ def test_backend_late_at_boot(
         backend: masks and releases the backend.
         request: the test's request, on which the probe's unmask is registered again so it runs
             before the probe's teardown.
-        record_property: records the requirement and what the backend and the panel measure.
+        record: records the requirement and what the backend and the panel measure.
     """
-    record_property("requirement", "TST033")
-    panel = Panel(board, request, record_property)
+    record(requirement="TST033")
+    panel = Panel(board, request, record)
     board.wait_for_page()
 
     backend.mask()
@@ -180,8 +173,7 @@ def test_backend_late_at_boot(
 
     enabled = board.run("systemctl is-enabled wisekiosk.service")[0]
     active = board.run("systemctl is-active wisekiosk.service")[0]
-    record_property("backend_enabled_after_restart", enabled)
-    record_property("backend_active_after_restart", active)
+    record(backend_enabled_after_restart=enabled, backend_active_after_restart=active)
     assert enabled == ["masked-runtime"] and active != ["active"], (
         "INVALID CHECK, not an appliance failure: the hold did not survive the soft-reboot "
         f"(is-enabled {enabled}, is-active {active})"

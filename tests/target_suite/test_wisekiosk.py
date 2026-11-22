@@ -6,6 +6,7 @@ import pytest
 from backend import Backend
 from board import Board
 from panel import Panel
+from record import Record
 
 # TST032's bound
 _CRASH_BOUND_SECONDS = 60
@@ -98,6 +99,7 @@ def test_backend_crash_during_browser_start(
     backend: Backend,
     request: pytest.FixtureRequest,
     record_property: Callable[[str, object], None],
+    record: Record,
 ) -> None:
     """TST034 browser start during a backend crash: SIGKILL the backend and restart the browser while it is down.
 
@@ -111,10 +113,11 @@ def test_backend_crash_during_browser_start(
         backend: held and killed here.
         request: the test's request, on which the hold's undo is registered again so it runs
             before the probe's teardown.
-        record_property: records the requirement and what the kill and the panel measure.
+        record_property: records the requirement and the time the backend was down.
+        record: records what the kill and the panel measure.
     """
     record_property("requirement", "TST034")
-    panel = Panel(board, request, record_property)
+    panel = Panel(board, request, record)
     board.wait_for_page()
     backend.hold(_HOLD_SECONDS)
     killed_at = backend.kill()

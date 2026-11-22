@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 from board import Board
+from record import Record
 from replay import FULL_CARDS
 
 _PROBE_SRC = Path(__file__).resolve().parent / "probe.js"
@@ -45,19 +46,17 @@ class Panel:
     last_reading: tuple[float, dict[str, str] | None, list[str]] | None = None
     last_held: tuple[bool, bool, tuple | None, str | None] | None = None
 
-    def __init__(
-        self, board: Board, request: pytest.FixtureRequest, record_property: Callable[[str, object], None]
-    ) -> None:
+    def __init__(self, board: Board, request: pytest.FixtureRequest, record: Record) -> None:
         """Bind to the board, and to the request whose teardown undoes `install`.
 
         Args:
             board: the board under test.
             request: registers `install`'s undos.
-            record_property: records the probe's hash and what `held` and `after_answer` measure.
+            record: records the probe's hash and what `held` and `after_answer` measure.
         """
         self._board = board
         self._request = request
-        self._record_property = record_property
+        self._record = record
         self.last_reading = None
         self.last_held = None
         # the held check's last finished title
@@ -82,7 +81,7 @@ class Panel:
         board.bind(self._request, _PROBE_SRC, _SURF_SCRIPT_PATH)
         if restart_browser:
             board.run("systemctl restart kiosk.service", check=True)
-        self._record_property("probe_sha256", hashlib.sha256(_PROBE_SRC.read_bytes()).hexdigest())
+        self._record(probe_sha256=hashlib.sha256(_PROBE_SRC.read_bytes()).hexdigest())
 
     @staticmethod
     def on_panel(sample: dict[str, str] | None) -> bool:
@@ -180,8 +179,7 @@ class Panel:
             self._held, lambda read: read[1] or (read[0] and read[2] is not None), Board.GIVE_UP_SECONDS
         )
         held = self.last_held
-        self._record_property("held_state", held)
-        self._record_property("held_case", held[2][0] if held and held[2] else None)
+        self._record(held_state=held, held_case=held[2][0] if held and held[2] else None)
         assert held_s is not None, (
             f"INVALID CHECK, not an appliance failure: the browser had not finished a load without the "
             f"backend within {Board.GIVE_UP_SECONDS} s; last read: {held!r}"
@@ -212,10 +210,12 @@ class Panel:
             on_panel_s = round(last[0] - t0, 1) if last and self.on_panel(last[1]) else None
         last = self.last_reading
         self._answered = (t0, on_panel_s, last)
-        self._record_property("backend_answered_uptime_s", t0)
-        self._record_property("on_panel_s", on_panel_s)
-        self._record_property("last_sample", last[1] if last else None)
-        self._record_property("last_titles", last[2] if last else None)
+        self._record(
+            backend_answered_uptime_s=t0,
+            on_panel_s=on_panel_s,
+            last_sample=last[1] if last else None,
+            last_titles=last[2] if last else None,
+        )
         return t0
 
     def assert_on_panel_within(self, bound: float) -> None:

@@ -12,9 +12,9 @@ ref: ''
 references:
 - keyword: def test_backend_crash
   path: tests/target_suite/test_wisekiosk.py
-  sha: 435611f0de9b129fe4b13ecc836094545288a42f0d6aadfb68ebb2347a08bafa
+  sha: 9f3c9bea79ed4e05056727a5a22cfebd52a39b4c54e5d627e371100c2960a7fa
   type: file
-reviewed: ojjVcUuPAW_sjjzmvkCLfIVo7r-Wx4FxZy_hwnaVvyE=
+reviewed: 6wVgeSJ_jOPcROeK4RspMnUhgvhNSDlvwW1vXqm-22U=
 status: proposed
 text: |
   With nobody at the panel, crash the WiseKiosk backend by killing it outright. Pass if the
