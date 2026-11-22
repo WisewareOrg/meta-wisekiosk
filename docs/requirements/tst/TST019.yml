@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_config_held_across_image_update
   path: tests/target_suite/test_configuration.py
-  sha: dc26fc355d6591ae50be2b542e2e4af85cf9de29067936cbced7b1541e55b4dd
+  sha: 6c5fed2037b1b7a853f4d6adbb0ab2cb150d00a2c72540903aae25ef7c44f58d
   type: file
-reviewed: Jf2aB-GKfkRE0H6GcV2Un_D8vsxWCDUA0Wc01AG9xVs=
+reviewed: VZ8UiIiBTyBnRNozrHCWyxljXV_GYT_Q-55ez8KENv4=
 status: proposed
 text: |
   Install a valid image update over the air on an appliance holding its operator's configuration.

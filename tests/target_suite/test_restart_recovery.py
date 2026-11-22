@@ -1,4 +1,7 @@
-"""Target suite: with nobody at the panel, a board that restarted, crashed, lost power or started its backend late brings the instance back in time."""
+"""Target suite: a board that went down, nobody at the panel, brings the instance back in time.
+
+It restarted, crashed, lost power or started its backend late.
+"""
 
 import time
 
@@ -24,6 +27,7 @@ _POWER_CUT_BOUND_SECONDS = 60
 _COLD_BOOT_BOUND_SECONDS = 110
 # TST033's bound
 _LATE_BACKEND_BOUND_SECONDS = 60
+
 _USERSPACE_BOOT_CMD = "systemctl show -p ActiveEnterTimestampMonotonic --value multi-user.target"
 _RELEASE = "systemctl unmask --runtime wisekiosk.service; systemctl start wisekiosk.service"
 _RELEASE_UNIT = "test-backend-release"
@@ -63,7 +67,10 @@ def test_restart_to_the_panel(board, record_property):
 
 
 def test_power_cut_while_showing(board, power_cut, record_property):
-    """TST002 power cut while showing: cut power with the instance up; time until the page is served with the browser running."""
+    """TST002 power cut while showing: cut power with the instance up.
+
+    Times from power returning until the page is served with the browser running.
+    """
     record_property("requirement", "TST002")
     ready_s, last_read = until_up(board, time.monotonic())
     assert ready_s is not None, f"the instance was not up before the cut; last read: {last_read}"
@@ -75,7 +82,10 @@ def test_power_cut_while_showing(board, power_cut, record_property):
 
 
 def test_cold_boot_to_the_panel(board, power_cut, record_property):
-    """TST012 cold boot to the panel: cut power; time until the browser has finished loading the instance's page."""
+    """TST012 cold boot to the panel: cut power.
+
+    Times from power returning until the browser has finished loading the instance's page.
+    """
     record_property("requirement", "TST012")
     panel = Panel(board)
     started = power_cut()

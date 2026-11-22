@@ -1,4 +1,7 @@
-"""Target-suite setup: the run's hooks and start-of-run install, each test's device record, and the fixtures that set the board's state, observe the panel and inject faults."""
+"""Target-suite setup: the run's hooks, its start-of-run install and each test's device record.
+
+Also the fixtures that set the board's state, observe the panel and inject faults.
+"""
 
 import contextlib
 import subprocess
@@ -249,7 +252,10 @@ def outage(board):
 
 @pytest.fixture
 def power_cut(target, board, request, record_property):
-    """Return `cut()`, which runs `cut_power` (power_cut.py) on the board; power is switched on again at teardown."""
+    """Return a callable that runs `cut_power` (power_cut.py) and returns its `on_began`.
+
+    Power is switched back on at teardown.
+    """
     power = target.get_driver("ExternalPowerDriver")
     request.addfinalizer(power.on)
     return lambda: cut_power(board, power, record_property)

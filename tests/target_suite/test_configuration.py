@@ -4,13 +4,16 @@ import pytest
 
 
 def _check(before, after, default, record_property):
-    """Record the three hashes and the validity, then assert the config held, and that a loss would have been seen.
+    """Record the three hashes and the validity, then assert the config held.
+
+    It also asserts that a loss would have been seen.
 
     Args:
         before (str | None): sha256 of the live config before the fault.
         after (str | None): sha256 of the live config after it.
         default (str | None): sha256 of the image default the board reseeds from.
-        record_property (Callable): the test's `record_property`; the hashes are recorded first, then `validity`.
+        record_property (Callable): the test's `record_property`; the hashes are recorded
+            first, then `validity`.
     """
     record_property("config_before_sha256", before)
     record_property("config_after_sha256", after)

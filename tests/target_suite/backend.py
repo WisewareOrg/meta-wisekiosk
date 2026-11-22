@@ -1,4 +1,7 @@
-"""The WiseKiosk backend as a test drives it: its MainPID, a kill, and a restart held back by a runtime drop-in."""
+"""The WiseKiosk backend as a test drives it: its MainPID, a kill, and a held restart.
+
+The hold is a runtime drop-in that delays the backend's own restart.
+"""
 
 BACKEND_DROP_IN_DIR = "/run/systemd/system/wisekiosk.service.d"
 # covers a daemon-reload plus a backend start

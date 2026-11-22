@@ -1,4 +1,7 @@
-"""What the panel shows: the browser's window titles, what they say surf has loaded, and the in-page probe read back through them."""
+"""What the panel shows: window titles, and the in-page probe read back through them.
+
+The titles also say which load surf has finished.
+"""
 
 import hashlib
 import re
