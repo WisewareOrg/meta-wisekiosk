@@ -38,12 +38,13 @@ class Backend:
         self._board = board
 
     def pid(self) -> str:
-        """The backend's MainPID as systemd reports it.
+        """Read the backend's MainPID as systemd reports it, retrying through a dropped session.
 
         Returns:
             The MainPID.
         """
-        return self._board.read("systemctl show -p MainPID --value wisekiosk.service")
+        stdout = self._board.run_reconnecting("systemctl show -p MainPID --value wisekiosk.service", check=True)[0]
+        return "\n".join(stdout).strip()
 
     def sigkill(self) -> float:
         """SIGKILL the backend.

@@ -1,0 +1,114 @@
+"""The board's memory, and the kernel's record of processes it killed for memory."""
+
+import re
+from typing import TYPE_CHECKING, NamedTuple
+
+if TYPE_CHECKING:
+    from board import Board
+
+_OOM = re.compile(r"^\[\s*(\d+\.\d+)\].*(?:Out of memory|deadlocked on memory)")
+
+
+class OomKills(NamedTuple):
+    """The kernel's out-of-memory lines from one log.
+
+    Attributes:
+        returncode: the read's return code; nonzero means the log could not be read.
+        uptimes: the board uptime of each out-of-memory line at or after the read's `since`.
+    """
+
+    returncode: int
+    uptimes: list[float]
+
+
+class Memory:
+    """The board's memory, and the kernel's out-of-memory record in this boot, the last, and pstore.
+
+    Every read retries through a dropped session (`Board.run_reconnecting`), and raises the board's
+    last error once that runs out.
+    """
+
+    def __init__(self, board: "Board") -> None:
+        """Bind to the board.
+
+        Args:
+            board: the board under test.
+        """
+        self._board = board
+
+    def meminfo_kb(self) -> dict[str, int]:
+        """Read `/proc/meminfo`.
+
+        Returns:
+            Each field in kB, by name.
+        """
+        stdout = self._board.run_reconnecting("cat /proc/meminfo", check=True)[0]
+        return {line.split(":")[0]: int(line.split()[1]) for line in stdout if ":" in line}
+
+    def oom_kills_this_boot(self, since: float) -> OomKills:
+        """Read this boot's kernel log for processes killed for memory.
+
+        Args:
+            since: the board uptime from which a kill counts.
+
+        Returns:
+            The read's return code and the kills' uptimes.
+        """
+        return self._kernel_log_kills("-b", since)
+
+    def oom_kills_previous_boot(self, since: float) -> OomKills:
+        """Read the previous boot's kernel log for processes killed for memory.
+
+        Args:
+            since: the previous boot's uptime from which a kill counts.
+
+        Returns:
+            The read's return code and the kills' uptimes.
+        """
+        return self._kernel_log_kills("-b -1", since)
+
+    def oom_kills_in_pstore(self, since: float) -> OomKills:
+        """Read the previous boot's kernel console tail in pstore for processes killed for memory.
+
+        Mounts pstore first if it is not mounted.
+
+        Args:
+            since: the previous boot's uptime from which a kill counts.
+
+        Returns:
+            The read's return code and the kills' uptimes.
+        """
+        stdout, _stderr, returncode = self._board.run_reconnecting(
+            'grep -q " /sys/fs/pstore " /proc/mounts || mount -t pstore pstore /sys/fs/pstore; '
+            "cat /sys/fs/pstore/console-ramoops-0"
+        )
+        return OomKills(returncode, self._uptimes_since(stdout, since))
+
+    def _kernel_log_kills(self, boot_flag: str, since: float) -> OomKills:
+        """Read the kernel log of the boot `boot_flag` names for processes killed for memory.
+
+        Args:
+            boot_flag: `journalctl`'s boot selection.
+            since: the board uptime from which a kill counts.
+
+        Returns:
+            The read's return code and the kills' uptimes.
+        """
+        stdout, _stderr, returncode = self._board.run_reconnecting(
+            f"journalctl -k {boot_flag} -o short-monotonic --no-pager"
+        )
+        return OomKills(returncode, self._uptimes_since(stdout, since))
+
+    @staticmethod
+    def _uptimes_since(lines: list[str], since: float) -> list[float]:
+        """The uptimes of the out-of-memory lines among `lines`, at or after `since`.
+
+        Args:
+            lines: kernel log lines, stamped with the uptime.
+            since: the uptime from which a line counts.
+
+        Returns:
+            The uptimes, in log order.
+        """
+        found = [float(match.group(1)) for line in lines if (match := _OOM.match(line))]
+        return [uptime for uptime in found if since <= uptime]

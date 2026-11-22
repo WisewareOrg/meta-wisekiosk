@@ -94,6 +94,10 @@ class Board:
     _RESTART_WAIT_SECONDS = 180
     _FAULT_SSH_TIMEOUT_SECONDS = 30
     _POWER_OFF_SECONDS = 10
+    # how long `run_reconnecting` keeps reconnecting and retrying before it gives up
+    _RECONNECTING_RETRY_SECONDS = 300
+    # how often `sleep_watching_boot` reads the boot, so a reboot ends the sleep early
+    _BOOT_CHECK_SECONDS = 600
 
     def __init__(self, target: Target) -> None:
         """Bind to the target's SSHDriver and NetworkService, and build the board's parts.
@@ -160,6 +164,65 @@ class Board:
             The stdout lines joined by newlines, stripped.
         """
         return "\n".join(self.run(cmd, check=True, timeout=timeout)[0]).strip()
+
+    def run_reconnecting(
+        self, cmd: str, check: bool = False, timeout: float | None = _COMMAND_TIMEOUT_SECONDS
+    ) -> tuple[list[str], list[str], int]:
+        """Run `cmd` on the board, reconnecting and retrying while the session times out or drops.
+
+        Retries for up to 300 s, then raises the last of `ERRORS` unchanged.
+
+        Args:
+            cmd: the command to run.
+            check: assert the command returned 0.
+            timeout: forwarded to `run`.
+
+        Returns:
+            The stdout lines, the stderr lines and the return code.
+        """
+        return Retrying(
+            stop=stop_after_delay(self._RECONNECTING_RETRY_SECONDS),
+            retry=retry_if_exception_type(self.ERRORS),
+            before_sleep=lambda _state: self._reconnect_if_it_answers(),
+            reraise=True,
+        )(self.run, cmd, check=check, timeout=timeout)
+
+    def uptime_s(self) -> float:
+        """Read the board's uptime, retrying through a dropped session (`run_reconnecting`).
+
+        Returns:
+            The uptime, in seconds.
+        """
+        return float("\n".join(self.run_reconnecting("cat /proc/uptime", check=True)[0]).strip().split()[0])
+
+    def boot_id(self) -> str:
+        """Read the kernel's boot id, retrying through a dropped session (`run_reconnecting`).
+
+        Returns:
+            The boot id.
+        """
+        return "\n".join(self.run_reconnecting(self.BOOT_ID_CMD, check=True)[0]).strip()
+
+    def sleep_watching_boot(self, boot_id: str, seconds: float) -> str | None:
+        """Sleep out `seconds`, reading the boot every 600 s, and end early if the board booted again.
+
+        The final read, made once more after the sleep, leaves the session live for every read after
+        it.
+
+        Args:
+            boot_id: the boot the sleep starts in.
+            seconds: how long to sleep.
+
+        Returns:
+            The boot id at the end, or None if it could not be read.
+        """
+        end = time.monotonic() + seconds
+        while time.monotonic() < end:
+            time.sleep(min(self._BOOT_CHECK_SECONDS, max(0, end - time.monotonic())))
+            now = self._boot_id_or_none()
+            if now is not None and now != boot_id:
+                break
+        return self._boot_id_or_none()
 
     def run_with_uptime(
         self, cmd: str = "true", check: bool = False, timeout: float | None = _COMMAND_TIMEOUT_SECONDS
@@ -498,6 +561,22 @@ class Board:
                 returncode=2,
             )
         return on_began, on_command_s
+
+    def _reconnect_if_it_answers(self) -> None:
+        """Reconnect the SSHDriver, and carry on if the board does not answer in time."""
+        with contextlib.suppress(AssertionError):
+            self.reconnect()
+
+    def _boot_id_or_none(self) -> str | None:
+        """Read the kernel's boot id through `boot_id`.
+
+        Returns:
+            The boot id, or None if it could not be read.
+        """
+        try:
+            return self.boot_id()
+        except self.ERRORS:
+            return None
 
     def _read_instance_state(self) -> InstanceState:
         """Read once whether the browser is running and the page is served, into `last_instance_state`.
