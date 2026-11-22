@@ -26,7 +26,7 @@ class TestNetwork(BoardTest):
         self.record(requirement="TST029")
         outage = self.board.network.outage
         outage.wait_boot_complete()
-        boot_id = self.board.read(Board.BOOT_ID_CMD)
+        boot_id = self.board.run(Board.BOOT_ID_CMD, check=True).text
 
         outage.schedule(_OUTAGE_SECONDS)
         deadline = time.monotonic() + Outage.CUT_DELAY_SECONDS + _OUTAGE_SECONDS + Outage.GIVE_UP_SECONDS
@@ -78,13 +78,13 @@ class TestNetwork(BoardTest):
         self.record(probe_sha256=page.install_probe())
         self.record(requirement="TST008")
         page.wait_for_instance()
-        load_start = self.board.run_with_uptime(check=True)[0]
+        load_start = self.board.run("true", check=True, with_uptime=True).uptime_s
 
         load = self.board.network.load.push(_LOAD_SECONDS)
         watch = page.watch(load_start)
         watch.read_while(load.is_running)
         load.wait()
-        load_end = self.board.run_with_uptime(check=True)[0]
+        load_end = self.board.run("true", check=True, with_uptime=True).uptime_s
         watch.uptimes.append(load_end)
         observe_until = time.monotonic() + _STOP_ALLOWANCE_SECONDS
         watch.read_while(lambda: time.monotonic() < observe_until)

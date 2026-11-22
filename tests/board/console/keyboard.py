@@ -119,7 +119,7 @@ class Keyboard:
         """
         self._board.cleanup.callback(self._board.run, f"rm -rf {_DIR}")
         self._board.run(f"rm -rf {_DIR}; mkdir {_DIR}", check=True)
-        uinput_loaded = self._board.run("test -d /sys/module/uinput")[2] == 0
+        uinput_loaded = self._board.run("test -d /sys/module/uinput").returncode == 0
         self._board.run("modprobe uinput", check=True)
         if not uinput_loaded:
             self._board.cleanup.callback(self._board.run, "rmmod uinput", check=True)
@@ -157,7 +157,7 @@ class Keyboard:
         Returns:
             The record and its parse.
         """
-        lines = self._board.run(f"cat {_DIR}/record 2>/dev/null || true", check=True)[0]
+        lines = self._board.run(f"cat {_DIR}/record 2>/dev/null || true", check=True).lines
         prompts = self._fields_of(lines, "prompt")
         return KeyboardRecord(
             lines,
@@ -171,7 +171,7 @@ class Keyboard:
         Returns:
             The marker and its first line's fields.
         """
-        lines = self._board.run(f"cat {_DIR}/marker 2>/dev/null || true", check=True)[0]
+        lines = self._board.run(f"cat {_DIR}/marker 2>/dev/null || true", check=True).lines
         return TypedMarker(lines, lines[0].split() if lines else [])
 
     def journal(self) -> str:
@@ -180,8 +180,7 @@ class Keyboard:
         Returns:
             The journal's lines, joined.
         """
-        stdout, _stderr, _returncode = self._board.run(f"journalctl -u {_UNIT} -o cat --no-pager")
-        return "\n".join(stdout)
+        return "\n".join(self._board.run(f"journalctl -u {_UNIT} -o cat --no-pager").lines)
 
     @staticmethod
     def _marker_command(nonce: str) -> str:

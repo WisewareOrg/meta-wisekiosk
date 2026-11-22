@@ -37,7 +37,7 @@ class Soak:
         Returns:
             Whether the timer was already active.
         """
-        was_active = self._board.run("systemctl is-active kiosk-soak.timer")[2] == 0
+        was_active = self._board.run("systemctl is-active kiosk-soak.timer").returncode == 0
         if not was_active:
             self._board.cleanup.callback(self._board.run, "systemctl stop kiosk-soak.timer", check=True)
         self._board.run("systemctl start kiosk-soak.timer", check=True)
@@ -47,7 +47,7 @@ class Soak:
         """Read kiosk-soak's samples from the boot `boot` that fall inside an uptime span.
 
         Reads as many of the log's last lines as `period` covers, retrying through a dropped session
-        (`Board.run_reconnecting`) and raising the board's last error once that runs out.
+        for `Board.READ_RETRY_SECONDS` and raising the board's last error once that runs out.
 
         Args:
             boot: the boot, as `Board.BOOT_ID_CMD` prints it.
@@ -58,9 +58,10 @@ class Soak:
         Returns:
             Each sample's fields, by name.
         """
-        stdout, _stderr, _returncode = self._board.run_reconnecting(
-            f"tail -n {period // _INTERVAL_SECONDS + _TAIL_MARGIN} {_LOG_PATH} 2>/dev/null; true"
-        )
+        stdout = self._board.run(
+            f"tail -n {period // _INTERVAL_SECONDS + _TAIL_MARGIN} {_LOG_PATH} 2>/dev/null; true",
+            retry_for=self._board.READ_RETRY_SECONDS,
+        ).lines
         samples = [self._fields(line) for line in stdout]
         return [sample for sample in samples if sample.get("boot") == boot[:8] and start <= float(sample["up"]) <= end]
 
@@ -94,9 +95,9 @@ class Soak:
         Returns:
             Each sample's fields, by name.
         """
-        stdout, _stderr, _returncode = self._board.run(
+        stdout = self._board.run(
             f"cut -c1-8 /proc/sys/kernel/random/boot_id; tail -n {_WINDOW_TAIL_LINES} {_LOG_PATH} 2>/dev/null; true"
-        )
+        ).lines
         boot = stdout[0]
         samples = [self._fields(line) for line in stdout[1:]]
         return [sample for sample in samples if sample.get("boot") == boot and start <= float(sample["up"]) <= end]

@@ -61,7 +61,7 @@ class TestKeyboard(BoardTest):
         assert terminals.foreground_vt() == "1", "vt1 is not the foreground console before the test"
         outage.wait_boot_complete()
         terminals.kill_tty2_login()
-        boot_id = self.board.read(Board.BOOT_ID_CMD)
+        boot_id = self.board.run(Board.BOOT_ID_CMD, check=True).text
         builtin = self.board.builtin_modules()
         self.record(modules_builtin_hid="\n".join(entry for entry in builtin if entry in (_USBHID, _HID_GENERIC)))
         assert {_USBHID, _HID_GENERIC} <= set(builtin), (
@@ -87,7 +87,7 @@ class TestKeyboard(BoardTest):
         time.sleep(Outage.CUT_DELAY_SECONDS + _OUTAGE_SECONDS + 2)
         self.board.reconnect()
 
-        boot_id_after = self.board.read(Board.BOOT_ID_CMD)
+        boot_id_after = self.board.run(Board.BOOT_ID_CMD, check=True).text
         typed = keyboard.typed_record()
         marker = keyboard.typed_marker()
         outage_record = outage.read_record()

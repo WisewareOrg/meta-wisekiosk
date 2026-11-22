@@ -53,8 +53,9 @@ class Backend:
         Returns:
             The MainPID.
         """
-        stdout = self._board.run_reconnecting("systemctl show -p MainPID --value wisekiosk.service", check=True)[0]
-        return "\n".join(stdout).strip()
+        return self._board.run(
+            "systemctl show -p MainPID --value wisekiosk.service", check=True, retry_for=self._board.READ_RETRY_SECONDS
+        ).text
 
     def sigkill(self) -> float:
         """SIGKILL the backend.
@@ -62,7 +63,7 @@ class Backend:
         Returns:
             The board's uptime at the kill.
         """
-        return self._board.run_with_uptime("systemctl kill --signal=KILL wisekiosk.service", check=True)[0]
+        return self._board.run("systemctl kill --signal=KILL wisekiosk.service", check=True, with_uptime=True).uptime_s
 
     def assert_new_process_after_kill(self, pid_before: str) -> str:
         """Assert the backend answering after a kill is a new process; INVALID if it is not.
@@ -150,8 +151,8 @@ class Backend:
         Returns:
             The stdout lines of `systemctl is-enabled` and of `systemctl is-active` for it.
         """
-        enabled = self._board.run("systemctl is-enabled wisekiosk.service")[0]
-        active = self._board.run("systemctl is-active wisekiosk.service")[0]
+        enabled = self._board.run("systemctl is-enabled wisekiosk.service").lines
+        active = self._board.run("systemctl is-active wisekiosk.service").lines
         return enabled, active
 
     def unmask_and_start(self) -> None:

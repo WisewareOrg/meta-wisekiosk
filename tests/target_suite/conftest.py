@@ -197,8 +197,8 @@ def _browser_pid(board: Board) -> str:
         Returns:
             The pid, or None if the browser is not running.
         """
-        stdout, _stderr, returncode = board.run("pgrep -x surf")
-        return stdout[0].strip() if returncode == 0 and stdout else None
+        pgrep = board.run("pgrep -x surf")
+        return pgrep.lines[0].strip() if pgrep.returncode == 0 and pgrep.lines else None
 
     found_s, pid = board.poll(surf_pid, until=bool, within=_BROWSER_WAIT_SECONDS, every=_BROWSER_POLL_SECONDS)
     assert found_s is not None, "the browser never appeared"
@@ -221,19 +221,19 @@ def device_context(target: Target, record_property: Callable[[str, object], None
     with Board(target) as board:
         pid = _browser_pid(board)
         hashed = " ".join((board.app.config.LIVE_PATH, *_HASHED_PATHS))
-        sums_out, sums_err, sums_rc = board.run("sha256sum " + hashed)
-        assert sums_rc in (0, 1), f"sha256sum failed (rc {sums_rc}): {chr(10).join(sums_err)}"
-        environ = board.read(f"tr '\\0' '\\n' < /proc/{pid}/environ").splitlines()
-        xrandr = board.read("DISPLAY=:0 xrandr").splitlines()
+        sums = board.run("sha256sum " + hashed)
+        assert sums.returncode in (0, 1), f"sha256sum failed (rc {sums.returncode}): {chr(10).join(sums.stderr)}"
+        environ = board.run(f"tr '\\0' '\\n' < /proc/{pid}/environ", check=True).text.splitlines()
+        xrandr = board.run("DISPLAY=:0 xrandr", check=True).text.splitlines()
         facts = {
-            "boot_id": board.read(Board.BOOT_ID_CMD),
-            "uptime_s": float(board.read("cat /proc/uptime").split()[0]),
-            "kernel": board.read("uname -r"),
-            "file_sha256": "\n".join(sums_out),
-            "browser_cmdline_sha256": board.read(f"sha256sum /proc/{pid}/cmdline").split()[0],
+            "boot_id": board.run(Board.BOOT_ID_CMD, check=True).text,
+            "uptime_s": float(board.run("cat /proc/uptime", check=True).text.split()[0]),
+            "kernel": board.run("uname -r", check=True).text,
+            "file_sha256": "\n".join(sums.lines),
+            "browser_cmdline_sha256": board.run(f"sha256sum /proc/{pid}/cmdline", check=True).text.split()[0],
             "browser_webkit_env": ",".join(line for line in environ if line.startswith("WEBKIT_")),
             "display_mode": next((line.strip() for line in xrandr if "*" in line), ""),
-            "timesync": board.read("timedatectl show -p NTPSynchronized --value"),
+            "timesync": board.run("timedatectl show -p NTPSynchronized --value", check=True).text,
             "start": _utc_now(),
         }
     for key, value in facts.items():

@@ -49,6 +49,31 @@ class BootOrder(NamedTuple):
     attempts_left: dict[str, int]
 
 
+class CommandResult(NamedTuple):
+    """What one command on the board printed and returned.
+
+    Attributes:
+        lines: the stdout lines.
+        stderr: the stderr lines.
+        returncode: the return code.
+        uptime_s: the board's uptime just before the command, when it was asked for.
+    """
+
+    lines: list[str]
+    stderr: list[str]
+    returncode: int
+    uptime_s: float | None = None
+
+    @property
+    def text(self) -> str:
+        """The stdout lines joined by newlines, stripped.
+
+        Returns:
+            The text.
+        """
+        return "\n".join(self.lines).strip()
+
+
 class Board:
     """The board under test, for one test: its shell, its parts, and an undo of what the test changed.
 
@@ -71,6 +96,7 @@ class Board:
         ERRORS: what a read of the board raises when the board does not answer; `poll` retries these.
         GIVE_UP_SECONDS: how long a test waits for the board; past every bound, so the record still
             carries the time it took.
+        READ_RETRY_SECONDS: how long a read passed it as `retry_for` keeps reconnecting and retrying.
         PAGE_FETCH_CMD: fetches the WiseKiosk instance's page on the board to stdout; busybox wget
             returns 0 only on 2xx.
         PAGE_ATTEMPT_TIMEOUT_SECONDS: the longest one page fetch may take.
@@ -89,6 +115,7 @@ class Board:
     BOOT_VARIABLES_CMD = "fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT"
     ERRORS = (ExecutionError, StateError, subprocess.TimeoutExpired)
     GIVE_UP_SECONDS = 180
+    READ_RETRY_SECONDS = 300
     PAGE_FETCH_CMD = "wget -q -O- http://127.0.0.1:8080/"
     PAGE_ATTEMPT_TIMEOUT_SECONDS = 10
     _COMMAND_TIMEOUT_SECONDS = 10
@@ -97,8 +124,6 @@ class Board:
     _RESTART_WAIT_SECONDS = 180
     _FAULT_SSH_TIMEOUT_SECONDS = 30
     _POWER_OFF_SECONDS = 10
-    # how long `run_reconnecting` keeps reconnecting and retrying before it gives up
-    _RECONNECTING_RETRY_SECONDS = 300
     # how often `sleep_watching_boot` reads the boot, so a reboot ends the sleep early
     _BOOT_CHECK_SECONDS = 600
 
@@ -138,73 +163,55 @@ class Board:
         self.cleanup.close()
 
     def run(
-        self, cmd: str, check: bool = False, timeout: float | None = _COMMAND_TIMEOUT_SECONDS
-    ) -> tuple[list[str], list[str], int]:
+        self,
+        cmd: str,
+        *,
+        check: bool = False,
+        timeout: float | None = _COMMAND_TIMEOUT_SECONDS,
+        retry_for: float | None = None,
+        with_uptime: bool = False,
+    ) -> CommandResult:
         """Run `cmd` on the board.
+
+        With `retry_for`, a call that raises one of `ERRORS` reconnects and runs again until
+        `retry_for` seconds have passed, then raises the last error unchanged; only the call to the
+        board is retried, never the check or the uptime parse.
 
         Args:
             cmd: the command to run.
             check: assert the command returned 0.
             timeout: forwarded to the SSHDriver; None means no timeout.
+            retry_for: how long to keep retrying a call that raises one of `ERRORS`; None runs it once.
+            with_uptime: stamp the result with the board's uptime, read in the same command just before
+                `cmd`.
 
         Returns:
-            The stdout lines, the stderr lines and the return code.
+            The command's stdout lines (after the uptime line, `with_uptime`), stderr lines, return code
+            and, `with_uptime`, the board's uptime in seconds.
+
+        Raises:
+            ExecutionError: `with_uptime`, and stdout carries no uptime line, so the session failed;
+                `poll` takes it as a failed read.
         """
-        stdout, stderr, returncode = self._ssh.run(cmd, timeout=timeout)
+        ssh_run = self._ssh.run
+        if retry_for is not None:
+            ssh_run = Retrying(
+                stop=stop_after_delay(retry_for),
+                retry=retry_if_exception_type(self.ERRORS),
+                before_sleep=lambda _state: self._reconnect_if_it_answers(),
+                reraise=True,
+            ).wraps(self._ssh.run)
+        stdout, stderr, returncode = ssh_run(f"cat /proc/uptime; {cmd}" if with_uptime else cmd, timeout=timeout)
         if check:
             output = stdout + stderr
             assert returncode == 0, f"{cmd!r} failed (rc {returncode}): {chr(10).join(output)}"
-        return stdout, stderr, returncode
-
-    def read(self, cmd: str, timeout: float | None = _COMMAND_TIMEOUT_SECONDS) -> str:
-        """Run `cmd` on the board, assert it returned 0, and return its stdout.
-
-        Args:
-            cmd: the command to run.
-            timeout: forwarded to `run`.
-
-        Returns:
-            The stdout lines joined by newlines, stripped.
-        """
-        return "\n".join(self.run(cmd, check=True, timeout=timeout)[0]).strip()
-
-    def run_reconnecting(
-        self, cmd: str, check: bool = False, timeout: float | None = _COMMAND_TIMEOUT_SECONDS
-    ) -> tuple[list[str], list[str], int]:
-        """Run `cmd` on the board, reconnecting and retrying while the session times out or drops.
-
-        Retries for up to 300 s, then raises the last of `ERRORS` unchanged.
-
-        Args:
-            cmd: the command to run.
-            check: assert the command returned 0.
-            timeout: forwarded to `run`.
-
-        Returns:
-            The stdout lines, the stderr lines and the return code.
-        """
-        return Retrying(
-            stop=stop_after_delay(self._RECONNECTING_RETRY_SECONDS),
-            retry=retry_if_exception_type(self.ERRORS),
-            before_sleep=lambda _state: self._reconnect_if_it_answers(),
-            reraise=True,
-        )(self.run, cmd, check=check, timeout=timeout)
-
-    def uptime_s(self) -> float:
-        """Read the board's uptime, retrying through a dropped session (`run_reconnecting`).
-
-        Returns:
-            The uptime, in seconds.
-        """
-        return float("\n".join(self.run_reconnecting("cat /proc/uptime", check=True)[0]).strip().split()[0])
-
-    def boot_id(self) -> str:
-        """Read the kernel's boot id, retrying through a dropped session (`run_reconnecting`).
-
-        Returns:
-            The boot id.
-        """
-        return "\n".join(self.run_reconnecting(self.BOOT_ID_CMD, check=True)[0]).strip()
+        if not with_uptime:
+            return CommandResult(stdout, stderr, returncode)
+        try:
+            uptime = float(stdout[0].split()[0])
+        except (IndexError, ValueError):
+            raise ExecutionError(cmd, stdout, stderr) from None
+        return CommandResult(stdout[1:], stderr, returncode, uptime)
 
     def sleep_watching_boot(self, boot_id: str, seconds: float) -> str | None:
         """Sleep out `seconds`, reading the boot every 600 s, and end early if the board booted again.
@@ -226,31 +233,6 @@ class Board:
             if now is not None and now != boot_id:
                 break
         return self._boot_id_or_none()
-
-    def run_with_uptime(
-        self, cmd: str = "true", check: bool = False, timeout: float | None = _COMMAND_TIMEOUT_SECONDS
-    ) -> tuple[float, list[str], list[str], int]:
-        """Run `cmd` on the board, stamped with the board's uptime at its start.
-
-        Args:
-            cmd: the command to run.
-            check: assert `cmd` returned 0.
-            timeout: forwarded to `run`.
-
-        Returns:
-            The board's uptime in seconds, the stdout lines after the uptime line, the stderr lines
-            and `cmd`'s return code.
-
-        Raises:
-            ExecutionError: stdout carries no uptime line, so the session failed; `poll` takes it as
-                a failed read.
-        """
-        stdout, stderr, returncode = self.run(f"cat /proc/uptime; {cmd}", check=check, timeout=timeout)
-        try:
-            uptime = float(stdout[0].split()[0])
-        except (IndexError, ValueError):
-            raise ExecutionError(cmd, stdout, stderr) from None
-        return uptime, stdout[1:], stderr, returncode
 
     def put(self, src: str, dst: str) -> None:
         """Copy the host file `src` to `dst` on the board.
@@ -359,8 +341,8 @@ class Board:
         Returns:
             The temperature in degrees Celsius, or None if it could not be read.
         """
-        stdout, _stderr, returncode = self.run("cat /sys/class/thermal/thermal_zone0/temp")
-        return int(stdout[0]) / 1000 if returncode == 0 and stdout else None
+        result = self.run("cat /sys/class/thermal/thermal_zone0/temp")
+        return int(result.lines[0]) / 1000 if result.returncode == 0 and result.lines else None
 
     def write_log_marker(self, text: str) -> None:
         """Write `text` to the board's journal under the identifier `kiosk-log-marker`.
@@ -376,8 +358,8 @@ class Board:
         Returns:
             The lines, or None if `journalctl` returned nonzero.
         """
-        stdout, _stderr, returncode = self.run("journalctl -t kiosk-log-marker -o cat")
-        return stdout if returncode == 0 else None
+        result = self.run("journalctl -t kiosk-log-marker -o cat")
+        return result.lines if result.returncode == 0 else None
 
     def builtin_modules(self) -> list[str]:
         """Read the kernel modules built into the running kernel.
@@ -385,7 +367,7 @@ class Board:
         Returns:
             The lines of its `modules.builtin`.
         """
-        return self.run("cat /lib/modules/$(uname -r)/modules.builtin", check=True)[0]
+        return self.run("cat /lib/modules/$(uname -r)/modules.builtin", check=True).lines
 
     def boot_order(self) -> BootOrder:
         """Read BOOT_ORDER and each slot's BOOT_x_LEFT from `fw_printenv`.
@@ -393,7 +375,7 @@ class Board:
         Returns:
             The boot order, and the attempts left per bootname.
         """
-        stdout = self.run(self.BOOT_VARIABLES_CMD, check=True)[0]
+        stdout = self.run(self.BOOT_VARIABLES_CMD, check=True).lines
         variables = dict(line.split("=", 1) for line in stdout)
         attempts_left = {name: int(variables[f"BOOT_{name}_LEFT"]) for name in ("A", "B")}
         return BootOrder(variables["BOOT_ORDER"].split(), attempts_left)
@@ -404,8 +386,9 @@ class Board:
         Returns:
             The commit named by the meta-wisekiosk line of /etc/buildinfo.
         """
-        stdout, _stderr, returncode = self.run("cat /etc/buildinfo", timeout=None)
-        assert returncode == 0, "could not read /etc/buildinfo on the board"
+        result = self.run("cat /etc/buildinfo", timeout=None)
+        stdout = result.lines
+        assert result.returncode == 0, "could not read /etc/buildinfo on the board"
         line = next((entry for entry in stdout if entry.split()[:2] == ["meta-wisekiosk", "="]), None)
         assert line is not None, f"no meta-wisekiosk layer line in buildinfo:\n{chr(10).join(stdout)}"
         return line.split()[2].rsplit(":", 1)[-1]
@@ -419,10 +402,10 @@ class Board:
         Returns:
             The hash, or None if `sha256sum` returns nonzero (the file is missing or unreadable).
         """
-        stdout, _stderr, returncode = self.run(f"sha256sum {path}")
-        if returncode != 0:
+        result = self.run(f"sha256sum {path}")
+        if result.returncode != 0:
             return None
-        return stdout[0].split()[0]
+        return result.lines[0].split()[0]
 
     def fetch_page(self, timeout: float = PAGE_ATTEMPT_TIMEOUT_SECONDS) -> tuple[int, str]:
         """Fetch the WiseKiosk instance's page on the board once.
@@ -433,8 +416,8 @@ class Board:
         Returns:
             The return code, and the stdout and stderr joined by newlines, stripped.
         """
-        stdout, stderr, returncode = self.run(self.PAGE_FETCH_CMD, timeout=timeout)
-        return returncode, "\n".join(stdout + stderr).strip()
+        result = self.run(self.PAGE_FETCH_CMD, timeout=timeout)
+        return result.returncode, "\n".join(result.lines + result.stderr).strip()
 
     @staticmethod
     def is_page(returncode: int, output: str) -> bool:
@@ -566,7 +549,7 @@ class Board:
                 carries how the ssh that sent `cmd` ended.
         """
         started = time.monotonic()
-        old_boot = self.read(boot_cmd)
+        old_boot = self.run(boot_cmd, check=True).text
         self.disconnect()
         try:
             sent = subprocess.run(
@@ -601,7 +584,7 @@ class Board:
         """
         power = self._target.get_driver("ExternalPowerDriver")
         self.cleanup.callback(power.on)
-        old_boot_id = self.read(self.BOOT_ID_CMD)
+        old_boot_id = self.run(self.BOOT_ID_CMD, check=True).text
         self.disconnect()
         try:
             power.off()
@@ -612,7 +595,7 @@ class Board:
             pytest.exit(f"the bench's power switch failed: {error}", returncode=2)
         record(power_on_command_s=round(time.monotonic() - on_began, 1))
         self.reconnect()
-        if self.read(self.BOOT_ID_CMD) == old_boot_id:
+        if self.run(self.BOOT_ID_CMD, check=True).text == old_boot_id:
             pytest.exit(
                 f"the board answered in the same boot after {self._POWER_OFF_SECONDS} s off: "
                 "the plug or its supply did not cut power",
@@ -626,13 +609,13 @@ class Board:
             self.reconnect()
 
     def _boot_id_or_none(self) -> str | None:
-        """Read the kernel's boot id through `boot_id`.
+        """Read the kernel's boot id, retrying through a dropped session for `READ_RETRY_SECONDS`.
 
         Returns:
             The boot id, or None if it could not be read.
         """
         try:
-            return self.boot_id()
+            return self.run(self.BOOT_ID_CMD, check=True, retry_for=self.READ_RETRY_SECONDS).text
         except self.ERRORS:
             return None
 
@@ -645,7 +628,7 @@ class Board:
             The read.
         """
         try:
-            browser_running = self.run("pgrep -x surf")[2] == 0
+            browser_running = self.run("pgrep -x surf").returncode == 0
         except (ExecutionError, subprocess.TimeoutExpired):
             browser_running = False
         try:
@@ -675,7 +658,7 @@ class Board:
                 with attempt:
                     self.disconnect()
                     self.connect()
-                    assert self.read(boot_cmd) != old, "the board is still in the old boot"
+                    assert self.run(boot_cmd, check=True).text != old, "the board is still in the old boot"
         except Exception as error:  # labgrid's activation timeout is a bare Exception
             kind = " in a new boot" if old is not None else ""
             raise AssertionError(f"the board did not answer{kind} within {within} s") from error

@@ -49,7 +49,7 @@ class Captures:
             The crop.
         """
         if self._crop is None:
-            match = _DIMENSIONS.search(self._board.read("DISPLAY=:0 xdpyinfo"))
+            match = _DIMENSIONS.search(self._board.run("DISPLAY=:0 xdpyinfo", check=True).text)
             assert match is not None, "xdpyinfo reported no screen dimensions"
             width, height = int(match.group(1)), int(match.group(2))
             self._crop = f"{width}x{height // 3}+0+{height // 3}"
@@ -97,7 +97,7 @@ class Captures:
             f"echo rc=$?; stat -c %s {_CAPTURE_PATH}; sha256sum {_CAPTURE_PATH}"
         )
         try:
-            stdout, _stderr, _returncode = self._board.run(cmd)
+            stdout = self._board.run(cmd).lines
         except subprocess.TimeoutExpired:
             return None, None
         uptime_s = float(stdout[0].split()[0])

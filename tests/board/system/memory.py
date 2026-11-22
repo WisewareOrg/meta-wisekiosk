@@ -24,7 +24,7 @@ class OomKills(NamedTuple):
 class Memory:
     """The board's memory, and the kernel's out-of-memory record in this boot, the last, and pstore.
 
-    Every read retries through a dropped session (`Board.run_reconnecting`), and raises the board's
+    Every read retries through a dropped session for `Board.READ_RETRY_SECONDS`, and raises the board's
     last error once that runs out.
     """
 
@@ -42,7 +42,7 @@ class Memory:
         Returns:
             Each field in kB, by name.
         """
-        stdout = self._board.run_reconnecting("cat /proc/meminfo", check=True)[0]
+        stdout = self._board.run("cat /proc/meminfo", check=True, retry_for=self._board.READ_RETRY_SECONDS).lines
         return {line.split(":")[0]: int(line.split()[1]) for line in stdout if ":" in line}
 
     def oom_kills_this_boot(self, since: float) -> OomKills:
@@ -78,11 +78,12 @@ class Memory:
         Returns:
             The read's return code and the kills' uptimes.
         """
-        stdout, _stderr, returncode = self._board.run_reconnecting(
+        console = self._board.run(
             'grep -q " /sys/fs/pstore " /proc/mounts || mount -t pstore pstore /sys/fs/pstore; '
-            "cat /sys/fs/pstore/console-ramoops-0"
+            "cat /sys/fs/pstore/console-ramoops-0",
+            retry_for=self._board.READ_RETRY_SECONDS,
         )
-        return OomKills(returncode, self._uptimes_since(stdout, since))
+        return OomKills(console.returncode, self._uptimes_since(console.lines, since))
 
     def _kernel_log_kills(self, boot_flag: str, since: float) -> OomKills:
         """Read the kernel log of the boot `boot_flag` names for processes killed for memory.
@@ -94,10 +95,10 @@ class Memory:
         Returns:
             The read's return code and the kills' uptimes.
         """
-        stdout, _stderr, returncode = self._board.run_reconnecting(
-            f"journalctl -k {boot_flag} -o short-monotonic --no-pager"
+        journal = self._board.run(
+            f"journalctl -k {boot_flag} -o short-monotonic --no-pager", retry_for=self._board.READ_RETRY_SECONDS
         )
-        return OomKills(returncode, self._uptimes_since(stdout, since))
+        return OomKills(journal.returncode, self._uptimes_since(journal.lines, since))
 
     @staticmethod
     def _uptimes_since(lines: list[str], since: float) -> list[float]:

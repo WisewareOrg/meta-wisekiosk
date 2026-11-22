@@ -50,8 +50,8 @@ def _boot_id(board: Board) -> str:
     Returns:
         The boot id.
     """
-    stdout, stderr, _returncode = board.run("cat /proc/sys/kernel/random/boot_id", timeout=None, check=True)
-    output = stdout + stderr
+    result = board.run("cat /proc/sys/kernel/random/boot_id", timeout=None, check=True)
+    output = result.lines + result.stderr
     boot_id = "".join(output).strip()
     assert boot_id, "empty boot id -- refusing to run blind"
     return boot_id
@@ -92,12 +92,12 @@ def test_boot_profile(request: pytest.FixtureRequest, board: Board) -> None:
         leftover = []
         while True:
             board.connect()
-            active_out, _stderr, _rc = board.run(f"systemctl is-active {_UNIT_NAME}", timeout=None)
-            _out, _err, rc_bin = board.run(f"test -e {BOARD_BINARY_PATH}", timeout=None)
-            _out, _err, rc_unit = board.run(f"test -e {_UNIT_REMOTE}", timeout=None)
-            _out, _err, rc_link = board.run(f"test -e {_ENABLE_LINK}", timeout=None)
-            _out, _err, rc_bin_dir = board.run(f"test -d {_BOARD_BIN_DIR}", timeout=None)
-            _out, _err, rc_local_dir = board.run(f"test -d {_BOARD_LOCAL_DIR}", timeout=None)
+            active_out = board.run(f"systemctl is-active {_UNIT_NAME}", timeout=None).lines
+            rc_bin = board.run(f"test -e {BOARD_BINARY_PATH}", timeout=None).returncode
+            rc_unit = board.run(f"test -e {_UNIT_REMOTE}", timeout=None).returncode
+            rc_link = board.run(f"test -e {_ENABLE_LINK}", timeout=None).returncode
+            rc_bin_dir = board.run(f"test -d {_BOARD_BIN_DIR}", timeout=None).returncode
+            rc_local_dir = board.run(f"test -d {_BOARD_LOCAL_DIR}", timeout=None).returncode
             leftover = []
             if "".join(active_out).strip() == "active":
                 leftover.append(f"{_UNIT_NAME} still active")
@@ -157,8 +157,7 @@ def test_boot_profile(request: pytest.FixtureRequest, board: Board) -> None:
             time.sleep(_RETRY_INTERVAL_SECONDS)
             continue
         candidate = f"/data/boot-cpu-io.{boot_after}.txt"
-        _stdout, _stderr, returncode = board.run(f"test -f {candidate}", timeout=None)
-        if returncode == 0:
+        if board.run(f"test -f {candidate}", timeout=None).returncode == 0:
             sample_remote = candidate
             break
         time.sleep(_RETRY_INTERVAL_SECONDS)
@@ -170,11 +169,11 @@ def test_boot_profile(request: pytest.FixtureRequest, board: Board) -> None:
     stem = f"boot-cpu-io.{boot_after}"
     board.get(sample_remote, str(outdir / f"{stem}.txt"))
     journal_id = boot_after.replace("-", "")
-    journal_stdout, journal_stderr, journal_rc = board.run(
-        f"journalctl -b {journal_id} -o short-monotonic", timeout=None
+    journal = board.run(f"journalctl -b {journal_id} -o short-monotonic", timeout=None)
+    assert journal.returncode == 0, (
+        f"journalctl -b {journal_id} failed (rc {journal.returncode}): {chr(10).join(journal.stderr)}"
     )
-    assert journal_rc == 0, f"journalctl -b {journal_id} failed (rc {journal_rc}): {chr(10).join(journal_stderr)}"
-    journal_text = "\n".join(journal_stdout)
+    journal_text = "\n".join(journal.lines)
     assert journal_text.strip(), f"journal for boot {journal_id} is empty"
     (outdir / f"{stem}.journal.txt").write_text(journal_text + "\n")
 

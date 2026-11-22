@@ -228,7 +228,7 @@ class Updates:
         Returns:
             The compatible.
         """
-        return json.loads(self._board.read("rauc status --output-format=json"))["compatible"]
+        return json.loads(self._board.run("rauc status --output-format=json", check=True).text)["compatible"]
 
     def next_boot_and_running_build(self) -> dict:
         """Read what the next boot and the running build are.
@@ -237,9 +237,9 @@ class Updates:
             The raw `boot_variables` text, the parsed `rauc_status`, the `boot_id` and the `commit`.
         """
         return {
-            "boot_variables": self._board.read(self._board.BOOT_VARIABLES_CMD),
-            "rauc_status": json.loads(self._board.read("rauc status --detailed --output-format=json")),
-            "boot_id": self._board.read(self._board.BOOT_ID_CMD),
+            "boot_variables": self._board.run(self._board.BOOT_VARIABLES_CMD, check=True).text,
+            "rauc_status": json.loads(self._board.run("rauc status --detailed --output-format=json", check=True).text),
+            "boot_id": self._board.run(self._board.BOOT_ID_CMD, check=True).text,
             "commit": self._board.build_commit(),
         }
 
@@ -272,12 +272,11 @@ class Updates:
             The read, or None if it failed.
         """
         try:
-            stdout, _stderr, returncode = self._board.run(
-                f"{_PROGRESS_CMD}; cat /sys/class/block/{os.path.basename(device)}/stat"
-            )
+            result = self._board.run(f"{_PROGRESS_CMD}; cat /sys/class/block/{os.path.basename(device)}/stat")
         except self._board.ERRORS:
             return None
-        if returncode != 0 or len(stdout) != 2:
+        stdout = result.lines
+        if result.returncode != 0 or len(stdout) != 2:
             return None
         progress = re.fullmatch(r'\(isi\) \d+ "(.*)" \d+', stdout[0].strip())
         if progress is None:
@@ -303,7 +302,7 @@ class Updates:
         Returns:
             The boot ids, without dashes.
         """
-        stdout = self._board.run("journalctl --list-boots -o json", check=True, timeout=None)[0]
+        stdout = self._board.run("journalctl --list-boots -o json", check=True, timeout=None).lines
         return {boot["boot_id"] for boot in json.loads("\n".join(stdout))}
 
     def _restore_candidate(self, candidate: "CandidateBundles") -> None:

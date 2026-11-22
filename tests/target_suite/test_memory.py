@@ -53,9 +53,11 @@ class TestMemory(BoardTest):
         period = SOAK_PERIOD_SECONDS if soak_run else PERIOD_SECONDS
         self.record(period_s=period)
         self.record(timer_was_active=soak.start_sampler())
-        boot_id = self.board.boot_id()
+        boot_id = self.board.run(Board.BOOT_ID_CMD, check=True, retry_for=Board.READ_RETRY_SECONDS).text
         backend_pid = self.board.app.backend.pid()
-        start_uptime = self.board.uptime_s()
+        start_uptime = float(
+            self.board.run("cat /proc/uptime", check=True, retry_for=Board.READ_RETRY_SECONDS).text.split()[0]
+        )
         start_mem = memory.meminfo_kb()
         total_mb = start_mem["MemTotal"] / 1024
 
@@ -95,7 +97,13 @@ class TestMemory(BoardTest):
             problems.append(f"evidence unreadable: {type(exc).__name__}")
 
         try:
-            end_uptime = float("inf") if rebooted else self.board.uptime_s()
+            end_uptime = (
+                float("inf")
+                if rebooted
+                else float(
+                    self.board.run("cat /proc/uptime", check=True, retry_for=Board.READ_RETRY_SECONDS).text.split()[0]
+                )
+            )
             lines = soak.samples(boot_id, start_uptime, end_uptime, period)
 
             if any(not 0 <= float(line["memavail"]) <= total_mb for line in lines):

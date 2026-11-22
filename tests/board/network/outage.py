@@ -100,7 +100,7 @@ class Outage:
     def wait_boot_complete(self) -> None:
         """Wait for boot-complete.target, so an outage cannot land inside kiosk-netcheck's window."""
         active_s, _ = self._board.poll(
-            lambda: self._board.run("systemctl is-active boot-complete.target")[2] == 0 or None,
+            lambda: self._board.run("systemctl is-active boot-complete.target").returncode == 0 or None,
             until=bool,
             within=_BOOT_COMPLETE_WAIT_SECONDS,
         )
@@ -131,7 +131,7 @@ class Outage:
         Returns:
             The record; empty if the board holds none.
         """
-        return OutageRecord.from_lines(self._board.run(f"cat {self.RECORD_PATH} 2>/dev/null || true", check=True)[0])
+        return OutageRecord.from_lines(self._board.run(f"cat {self.RECORD_PATH} 2>/dev/null || true", check=True).lines)
 
     def read_record_over_fresh_ssh(self) -> FreshShellRead:
         """Open a new ssh shell on the board, apart from the SSHDriver, and read the record over it.
@@ -167,14 +167,14 @@ class Outage:
             and its stderr when the read failed.
         """
         self._board.reconnect()
-        journal, journal_err, journal_rc = self._board.run(
+        journal = self._board.run(
             f"journalctl -b {boot_id.replace('-', '')} -u {self.UNIT} -o cat --no-pager",
             timeout=_JOURNAL_TIMEOUT_SECONDS,
         )
-        if journal_rc != 0:
-            return [f"journalctl rc {journal_rc}", *journal_err]
-        last_run = max((n for n, line in enumerate(journal) if line.startswith("id ")), default=0)
-        return journal[last_run:]
+        if journal.returncode != 0:
+            return [f"journalctl rc {journal.returncode}", *journal.stderr]
+        last_run = max((n for n, line in enumerate(journal.lines) if line.startswith("id ")), default=0)
+        return journal.lines[last_run:]
 
     def _unpin(self) -> None:
         """Release the network the record names from the bssid the script pinned it to."""

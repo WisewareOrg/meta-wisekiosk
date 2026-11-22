@@ -172,7 +172,7 @@ class Page:
         Returns:
             The board's uptime at the kill.
         """
-        return self._board.run_with_uptime("kill -KILL $(pgrep -x surf)", check=True)[0]
+        return self._board.run("kill -KILL $(pgrep -x surf)", check=True, with_uptime=True).uptime_s
 
     def freeze_browser(self) -> tuple[float, list[str]]:
         """Stop every web process of the browser with SIGSTOP; they are continued when the test ends.
@@ -180,13 +180,13 @@ class Page:
         Returns:
             The board's uptime at the stop, and the pids stopped.
         """
-        frozen_at, stdout, _stderr, _returncode = self._board.run_with_uptime(
-            's=$(pgrep -x surf); p=$(pgrep -P "$s" WebKitWebProcess); echo $p; kill -STOP $p'
+        frozen = self._board.run(
+            's=$(pgrep -x surf); p=$(pgrep -P "$s" WebKitWebProcess); echo $p; kill -STOP $p', with_uptime=True
         )
-        pids = stdout[0].split()
+        pids = frozen.lines[0].split()
         if pids:
             self._board.cleanup.callback(self._board.run, f"kill -CONT {' '.join(pids)}")
-        return frozen_at, pids
+        return frozen.uptime_s, pids
 
     def web_process_states(self, pids: list[str]) -> dict[str, str | None]:
         """Read each web process's state, as `/proc/<pid>/status` names it.
@@ -199,7 +199,7 @@ class Page:
         """
         states = {}
         for pid in pids:
-            status = self._board.run(f"grep '^State:' /proc/{pid}/status")[0]
+            status = self._board.run(f"grep '^State:' /proc/{pid}/status").lines
             states[pid] = status[0].split()[1] if status else None
         return states
 
@@ -211,7 +211,7 @@ class Page:
         """
         return self._board.run(
             "journalctl -b -u kiosk.service -o short-monotonic --no-pager | grep -F 'surf: page'", timeout=None
-        )[0]
+        ).lines
 
     @staticmethod
     def shows_all_cards_live(sample: dict[str, str] | None) -> bool:
@@ -249,9 +249,9 @@ class Page:
         Returns:
             The read.
         """
-        uptime, stdout, _stderr, _returncode = self._board.run_with_uptime(_TITLES_WALK)
-        titles = [match.group(1) for match in map(_WM_NAME.match, stdout) if match]
-        self.last_read = PanelRead(uptime, self._probe_sample(titles), titles)
+        walk = self._board.run(_TITLES_WALK, with_uptime=True)
+        titles = [match.group(1) for match in map(_WM_NAME.match, walk.lines) if match]
+        self.last_read = PanelRead(walk.uptime_s, self._probe_sample(titles), titles)
         return self.last_read
 
     def read_titles(self) -> list[str] | None:
@@ -261,7 +261,7 @@ class Page:
             Every window's title, or None if the walk failed.
         """
         try:
-            stdout = self._board.run(_TITLES_WALK)[0]
+            stdout = self._board.run(_TITLES_WALK).lines
         except self._board.ERRORS:
             return None
         return [match.group(1) for match in map(_WM_NAME.match, stdout) if match]
@@ -414,10 +414,10 @@ class Page:
         Returns:
             The board's uptime at the fetch, and whether the page served.
         """
-        uptime, stdout, stderr, returncode = self._board.run_with_uptime(
-            self._board.PAGE_FETCH_CMD, timeout=self._board.PAGE_ATTEMPT_TIMEOUT_SECONDS
+        fetch = self._board.run(
+            self._board.PAGE_FETCH_CMD, timeout=self._board.PAGE_ATTEMPT_TIMEOUT_SECONDS, with_uptime=True
         )
-        return uptime, self._board.is_page(returncode, "\n".join(stdout + stderr))
+        return fetch.uptime_s, self._board.is_page(fetch.returncode, "\n".join(fetch.lines + fetch.stderr))
 
     def _read_while_held(self, previous_title: str | None) -> HeldRead:
         """Read the board once while the backend is held.
@@ -431,7 +431,7 @@ class Page:
         Returns:
             The read.
         """
-        running = self._board.run("pgrep -x surf")[2] == 0
+        running = self._board.run("pgrep -x surf").returncode == 0
         served = self._board.page_served()
         _uptime, sample, titles = self.read()
         title = None
