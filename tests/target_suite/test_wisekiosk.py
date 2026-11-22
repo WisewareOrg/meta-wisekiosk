@@ -19,6 +19,44 @@ _POLL_SECONDS = 0.5
 _HOLD_SECONDS = 60
 
 
+class _RecoveryWatch:
+    """Reads after a backend kill: the page until the backend answers, and the panel every time.
+
+    Attributes:
+        answered_at: the board uptime of the first page served (None until then).
+        left_panel: whether any panel read so far was not the instance on the panel.
+    """
+
+    answered_at: float | None
+    left_panel: bool
+
+    def __init__(self, board: Board, panel: Panel) -> None:
+        """Start watching with nothing seen.
+
+        Args:
+            board: the board under test.
+            panel: the probe in the browser.
+        """
+        self._board = board
+        self._panel = panel
+        self.answered_at = None
+        self.left_panel = False
+
+    def read(self) -> PanelRead:
+        """Read the page until the backend has answered, then the panel; note the panel left.
+
+        Returns:
+            The panel read.
+        """
+        if self.answered_at is None:
+            uptime, served, _output = self._board.fetch_page()
+            if served:
+                self.answered_at = uptime
+        walk = self._panel.read()
+        self.left_panel = self.left_panel or not self._panel.on_panel(walk.sample)
+        return walk
+
+
 class TestWisekiosk:
     """The instance's page is served, and survives a backend crash."""
 
@@ -41,7 +79,9 @@ class TestWisekiosk:
     def test_page_serves(self) -> None:
         """The WiseKiosk instance's page is served on the appliance."""
         self.record(requirement="TST022")
+
         _, served, output = self.board.fetch_page()
+
         assert served, f"GET / did not serve an HTML page: {output}"
 
     def test_backend_crash(self) -> None:
@@ -57,50 +97,35 @@ class TestWisekiosk:
         panel.install()
         backend = Backend(self.board, self.cleanup)
         _, before = panel.wait_on_panel()
+        watch = _RecoveryWatch(self.board, panel)
+
         killed_at, pid_before = backend.kill()
-        answered_at = None
-        left_panel = False
-
-        def read() -> PanelRead:
-            """Read the page until the backend has answered, then the panel; note the panel left.
-
-            Returns:
-                The panel read.
-            """
-            nonlocal answered_at, left_panel
-            if answered_at is None:
-                uptime, served, _output = self.board.fetch_page()
-                if served:
-                    answered_at = uptime
-            walk = panel.read()
-            left_panel = left_panel or not panel.on_panel(walk.sample)
-            return walk
-
         found_s, found = panel.wait_until(
-            lambda walk: answered_at is not None and panel.on_panel(walk.sample),
+            lambda walk: watch.answered_at is not None and panel.on_panel(walk.sample),
             Board.GIVE_UP_SECONDS,
             every=_POLL_SECONDS,
-            read=read,
+            read=watch.read,
         )
+
         sample = panel.last_reading.sample if panel.last_reading else None
         # The board uptime of the first passing read, so it overstates by up to one read.
         on_panel_s = round(found.uptime - killed_at, 1) if found_s is not None else None
 
         self.record(
             killed_at_uptime_s=killed_at,
-            backend_answered_uptime_s=answered_at,
+            backend_answered_uptime_s=watch.answered_at,
             on_panel_s=on_panel_s,
-            left_panel=left_panel,
+            left_panel=watch.left_panel,
             nonce_before=before["nonce"],
             nonce_after=sample["nonce"] if sample else None,
             last_sample=sample,
             main_pid_before=pid_before,
         )
-        if answered_at is not None:
+        if watch.answered_at is not None:
             self.record(main_pid_after=backend.assert_kill_landed())
         assert on_panel_s is not None, (
             f"the instance was not on the panel with the backend answering within {Board.GIVE_UP_SECONDS} s "
-            f"of the crash (backend answered at uptime {answered_at}); last sample: {sample!r}"
+            f"of the crash (backend answered at uptime {watch.answered_at}); last sample: {sample!r}"
         )
         assert on_panel_s <= _CRASH_BOUND_SECONDS, (
             f"on the panel {on_panel_s} s after the crash; TST032's bound is {_CRASH_BOUND_SECONDS} s"
@@ -121,13 +146,12 @@ class TestWisekiosk:
         backend.hold(_HOLD_SECONDS)
         killed_at, pid_before = backend.kill()
         self.record(killed_at_uptime_s=killed_at)
-
         panel.install()
         self.cleanup.callback(backend.unhold)
-
         panel.assert_loaded_without_backend()
 
         answered_uptime_s, on_panel_s = panel.time_on_panel_after_backend_answers()
+
         last = panel.last_reading
         self.record(
             backend_answered_uptime_s=answered_uptime_s,
