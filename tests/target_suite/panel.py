@@ -162,6 +162,7 @@ class Panel:
         within: float,
         every: float = 1,
         since: float | None = None,
+        read: Callable[[], PanelRead] | None = None,
     ) -> tuple[float | None, PanelRead | None]:
         """Read the panel every `every` seconds until `done` accepts a read, or `within` seconds pass.
 
@@ -172,13 +173,14 @@ class Panel:
             within: seconds from `since` after which the wait gives up.
             every: seconds slept between reads.
             since: the `time.monotonic()` instant the wait counts from; now when None.
+            read: the read to repeat; it must return `Panel.read()`'s result (default: `self.read`).
 
         Returns:
             What `Board.wait_until` returns: the seconds to the done read (None if it gave up) and the
             final read.
         """
         self.last_reading = None
-        return self._board.wait_until(self.read, done, within, every, since)
+        return self._board.wait_until(read or self.read, done, within, every, since)
 
     def wait_on_panel(self, full: bool = False) -> tuple[float, dict[str, str]]:
         """Wait until the instance is on the panel, with every card live when `full`.

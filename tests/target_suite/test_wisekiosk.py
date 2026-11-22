@@ -49,8 +49,6 @@ def test_backend_crash(board: Board, backend: Backend, panel: Panel, record: Rec
     killed_at, pid_before = backend.kill()
     answered_at = None
     left_panel = False
-    # this wait reads the panel itself, so the last read it keeps is its own
-    panel.last_reading = None
 
     def read() -> PanelRead:
         """Read the page until the backend has answered, then the panel; note the panel left.
@@ -67,11 +65,11 @@ def test_backend_crash(board: Board, backend: Backend, panel: Panel, record: Rec
         left_panel = left_panel or not panel.on_panel(walk.sample)
         return walk
 
-    found_s, found = board.wait_until(
-        read,
+    found_s, found = panel.wait_until(
         lambda walk: answered_at is not None and panel.on_panel(walk.sample),
         Board.GIVE_UP_SECONDS,
         every=_POLL_SECONDS,
+        read=read,
     )
     sample = panel.last_reading.sample if panel.last_reading else None
     # The board uptime of the first passing read, so it overstates by up to one read.
