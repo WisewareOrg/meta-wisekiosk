@@ -11,11 +11,9 @@ class Timezone(Part):
     def overlay_etc(self) -> str:
         """Overlay /etc with an upper layer in /run, so a zone set never writes the rootfs, until the test ends.
 
-        First clears an overlay and `/run/tst026` that a dead run left behind. timedated builds its own
-        mount namespace when it starts, so it is stopped before the mount, and the next `timedatectl`
-        starts it inside the overlay. Each step's undo is registered once that step succeeds. When the
-        test ends, timedated is stopped, /etc is unmounted, and the overlay is asserted gone with
-        `/etc/localtime` pointing where it did; then the directory is removed.
+        First clears what a dead run left. timedated is stopped before the mount, so the next
+        `timedatectl` starts it inside the overlay. When the test ends, /etc is unmounted and asserted
+        back as it was, then the directory is removed.
 
         Returns:
             Where `/etc/localtime` pointed before the overlay.

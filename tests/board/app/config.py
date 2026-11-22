@@ -76,11 +76,9 @@ class Config(Part):
     def use(self, path: str | os.PathLike[str]) -> None:
         """Swap the app onto `path`'s config, and leave the instance running against it, until the test ends.
 
-        Stops the browser, bind-mounts a copy of `path` over the live config, restarts the backend and
-        waits for the page, then starts the browser. Each step's undo is registered once that step
-        has succeeded, so they run in reverse even if a later step fails, except the backend
-        restart's: it is registered right after the restart and before the page wait, so it still
-        runs if that wait fails.
+        Each step's undo is registered once that step has succeeded, so they run in reverse even if a
+        later step fails, except the backend restart's: it is registered before the page wait, so it
+        still runs if that wait fails.
 
         Args:
             path: the config file on the host.

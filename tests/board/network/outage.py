@@ -8,6 +8,8 @@ from board.part import Part
 
 _SRC = Path(__file__).resolve().parents[2] / "target_suite" / "outage.sh"
 _SCRIPT_PATH = "/tmp/test-outage.sh"
+_RECORD_PATH = "/tmp/test-outage.record"
+_UNIT = "test-outage"
 _BOOT_COMPLETE_WAIT_SECONDS = 180
 _FRESH_SHELL_TIMEOUT_SECONDS = 10
 _JOURNAL_TIMEOUT_SECONDS = 60
@@ -53,14 +55,10 @@ class Outage(Part):
             command returns first.
         GIVE_UP_SECONDS: how long after the network returns the script waits for an address before it
             reboots the board.
-        RECORD_PATH: the board path of the script's record.
-        UNIT: the name of the `systemd-run` unit.
     """
 
     CUT_DELAY_SECONDS = 3
     GIVE_UP_SECONDS = 180
-    RECORD_PATH = "/tmp/test-outage.record"
-    UNIT = "test-outage"
 
     def wait_boot_complete(self) -> None:
         """Wait for boot-complete.target, so an outage cannot land inside kiosk-netcheck's window."""
@@ -82,10 +80,10 @@ class Outage(Part):
             outage_s: how long the script holds the network off, in seconds.
         """
         self._board.put(str(_SRC), _SCRIPT_PATH)
-        self._board.cleanup.callback(self._board.run, f"rm -f {_SCRIPT_PATH} {self.RECORD_PATH}")
+        self._board.cleanup.callback(self._board.run, f"rm -f {_SCRIPT_PATH} {_RECORD_PATH}")
         self._board.cleanup.callback(self._unpin)
         self._board.run_later(
-            self.UNIT, self.CUT_DELAY_SECONDS, f"/bin/sh {_SCRIPT_PATH} {outage_s} {self.GIVE_UP_SECONDS}"
+            _UNIT, self.CUT_DELAY_SECONDS, f"/bin/sh {_SCRIPT_PATH} {outage_s} {self.GIVE_UP_SECONDS}"
         )
         self._board.cleanup.callback(self._board.reconnect)
         self._board.disconnect()
@@ -96,9 +94,7 @@ class Outage(Part):
         Returns:
             The record; empty if the board holds none.
         """
-        return OutageRecord.from_lines(
-            self._board.run(f"cat {self.RECORD_PATH} 2>/dev/null || true", check=True).stdout
-        )
+        return OutageRecord.from_lines(self._board.run(f"cat {_RECORD_PATH} 2>/dev/null || true", check=True).stdout)
 
     def read_record_over_fresh_ssh(self) -> tuple[float | None, OutageRecord | None, str]:
         """Open a new ssh shell on the board, apart from the SSHDriver, and read the record over it.
@@ -111,7 +107,7 @@ class Outage(Part):
             done = subprocess.run(
                 [
                     *self._board.fresh_ssh_argv("ConnectTimeout=5"),
-                    f"cat /proc/uptime; cat {self.RECORD_PATH} 2>/dev/null; true",
+                    f"cat /proc/uptime; cat {_RECORD_PATH} 2>/dev/null; true",
                 ],
                 capture_output=True,
                 text=True,
@@ -136,7 +132,7 @@ class Outage(Part):
         """
         self._board.reconnect()
         journal = self._board.run(
-            f"journalctl -b {boot_id.replace('-', '')} -u {self.UNIT} -o cat --no-pager",
+            f"journalctl -b {boot_id.replace('-', '')} -u {_UNIT} -o cat --no-pager",
             timeout=_JOURNAL_TIMEOUT_SECONDS,
         )
         if journal.returncode != 0:

@@ -104,12 +104,10 @@ class Backend(Part):
     def put_behind(self, proxy: "Proxy", config: str | os.PathLike[str]) -> None:
         """Put the backend behind `proxy`, running the replay set's `config`, until the test ends.
 
-        Opens an `ssh -R` tunnel to the proxy's own loopback port, copies the proxy's CA to the board,
-        and writes a drop-in that points wisekiosk.service at the proxy through `HTTPS_PROXY` and adds
-        the CA to its trust through `SSL_CERT_FILE`. The app then takes `config` through
-        `board.app.config.use`, whose backend restart puts the backend onto the proxy before the
-        browser starts. When the test ends the tunnel's steps are undone first, last first, then the
-        config's, so the backend never runs behind a proxy that has gone.
+        A tunnel, the proxy's CA and a drop-in point wisekiosk.service at the proxy; then
+        `board.app.config.use(config)` restarts the backend onto it before the browser starts. When the
+        test ends the tunnel's steps are undone first, last first, then the config's, so the backend
+        never runs behind a proxy that has gone.
 
         Args:
             proxy: the running proxy the backend replays through.

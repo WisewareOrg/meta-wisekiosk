@@ -35,8 +35,7 @@ class Soak(Part):
     def samples(self, boot: str, start: float, end: float, period: float) -> list[dict[str, str]]:
         """Read kiosk-soak's samples from the boot `boot` that fall inside an uptime span.
 
-        Reads as many of the log's last lines as `period` covers, retrying through a dropped session
-        for `Board.READ_RETRY_SECONDS` and raising the board's last error once that runs out.
+        Reads as many of the log's last lines as `period` covers.
 
         Args:
             boot: the boot, as `board.system.kernel.boot_id()` reads it.

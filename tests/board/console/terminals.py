@@ -65,9 +65,6 @@ class Terminals(Part):
     def restore_after_test(self, record: "Record") -> None:
         """When the test ends, put vt1 back in the foreground with a fresh tty2 login, and record X after.
 
-        Presses Ctrl+Alt+F1 on the board's keyboard, kills tty2's login, brings vt1 forward and
-        records X's pid and restart count with `after`, then asserts vt1 is in the foreground.
-
         Args:
             record: the test's record.
         """
