@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_clock_set_wrong
   path: tests/target_suite/test_clock.py
-  sha: 6837a76c2adabea1ceed626eb60ad6f284bd8faade5307cf40311ef1108643fe
+  sha: 7adfe9272d6201534a7a547e010e36a978f6445369b4b3f811485c1f52f91d7c
   type: file
-reviewed: eUCkt9FcieiWOZaj-IoSUtuFqky3YOVA18IdiBL7nxk=
+reviewed: lVY2pekk3HWs_ecl2WbeGEalJt27EAx_qWlOtgb6X0M=
 status: proposed
 text: |
   With the site network up, set the appliance's clock wrong by days, then restart the appliance and
