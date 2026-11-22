@@ -138,21 +138,24 @@ which registers its undos on `self.board.cleanup` and takes no fixture. No class
 three blocks separated by single blank lines, and records through `self.record(name=value, ...)`,
 whose calls set the record's names, values and order.
 
-**The board is a tree of parts** (`tests/board/`): `board.app` (`backend`, `config`, `page`),
-`board.screen` (`display`, `captures`), `board.console` (`terminals`, `keyboard`), `board.system`
-(`clock`, `timezone`, `memory`, `soak`), `board.network` (`outage`, `load`) and `board.updates`, with
-the board-wide reads on `Board` itself. A part composes its sub-parts and does nothing else. A
-sub-part is one small class in its own module that holds only the board and registers its undos on
-`board.cleanup`; it reaches a sibling through the board's public path, never a private name (ruff's
-SLF001 gates that). It never holds the record: a method that records takes `record` as an argument
-— an `assert_…` that records before it fails, or a step whose evidence lands at teardown — and every
-other method returns what it measured for the test to record. What a test measured before a
-stimulus, the test holds. A read the test records beside its verdict returns the raw text with the
-parse, and a read the test polls keeps its last good result. `tests/board/` imports nothing from
-`tests/target_suite/` at run time, since the diagnostics import it without that directory on the
-path; the host-side objects (`Record`, `ContainerDir`, the bundle and helper builds) live in
-`tests/target_suite/`. The diagnostics get their own Board from a function-scoped `board` fixture in
-`tests/diagnostics/conftest.py`, and the session fixtures each open one with `with Board(target)`.
+**The board is a tree of parts** (`tests/board/`). `Board` itself is the connection: one
+`run(cmd, check=, timeout=, retry_for=, with_uptime=)`, `poll`, file and port transfer, the
+undo-registering primitives (`bind_over`, `run_later`, `unmount_if_mounted`), and the restarts and
+power cut, which drop and re-establish that connection. Everything else belongs to a part:
+`board.app` (`backend`, `config`, `page`), `board.screen` (`display`, `captures`), `board.console`
+(`terminals`, `keyboard`), `board.system` (`clock`, `timezone`, `memory`, `soak`, `kernel`,
+`journal`), `board.network` (`outage`, `load`) and `board.updates`. `Board.__init__` builds the
+whole tree, one statement per part, by keyword. A composite is a keyword-built dataclass of its
+sub-parts. A sub-part is one small class in its own module, subclassing `Part`; it registers its
+undos on `board.cleanup`, and it reaches a sibling only through the board's public path (ruff's
+SLF001 gates that). A sub-part never holds the record: a method that records takes `record` as an
+argument, and every other method returns what it measured for the test to record. A method that
+measures several things returns several values, unpacked into names at the call site. A named result
+type exists only where the value is stored, passed whole to a predicate or another method, carries
+methods, or has neighbouring fields of one type that a reorder could silently swap. `tests/board/`
+imports nothing from `tests/target_suite/` at run time. The diagnostics get their own Board from a
+function-scoped `board` fixture, and each fixture that reads the board outside a test class opens
+one with `with Board(target) as board:`.
 
 **Teardown and record order.** For each test, in this order: the hook builds the Board and the
 Record; the autouse fixtures run, and `device_context` records the device facts; `setup_method`
