@@ -1,23 +1,12 @@
 """The board's time zone, and the local time it reports in."""
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from board import Board
+from board.part import Part
 
 _RUN_DIR = "/run/tst026"
 
 
-class Timezone:
+class Timezone(Part):
     """The board's time zone, set through timedated, and the local time it reports."""
-
-    def __init__(self, board: "Board") -> None:
-        """Bind to the board.
-
-        Args:
-            board: the board under test.
-        """
-        self._board = board
 
     def overlay_etc(self) -> str:
         """Overlay /etc with an upper layer in /run, so a zone set never writes the rootfs, until the test ends.

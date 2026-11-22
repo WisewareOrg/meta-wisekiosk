@@ -1,10 +1,9 @@
 """The X server and the output it drives."""
 
 import re
-from typing import TYPE_CHECKING, NamedTuple
+from typing import NamedTuple
 
-if TYPE_CHECKING:
-    from board import Board
+from board.part import Part
 
 _SEPARATOR = "=== windows"
 _LAYOUT_READ = (
@@ -161,16 +160,8 @@ class XsetQuery(NamedTuple):
         return any(text in self.text for text in _DPMS_OFF)
 
 
-class Display:
+class Display(Part):
     """The X server on the board, and the output it drives."""
-
-    def __init__(self, board: "Board") -> None:
-        """Bind to the board.
-
-        Args:
-            board: the board under test.
-        """
-        self._board = board
 
     def x_server_options(self) -> list[str]:
         """Read the X server's command line.

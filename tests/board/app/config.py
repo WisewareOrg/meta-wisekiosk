@@ -3,10 +3,10 @@
 import os
 from typing import TYPE_CHECKING, NamedTuple
 
+from board.part import Part
+
 if TYPE_CHECKING:
     from record import Record
-
-    from board import Board
 
 
 class ConfigHashes(NamedTuple):
@@ -52,7 +52,7 @@ class ConfigHashes(NamedTuple):
         )
 
 
-class Config:
+class Config(Part):
     """The config the WiseKiosk app on the board runs with, and the image default it is reseeded from.
 
     Attributes:
@@ -61,14 +61,6 @@ class Config:
 
     LIVE_PATH = "/data/config/config.json"
     _DEFAULT_PATH = "/usr/share/wisekiosk/config.example.json"
-
-    def __init__(self, board: "Board") -> None:
-        """Bind to the board.
-
-        Args:
-            board: the board under test.
-        """
-        self._board = board
 
     def unmount_stale_bind(self) -> None:
         """Unmount a bind mount a dead run left over the live config, if there is one."""

@@ -7,11 +7,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
 from board.app.panel_watch import PanelWatch
+from board.part import Part
 
 if TYPE_CHECKING:
     from record import Record
 
-    from board import Board
 
 _PROBE_SRC = Path(__file__).resolve().parents[2] / "target_suite" / "probe.js"
 _SURF_DIR = "/home/root/.surf"
@@ -113,23 +113,14 @@ class BackendKillRecovery(NamedTuple):
     left_panel: bool
 
 
-class Page:
+class Page(Part):
     """The app's page in the browser, as the window titles and the probe report it.
 
     Attributes:
         last_read: the last read that succeeded, None before one; each wait on the panel resets it.
     """
 
-    last_read: PanelRead | None
-
-    def __init__(self, board: "Board") -> None:
-        """Bind to the board.
-
-        Args:
-            board: the board under test.
-        """
-        self._board = board
-        self.last_read = None
+    last_read: PanelRead | None = None
 
     def install_probe(self, restart_browser: bool = True) -> str:
         """Load the probe into the browser, until the test ends.

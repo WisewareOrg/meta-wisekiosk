@@ -3,10 +3,9 @@
 import json
 import subprocess
 import time
-from typing import TYPE_CHECKING, NamedTuple
+from typing import NamedTuple
 
-if TYPE_CHECKING:
-    from board import Board
+from board.part import Part
 
 _CLOCK_FILE = "/data/systemd-timesync/clock"
 # at teardown, a clock further off the host's than this is set to the host's time
@@ -25,7 +24,7 @@ class ClockReading(NamedTuple):
     offset_s: float
 
 
-class Clock:
+class Clock(Part):
     """The board's clock and systemd-timesyncd, which corrects it from the network.
 
     Whatever this changes is put right when the test ends, through the board's cleanup.
@@ -35,16 +34,7 @@ class Clock:
             last said.
     """
 
-    last_reading: ClockReading | None
-
-    def __init__(self, board: "Board") -> None:
-        """Bind to the board.
-
-        Args:
-            board: the board this clock belongs to.
-        """
-        self._board = board
-        self.last_reading = None
+    last_reading: ClockReading | None = None
 
     def read(self) -> ClockReading | None:
         """Read the uptime and the clock's offset from the host's in one command.

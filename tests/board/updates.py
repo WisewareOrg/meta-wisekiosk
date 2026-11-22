@@ -9,11 +9,12 @@ import subprocess
 import time
 from typing import TYPE_CHECKING, NamedTuple
 
+from board.part import Part
+
 if TYPE_CHECKING:
     from candidate_bundles import CandidateBundles
     from record import Record
 
-    from board import Board
 
 _INSTALL_TOOL = pathlib.Path(__file__).resolve().parents[2] / "tools" / "kiosk-install.sh"
 # how long the install tool may take to clean up after a SIGTERM
@@ -40,7 +41,7 @@ class InstallProgress(NamedTuple):
     sectors_written: int
 
 
-class Updates:
+class Updates(Part):
     """RAUC on the board, and the one install path `tools/kiosk-install.sh` takes to it.
 
     Attributes:
@@ -49,14 +50,6 @@ class Updates:
     """
 
     CANDIDATE_INSTALL_TIMEOUT_SECONDS = 1200
-
-    def __init__(self, board: "Board") -> None:
-        """Bind to the board.
-
-        Args:
-            board: the board under test.
-        """
-        self._board = board
 
     def install_bundle(self, bundle: pathlib.Path, timeout: float) -> tuple[int, str, float]:
         """Install `bundle` through `tools/kiosk-install.sh`, the board's one install path.

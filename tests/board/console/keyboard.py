@@ -3,10 +3,11 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
+from board.part import Part
+
 if TYPE_CHECKING:
     from evemu_helpers import EvemuHelpers
 
-    from board import Board
 
 _SRC_DIR = Path(__file__).resolve().parents[2] / "target_suite"
 _DIR = "/tmp/test-keyboard"
@@ -75,7 +76,7 @@ class TypedMarker(NamedTuple):
     fields: list[str]
 
 
-class Keyboard:
+class Keyboard(Part):
     """A virtual keyboard `keyboard.sh` attaches to the board through uinput and types into the consoles.
 
     Attributes:
@@ -83,14 +84,6 @@ class Keyboard:
     """
 
     NONCE_BYTES = 8
-
-    def __init__(self, board: "Board") -> None:
-        """Bind to the board.
-
-        Args:
-            board: the board under test.
-        """
-        self._board = board
 
     @staticmethod
     def typing_seconds() -> float:

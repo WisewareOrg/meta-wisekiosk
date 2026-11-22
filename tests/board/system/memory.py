@@ -1,10 +1,9 @@
 """The board's memory, and the kernel's record of processes it killed for memory."""
 
 import re
-from typing import TYPE_CHECKING, NamedTuple
+from typing import NamedTuple
 
-if TYPE_CHECKING:
-    from board import Board
+from board.part import Part
 
 _OOM = re.compile(r"^\[\s*(\d+\.\d+)\].*(?:Out of memory|deadlocked on memory)")
 
@@ -21,20 +20,12 @@ class OomKills(NamedTuple):
     uptimes: list[float]
 
 
-class Memory:
+class Memory(Part):
     """The board's memory, and the kernel's out-of-memory record in this boot, the last, and pstore.
 
     Every read retries through a dropped session for `Board.READ_RETRY_SECONDS`, and raises the board's
     last error once that runs out.
     """
-
-    def __init__(self, board: "Board") -> None:
-        """Bind to the board.
-
-        Args:
-            board: the board under test.
-        """
-        self._board = board
 
     def meminfo_kb(self) -> dict[str, int]:
         """Read `/proc/meminfo`.

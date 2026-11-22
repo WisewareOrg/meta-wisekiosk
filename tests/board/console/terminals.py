@@ -2,25 +2,18 @@
 
 from typing import TYPE_CHECKING
 
+from board.part import Part
+
 if TYPE_CHECKING:
     from record import Record
 
-    from board import Board
 
 # the longest wait for X to take vt1 back after `kiosk.service` restarts
 _KIOSK_RESTART_WAIT_SECONDS = 30
 
 
-class Terminals:
+class Terminals(Part):
     """The board's virtual terminals: the one in the foreground, X's on vt1, and tty2's login."""
-
-    def __init__(self, board: "Board") -> None:
-        """Bind to the board.
-
-        Args:
-            board: the board under test.
-        """
-        self._board = board
 
     def foreground_vt(self) -> str:
         """Read the virtual terminal in the foreground, as the board's `fgconsole` prints it.

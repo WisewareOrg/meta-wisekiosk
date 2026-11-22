@@ -1,9 +1,6 @@
 """The kiosk-soak sampler: its timer, and the log it keeps of the board's memory and processes."""
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from board import Board
+from board.part import Part
 
 _LOG_PATH = "/data/kiosk-soak.log"
 # more of kiosk-soak's samples than TST009's window spans
@@ -14,7 +11,7 @@ _INTERVAL_SECONDS = 300
 _TAIL_MARGIN = 4
 
 
-class Soak:
+class Soak(Part):
     """kiosk-soak on the board: one sample of memory and processes every five minutes, kept in its log.
 
     Attributes:
@@ -22,14 +19,6 @@ class Soak:
     """
 
     MAX_GAP_SECONDS = 450
-
-    def __init__(self, board: "Board") -> None:
-        """Bind to the board.
-
-        Args:
-            board: the board under test.
-        """
-        self._board = board
 
     def start_sampler(self) -> bool:
         """Start kiosk-soak's timer; when the test ends it is stopped again, unless it was already running.

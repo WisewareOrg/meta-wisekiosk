@@ -5,17 +5,18 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from board.part import Part
+
 if TYPE_CHECKING:
     from wisebench.proxy import Proxy
 
-    from board import Board
 
 # the CA the replay proxy signs its answers with, as mitmproxy writes it on the test host
 _PROXY_CA_PATH = Path.home() / ".mitmproxy" / "mitmproxy-ca-cert.pem"
 _PROXY_CA_BOARD_PATH = "/tmp/replay-ca.pem"
 
 
-class Backend:
+class Backend(Part):
     """wisekiosk.service on the board: its process, a delay on its own restart, and its mask.
 
     Each change registers its undo on the board's cleanup once it has taken.
@@ -34,14 +35,6 @@ class Backend:
     )
     _RELEASE = "systemctl unmask --runtime wisekiosk.service; systemctl start wisekiosk.service"
     _RELEASE_UNIT = "test-backend-release"
-
-    def __init__(self, board: "Board") -> None:
-        """Bind to the board.
-
-        Args:
-            board: the board under test.
-        """
-        self._board = board
 
     def clear_runtime_overrides(self) -> None:
         """Remove the runtime drop-ins and the runtime mask a dead run left on the backend, and start it."""

@@ -5,6 +5,8 @@ import subprocess
 import time
 from typing import TYPE_CHECKING
 
+from board.part import Part
+
 if TYPE_CHECKING:
     from board import Board
 
@@ -15,7 +17,7 @@ _CAPTURE_EVERY_SECONDS = 5
 _MIN_PNG_BYTES = 100
 
 
-class Captures:
+class Captures(Part):
     """The panel's middle third grabbed every 5 s, and the series the grabs make.
 
     A capture is `(board uptime just before the grab, sha256 | None)`; a None hash is a bad capture.
@@ -35,7 +37,7 @@ class Captures:
         Args:
             board: the board under test.
         """
-        self._board = board
+        super().__init__(board)
         self._crop: str | None = None
         self._next_at = time.monotonic()
         self.taken = []

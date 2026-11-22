@@ -2,10 +2,9 @@
 
 import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING, NamedTuple
+from typing import NamedTuple
 
-if TYPE_CHECKING:
-    from board import Board
+from board.part import Part
 
 _SRC = Path(__file__).resolve().parents[2] / "target_suite" / "outage.sh"
 _SCRIPT_PATH = "/tmp/test-outage.sh"
@@ -72,7 +71,7 @@ class FreshShellRead(NamedTuple):
     ended: str
 
 
-class Outage:
+class Outage(Part):
     """A network outage `outage.sh` holds on the board, and the record it keeps of it.
 
     Attributes:
@@ -88,14 +87,6 @@ class Outage:
     GIVE_UP_SECONDS = 180
     RECORD_PATH = "/tmp/test-outage.record"
     UNIT = "test-outage"
-
-    def __init__(self, board: "Board") -> None:
-        """Bind to the board.
-
-        Args:
-            board: the board under test.
-        """
-        self._board = board
 
     def wait_boot_complete(self) -> None:
         """Wait for boot-complete.target, so an outage cannot land inside kiosk-netcheck's window."""

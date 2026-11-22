@@ -4,10 +4,8 @@ import os
 import subprocess
 import threading
 import time
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from board import Board
+from board.part import Part
 
 _BLOCK_BYTES = 1024 * 1024
 # how long past the load the push may run before it is killed as hung
@@ -76,16 +74,8 @@ class NetworkLoad:
         self.seconds = time.monotonic() - started
 
 
-class Load:
+class Load(Part):
     """Bytes pushed at the board."""
-
-    def __init__(self, board: "Board") -> None:
-        """Bind to the board.
-
-        Args:
-            board: the board under test.
-        """
-        self._board = board
 
     def push(self, load_s: float) -> NetworkLoad:
         """Start pushing random bytes at the board for `load_s` seconds, over an ssh of their own.
