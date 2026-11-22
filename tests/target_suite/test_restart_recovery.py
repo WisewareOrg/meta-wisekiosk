@@ -106,7 +106,7 @@ class TestRestartRecovery(BoardTest):
         self.record(requirement="TST033")
         backend = self.board.app.backend
         page = self.board.app.page
-        self.board.app.page.wait_until_served()
+        page.wait_until_served()
         backend.mask()
         self.board.restart_with("systemctl soft-reboot", boot_cmd=_USERSPACE_BOOT_CMD)
         backend.unmask_and_start_after(Board.GIVE_UP_SECONDS)

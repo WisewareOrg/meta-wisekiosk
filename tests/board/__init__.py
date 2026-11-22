@@ -61,6 +61,15 @@ class CommandResult(NamedTuple):
         """
         return "\n".join(self.stdout).strip()
 
+    @property
+    def output(self) -> str:
+        """The stdout lines, then the stderr lines, joined by newlines, stripped.
+
+        Returns:
+            The output.
+        """
+        return "\n".join(self.stdout + self.stderr).strip()
+
 
 class Board:
     """The board under test, for one test: its shell, its parts, and an undo of what the test changed.

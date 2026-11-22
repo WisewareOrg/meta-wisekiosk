@@ -19,9 +19,8 @@ class TestWisekiosk(BoardTest):
         """TST022: the WiseKiosk instance's page is served on the appliance."""
         fetch = self.board.app.page.fetch()
 
-        output = "\n".join(fetch.stdout + fetch.stderr).strip()
-        assert fetch.returncode == 0, f"GET / failed (rc {fetch.returncode}): {output}"
-        assert "<html" in output, f"GET / did not return an <html> body: {output}"
+        assert fetch.returncode == 0, f"GET / failed (rc {fetch.returncode}): {fetch.output}"
+        assert "<html" in fetch.output, f"GET / did not return an <html> body: {fetch.output}"
         self.record(requirement="TST022")
 
     def test_backend_crash(self) -> None:
@@ -72,7 +71,7 @@ class TestWisekiosk(BoardTest):
         self.record(requirement="TST034")
         backend = self.board.app.backend
         page = self.board.app.page
-        self.board.app.page.wait_until_served()
+        page.wait_until_served()
         backend.delay_restart(_HOLD_SECONDS)
         pid_before = backend.pid()
         killed_at = backend.sigkill()

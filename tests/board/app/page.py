@@ -157,7 +157,7 @@ class Page(Part):
         return self._board.run(_PAGE_FETCH_CMD, timeout=_PAGE_ATTEMPT_TIMEOUT_SECONDS, with_uptime=with_uptime)
 
     @staticmethod
-    def served(fetch: "CommandResult") -> bool:
+    def shows_served(fetch: "CommandResult") -> bool:
         """Whether a fetch served an HTML page.
 
         Args:
@@ -166,7 +166,7 @@ class Page(Part):
         Returns:
             True if it returned 0 with `<html` in its output.
         """
-        return fetch.returncode == 0 and "<html" in "\n".join(fetch.stdout + fetch.stderr)
+        return fetch.returncode == 0 and "<html" in fetch.output
 
     def is_served(self) -> bool:
         """Fetch the page once and say whether it served an HTML page.
@@ -175,7 +175,7 @@ class Page(Part):
             Whether the fetch served an HTML page; False if it timed out.
         """
         try:
-            return self.served(self.fetch())
+            return self.shows_served(self.fetch())
         except subprocess.TimeoutExpired:
             return False
 
@@ -427,7 +427,7 @@ class Page(Part):
         """
         self.last_read = None
         answered_s, answered = self._board.poll(
-            lambda: self.fetch(with_uptime=True), until=self.served, within=self._board.GIVE_UP_SECONDS
+            lambda: self.fetch(with_uptime=True), until=self.shows_served, within=self._board.GIVE_UP_SECONDS
         )
         if answered_s is None:
             return None, None
@@ -464,9 +464,10 @@ class Page(Part):
                 try:
                     fetch = self.fetch(with_uptime=True)
                 except self._board.ERRORS:
-                    fetch = None
-                if fetch is not None and self.served(fetch):
-                    answered_uptime_s = fetch.uptime_s
+                    pass
+                else:
+                    if self.shows_served(fetch):
+                        answered_uptime_s = fetch.uptime_s
             panel = self.read()
             left_panel = left_panel or not self.shows_instance(panel.sample)
             return panel

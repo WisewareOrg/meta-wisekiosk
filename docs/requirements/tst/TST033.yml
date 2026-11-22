@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_backend_late_at_boot
   path: tests/target_suite/test_restart_recovery.py
-  sha: 1ee44c5ad7efe0bb22d767282c52f9f9b9898d46842a304d5b772026071b27cd
+  sha: ee864c5dcb7a9af8ced46b7d56db1f2dcd0f88c02697e3b101fc7d66df2f5cfb
   type: file
-reviewed: hQ8HHogtMJupqcQkX-11BabpJD0BRjslmDccpO0XNr4=
+reviewed: a4syWq74ydPKtDAB4nYnT2bpAVHKvUbHmYZTsOMUOqQ=
 status: proposed
 text: |
   With nobody at the panel, restart the appliance with the WiseKiosk backend held back from starting
