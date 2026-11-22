@@ -15,3 +15,4 @@ FILESEXTRAPATHS:prepend := "${THISDIR}/${PN}:"
 # creation, and the loadchanged cases were rewritten.
 SRC_URI += "file://0001-kiosk-milestones-and-override-redirect.patch"
 SRC_URI += "file://0002-reload-a-page-that-stops-answering.patch"
+SRC_URI += "file://0003-retry-a-load-that-fails.patch"
