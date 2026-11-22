@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_power_cut_while_showing
   path: tests/target_suite/test_restart_recovery.py
-  sha: fd2194f8d68be55de866a4afe8bd18c6ce02ea716ddce0545c84c7569bfca6ba
+  sha: 0af5e7b3658b613e928b9034c02adcc07eb8a04f39da29e72875754f7d289e2c
   type: file
-reviewed: -iXhPSdXu0mvfwswMrjG_xrLP6od_WuNDQjNXU45zyM=
+reviewed: YS2Jw__EZ0Z10H6qa53aAOfHe88itKPNKlyXhVAPEPM=
 status: proposed
 text: |
   With the appliance serving the WiseKiosk instance's page and the browser running, cut its power
