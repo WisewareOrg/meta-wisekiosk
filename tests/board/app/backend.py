@@ -7,11 +7,15 @@ if TYPE_CHECKING:
 
 
 class Backend:
-    """wisekiosk.service on the board: its mask for this boot, and its release.
+    """wisekiosk.service on the board: its process, a delay on its own restart, and its mask.
 
     Each change registers its undo on the board's cleanup once it has taken.
     """
 
+    _DROP_IN_DIR = "/run/systemd/system/wisekiosk.service.d"
+    _DELAY_DROP_IN = f"{_DROP_IN_DIR}/hold.conf"
+    # covers a daemon-reload plus a backend start
+    _RELOAD_TIMEOUT_SECONDS = 60
     _RELEASE = "systemctl unmask --runtime wisekiosk.service; systemctl start wisekiosk.service"
     _RELEASE_UNIT = "test-backend-release"
 
@@ -22,6 +26,62 @@ class Backend:
             board: the board under test.
         """
         self._board = board
+
+    def pid(self) -> str:
+        """The backend's MainPID as systemd reports it.
+
+        Returns:
+            The MainPID.
+        """
+        return self._board.read("systemctl show -p MainPID --value wisekiosk.service")
+
+    def sigkill(self) -> float:
+        """SIGKILL the backend.
+
+        Returns:
+            The board's uptime at the kill.
+        """
+        return self._board.run_with_uptime("systemctl kill --signal=KILL wisekiosk.service", check=True)[0]
+
+    def assert_new_process_after_kill(self, pid_before: str) -> str:
+        """Assert the backend answering after a kill is a new process; INVALID if it is not.
+
+        Args:
+            pid_before: the MainPID the kill was aimed at.
+
+        Returns:
+            The new MainPID.
+        """
+        pid_after = self.pid()
+        assert pid_after != pid_before, (
+            f"INVALID CHECK, not an appliance failure: the kill did not land (MainPID {pid_before} unchanged)"
+        )
+        return pid_after
+
+    def delay_restart(self, seconds: int) -> None:
+        """Delay the backend's own restart to `seconds` with a runtime drop-in, until `undo_restart_delay`.
+
+        The undo is registered on the board's cleanup before the drop-in is written.
+
+        Args:
+            seconds: the `RestartSec` to delay it to.
+        """
+        self._board.cleanup.callback(self.undo_restart_delay)
+        self._board.run(
+            f"mkdir -p {self._DROP_IN_DIR} && printf '[Service]\\nRestartSec={seconds}\\n' > {self._DELAY_DROP_IN} && "
+            "systemctl daemon-reload",
+            check=True,
+            timeout=self._RELOAD_TIMEOUT_SECONDS,
+        )
+
+    def undo_restart_delay(self) -> None:
+        """Remove the restart delay, start the backend and wait for the page; safe to run twice."""
+        self._board.run(
+            f"rm -f {self._DELAY_DROP_IN}; systemctl daemon-reload; systemctl start wisekiosk.service",
+            check=True,
+            timeout=self._RELOAD_TIMEOUT_SECONDS,
+        )
+        self._board.wait_for_page()
 
     def mask(self) -> None:
         """Mask the backend for this boot only; when the test ends it is unmasked and started."""
@@ -43,7 +103,7 @@ class Backend:
         self._board.run(self._RELEASE, check=True)
 
     def unmask_and_wait_for_page(self) -> None:
-        """Unmask and start the backend, then wait for the page; idempotent, so it may be registered twice."""
+        """Unmask and start the backend, then wait for the page; safe to run twice."""
         self.unmask_and_start()
         self._board.wait_for_page()
 

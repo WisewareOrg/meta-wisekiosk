@@ -14,6 +14,9 @@ if TYPE_CHECKING:
 _PROBE_SRC = Path(__file__).resolve().parents[2] / "target_suite" / "probe.js"
 _SURF_DIR = "/home/root/.surf"
 _SURF_SCRIPT_PATH = f"{_SURF_DIR}/script.js"
+_PANEL_WAIT_SECONDS = 90
+# how often TST032's watch reads the page and the panel after the kill
+_KILL_WATCH_POLL_SECONDS = 0.5
 _OWN_ORIGINS = ("http://localhost:8080", "http://127.0.0.1:8080")
 _SETTLED_APP_STATES = ("error:configuration", "error:backend-unreachable")
 _PROBE_FIELDS = ("nonce", "state", "cards", "origin", "layout")
@@ -70,6 +73,22 @@ class HeldRead(NamedTuple):
     title: str | None
 
 
+class BackendKillRecovery(NamedTuple):
+    """What the page and the panel showed after the backend was killed.
+
+    Attributes:
+        answered_uptime_s: the board uptime at which the page was first served after the kill, None if
+            it was not.
+        on_panel_s: the seconds from the kill to the first read showing the instance on the panel with
+            the backend answering, by board uptime, None if there was none.
+        left_panel: whether any read after the kill did not show the instance on the panel.
+    """
+
+    answered_uptime_s: float | None
+    on_panel_s: float | None
+    left_panel: bool
+
+
 class Page:
     """The app's page in the browser, as the window titles and the probe report it.
 
@@ -122,6 +141,19 @@ class Page:
             True if the sample shows the instance on the panel.
         """
         return sample is not None and sample["state"] == "applied" and sample["origin"] in _OWN_ORIGINS
+
+    def wait_for_instance(self) -> tuple[float, dict[str, str]]:
+        """Wait until the instance is on the panel.
+
+        Returns:
+            The board uptime and the sample of the read that found it.
+        """
+        found_s, found = self.poll(until=lambda read: self.shows_instance(read.sample), within=_PANEL_WAIT_SECONDS)
+        assert found_s is not None, (
+            f"the instance was not on the panel within {_PANEL_WAIT_SECONDS} s; "
+            f"last sample: {self.last_read.sample if self.last_read else None!r}"
+        )
+        return found.uptime, found.sample
 
     def read(self) -> PanelRead:
         """Walk the windows once, into `last_read`.
@@ -232,6 +264,50 @@ class Page:
         last = self.last_read
         on_panel_s = round(last.uptime - answered_uptime_s, 1) if last and self.shows_instance(last.sample) else None
         return answered_uptime_s, on_panel_s
+
+    def time_on_panel_after_backend_kill(self, killed_at_uptime_s: float) -> BackendKillRecovery:
+        """Time from a backend kill to the instance on the panel with the backend answering.
+
+        Reads every 0.5 s: the page, until it is first served, and the panel each time. Only a panel
+        read once the backend has answered counts, so the page as it stood at the kill cannot pass. A
+        failed page read or panel read is skipped; `last_read` holds the last good panel read after.
+
+        Args:
+            killed_at_uptime_s: the board uptime at the kill.
+
+        Returns:
+            What the reads showed, within `Board.GIVE_UP_SECONDS` of now.
+        """
+        answered_uptime_s = None
+        left_panel = False
+
+        def read_page_and_panel() -> PanelRead:
+            """Read the page if it has not yet answered, then the panel.
+
+            Returns:
+                The panel read.
+            """
+            nonlocal answered_uptime_s, left_panel
+            if answered_uptime_s is None:
+                try:
+                    uptime, served = self._uptime_and_served()
+                except self._board.ERRORS:
+                    served = False
+                if served:
+                    answered_uptime_s = uptime
+            panel = self.read()
+            left_panel = left_panel or not self.shows_instance(panel.sample)
+            return panel
+
+        found_s, found = self.poll(
+            until=lambda read: answered_uptime_s is not None and self.shows_instance(read.sample),
+            within=self._board.GIVE_UP_SECONDS,
+            every=_KILL_WATCH_POLL_SECONDS,
+            read=read_page_and_panel,
+        )
+        # the board uptime of the first passing read, so it overstates by up to one read
+        on_panel_s = round(found.uptime - killed_at_uptime_s, 1) if found_s is not None else None
+        return BackendKillRecovery(answered_uptime_s, on_panel_s, left_panel)
 
     def _uptime_and_served(self) -> tuple[float, bool]:
         """Fetch the page once, stamped with the board's uptime.
