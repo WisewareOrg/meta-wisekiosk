@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_power_cut_during_an_update
   path: tests/target_suite/test_image_update.py
-  sha: fae4a66f3d8533583bdde7f9041aa01ef9385d05bb1730845707feeb8378a0a2
+  sha: 77e1f8afbea09dccd9808426195a299972cb13f688548ae3da662be02ee44eac
   type: file
-reviewed: _ezqX2AykjAtLd6qFd-FVFOA3xbtAeJ88gxZa4yt5sA=
+reviewed: aUgj60bIoHKpW1pgCfjC8pW2ifJl4aSuuxSeaVR11fY=
 status: proposed
 text: |
   Cut the appliance's power without warning while an image update is being written to it, then

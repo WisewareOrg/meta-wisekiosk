@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 import pytest
 from board import Board
 from board_test import BoardTest
+from candidate_bundles import CandidateBundles
 from labgrid.pytestplugin.hooks import LABGRID_ENV_KEY
 from outage import Outage
 from panel import Panel
@@ -69,6 +70,20 @@ def config_across_update(request, board, bench_candidate):
 @pytest.fixture(scope="session", autouse=True)
 def _install_candidate(config_across_update):
     """Activate `install_candidate` (tests/conftest.py) for every test in this suite, via `config_across_update`."""
+
+
+@pytest.fixture(scope="module")
+def candidate_bundles(bench_candidate: str | None) -> Iterator[CandidateBundles]:
+    """Build the image-update tests' bundles once per module; skips the tests outside a build.
+
+    Args:
+        bench_candidate: the commit under test, or None outside a build.
+
+    Yields:
+        CandidateBundles: the bundles, whose run directory is removed once the module ends.
+    """
+    with contextlib.ExitStack() as cleanup:
+        yield CandidateBundles.build(cleanup, bench_candidate)
 
 
 @pytest.fixture

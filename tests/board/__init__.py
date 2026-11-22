@@ -16,6 +16,7 @@ from tenacity import Retrying, retry_if_exception_type, retry_if_result, stop_af
 
 from board.app import App
 from board.network import Network
+from board.updates import Updates
 
 
 class InstanceState(NamedTuple):
@@ -28,6 +29,18 @@ class InstanceState(NamedTuple):
 
     browser_running: bool
     page_served: bool
+
+
+class BootOrder(NamedTuple):
+    """The boot order and the attempts left, as `fw_printenv` holds them.
+
+    Attributes:
+        order: the slots' bootnames in the order the bootloader tries them.
+        attempts_left: the attempts left per bootname.
+    """
+
+    order: list[str]
+    attempts_left: dict[str, int]
 
 
 class Board:
@@ -43,7 +56,9 @@ class Board:
         host: `user@address` of the board, as the `just kiosk-*` recipes take it.
         last_instance_state: the last read of `seconds_until_instance_up`, None before one.
         network: the board's network.
+        updates: RAUC and the board's install path.
         BOOT_ID_CMD: prints the kernel's boot id, which differs in each boot.
+        BOOT_VARIABLES_CMD: prints BOOT_ORDER and each slot's BOOT_x_LEFT as name=value lines.
         ERRORS: what a read of the board raises when the board does not answer; `poll` retries these.
         GIVE_UP_SECONDS: how long a test waits for the board; past every bound, so the record still
             carries the time it took.
@@ -57,7 +72,9 @@ class Board:
     host: str
     last_instance_state: InstanceState | None
     network: Network
+    updates: Updates
     BOOT_ID_CMD = "cat /proc/sys/kernel/random/boot_id"
+    BOOT_VARIABLES_CMD = "fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT"
     ERRORS = (ExecutionError, StateError, subprocess.TimeoutExpired)
     GIVE_UP_SECONDS = 180
     PAGE_FETCH_CMD = "wget -q -O- http://127.0.0.1:8080/"
@@ -83,6 +100,7 @@ class Board:
         self.last_instance_state = None
         self.app = App(self)
         self.network = Network(self)
+        self.updates = Updates(self)
 
     def run(
         self, cmd: str, check: bool = False, timeout: float | None = _COMMAND_TIMEOUT_SECONDS
@@ -228,6 +246,29 @@ class Board:
         )(read)
         done = value is not None and until(value)
         return (round(time.monotonic() - since, 1) if done else None), value
+
+    def boot_order(self) -> BootOrder:
+        """Read BOOT_ORDER and each slot's BOOT_x_LEFT from `fw_printenv`.
+
+        Returns:
+            The boot order, and the attempts left per bootname.
+        """
+        stdout = self.run(self.BOOT_VARIABLES_CMD, check=True)[0]
+        variables = dict(line.split("=", 1) for line in stdout)
+        attempts_left = {name: int(variables[f"BOOT_{name}_LEFT"]) for name in ("A", "B")}
+        return BootOrder(variables["BOOT_ORDER"].split(), attempts_left)
+
+    def build_commit(self) -> str:
+        """Read the meta-wisekiosk commit the board's image was built from.
+
+        Returns:
+            The commit named by the meta-wisekiosk line of /etc/buildinfo.
+        """
+        stdout, _stderr, returncode = self.run("cat /etc/buildinfo", timeout=None)
+        assert returncode == 0, "could not read /etc/buildinfo on the board"
+        line = next((entry for entry in stdout if entry.split()[:2] == ["meta-wisekiosk", "="]), None)
+        assert line is not None, f"no meta-wisekiosk layer line in buildinfo:\n{chr(10).join(stdout)}"
+        return line.split()[2].rsplit(":", 1)[-1]
 
     def fetch_page(self, timeout: float = PAGE_ATTEMPT_TIMEOUT_SECONDS) -> tuple[int, str]:
         """Fetch the WiseKiosk instance's page on the board once.
