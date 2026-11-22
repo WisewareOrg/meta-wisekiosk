@@ -10,9 +10,9 @@ import pytest
 from board import Board
 from board_test import BoardTest
 from candidate_bundles import CandidateBundles
+from evemu_helpers import EvemuHelpers
 from labgrid import Target
 from labgrid.pytestplugin.hooks import LABGRID_ENV_KEY
-from outage import Outage
 from panel import Panel
 from record import Record
 from recovery import BACKEND_DROP_IN_DIR, RELOAD_TIMEOUT_SECONDS
@@ -102,6 +102,17 @@ def refused_offers(target: Target) -> Iterator[RefusedOffers]:
         compatible = board.updates.compatible()
     with contextlib.ExitStack() as cleanup:
         yield RefusedOffers.build(cleanup, compatible)
+
+
+@pytest.fixture(scope="module")
+def evemu_helpers() -> Iterator[EvemuHelpers]:
+    """Build evemu-tools and its library once per module, for TST027's keyboard.
+
+    Yields:
+        EvemuHelpers: the built files, whose work directory is removed once the module ends.
+    """
+    with contextlib.ExitStack() as cleanup:
+        yield EvemuHelpers.build(cleanup)
 
 
 @pytest.fixture
@@ -325,12 +336,6 @@ def device_context(board, record_property):
         record_property(key, value)
     yield
     record_property("end", _utc_now())
-
-
-@pytest.fixture
-def outage(board):
-    """The `Outage` for the board; the test arms it."""
-    return Outage(board)
 
 
 _POWER_OFF_SECONDS = 10

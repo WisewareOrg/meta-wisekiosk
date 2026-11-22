@@ -15,6 +15,7 @@ from labgrid.driver.exception import ExecutionError
 from tenacity import Retrying, retry_if_exception_type, retry_if_result, stop_after_delay, wait_fixed
 
 from board.app import App
+from board.console import Console
 from board.network import Network
 from board.updates import Updates
 
@@ -53,6 +54,7 @@ class Board:
     Attributes:
         app: the WiseKiosk app on the board.
         cleanup: undoes, last first, what the test changed on the board.
+        console: the board's consoles, and a keyboard attached to them.
         host: `user@address` of the board, as the `just kiosk-*` recipes take it.
         last_instance_state: the last read of `seconds_until_instance_up`, None before one.
         network: the board's network.
@@ -69,6 +71,7 @@ class Board:
 
     app: App
     cleanup: contextlib.ExitStack
+    console: Console
     host: str
     last_instance_state: InstanceState | None
     network: Network
@@ -99,6 +102,7 @@ class Board:
         self.cleanup = contextlib.ExitStack()
         self.last_instance_state = None
         self.app = App(self)
+        self.console = Console(self)
         self.network = Network(self)
         self.updates = Updates(self)
 
@@ -262,6 +266,14 @@ class Board:
         )(read)
         done = value is not None and until(value)
         return (round(time.monotonic() - since, 1) if done else None), value
+
+    def builtin_modules(self) -> list[str]:
+        """Read the kernel modules built into the running kernel.
+
+        Returns:
+            The lines of its `modules.builtin`.
+        """
+        return self.run("cat /lib/modules/$(uname -r)/modules.builtin", check=True)[0]
 
     def boot_order(self) -> BootOrder:
         """Read BOOT_ORDER and each slot's BOOT_x_LEFT from `fw_printenv`.
