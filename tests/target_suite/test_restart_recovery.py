@@ -1,4 +1,4 @@
-"""Target suite: a restarted, crashed or power-cut board, nobody at the panel, serves the instance in time."""
+"""Target suite: with nobody at the panel, a board that restarted, crashed, lost power or started its backend late brings the instance back in time."""
 
 import time
 
@@ -22,6 +22,11 @@ _RESTART_BOUND_SECONDS = 60
 _POWER_CUT_BOUND_SECONDS = 60
 # TST012's bound
 _COLD_BOOT_BOUND_SECONDS = 110
+# TST033's bound
+_LATE_BACKEND_BOUND_SECONDS = 60
+_USERSPACE_BOOT_CMD = "systemctl show -p ActiveEnterTimestampMonotonic --value multi-user.target"
+_RELEASE = "systemctl unmask --runtime wisekiosk.service; systemctl start wisekiosk.service"
+_RELEASE_UNIT = "test-backend-release"
 
 
 def _back_s(board, cmd):
@@ -31,6 +36,12 @@ def _back_s(board, cmd):
     board.restart_by(cmd)
     # Overstates by the boot-id read, the disconnect and the ssh connect before the fault lands.
     return until_up(board, started)
+
+
+def _release(board):
+    """Unmask and start the backend, then wait for the page; idempotent."""
+    board.run(_RELEASE, check=True)
+    assert board.wait_for_page(), "the page did not serve after the backend was released"
 
 
 def test_kernel_crash(board, record_property):
@@ -52,7 +63,7 @@ def test_restart_to_the_panel(board, record_property):
 
 
 def test_power_cut_while_showing(board, power_cut, record_property):
-    """Cut power with the instance up; time until the page is served with the browser running."""
+    """TST002 power cut while showing: cut power with the instance up; time until the page is served with the browser running."""
     record_property("requirement", "TST002")
     ready_s, last_read = until_up(board, time.monotonic())
     assert ready_s is not None, f"the instance was not up before the cut; last read: {last_read}"
@@ -64,7 +75,7 @@ def test_power_cut_while_showing(board, power_cut, record_property):
 
 
 def test_cold_boot_to_the_panel(board, power_cut, record_property):
-    """Cut power; time until the browser has finished loading the instance's page."""
+    """TST012 cold boot to the panel: cut power; time until the browser has finished loading the instance's page."""
     record_property("requirement", "TST012")
     panel = Panel(board)
     started = power_cut()
@@ -81,19 +92,6 @@ def test_cold_boot_to_the_panel(board, power_cut, record_property):
     assert on_panel_s <= _COLD_BOOT_BOUND_SECONDS, (
         f"the browser finished loading after {on_panel_s} s; TST012's bound is {_COLD_BOOT_BOUND_SECONDS} s"
     )
-
-
-# TST033's bound
-_LATE_BACKEND_BOUND_SECONDS = 60
-_USERSPACE_BOOT_CMD = "systemctl show -p ActiveEnterTimestampMonotonic --value multi-user.target"
-_RELEASE = "systemctl unmask --runtime wisekiosk.service; systemctl start wisekiosk.service"
-_RELEASE_UNIT = "test-backend-release"
-
-
-def _release(board):
-    """Unmask and start the backend, then wait for the page; idempotent."""
-    board.run(_RELEASE, check=True)
-    assert board.wait_for_page(), "the page did not serve after the backend was released"
 
 
 def test_backend_late_at_boot(board, request, record_property):
