@@ -60,8 +60,10 @@ xrandr --output HDMI-1 --mode 1280x720 ||
 # There is no backend-readiness wait before the exec, and one must not be built
 # on busybox `nc`: it exits 1 against an open port as well as a closed one, so
 # the probe can never report success -- a readiness check that cannot pass looks
-# exactly like a backend that is never ready. A load that lands before the
-# backend listens fails, and surf retries it until it succeeds (its 0003 patch).
+# exactly like a backend that is never ready. surf validates every load of the
+# URL with the backend, so one that lands before the backend listens fails
+# rather than showing a cached page, and surf retries it until it succeeds
+# (its 0003 patch).
 #
 # Milestones go to BOTH the journal and a file: measure-surf.sh reads the file,
 # and the journal is what makes a first boot debuggable over SSH.

@@ -1,10 +1,14 @@
-Retry a main-frame load that fails
+Retry a main-frame load that fails, and validate launch loads
 
+Every load of the launch argument, the first and each reload 0002 or this
+patch makes, carries Cache-Control: no-cache, so it is validated with its
+server: with the server down it fails rather than showing a cached copy.
 When the main frame's load fails, for any reason WebKit shows its error
 page for, load the launch argument again 5 s later, and again after
 every failure until a load succeeds. WebKit's error page stays up
 meanwhile. A browser that starts before its backend listens, or whose
-reload lands during a backend restart, is no longer left on the error page.
+reload lands during a backend restart, is no longer left on the error page
+or on a cached page that cannot reach its backend.
 
 This is C inside surf's load handling, so it cannot be a bbappend change.
 
@@ -23,7 +27,16 @@ Upstream-Status: Inappropriate [kiosk-specific]
  	GCancellable *pingcancel;
  	struct Client *next;
  } Client;
-@@ -234,6 +236,9 @@
+@@ -166,6 +168,8 @@
+ static const char *getcurrentuserhomedir(void);
+ static Client *newclient(Client *c);
+ static void loaduri(Client *c, const Arg *a);
++static char *uritourl(const char *uri);
++static void loadlaunch(Client *c);
+ static const char *geturi(Client *c);
+ static void setatom(Client *c, int a, const char *v);
+ static const char *getatom(Client *c, int a);
+@@ -234,6 +238,9 @@
  static gboolean pagetick(gpointer p);
  static void pagepingdone(GObject *src, GAsyncResult *res, gpointer p);
  static gboolean bringpageback(gpointer p);
@@ -33,7 +46,7 @@ Upstream-Status: Inappropriate [kiosk-specific]
  static void destroywin(GtkWidget* w, Client *c);
  
  /* Hotkeys */
-@@ -331,6 +336,7 @@
+@@ -331,6 +338,7 @@
   * seconds, and one left unanswered for pagedeadline seconds ends the page's
   * web process and loads the launch argument again. */
  #define PAGETICK 5
@@ -41,7 +54,80 @@ Upstream-Status: Inappropriate [kiosk-specific]
  static int pagedeadline;
  static Arg launcharg;
  static int overrideredirect;
-@@ -1120,6 +1126,8 @@
+@@ -596,13 +604,32 @@
+ void
+ loaduri(Client *c, const Arg *a)
+ {
+-	struct stat st;
+-	char *url, *path, *apath;
++	char *url;
+ 	const char *uri = a->v;
+ 
+ 	if (g_strcmp0(uri, "") == 0)
+ 		return;
+ 
++	url = uritourl(uri);
++	setatom(c, AtomUri, url);
++
++	if (strcmp(url, geturi(c)) == 0) {
++		reload(c, a);
++	} else {
++		webkit_web_view_load_uri(c->view, url);
++		updatetitle(c);
++	}
++
++	g_free(url);
++}
++
++/* The URL loaduri() loads for uri, newly allocated. */
++char *
++uritourl(const char *uri)
++{
++	struct stat st;
++	char *url, *path, *apath;
++
+ 	if (g_str_has_prefix(uri, "http://")  ||
+ 	    g_str_has_prefix(uri, "https://") ||
+ 	    g_str_has_prefix(uri, "file://")  ||
+@@ -622,16 +649,30 @@
+ 		if (apath != uri)
+ 			free(apath);
+ 	}
++	return url;
++}
+ 
+-	setatom(c, AtomUri, url);
++/* Loads the launch argument with Cache-Control: no-cache, so a cached copy
++ * is shown only once its server has answered for it, and a load with the
++ * server down fails rather than showing a cached page. */
++void
++loadlaunch(Client *c)
++{
++	WebKitURIRequest *req;
++	SoupMessageHeaders *hdrs;
++	char *url;
+ 
+-	if (strcmp(url, geturi(c)) == 0) {
+-		reload(c, a);
+-	} else {
+-		webkit_web_view_load_uri(c->view, url);
+-		updatetitle(c);
+-	}
++	if (g_strcmp0(launcharg.v, "") == 0)
++		return;
+ 
++	url = uritourl(launcharg.v);
++	setatom(c, AtomUri, url);
++	req = webkit_uri_request_new(url);
++	if ((hdrs = webkit_uri_request_get_http_headers(req)))
++		soup_message_headers_append(hdrs, "Cache-Control", "no-cache");
++	webkit_web_view_load_request(c->view, req);
++	g_object_unref(req);
++	updatetitle(c);
+ 	g_free(url);
+ }
+ 
+@@ -1120,6 +1161,8 @@
  		clients = c->next;
  	if (c->pagetimer)
  		g_source_remove(c->pagetimer);
@@ -50,7 +136,7 @@ Upstream-Status: Inappropriate [kiosk-specific]
  	if (c->pingcancel) {
  		g_cancellable_cancel(c->pingcancel);
  		g_object_unref(c->pingcancel);
-@@ -1275,6 +1283,8 @@
+@@ -1275,6 +1318,8 @@
  			 G_CALLBACK(decidepolicy), c);
  	g_signal_connect(G_OBJECT(v), "insecure-content-detected",
  			 G_CALLBACK(insecurecontent), c);
@@ -59,7 +145,7 @@ Upstream-Status: Inappropriate [kiosk-specific]
  	g_signal_connect(G_OBJECT(v), "load-failed-with-tls-errors",
  			 G_CALLBACK(loadfailedtls), c);
  	g_signal_connect(G_OBJECT(v), "load-changed",
-@@ -1630,6 +1640,11 @@
+@@ -1630,6 +1675,11 @@
  			c->errorpage = 0;
  		else
  			g_clear_object(&c->failedcert);
@@ -71,7 +157,7 @@ Upstream-Status: Inappropriate [kiosk-specific]
  		break;
  	case WEBKIT_LOAD_REDIRECTED:
  		setatom(c, AtomUri, uri);
-@@ -1654,6 +1669,8 @@
+@@ -1654,6 +1704,8 @@
  		*/
  		runscript(c);
  		armpagewatch(c);
@@ -80,10 +166,26 @@ Upstream-Status: Inappropriate [kiosk-specific]
  		break;
  	}
  	updatetitle(c);
-@@ -1994,6 +2011,48 @@
- 	return G_SOURCE_REMOVE;
+@@ -1980,8 +2032,8 @@
  }
  
+ /* Brings the configured page back: loads the launch argument as main() did,
+- * whatever the view shows now. On the same URI loaduri() reloads, and WebKit
+- * starts a fresh web process for a reload when the view has none. */
++ * whatever the view shows now. WebKit starts a fresh web process for the load
++ * when the view has none. */
+ gboolean
+ bringpageback(gpointer p)
+ {
+@@ -1990,7 +2042,49 @@
+ 	for (c = clients; c && c != p; c = c->next)
+ 		;
+ 	if (c && launcharg.v)
+-		loaduri(c, &launcharg);
++		loadlaunch(c);
++	return G_SOURCE_REMOVE;
++}
++
 +/* Retries a failed main-frame load: one stderr line per streak of failures,
 + * and at most one retry pending. WebKit's error page stays up meanwhile. */
 +gboolean
@@ -123,9 +225,15 @@ Upstream-Status: Inappropriate [kiosk-specific]
 +	c->retrytimer = 0;
 +	if (c->loadfailed)
 +		bringpageback(c);
-+	return G_SOURCE_REMOVE;
-+}
-+
- void
- closeview(WebKitWebView *v, Client *c)
- {
+ 	return G_SOURCE_REMOVE;
+ }
+ 
+@@ -2393,7 +2487,7 @@
+ 	milestone("showview_done");
+ 
+ 	launcharg = arg;
+-	loaduri(c, &arg);
++	loadlaunch(c);
+ 	milestone("loaduri_done");
+ 	updatetitle(c);
+ 
