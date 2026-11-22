@@ -72,25 +72,17 @@ class TestRestartRecovery:
         Returns:
             The seconds until the instance is up (None if never), and the last read of it.
         """
-        self.board.wait_for_page()
         started = time.monotonic()
         self.board.restart_by(cmd)
         return self.board.time_until_up(started)
 
-    def _cut_power(self) -> float:
-        """Cut the board's power and bring it back; return the host time the power came back.
-
-        Returns:
-            The host `time.monotonic()` at which the power-on command started.
-        """
-        on_began, on_command_s = self.board.cut_power(self.cleanup)
-        self.record(power_on_command_s=on_command_s)
-        return on_began
-
     def test_kernel_crash(self) -> None:
         """TST004 kernel crash: crash the kernel and time until the page is served, browser running."""
         self.record(requirement="TST004")
+        self.board.wait_for_page()
+
         back_s, last_read = self._time_back_after("echo c > /proc/sysrq-trigger")
+
         self.record(back_s=back_s, last_read=last_read)
         assert back_s is not None, f"not back within {Board.GIVE_UP_SECONDS} s of the crash; last read: {last_read}"
         assert back_s <= _CRASH_BOUND_SECONDS, f"back after {back_s} s; TST004's bound is {_CRASH_BOUND_SECONDS} s"
@@ -98,7 +90,10 @@ class TestRestartRecovery:
     def test_restart_to_the_panel(self) -> None:
         """TST011 restart to the panel: restart the board; time until the page is served, browser up."""
         self.record(requirement="TST011")
+        self.board.wait_for_page()
+
         back_s, last_read = self._time_back_after("systemctl reboot")
+
         self.record(back_s=back_s, last_read=last_read)
         assert back_s is not None, f"not back within {Board.GIVE_UP_SECONDS} s of the restart; last read: {last_read}"
         assert back_s <= _RESTART_BOUND_SECONDS, f"back after {back_s} s; TST011's bound is {_RESTART_BOUND_SECONDS} s"
@@ -111,9 +106,11 @@ class TestRestartRecovery:
         self.record(requirement="TST002")
         ready_s, last_read = self.board.time_until_up(time.monotonic())
         assert ready_s is not None, f"the instance was not up before the cut; last read: {last_read}"
-        started = self._cut_power()
-        back_s, last_read = self.board.time_until_up(started)
-        self.record(back_s=back_s, last_read=last_read)
+
+        on_began, on_command_s = self.board.cut_power(self.cleanup)
+        back_s, last_read = self.board.time_until_up(on_began)
+
+        self.record(power_on_command_s=on_command_s, back_s=back_s, last_read=last_read)
         assert back_s is not None, (
             f"not back within {Board.GIVE_UP_SECONDS} s of power returning; last read: {last_read}"
         )
@@ -128,10 +125,17 @@ class TestRestartRecovery:
         """
         self.record(requirement="TST012")
         panel = Panel(self.board, self.cleanup, self.record)
-        started = self._cut_power()
-        on_panel_s, _ = panel.wait_until(lambda read: _loaded(read.titles), Board.GIVE_UP_SECONDS, since=started)
+
+        on_began, on_command_s = self.board.cut_power(self.cleanup)
+        on_panel_s, _ = panel.wait_until(lambda read: _loaded(read.titles), Board.GIVE_UP_SECONDS, since=on_began)
+
         titles = panel.last_reading.titles if panel.last_reading else None
-        self.record(on_panel_s=on_panel_s, last_titles=titles, loaded=_loaded(titles) if titles else None)
+        self.record(
+            power_on_command_s=on_command_s,
+            on_panel_s=on_panel_s,
+            last_titles=titles,
+            loaded=_loaded(titles) if titles else None,
+        )
         assert on_panel_s is not None, (
             f"the browser had not finished loading the instance within {Board.GIVE_UP_SECONDS} s "
             f"of power returning; last window titles: {titles!r}"
@@ -171,6 +175,7 @@ class TestRestartRecovery:
 
         backend.release()
         answered_uptime_s, on_panel_s = panel.time_on_panel_after_backend_answers()
+
         last = panel.last_reading
         self.record(
             backend_answered_uptime_s=answered_uptime_s,
