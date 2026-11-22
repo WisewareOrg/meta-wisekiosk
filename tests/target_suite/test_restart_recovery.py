@@ -101,14 +101,16 @@ def _or_none(read):
 def _held_state(board, panel):
     """Whether the browser runs, whether the page is served, and what it shows that is not the instance.
 
-    The last is `("probe", sample)` for a probe sample not on the panel, `("title", title)` for a
-    finished title that is not the instance's when there is no sample, else None.
+    The last is `("probe", sample)` for a probe sample neither on the panel nor still loading,
+    `("title", title)` for a finished title that is not the instance's when there is no sample,
+    else None.
     """
     running = board.run("pgrep -x surf")[2] == 0
     served = board.page_served()
     _, sample = panel.read()
     if sample is not None:
-        shown = None if panel.on_panel(sample) else ("probe", sample)
+        settled_off_panel = not panel.on_panel(sample) and sample["state"] != "loading"
+        shown = ("probe", sample) if settled_off_panel else None
     else:
         title = loaded_other_page(panel.titles())
         shown = ("title", title) if title else None
