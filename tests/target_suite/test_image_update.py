@@ -326,6 +326,15 @@ def test_power_cut_during_an_update(
         record_property("step_at_cut", state[0])
         record_property("sectors_written_at_cut", state[1] - written_before)
         started = power_cut()
+        request.addfinalizer(
+            lambda: board.run("systemctl unmask --runtime kiosk.service; systemctl --no-block start kiosk.service")
+        )
+        board.run(
+            "systemctl mask --runtime kiosk.service; systemctl stop kiosk.service; "
+            "systemd-run --on-active=60 sh -c 'systemctl unmask --runtime kiosk.service; "
+            "systemctl start kiosk.service'",
+            check=True,
+        )
         back_s, last_read = until_up(board, started)
         returncode, output, seconds = installing.result()
     record_property("back_s", back_s)
