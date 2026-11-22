@@ -42,7 +42,7 @@ jobs:
         run: tools/ci-guards.sh
 
       # !cancelled(): runs even when the guards step failed.
-      - uses: WisewareOrg/wise-ci/check-reqs@ec442edcfa0fc6afe917dac4b80625b207e59158
+      - uses: WisewareOrg/wise-ci/check-reqs@6f8840aacdd7eb0c431af64f7eaa7bf326b38e29
         if: ${{ !cancelled() }}
         with:
           root: docs/requirements

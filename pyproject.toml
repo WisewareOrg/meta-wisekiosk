@@ -15,5 +15,5 @@ dev = [
 ]
 
 [tool.uv.sources]
-check-reqs = { git = "https://github.com/WisewareOrg/wise-ci", subdirectory = "check-reqs", rev = "ec442edcfa0fc6afe917dac4b80625b207e59158" }
+check-reqs = { git = "https://github.com/WisewareOrg/wise-ci", subdirectory = "check-reqs", rev = "6f8840aacdd7eb0c431af64f7eaa7bf326b38e29" }
 python-kasa = { git = "https://github.com/python-kasa/python-kasa", rev = "a1a6c3854ace705b21357b357354d4ae8b6307b4" }
