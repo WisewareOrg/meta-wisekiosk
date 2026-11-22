@@ -1,12 +1,18 @@
 """Target suite: a restarted, crashed or power-cut board, nobody at the panel, serves the instance in time."""
 
-import subprocess
 import time
 
-from labgrid.driver.exception import ExecutionError
-
-from panel import Panel, loaded_instance, loaded_other_page
-from recovery import GIVE_UP_SECONDS, assert_back_within, poll_from, until_up
+from panel import Panel, loaded_instance
+from recovery import (
+    GIVE_UP_SECONDS,
+    assert_back_within,
+    assert_held,
+    assert_on_panel_within,
+    panel_after_answer,
+    poll_from,
+    until_up,
+    wait_held,
+)
 
 # TST004's bound
 _CRASH_BOUND_SECONDS = 100
@@ -90,41 +96,6 @@ def _release(board):
     assert board.wait_for_page(), "the page did not serve after the backend was released"
 
 
-def _or_none(read):
-    """`read()`, or None when the board read failed."""
-    try:
-        return read()
-    except (ExecutionError, subprocess.TimeoutExpired):
-        return None
-
-
-def _held_state(board, panel):
-    """Whether the browser runs, whether the page is served, and what it shows that is not the instance.
-
-    The last is `("probe", sample)` for a probe sample neither on the panel nor still loading,
-    `("title", title)` for a finished title that is not the instance's when there is no sample,
-    else None.
-    """
-    running = board.run("pgrep -x surf")[2] == 0
-    served = board.page_served()
-    _, sample = panel.read()
-    if sample is not None:
-        settled_off_panel = not panel.on_panel(sample) and sample["state"] != "loading"
-        shown = ("probe", sample) if settled_off_panel else None
-    else:
-        title = loaded_other_page(panel.titles())
-        shown = ("title", title) if title else None
-    return running, served, shown
-
-
-def _uptime_and_served(board):
-    """The board uptime and whether the page served, from one command."""
-    stdout, _stderr, returncode = board.run(
-        f"cat /proc/uptime; wget -q -O- {board.PAGE_URL}", timeout=board.PAGE_ATTEMPT_TIMEOUT_SECONDS
-    )
-    return float(stdout[0].split()[0]), returncode == 0 and "<html" in "\n".join(stdout[1:])
-
-
 def test_backend_late_at_boot(board, request, record_property):
     """TST033 backend late at boot: time from the held backend's first answer to the instance on the panel.
 
@@ -164,37 +135,15 @@ def test_backend_late_at_boot(board, request, record_property):
     record_property("probe_sha256", panel.install(request, restart_browser=False))
     request.addfinalizer(lambda: _release(board))
 
-    held_s, held = poll_from(
-        time.monotonic(),
-        lambda: _or_none(lambda: _held_state(board, panel)),
-        lambda state: state[0] and not state[1] and state[2] is not None,
-    )
+    held_s, held = wait_held(board, panel)
     record_property("held_state", held)
     record_property("held_case", held[2][0] if held and held[2] else None)
-    assert held_s is not None, (
-        f"INVALID CHECK, not an appliance failure: the browser had not finished a load without the "
-        f"backend within {GIVE_UP_SECONDS} s; last (browser running, page served, shown): {held!r}"
-    )
+    assert_held(held_s, held)
 
     board.run(_RELEASE, check=True)
-    # Polled once a second, so the first answer is read up to one poll late.
-    answered_s, answered = poll_from(
-        time.monotonic(), lambda: _or_none(lambda: _uptime_and_served(board)), lambda read: read[1]
-    )
-    assert answered_s is not None, f"the backend did not answer within {GIVE_UP_SECONDS} s of its release"
-    answered_at = answered[0]
-    record_property("backend_answered_uptime_s", answered_at)
-
-    _, last = poll_from(time.monotonic(), lambda: _or_none(panel.read), lambda read: panel.on_panel(read[1]))
-    on_panel_s = round(last[0] - answered_at, 1) if last and panel.on_panel(last[1]) else None
+    t0, on_panel_s, last = panel_after_answer(board, panel)
+    record_property("backend_answered_uptime_s", t0)
     record_property("on_panel_s", on_panel_s)
     record_property("last_sample", last[1] if last else None)
     record_property("last_titles", panel.titles_or_none())
-    assert on_panel_s is not None, (
-        f"the instance was not on the panel within {GIVE_UP_SECONDS} s of the backend answering; "
-        f"last sample: {last!r}"
-    )
-    assert on_panel_s <= _LATE_BACKEND_BOUND_SECONDS, (
-        f"on the panel {on_panel_s} s after the backend answered; "
-        f"TST033's bound is {_LATE_BACKEND_BOUND_SECONDS} s"
-    )
+    assert_on_panel_within(t0, on_panel_s, last, "TST033", _LATE_BACKEND_BOUND_SECONDS)
