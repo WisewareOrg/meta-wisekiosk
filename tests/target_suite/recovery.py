@@ -190,5 +190,9 @@ def kill_backend(board):
 
 
 def assert_kill_landed(board, old_pid):
-    """Assert the backend answering after the kill is a new process."""
-    assert main_pid(board) != old_pid, "INVALID CHECK, not an appliance failure: the kill did not land"
+    """Assert the backend answering after the kill is a new process; return its MainPID."""
+    new_pid = main_pid(board)
+    assert new_pid != old_pid, (
+        f"INVALID CHECK, not an appliance failure: the kill did not land (MainPID {old_pid} unchanged)"
+    )
+    return new_pid

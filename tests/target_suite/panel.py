@@ -77,8 +77,8 @@ class Panel:
         """Load the probe into the browser and return its sha256.
 
         The probe is copied to `/tmp` and bind-mounted over surf's script path, then the browser
-        restarts to load it; with `restart_browser` False it is left to the browser's next
-        finished load. Each undo is registered once its step has succeeded, except the browser
+        restarts to load it; with `restart_browser` False the next load surf finishes loads it.
+        Each undo is registered once its step has succeeded, except the browser
         restart's, registered before the bind mount so teardown unmounts the probe, then restarts
         the browser, then removes the copy.
         """

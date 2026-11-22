@@ -20,7 +20,8 @@ _CRASH_BOUND_SECONDS = 60
 # TST034's bound
 _CRASH_LOAD_BOUND_SECONDS = 60
 _POLL_SECONDS = 0.5
-# How long TST034 holds the backend's own restart; outlasts a browser restart and the hold check.
+# How long TST034 holds the backend's own restart: a stimulus setting, not a bound, long enough to
+# outlast a browser restart and the hold check.
 _HOLD_SECONDS = 60
 
 
@@ -71,8 +72,9 @@ def test_backend_crash(board, panel, record_property):
     record_property("nonce_before", before["nonce"])
     record_property("nonce_after", sample["nonce"] if sample else None)
     record_property("last_sample", sample)
+    record_property("main_pid_before", old_pid)
     if answered_at is not None:
-        assert_kill_landed(board, old_pid)
+        record_property("main_pid_after", assert_kill_landed(board, old_pid))
     assert on_panel_s is not None and on_panel_s <= _CRASH_BOUND_SECONDS, (
         f"the instance was not on the panel with the backend answering within {_CRASH_BOUND_SECONDS} s "
         f"of the crash (backend answered at uptime {answered_at}); last sample: {sample!r}"
@@ -107,6 +109,7 @@ def test_backend_crash_during_browser_start(board, request, record_property):
     record_property("on_panel_s", on_panel_s)
     record_property("last_sample", last[1] if last else None)
     record_property("last_titles", panel.titles_or_none())
+    record_property("main_pid_before", old_pid)
     if t0 is not None:
-        assert_kill_landed(board, old_pid)
+        record_property("main_pid_after", assert_kill_landed(board, old_pid))
     assert_on_panel_within(t0, on_panel_s, last, "TST034", _CRASH_LOAD_BOUND_SECONDS)

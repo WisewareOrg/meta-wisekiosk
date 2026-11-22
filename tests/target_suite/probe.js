@@ -3,9 +3,8 @@
 // through xprop. Evaluated by surf in every page load. No network, no storage.
 // Payload: "WK1 " then key=value tokens. nonce is performance.timeOrigin; state
 // is the app's own state, its unreachable-backend band included; cards is
-// <present>/<live>. Every other token is
-// cumulative from the probe's own start in this page load, times in ms of
-// performance.now():
+// <present>/<live>. Every other token is cumulative from the probe's own start
+// in this page load, times in ms of performance.now():
 //   load    random token drawn once per page load (the page-load identity)
 //   el      this title write
 //   frames  requestAnimationFrame intervals counted

@@ -7,8 +7,9 @@ When the main frame's load fails, for any reason WebKit shows its error
 page for, load the launch argument again 5 s later, and again after
 every failure until a load succeeds. WebKit's error page stays up
 meanwhile. A browser that starts before its backend listens, or whose
-reload lands during a backend restart, is no longer left on the error page
-or on a cached page that cannot reach its backend.
+reload lands during a backend restart, loads the page once the backend
+answers, rather than staying on the error page or on a cached page that
+cannot reach its backend.
 
 This is C inside surf's load handling, so it cannot be a bbappend change.
 

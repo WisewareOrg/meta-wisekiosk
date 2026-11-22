@@ -59,7 +59,13 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   keyboard test builds evemu-tools through `tools/kas-run.sh` the same way, so it needs the build
   tree too, and while it runs the panel shows the board's text console. The frozen-page test
   swaps the board onto `clock-seconds.json` through `set_config` and stops the browser's web
-  processes, and a finalizer registered first resumes them.
+  processes, and a finalizer registered first resumes them. The backend-late test masks
+  `wisekiosk.service` in `/run`, soft-reboots the board's userspace with the mask held, binds the
+  probe without restarting the browser, and arms a board-side `systemd-run` timer that releases the
+  backend should the host be lost; teardown releases it too. The backend-crash tests kill the
+  backend, and the browser-start one first delays its restart with a `RestartSec` drop-in in
+  `/run`, which teardown removes. All of these live in `/run`, so a real reboot clears any a dead
+  run leaves.
 
 Every install the target suite makes goes through [`tools/kiosk-install.sh`](../tools/kiosk-install.sh),
 so the bench host needs Docker, a free port 80, and a board that reaches the host's port 80 at the
