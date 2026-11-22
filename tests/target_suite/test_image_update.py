@@ -342,10 +342,13 @@ def test_power_cut_during_an_update(
     record_property("booted_slot", after["rauc_status"]["booted"])
     record_property("boot_variables", after["boot_variables"])
     record_property("commit", after["commit"])
-    assert returncode != 0, "the install completed: the cut did not land during it"
+    assert returncode != 0, (
+        "INVALID CHECK, not an appliance failure: the install completed, so the cut did not land during it"
+    )
     target = ({"A", "B"} - {before["rauc_status"]["booted"]}).pop()
     order, left = board.boot_variables()
     assert not (order[0] == target and left[target] > 0), (
-        f"slot {target} was activated: the cut landed after the update was written, not while it was"
+        f"INVALID CHECK, not an appliance failure: slot {target} was activated, so the cut landed after "
+        "the update was written, not while it was"
     )
     assert_back_within(back_s, last_read, "power returning", "TST003", _POWER_CUT_BOUND_SECONDS)
