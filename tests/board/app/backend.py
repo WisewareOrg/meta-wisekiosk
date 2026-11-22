@@ -47,14 +47,17 @@ class Backend:
         """Remove the runtime drop-ins and the runtime mask a dead run left on the backend, and start it."""
         self._board.run(self._RUNTIME_OVERRIDES_SWEEP, check=True, timeout=self._RELOAD_TIMEOUT_SECONDS)
 
-    def pid(self) -> str:
-        """Read the backend's MainPID as systemd reports it, retrying through a dropped session.
+    def pid(self, retry_for: float | None = None) -> str:
+        """Read the backend's MainPID as systemd reports it.
+
+        Args:
+            retry_for: how long to retry through a dropped session, as `Board.run` takes it; None reads once.
 
         Returns:
             The MainPID.
         """
         return self._board.run(
-            "systemctl show -p MainPID --value wisekiosk.service", check=True, retry_for=self._board.READ_RETRY_SECONDS
+            "systemctl show -p MainPID --value wisekiosk.service", check=True, retry_for=retry_for
         ).text
 
     def sigkill(self) -> float:

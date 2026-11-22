@@ -54,7 +54,7 @@ class TestMemory(BoardTest):
         self.record(period_s=period)
         self.record(timer_was_active=soak.start_sampler())
         boot_id = self.board.run(Board.BOOT_ID_CMD, check=True, retry_for=Board.READ_RETRY_SECONDS).text
-        backend_pid = self.board.app.backend.pid()
+        backend_pid = self.board.app.backend.pid(retry_for=Board.READ_RETRY_SECONDS)
         start_uptime = float(
             self.board.run("cat /proc/uptime", check=True, retry_for=Board.READ_RETRY_SECONDS).text.split()[0]
         )
@@ -124,7 +124,7 @@ class TestMemory(BoardTest):
                     problems.append(f"kiosk-soak left a gap over {soak.MAX_GAP_SECONDS} s")
                 if len({line["pid"] for line in lines}) > 1 or any(line["pid"] == "none" for line in lines):
                     problems.append("the browser restarted or was not running at a sample")
-                if self.board.app.backend.pid() != backend_pid:
+                if self.board.app.backend.pid(retry_for=Board.READ_RETRY_SECONDS) != backend_pid:
                     problems.append("wisekiosk.service restarted")
                 try:
                     end_sample = page.read().sample
