@@ -4,22 +4,20 @@ import hashlib
 import json
 import math
 import secrets
-import shutil
-import subprocess
 import time
-import uuid
+from collections.abc import Callable
 from pathlib import Path
 from typing import NamedTuple
 
 import pytest
+from board import Board
+from container_dir import ContainerDir
 from outage import Outage
 
-_REPO = Path(__file__).resolve().parents[2]
 _SRC_DIR = Path(__file__).resolve().parent
-_WORK_ROOT = _REPO / "build" / "keyboard"
-_CONTAINER_WORK_ROOT = "/work/build/keyboard"
 _DIR = "/tmp/test-keyboard"
 _UNIT = "test-keyboard"
+_JOURNAL_CMD = f"journalctl -u {_UNIT} -o cat --no-pager"
 
 # `keyboard.sh`'s bounds on each wait, in seconds
 _DEVICE_BOUND_SECONDS = 10
@@ -73,16 +71,32 @@ B: 01 ff ff ff ff ff ff ff ff
 """
 
 
-def _frame(lines, t_us, keys):
-    """Append the key events `keys`, as (code, value) pairs, then a SYN, all at `t_us`."""
+def _frame(lines: list[str], t_us: int, keys: list[tuple[int, int]]) -> None:
+    """Append the key events `keys`, as (code, value) pairs, then a SYN, all at `t_us`.
+
+    Args:
+        lines: the evemu event lines, appended to in place.
+        t_us: the events' time, in microseconds.
+        keys: the (key code, value) pairs.
+    """
     stamp = f"{t_us // 1_000_000}.{t_us % 1_000_000:06d}"
     for code, value in keys:
         lines.append(f"E: {stamp} {_EV_KEY:04x} {code:04x} {value}")
     lines.append(f"E: {stamp} 0000 0000 0000")
 
 
-def _typed(text):
-    """The evemu events that type `text`; raises on a character the tables do not cover."""
+def _typed(text: str) -> str:
+    """The evemu events that type `text`.
+
+    Args:
+        text: what to type.
+
+    Returns:
+        The events, one per line.
+
+    Raises:
+        ValueError: a character has no key in the tables.
+    """
     lines = ["E: 0.000000 0000 0000 0000"]
     t_us = 0
     for char in text:
@@ -101,8 +115,15 @@ def _typed(text):
     return "\n".join(lines) + "\n"
 
 
-def _chord(key):
-    """The evemu events that hold Ctrl+Alt+`key`, then release it."""
+def _chord(key: int) -> str:
+    """The evemu events that hold Ctrl+Alt+`key`, then release it.
+
+    Args:
+        key: the key code held with Ctrl and Alt.
+
+    Returns:
+        The events, one per line.
+    """
     lines = ["E: 0.000000 0000 0000 0000"]
     _frame(lines, 0, [(_KEY_LEFTCTRL, 1), (_KEY_LEFTALT, 1), (key, 1)])
     _frame(lines, _CHORD_HOLD_US, [(key, 0), (_KEY_LEFTALT, 0), (_KEY_LEFTCTRL, 0)])
@@ -113,13 +134,27 @@ _NONCE_BYTES = 8
 _LOGIN = "root\n"
 
 
-def _marker_command(nonce):
-    """The command typed at the login: write the nonce, the tty and the uptime to the marker."""
+def _marker_command(nonce: str) -> str:
+    """The command typed at the login: write the nonce, the tty and the uptime to the marker.
+
+    Args:
+        nonce: this run's nonce.
+
+    Returns:
+        The command line, with its newline.
+    """
     return f"echo {nonce} $(readlink /proc/self/fd/0) $(cat /proc/uptime) >{_DIR}/marker\n"
 
 
-def _typing_seconds(text):
-    """How long `_typed(text)` takes to replay."""
+def _typing_seconds(text: str) -> float:
+    """How long `_typed(text)` takes to replay.
+
+    Args:
+        text: what is typed.
+
+    Returns:
+        The seconds.
+    """
     return len(text) * (_KEY_HOLD_US + _KEY_GAP_US) / 1_000_000
 
 
@@ -152,105 +187,157 @@ class Helpers(NamedTuple):
 
 
 @pytest.fixture(scope="module")
-def helpers(request):
-    """Build evemu-tools and its library through `tools/kas-run.sh`; return their `Helpers`."""
-    run_dir = _WORK_ROOT / uuid.uuid4().hex
-    run_dir.mkdir(parents=True)
-    request.addfinalizer(lambda: shutil.rmtree(run_dir))
-    subprocess.run(
-        [
-            str(_REPO / "tools" / "kas-run.sh"),
-            "shell",
-            "kiosk-zero-w.yaml",
-            "-c",
-            f"bash /work/tests/target_suite/evemu_tools.sh {_CONTAINER_WORK_ROOT}/{run_dir.name}",
-        ],
-        cwd=_REPO,
-        check=True,
-    )
-    directory = run_dir / "helpers"
+def helpers(request: pytest.FixtureRequest) -> Helpers:
+    """Build evemu-tools and its library through `tools/kas-run.sh`; return their `Helpers`.
+
+    Args:
+        request: removes the build directory at the end of the module.
+
+    Returns:
+        The built files' directory, the version, the packages and each file's sha256.
+
+    Raises:
+        subprocess.CalledProcessError: the build fails.
+    """
+    work = ContainerDir(request)
+    work.run("evemu_tools.sh")
+    directory = work.path / "helpers"
     return Helpers(
         directory,
-        (run_dir / "version").read_text().strip(),
-        (run_dir / "packages").read_text().split(),
+        (work.path / "version").read_text().strip(),
+        (work.path / "packages").read_text().split(),
         {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(directory.iterdir())},
     )
 
 
-def _foreground_console(board):
-    """The virtual terminal in the foreground, as the board's `fgconsole` prints it."""
-    return board.run("fgconsole", check=True)[0][0].strip()
+class _Console:
+    """The board's virtual consoles as the test leaves them: foreground, X's pid, tty2's login."""
+
+    def __init__(self, board: Board, record_property: Callable[[str, object], None]) -> None:
+        """Bind to the board.
+
+        Args:
+            board: the board under test.
+            record_property: records what the console steps measure.
+        """
+        self._board = board
+        self._record_property = record_property
+
+    def foreground(self) -> str:
+        """The virtual terminal in the foreground, as the board's `fgconsole` prints it.
+
+        Returns:
+            The terminal's number.
+
+        Raises:
+            AssertionError: `fgconsole` fails.
+        """
+        return self._board.read("fgconsole")
+
+    def take_vt1(self, when: str) -> None:
+        """Make vt1 the foreground console, restarting `kiosk.service` (whose X takes vt1) if it is not.
+
+        A restart is recorded as `console_restored_by_restart`, with `when` as its value.
+
+        Args:
+            when: `before` or `after`, as the restart is recorded.
+        """
+        if self.foreground() != "1":
+            self._record_property("console_restored_by_restart", when)
+            self._board.run("systemctl restart kiosk.service", check=True)
+            self._board.wait(self.foreground, lambda console: console == "1", _KIOSK_RESTART_WAIT_SECONDS)
+
+    def kill_tty2_login(self) -> None:
+        """Kill whatever runs on tty2; `getty@.service`'s `Restart=always` brings back a fresh prompt.
+
+        A logged-in shell outlasts a plain restart until systemd's stop timeout, so the unit is
+        killed. It is not restarted: a getty that does not come back is left for the console wait to
+        fail on.
+        """
+        self._board.run("systemctl kill -s KILL getty@tty2.service")
+
+    def record_x(self, when: str) -> None:
+        """Record Xorg's pid and `kiosk.service`'s restart count as the board has them.
+
+        Args:
+            when: `before` or `after`, as the records are named.
+
+        Raises:
+            AssertionError: reading the restart count fails.
+        """
+        self._record_property(f"xorg_pid_{when}", " ".join(self._board.run("pidof Xorg")[0]))
+        self._record_property(
+            f"kiosk_nrestarts_{when}", self._board.read("systemctl show -p NRestarts --value kiosk.service")
+        )
+
+    def restore(self) -> None:
+        """Type Ctrl+Alt+F1 on a new virtual keyboard, kill tty2's login, and make vt1 foreground.
+
+        Raises:
+            AssertionError: a step fails, or vt1 is not the foreground console afterwards.
+        """
+        self._board.run(
+            f"/bin/sh {_DIR}/keyboard.sh --chord back.events",
+            check=True,
+            timeout=_RESTORE_COMMAND_TIMEOUT_SECONDS,
+        )
+        self.kill_tty2_login()
+        self.take_vt1("after")
+        self.record_x("after")
+        assert self.foreground() == "1", "vt1 is not the foreground console after the test"
 
 
-def _record_x(board, record_property, when):
-    """Record Xorg's pid and `kiosk.service`'s restart count as the board has them."""
-    record_property(f"xorg_pid_{when}", " ".join(board.run("pidof Xorg")[0]))
-    record_property(
-        f"kiosk_nrestarts_{when}",
-        board.run("systemctl show -p NRestarts --value kiosk.service", check=True)[0][0],
-    )
+def _record_fields(lines: list[str], kind: str) -> list[list[str]]:
+    """The fields after the line kind, of each `kind` line of the keyboard record, in order.
 
+    Args:
+        lines: the keyboard record's lines.
+        kind: the first word of the lines wanted.
 
-def _kill_tty2_login(board):
-    """Kill whatever runs on tty2; `getty@.service`'s `Restart=always` brings back a fresh prompt.
-
-    A logged-in shell outlasts a plain restart until systemd's stop timeout, so the unit is
-    killed. It is not restarted: a getty that does not come back is left for the console wait to
-    fail on.
+    Returns:
+        One list of fields per matching line.
     """
-    board.run("systemctl kill -s KILL getty@tty2.service")
-
-
-def _take_vt1(board, record_property, when):
-    """Make vt1 the foreground console, restarting `kiosk.service` (whose X takes vt1) if it is not.
-
-    A restart is recorded as `console_restored_by_restart`, with `when` as its value.
-    """
-    if _foreground_console(board) != "1":
-        record_property("console_restored_by_restart", when)
-        board.run("systemctl restart kiosk.service", check=True)
-        deadline = time.monotonic() + _KIOSK_RESTART_WAIT_SECONDS
-        while _foreground_console(board) != "1" and time.monotonic() < deadline:
-            time.sleep(1)
-
-
-def _restore_console(board, record_property):
-    """Type Ctrl+Alt+F1 on a new virtual keyboard, kill tty2's login, and make vt1 foreground."""
-    board.run(
-        f"/bin/sh {_DIR}/keyboard.sh --chord back.events",
-        check=True,
-        timeout=_RESTORE_COMMAND_TIMEOUT_SECONDS,
-    )
-    _kill_tty2_login(board)
-    _take_vt1(board, record_property, "after")
-    _record_x(board, record_property, "after")
-    assert _foreground_console(board) == "1", "vt1 is not the foreground console after the test"
-
-
-def _record_fields(lines, kind):
-    """The fields after the line kind, of each `kind` line of the keyboard record, in order."""
     return [line.split()[1:] for line in lines if line.split()[:1] == [kind]]
 
 
-def test_shell_from_an_attached_keyboard(request, board, outage, helpers, tmp_path, record_property):
-    """TST027 shell from an attached keyboard: with the network cut, log in at the console and run a command."""
+def test_shell_from_an_attached_keyboard(
+    request: pytest.FixtureRequest,
+    board: Board,
+    helpers: Helpers,
+    tmp_path: Path,
+    record_property: Callable[[str, object], None],
+) -> None:
+    """TST027 shell from an attached keyboard: with the network cut, log in at the console and run a command.
+
+    Args:
+        request: the test's request, which the console, the outage and the timers register their
+            undos on.
+        board: the board under test, whose network is cut and which gets the virtual keyboard.
+        helpers: the evemu tools built for the module.
+        tmp_path: where the event files are written before they are put on the board.
+        record_property: records the requirement and what the console and the outage measured.
+
+    Raises:
+        AssertionError: the board restarted, a phase of the keyboard script was not reached, or the
+            typed command did not run at tty2 while the network was cut.
+    """
     record_property("requirement", "TST027")
     record_property("evemu_tools_version", helpers.version)
     record_property("helper_sha256", json.dumps(helpers.sha256, sort_keys=True))
     record_property("helper_packages", " ".join(helpers.packages))
     nonce = secrets.token_hex(_NONCE_BYTES)
     command = _marker_command(nonce)
-    units = f"{_UNIT}.timer {_UNIT}.service"
+    console = _Console(board, record_property)
 
     request.addfinalizer(lambda: board.run(f"rm -rf {_DIR}"))
-    board.run(f"systemctl stop {units}; systemctl reset-failed {units}")
     board.run(f"rm -rf {_DIR}; mkdir {_DIR}", check=True)
-    _take_vt1(board, record_property, "before")
-    assert _foreground_console(board) == "1", "vt1 is not the foreground console before the test"
+    console.take_vt1("before")
+    assert console.foreground() == "1", "vt1 is not the foreground console before the test"
+    outage = Outage(board, request)
     outage.wait_boot_complete()
-    _kill_tty2_login(board)
+    console.kill_tty2_login()
 
-    boot_id = board.run(board.BOOT_ID_CMD, check=True)[0][0]
+    boot_id = board.read(board.BOOT_ID_CMD)
     builtin = board.run("cat /lib/modules/$(uname -r)/modules.builtin", check=True)[0]
     hid_drivers = [entry for entry in builtin if entry in (_USBHID, _HID_GENERIC)]
     record_property("modules_builtin_hid", "\n".join(hid_drivers))
@@ -258,7 +345,7 @@ def test_shell_from_an_attached_keyboard(request, board, outage, helpers, tmp_pa
         "the USB keyboard drivers are not built in: CONFIG_USB_HID=y (usbhid.ko) and "
         "CONFIG_HID_GENERIC=y (hid-generic.ko) must both be in modules.builtin"
     )
-    _record_x(board, record_property, "before")
+    console.record_x("before")
 
     uinput_loaded = board.run("test -d /sys/module/uinput")[2] == 0
     board.run("modprobe uinput", check=True)
@@ -279,8 +366,7 @@ def test_shell_from_an_attached_keyboard(request, board, outage, helpers, tmp_pa
     board.put(str(_SRC_DIR / "keyboard.sh"), f"{_DIR}/keyboard.sh")
     board.run("chmod 0755 " + " ".join(f"{_DIR}/{name}" for name in helpers.sha256), check=True)
 
-    request.addfinalizer(lambda: _restore_console(board, record_property))
-    request.addfinalizer(lambda: board.run(f"systemctl stop {units}; systemctl reset-failed {units}"))
+    request.addfinalizer(console.restore)
 
     bounds = " ".join(
         str(bound)
@@ -292,18 +378,14 @@ def test_shell_from_an_attached_keyboard(request, board, outage, helpers, tmp_pa
             _MARKER_BOUND_SECONDS,
         )
     )
-    board.run(
-        f"systemd-run --unit={_UNIT} --on-active={_KEYBOARD_ARM_SECONDS} "
-        f"--timer-property=AccuracySec=100ms /bin/sh {_DIR}/keyboard.sh {bounds}",
-        check=True,
-    )
-    outage.arm(request, _OUTAGE_SECONDS)
+    board.run_later(request, _UNIT, _KEYBOARD_ARM_SECONDS, f"/bin/sh {_DIR}/keyboard.sh {bounds}")
+    outage.arm(_OUTAGE_SECONDS)
 
     # two seconds past the outage's end, so `reconnect` starts retrying only once the network is un-pinned
     time.sleep(Outage.ARM_DELAY_SECONDS + _OUTAGE_SECONDS + 2)
     board.reconnect()
 
-    boot_id_after = board.run(board.BOOT_ID_CMD, check=True)[0][0]
+    boot_id_after = board.read(board.BOOT_ID_CMD)
     keyboard_record = board.run(f"cat {_DIR}/record 2>/dev/null || true", check=True)[0]
     marker = board.run(f"cat {_DIR}/marker 2>/dev/null || true", check=True)[0]
     outage_record = outage.record_lines()
@@ -321,18 +403,14 @@ def test_shell_from_an_attached_keyboard(request, board, outage, helpers, tmp_pa
 
     reached = {fields[0] for fields in _record_fields(keyboard_record, "phase")}
 
-    def journal():
-        stdout, _stderr, _rc = board.run(f"journalctl -u {_UNIT} -o cat --no-pager")
-        return "\n".join(stdout)
-
     assert boot_id_after == boot_id, (
         "the board restarted during the outage (outage.sh's give-up), so the marker in /tmp is gone"
     )
     assert "device" in reached, (
-        f"the virtual keyboard was not created (the test's own setup, not the appliance): {journal()}"
+        f"the virtual keyboard was not created (the test's own setup, not the appliance): {board.read(_JOURNAL_CMD)}"
     )
-    assert "x_opened" in reached, f"X never opened the attached keyboard: {journal()}"
-    assert "console" in reached, f"Ctrl+Alt+F2 brought no login prompt on tty2: {journal()}"
+    assert "x_opened" in reached, f"X never opened the attached keyboard: {board.read(_JOURNAL_CMD)}"
+    assert "console" in reached, f"Ctrl+Alt+F2 brought no login prompt on tty2: {board.read(_JOURNAL_CMD)}"
     assert "shell" in reached, f"logging in as root on tty2 gave no shell (after login: {after_login})"
     fields = marker[0].split() if marker else []
     assert fields[:1] == [nonce], f"the typed command did not run: marker {marker!r}"

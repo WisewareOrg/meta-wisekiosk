@@ -4,9 +4,12 @@ import os
 import subprocess
 import threading
 import time
+from collections.abc import Callable
 
-from labgrid.driver.exception import ExecutionError
+import pytest
+from board import Board
 from outage import Outage
+from panel import Panel
 
 _OUTAGE_SECONDS = 60
 # TST029's bound
@@ -26,8 +29,15 @@ _PUSH_GRACE_SECONDS = 60
 _READ_PAUSE_SECONDS = 1
 
 
-def _shell(board):
-    """Open a new ssh shell; return its (uptime, record lines) or None, and how the attempt ended."""
+def _shell(board: Board) -> tuple[tuple[float, list[str]] | None, str]:
+    """Open a new ssh shell and read the board's uptime and the outage record over it.
+
+    Args:
+        board: the board under test.
+
+    Returns:
+        The uptime and the record's lines, or None if no shell opened, and how the attempt ended.
+    """
     try:
         done = subprocess.run(
             [
@@ -46,12 +56,25 @@ def _shell(board):
     return (float(lines[0].split()[0]), lines[1:]), "opened"
 
 
-def test_rejoins_after_an_outage(request, board, outage, record_property):
-    """TST029 rejoins after an outage: pin the board off its network, then time until a shell opens."""
+def test_rejoins_after_an_outage(
+    request: pytest.FixtureRequest, board: Board, record_property: Callable[[str, object], None]
+) -> None:
+    """TST029 rejoins after an outage: pin the board off its network, then time until a shell opens.
+
+    Args:
+        request: the test's request, which the outage registers its undos on.
+        board: the board under test, whose network is pinned off.
+        record_property: records the requirement and what the shells saw.
+
+    Raises:
+        AssertionError: a shell opened during the outage, none opened within `Outage.GIVE_UP_SECONDS`
+            of the network returning, or one opened after the bound.
+    """
     record_property("requirement", "TST029")
+    outage = Outage(board, request)
     outage.wait_boot_complete()
-    boot_id = board.run(board.BOOT_ID_CMD, check=True)[0][0]
-    outage.arm(request, _OUTAGE_SECONDS)
+    boot_id = board.read(board.BOOT_ID_CMD)
+    outage.arm(_OUTAGE_SECONDS)
     deadline = time.monotonic() + Outage.ARM_DELAY_SECONDS + _OUTAGE_SECONDS + Outage.GIVE_UP_SECONDS
 
     last_attempt = "no attempt"
@@ -103,12 +126,17 @@ def test_rejoins_after_an_outage(request, board, outage, record_property):
     assert shells_during_outage == 0, "the network did not go away: a shell opened during the outage"
     assert rejoined_s is not None, f"no remote shell within {Outage.GIVE_UP_SECONDS} s of the network returning"
     assert rejoined_s <= _REJOIN_BOUND_SECONDS, (
-        f"a shell opened {rejoined_s} s after the network returned; TST029's bound is {_REJOIN_BOUND_SECONDS} s"
+        f"a shell opened {rejoined_s} s after the network returned; bound {_REJOIN_BOUND_SECONDS} s"
     )
 
 
-def _push(proc, result):
-    """Write random blocks to `proc` for `_LOAD_SECONDS`, close it, and record how it ended."""
+def _push(proc: subprocess.Popen, result: dict) -> None:
+    """Write random blocks to `proc` for `_LOAD_SECONDS`, close it, and record how it ended.
+
+    Args:
+        proc: the ssh whose stdin takes the blocks and whose stdout returns the board's byte count.
+        result: filled with the return code, the seconds, the bytes sent and the count received.
+    """
     sent = 0
     started = time.monotonic()
     end = started + _LOAD_SECONDS
@@ -126,13 +154,19 @@ def _push(proc, result):
     result["received"] = received
 
 
-def _watch(panel, seen, keep_going):
-    """Read the panel once a second while `keep_going()`, tallying each read into `seen`."""
+def _watch(panel: Panel, seen: dict, keep_going: Callable[[], bool]) -> None:
+    """Read the panel once a second while `keep_going()`, tallying each read into `seen`.
+
+    Args:
+        panel: the probe in the browser.
+        seen: the tally, updated in place.
+        keep_going: whether to read again.
+    """
     while keep_going():
         seen["reads"] += 1
         try:
             uptime_s, sample, _titles = panel.read()
-        except (ExecutionError, subprocess.TimeoutExpired):
+        except Board.ERRORS:
             seen["failed"] += 1
             seen["off_panel"] += 1
         else:
@@ -147,11 +181,27 @@ def _watch(panel, seen, keep_going):
         time.sleep(_READ_PAUSE_SECONDS)
 
 
-def test_sustained_network_load(request, board, panel, record_property):
-    """TST008 sustained network load: push bytes at the board; no stop of the panel may exceed 60 s."""
+def test_sustained_network_load(
+    request: pytest.FixtureRequest,
+    board: Board,
+    panel: Panel,
+    record_property: Callable[[str, object], None],
+) -> None:
+    """TST008 sustained network load: push bytes at the board; no stop of the panel may exceed 60 s.
+
+    Args:
+        request: the test's request, which stops the push and its watchdog at teardown.
+        board: the board under test, to which the bytes are pushed.
+        panel: the probe in the browser, read for the instance on the panel throughout.
+        record_property: records the requirement and what the load and the reads measured.
+
+    Raises:
+        AssertionError: the load was not applied, the board restarted, or the panel was off longer
+            than `_STOP_ALLOWANCE_SECONDS`.
+    """
     record_property("requirement", "TST008")
     panel.wait_on_panel()
-    load_start = float(board.run("cat /proc/uptime", check=True)[0][0].split()[0])
+    load_start = board.timed(check=True)[0]
 
     proc = subprocess.Popen(
         [
@@ -182,7 +232,7 @@ def test_sustained_network_load(request, board, panel, record_property):
     _watch(panel, seen, pusher.is_alive)
     pusher.join()
     watchdog.cancel()
-    load_end = float(board.run("cat /proc/uptime", check=True)[0][0].split()[0])
+    load_end = board.timed(check=True)[0]
     seen["uptimes"].append(load_end)
     observe_until = time.monotonic() + _STOP_ALLOWANCE_SECONDS
     _watch(panel, seen, lambda: time.monotonic() < observe_until)
@@ -213,5 +263,5 @@ def test_sustained_network_load(request, board, panel, record_property):
     )
     assert seen["uptimes"] == sorted(seen["uptimes"]), "the board restarted during the test: its uptime went backwards"
     assert longest_stop <= _STOP_ALLOWANCE_SECONDS, (
-        f"the panel was off for {longest_stop} s under load; TST008's allowance is {_STOP_ALLOWANCE_SECONDS} s"
+        f"the panel was off for {longest_stop} s under load; allowance {_STOP_ALLOWANCE_SECONDS} s"
     )

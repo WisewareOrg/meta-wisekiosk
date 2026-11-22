@@ -14,7 +14,6 @@ import pytest
 from backend import Backend
 from board import Board
 from labgrid import Target
-from outage import Outage
 from panel import Panel
 from replay import CA_PATH, CARDS4_LIVE
 
@@ -225,19 +224,6 @@ def panel(board: Board, request: pytest.FixtureRequest, record_property: Callabl
     observation = Panel(board, request, record_property)
     observation.install()
     return observation
-
-
-@pytest.fixture
-def outage(board: Board) -> Outage:
-    """The `Outage` for the board; the test arms it.
-
-    Args:
-        board: the board under test.
-
-    Returns:
-        The outage, not yet armed.
-    """
-    return Outage(board)
 
 
 @pytest.fixture
