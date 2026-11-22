@@ -137,12 +137,7 @@ def test_cold_boot_to_the_panel(
     )
 
 
-def test_backend_late_at_boot(
-    board: Board,
-    backend: Backend,
-    request: pytest.FixtureRequest,
-    record: Record,
-) -> None:
+def test_backend_late_at_boot(board: Board, backend: Backend, request: pytest.FixtureRequest, record: Record) -> None:
     """TST033 backend late at boot: time from the held backend's first answer to the instance on the panel.
 
     The backend is masked across a soft-reboot and released three ways, each idempotent: by the

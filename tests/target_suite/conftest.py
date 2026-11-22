@@ -230,12 +230,7 @@ def panel(board: Board, request: pytest.FixtureRequest, record: Record) -> Panel
 
 
 @pytest.fixture
-def power_cut(
-    target: Target,
-    board: Board,
-    request: pytest.FixtureRequest,
-    record: Record,
-) -> PowerCut:
+def power_cut(target: Target, board: Board, request: pytest.FixtureRequest, record: Record) -> PowerCut:
     """A power cut through the bench's switched plug; power is switched back on at teardown.
 
     Args:
