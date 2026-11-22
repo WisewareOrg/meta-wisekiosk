@@ -1,7 +1,7 @@
 Retry a main-frame load that fails
 
-When the main frame's load fails, for any reason but being superseded by
-another load, load the launch argument again 5 s later, and again after
+When the main frame's load fails, for any reason WebKit shows its error
+page for, load the launch argument again 5 s later, and again after
 every failure until a load succeeds. WebKit's error page stays up
 meanwhile. A browser that starts before its backend listens, or whose
 reload lands during a backend restart, is no longer left on the error page.
@@ -80,19 +80,25 @@ Upstream-Status: Inappropriate [kiosk-specific]
  		break;
  	}
  	updatetitle(c);
-@@ -1994,6 +2011,42 @@
+@@ -1994,6 +2011,48 @@
  	return G_SOURCE_REMOVE;
  }
  
 +/* Retries a failed main-frame load: one stderr line per streak of failures,
-+ * and at most one retry pending. WebKit's error page stays up meanwhile. A
-+ * cancelled load was superseded by another and is not a failure. */
++ * and at most one retry pending. WebKit's error page stays up meanwhile. */
 +gboolean
 +loadfailed(WebKitWebView *v, WebKitLoadEvent e, gchar *uri, GError *err,
 +           Client *c)
 +{
++	/* The errors webkitWebViewLoadFail (WebKitWebView.cpp, WebKitGTK 2.44.3)
++	 * shows no error page for: each leaves the previous page or a handler in
++	 * place. Its media error is the 2022 API's name for the plugin one. */
 +	if (g_error_matches(err, WEBKIT_NETWORK_ERROR,
-+	                    WEBKIT_NETWORK_ERROR_CANCELLED))
++	                    WEBKIT_NETWORK_ERROR_CANCELLED) ||
++	    g_error_matches(err, WEBKIT_PLUGIN_ERROR,
++	                    WEBKIT_PLUGIN_ERROR_WILL_HANDLE_LOAD) ||
++	    g_error_matches(err, WEBKIT_POLICY_ERROR,
++	        WEBKIT_POLICY_ERROR_FRAME_LOAD_INTERRUPTED_BY_POLICY_CHANGE))
 +		return FALSE;
 +
 +	if (!c->failstreak) {
