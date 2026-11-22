@@ -4,14 +4,17 @@ import pytest
 
 
 def _check(before, after, default, record_property):
-    """Assert the config held, and that a loss would have been seen.
+    """Record the three hashes and the validity, then assert the config held, and that a loss would have been seen.
 
     Args:
         before (str | None): sha256 of the live config before the fault.
         after (str | None): sha256 of the live config after it.
         default (str | None): sha256 of the image default the board reseeds from.
-        record_property (Callable): the test's `record_property`; `validity` is recorded first.
+        record_property (Callable): the test's `record_property`; the hashes are recorded first, then `validity`.
     """
+    record_property("config_before_sha256", before)
+    record_property("config_after_sha256", after)
+    record_property("config_default_sha256", default)
     if before is None:
         validity = "invalid: the board held no config.json to keep"
     elif after != before:
@@ -40,9 +43,6 @@ def test_config_held_across_image_update(config_across_update, bench_candidate, 
         pytest.skip("no bench_candidate: a plain pytest run, or bench test --skip-build")
     before, after, default = config_across_update
     record_property("requirement", "TST019")
-    record_property("config_before_sha256", before)
-    record_property("config_after_sha256", after)
-    record_property("config_default_sha256", default)
     _check(before, after, default, record_property)
 
 
@@ -53,9 +53,6 @@ def test_config_held_across_restart(board, record_property):
     default = board.sha256(board.DEFAULT_CONFIG_PATH)
     board.restart()
     after = board.sha256(board.CONFIG_PATH)
-    record_property("config_before_sha256", before)
-    record_property("config_after_sha256", after)
-    record_property("config_default_sha256", default)
     _check(before, after, default, record_property)
 
 
@@ -66,7 +63,4 @@ def test_config_held_across_power_cut(board, power_cut, record_property):
     default = board.sha256(board.DEFAULT_CONFIG_PATH)
     power_cut()
     after = board.sha256(board.CONFIG_PATH)
-    record_property("config_before_sha256", before)
-    record_property("config_after_sha256", after)
-    record_property("config_default_sha256", default)
     _check(before, after, default, record_property)
