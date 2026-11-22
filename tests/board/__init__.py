@@ -359,6 +359,15 @@ class Board:
         stdout, _stderr, returncode = self.run("cat /sys/class/thermal/thermal_zone0/temp")
         return int(stdout[0]) / 1000 if returncode == 0 and stdout else None
 
+    def log_markers(self) -> list[str] | None:
+        """Read the marker lines written to the journal under the identifier `kiosk-log-marker`.
+
+        Returns:
+            The lines, or None if `journalctl` returned nonzero.
+        """
+        stdout, _stderr, returncode = self.run("journalctl -t kiosk-log-marker -o cat")
+        return stdout if returncode == 0 else None
+
     def builtin_modules(self) -> list[str]:
         """Read the kernel modules built into the running kernel.
 
