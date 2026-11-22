@@ -1,21 +1,28 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Configuration held across a power cut
+  Configuration held across a power cut
 level: 2.3.3
 links:
-- SRS010: 7BSrI4LQ6IW3pkqKIa6bpxKuSbPkS9ssdM7zQ09rPIg=
+- SRS010: cXUUm3LnnNsW2-SqUXIWeXYkTUWlEIeSDrD3ofOF6Zg=
 normative: true
 rationale: |
-  Waits on its test, and on power control at the bench, which the project does not have.
+  An operator who changes the appliance's configuration expects it to stay changed. A power cut is
+  the unclean end a wall-mounted unit can suffer, so a configuration lost to it would silently put
+  the appliance back on the settings the operator had moved away from.
 ref: ''
-references: []
-reviewed: pwG9Mwgw_sTBXihMT0-IlZR80kNeu__l6SNqAmtasQk=
+references:
+- keyword: def test_config_held_across_power_cut
+  path: tests/target_suite/test_configuration.py
+  sha: 52e805815dbf2ed00c7a4ac952e37652c79bfd4c556f07bb2f73dd2676026cb4
+  type: file
+reviewed: sbaUW4XLR5iL9UejkP4dj0RlEHocBCcqBBEZFZXnINM=
 status: proposed
 text: |
-  Change the appliance's configuration over the air, then cut its power without warning and restore
-  it. Pass if the configuration the appliance holds afterwards is the changed one.
+  With the appliance holding its configuration, cut its power without warning and restore it. Pass
+  if the configuration it holds afterwards is byte for byte the one it held before.
 verification-justification: |
   Test. It exercises the capability and reads the result mechanically; the pass condition needs no
   judgement.
+  The test makes no change itself: it checks the configuration the appliance already holds.
 verification-method: test

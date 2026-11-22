@@ -1,4 +1,4 @@
-"""Target suite: the board's own configuration file is byte for byte the same after an image update and a restart."""
+"""Target suite: the board's own config file is byte for byte the same after an update, a restart and a power cut."""
 
 import pytest
 
@@ -7,7 +7,7 @@ def _check(before, after, default, record_property):
     """Assert the config held, and that a loss would have been seen.
 
     Args:
-        before (str | None): sha256 of the live config before the update or restart.
+        before (str | None): sha256 of the live config before the fault.
         after (str | None): sha256 of the live config after it.
         default (str | None): sha256 of the image default the board reseeds from.
         record_property (Callable): the test's `record_property`; `validity` is recorded first.
@@ -52,6 +52,19 @@ def test_config_held_across_restart(board, record_property):
     before = board.sha256(board.CONFIG_PATH)
     default = board.sha256(board.DEFAULT_CONFIG_PATH)
     board.restart()
+    after = board.sha256(board.CONFIG_PATH)
+    record_property("config_before_sha256", before)
+    record_property("config_after_sha256", after)
+    record_property("config_default_sha256", default)
+    _check(before, after, default, record_property)
+
+
+def test_config_held_across_power_cut(board, power_cut, record_property):
+    """The config the board held before its power was cut is the one it holds after."""
+    record_property("requirement", "TST021")
+    before = board.sha256(board.CONFIG_PATH)
+    default = board.sha256(board.DEFAULT_CONFIG_PATH)
+    power_cut()
     after = board.sha256(board.CONFIG_PATH)
     record_property("config_before_sha256", before)
     record_property("config_after_sha256", after)

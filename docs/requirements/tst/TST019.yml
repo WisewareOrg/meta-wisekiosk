@@ -4,7 +4,7 @@ header: |
   Configuration held across an image update
 level: 2.3.1
 links:
-- SRS010: 7BSrI4LQ6IW3pkqKIa6bpxKuSbPkS9ssdM7zQ09rPIg=
+- SRS010: cXUUm3LnnNsW2-SqUXIWeXYkTUWlEIeSDrD3ofOF6Zg=
 normative: true
 rationale: |
   An operator who changes the appliance's configuration expects it to stay changed. An image update
@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_config_held_across_image_update
   path: tests/target_suite/test_configuration.py
-  sha: 2eb110b2b1726f93d4fe8bad4328e8bab485610d2d1361d6b4347185c67f7fca
+  sha: 52e805815dbf2ed00c7a4ac952e37652c79bfd4c556f07bb2f73dd2676026cb4
   type: file
-reviewed: dYQPboSu8irV2MV-oylbtTUpKHLiC3tsCrEnZunHgho=
+reviewed: r5T1b5JqFWqT-QVewkal74cCOj6xynPMDkgUj9Cs-x8=
 status: proposed
 text: |
   Install a valid image update over the air on an appliance holding its operator's configuration.

@@ -7,12 +7,12 @@ links:
 - SYS002: we4-sQcWch5HDwJ-oXfvp9Sv6m3b5_G4qYVQ1_9S9QY=
 normative: true
 rationale: |
-  Settles that the configuration the appliance holds is unchanged across an image update and a restart;
-  the power-cut check waits on power control. Unproven: whether the application acts on the
+  Settles that the configuration the appliance holds is unchanged across an image update, a restart
+  and a power cut. Unproven: whether the application acts on the
   configuration the appliance holds, which is the application's own requirement; and that the
   operator can make the change.
 ref: ''
-reviewed: S6O322toSGyFcexSjps7t3bW8w3X8--VDvjrqBj4aLM=
+reviewed: 956L3vCW8IZQjv2Bn9Fs_bQt4ozXG-rIIwNvyt2hPGE=
 status: proposed
 text: |
   The operator shall be able to change the appliance's configuration over the air, and the change
