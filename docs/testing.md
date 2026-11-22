@@ -48,21 +48,21 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   TST019<!-- Configuration held across an image update --> skip. TST016<!-- Running the image update's build -->
   reads the board's `/etc/buildinfo` itself and fails unless it names `bench_candidate`.
   The timezone test overlays `/etc` from `/run` while it runs and unmounts it at teardown.
-  The `panel` fixture bind-mounts a probe from `/tmp` over surf's script path and restarts the
-  browser so the test can read what the page shows; teardown unmounts it and restarts the browser
-  again. Every test marked `sends_update` runs after every other test in the suite, and an
-  install refuses to run for a test without the mark. The image-update tests build their
-  bundles in the host's `/tmp`, which `tools/kas-run.sh` mounts through `KAS_RUN_TMP_DIR`.
+  Installing the probe (`board.app.page.install_probe`) bind-mounts it from `/tmp` over surf's
+  script path and restarts the browser so the test can read what the page shows; teardown unmounts
+  it and restarts the browser again. Every test marked `sends_update` runs after every other test
+  in the suite. The image-update tests build their bundles in the host's `/tmp`, which
+  `tools/kas-run.sh` mounts through `KAS_RUN_TMP_DIR`.
   The device context (`device_context` in `conftest.py`) is recorded on every test. The
   refused-update tests build two small bundles through `tools/kas-run.sh`, so they need the
   checkout's own build tree and the signing keys the bench host's environment file names. The
   keyboard test builds evemu-tools through `tools/kas-run.sh` the same way, so it needs the build
   tree too, and while it runs the panel shows the board's text console. The frozen-page test
-  swaps the board onto `clock-seconds.json` through `set_config` and stops the browser's web
-  processes, and a finalizer registered first resumes them. The backend-late test masks
-  `wisekiosk.service` in `/run`, soft-reboots the board's userspace with the mask held, binds the
-  probe without restarting the browser, and arms a board-side `systemd-run` timer that releases the
-  backend should the host be lost; teardown releases it too. The backend-crash tests kill the
+  swaps the board onto `clock-seconds.json` through `board.app.config.use` and stops the browser's
+  web processes, and an undo registered on the board's cleanup resumes them. The backend-late test
+  masks `wisekiosk.service` in `/run`, soft-reboots the board's userspace with the mask held, binds
+  the probe without restarting the browser, and arms a board-side `systemd-run` timer that releases
+  the backend should the host be lost; teardown releases it too. The backend-crash tests kill the
   backend, and the browser-start one first delays its restart with a `RestartSec` drop-in in
   `/run`, which teardown removes. All of these live in `/run`, so a real reboot clears any a dead
   run leaves, and `config_hashes_across_install` clears the backend's runtime drop-ins and mask at

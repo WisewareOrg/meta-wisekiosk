@@ -17,9 +17,7 @@ from labgrid.pytestplugin.hooks import LABGRID_ENV_KEY
 from record import Record
 from recovery import BACKEND_DROP_IN_DIR, RELOAD_TIMEOUT_SECONDS
 from refused_offers import RefusedOffers
-from replay import CA_PATH, CARDS4_LIVE
 
-_CONFIG_COPY_PATH = "/tmp/kiosk-config.json"
 _BROWSER_WAIT_SECONDS = 90
 _BROWSER_POLL_SECONDS = 2
 _HASHED_PATHS = (
@@ -27,8 +25,6 @@ _HASHED_PATHS = (
     "/boot/config.txt",
     "/boot/cmdline.txt",
 )
-_CA_BOARD_PATH = "/tmp/replay-ca.pem"
-_DROP_IN_PATH = f"{BACKEND_DROP_IN_DIR}/replay.conf"
 _BACKEND_SWEEP = (
     f"if [ -d {BACKEND_DROP_IN_DIR} ] || "
     '[ "$(systemctl is-enabled wisekiosk.service)" = masked-runtime ]; then '
@@ -113,113 +109,6 @@ def evemu_helpers() -> Iterator[EvemuHelpers]:
     """
     with contextlib.ExitStack() as cleanup:
         yield EvemuHelpers.build(cleanup)
-
-
-@pytest.fixture
-def set_config(request, board):
-    """Build an `apply` that swaps the board onto a given config, undoing it at teardown.
-
-    `apply(path)` stops the browser, clears a mount a dead run left over the live config path,
-    copies `path` to the board, bind-mounts it over the live config, restarts the backend and
-    waits for the page, then starts the browser. Each step's undo is registered with
-    `request.addfinalizer` once that step has succeeded, so teardown runs them in reverse even
-    if a later step fails -- except the backend restart's undo, registered right after the
-    restart itself succeeds and before the page wait, so it still runs if that wait fails.
-    Knows nothing of replay; any test may hand `apply` a config file. Call it at most once per
-    test.
-
-    Args:
-        request (pytest.FixtureRequest): registers each step's undo.
-        board (Board): the board under test (tests/conftest.py).
-
-    Returns:
-        Callable[[str | os.PathLike], None]: `apply(path)`.
-    """
-
-    def apply(path):
-        """Swap the board onto `path`'s config and leave the instance running against it.
-
-        Args:
-            path (str | os.PathLike): the config file to copy to the board.
-        """
-        board.run("systemctl stop kiosk.service", check=True)
-        request.addfinalizer(lambda: board.run("systemctl start kiosk.service", check=True))
-
-        board.unmount_if_mounted(board.CONFIG_PATH)
-
-        board.put(str(path), _CONFIG_COPY_PATH)
-        request.addfinalizer(lambda: board.run(f"rm -f {_CONFIG_COPY_PATH}", check=True))
-
-        board.run(f"mount --bind {_CONFIG_COPY_PATH} {board.CONFIG_PATH}", check=True)
-        request.addfinalizer(lambda: board.unmount_if_mounted(board.CONFIG_PATH))
-
-        def _restart_backend_and_wait():
-            board.run("systemctl restart wisekiosk.service", check=True)
-            assert board.wait_for_page(), "page did not serve after the backend restart"
-
-        board.run("systemctl restart wisekiosk.service", check=True)
-        request.addfinalizer(_restart_backend_and_wait)
-        assert board.wait_for_page(), "page did not serve after the backend restart"
-
-        board.run("systemctl start kiosk.service", check=True)
-        request.addfinalizer(lambda: board.run("systemctl stop kiosk.service", check=True))
-
-    return apply
-
-
-@pytest.fixture
-def replay_window(board, proxy, set_config, request):
-    """Put the backend behind `proxy` for this test's duration, and return the browser start.
-
-    Opens an `ssh -R` tunnel to the proxy's own loopback port, copies the proxy's CA to the
-    board, writes a drop-in that points wisekiosk.service at the proxy through `HTTPS_PROXY`
-    and adds the proxy's CA to its trust through `SSL_CERT_FILE`, then hands `set_config` the
-    set's config.json -- whose own backend restart puts the backend onto the proxy before the
-    browser starts. Teardown undoes each of this fixture's own steps in exactly the reverse
-    order, then set_config's, then proxy's.
-
-    Args:
-        board (Board): the board under test (tests/conftest.py).
-        proxy (wisebench.proxy.Proxy): the running proxy this test replays through.
-        set_config (Callable[[str | os.PathLike], None]): swaps the board onto a config file.
-        request (pytest.FixtureRequest): registers each step's undo.
-
-    Returns:
-        float: `time.monotonic()` taken once `set_config`'s `apply` has returned from starting
-        `kiosk.service` -- the browser's start.
-    """
-    stack = contextlib.ExitStack()
-    request.addfinalizer(stack.close)
-    stack.enter_context(board.forward_remote_port(proxy.port, proxy.port))
-
-    board.put(str(CA_PATH), _CA_BOARD_PATH)
-
-    def _remove_ca():
-        stdout, stderr, returncode = board.run(f"rm -f {_CA_BOARD_PATH}", timeout=None)
-        output = stdout + stderr
-        assert returncode == 0, f"could not remove the replay CA (rc {returncode}): {chr(10).join(output)}"
-
-    request.addfinalizer(_remove_ca)
-
-    stdout, stderr, returncode = board.run(
-        f"mkdir -p {BACKEND_DROP_IN_DIR} && "
-        f"printf '[Service]\\nEnvironment=HTTPS_PROXY=http://127.0.0.1:{proxy.port}\\n"
-        f"Environment=SSL_CERT_FILE={_CA_BOARD_PATH}\\n' > {_DROP_IN_PATH} && "
-        "systemctl daemon-reload",
-        timeout=None,
-    )
-    output = stdout + stderr
-    assert returncode == 0, f"could not write the replay drop-in (rc {returncode}): {chr(10).join(output)}"
-
-    def _remove_drop_in():
-        stdout, stderr, returncode = board.run(f"rm -f {_DROP_IN_PATH} && systemctl daemon-reload", timeout=None)
-        output = stdout + stderr
-        assert returncode == 0, f"could not remove the replay drop-in (rc {returncode}): {chr(10).join(output)}"
-
-    request.addfinalizer(_remove_drop_in)
-
-    set_config(CARDS4_LIVE / "config.json")
-    return time.monotonic()
 
 
 def pytest_configure(config):

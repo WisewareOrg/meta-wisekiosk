@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_instance_reaches_out
   path: tests/target_suite/test_wisekiosk_reaches_out.py
-  sha: 1d9101cb67e1c1585a9ab0540e1062942bb11ece623308787245d116627aafe1
+  sha: b3fab66e9a2566736ededcc4ab1863d31a0ea65ccf25536e6d2aa23987bd7189
   type: file
-reviewed: OarOQY6Z_UMdz5fuJN_TpqGDP0X6dqDex8lVKlHzbNg=
+reviewed: Fid8o0QyWMllohpinWyo_LDZuXYcOYXbT7S7RQjEKPg=
 status: proposed
 text: |
   With the WiseKiosk instance set to fetch through a proxy that answers its upstream from a
