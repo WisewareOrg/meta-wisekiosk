@@ -90,7 +90,8 @@ class Network(Part):
         time.sleep(max(0.0, cut_at + seconds - time.monotonic()))
         self._board.reconnect()
         assert self._board.boot_id() == boot, (
-            f"the board did not rejoin: the outage restarted it, {Outage.GIVE_UP_SECONDS} s after the network returned"
+            "the board restarted during the outage "
+            f"(outage.sh restarts a board with no address {Outage.GIVE_UP_SECONDS} s after the network returns)"
         )
         read_at = time.monotonic()
         uptime_s, record = self.outage.uptime_and_record()
