@@ -31,13 +31,16 @@ class Config(Part):
         """
         return self._sha256(self._DEFAULT_PATH)
 
-    def sha256_unlike_default(self) -> str:
+    def sha256_to_keep(self) -> str:
         """Read the sha256 of the live config, which a fault must leave unchanged.
 
         Returns:
-            The hash; the check is invalid if `unlike_default` says a loss could not show.
+            The hash; the check is invalid if a loss of the config could not show.
         """
-        return unlike_default(self.sha256(), self.default_sha256())
+        live = self.sha256()
+        with invalid_if("a loss of the board's config could not show"):
+            assert shows_a_loss(live, self.default_sha256())
+        return live
 
     def use(self, path: str | os.PathLike[str]) -> None:
         """Swap the app onto `path`'s config, and leave the instance running against it, until the test ends.
@@ -78,19 +81,14 @@ class Config(Part):
         self._board.seconds_until(self._board.app.is_served)
 
 
-def unlike_default(live: str | None, default: str | None) -> str:
-    """The live config's hash, provided a loss of it would show.
+def shows_a_loss(live: str | None, default: str | None) -> bool:
+    """Whether losing the live config, and reseeding the image default, would show as a change.
 
     Args:
         live: the live config's sha256, None if it was missing.
         default: the image default's sha256, None if it was missing.
 
     Returns:
-        `live`; the check is invalid if the board held no config, or held the image default (or the
-        default is unreadable), so that losing it and reseeding the default would look like keeping it.
+        False if the board held no config, or held the image default, or the default is unreadable.
     """
-    with invalid_if("the board's config could not show a loss"):
-        assert live is not None, "the board holds no config.json"
-        assert default is not None, "the image default is unreadable"
-        assert live != default, "the board's config is the image default"
-    return live
+    return live is not None and default is not None and live != default

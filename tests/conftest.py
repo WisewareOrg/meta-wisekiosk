@@ -17,8 +17,8 @@ def install_candidate(bench_candidate: str | None, target: Target) -> Installed 
     the live config, and the backend's runtime drop-ins and mask. Before the install, it reads the
     live config's sha256 and writes a uuid marker line to the board's log, then reads the log until
     the line is there, for as long as `Board.seconds_until` waits. It installs with `just kiosk-ota`,
-    reboots with `just kiosk-reboot`, and reads the new image's default config's sha256. Either way, it
-    prints the board's meta-wisekiosk commit as `board_commit=<sha>`.
+    reboots with `just kiosk-reboot`, and reads the live config's sha256 again, and the new image's
+    default's. Either way, it prints the board's meta-wisekiosk commit as `board_commit=<sha>`.
 
     Args:
         bench_candidate: the commit under test, or None outside a build.
@@ -32,7 +32,7 @@ def install_candidate(bench_candidate: str | None, target: Target) -> Installed 
         board.unmount_if_mounted(board.app.config.LIVE_PATH)
         board.app.backend.clear_runtime_overrides()
         if bench_candidate is not None:
-            config_sha256 = board.app.config.sha256()
+            config_before = board.app.config.sha256()
             marker = str(uuid.uuid4())
             board.system.journal.write_marker(marker)
             marker_logged = False
@@ -41,8 +41,9 @@ def install_candidate(bench_candidate: str | None, target: Target) -> Installed 
                 marker_logged = True
             board.updates.install_built_image()
             board.reboot()
+            config = board.app.config
             installed = Installed(
-                bench_candidate, marker, marker_logged, config_sha256, board.app.config.default_sha256()
+                bench_candidate, marker, marker_logged, config_before, config.sha256(), config.default_sha256()
             )
         print(f"board_commit={board.updates.build_commit()}")
     return installed

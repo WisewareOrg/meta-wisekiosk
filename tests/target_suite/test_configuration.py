@@ -13,9 +13,9 @@ class TestConfiguration(BoardTest):
     def test_config_held_across_image_update(self) -> None:
         """TST019: the config the board held before the start-of-run image update is the one it holds after."""
         self.record(requirement="TST019")
-        before = self.board.updates.installed.held_config_sha256()
+        installed = self.board.updates.installed
 
-        after = self.board.app.config.sha256()
+        before, after = installed.config_to_keep(), installed.config_after
 
         self.record(config_sha256_before=before, config_sha256_after=after)
         assert after == before, f"the board holds config {after}, not the {before} it held before the update"
@@ -35,7 +35,7 @@ class TestConfiguration(BoardTest):
             fault: the item's stimulus.
         """
         self.record(requirement=requirement)
-        before = self.board.app.config.sha256_unlike_default()
+        before = self.board.app.config.sha256_to_keep()
 
         fault(self.board)
         after = self.board.app.config.sha256()

@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, NamedTuple
 import pytest
 from labgrid.driver.exception import ExecutionError
 
-from board.app.config import unlike_default
+from board.app.config import shows_a_loss
 from board.part import Part, invalid_if
 
 if TYPE_CHECKING:
@@ -45,15 +45,17 @@ class Installed(NamedTuple):
         commit: the commit the installed build is from.
         marker: a line written to the board's log before the install.
         marker_logged: whether the log held the marker before the install.
-        config_sha256: the live config's sha256 before the install, None if it was missing.
-        default_config_sha256: the installed image's default config's sha256, None if it was missing.
+        config_before: the live config's sha256 before the install, None if it was missing.
+        config_after: the live config's sha256 straight after the install's restart, None if it was missing.
+        default_config: the installed image's default config's sha256, None if it was missing.
     """
 
     commit: str
     marker: str
     marker_logged: bool
-    config_sha256: str | None
-    default_config_sha256: str | None
+    config_before: str | None
+    config_after: str | None
+    default_config: str | None
 
     def logged_marker(self) -> str:
         """The marker written to the log before the install.
@@ -65,13 +67,15 @@ class Installed(NamedTuple):
             assert self.marker_logged
         return self.marker
 
-    def held_config_sha256(self) -> str:
+    def config_to_keep(self) -> str:
         """The live config's sha256 before the install, which the install must leave unchanged.
 
         Returns:
             The hash; the check is invalid if a loss of the config could not show.
         """
-        return unlike_default(self.config_sha256, self.default_config_sha256)
+        with invalid_if("a loss of the board's config could not show"):
+            assert shows_a_loss(self.config_before, self.default_config)
+        return self.config_before
 
 
 class Updates(Part):
