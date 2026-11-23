@@ -149,9 +149,9 @@ class Updates(Part):
         self.return_to_candidate_after_test(self.bundles)
         self.allow_test_bundles(self.bundles.nonce)
         status = self.rauc_status()
-        device = next(
-            slot["device"] for entry in status["slots"] for slot in entry.values() if slot["state"] != "booted"
-        )
+        others = [slot["device"] for entry in status["slots"] for slot in entry.values() if slot["state"] != "booted"]
+        assert others, f"no slot other than the booted one in rauc status: {status!r}"
+        device = others[0]
         _step, written = self._write_progress(device)
         pool = ThreadPoolExecutor(max_workers=1)
         installing = pool.submit(self.install_bundle, bundle, self.CANDIDATE_INSTALL_TIMEOUT_SECONDS)

@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_back_after_a_fault
   path: tests/target_suite/test_recovers_the_instance.py
-  sha: 3ebdb234881560ffa5f4390a3e33b0cf15f8a09d024c871a28a5a32a47c98337
+  sha: a2f1bbe4212da433d9ec4ad28e41f84c09a4b0ed3f07d70dfca31ee3b6ab936f
   type: file
-reviewed: OP8YfYA_G0sgYedeCZhVPAYnHG8f95IPPfatWxg7ecA=
+reviewed: l6HD9xqRqaLXiVG9AnL3MVUB7Zw-rmMQZmZkE46GrdU=
 status: proposed
 text: |
   With nobody at the panel, install over the air a valid image update carrying a different WiseKiosk

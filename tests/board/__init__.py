@@ -13,7 +13,7 @@ import pytest
 from labgrid import Target
 from labgrid.binding import StateError
 from labgrid.driver.exception import ExecutionError
-from tenacity import RetryError, Retrying, retry_if_exception_type, retry_if_result, stop_after_delay, wait_fixed
+from tenacity import Retrying, retry_if_exception_type, retry_if_result, stop_after_delay, wait_fixed
 
 from board.app import App
 from board.console import Console, Keyboard, Terminals
@@ -425,40 +425,30 @@ class Board:
     def seconds_until(self, condition: Callable[[], object], *, since: float | None = None, reads: int = 1) -> float:
         """Read `condition` about once a second until it holds on `reads` reads in a row.
 
-        A read that raises one of `ERRORS` does not hold.
+        A read that raises one of `ERRORS` does not hold. An assertion fails if the run did not begin
+        within `GIVE_UP_SECONDS` of `since`.
 
         Args:
-            condition: one read of the board; holds when truthy.
+            condition: one read of the board; holds when truthy. A failure names it by its qualified name,
+                or its function's for a `functools.partial`.
             since: the host `time.monotonic()` instant the time counts from; now when None.
             reads: how many reads in a row it must hold on.
 
         Returns:
-            The seconds from `since` to the first read of the run, to 0.1 s.
-
-        Raises:
-            AssertionError: the run did not begin within `GIVE_UP_SECONDS` of `since`.
+            The seconds from `since` to the start of the run's first read, to 0.1 s.
         """
         since = time.monotonic() if since is None else since
+        what = getattr(condition, "func", condition).__qualname__
         run: list[float] = []
-
-        def held() -> bool:
-            """Read `condition` once, and extend or end the run.
-
-            Returns:
-                Whether the run is long enough.
-            """
-            run[:] = [*run, time.monotonic()] if self._holds(condition) else []
-            return len(run) >= reads
-
-        try:
-            Retrying(
-                stop=stop_after_delay(self.GIVE_UP_SECONDS - (time.monotonic() - since)),
-                wait=wait_fixed(1),
-                retry=retry_if_result(lambda done: not done),
-            )(held)
-        except RetryError:
-            raise AssertionError(f"it did not hold within {self.GIVE_UP_SECONDS} s") from None
-        return round(run[0] - since, 1)
+        while True:
+            began = time.monotonic()
+            run = [*run, began] if self._holds(condition) else []
+            if len(run) == reads:
+                return round(run[0] - since, 1)
+            assert time.monotonic() - since < self.GIVE_UP_SECONDS, (
+                f"{what} did not hold within {self.GIVE_UP_SECONDS} s"
+            )
+            time.sleep(1)
 
     def longest_lapse_s(self, condition: Callable[[], object], *, over: float) -> float:
         """Read `condition` about once a second for `over` seconds; the longest stretch it did not hold.

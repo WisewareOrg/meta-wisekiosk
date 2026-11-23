@@ -90,14 +90,16 @@ class App(Part):
     def on_panel(self) -> bool:
         """Whether the instance is on the panel: its page served, and the probe reporting it applied.
 
-        The probe must report the app's own page, from the board's own backend.
+        The probe must report the app's own page, from the board's own backend. The page is read first,
+        so the probe's report is the newer of the two.
 
         Returns:
             True if both hold.
         """
+        if not self.is_served():
+            return False
         sample = self._sample()
-        applied = sample is not None and sample["state"] == "applied" and sample["origin"] in _OWN_ORIGINS
-        return applied and self.is_served()
+        return sample is not None and sample["state"] == "applied" and sample["origin"] in _OWN_ORIGINS
 
     def wait_until_on_panel(self) -> None:
         """Wait until the instance is on the panel."""
@@ -127,7 +129,7 @@ class App(Part):
         a page without it; the check is invalid if it did not.
 
         Returns:
-            The host `time.monotonic()` at which the backend was first seen answering again.
+            The host `time.monotonic()` at the start of the read that first saw the backend answering again.
         """
         self.backend.drop_in(f"[Service]\\nRestartSec={_BACKEND_HOLD_SECONDS}\\n")
         self.backend.kill()
@@ -135,8 +137,8 @@ class App(Part):
         with invalid_if("the browser did not load a page while the backend was down"):
             self._board.seconds_until(self._loaded_a_page)
             assert not self.is_served(), "the backend answered first"
-        self._board.seconds_until(self.is_served)
-        return time.monotonic()
+        down_since = time.monotonic()
+        return down_since + self._board.seconds_until(self.is_served, since=down_since)
 
     def _titles(self) -> list[str]:
         """Read every window's title.

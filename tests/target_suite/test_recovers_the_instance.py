@@ -1,5 +1,6 @@
 """Target suite: with nobody at the panel, the appliance brings the WiseKiosk instance back to it."""
 
+import functools
 from collections.abc import Callable
 from pathlib import Path
 
@@ -58,7 +59,7 @@ class TestRecoversTheInstance(BoardTest):
         self.board.app.wait_until_on_panel()
 
         since = fault(self.board)
-        back_s = self.board.seconds_until(lambda: back(self.board.app), since=since)
+        back_s = self.board.seconds_until(functools.partial(back, self.board.app), since=since)
 
         self.record(back_s=back_s)
         assert back_s <= bound_s, f"back after {back_s} s; {requirement}'s bound is {bound_s} s"

@@ -42,12 +42,14 @@ class Process(Part):
         return sent
 
     def stop(self) -> float:
-        """Stop the processes with SIGSTOP; whatever runs under the name is continued when the test ends.
+        """Stop the processes with SIGSTOP; the same processes are continued when the test ends.
 
         Returns:
             The host `time.monotonic()` just before the stop.
         """
-        self._board.cleanup.callback(self._board.run, f"kill -CONT {self._pids}")
+        pids = self._board.run(f"echo {self._pids}", check=True).text
+        assert pids, "no such process to stop"
+        self._board.cleanup.callback(self._board.run, f"kill -CONT {pids}")
         sent = time.monotonic()
-        self._board.run(f"kill -STOP {self._pids}", check=True)
+        self._board.run(f"kill -STOP {pids}", check=True)
         return sent

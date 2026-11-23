@@ -55,13 +55,15 @@ class CandidateBundles(NamedTuple):
         run_dir = Path(tempfile.mkdtemp(prefix="kiosk-update-bundles-", dir="/tmp"))
         cleanup.callback(shutil.rmtree, run_dir)
         nonce = uuid.uuid4().hex
+        # what the new-build bundle's page carries, which makes it a different build from the candidate
+        stamp = uuid.uuid4().hex
         subprocess.run(
             [
                 str(_REPO / "tools" / "kas-run.sh"),
                 "shell",
                 "kiosk-zero-w.yaml",
                 "-c",
-                f"bash {_BUNDLES_SCRIPT} {run_dir} {nonce} {uuid.uuid4().hex} {_PROBE}",
+                f"bash {_BUNDLES_SCRIPT} {run_dir} {nonce} {stamp} {_PROBE}",
             ],
             cwd=_REPO,
             env={**os.environ, "KAS_RUN_TMP_DIR": str(run_dir)},
