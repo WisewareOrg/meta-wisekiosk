@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_falls_back
   path: tests/target_suite/test_image_update.py
-  sha: a0b76bc3bb2b91e198231f5ce0736153ee5d04426fc780f45addaa74c9cc9f36
+  sha: 285d825cac6cf2ddbbda956be7ca6df7bfd1d0d8987d3e8d00f74dab2e713bb3
   type: file
-reviewed: EjsZhJm6ZVs1w1vJS0LhPNX2Pru7wwlc9qkB4jo5_LM=
+reviewed: -a_ryh5idC-m50VA8amfbKkpQVXGSggUNiiHK3NvwTA=
 status: proposed
 text: |
   With nobody at the panel, install over the air an image update that cannot start. Pass if the

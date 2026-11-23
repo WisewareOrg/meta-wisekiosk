@@ -491,7 +491,7 @@ class Board:
         Raises:
             AssertionError: the run did not begin within `GIVE_UP_SECONDS` of `since`.
         """
-        known_since = time.monotonic() if since is None or callable(since) else since
+        give_up_from = time.monotonic() if since is None or callable(since) else since
         run: list[float] = []
 
         def read() -> int:
@@ -506,14 +506,15 @@ class Board:
 
         try:
             Retrying(
-                stop=stop_after_delay(self.GIVE_UP_SECONDS - (time.monotonic() - known_since)),
+                stop=stop_after_delay(self.GIVE_UP_SECONDS - (time.monotonic() - give_up_from)),
                 wait=wait_fixed(1),
                 retry=retry_if_result(lambda held: held < reads),
             )(read)
         except RetryError:
             what = getattr(condition, "func", condition).__qualname__
             raise AssertionError(f"{what} did not hold within {self.GIVE_UP_SECONDS} s") from None
-        return round(run[0] - (since() if callable(since) else known_since), 1)
+        counted_from = since() if callable(since) else give_up_from
+        return round(run[0] - counted_from, 1)
 
     def longest_lapse_s(self, condition: Callable[[], object], *, over: float) -> float:
         """Read `condition` about once a second for `over` seconds; the longest stretch it did not hold.

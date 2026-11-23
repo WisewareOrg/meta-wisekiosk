@@ -6,6 +6,7 @@ install-check hook that refuses unless this run's nonce is in the board's `/tmp`
 
 import operator
 from collections.abc import Callable
+from pathlib import Path
 
 import pytest
 from board import Board
@@ -23,11 +24,12 @@ class TestImageUpdate(BoardTest):
             case("TST024", operator.attrgetter("updates.bundles.no_network"), True),
         ],
     )
-    def test_falls_back(self, requirement: str, update: Callable[[Board], object], starts: bool) -> None:
+    def test_falls_back(self, requirement: str, update: Callable[[Board], Path], starts: bool) -> None:
         """Install an update that fails; the board falls back to its previous build, then takes a valid update.
 
         That the cannot-start update could not start is shown when it is built: update_bundles.sh's
-        `require_gone` checks that it lacks init and sh.
+        `require_gone` checks that it lacks init and sh. `install_and_restart` fails the test when the
+        valid update is not installed or the board does not restart into it.
 
         Args:
             requirement: the item.

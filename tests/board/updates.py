@@ -282,8 +282,9 @@ class Updates(Part):
     def install_and_fall_back(self, bundle: pathlib.Path, starts: bool) -> int:
         """Install `bundle` over the air, restart into it, and wait for the board to fall back from it.
 
-        The board returns to the candidate when the test ends. The check is invalid if an update that
-        starts did not leave one boot in the journal for each failed attempt.
+        The board returns to the candidate when the test ends. The check is invalid if no attempt to start
+        the update was used, or an update that starts did not leave one boot in the journal for each failed
+        attempt.
 
         Args:
             bundle: one of this run's test bundles, whose boots fail.
@@ -302,6 +303,8 @@ class Updates(Part):
         self._board.restart_with("systemctl reboot", within=_FALLBACK_WAIT_SECONDS)
         _order, attempts_left = self.boot_order()
         failed = attempts[update_slot] - attempts_left[update_slot]
+        with invalid_if("the update was never tried: no attempt to start it was used"):
+            assert failed >= 1
         if starts:
             with invalid_if("the update did not start once for each failed attempt"):
                 # journalctl lists boot ids without the dashes /proc/sys/kernel/random/boot_id has

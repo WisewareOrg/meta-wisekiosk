@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_falls_back
   path: tests/target_suite/test_image_update.py
-  sha: a0b76bc3bb2b91e198231f5ce0736153ee5d04426fc780f45addaa74c9cc9f36
+  sha: 285d825cac6cf2ddbbda956be7ca6df7bfd1d0d8987d3e8d00f74dab2e713bb3
   type: file
-reviewed: Kk8t92lt34oms8kKRYP4XPNJHEkwOxIsJoFUyAkKY-0=
+reviewed: sdsDnh_cYtNJrZNINX-qRC8ilsUeFrT2bouluSo13d4=
 status: proposed
 text: |
   With the site network healthy and nobody at the panel, install over the air an image update that
