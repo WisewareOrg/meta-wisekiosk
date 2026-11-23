@@ -11,12 +11,9 @@
 # marking bad is not. It restarts the boot only for a slot whose current image has
 # never reached the network, and only toward a fallback slot whose current image
 # has. A slot's proof is /data/kiosk-netcheck/reached.<bootname>, holding the
-# slot's RAUC bundle hash, so it lapses when the slot is rewritten.
-#
-# Consequences: a slot written by the card flash has no bundle hash, so it is never
-# proven, and a boot of it with no LAN restarts toward a proven fallback; a good
-# update whose first boots all meet a LAN outage longer than DEADLINE falls back;
-# and no slot is proven until an image that writes proofs has reached the network.
+# slot's RAUC bundle hash, so it lapses when the slot is rewritten; a slot written by
+# the card flash has no bundle hash, so it is never proven. It marks good anyway when
+# no good fallback slot is known.
 
 set -u
 
@@ -113,8 +110,9 @@ log "$(fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT | tr '\n' ' ')"
 # to; a kiosk nobody can reach still beats a card with no bootable slot, which
 # is the one failure that costs a person standing at the device.
 if ! read_rauc; then
-    log "WITHHOLDING good-marking; could not read the RAUC slot status"
-    exit 1
+    log "WITHHOLDING SUPPRESSED: could not read the RAUC slot status, so no good fallback is known;" \
+        "marking good anyway"
+    exit 0
 fi
 find_slots
 

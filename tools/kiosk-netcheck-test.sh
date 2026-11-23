@@ -9,9 +9,7 @@
 # checked: a path the script gains that the rewrite does not cover fails the run instead
 # of reaching the host's real /data.
 #
-# BOTH DIRECTIONS, deliberately. A wrong restart is a boot loop on the wall unit, and a
-# missing one leaves an image that cannot reach the network booted, so each case pins
-# whether the boot restarts, what it exits with, and what proof it leaves.
+# Each case pins whether the boot restarts, what it exits with, and what proof it leaves.
 #
 # TO WATCH THIS FAIL -- before trusting a green run: point $shipped at a scratch copy of the
 # script with one condition removed. Seeds, each run once:
@@ -121,7 +119,7 @@ setup no  yes  hA     -       good     hB     hB      yes; check "no-LAN, booted
 setup no  yes  hA     hA      good     hB     hB      yes; check "no-LAN, booted proven: withhold, no restart" 1 no hA
 setup no  yes  hA     -       good     hB     -       yes; check "no-LAN, fallback unproven: withhold, no restart" 1 no -
 setup no  yes  hA     -       good     hB     old     yes; check "no-LAN, fallback proof stale: withhold, no restart" 1 no -
-setup no  yes  hA     -       good     hB     hB      no;  check "no-LAN, rauc unreadable: withhold, no restart" 1 no -
+setup no  yes  hA     -       good     hB     hB      no;  check "no-LAN, rauc unreadable: mark good, no restart" 0 no -
 setup no  yes  hA     -       bad      hB     hB      yes; check "no-LAN, no good fallback: mark good, no restart" 0 no -
 setup no  yes  ''     -       good     hB     hB      yes; check "no-LAN, booted hash empty (flashed slot): restart" 1 yes -
 
