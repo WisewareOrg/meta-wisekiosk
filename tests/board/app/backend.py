@@ -24,8 +24,8 @@ class Backend(Unit):
 
         A tunnel, the proxy's CA and a drop-in point the backend at the proxy; then
         `board.app.config.use(config)` restarts the backend onto it before the browser starts. When the
-        test ends the tunnel's steps are undone first, last first, then the config's, so the backend
-        never runs behind a proxy that has gone.
+        test ends the tunnel's steps are undone first, last first, then the config's, whose backend
+        restart drops the proxy settings; until it, the backend points at a proxy that has gone.
 
         Args:
             proxy: the running proxy the backend replays through.

@@ -39,6 +39,44 @@ _COPY_STEP = "Copying image to "
 _STAT_SECTORS_WRITTEN = 6
 
 
+class Update(NamedTuple):
+    """An image update installed, and the restart after it.
+
+    Attributes:
+        returncode: the install tool's return code; 0 installed.
+        output: the tool's combined output.
+        booted_before: the slot the board booted before the install.
+        booted_after: the slot the board booted after the restart.
+        restarted_at: the host `time.monotonic()` just before the restart.
+    """
+
+    returncode: int
+    output: str
+    booted_before: str
+    booted_after: str
+    restarted_at: float
+
+
+class Offered(NamedTuple):
+    """How an offered image update's install ended.
+
+    Attributes:
+        returncode: the install tool's return code: 0 installed, 1 refused, 2 a D-Bus error, the board
+            unable to say.
+        output: the tool's combined output.
+        reasons: what a refusal must name for the offer to have been judged as the item offers it.
+    """
+
+    returncode: int
+    output: str
+    reasons: tuple[str, ...]
+
+    def confirm_refused_for_its_reasons(self) -> None:
+        """Fail the check as invalid if the refusal did not name the offer's reasons."""
+        with invalid_if(f"refused, but not for the reasons the offer names: {self.output}"):
+            assert all(reason in self.output for reason in self.reasons)
+
+
 class Installed(NamedTuple):
     """The start-of-run install: the build it installed, and what the board held before it.
 
@@ -155,6 +193,8 @@ class Updates(Part):
         Raises:
             subprocess.TimeoutExpired: the install ran past `timeout`.
         """
+        test = self._board.fixture("request").node
+        assert test.get_closest_marker("sends_update"), f"{test.nodeid} sends an update but is not marked sends_update"
         started = time.monotonic()
         tool = subprocess.Popen(
             [str(_INSTALL_TOOL), self._board.host, str(bundle)],
@@ -172,30 +212,30 @@ class Updates(Part):
             raise
         return tool.returncode, output, round(time.monotonic() - started, 1)
 
-    def install_and_restart(self, bundle: pathlib.Path) -> float:
-        """Install `bundle` over the air and restart the board into it; it returns to the candidate when the test ends.
+    def install_and_restart(self, bundle: pathlib.Path) -> Update:
+        """Install `bundle` over the air and restart the board; it returns to the candidate when the test ends.
 
         Args:
             bundle: one of this run's test bundles.
 
         Returns:
-            The host `time.monotonic()` just before the restart.
+            How the install ended, the slot booted before and after, and when the restart began.
         """
         self.return_to_candidate_after_test(self.bundles)
         self.allow_test_bundles(self.bundles.nonce)
-        booted = self.rauc_status()["booted"]
+        booted_before = self.rauc_status()["booted"]
         returncode, output, _seconds = self.install_bundle(bundle, self.CANDIDATE_INSTALL_TIMEOUT_SECONDS)
-        assert returncode == 0, f"the install returned {returncode}: {output}"
-        restarted = self._board.restart_with("systemctl reboot")
-        assert self.rauc_status()["booted"] != booted, "the board did not restart into the update"
-        return restarted
+        restarted_at = self._board.restart_with("systemctl reboot")
+        return Update(returncode, output, booted_before, self.rauc_status()["booted"], restarted_at)
 
     def cut_power_while_writing(self, bundle: pathlib.Path) -> float:
         """Cut the board's power while `bundle` is being written into the slot not booted, then restore it.
 
         The cut comes once RAUC reports copying the image and the slot's device has been written to since
-        the install began; the check is invalid if the install ended, or did not reach that, first. The
-        board returns to the candidate when the test ends.
+        the install began; the check is invalid if the install ended, or did not reach that, first. Once
+        the board answers again, the check is invalid if the update's slot was activated, as an install
+        that completed before the cut leaves it. The install's own end is not waited for, since its ssh
+        outlives the cut by tens of seconds. The board returns to the candidate when the test ends.
 
         Args:
             bundle: one of this run's test bundles, which no slot already holds.
@@ -215,24 +255,24 @@ class Updates(Part):
         self._board.cleanup.callback(pool.shutdown)
         with invalid_if("the update was not being written when the power was cut"):
             self._board.seconds_until(lambda: self._is_writing(installing, device, since=written))
-        return self._board.cut_power()
+        update_slot = ({"A", "B"} - {status["booted"]}).pop()
+        power_returned = self._board.cut_power()
+        order, attempts_left = self.boot_order()
+        with invalid_if("the power was cut after the update was written: its slot was activated"):
+            assert not (order[0] == update_slot and attempts_left[update_slot] > 0)
+        return power_returned
 
-    def refuses(self, offer: "Offer") -> bool:
-        """Offer an image update; whether the board refused it.
-
-        The check is invalid if the board refused it, but not for the reasons the offer names.
+    def offer(self, offer: "Offer") -> Offered:
+        """Offer the board an image update through its one install path.
 
         Args:
             offer: the update, and what its refusal must name.
 
         Returns:
-            True if the install returned 1, a refusal; 2 is a D-Bus error, the board unable to say.
+            How the install ended, with what its refusal must name.
         """
         returncode, output, _seconds = self.install_bundle(offer.bundle, _OFFER_TIMEOUT_SECONDS)
-        if returncode == 1:
-            with invalid_if(f"refused, but not for the reasons the offer names: {output}"):
-                assert all(reason in output for reason in offer.reasons)
-        return returncode == 1
+        return Offered(returncode, output, offer.reasons)
 
     def allow_test_bundles(self, nonce: str) -> None:
         """Put this run's nonce in the board's `/tmp`, until the test ends, so a test bundle's hook accepts it.
@@ -289,7 +329,8 @@ class Updates(Part):
         self.allow_test_bundles(self.bundles.nonce)
         update_slot = ({"A", "B"} - {self.rauc_status()["booted"]}).pop()
         returncode, output, _seconds = self.install_bundle(bundle, self.CANDIDATE_INSTALL_TIMEOUT_SECONDS)
-        assert returncode == 0, f"the install returned {returncode}: {output}"
+        with invalid_if(f"the update did not install, so there was nothing to fall back from: {output}"):
+            assert returncode == 0
         _order, attempts = self.boot_order()
         boots = self._journal_boot_ids()
         self._board.restart_with("systemctl reboot", within=_FALLBACK_WAIT_SECONDS)

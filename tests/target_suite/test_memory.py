@@ -25,27 +25,24 @@ class TestMemory(BoardTest):
     def test_memory_over_a_long_run(self, period_s: int, growth_limit_mb: float) -> None:
         """TST014: run with the replayed page on the panel; memory in use stays bounded, and nothing is killed for it.
 
-        The asserts follow the order `use_over` judges in: a kill, then the peak, then the growth.
+        A breach is judged before anything is invalid, except that the growth is only judged on a steady run.
 
         Args:
             period_s: how long the run lasts.
             growth_limit_mb: the most memory in use may grow over the run, in MB.
         """
         self.record(requirement="TST014")
-        self.board.app.run_behind_replay()
+        replay = self.board.app.run_behind_replay()
         self.board.app.install_probe()
         self.board.seconds_until(self.board.app.all_cards_live)
 
-        use = self.board.system.memory.use_over(period_s, peak_limit=USE_LIMIT)
+        use = self.board.system.memory.use_over(period_s)
 
-        self.record(
-            period_s=period_s,
-            peak_use=round(use.peak_use, 3),
-            growth_mb=round(use.growth_mb, 1),
-            memory_kills=use.kills,
-        )
+        self.record(period_s=period_s, peak_use=use.peak_use, growth_mb=use.growth_mb, memory_kills=use.kills)
         assert not use.kills, f"a process was killed for memory at uptime {use.kills[0]:.0f} s"
+        use.confirm_readable()
         assert use.peak_use < USE_LIMIT, f"memory in use reached {use.peak_use:.1%} of usable; TST014's bound is 80%"
+        use.confirm_steady(replay)
         assert use.growth_mb <= growth_limit_mb, (
             f"memory in use grew {use.growth_mb:.0f} MB over the run; TST014's bound is {growth_limit_mb} MB"
         )

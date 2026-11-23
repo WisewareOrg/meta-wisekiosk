@@ -68,7 +68,7 @@ class System(Part):
         Returns:
             True if it is within 5 s of the host's.
         """
-        return abs(self._clock_ahead_s()) <= _AGREES_WITHIN_SECONDS
+        return abs(int(self._board.run("date +%s", check=True).text) - time.time()) <= _AGREES_WITHIN_SECONDS
 
     def mark_log(self, text: str) -> None:
         """Write `text` to the board's log, under the identifier `kiosk-log-marker`.
@@ -134,14 +134,6 @@ class System(Part):
         assert self._board.run("findmnt -n /etc").returncode != 0, "the /etc overlay is still mounted"
         restored = self._board.run("readlink /etc/localtime", check=True).text
         assert restored == localtime, f"/etc/localtime is {restored}, expected {localtime}"
-
-    def _clock_ahead_s(self) -> float:
-        """Read how far the board's clock is ahead of the host's.
-
-        Returns:
-            The seconds, negative when behind.
-        """
-        return int(self._board.run("date +%s", check=True).text) - time.time()
 
     def _set_clock(self, epoch: int) -> None:
         """Set the clock to `epoch`, and record it as the clock timesyncd restores at boot.

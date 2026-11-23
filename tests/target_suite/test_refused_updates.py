@@ -32,11 +32,14 @@ class TestRefusedUpdates(BoardTest):
         self.board.app.wait_until_on_panel()
         build_before = self.board.updates.build_commit()
 
-        refused = self.board.updates.refuses(offer(self.board))
+        offered = self.board.updates.offer(offer(self.board))
         build_after = self.board.updates.build_commit()
         on_panel = self.board.app.on_panel()
 
-        self.record(refused=refused, build_after=build_after, on_panel=on_panel)
-        assert refused, "the board did not refuse the update"
+        self.record(install_rc=offered.returncode, build_after=build_after, on_panel=on_panel)
+        assert offered.returncode == 1, (
+            f"the install returned {offered.returncode}, not a refusal (1): {offered.output}"
+        )
         assert build_after == build_before, f"the board runs {build_after}, not the {build_before} it ran before"
-        assert on_panel, "the instance is not on the panel"
+        assert on_panel, f"the instance is not on the panel; the probe reports {self.board.app.report()!r}"
+        offered.confirm_refused_for_its_reasons()

@@ -12,7 +12,6 @@ class TestKeyboard(BoardTest):
 
         typed = self.board.console.type_offline()
 
-        self.record(marker=" ".join(typed.marker), keyboard_progress=typed.progress)
-        assert typed.marker[:2] == [typed.word, "/dev/tty2"], (
-            f"the typed command did not run at tty2's login: {typed.progress}"
-        )
+        self.record(terminal=typed.marker.terminal, word_written=typed.marker.word, keyboard_progress=typed.progress)
+        assert typed.marker.terminal == "/dev/tty2", f"the command did not run at tty2's login: {typed}"
+        assert typed.marker.word == typed.word, f"the command ran, but did not write what was typed: {typed}"

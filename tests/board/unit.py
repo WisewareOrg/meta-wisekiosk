@@ -46,6 +46,14 @@ class Unit(Part):
         """Restart the unit."""
         self._board.run(f"systemctl restart {self.name}", check=True)
 
+    def start(self) -> None:
+        """Start the unit."""
+        self._board.run(f"systemctl start {self.name}", check=True)
+
+    def stop(self) -> None:
+        """Stop the unit."""
+        self._board.run(f"systemctl stop {self.name}", check=True)
+
     def is_active(self) -> bool:
         """Whether the unit is active.
 
@@ -81,7 +89,7 @@ class Unit(Part):
         return f"/run/systemd/system/{self.name}.d"
 
     @property
-    def _drop_in(self) -> str:
+    def _drop_in_path(self) -> str:
         """The runtime drop-in the tests write.
 
         Returns:
@@ -107,12 +115,12 @@ class Unit(Part):
         """
         (cleanup if cleanup is not None else self._board.cleanup).callback(
             self._board.run,
-            f"rm -f {self._drop_in}; systemctl daemon-reload; systemctl start {self.name}",
+            f"rm -f {self._drop_in_path}; systemctl daemon-reload; systemctl start {self.name}",
             check=True,
             timeout=RELOAD_TIMEOUT_SECONDS,
         )
         self._board.run(
-            f"mkdir -p {self._drop_in_dir} && printf '{text}' > {self._drop_in} && systemctl daemon-reload",
+            f"mkdir -p {self._drop_in_dir} && printf '{text}' > {self._drop_in_path} && systemctl daemon-reload",
             check=True,
             timeout=RELOAD_TIMEOUT_SECONDS,
         )

@@ -13,14 +13,10 @@ class EvemuHelpers(NamedTuple):
 
     Attributes:
         directory: where the built files are.
-        version: the evemu-tools version.
-        packages: the packages built.
         sha256: each built file's sha256, by name.
     """
 
     directory: Path
-    version: str
-    packages: list
     sha256: dict
 
     @classmethod
@@ -38,7 +34,5 @@ class EvemuHelpers(NamedTuple):
         directory = work.path / "helpers"
         return cls(
             directory,
-            (work.path / "version").read_text().strip(),
-            (work.path / "packages").read_text().split(),
             {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(directory.iterdir())},
         )

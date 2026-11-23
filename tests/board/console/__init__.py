@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple
 
-from board.console.keyboard import Keyboard
+from board.console.keyboard import Keyboard, TypedMarker
 from board.network.outage import Outage
 from board.part import Part, invalid_if
 
@@ -30,13 +30,12 @@ class Typed(NamedTuple):
 
     Attributes:
         word: what the command was typed to write first.
-        marker: the fields the command wrote: the word, the terminal it ran on, and the board's uptime
-            when it ran; empty if it did not run.
+        marker: what the command wrote; empty if it did not run.
         progress: `keyboard.sh`'s log of how far it got.
     """
 
     word: str
-    marker: list[str]
+    marker: TypedMarker
     progress: str
 
 
@@ -83,11 +82,11 @@ class Console(Part):
         lines, phases = self._keyboard.typed_record()
         with invalid_if(f"the virtual keyboard was not created: {self._keyboard.journal()}"):
             assert "device" in phases
-        marker = self._keyboard.typed_marker().fields
-        if marker:
+        marker = self._keyboard.typed_marker()
+        if marker.uptime is not None:
             record = outage.read_record()
             with invalid_if(f"the record does not show the board cut off when the command ran: {record.lines}"):
-                assert record.offline_at(float(marker[2]))
+                assert record.offline_at(marker.uptime)
         return Typed(word, marker, "\n".join(lines))
 
     def _foreground_vt(self) -> str:
@@ -101,7 +100,7 @@ class Console(Part):
     def _bring_vt1_forward(self) -> None:
         """Make vt1 the foreground terminal, restarting `kiosk.service`, whose X takes vt1, if it is not."""
         if self._foreground_vt() != "1":
-            self._board.run("systemctl restart kiosk.service", check=True)
+            self._board.app.kiosk.restart()
             self._board.seconds_until(lambda: self._foreground_vt() == "1")
 
     def _kill_tty2_login(self) -> None:

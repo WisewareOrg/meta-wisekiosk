@@ -26,7 +26,6 @@ class CandidateBundles(NamedTuple):
         nonce: what the board's `/tmp` must hold for a test bundle's install-check hook to accept it.
         hash: the candidate bundle's hash, as RAUC records it for the slot it installs.
         candidate: the candidate's own bundle on the host.
-        commit: the commit the candidate was built from.
     """
 
     new_build: Path
@@ -35,7 +34,6 @@ class CandidateBundles(NamedTuple):
     nonce: str
     hash: str
     candidate: Path
-    commit: str
 
     @classmethod
     def build(cls, cleanup: contextlib.ExitStack, bench_candidate: str | None) -> "CandidateBundles":
@@ -76,5 +74,4 @@ class CandidateBundles(NamedTuple):
             nonce,
             (run_dir / "candidate.hash").read_text().strip(),
             _REPO / (run_dir / "candidate.path").read_text().strip(),
-            bench_candidate,
         )

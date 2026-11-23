@@ -11,8 +11,8 @@ from record import Record
 class BoardTest:
     """A target-suite test class.
 
-    Before each test, `pytest_runtest_setup` in this directory's conftest puts a new `Board` and the
-    test's `Record` on the instance; pytest then runs the class's `setup_method`, if it has one.
+    Before each test, the autouse `_board_and_record` in this directory's conftest puts a new `Board` and
+    the test's `Record` on the instance; pytest then runs the class's `setup_method`, if it has one.
     When the test ends, the board's `cleanup` undoes, last first, what `setup_method` and the test
     registered on it.
 

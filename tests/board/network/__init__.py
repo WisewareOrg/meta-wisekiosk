@@ -6,7 +6,7 @@ import os
 import subprocess
 import threading
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
@@ -66,35 +66,26 @@ class Network(Part):
         super().__init__(board)
         self.outage = Outage(board)
 
-    def cut_off(self, seconds: float) -> Callable[[], float]:
+    def cut_off(self, seconds: float) -> float:
         """Cut the board off the site network at the board itself for `seconds`, then let it back on.
 
         A timer on the board cuts and restores the network, once boot has completed, so the outage
-        cannot land inside kiosk-netcheck's window. Returns once the timer's restore is due. The check is
-        invalid unless the outage's record shows the board without an address halfway through.
+        cannot land inside kiosk-netcheck's window. Once the restore is due, the board is reconnected
+        and the outage's record read: the check is invalid unless it shows the board without an address
+        halfway through.
 
         Args:
             seconds: how long the network stays cut off.
 
         Returns:
-            What reads the host `time.monotonic()` at which the board let the network back on, from the
-            outage's record, once the board answers again.
+            The host `time.monotonic()` at which the board let the network back on: the record's `t0`,
+            the board's uptime then, mapped from an uptime read whose host instant is taken before it,
+            so it is never later than the return.
         """
         self.outage.wait_boot_complete()
         cut_at = time.monotonic() + Outage.CUT_DELAY_SECONDS
         self.outage.schedule(seconds)
         time.sleep(max(0.0, cut_at + seconds - time.monotonic()))
-        return self._returned_at
-
-    def _returned_at(self) -> float:
-        """Read when the board let the network back on, as the host's clock.
-
-        The record's `t0` is the board's uptime at the return, read with the uptime in one command. The
-        host instant is taken before that read, so it is never later than the return.
-
-        Returns:
-            The host `time.monotonic()` at the return.
-        """
         self._board.reconnect()
         read_at = time.monotonic()
         uptime_s, record = self.outage.uptime_and_record()

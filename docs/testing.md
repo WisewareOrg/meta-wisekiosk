@@ -131,20 +131,20 @@ cannot. A check the item does not ask for is not in the test.
 
 **Every test reads arrange, act, assert,** three blocks separated by single blank lines, against
 `self.board` and `self.record`. A test method takes only `self` and its parametrized values: before
-each test, `pytest_runtest_setup` in `tests/target_suite/conftest.py` puts a new `Board` and the
-test's `Record` on the instance, and the board reaches what the run builds on demand through
-`board.fixture(name)` — the update bundles as `board.updates.bundles`, the refused offers as
+each test, the autouse `_board_and_record` in `tests/target_suite/conftest.py` puts a new `Board`
+and the test's `Record` on the instance. That Board is built with the test's fixture lookup, and
+reaches what the run builds on demand through `board.fixture(name)` — the update bundles as `board.updates.bundles`, the refused offers as
 `board.updates.refused_offers`, the start-of-run install as `board.updates.installed`, the keyboard's
-evemu build, and the replay proxy that `@replaying(<recording>)` (`board_test.py`) puts on a test.
+evemu build, and the replay proxy that `@replaying(<recording>)` (`board_test.py`) puts on a test. A
+board a fixture opens for itself has no fixture lookup, and `board.fixture` says so.
 A class holds test methods and, when every test in it starts from the same board state, a
 `setup_method`; no class writes `teardown_method`, which would run after the board's undo.
 
 **Tests that differ only in stimulus and bound are one parametrized test.** Each row is
 `case(<TST id>, <values>…)`, which makes the item's id the case's id and its first value. A
 fault-to-back test's row is the item, its fault, the read that says the thing is back, and its
-bound: the fault returns the host instant its time counts from (or, where only the board knows it,
-what reads that instant once the board answers), and `board.seconds_until(<read>, since=…)` times
-from it. Instants are the host's `time.monotonic()`, taken on the side of the event that can only
+bound: the fault returns the host instant its time counts from, mapped from the board's own record
+where only the board knows it, and `board.seconds_until(<read>, since=…)` times from it. Instants are the host's `time.monotonic()`, taken on the side of the event that can only
 overstate a time.
 
 **A stimulus that did not take fails the check as invalid, from inside the stimulus.** A method that
@@ -170,14 +170,14 @@ record needs it. A named result type exists only where the value is passed whole
 or has neighbouring fields of one type that a reorder could silently swap. `tests/board/` imports
 nothing from `tests/target_suite/` at run time.
 
-**Waits are tenacity polls,** in `Board.seconds_until` and `Board.longest_lapse_s`, which count a read
-at its end, take a read that raises one of `Board.ERRORS` as one that does not hold, and fail the
-test once the wait gives up. A polled read keeps its last good result for its caller, as
-`board.app.last_sample` keeps the probe's last report.
+**Waits are tenacity polls,** in `Board.seconds_until`, `Board.wait_for` and `Board.longest_lapse_s`,
+which take a read that raises one of `Board.ERRORS` as one that does not hold, and fail the test
+once the wait gives up. A wait whose caller needs what the read saw returns it: `wait_for` returns
+the first read that has a value, so no part keeps a read aside for a later caller.
 
-**Teardown and record order.** For each test, in this order: the hook builds the Board and the
-Record; the autouse fixtures run, and `device_context` records the device facts; `setup_method`
-runs; the test's own fixtures start (the `proxy` records `recording_sha256`); the test runs;
+**Teardown and record order.** For each test, in this order: the autouse fixtures run,
+`_board_and_record` builds the Board and the Record, and `device_context` records the device facts;
+`setup_method` runs; the test's own fixtures start (the `proxy` records `recording_sha256`); the test runs;
 `pytest_runtest_teardown` closes the Board's cleanup, last first, while the fixtures are still
 alive; then the fixtures tear down (the `proxy` records `served_count` and `killed_count`, then
 `device_context` records `end`). The teardown hook runs the undo in `try` and pytest's own teardown
@@ -185,7 +185,8 @@ in `finally: yield` — never `finally: return (yield)`, which would swallow a f
 the test.
 
 **Ordering and selection.** `@pytest.mark.sends_update` is the only ordering rule:
-`pytest_collection_modifyitems` runs the marked tests after every other. A case marked
+`pytest_collection_modifyitems` runs the marked tests after every other, and an install from a test
+without the mark fails it. A case marked
 `@pytest.mark.soak` is deselected unless the run passes `--soak`.
 
 **The lint gate.** [`tools/ci-guards.sh`](../tools/ci-guards.sh) guard 22 runs the repo `.venv`'s

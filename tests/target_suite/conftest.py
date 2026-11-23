@@ -11,7 +11,6 @@ from board_test import BoardTest
 from candidate_bundles import CandidateBundles
 from evemu_helpers import EvemuHelpers
 from labgrid import Target
-from labgrid.pytestplugin.hooks import LABGRID_ENV_KEY
 from record import Record
 from refused_offers import RefusedOffers
 
@@ -40,9 +39,9 @@ def _install_candidate(install_candidate: Installed | None) -> None:
     """
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def candidate_bundles(bench_candidate: str | None) -> Iterator[CandidateBundles]:
-    """Build the image-update tests' bundles once per module; skips the tests outside a build.
+    """Build the image-update tests' bundles once per run; skips the tests outside a build.
 
     Args:
         bench_candidate: the commit under test, or None outside a build.
@@ -55,14 +54,21 @@ def candidate_bundles(bench_candidate: str | None) -> Iterator[CandidateBundles]
 
 
 @pytest.fixture(autouse=True)
-def _fixtures_on_demand(request: pytest.FixtureRequest) -> None:
-    """Have a BoardTest's board reach the run's fixtures, such as its test bundles, when it first uses them.
+def _board_and_record(
+    request: pytest.FixtureRequest, target: Target, record_property: Callable[[str, object], None]
+) -> None:
+    """Put a new Board, which reaches the run's fixtures on demand, and the test's Record on a BoardTest.
+
+    It runs before the class's `setup_method`.
 
     Args:
-        request: requests a fixture on demand.
+        request: the test's request; the Board reaches the run's fixtures through it.
+        target: the board's labgrid target.
+        record_property: writes one property of the test's record.
     """
     if isinstance(request.instance, BoardTest):
-        request.instance.board.fixture = request.getfixturevalue
+        request.instance.board = Board(target, fixtures=request.getfixturevalue)
+        request.instance.record = Record(record_property)
 
 
 @pytest.fixture(scope="module")
@@ -114,25 +120,6 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         config.hook.pytest_deselected(items=soaks)
     kept = [item for item in items if item not in soaks]
     items[:] = sorted(kept, key=lambda item: item.get_closest_marker("sends_update") is not None)
-
-
-@pytest.hookimpl(wrapper=True)
-def pytest_runtest_setup(item: pytest.Item) -> Iterator[None]:
-    """Put a new Board and the test's Record on a BoardTest, before its setup_method runs.
-
-    Args:
-        item: the test about to be set up.
-
-    Returns:
-        What pytest's own setup returns, once it has run the fixtures and `setup_method`.
-    """
-    if isinstance(item.instance, BoardTest):
-        env = item.config.stash[LABGRID_ENV_KEY]
-        if env is None:
-            pytest.skip("missing environment config (use --lg-env)")
-        item.instance.board = Board(env.get_target())
-        item.instance.record = Record(lambda name, value: item.user_properties.append((name, value)))
-    return (yield)
 
 
 @pytest.hookimpl(wrapper=True)

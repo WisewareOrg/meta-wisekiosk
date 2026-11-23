@@ -41,6 +41,20 @@ _CLEANUP_BOUND_SECONDS = 60
 _CLEANUP_POLL_SECONDS = 5
 
 
+def _boot_id(board: Board) -> str:
+    """Read the board's current boot id.
+
+    Args:
+        board: the board under test.
+
+    Returns:
+        The boot id.
+    """
+    output = board.run("cat /proc/sys/kernel/random/boot_id", timeout=None, check=True).output
+    assert output, "empty boot id -- refusing to run blind"
+    return output
+
+
 def test_boot_profile(request: pytest.FixtureRequest, board: Board) -> None:
     """Capture one boot profile end to end, leaving the board as it was found.
 
@@ -109,7 +123,7 @@ def test_boot_profile(request: pytest.FixtureRequest, board: Board) -> None:
     request.addfinalizer(_cleanup)
 
     # 1. Record the boot id.
-    boot_before = board.boot_id()
+    boot_before = _boot_id(board)
 
     # 2. Arm: copy the binary and the unit, then enable. scp (what board.put() shells out
     # to) does not create destination directories, so make it first.
@@ -136,7 +150,7 @@ def test_boot_profile(request: pytest.FixtureRequest, board: Board) -> None:
         except Exception:  # noqa: BLE001 -- unreachable is "still the old boot", not a failure
             time.sleep(_RETRY_INTERVAL_SECONDS)
             continue
-        boot_after = board.boot_id()
+        boot_after = _boot_id(board)
         if boot_after == boot_before:
             time.sleep(_RETRY_INTERVAL_SECONDS)
             continue

@@ -25,7 +25,7 @@ class TestSystemBack(BoardTest):
     def test_back_after_a_fault(
         self,
         requirement: str,
-        fault: Callable[[Board], float | Callable[[], float]],
+        fault: Callable[[Board], float],
         back: Callable[[Board], Callable[[], bool]],
         bound_s: float,
     ) -> None:
@@ -33,7 +33,7 @@ class TestSystemBack(BoardTest):
 
         Args:
             requirement: the item.
-            fault: the item's stimulus; returns the instant its time counts from, or what reads it.
+            fault: the item's stimulus; returns the instant its time counts from.
             back: the board's read of whether what the fault took away is back, as the item judges it.
             bound_s: the item's bound.
         """

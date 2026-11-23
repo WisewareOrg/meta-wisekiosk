@@ -23,6 +23,8 @@ _FETCH_TIMEOUT_SECONDS = 10
 _PROBE = Path(__file__).resolve().parents[2] / "target_suite" / "probe.js"
 _SURF_SCRIPT = "/home/root/.surf/script.js"
 _OWN_ORIGINS = ("http://localhost:8080", "http://127.0.0.1:8080")
+# what opens the title the probe writes its report into
+PROBE_TITLE = "WK1 "
 _WM_NAME = re.compile(r'WM_NAME\(\w+\) = "(.*)"$')
 _TITLES = (
     "for id in $(DISPLAY=:0 xwininfo -root -tree 2>/dev/null | awk '/^ +0x/ { print $1 }'); do "
@@ -49,13 +51,13 @@ class App(Part):
         backend: wisekiosk.service, which serves the instance's page.
         browser: the browser, surf.
         config: the config the app runs with.
-        last_sample: the probe's last report, which a polled read keeps for its caller; None before one.
+        kiosk: kiosk.service, which runs X and the browser.
     """
 
     backend: Backend
     browser: Process
     config: Config
-    last_sample: dict[str, str] | None = None
+    kiosk: Unit
 
     def __init__(self, board: "Board") -> None:
         """Bind to the board.
@@ -67,7 +69,7 @@ class App(Part):
         self.backend = Backend(board, "wisekiosk.service")
         self.browser = Process(board, "surf")
         self.config = Config(board)
-        self._kiosk = Unit(board, "kiosk.service")
+        self.kiosk = Unit(board, "kiosk.service")
         self._web_processes = Process(board, "WebKitWebProcess", parent="surf")
 
     def install_probe(self, restart_browser: bool = True) -> None:
@@ -80,10 +82,10 @@ class App(Part):
             restart_browser: restart the browser so it loads the probe now; else its next page load loads it.
         """
         self._board.run(f"mkdir -p {Path(_SURF_SCRIPT).parent} && touch {_SURF_SCRIPT}", check=True)
-        self._board.cleanup.callback(self._kiosk.restart)
+        self._board.cleanup.callback(self.kiosk.restart)
         self._board.bind_over(_PROBE, _SURF_SCRIPT)
         if restart_browser:
-            self._kiosk.restart()
+            self.kiosk.restart()
 
     def is_served(self) -> bool:
         """Whether the backend serves the instance's page.
@@ -111,18 +113,36 @@ class App(Part):
         Returns:
             True if both hold.
         """
+        return self.on_panel_report() is not None
+
+    def on_panel_report(self) -> dict[str, str] | None:
+        """Read the probe's report, when it shows the instance on the panel.
+
+        Returns:
+            The report, as `on_panel` judges it; None if the instance is not on the panel.
+        """
         if not self.is_served():
-            return False
-        sample = self.report()
-        return sample is not None and sample["state"] == "applied" and sample["origin"] in _OWN_ORIGINS
+            return None
+        report = self.report()
+        on_panel = report is not None and report["state"] == "applied" and report["origin"] in _OWN_ORIGINS
+        return report if on_panel else None
+
+    def complete_report(self) -> dict[str, str] | None:
+        """Read the probe's report, when it shows the replayed page complete: on the panel, every card live.
+
+        Returns:
+            The report; None if the page is not complete.
+        """
+        report = self.on_panel_report()
+        return report if report is not None and report.get("cards") == _ALL_CARDS_LIVE else None
 
     def all_cards_live(self) -> bool:
-        """Whether the instance is on the panel with every card of the replayed page live: the page complete.
+        """Whether the replayed page is complete: on the panel, every card live.
 
         Returns:
             True if it is.
         """
-        return self.on_panel() and self.last_sample["cards"] == _ALL_CARDS_LIVE
+        return self.complete_report() is not None
 
     def frame_stalls(self, cutoff_ms: int, window_s: float, after_s: float) -> int:
         """Count the page's frame intervals of `cutoff_ms` or longer, over a window of its own time.
@@ -140,8 +160,7 @@ class App(Part):
         Returns:
             The intervals counted.
         """
-        self._board.seconds_until(self.all_cards_live)
-        complete = self.last_sample
+        complete = self._board.wait_for(self.complete_report)
         start = self._page_time_reached(complete, after_s)
         with invalid_if("the page reloaded or changed state before the window opened"):
             assert start["load"] == complete["load"] and start["changes"] == complete["changes"]
@@ -207,11 +226,11 @@ class App(Part):
         the check is invalid if it did not. Then the backend is restarted: a start would wait out the hold.
 
         Returns:
-            The host `time.monotonic()` at the end of the read that first saw the backend answering again.
+            The host `time.monotonic()` at the start of the read that first saw the backend answering again.
         """
         self.backend.drop_in(f"[Service]\\nRestartSec={_BACKEND_HOLD_SECONDS}\\n")
         self.backend.kill()
-        self._kiosk.restart()
+        self.kiosk.restart()
         return self._answers_after_a_load_without_it(self.backend.restart)
 
     def restart_with_backend_held(self) -> float:
@@ -223,7 +242,7 @@ class App(Part):
         given up, in case the host goes away.
 
         Returns:
-            The host `time.monotonic()` at the end of the read that first saw the backend answering.
+            The host `time.monotonic()` at the start of the read that first saw the backend answering.
         """
         self.backend.mask()
         self._board.restart_with("systemctl soft-reboot", boot_cmd=_USERSPACE_BOOT)
@@ -250,14 +269,24 @@ class App(Part):
             release: lets the backend go.
 
         Returns:
-            The host `time.monotonic()` at the end of the read that first saw the backend answering.
+            The host `time.monotonic()` at the start of the read that first saw the backend answering, so the
+            time counted from it can only overstate.
         """
         with invalid_if("the browser did not load a page while the backend was down"):
             self._board.seconds_until(self._loaded_a_page)
             assert not self.is_served(), "the backend answered first"
         release()
-        released = time.monotonic()
-        return released + self._board.seconds_until(self.is_served, since=released)
+
+        def answered_at() -> float | None:
+            """Read once whether the backend answers.
+
+            Returns:
+                The host `time.monotonic()` at the start of the read, if it answered; else None.
+            """
+            began = time.monotonic()
+            return began if self.is_served() else None
+
+        return self._board.wait_for(answered_at)
 
     def _titles(self) -> list[str]:
         """Read every window's title.
@@ -278,16 +307,16 @@ class App(Part):
         return any(not title.startswith("[") and title.partition(" | ")[2] for title in self._titles())
 
     def report(self) -> dict[str, str] | None:
-        """Read the probe's latest report, from the title it writes, and keep it as `last_sample`.
+        """Read the probe's latest report, from the title it writes.
 
         Returns:
             Each `key=value` token of the report, or None if no window carries one.
         """
         for title in self._titles():
-            if "WK1 " in title:
-                report = dict(token.split("=", 1) for token in title.split("WK1 ", 1)[1].split() if "=" in token)
+            if PROBE_TITLE in title:
+                tokens = title.split(PROBE_TITLE, 1)[1].split()
+                report = dict(token.split("=", 1) for token in tokens if "=" in token)
                 if {"state", "origin"} <= report.keys():
-                    self.last_sample = report
                     return report
         return None
 
@@ -302,16 +331,17 @@ class App(Part):
             The first report past it.
         """
 
-        def reached() -> bool:
+        def reached() -> dict[str, str] | None:
             """Read the probe once.
 
             Returns:
-                Whether the page reloaded, or its time is past the mark.
+                The report, if the page reloaded or its time is past the mark; else None.
             """
-            sample = self.report()
-            return sample is not None and (
-                sample["load"] != since["load"] or int(sample["el"]) >= int(since["el"]) + seconds * 1000
-            )
+            report = self.report()
+            if report is None or not (
+                report["load"] != since["load"] or int(report["el"]) >= int(since["el"]) + seconds * 1000
+            ):
+                return None
+            return report
 
-        self._board.seconds_until(reached)
-        return self.last_sample
+        return self._board.wait_for(reached)

@@ -43,21 +43,22 @@ class Config(Part):
     def use(self, path: str | os.PathLike[str]) -> None:
         """Swap the app onto `path`'s config, and leave the instance running against it, until the test ends.
 
-        Each step's undo is registered once that step has succeeded, so they run in reverse even if a
-        later step fails, except the backend restart's: it is registered before the page wait, so it
-        still runs if that wait fails.
+        When the test ends the browser stops, the config is unmounted, the backend restarts onto the live
+        config, and the browser starts again: the backend's restart is registered before the bind mount,
+        so it runs after the unmount.
 
         Args:
             path: the config file on the host.
         """
-        self._board.run("systemctl stop kiosk.service", check=True)
-        self._board.cleanup.callback(self._board.run, "systemctl start kiosk.service", check=True)
-        self._board.bind_over(path, self.LIVE_PATH)
-        self._board.run("systemctl restart wisekiosk.service", check=True)
+        app = self._board.app
+        app.kiosk.stop()
+        self._board.cleanup.callback(app.kiosk.start)
         self._board.cleanup.callback(self._restart_backend_and_wait)
-        self._board.seconds_until(self._board.app.is_served)
-        self._board.run("systemctl start kiosk.service", check=True)
-        self._board.cleanup.callback(self._board.run, "systemctl stop kiosk.service", check=True)
+        self._board.bind_over(path, self.LIVE_PATH)
+        app.backend.restart()
+        self._board.seconds_until(app.is_served)
+        app.kiosk.start()
+        self._board.cleanup.callback(app.kiosk.stop)
 
     def _sha256(self, path: str) -> str | None:
         """Read the sha256 of the file `path` on the board.
@@ -75,7 +76,7 @@ class Config(Part):
 
     def _restart_backend_and_wait(self) -> None:
         """Restart the backend and wait for the page."""
-        self._board.run("systemctl restart wisekiosk.service", check=True)
+        self._board.app.backend.restart()
         self._board.seconds_until(self._board.app.is_served)
 
 

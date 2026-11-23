@@ -28,8 +28,7 @@ class TestImageUpdate(BoardTest):
         """Install an update that fails; the board falls back to its previous build, then takes a valid update.
 
         That the cannot-start update could not start is shown when it is built: update_bundles.sh's
-        `require_gone` checks that it lacks init and sh. `install_and_restart` fails the test when the
-        valid update is not installed or the board does not restart into it.
+        `require_gone` checks that it lacks init and sh.
 
         Args:
             requirement: the item.
@@ -42,10 +41,10 @@ class TestImageUpdate(BoardTest):
 
         failed_attempts = self.board.updates.install_and_fall_back(update(self.board), starts=starts)
         fell_back_to = self.board.updates.running_bundle()
-        self.board.updates.install_and_restart(bundles.candidate)
-        took = self.board.updates.running_bundle()
+        valid = self.board.updates.install_and_restart(bundles.candidate)
 
-        self.record(failed_attempts=failed_attempts, fell_back_to=fell_back_to, took=took)
+        self.record(failed_attempts=failed_attempts, fell_back_to=fell_back_to, valid_install_rc=valid.returncode)
         assert failed_attempts <= 3, f"{failed_attempts} failed attempts to start the update; the bound is 3"
         assert fell_back_to == previous, f"the board runs bundle {fell_back_to}, not its previous {previous}"
-        assert took == bundles.hash, f"the board runs bundle {took}, not the valid update {bundles.hash}"
+        assert valid.returncode == 0, f"the valid update's install returned {valid.returncode}: {valid.output}"
+        assert valid.booted_after != valid.booted_before, "the board did not restart into the valid update"

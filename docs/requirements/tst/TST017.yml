@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_refuses_an_update
   path: tests/target_suite/test_refused_updates.py
-  sha: 5fa7d6ad67c52d7c4f2a04ca27e742df1d6185bd1a4ec447094fbf1dfffaccf7
+  sha: 2df3bd9ce8692cdd1609d2c90252b3940f91127635431b5d5f04760d68b78abc
   type: file
-reviewed: kIHUyrihkLvAHcSNDugBPjHt9obi_2ep7P05-7CHsBI=
+reviewed: doBKd9C0tgJ9EOgwJt7J1EFmsBPIilx2gAixaohuDi8=
 status: proposed
 text: |
   Offer the appliance an image update signed by a self-signed key none of its operators holds. Pass

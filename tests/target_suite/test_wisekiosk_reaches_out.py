@@ -16,8 +16,8 @@ class TestWisekioskReachesOut(BoardTest):
     def test_instance_reaches_out(self) -> None:
         """TST010: start the instance behind the replay; each recorded request is answered, and none goes unanswered."""
         self.record(requirement="TST010")
-        replay = self.board.app.run_behind_replay()
 
+        replay = self.board.app.run_behind_replay()
         time.sleep(FETCH_SECONDS)
         never_answered = [url for (_method, url), count in replay.served().items() if count == 0]
         unanswered = replay.killed()

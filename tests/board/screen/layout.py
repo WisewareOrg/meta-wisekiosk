@@ -3,6 +3,8 @@
 import re
 from typing import NamedTuple
 
+from board.app import PROBE_TITLE
+
 _CONNECTED = re.compile(r"^\S+ connected (?:primary )?(\d+)x(\d+)\+(\d+)\+(\d+)")
 _WINDOW_ID = re.compile(r'^xwininfo: Window id: (0x[0-9a-fA-F]+)(?: "(.*)"| \(has no name\))?$')
 _INT_FIELDS = {
@@ -153,7 +155,7 @@ class WindowLayout(NamedTuple):
         Returns:
             The window.
         """
-        instances = [window for window in self.windows if "WK1 " in window.name]
+        instances = [window for window in self.windows if PROBE_TITLE in window.name]
         assert len(instances) == 1, f"not one window carries the instance's title: {instances}"
         return instances[0]
 

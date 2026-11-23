@@ -51,15 +51,17 @@ B: 01 ff ff ff ff ff ff ff ff
 
 
 class TypedMarker(NamedTuple):
-    """The marker the typed command writes: the nonce, the terminal it ran on, and the uptime it ran at.
+    """The marker the typed command writes.
 
     Attributes:
-        lines: the marker's lines.
-        fields: the first line's fields, empty if there is none.
+        word: what it was typed to write first; empty if it wrote nothing.
+        terminal: the terminal it ran on; empty if it wrote nothing.
+        uptime: the board's uptime when it ran; None if it wrote nothing.
     """
 
-    lines: list[str]
-    fields: list[str]
+    word: str = ""
+    terminal: str = ""
+    uptime: float | None = None
 
 
 class Keyboard(Part):
@@ -143,10 +145,11 @@ class Keyboard(Part):
         """Read the marker the typed command wrote.
 
         Returns:
-            The marker and its first line's fields.
+            The marker; empty if the command wrote none.
         """
         lines = self._board.run(f"cat {_DIR}/marker 2>/dev/null || true", check=True).stdout
-        return TypedMarker(lines, lines[0].split() if lines else [])
+        fields = lines[0].split() if lines else []
+        return TypedMarker(fields[0], fields[1], float(fields[2])) if len(fields) >= 3 else TypedMarker()
 
     def journal(self) -> str:
         """Read `keyboard.sh`'s journal, from its timer unit.

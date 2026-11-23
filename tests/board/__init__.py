@@ -66,8 +66,6 @@ class Board:
         app: the WiseKiosk app on the board.
         cleanup: undoes, last first, what the test changed on the board.
         console: the board's consoles.
-        fixture: returns a pytest fixture's value by name, so a part can reach what the run builds on
-            demand; the target suite sets it.
         host: `user@address` of the board, as the `just kiosk-*` recipes take it.
         network: the board's network.
         screen: the board's screen.
@@ -86,7 +84,6 @@ class Board:
     app: App
     cleanup: contextlib.ExitStack
     console: Console
-    fixture: Callable[[str], object]
     host: str
     network: Network
     screen: Screen
@@ -103,12 +100,15 @@ class Board:
     _FAULT_SSH_TIMEOUT_SECONDS = 30
     _POWER_OFF_SECONDS = 10
 
-    def __init__(self, target: Target) -> None:
+    def __init__(self, target: Target, fixtures: Callable[[str], object] | None = None) -> None:
         """Bind to the target's SSHDriver and NetworkService, and build the board's parts.
 
         Args:
             target: names the board's SSHDriver, NetworkService and ExternalPowerDriver.
+            fixtures: returns a pytest fixture's value by name, for what a part reaches on demand; the
+                target suite's test boards have it, a board a fixture opens for itself does not.
         """
+        self._fixtures = fixtures
         self._target = target
         self._ssh = target.get_driver("SSHDriver")
         service = target.get_resource("NetworkService")
@@ -137,6 +137,22 @@ class Board:
         """
         self.cleanup.close()
 
+    def fixture(self, name: str) -> object:
+        """A pytest fixture's value, by name, for what a part reaches on demand, such as the run's bundles.
+
+        Args:
+            name: the fixture's name.
+
+        Returns:
+            Its value.
+
+        Raises:
+            LookupError: this board was built without the run's fixtures.
+        """
+        if self._fixtures is None:
+            raise LookupError(f"this Board was built without the run's fixtures, so it cannot reach {name!r}")
+        return self._fixtures(name)
+
     def run(
         self,
         cmd: str,
@@ -149,7 +165,8 @@ class Board:
 
         With `retry_for`, a call that raises one of `ERRORS` reconnects and runs again until
         `retry_for` seconds have passed, then raises the last error unchanged; only the call to the
-        board is retried, never the check.
+        board is retried, never the check. A reconnect between tries can itself wait up to
+        `_RESTART_WAIT_SECONDS`, so the call can take that much longer than `retry_for`.
 
         Args:
             cmd: the command to run.
@@ -416,9 +433,7 @@ class Board:
             )
         return on_began
 
-    def seconds_until(
-        self, condition: Callable[[], object], *, since: float | Callable[[], float] | None = None, reads: int = 1
-    ) -> float:
+    def seconds_until(self, condition: Callable[[], object], *, since: float | None = None, reads: int = 1) -> float:
         """Read `condition` about once a second until it holds on `reads` reads in a row.
 
         A read that raises one of `ERRORS` does not hold. An assertion fails if the run did not begin within
@@ -427,15 +442,13 @@ class Board:
         Args:
             condition: one read of the board; holds when truthy. A give-up names it by its qualified name,
                 or its function's for a `functools.partial`.
-            since: the host `time.monotonic()` instant the time counts from; now when None. A callable
-                returns it once the run is complete, for an instant only known once the board answers
-                again; the give-up then counts from now.
+            since: the host `time.monotonic()` instant the time counts from; now when None.
             reads: how many reads in a row it must hold on.
 
         Returns:
             The seconds from `since` to the end of the run's first read, to 0.1 s.
         """
-        give_up_from = time.monotonic() if since is None or callable(since) else since
+        since = time.monotonic() if since is None else since
         run: list[float] = []
 
         def read() -> int:
@@ -449,12 +462,38 @@ class Board:
             return len(run)
 
         held = self._each_second(
-            read, until=lambda held: held >= reads, within=self.GIVE_UP_SECONDS - (time.monotonic() - give_up_from)
+            read, until=lambda held: held >= reads, within=self.GIVE_UP_SECONDS - (time.monotonic() - since)
         )
-        what = getattr(condition, "func", condition).__qualname__
-        assert held >= reads, f"{what} did not hold within {self.GIVE_UP_SECONDS} s"
-        counted_from = since() if callable(since) else give_up_from
-        return round(run[0] - counted_from, 1)
+        assert held >= reads, f"{self._name(condition)} did not hold within {self.GIVE_UP_SECONDS} s"
+        return round(run[0] - since, 1)
+
+    def wait_for[T](self, read: Callable[[], T | None]) -> T:
+        """Read about once a second until a read returns a value, and return that value.
+
+        A read that raises one of `ERRORS`, or returns None, has no value. An assertion fails if none
+        came within `GIVE_UP_SECONDS`.
+
+        Args:
+            read: one read of the board; None when what it waits for is not there yet.
+
+        Returns:
+            The first value read.
+        """
+
+        def value() -> T | None:
+            """Read once.
+
+            Returns:
+                The read's value; None if it raised one of `ERRORS`.
+            """
+            try:
+                return read()
+            except self.ERRORS:
+                return None
+
+        found = self._each_second(value, until=lambda found: found is not None, within=self.GIVE_UP_SECONDS)
+        assert found is not None, f"{self._name(read)} read nothing within {self.GIVE_UP_SECONDS} s"
+        return found
 
     def longest_lapse_s(self, condition: Callable[[], object], *, over: float) -> float:
         """Read `condition` about once a second for `over` seconds; the longest stretch it did not hold.
@@ -498,6 +537,18 @@ class Board:
             retry=retry_if_result(lambda value: not until(value)),
             retry_error_callback=lambda state: state.outcome.result(),
         )(read)
+
+    @staticmethod
+    def _name(read: Callable) -> str:
+        """Name a read for a give-up's message.
+
+        Args:
+            read: the read.
+
+        Returns:
+            Its qualified name, or its function's for a `functools.partial`.
+        """
+        return getattr(read, "func", read).__qualname__
 
     def _holds(self, condition: Callable[[], object]) -> bool:
         """Read `condition` once.
