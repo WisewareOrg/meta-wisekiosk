@@ -45,7 +45,7 @@ class Network(Part):
 
         A timer on the board cuts and restores the network, once boot has completed, so the outage
         cannot land inside kiosk-netcheck's window. Returns once the timer's restore is due. The check is
-        invalid if a remote shell opens halfway through the outage.
+        invalid unless the outage's record shows the board without an address halfway through.
 
         Args:
             seconds: how long the network stays cut off.
@@ -57,9 +57,6 @@ class Network(Part):
         self.outage.wait_boot_complete()
         cut_at = time.monotonic() + Outage.CUT_DELAY_SECONDS
         self.outage.schedule(seconds)
-        time.sleep(max(0.0, cut_at + seconds / 2 - time.monotonic()))
-        with invalid_if("the network did not go away: a remote shell opened while it was cut off"):
-            assert not self._board.opens_a_shell()
         time.sleep(max(0.0, cut_at + seconds - time.monotonic()))
         return self._returned_at
 
@@ -74,10 +71,11 @@ class Network(Part):
         """
         self._board.reconnect()
         read_at = time.monotonic()
-        uptime_s, returned_s = self.outage.uptime_and_return()
-        with invalid_if("the outage's record holds no return"):
-            assert returned_s is not None
-        return read_at - (uptime_s - returned_s)
+        uptime_s, record = self.outage.uptime_and_record()
+        with invalid_if(f"the record does not show the board cut off and back: {record.lines}"):
+            assert record.cut is not None and record.restored is not None
+            assert record.offline_at((record.cut + record.restored) / 2)
+        return read_at - (uptime_s - record.restored)
 
     @contextlib.contextmanager
     def load(self, seconds: float) -> Iterator[None]:

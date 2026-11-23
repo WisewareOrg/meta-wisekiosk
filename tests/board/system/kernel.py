@@ -32,14 +32,6 @@ class Kernel(Part):
                 break
         return self._boot_id_or_none()
 
-    def builtin_modules(self) -> list[str]:
-        """Read the kernel modules built into the running kernel.
-
-        Returns:
-            The lines of its `modules.builtin`.
-        """
-        return self._board.run("cat /lib/modules/$(uname -r)/modules.builtin", check=True).stdout
-
     def soc_temperature_c(self) -> float | None:
         """Read the SoC's temperature.
 

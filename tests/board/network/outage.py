@@ -10,6 +10,8 @@ _SCRIPT_PATH = "/tmp/test-outage.sh"
 _RECORD_PATH = "/tmp/test-outage.record"
 _UNIT = "test-outage"
 _BOOT_COMPLETE_WAIT_SECONDS = 180
+# how far apart the script's traces can fall: its one-second sleep plus the wpa_cli and ip reads
+_TRACE_SPAN_SECONDS = 2
 
 
 class OutageRecord(NamedTuple):
@@ -42,6 +44,25 @@ class OutageRecord(NamedTuple):
             if fields[:1] in (["cut"], ["t0"]) and fields[0] not in first:
                 first[fields[0]] = float(fields[1])
         return cls(first.get("cut"), first.get("t0"), lines)
+
+    def offline_at(self, uptime: float) -> bool:
+        """Whether the record shows the board cut off at `uptime`: inside the outage, with no IPv4 address.
+
+        The script traces each second; every trace within a trace's span of `uptime` must show no address.
+
+        Args:
+            uptime: the board's uptime.
+
+        Returns:
+            True if the record shows it.
+        """
+        near = [
+            line.split()[3]
+            for line in self.lines
+            if line.startswith("trace ") and abs(float(line.split()[1]) - uptime) <= _TRACE_SPAN_SECONDS
+        ]
+        inside = self.cut is not None and self.restored is not None and self.cut < uptime < self.restored
+        return inside and bool(near) and all(has == "has_ipv4=0" for has in near)
 
 
 class Outage(Part):
@@ -85,14 +106,14 @@ class Outage(Part):
         self._board.cleanup.callback(self._board.reconnect)
         self._board.disconnect()
 
-    def uptime_and_return(self) -> tuple[float, float | None]:
-        """Read the board's uptime, and the uptime the record says the network returned at, in one command.
+    def uptime_and_record(self) -> tuple[float, OutageRecord]:
+        """Read the board's uptime and the record, in one command.
 
         Returns:
-            The uptime, and the record's `t0`, None if it holds none.
+            The uptime, and the record; empty if the board holds none.
         """
         lines = self._board.run(f"cat /proc/uptime; cat {_RECORD_PATH} 2>/dev/null || true", check=True).stdout
-        return float(lines[0].split()[0]), OutageRecord.from_lines(lines[1:]).restored
+        return float(lines[0].split()[0]), OutageRecord.from_lines(lines[1:])
 
     def read_record(self) -> OutageRecord:
         """Read the record as the board holds it, over the SSHDriver.

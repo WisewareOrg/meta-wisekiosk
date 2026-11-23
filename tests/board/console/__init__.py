@@ -18,7 +18,11 @@ if TYPE_CHECKING:
 _BOUNDS_SECONDS = (10, 20, 20, 20, 10)
 # the supplicant's leaving COMPLETED after the outage cuts, before `keyboard.sh` starts
 _KEYBOARD_START_SECONDS = Outage.CUT_DELAY_SECONDS + 5
-_OUTAGE_SECONDS = math.ceil(_KEYBOARD_START_SECONDS + sum(_BOUNDS_SECONDS) + Keyboard.typing_seconds() + 12)
+# the outage outlasts every wait and the typing, with a margin for the board's own pace
+_OUTAGE_MARGIN_SECONDS = 12
+_OUTAGE_SECONDS = math.ceil(
+    _KEYBOARD_START_SECONDS + sum(_BOUNDS_SECONDS) + Keyboard.typing_seconds() + _OUTAGE_MARGIN_SECONDS
+)
 # the longest wait for X to take vt1 back after `kiosk.service` restarts
 _KIOSK_RESTART_WAIT_SECONDS = 30
 
@@ -30,12 +34,12 @@ class Typed(NamedTuple):
         word: what the command was typed to write first.
         marker: the fields the command wrote: the word, the terminal it ran on, and the board's uptime
             when it ran; empty if it did not run.
-        record: `keyboard.sh`'s record of how far it got.
+        progress: `keyboard.sh`'s log of how far it got.
     """
 
     word: str
     marker: list[str]
-    record: str
+    progress: str
 
 
 class Console(Part):
@@ -56,7 +60,8 @@ class Console(Part):
         The command writes a random word, the terminal and the uptime to a marker. Before the outage, vt1 is
         brought forward and tty2 given a fresh login; when the test ends, vt1 is put back in front. The
         check is invalid if the keyboard was not created, the board restarted during the outage (taking
-        the evidence in /tmp with it), or the command ran with the network up.
+        the evidence in /tmp with it), or the outage's record does not show the board cut off when the
+        command ran.
 
         Returns:
             The command, and what it left.
@@ -82,9 +87,9 @@ class Console(Part):
             assert "device" in phases
         marker = self._keyboard.typed_marker().fields
         if marker:
-            cut = outage.read_record()
-            with invalid_if(f"the command ran with the network up: {marker}, outage {cut.cut} to {cut.restored}"):
-                assert cut.cut is not None and cut.restored is not None and cut.cut < float(marker[2]) < cut.restored
+            record = outage.read_record()
+            with invalid_if(f"the record does not show the board cut off when the command ran: {record.lines}"):
+                assert record.offline_at(float(marker[2]))
         return Typed(word, marker, "\n".join(lines))
 
     def _foreground_vt(self) -> str:
