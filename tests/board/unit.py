@@ -45,10 +45,6 @@ class Unit(Part):
         """Restart the unit."""
         self._board.run(f"systemctl restart {self.name}", check=True)
 
-    def start(self) -> None:
-        """Start the unit; one already running is left as it is."""
-        self._board.run(f"systemctl start {self.name}", check=True)
-
     def is_active(self) -> bool:
         """Whether the unit is active.
 
@@ -72,7 +68,7 @@ class Unit(Part):
         Args:
             delay: seconds from now.
         """
-        self._board.run_later("test-unmask", delay, f"/bin/sh -c '{self._unmask}'")
+        self._board.run_later(f"test-unmask-{self.name.split('.')[0]}", delay, f"/bin/sh -c '{self._unmask}'")
 
     @property
     def _unmask(self) -> str:

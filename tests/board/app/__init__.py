@@ -134,7 +134,7 @@ class App(Part):
         """Kill the backend outright, and start the browser again while the backend is down.
 
         The backend's own restart is held back, until the test ends, so the browser loads a page without it;
-        the check is invalid if it did not. Then the backend is started again.
+        the check is invalid if it did not. Then the backend is restarted: a start would wait out the hold.
 
         Returns:
             The host `time.monotonic()` at the end of the read that first saw the backend answering again.
@@ -142,7 +142,7 @@ class App(Part):
         self.backend.drop_in(f"[Service]\\nRestartSec={_BACKEND_HOLD_SECONDS}\\n")
         self.backend.kill()
         self._kiosk.restart()
-        return self._answers_after_a_load_without_it(self.backend.start)
+        return self._answers_after_a_load_without_it(self.backend.restart)
 
     def restart_with_backend_held(self) -> float:
         """Restart the board's userspace with the backend held back until the browser has started.
