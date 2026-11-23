@@ -1,6 +1,7 @@
 """The board's network, as tests cut it off and load it."""
 
 import contextlib
+import dataclasses
 import os
 import subprocess
 import threading
@@ -22,6 +23,7 @@ _HANG_GRACE_SECONDS = 60
 _LOAD_FLOOR_MB_S = 1.0
 
 
+@dataclasses.dataclass
 class Load:
     """A push of random bytes at the board, once it has ended.
 

@@ -151,12 +151,12 @@ overstate a time.
 **A stimulus that did not take fails the check as invalid, from inside the stimulus.** A method that
 applies a stimulus confirms it took and raises through `invalid_if(<how it did not take>)`
 (`tests/board/part.py`), so the message reads `INVALID CHECK, not an appliance failure: …` and the
-test body holds no validity logic of its own. An observed breach of a pass condition fails before anything is
-judged invalid, so invalid only blocks a pass. Invalid is judged first only where the invalid
-condition can itself cause the breach, as a page reload makes frame stalls. Otherwise the stimulus
-leaves its validity to a `confirm_…` call that ends the test's assert block, after the breach has
-been judged, as TST008<!-- Sustained network load -->'s load and the configuration tests' loss
-check do.
+test body holds no validity logic of its own. Where the stimulus was applied and only its strength
+or the board's starting state is in doubt, a `confirm_…` call ends the assert block instead, so an
+observed breach fails first: TST008<!-- Sustained network load -->'s load, and the configuration
+tests' loss check. A stimulus that did not take is judged invalid from inside it, before its outcome
+is read, and so is one whose invalid condition can itself cause the breach, as a page reload makes
+frame stalls.
 
 **A test holds what it measured before the stimulus,** in a name that says so, and compares the
 after against it.
