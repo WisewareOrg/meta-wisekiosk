@@ -13,7 +13,7 @@ import pytest
 from labgrid import Target
 from labgrid.binding import StateError
 from labgrid.driver.exception import ExecutionError
-from tenacity import RetryError, Retrying, retry_if_exception_type, retry_if_result, stop_after_delay, wait_fixed
+from tenacity import Retrying, retry_if_exception_type, retry_if_result, stop_after_delay, wait_fixed
 
 from board.app import App
 from board.console import Console
@@ -30,13 +30,11 @@ class CommandResult(NamedTuple):
         stdout: the stdout lines.
         stderr: the stderr lines.
         returncode: the return code.
-        uptime_s: the board's uptime just before the command, when it was asked for.
     """
 
     stdout: list[str]
     stderr: list[str]
     returncode: int
-    uptime_s: float | None = None
 
     @property
     def text(self) -> str:
@@ -76,11 +74,12 @@ class Board:
         system: the board's operating system.
         updates: RAUC and the board's install path.
         BOOT_ID_CMD: prints the kernel's boot id, which differs in each boot.
-        ERRORS: what a read of the board raises when the board does not answer; `poll` retries these.
+        ERRORS: what a read of the board raises when the board does not answer; `seconds_until` takes
+            these as a read that does not hold.
         FAULT_SSH_OPTIONS: the `fresh_ssh_argv` options for an ssh that sends a fault taking the board
             down, so it gives up soon once the board stops answering.
-        GIVE_UP_SECONDS: how long a test waits for the board; past every bound, so the record still
-            carries the time it took.
+        GIVE_UP_SECONDS: how long a wait for the board lasts; past every bound, so a slow board fails on
+            its bound rather than on the wait.
         READ_RETRY_SECONDS: how long a read passed it as `retry_for` keeps reconnecting and retrying.
     """
 
@@ -99,7 +98,8 @@ class Board:
     GIVE_UP_SECONDS = 180
     READ_RETRY_SECONDS = 300
     _COMMAND_TIMEOUT_SECONDS = 10
-    _RESTART_WAIT_SECONDS = 180
+    # a restart into a newly installed slot can take its first boot's longer start
+    _RESTART_WAIT_SECONDS = 300
     _FAULT_SSH_TIMEOUT_SECONDS = 30
     _POWER_OFF_SECONDS = 10
 
@@ -144,29 +144,21 @@ class Board:
         check: bool = False,
         timeout: float | None = _COMMAND_TIMEOUT_SECONDS,
         retry_for: float | None = None,
-        with_uptime: bool = False,
     ) -> CommandResult:
         """Run `cmd` on the board.
 
         With `retry_for`, a call that raises one of `ERRORS` reconnects and runs again until
         `retry_for` seconds have passed, then raises the last error unchanged; only the call to the
-        board is retried, never the check or the uptime parse.
+        board is retried, never the check.
 
         Args:
             cmd: the command to run.
             check: assert the command returned 0.
             timeout: forwarded to the SSHDriver; None means no timeout.
             retry_for: how long to keep retrying a call that raises one of `ERRORS`; None runs it once.
-            with_uptime: stamp the result with the board's uptime, read in the same command just before
-                `cmd`.
 
         Returns:
-            The command's stdout lines (after the uptime line when `with_uptime` is set), stderr lines,
-            return code and, when `with_uptime` is set, the board's uptime in seconds.
-
-        Raises:
-            ExecutionError: `with_uptime` is set and stdout carries no uptime line, so the session failed;
-                `poll` takes it as a failed read.
+            The command's stdout lines, stderr lines and return code.
         """
         ssh_run = self._ssh.run
         if retry_for is not None:
@@ -176,17 +168,11 @@ class Board:
                 before_sleep=lambda _state: self._reconnect_if_it_answers(),
                 reraise=True,
             ).wraps(self._ssh.run)
-        stdout, stderr, returncode = ssh_run(f"cat /proc/uptime; {cmd}" if with_uptime else cmd, timeout=timeout)
+        stdout, stderr, returncode = ssh_run(cmd, timeout=timeout)
         if check:
             output = stdout + stderr
             assert returncode == 0, f"{cmd!r} failed (rc {returncode}): {chr(10).join(output)}"
-        if not with_uptime:
-            return CommandResult(stdout, stderr, returncode)
-        try:
-            uptime = float(stdout[0].split()[0])
-        except (IndexError, ValueError):
-            raise ExecutionError(cmd, stdout, stderr) from None
-        return CommandResult(stdout[1:], stderr, returncode, uptime)
+        return CommandResult(stdout, stderr, returncode)
 
     def put(self, src: str, dst: str) -> None:
         """Copy the host file `src` to `dst` on the board.
@@ -252,43 +238,6 @@ class Board:
         self.cleanup.callback(self.run, stop)
         self.run(f"systemd-run --unit={unit} --on-active={delay} --timer-property=AccuracySec=100ms {cmd}", check=True)
 
-    def poll[T](
-        self,
-        read: Callable[[], T | None],
-        *,
-        until: Callable[[T], object],
-        within: float,
-        every: float = 1,
-        since: float | None = None,
-    ) -> tuple[float | None, T | None]:
-        """Call `read` every `every` seconds until `until` accepts its value, or `within` seconds pass.
-
-        A read that raises one of `ERRORS`, or returns None, is a failed read: `until` is not asked.
-        The bound is checked after each read, so the last read may land one read past it.
-
-        Args:
-            read: reads the board once; None means no answer yet.
-            until: whether a read value ends the wait.
-            within: seconds from `since` after which the wait gives up.
-            every: seconds slept between reads.
-            since: the `time.monotonic()` instant the wait counts from; now when None.
-
-        Returns:
-            The seconds from `since` to the read `until` accepted, rounded to 0.1 s (None if it gave
-            up), and the final read: that value, or on a give-up the last attempt's value, None if it
-            raised or returned None.
-        """
-        since = time.monotonic() if since is None else since
-        value = Retrying(
-            stop=stop_after_delay(within - (time.monotonic() - since)),
-            wait=wait_fixed(every),
-            retry=retry_if_exception_type(self.ERRORS)
-            | retry_if_result(lambda value: value is None or not until(value)),
-            retry_error_callback=lambda state: None if state.outcome.failed else state.outcome.result(),
-        )(read)
-        done = value is not None and until(value)
-        return (round(time.monotonic() - since, 1) if done else None), value
-
     def connect(self) -> None:
         """Activate the board's SSHDriver."""
         self._target.activate(self._ssh)
@@ -305,12 +254,6 @@ class Board:
             dst: path on the host.
         """
         self._ssh.get(src, dst)
-
-    def reboot(self) -> None:
-        """Reboot the board through `just kiosk-reboot`, which waits up to 300 s for a new boot, then reconnect."""
-        subprocess.run(["just", "kiosk-reboot", self.host], check=True)
-        self.disconnect()
-        self.connect()
 
     def reconnect(self) -> None:
         """Connect the SSHDriver, one attempt a second, until the board answers; waits through a reboot."""
@@ -478,7 +421,8 @@ class Board:
     ) -> float:
         """Read `condition` about once a second until it holds on `reads` reads in a row.
 
-        A read that raises one of `ERRORS` does not hold.
+        A read that raises one of `ERRORS` does not hold. An assertion fails if the run did not begin within
+        `GIVE_UP_SECONDS` of `since`.
 
         Args:
             condition: one read of the board; holds when truthy. A give-up names it by its qualified name,
@@ -490,9 +434,6 @@ class Board:
 
         Returns:
             The seconds from `since` to the end of the run's first read, to 0.1 s.
-
-        Raises:
-            AssertionError: the run did not begin within `GIVE_UP_SECONDS` of `since`.
         """
         give_up_from = time.monotonic() if since is None or callable(since) else since
         run: list[float] = []
@@ -507,15 +448,11 @@ class Board:
             run = [*run, time.monotonic()] if self._holds(condition) else []
             return len(run)
 
-        try:
-            Retrying(
-                stop=stop_after_delay(self.GIVE_UP_SECONDS - (time.monotonic() - give_up_from)),
-                wait=wait_fixed(1),
-                retry=retry_if_result(lambda held: held < reads),
-            )(read)
-        except RetryError:
-            what = getattr(condition, "func", condition).__qualname__
-            raise AssertionError(f"{what} did not hold within {self.GIVE_UP_SECONDS} s") from None
+        held = self._each_second(
+            read, until=lambda held: held >= reads, within=self.GIVE_UP_SECONDS - (time.monotonic() - give_up_from)
+        )
+        what = getattr(condition, "func", condition).__qualname__
+        assert held >= reads, f"{what} did not hold within {self.GIVE_UP_SECONDS} s"
         counted_from = since() if callable(since) else give_up_from
         return round(run[0] - counted_from, 1)
 
@@ -539,14 +476,28 @@ class Board:
             if self._holds(condition):
                 held_at.append(time.monotonic())
 
-        Retrying(
-            stop=stop_after_delay(over),
-            wait=wait_fixed(1),
-            retry=retry_if_result(lambda _: True),
-            retry_error_callback=lambda _state: None,
-        )(read)
+        self._each_second(read, until=lambda _: False, within=over)
         held_at.append(time.monotonic())
         return round(max(end - start for start, end in itertools.pairwise(held_at)), 1)
+
+    @staticmethod
+    def _each_second[T](read: Callable[[], T], *, until: Callable[[T], object], within: float) -> T:
+        """Call `read` about once a second until `until` accepts what it returns, or `within` seconds pass.
+
+        Args:
+            read: one read.
+            until: whether a read's value ends the reads.
+            within: how long to read for, in seconds.
+
+        Returns:
+            The last read's value.
+        """
+        return Retrying(
+            stop=stop_after_delay(within),
+            wait=wait_fixed(1),
+            retry=retry_if_result(lambda value: not until(value)),
+            retry_error_callback=lambda state: state.outcome.result(),
+        )(read)
 
     def _holds(self, condition: Callable[[], object]) -> bool:
         """Read `condition` once.

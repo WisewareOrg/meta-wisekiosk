@@ -4,12 +4,12 @@ from pathlib import Path
 from typing import NamedTuple
 
 from board.part import Part
+from board.unit import Unit
 
 _SRC = Path(__file__).resolve().parents[2] / "target_suite" / "outage.sh"
 _SCRIPT_PATH = "/tmp/test-outage.sh"
 _RECORD_PATH = "/tmp/test-outage.record"
 _UNIT = "test-outage"
-_BOOT_COMPLETE_WAIT_SECONDS = 180
 # how far apart the script's traces can fall: its one-second sleep plus the wpa_cli and ip reads
 _TRACE_SPAN_SECONDS = 2
 
@@ -80,12 +80,7 @@ class Outage(Part):
 
     def wait_boot_complete(self) -> None:
         """Wait for boot-complete.target, so an outage cannot land inside kiosk-netcheck's window."""
-        active_s, _ = self._board.poll(
-            lambda: self._board.run("systemctl is-active boot-complete.target").returncode == 0 or None,
-            until=bool,
-            within=_BOOT_COMPLETE_WAIT_SECONDS,
-        )
-        assert active_s is not None, f"boot-complete.target was not active within {_BOOT_COMPLETE_WAIT_SECONDS} s"
+        self._board.seconds_until(Unit(self._board, "boot-complete.target").is_active)
 
     def schedule(self, outage_s: float) -> None:
         """Copy the outage script to the board and start it on a timer, until the test ends.

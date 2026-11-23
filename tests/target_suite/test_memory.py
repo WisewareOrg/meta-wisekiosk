@@ -25,6 +25,8 @@ class TestMemory(BoardTest):
     def test_memory_over_a_long_run(self, period_s: int, growth_limit_mb: float) -> None:
         """TST014: run with the replayed page on the panel; memory in use stays bounded, and nothing is killed for it.
 
+        The asserts follow the order `use_over` judges in: a kill, then the peak, then the growth.
+
         Args:
             period_s: how long the run lasts.
             growth_limit_mb: the most memory in use may grow over the run, in MB.

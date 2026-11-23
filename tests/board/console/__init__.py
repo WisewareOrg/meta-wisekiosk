@@ -23,8 +23,6 @@ _OUTAGE_MARGIN_SECONDS = 12
 _OUTAGE_SECONDS = math.ceil(
     _KEYBOARD_START_SECONDS + sum(_BOUNDS_SECONDS) + Keyboard.typing_seconds() + _OUTAGE_MARGIN_SECONDS
 )
-# the longest wait for X to take vt1 back after `kiosk.service` restarts
-_KIOSK_RESTART_WAIT_SECONDS = 30
 
 
 class Typed(NamedTuple):
@@ -82,7 +80,7 @@ class Console(Part):
         self._board.reconnect()
         with invalid_if("the board restarted during the outage, and the evidence in /tmp with it"):
             assert self._board.boot_id() == boot_id
-        lines, phases, _after_login = self._keyboard.typed_record()
+        lines, phases = self._keyboard.typed_record()
         with invalid_if(f"the virtual keyboard was not created: {self._keyboard.journal()}"):
             assert "device" in phases
         marker = self._keyboard.typed_marker().fields

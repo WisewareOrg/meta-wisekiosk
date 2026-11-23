@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 
 from board.app.backend import Backend
 from board.app.config import Config
-from board.app.page import Page
 from board.part import Part, invalid_if
 from board.process import Process
 from board.unit import Unit
@@ -50,14 +49,12 @@ class App(Part):
         backend: wisekiosk.service, which serves the instance's page.
         browser: the browser, surf.
         config: the config the app runs with.
-        page: the app's page in the browser.
         last_sample: the probe's last report, which a polled read keeps for its caller; None before one.
     """
 
     backend: Backend
     browser: Process
     config: Config
-    page: Page
     last_sample: dict[str, str] | None = None
 
     def __init__(self, board: "Board") -> None:
@@ -70,7 +67,6 @@ class App(Part):
         self.backend = Backend(board, "wisekiosk.service")
         self.browser = Process(board, "surf")
         self.config = Config(board)
-        self.page = Page(board)
         self._kiosk = Unit(board, "kiosk.service")
         self._web_processes = Process(board, "WebKitWebProcess", parent="surf")
 

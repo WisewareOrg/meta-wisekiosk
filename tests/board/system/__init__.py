@@ -5,7 +5,6 @@ import time
 from typing import TYPE_CHECKING
 
 from board.part import Part, invalid_if
-from board.system.journal import Journal
 from board.system.memory import Memory
 
 if TYPE_CHECKING:
@@ -27,11 +26,9 @@ class System(Part):
 
     Attributes:
         memory: memory over a long run, and the kernel's record of what it killed for it.
-        journal: the system journal's test markers.
     """
 
     memory: Memory
-    journal: Journal
 
     def __init__(self, board: "Board") -> None:
         """Bind to the board.
@@ -41,7 +38,6 @@ class System(Part):
         """
         super().__init__(board)
         self.memory = Memory(board)
-        self.journal = Journal(board)
 
     def restart_with_clock_wrong(self) -> float:
         """Set the clock three days back where timesyncd restores it from, and restart the board.
@@ -73,6 +69,22 @@ class System(Part):
             True if it is within 5 s of the host's.
         """
         return abs(self._clock_ahead_s()) <= _AGREES_WITHIN_SECONDS
+
+    def mark_log(self, text: str) -> None:
+        """Write `text` to the board's log, under the identifier `kiosk-log-marker`.
+
+        Args:
+            text: the line.
+        """
+        self._board.run(f"echo {text} | systemd-cat -t kiosk-log-marker", check=True)
+
+    def log_markers(self) -> list[str]:
+        """Read the lines written to the board's log under the identifier `kiosk-log-marker`, in every boot.
+
+        Returns:
+            The lines.
+        """
+        return self._board.run("journalctl -t kiosk-log-marker -o cat --no-pager", check=True).stdout
 
     def utc_offset(self) -> str:
         """Read the local time's offset from UTC, as `date +%z` prints it.

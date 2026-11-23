@@ -130,17 +130,14 @@ class Keyboard(Part):
             f"/bin/sh {_DIR}/keyboard.sh --chord back.events", check=True, timeout=_RESTORE_COMMAND_TIMEOUT_SECONDS
         )
 
-    def typed_record(self) -> tuple[list[str], set[str], str]:
+    def typed_record(self) -> tuple[list[str], set[str]]:
         """Read what `keyboard.sh` recorded of its phases.
 
         Returns:
-            The record's lines, then the phases it reached, then what the shell showed after the login
-            (`not reached` if it showed nothing).
+            The record's lines, then the phases it reached.
         """
         lines = self._board.run(f"cat {_DIR}/record 2>/dev/null || true", check=True).stdout
-        prompts = self._fields_of(lines, "prompt")
-        phases = {fields[0] for fields in self._fields_of(lines, "phase")}
-        return lines, phases, prompts[0][0] if prompts else "not reached"
+        return lines, {line.split()[1] for line in lines if line.split()[:1] == ["phase"]}
 
     def typed_marker(self) -> TypedMarker:
         """Read the marker the typed command wrote.
@@ -241,16 +238,3 @@ class Keyboard(Part):
         Keyboard._append_key_frame(lines, 0, [(_KEY_LEFTCTRL, 1), (_KEY_LEFTALT, 1), (key, 1)])
         Keyboard._append_key_frame(lines, _CHORD_HOLD_US, [(key, 0), (_KEY_LEFTALT, 0), (_KEY_LEFTCTRL, 0)])
         return "\n".join(lines) + "\n"
-
-    @staticmethod
-    def _fields_of(lines: list[str], kind: str) -> list[list[str]]:
-        """The fields after the line kind, of each `kind` line of the keyboard record, in order.
-
-        Args:
-            lines: the record's lines.
-            kind: the first word of the lines wanted.
-
-        Returns:
-            One list of fields per matching line.
-        """
-        return [line.split()[1:] for line in lines if line.split()[:1] == [kind]]

@@ -11,6 +11,6 @@ class TestLogKept(BoardTest):
         self.record(requirement="TST028")
         marker = self.board.updates.installed.logged_marker()
 
-        logged = self.board.system.journal.markers()
+        logged = self.board.system.log_markers()
 
         assert marker in logged, "the marker is not in the log after the update"

@@ -15,8 +15,6 @@ from labgrid.pytestplugin.hooks import LABGRID_ENV_KEY
 from record import Record
 from refused_offers import RefusedOffers
 
-_BROWSER_WAIT_SECONDS = 90
-_BROWSER_POLL_SECONDS = 2
 _HASHED_PATHS = (
     "/data/config/kiosk.conf",
     "/boot/config.txt",
@@ -174,13 +172,8 @@ def device_context(target: Target, record_property: Callable[[str, object], None
     """
     with Board(target) as board:
         # the browser starts some seconds after ssh does following a restart
-        found_s, pid = board.poll(
-            lambda: board.run("pgrep -x surf").text.partition("\n")[0] or None,
-            until=bool,
-            within=_BROWSER_WAIT_SECONDS,
-            every=_BROWSER_POLL_SECONDS,
-        )
-        assert found_s is not None, "the browser never appeared"
+        board.seconds_until(board.app.browser.is_running)
+        pid = board.run("pgrep -x surf", check=True).text.partition("\n")[0]
         hashed = " ".join((board.app.config.LIVE_PATH, *_HASHED_PATHS))
         sums = board.run("sha256sum " + hashed)
         assert sums.returncode in (0, 1), f"sha256sum failed (rc {sums.returncode}): {chr(10).join(sums.stderr)}"
