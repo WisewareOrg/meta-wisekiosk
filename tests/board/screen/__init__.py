@@ -4,6 +4,8 @@ import re
 import time
 from typing import TYPE_CHECKING
 
+from labgrid.driver.exception import ExecutionError
+
 from board.part import Part
 from board.screen.layout import WindowLayout
 
@@ -112,15 +114,22 @@ class Screen(Part):
     def _grab(self) -> tuple[str | None, str | None]:
         """Grab the panel's middle third, once 5 s have passed since the grab before.
 
-        The first grab reads the screen's size, and registers the picture's removal for when the test ends.
+        The first good grab reads the screen's size, and registers the picture's removal for when the test
+        ends.
 
         Returns:
             The sha256 of the grab before and of this one, each None for a bad grab or none.
+
+        Raises:
+            ExecutionError: X did not report the screen's size, as while it starts; a wait takes it as a read
+                that does not hold.
         """
         if self._crop is None:
+            xdpyinfo = self._board.run("DISPLAY=:0 xdpyinfo")
+            dimensions = _DIMENSIONS.search(xdpyinfo.text) if xdpyinfo.returncode == 0 else None
+            if dimensions is None:
+                raise ExecutionError("DISPLAY=:0 xdpyinfo", xdpyinfo.stdout, xdpyinfo.stderr)
             self._board.cleanup.callback(self._board.run, f"rm -f {_GRAB_PATH}")
-            dimensions = _DIMENSIONS.search(self._board.run("DISPLAY=:0 xdpyinfo", check=True).text)
-            assert dimensions, "xdpyinfo reported no screen dimensions"
             width, height = int(dimensions[1]), int(dimensions[2])
             self._crop = f"{width}x{height // 3}+0+{height // 3}"
         time.sleep(max(0.0, self._next_grab_at - time.monotonic()))

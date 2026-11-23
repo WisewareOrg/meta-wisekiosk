@@ -4,6 +4,8 @@ import json
 import time
 from typing import TYPE_CHECKING
 
+from labgrid.driver.exception import ExecutionError
+
 from board.part import Part, invalid_if
 from board.system.memory import Memory
 
@@ -66,9 +68,12 @@ class System(Part):
         """Whether the board's clock agrees with the network's time, which the host's is synchronised to.
 
         Returns:
-            True if it is within 5 s of the host's.
+            True if it is within 5 s of the host's; False if the clock could not be read.
         """
-        return abs(int(self._board.run("date +%s", check=True).text) - time.time()) <= _AGREES_WITHIN_SECONDS
+        date = self._board.run("date +%s")
+        if date.returncode != 0 or not date.text.isdigit():
+            return False
+        return abs(int(date.text) - time.time()) <= _AGREES_WITHIN_SECONDS
 
     def mark_log(self, text: str) -> None:
         """Write `text` to the board's log, under the identifier `kiosk-log-marker`.
@@ -83,8 +88,14 @@ class System(Part):
 
         Returns:
             The lines.
+
+        Raises:
+            ExecutionError: the log could not be read; a wait takes it as a read that does not hold.
         """
-        return self._board.run("journalctl -t kiosk-log-marker -o cat --no-pager", check=True).stdout
+        journal = self._board.run("journalctl -t kiosk-log-marker -o cat --no-pager")
+        if journal.returncode != 0:
+            raise ExecutionError("journalctl -t kiosk-log-marker", journal.stdout, journal.stderr)
+        return journal.stdout
 
     def utc_offset(self) -> str:
         """Read the local time's offset from UTC, as `date +%z` prints it.

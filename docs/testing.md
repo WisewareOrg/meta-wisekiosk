@@ -175,7 +175,9 @@ nothing from `tests/target_suite/` at run time.
 
 **Waits are tenacity polls,** in `Board.seconds_until`, `Board.wait_for` and `Board.longest_lapse_s`,
 which take a read that raises one of `Board.ERRORS` as one that does not hold, and fail the test
-once the wait gives up. A wait whose caller needs what the read saw returns it: `wait_for` returns
+once the wait gives up. A read a wait polls says "not yet" by returning False or None, or by raising
+one of `Board.ERRORS`; an assertion inside it ends the wait at once, which is right only where the
+read means it to. A wait whose caller needs what the read saw returns it: `wait_for` returns
 the first read that has a value, so no part keeps a read aside for a later caller.
 
 **Teardown and record order.** For each test, in this order: the autouse fixtures run,

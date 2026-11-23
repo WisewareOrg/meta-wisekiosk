@@ -93,9 +93,10 @@ class Console(Part):
         """Read the virtual terminal in the foreground.
 
         Returns:
-            Its number, as `fgconsole` prints it.
+            Its number, as `fgconsole` prints it; empty if it could not be read.
         """
-        return self._board.run("fgconsole", check=True).text
+        fgconsole = self._board.run("fgconsole")
+        return fgconsole.text if fgconsole.returncode == 0 else ""
 
     def _bring_vt1_forward(self) -> None:
         """Make vt1 the foreground terminal, restarting `kiosk.service`, whose X takes vt1, if it is not."""
