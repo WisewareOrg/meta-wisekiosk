@@ -6,9 +6,7 @@ from typing import TYPE_CHECKING
 
 from board.part import Part, invalid_if
 from board.system.journal import Journal
-from board.system.kernel import Kernel
 from board.system.memory import Memory
-from board.system.soak import Soak
 
 if TYPE_CHECKING:
     from board import Board
@@ -28,15 +26,11 @@ class System(Part):
     """The board's operating system.
 
     Attributes:
-        memory: memory and the kernel's out-of-memory record.
-        soak: the kiosk-soak sampler, its timer and its log.
-        kernel: what the running kernel reports.
+        memory: memory over a long run, and the kernel's record of what it killed for it.
         journal: the system journal's test markers.
     """
 
     memory: Memory
-    soak: Soak
-    kernel: Kernel
     journal: Journal
 
     def __init__(self, board: "Board") -> None:
@@ -47,8 +41,6 @@ class System(Part):
         """
         super().__init__(board)
         self.memory = Memory(board)
-        self.soak = Soak(board)
-        self.kernel = Kernel(board)
         self.journal = Journal(board)
 
     def restart_with_clock_wrong(self) -> float:

@@ -13,7 +13,6 @@ class TestMotion(BoardTest):
         self.record(requirement="TST009")
         self.board.app.run_behind_replay()
         self.board.app.install_probe()
-        self.board.seconds_until(self.board.app.all_cards_live)
 
         stalls = self.board.app.frame_stalls(cutoff_ms=250, window_s=320, after_s=40)
 

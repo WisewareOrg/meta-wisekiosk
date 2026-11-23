@@ -105,7 +105,7 @@ class Unit(Part):
             text: the drop-in's contents, as `printf` takes them.
             cleanup: where the undo is registered: the board's cleanup, for the end of the test, when None.
         """
-        (cleanup or self._board.cleanup).callback(
+        (cleanup if cleanup is not None else self._board.cleanup).callback(
             self._board.run,
             f"rm -f {self._drop_in}; systemctl daemon-reload; systemctl start {self.name}",
             check=True,

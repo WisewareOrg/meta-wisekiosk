@@ -1,165 +1,44 @@
-"""Target suite: the appliance's memory use stays under its bound over a long run."""
+"""Target suite: the appliance's memory use stays under its bounds over a long run."""
 
-from typing import TYPE_CHECKING
+import math
 
 import pytest
-from board import Board
-from board_test import BoardTest
+from board_test import BoardTest, replaying
 from replay import CARDS4_LIVE
 
-if TYPE_CHECKING:
-    from wisebench.proxy import Proxy
-
-# TST014's period, and the period `--soak` gives it
-PERIOD_SECONDS = 30 * 60
-SOAK_PERIOD_SECONDS = 24 * 3600
-# TST014's bound: use below this share of usable memory in every sample
+# TST014's bound on memory in use, as a share of usable memory
 USE_LIMIT = 0.80
-# TST014's bound on growth in memory in use across the window, in MB
-GROWTH_LIMIT_MB = 100
 
 
 class TestMemory(BoardTest):
-    """The appliance's memory use stays under its bound over a long run."""
+    """The appliance's memory use stays under its bounds over a long run."""
 
-    @pytest.mark.parametrize("proxy", [str(CARDS4_LIVE / "flows.har")], indirect=True)
-    def test_memory_over_a_long_run(self, proxy: "Proxy", pytestconfig: pytest.Config) -> None:
-        """TST014 memory over a long run: kiosk-soak's samples of memory in use stay under `USE_LIMIT` of usable.
-
-        Usable is `MemTotal`; in use is `MemTotal - MemAvailable`. A sample at or above the limit, or
-        a process killed for memory, or growth in use over a valid 30 minute window beyond
-        `GROWTH_LIMIT_MB` (not judged under `--soak`), fails; after a reset the kill is looked for in the
-        previous boot's journal and in pstore's console record. A run is invalid, never a pass or a
-        failure, if the boot changed without a memory kill, the browser or backend restarted, the page
-        reloaded or changed state, kiosk-soak left a gap, the replay killed a request, or the evidence
-        is unreadable.
+    @replaying(CARDS4_LIVE)
+    @pytest.mark.parametrize(
+        ("period_s", "growth_limit_mb"),
+        [
+            pytest.param(30 * 60, 100, id="TST014"),
+            # `--soak` adds a day's run on top, whose growth is not judged
+            pytest.param(24 * 3600, math.inf, id="TST014-soak", marks=pytest.mark.soak),
+        ],
+    )
+    def test_memory_over_a_long_run(self, period_s: int, growth_limit_mb: float) -> None:
+        """TST014: run with the replayed page on the panel; memory in use stays bounded, and nothing is killed for it.
 
         Args:
-            proxy: the proxy replaying the cards4-live recording.
-            pytestconfig: the run's config, which says whether `--soak` was given.
-
-        Raises:
-            AssertionError: the failures found so far, when reading the evidence then broke unexpectedly.
-            Exception: what broke the evidence's reading, when no failure had been found.
+            period_s: how long the run lasts.
+            growth_limit_mb: the most memory in use may grow over the run, in MB.
         """
-        page = self.board.app.page
-        memory = self.board.system.memory
-        soak = self.board.system.soak
-        kernel = self.board.system.kernel
-        self.board.app.backend.put_behind(proxy, CARDS4_LIVE / "config.json")
-        self.record(probe_sha256=page.install_probe())
-        _, start_sample = page.wait_for_instance(all_cards_live=True)
         self.record(requirement="TST014")
-        soak_run = pytestconfig.getoption("--soak")
-        period = SOAK_PERIOD_SECONDS if soak_run else PERIOD_SECONDS
-        self.record(period_s=period)
-        self.record(timer_was_active=soak.start_sampler())
-        boot_id = self.board.boot_id(retry_for=Board.READ_RETRY_SECONDS)
-        backend_pid = self.board.app.backend.main_pid(retry_for=Board.READ_RETRY_SECONDS)
-        start_uptime = self.board.uptime_s(retry_for=Board.READ_RETRY_SECONDS)
-        start_mem = memory.meminfo_kb()
-        total_mb = start_mem["MemTotal"] / 1024
+        self.board.app.run_behind_replay()
+        self.board.app.install_probe()
+        self.board.seconds_until(self.board.app.all_cards_live)
 
-        new_boot = kernel.sleep_watching_boot(boot_id, period)
-        if new_boot is None:
-            reason = "evidence unreadable: the boot id could not be read after the period"
-            self.record(validity=f"invalid: {reason}")
-            pytest.fail(f"INVALID: {reason}")
-        rebooted = new_boot != boot_id
+        use = self.board.system.memory.use_over(period_s)
 
-        problems = []
-        failures = []
-        lines, peak, peak_at, oom_count, end_mem = [], 0.0, None, 0, {}
-        try:
-            if rebooted:
-                journal_returncode, journal_oom = memory.oom_kills_in_journal(start_uptime, previous_boot=True)
-                console_returncode, console_oom = memory.oom_kills_in_pstore(start_uptime)
-                oom = sorted({*journal_oom, *console_oom})
-                returncode = journal_returncode or console_returncode
-                if oom:
-                    failures.append(f"a process was killed for memory at uptime {oom[0]:.0f} s")
-                else:
-                    problems.append(
-                        "the board rebooted, with no memory kill in the previous boot's kernel log or pstore console"
-                        if returncode == 0
-                        else "the board rebooted and the previous boot's kernel log or pstore console could not be read"
-                    )
-                oom_count = len(oom)
-            else:
-                returncode, oom = memory.oom_kills_in_journal(start_uptime)
-                if returncode != 0:
-                    problems.append("the kernel log could not be read")
-                oom_count = len(oom)
-                if oom:
-                    failures.append(f"a process was killed for memory at uptime {oom[0]:.0f} s")
-        except Board.ERRORS as exc:
-            problems.append(f"evidence unreadable: {type(exc).__name__}")
-
-        try:
-            end_uptime = float("inf") if rebooted else self.board.uptime_s(retry_for=Board.READ_RETRY_SECONDS)
-            lines = soak.samples(boot_id, start_uptime, end_uptime, period)
-
-            if any(not 0 <= float(line["memavail"]) <= total_mb for line in lines):
-                problems.append("evidence unreadable: kiosk-soak's memavail is not in MB of usable memory")
-            for line in lines:
-                use = 100 * (total_mb - float(line["memavail"])) / total_mb
-                if use > peak:
-                    peak, peak_at = use, float(line["up"])
-            if peak >= USE_LIMIT * 100:
-                failures.insert(
-                    0,
-                    f"memory in use reached {peak:.1f}% of usable at uptime {peak_at:.0f} s; "
-                    f"TST014's bound is {USE_LIMIT:.0%}",
-                )
-
-            if not rebooted:
-                if soak.left_a_gap(lines, start_uptime, end_uptime):
-                    problems.append(f"kiosk-soak left a gap over {soak.MAX_GAP_SECONDS} s")
-                if len({line["pid"] for line in lines}) > 1 or any(line["pid"] == "none" for line in lines):
-                    problems.append("the browser restarted or was not running at a sample")
-                if self.board.app.backend.main_pid(retry_for=Board.READ_RETRY_SECONDS) != backend_pid:
-                    problems.append("wisekiosk.service restarted")
-                try:
-                    end_sample = page.read().sample
-                except (*Board.ERRORS, IndexError):
-                    end_sample = None
-                if end_sample is None:
-                    problems.append("the end page read failed")
-                elif any(end_sample[key] != start_sample[key] for key in ("load", "changes", "cards")):
-                    problems.append("the page reloaded or changed state")
-                if proxy.killed():
-                    problems.append(f"the replay killed requests: {proxy.killed()}")
-
-            end_mem = memory.meminfo_kb() if not rebooted else {}
-            if end_mem:
-                growth_mb = (
-                    (end_mem["MemTotal"] - end_mem["MemAvailable"])
-                    - (start_mem["MemTotal"] - start_mem["MemAvailable"])
-                ) / 1024
-                self.record(growth_mb=round(growth_mb, 1))
-                if not problems and not soak_run and growth_mb > GROWTH_LIMIT_MB:
-                    failures.append(
-                        f"memory in use grew {growth_mb:.0f} MB over the window; TST014's bound is {GROWTH_LIMIT_MB} MB"
-                    )
-        except Board.ERRORS as exc:
-            problems.append(f"evidence unreadable: {type(exc).__name__}")
-        except Exception as exc:
-            if failures:
-                raise AssertionError("; ".join(failures)) from exc
-            raise
-        self.record(
-            validity="valid" if not problems else f"invalid: {'; '.join(problems)}",
-            samples=len(lines),
-            mem_total_mb=round(total_mb, 1),
-            peak_use_pct=round(peak, 2),
-            peak_at_uptime=peak_at,
-            oom_lines=oom_count,
-            swap_used_start_kb=start_mem["SwapTotal"] - start_mem["SwapFree"],
+        self.record(peak_use=round(use.peak_use, 3), growth_mb=round(use.growth_mb, 1), memory_kills=use.kills)
+        assert not use.kills, f"a process was killed for memory at uptime {use.kills[0]:.0f} s"
+        assert use.peak_use < USE_LIMIT, f"memory in use reached {use.peak_use:.1%} of usable; TST014's bound is 80%"
+        assert use.growth_mb <= growth_limit_mb, (
+            f"memory in use grew {use.growth_mb:.0f} MB over the run; TST014's bound is {growth_limit_mb} MB"
         )
-        if lines:
-            self.record(rss_total_delta_kb=int(lines[-1]["rss_total"]) - int(lines[0]["rss_total"]))
-        if end_mem:
-            self.record(swap_used_end_kb=end_mem["SwapTotal"] - end_mem["SwapFree"])
-
-        assert not failures, "; ".join(failures)
-        assert not problems, f"INVALID: {'; '.join(problems)}"

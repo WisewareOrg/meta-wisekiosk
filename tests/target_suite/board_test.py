@@ -1,6 +1,5 @@
 """The base of every target-suite test class, the form of a parametrized case, and the replay mark."""
 
-import functools
 from collections.abc import Callable, Collection
 from pathlib import Path
 
@@ -35,11 +34,22 @@ def replaying(recording: Path) -> Callable[[Callable], Callable]:
     Returns:
         What marks the test.
     """
-    marks = (
-        pytest.mark.usefixtures("proxy"),
-        pytest.mark.parametrize("proxy", [str(recording / "flows.har")], indirect=True, ids=[recording.name]),
-    )
-    return lambda test: functools.reduce(lambda marked, mark: mark(marked), marks, test)
+
+    def mark(test: Callable) -> Callable:
+        """Mark `test` to replay the recording.
+
+        Args:
+            test: the test.
+
+        Returns:
+            The test, marked.
+        """
+        test = pytest.mark.parametrize("proxy", [str(recording / "flows.har")], indirect=True, ids=[recording.name])(
+            test
+        )
+        return pytest.mark.usefixtures("proxy")(test)
+
+    return mark
 
 
 def case(requirement: str, *values: object, marks: Collection[pytest.MarkDecorator] = ()) -> object:

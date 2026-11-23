@@ -31,8 +31,10 @@ _TITLES = (
 )
 # the replayed page complete: four park cards, all live
 _ALL_CARDS_LIVE = "4/4"
-# the edges of the probe's histogram of frame intervals
-_HISTOGRAM_EDGES_MS = (50, 100, 250, 500, 1000, 2000)
+# the edges of the probe's histogram of frame intervals, as the probe itself sets them
+_HISTOGRAM_EDGES_MS = tuple(
+    int(edge) for edge in re.search(r"var EDGES = \[([\d, ]+)\]", _PROBE.read_text())[1].split(",")
+)
 # the least share of the probe's report ticks that caught a marquee scrolling, for a window to count
 _MOTION_FLOOR = 0.29
 # how long a crashed backend's own restart is held back, so the browser starts without it
@@ -115,7 +117,7 @@ class App(Part):
         """
         if not self.is_served():
             return False
-        sample = self._sample()
+        sample = self.report()
         return sample is not None and sample["state"] == "applied" and sample["origin"] in _OWN_ORIGINS
 
     def all_cards_live(self) -> bool:
@@ -129,10 +131,10 @@ class App(Part):
     def frame_stalls(self, cutoff_ms: int, window_s: float, after_s: float) -> int:
         """Count the page's frame intervals of `cutoff_ms` or longer, over a window of its own time.
 
-        The window opens `after_s` of page time after the page is read complete, and runs `window_s`; the
-        board is not read inside it. The check is invalid if the page reloads or changes state inside the
-        window, or shows too little motion: under 29% of the probe's report ticks caught a marquee
-        scrolling.
+        Waits for the page complete, all its cards live. The window opens `after_s` of page time later and
+        runs `window_s`; the board is not read inside it. The check is invalid if the page reloaded or
+        changed state before the window opened or inside it, or shows too little motion: under 29% of the
+        probe's report ticks caught a marquee scrolling.
 
         Args:
             cutoff_ms: the shortest interval counted; one of the probe's histogram edges.
@@ -142,9 +144,11 @@ class App(Part):
         Returns:
             The intervals counted.
         """
-        complete = self._sample()
-        assert complete is not None, "the probe reports nothing"
+        self._board.seconds_until(self.all_cards_live)
+        complete = self.last_sample
         start = self._page_time_reached(complete, after_s)
+        with invalid_if("the page reloaded or changed state before the window opened"):
+            assert start["load"] == complete["load"] and start["changes"] == complete["changes"]
         time.sleep(window_s)
         end = self._page_time_reached(start, window_s)
         with invalid_if("the page reloaded or changed state inside the window"):
@@ -173,7 +177,7 @@ class App(Part):
         Returns:
             Its width and height, in CSS pixels.
         """
-        sample = self._sample()
+        sample = self.report()
         assert sample is not None and "layout" in sample, f"the probe reports no layout: {sample!r}"
         width, _, height = sample["layout"].partition("x")
         return int(width), int(height)
@@ -277,7 +281,7 @@ class App(Part):
         """
         return any(not title.startswith("[") and title.partition(" | ")[2] for title in self._titles())
 
-    def _sample(self) -> dict[str, str] | None:
+    def report(self) -> dict[str, str] | None:
         """Read the probe's latest report, from the title it writes, and keep it as `last_sample`.
 
         Returns:
@@ -308,7 +312,7 @@ class App(Part):
             Returns:
                 Whether the page reloaded, or its time is past the mark.
             """
-            sample = self._sample()
+            sample = self.report()
             return sample is not None and (
                 sample["load"] != since["load"] or int(sample["el"]) >= int(since["el"]) + seconds * 1000
             )

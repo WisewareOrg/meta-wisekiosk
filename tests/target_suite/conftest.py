@@ -25,12 +25,12 @@ _HASHED_PATHS = (
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    """Add `--soak`, which runs TST014 with its long period.
+    """Add `--soak`, which also runs the tests marked `soak`.
 
     Args:
         parser: pytest's option parser.
     """
-    parser.addoption("--soak", action="store_true", default=False, help="run TST014 with its long period")
+    parser.addoption("--soak", action="store_true", default=False, help="also run TST014 over its day-long soak")
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -95,21 +95,27 @@ def evemu_helpers() -> Iterator[EvemuHelpers]:
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Register the `sends_update` marker.
+    """Register the `sends_update` and `soak` markers.
 
     Args:
         config: the run's config.
     """
     config.addinivalue_line("markers", "sends_update: the test sends an image update after the start-of-run install")
+    config.addinivalue_line("markers", "soak: a long run on top of the suite, run only under `--soak`")
 
 
-def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
-    """Run the tests marked `sends_update` last, each group in collection order.
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Deselect the tests marked `soak` unless `--soak` is given; run the tests marked `sends_update` last.
 
     Args:
-        items: the collected tests, sorted in place.
+        config: the run's config.
+        items: the collected tests, filtered and sorted in place.
     """
-    items[:] = sorted(items, key=lambda item: item.get_closest_marker("sends_update") is not None)
+    soaks = [] if config.getoption("--soak") else [item for item in items if item.get_closest_marker("soak")]
+    if soaks:
+        config.hook.pytest_deselected(items=soaks)
+    kept = [item for item in items if item not in soaks]
+    items[:] = sorted(kept, key=lambda item: item.get_closest_marker("sends_update") is not None)
 
 
 @pytest.hookimpl(wrapper=True)
