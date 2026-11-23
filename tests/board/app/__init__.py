@@ -29,6 +29,12 @@ _TITLES = (
     "for id in $(DISPLAY=:0 xwininfo -root -tree 2>/dev/null | awk '/^ +0x/ { print $1 }'); do "
     'DISPLAY=:0 xprop -id "$id" WM_NAME 2>/dev/null; done'
 )
+# the replayed page complete: four park cards, all live
+_ALL_CARDS_LIVE = "4/4"
+# the edges of the probe's histogram of frame intervals
+_HISTOGRAM_EDGES_MS = (50, 100, 250, 500, 1000, 2000)
+# the least share of the probe's report ticks that caught a marquee scrolling, for a window to count
+_MOTION_FLOOR = 0.29
 # how long a crashed backend's own restart is held back, so the browser starts without it
 _BACKEND_HOLD_SECONDS = 600
 # a soft reboot restarts userspace only, so a new boot shows as a new start of multi-user.target
@@ -43,12 +49,14 @@ class App(Part):
         browser: the browser, surf.
         config: the config the app runs with.
         page: the app's page in the browser.
+        last_sample: the probe's last report, which a polled read keeps for its caller; None before one.
     """
 
     backend: Backend
     browser: Process
     config: Config
     page: Page
+    last_sample: dict[str, str] | None = None
 
     def __init__(self, board: "Board") -> None:
         """Bind to the board.
@@ -109,6 +117,45 @@ class App(Part):
             return False
         sample = self._sample()
         return sample is not None and sample["state"] == "applied" and sample["origin"] in _OWN_ORIGINS
+
+    def all_cards_live(self) -> bool:
+        """Whether the instance is on the panel with every card of the replayed page live: the page complete.
+
+        Returns:
+            True if it is.
+        """
+        return self.on_panel() and self.last_sample["cards"] == _ALL_CARDS_LIVE
+
+    def frame_stalls(self, cutoff_ms: int, window_s: float, after_s: float) -> int:
+        """Count the page's frame intervals of `cutoff_ms` or longer, over a window of its own time.
+
+        The window opens `after_s` of page time after the page is read complete, and runs `window_s`; the
+        board is not read inside it. The check is invalid if the page reloads or changes state inside the
+        window, or shows too little motion: under 29% of the probe's report ticks caught a marquee
+        scrolling.
+
+        Args:
+            cutoff_ms: the shortest interval counted; one of the probe's histogram edges.
+            window_s: how long the window runs, in seconds of page time.
+            after_s: how long after the page is complete the window opens, in seconds of page time.
+
+        Returns:
+            The intervals counted.
+        """
+        complete = self._sample()
+        assert complete is not None, "the probe reports nothing"
+        start = self._page_time_reached(complete, after_s)
+        time.sleep(window_s)
+        end = self._page_time_reached(start, window_s)
+        with invalid_if("the page reloaded or changed state inside the window"):
+            assert end["load"] == start["load"] and end["changes"] == start["changes"]
+        ticks, moving = (int(end[key]) - int(start[key]) for key in ("ticks", "moving"))
+        with invalid_if(f"too little motion: {moving} of {ticks} report ticks caught a marquee scrolling"):
+            assert ticks and moving / ticks >= _MOTION_FLOOR
+        stalls_from = _HISTOGRAM_EDGES_MS.index(cutoff_ms) + 1
+        return sum(int(count) for count in end["hist"].split(",")[stalls_from:]) - sum(
+            int(count) for count in start["hist"].split(",")[stalls_from:]
+        )
 
     def run_behind_replay(self) -> "Proxy":
         """Run the backend behind the test's replay proxy, on its recording's config, until the test ends.
@@ -231,7 +278,7 @@ class App(Part):
         return any(not title.startswith("[") and title.partition(" | ")[2] for title in self._titles())
 
     def _sample(self) -> dict[str, str] | None:
-        """Read the probe's latest report, from the title it writes.
+        """Read the probe's latest report, from the title it writes, and keep it as `last_sample`.
 
         Returns:
             Each `key=value` token of the report, or None if no window carries one.
@@ -240,5 +287,31 @@ class App(Part):
             if "WK1 " in title:
                 report = dict(token.split("=", 1) for token in title.split("WK1 ", 1)[1].split() if "=" in token)
                 if {"state", "origin"} <= report.keys():
+                    self.last_sample = report
                     return report
         return None
+
+    def _page_time_reached(self, since: dict[str, str], seconds: float) -> dict[str, str]:
+        """Read the probe until `seconds` of page time have passed since the report `since`, or the page reloaded.
+
+        Args:
+            since: a report of the probe.
+            seconds: the page time to wait.
+
+        Returns:
+            The first report past it.
+        """
+
+        def reached() -> bool:
+            """Read the probe once.
+
+            Returns:
+                Whether the page reloaded, or its time is past the mark.
+            """
+            sample = self._sample()
+            return sample is not None and (
+                sample["load"] != since["load"] or int(sample["el"]) >= int(since["el"]) + seconds * 1000
+            )
+
+        self._board.seconds_until(reached)
+        return self.last_sample

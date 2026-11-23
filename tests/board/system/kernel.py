@@ -32,15 +32,6 @@ class Kernel(Part):
                 break
         return self._boot_id_or_none()
 
-    def soc_temperature_c(self) -> float | None:
-        """Read the SoC's temperature.
-
-        Returns:
-            The temperature in degrees Celsius, or None if it could not be read.
-        """
-        result = self._board.run("cat /sys/class/thermal/thermal_zone0/temp")
-        return int(result.stdout[0]) / 1000 if result.returncode == 0 and result.stdout else None
-
     def _boot_id_or_none(self) -> str | None:
         """Read the kernel's boot id, retrying through a dropped session for `READ_RETRY_SECONDS`.
 

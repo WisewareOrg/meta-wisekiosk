@@ -15,8 +15,6 @@ _PANEL_WAIT_SECONDS = 90
 _ALL_CARDS_LIVE_WAIT_SECONDS = 120
 # the page under replay: four park cards, all live
 _ALL_CARDS_LIVE = "4/4"
-_COUNTERS = ("el", "frames", "isum", "ticks", "moving", "changes", "cost")
-_HISTOGRAM_BINS = 7
 _OWN_ORIGINS = ("http://localhost:8080", "http://127.0.0.1:8080")
 _PROBE_FIELDS = ("nonce", "state", "cards", "origin", "layout")
 _WM_NAME = re.compile(r'WM_NAME\(\w+\) = "(.*)"$')
@@ -38,23 +36,6 @@ class PanelRead(NamedTuple):
     uptime: float
     sample: dict[str, str] | None
     titles: list[str]
-
-    def counters(self) -> tuple[dict[str, int], list[int]]:
-        """The probe's counters, and its histogram of frame intervals.
-
-        Returns:
-            Each counter as an int, by name, and the histogram's counts, one per bin.
-
-        Raises:
-            AssertionError: a counter is missing or malformed.
-        """
-        try:
-            values = {key: int(self.sample[key]) for key in _COUNTERS}
-            histogram = [int(count) for count in self.sample["hist"].split(",")]
-            assert len(histogram) == _HISTOGRAM_BINS
-        except (KeyError, ValueError, AssertionError):
-            raise AssertionError(f"the probe's counters are missing from {self.sample!r}") from None
-        return values, histogram
 
 
 class Page(Part):

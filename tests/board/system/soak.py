@@ -3,8 +3,6 @@
 from board.part import Part
 
 _LOG_PATH = "/data/kiosk-soak.log"
-# more of kiosk-soak's samples than TST009's window spans
-_WINDOW_TAIL_LINES = 20
 # kiosk-soak.timer's OnUnitActiveSec
 _INTERVAL_SECONDS = 300
 # lines read beyond one per interval, so a period's first and last samples are in the tail
@@ -70,26 +68,6 @@ class Soak(Part):
         """
         edges = [start, *(float(sample["up"]) for sample in samples), end]
         return not samples or max(b - a for a, b in zip(edges, edges[1:], strict=False)) > Soak.MAX_GAP_SECONDS
-
-    def samples_in(self, start: float, end: float) -> list[dict[str, str]]:
-        """Read kiosk-soak's samples from this boot that fall inside an uptime span.
-
-        Reads the log's last lines, which cover more than a window, and this boot's id, in one
-        command.
-
-        Args:
-            start: the span's first board uptime, in seconds.
-            end: the span's last board uptime, in seconds.
-
-        Returns:
-            Each sample's fields, by name.
-        """
-        stdout = self._board.run(
-            f"cut -c1-8 /proc/sys/kernel/random/boot_id; tail -n {_WINDOW_TAIL_LINES} {_LOG_PATH} 2>/dev/null; true"
-        ).stdout
-        boot = stdout[0]
-        samples = [self._fields(line) for line in stdout[1:]]
-        return [sample for sample in samples if sample.get("boot") == boot and start <= float(sample["up"]) <= end]
 
     @staticmethod
     def _fields(line: str) -> dict[str, str]:
