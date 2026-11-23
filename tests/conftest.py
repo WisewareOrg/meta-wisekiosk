@@ -30,7 +30,7 @@ def install_candidate(bench_candidate: str | None, target: Target) -> Installed 
     installed = None
     with Board(target) as board:
         board.unmount_if_mounted(board.app.config.LIVE_PATH)
-        board.app.backend.clear_runtime_overrides()
+        board.app.backend.clear_runtime_changes()
         if bench_candidate is not None:
             config_before = board.app.config.sha256()
             marker = str(uuid.uuid4())

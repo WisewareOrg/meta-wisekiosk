@@ -14,6 +14,8 @@ from board.process import Process
 from board.unit import Unit
 
 if TYPE_CHECKING:
+    from wisebench.proxy import Proxy
+
     from board import Board
 
 # busybox wget returns 0 only on 2xx
@@ -107,6 +109,16 @@ class App(Part):
             return False
         sample = self._sample()
         return sample is not None and sample["state"] == "applied" and sample["origin"] in _OWN_ORIGINS
+
+    def run_behind_replay(self) -> "Proxy":
+        """Run the backend behind the test's replay proxy, on its recording's config, until the test ends.
+
+        Returns:
+            The proxy, which says which of the recording's requests it answered and which it did not.
+        """
+        proxy = self._board.fixture("proxy")
+        self.backend.put_behind(proxy, Path(proxy.har).parent / "config.json")
+        return proxy
 
     def layout_size(self) -> tuple[int, int]:
         """Read the size the page is laid out at, as the probe reports its viewport.

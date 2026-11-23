@@ -1,5 +1,6 @@
 """A systemd unit on the board."""
 
+import contextlib
 import time
 from typing import TYPE_CHECKING
 
@@ -9,7 +10,7 @@ if TYPE_CHECKING:
     from board import Board
 
 # covers a daemon-reload plus a unit start
-_RELOAD_TIMEOUT_SECONDS = 60
+RELOAD_TIMEOUT_SECONDS = 60
 
 
 class Unit(Part):
@@ -71,6 +72,24 @@ class Unit(Part):
         self._board.run_later(f"test-unmask-{self.name.split('.')[0]}", delay, f"/bin/sh -c '{self._unmask}'")
 
     @property
+    def _drop_in_dir(self) -> str:
+        """The directory of the unit's runtime drop-ins.
+
+        Returns:
+            The path.
+        """
+        return f"/run/systemd/system/{self.name}.d"
+
+    @property
+    def _drop_in(self) -> str:
+        """The runtime drop-in the tests write.
+
+        Returns:
+            The path.
+        """
+        return f"{self._drop_in_dir}/test.conf"
+
+    @property
     def _unmask(self) -> str:
         """The command that unmasks the unit for this boot and starts it.
 
@@ -79,21 +98,42 @@ class Unit(Part):
         """
         return f"systemctl unmask --runtime {self.name}; systemctl start {self.name}"
 
-    def drop_in(self, text: str) -> None:
-        """Add `text` to the unit as a runtime drop-in, until the test ends, then start the unit.
+    def drop_in(self, text: str, cleanup: contextlib.ExitStack | None = None) -> None:
+        """Add `text` to the unit as a runtime drop-in; when it is undone, the unit is started.
 
         Args:
-            text: the drop-in's contents.
+            text: the drop-in's contents, as `printf` takes them.
+            cleanup: where the undo is registered: the board's cleanup, for the end of the test, when None.
         """
-        path = f"/run/systemd/system/{self.name}.d/test.conf"
-        self._board.cleanup.callback(
+        (cleanup or self._board.cleanup).callback(
             self._board.run,
-            f"rm -f {path}; systemctl daemon-reload; systemctl start {self.name}",
+            f"rm -f {self._drop_in}; systemctl daemon-reload; systemctl start {self.name}",
             check=True,
-            timeout=_RELOAD_TIMEOUT_SECONDS,
+            timeout=RELOAD_TIMEOUT_SECONDS,
         )
         self._board.run(
-            f"mkdir -p {path.rsplit('/', 1)[0]} && printf '{text}' > {path} && systemctl daemon-reload",
+            f"mkdir -p {self._drop_in_dir} && printf '{text}' > {self._drop_in} && systemctl daemon-reload",
             check=True,
-            timeout=_RELOAD_TIMEOUT_SECONDS,
+            timeout=RELOAD_TIMEOUT_SECONDS,
         )
+
+    def clear_runtime_changes(self) -> None:
+        """Remove the runtime drop-ins and the runtime mask a dead run left on the unit, and start it."""
+        self._board.run(
+            f'if [ -d {self._drop_in_dir} ] || [ "$(systemctl is-enabled {self.name})" = masked-runtime ]; then '
+            f"rm -rf {self._drop_in_dir}; systemctl unmask --runtime {self.name}; "
+            f"systemctl daemon-reload; systemctl start {self.name}; fi",
+            check=True,
+            timeout=RELOAD_TIMEOUT_SECONDS,
+        )
+
+    def main_pid(self, retry_for: float | None = None) -> str:
+        """Read the unit's main process id, as systemd reports it.
+
+        Args:
+            retry_for: how long to retry through a dropped session, as `Board.run` takes it; None reads once.
+
+        Returns:
+            The pid.
+        """
+        return self._board.run(f"systemctl show -p MainPID --value {self.name}", check=True, retry_for=retry_for).text

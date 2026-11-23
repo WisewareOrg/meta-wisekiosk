@@ -1,6 +1,8 @@
-"""The base of every target-suite test class, and the form of a parametrized case."""
+"""The base of every target-suite test class, the form of a parametrized case, and the replay mark."""
 
-from collections.abc import Collection
+import functools
+from collections.abc import Callable, Collection
+from pathlib import Path
 
 import pytest
 from board import Board
@@ -22,6 +24,22 @@ class BoardTest:
 
     board: Board
     record: Record
+
+
+def replaying(recording: Path) -> Callable[[Callable], Callable]:
+    """Mark a test to replay `recording` through wisebench's `proxy` fixture, which its board reaches on demand.
+
+    Args:
+        recording: the replay set's directory, holding `flows.har` and `config.json`.
+
+    Returns:
+        What marks the test.
+    """
+    marks = (
+        pytest.mark.usefixtures("proxy"),
+        pytest.mark.parametrize("proxy", [str(recording / "flows.har")], indirect=True, ids=[recording.name]),
+    )
+    return lambda test: functools.reduce(lambda marked, mark: mark(marked), marks, test)
 
 
 def case(requirement: str, *values: object, marks: Collection[pytest.MarkDecorator] = ()) -> object:
