@@ -20,7 +20,6 @@ from board.part import Part, invalid_if
 
 if TYPE_CHECKING:
     from candidate_bundles import CandidateBundles
-    from record import Record
     from refused_offers import Offer, RefusedOffers
 
 
@@ -252,88 +251,6 @@ class Updates(Part):
         self._board.run(f"printf %s {nonce} > {_NONCE_PATH}", check=True)
         self._board.cleanup.callback(self._board.run, f"rm -f {_NONCE_PATH}", check=True)
 
-    def assert_refused_then_install(self, bundle: pathlib.Path, nonce: str, record: "Record") -> dict:
-        """Offer `bundle` without the nonce and assert the refusal, then install it with the nonce.
-
-        Records the install's `install_rc`, `install_output` and `install_s`, then asserts it took
-        without a restart.
-
-        Args:
-            bundle: the test bundle on the host.
-            nonce: the run's nonce, which the bundle's install-check hook asks for.
-            record: the test's record.
-
-        Returns:
-            `next_boot_and_running_build()` as it read just before the install.
-        """
-        self._board.run(f"rm -f {_NONCE_PATH}", check=True)
-        before = self.next_boot_and_running_build()
-        returncode, output, _seconds = self.install_bundle(bundle, self.CANDIDATE_INSTALL_TIMEOUT_SECONDS)
-        assert returncode == 1, f"the bundle without the nonce returned {returncode}, not a refusal (1): {output}"
-        for reason in ("Bundle rejected", "test bundle: no run nonce"):
-            assert reason in output, f"refused, but not for the reason {reason!r}: {output}"
-        assert self.next_boot_and_running_build() == before, "the board changed when it refused the bundle"
-
-        self.allow_test_bundles(nonce)
-        before = self.next_boot_and_running_build()
-        returncode, output, seconds = self.install_bundle(bundle, self.CANDIDATE_INSTALL_TIMEOUT_SECONDS)
-        record(install_rc=returncode, install_output=output, install_s=seconds)
-        assert returncode == 0, f"the install returned {returncode}: {output}"
-        assert self.next_boot_and_running_build()["boot_id"] == before["boot_id"], (
-            "the board restarted during the install"
-        )
-        return before
-
-    def assert_falls_back_then_takes_candidate(
-        self, bundle: pathlib.Path, candidate: "CandidateBundles", count_boots: bool, record: "Record"
-    ) -> None:
-        """Install `bundle`, restart into it, and assert the board falls back, then takes the candidate.
-
-        Records the install (`assert_refused_then_install`), the update slot's `attempts`, and
-        `back_s`, the seconds from the restart until the board answers again on the slot it fell
-        back to.
-
-        Args:
-            bundle: the test bundle whose boots fail.
-            candidate: the candidate, reinstalled once the board has fallen back.
-            count_boots: also assert that the journal holds one new boot per failed attempt.
-            record: the test's record.
-        """
-        before = self.assert_refused_then_install(bundle, candidate.nonce, record)
-        target = ({"A", "B"} - {before["rauc_status"]["booted"]}).pop()
-        order, attempts_left = self.boot_order()
-        assert order[0] == target, f"the update's slot {target} does not lead BOOT_ORDER: {order}"
-        attempts = attempts_left[target]
-        record(attempts=attempts)
-        assert 0 < attempts <= 3, f"slot {target} has {attempts} attempts left, not 1 to 3"
-        boots_before = self.journal_boot_ids() if count_boots else None
-
-        started = self._board.restart_with("systemctl reboot", within=_FALLBACK_WAIT_SECONDS)
-        record(back_s=round(time.monotonic() - started, 1))
-
-        after = self.next_boot_and_running_build()
-        assert self._booted_slot(after["rauc_status"]) == self._booted_slot(before["rauc_status"]), (
-            "the board is not back on the previous slot and bundle"
-        )
-        assert after["commit"] == before["commit"], "the board is not back on the previous build"
-        order, attempts_left = self.boot_order()
-        assert order[0] == target, f"the update's slot {target} no longer leads BOOT_ORDER: {order}"
-        assert attempts_left[target] == 0, f"slot {target} has {attempts_left[target]} attempts left, not 0"
-        if count_boots:
-            # journalctl lists boot ids without the dashes /proc/sys/kernel/random/boot_id has
-            failed = self.journal_boot_ids() - boots_before - {after["boot_id"].replace("-", "")}
-            assert len(failed) == attempts, (
-                f"{len(failed)} failed boots in the journal, expected {attempts}: the update did not start "
-                "and fail to reach the network the way the test means"
-            )
-
-        returncode, output, _seconds = self.install_bundle(candidate.candidate, self.CANDIDATE_INSTALL_TIMEOUT_SECONDS)
-        assert returncode == 0, f"installing the candidate returned {returncode}: {output}"
-        self._board.restart_with("systemctl reboot")
-        _slot, booted_hash = self._booted_slot(self.next_boot_and_running_build()["rauc_status"])
-        assert booted_hash == candidate.hash, "the board is not on the candidate's bundle"
-        assert self.build_commit() == candidate.commit, "the board is not on the candidate's build"
-
     def return_to_candidate_after_test(self, candidate: "CandidateBundles") -> None:
         """When the test ends, put the board back on the candidate unless it runs it and will boot it next.
 
@@ -351,20 +268,48 @@ class Updates(Part):
         """
         return json.loads(self._board.run("rauc status --detailed --output-format=json", check=True).text)
 
-    def next_boot_and_running_build(self) -> dict:
-        """Read what the next boot and the running build are.
+    def running_bundle(self) -> str:
+        """Read the hash of the bundle the booted slot was installed from.
 
         Returns:
-            The raw `boot_variables` text, the parsed `rauc_status`, the `boot_id` and the `commit`.
+            The hash, as RAUC records it.
         """
-        return {
-            "boot_variables": self._board.run(_BOOT_VARIABLES_CMD, check=True).text,
-            "rauc_status": self.rauc_status(),
-            "boot_id": self._board.boot_id(),
-            "commit": self.build_commit(),
-        }
+        status = self.rauc_status()
+        booted = [slot for entry in status["slots"] for slot in entry.values() if slot["state"] == "booted"]
+        assert booted, f"no booted slot in rauc status: {status!r}"
+        return booted[0]["slot_status"]["bundle"]["hash"]
 
-    def journal_boot_ids(self) -> set[str]:
+    def install_and_fall_back(self, bundle: pathlib.Path, starts: bool) -> int:
+        """Install `bundle` over the air, restart into it, and wait for the board to fall back from it.
+
+        The board returns to the candidate when the test ends. The check is invalid if an update that
+        starts did not leave one boot in the journal for each failed attempt.
+
+        Args:
+            bundle: one of this run's test bundles, whose boots fail.
+            starts: whether the update starts before it fails, so each attempt is a boot the journal keeps.
+
+        Returns:
+            How many attempts to start the update failed, as its slot's attempts left count them down.
+        """
+        self.return_to_candidate_after_test(self.bundles)
+        self.allow_test_bundles(self.bundles.nonce)
+        update_slot = ({"A", "B"} - {self.rauc_status()["booted"]}).pop()
+        returncode, output, _seconds = self.install_bundle(bundle, self.CANDIDATE_INSTALL_TIMEOUT_SECONDS)
+        assert returncode == 0, f"the install returned {returncode}: {output}"
+        _order, attempts = self.boot_order()
+        boots = self._journal_boot_ids()
+        self._board.restart_with("systemctl reboot", within=_FALLBACK_WAIT_SECONDS)
+        _order, attempts_left = self.boot_order()
+        failed = attempts[update_slot] - attempts_left[update_slot]
+        if starts:
+            with invalid_if("the update did not start once for each failed attempt"):
+                # journalctl lists boot ids without the dashes /proc/sys/kernel/random/boot_id has
+                started = self._journal_boot_ids() - boots - {self._board.boot_id().replace("-", "")}
+                assert len(started) == failed, f"{len(started)} boots for {failed} attempts"
+        return failed
+
+    def _journal_boot_ids(self) -> set[str]:
         """Read the boot ids in the board's journal.
 
         Returns:
@@ -413,30 +358,9 @@ class Updates(Part):
         Args:
             candidate: the candidate the board started the test on.
         """
-        status = self.next_boot_and_running_build()["rauc_status"]
-        _slot, booted_hash = self._booted_slot(status)
         order, _attempts_left = self.boot_order()
-        if booted_hash == candidate.hash and order[0] == status["booted"]:
+        if self.running_bundle() == candidate.hash and order[0] == self.rauc_status()["booted"]:
             return
         returncode, output, _seconds = self.install_bundle(candidate.candidate, self.CANDIDATE_INSTALL_TIMEOUT_SECONDS)
         assert returncode == 0, f"reinstalling the candidate returned {returncode}: {output}"
         self._board.restart_with("systemctl reboot")
-
-    @staticmethod
-    def _booted_slot(status: dict) -> tuple[str, str]:
-        """The booted slot's name and the hash of the bundle it was installed from.
-
-        Args:
-            status: RAUC's detailed status.
-
-        Returns:
-            The slot's name and the bundle hash.
-
-        Raises:
-            AssertionError: no slot is listed as booted.
-        """
-        for entry in status["slots"]:
-            for name, slot in entry.items():
-                if slot["state"] == "booted":
-                    return name, slot["slot_status"]["bundle"]["hash"]
-        raise AssertionError(f"no booted slot in rauc status: {status!r}")

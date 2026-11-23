@@ -4,40 +4,46 @@ The bundles are copies of the candidate, edited and re-signed by the operator ke
 install-check hook that refuses unless this run's nonce is in the board's `/tmp`.
 """
 
+import operator
+from collections.abc import Callable
+
 import pytest
-from board_test import BoardTest
-from candidate_bundles import CandidateBundles
+from board import Board
+from board_test import BoardTest, case
 
 
 @pytest.mark.sends_update
 class TestImageUpdate(BoardTest):
     """An update that cannot start, or cannot join the network, is fallen back from."""
 
-    def test_cannot_start(self, candidate_bundles: CandidateBundles) -> None:
-        """TST023 cannot start: install an update that cannot start; the board falls back, then takes a valid update.
+    @pytest.mark.parametrize(
+        ("requirement", "update", "starts"),
+        [
+            case("TST023", operator.attrgetter("updates.bundles.cannot_start"), False),
+            case("TST024", operator.attrgetter("updates.bundles.no_network"), True),
+        ],
+    )
+    def test_falls_back(self, requirement: str, update: Callable[[Board], object], starts: bool) -> None:
+        """Install an update that fails; the board falls back to its previous build, then takes a valid update.
 
-        The fallback alone does not show why the update could not start; update_bundles.sh's
-        `require_gone` checks are what show the bundle lacks init and sh.
-
-        Args:
-            candidate_bundles: this run's test bundles, and the candidate they were made from.
-        """
-        self.board.updates.return_to_candidate_after_test(candidate_bundles)
-        self.record(requirement="TST023")
-
-        self.board.updates.assert_falls_back_then_takes_candidate(
-            candidate_bundles.cannot_start, candidate_bundles, count_boots=False, record=self.record
-        )
-
-    def test_cannot_reach_the_network(self, candidate_bundles: CandidateBundles) -> None:
-        """TST024 cannot reach the network: install an update that starts but cannot join; the board falls back.
+        That the cannot-start update could not start is shown when it is built: update_bundles.sh's
+        `require_gone` checks that it lacks init and sh.
 
         Args:
-            candidate_bundles: this run's test bundles, and the candidate they were made from.
+            requirement: the item.
+            update: the board's update the item installs.
+            starts: whether the update starts before it fails.
         """
-        self.board.updates.return_to_candidate_after_test(candidate_bundles)
-        self.record(requirement="TST024")
+        self.record(requirement=requirement)
+        bundles = self.board.updates.bundles
+        previous = self.board.updates.running_bundle()
 
-        self.board.updates.assert_falls_back_then_takes_candidate(
-            candidate_bundles.no_network, candidate_bundles, count_boots=True, record=self.record
-        )
+        failed_attempts = self.board.updates.install_and_fall_back(update(self.board), starts=starts)
+        fell_back_to = self.board.updates.running_bundle()
+        self.board.updates.install_and_restart(bundles.candidate)
+        took = self.board.updates.running_bundle()
+
+        self.record(failed_attempts=failed_attempts, fell_back_to=fell_back_to, took=took)
+        assert failed_attempts <= 3, f"{failed_attempts} failed attempts to start the update; the bound is 3"
+        assert fell_back_to == previous, f"the board runs bundle {fell_back_to}, not its previous {previous}"
+        assert took == bundles.hash, f"the board runs bundle {took}, not the valid update {bundles.hash}"
