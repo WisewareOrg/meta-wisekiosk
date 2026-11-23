@@ -20,7 +20,7 @@ class TestImageUpdate(BoardTest):
     @pytest.mark.parametrize(
         ("requirement", "update", "starts"),
         [
-            case("TST023", operator.attrgetter("updates.bundles.candidate"), False),
+            case("TST023", operator.attrgetter("updates.bundles.cannot_start"), False),
             case("TST024", operator.attrgetter("updates.bundles.no_network"), True),
         ],
     )
