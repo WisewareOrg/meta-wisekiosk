@@ -108,8 +108,8 @@ class App(Part):
     def freeze_page(self) -> float:
         """Freeze the page without ending the browser: stop its web processes, until the test ends.
 
-        The check is invalid if the panel was not changing before the freeze, or did not stand still
-        after it.
+        The check is invalid if the panel was not changing before the freeze, the browser had no web
+        process to stop, or the panel did not stand still after the freeze.
 
         Returns:
             The host `time.monotonic()` just before the freeze.
@@ -117,7 +117,8 @@ class App(Part):
         screen = self._board.screen
         with invalid_if("the panel was not changing before the freeze"):
             self._board.seconds_until(screen.is_changing, reads=3)
-        frozen_at = self._web_processes.stop()
+        with invalid_if("the freeze did not take: no web process of the browser to stop"):
+            frozen_at = self._web_processes.stop()
         with invalid_if("the panel did not stand still after the freeze"):
             self._board.seconds_until(screen.stands_still)
         return frozen_at
@@ -129,7 +130,7 @@ class App(Part):
         a page without it; the check is invalid if it did not.
 
         Returns:
-            The host `time.monotonic()` at the start of the read that first saw the backend answering again.
+            The host `time.monotonic()` at the end of the read that first saw the backend answering again.
         """
         self.backend.drop_in(f"[Service]\\nRestartSec={_BACKEND_HOLD_SECONDS}\\n")
         self.backend.kill()
