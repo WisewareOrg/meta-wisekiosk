@@ -300,16 +300,19 @@ class Updates(Part):
         """Offer a test bundle without this run's nonce, then put the nonce in the board's `/tmp` until the test ends.
 
         A test bundle is signed by the operator key and carries the fleet's `compatible`; its install-check
-        hook, which refuses without the nonce, is what keeps a copy from installing on any other board. An
-        assertion fails the test if the board does not refuse the bundle for that reason.
+        hook, which refuses without the nonce, is what keeps a copy from installing on any other board. The
+        check is invalid if the board does not refuse the bundle for that reason. The offer gets the install
+        timeout, not an offer's, so a bundle the hook wrongly lets through installs whole and the test's
+        return to the candidate restores the board.
 
         Args:
             bundle: one of this run's test bundles.
         """
         self._board.run(f"rm -f {_NONCE_PATH}", check=True)
         returncode, output, _seconds = self.install_bundle(bundle, self.CANDIDATE_INSTALL_TIMEOUT_SECONDS)
-        assert returncode == 1, f"a test bundle without the run's nonce returned {returncode}, not a refusal: {output}"
-        assert _NO_NONCE in output, f"a test bundle without the run's nonce was refused, but not by its hook: {output}"
+        with invalid_if("a test bundle's install-check hook did not refuse it without the run's nonce"):
+            assert returncode == 1, f"the offer returned {returncode}, not a refusal: {output}"
+            assert _NO_NONCE in output, f"refused, but not by the hook: {output}"
         self._board.run(f"printf %s {self.bundles.nonce} > {_NONCE_PATH}", check=True)
         self._board.cleanup.callback(self._board.run, f"rm -f {_NONCE_PATH}", check=True)
 
