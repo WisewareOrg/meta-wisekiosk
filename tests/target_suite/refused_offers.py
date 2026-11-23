@@ -12,18 +12,28 @@ from container_dir import ContainerDir
 _FOREIGN_KEY_CN = "Refused update test key"
 
 
-class RefusedOffers(NamedTuple):
-    """The two refused bundles, and the `compatible` the other-hardware one carries.
+class Offer(NamedTuple):
+    """An image update the board must refuse, and what its refusal must name.
 
     Attributes:
-        foreign_signature: a bundle signed by a key no operator holds.
-        other_hardware: an operator-signed bundle for other hardware.
-        other_hardware_compatible: the `compatible` the other-hardware bundle carries.
+        bundle: the bundle on the host.
+        reasons: text the refusal's output must carry, each.
     """
 
-    foreign_signature: Path
-    other_hardware: Path
-    other_hardware_compatible: str
+    bundle: Path
+    reasons: tuple[str, ...]
+
+
+class RefusedOffers(NamedTuple):
+    """The two updates the board must refuse.
+
+    Attributes:
+        foreign_signature: signed by a key no operator holds.
+        other_hardware: operator-signed, but for other hardware.
+    """
+
+    foreign_signature: Offer
+    other_hardware: Offer
 
     @classmethod
     def build(cls, cleanup: contextlib.ExitStack, board_compatible: str) -> "RefusedOffers":
@@ -50,7 +60,6 @@ class RefusedOffers(NamedTuple):
         manifest = configparser.ConfigParser()
         manifest.read(work.path / "other-hardware" / "manifest.raucm")
         return cls(
-            work.path / "foreign-signature.raucb",
-            work.path / "other-hardware.raucb",
-            manifest["update"]["compatible"],
+            Offer(work.path / "foreign-signature.raucb", ("signature verification failed", "self-signed certificate")),
+            Offer(work.path / "other-hardware.raucb", ("Compatible mismatch", manifest["update"]["compatible"])),
         )

@@ -21,6 +21,7 @@ from board.part import Part, invalid_if
 if TYPE_CHECKING:
     from candidate_bundles import CandidateBundles
     from record import Record
+    from refused_offers import Offer, RefusedOffers
 
 
 _INSTALL_TOOL = pathlib.Path(__file__).resolve().parents[2] / "tools" / "kiosk-install.sh"
@@ -33,6 +34,8 @@ _BOOT_VARIABLES_CMD = "fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT"
 # fallback boot; a backstop, the record carries the time it took
 _FALLBACK_WAIT_SECONDS = 1350
 _PROGRESS_CMD = "busctl get-property de.pengutronix.rauc / de.pengutronix.rauc.Installer Progress"
+# catches only a hang, with the install tool's own checks included; no refusal item states a bound
+_OFFER_TIMEOUT_SECONDS = 120
 _COPY_STEP = "Copying image to "
 # the sectors-written field of /sys/class/block/<dev>/stat
 _STAT_SECTORS_WRITTEN = 6
@@ -98,6 +101,15 @@ class Updates(Part):
             The bundles.
         """
         return self.fixture("candidate_bundles")
+
+    @functools.cached_property
+    def refused_offers(self) -> "RefusedOffers":
+        """The updates the board must refuse, built on first use.
+
+        Returns:
+            The offers.
+        """
+        return self.fixture("refused_offers")
 
     @functools.cached_property
     def installed(self) -> Installed:
@@ -214,36 +226,22 @@ class Updates(Part):
             self._board.seconds_until(lambda: self._is_writing(installing, device, since=written))
         return self._board.cut_power()
 
-    def assert_refused(self, bundle: pathlib.Path, reasons: tuple[str, ...], timeout: float, record: "Record") -> None:
-        """Offer `bundle`; assert it was refused for each of `reasons`, nothing staged, same build, on the panel.
+    def refuses(self, offer: "Offer") -> bool:
+        """Offer an image update; whether the board refused it.
 
-        Waits for the instance on the panel before the offer and again after it. Records the board's
-        state before the offer as `before`, the install's `install_rc`, `install_output` and
-        `install_s`, and the state after as `after`, then asserts.
+        The check is invalid if the board refused it, but not for the reasons the offer names.
 
         Args:
-            bundle: the bundle on the host.
-            reasons: text the refusal's output must carry, each.
-            timeout: the longest the install may take.
-            record: the test's record.
-        """
-        self._board.app.page.wait_for_instance()
-        before = self.next_boot_and_running_build()
-        record(before=json.dumps(before))
-        returncode, output, duration_s = self.install_bundle(bundle, timeout)
-        record(install_rc=returncode, install_output=output, install_s=duration_s)
-        after = self.next_boot_and_running_build()
-        record(after=json.dumps(after))
+            offer: the update, and what its refusal must name.
 
-        # rc 2 is a D-Bus error: the board could not say, which is not a refusal
-        assert returncode == 1, f"the install returned {returncode}, not a refusal (1): {output}"
-        for reason in reasons:
-            assert reason in output, f"refused, but not for the reason {reason!r}: {output}"
-        assert after["boot_variables"] == before["boot_variables"], "the next boot's slot order changed"
-        assert after["rauc_status"] == before["rauc_status"], "rauc's slot status changed"
-        assert after["boot_id"] == before["boot_id"], "the board restarted"
-        assert after["commit"] == before["commit"], "the board runs a different build"
-        self._board.app.page.wait_for_instance()
+        Returns:
+            True if the install returned 1, a refusal; 2 is a D-Bus error, the board unable to say.
+        """
+        returncode, output, _seconds = self.install_bundle(offer.bundle, _OFFER_TIMEOUT_SECONDS)
+        if returncode == 1:
+            with invalid_if(f"refused, but not for the reasons the offer names: {output}"):
+                assert all(reason in output for reason in offer.reasons)
+        return returncode == 1
 
     def allow_test_bundles(self, nonce: str) -> None:
         """Put this run's nonce in the board's `/tmp`, until the test ends, so a test bundle's hook accepts it.

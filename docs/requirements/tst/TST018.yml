@@ -11,11 +11,11 @@ rationale: |
   panel. The appliance has to refuse it rather than leave the viewer's panel to whatever it does.
 ref: ''
 references:
-- keyword: def test_another_hardware_type
+- keyword: def test_refuses_an_update
   path: tests/target_suite/test_refused_updates.py
-  sha: bcba335da72bbfa072b3dd2faf7b2253647f02a8a7e708e55d18c427c5c2ec3d
+  sha: 06df568ac57f307cc977fbc9ce0b4e5ad85c2533b8841afaca2154473c033d26
   type: file
-reviewed: qwEbZd1MQ5RJ_45K7pkmX8cznOuXVwVRGkrTrjwtY9A=
+reviewed: IzytCpF6gXUAtrZEkEhBYbduSoImPXMCLvkzBJbjmYQ=
 status: proposed
 text: |
   Offer the appliance an image update signed by one of its operators but built for a different kind

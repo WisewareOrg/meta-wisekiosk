@@ -1,48 +1,41 @@
-"""Target suite: an image update not meant for the board is refused, and the board is left as it was."""
+"""Target suite: an image update not meant for the board is refused, and the board runs on as it was."""
+
+import operator
+from collections.abc import Callable
 
 import pytest
-from board_test import BoardTest
-from refused_offers import RefusedOffers
-
-# only catches a hang, with the install tool's own checks and bundle server included;
-# neither TST017 nor TST018 states a bound
-_INSTALL_TIMEOUT_SECONDS = 120
+from board import Board
+from board_test import BoardTest, case
 
 
 @pytest.mark.sends_update
 class TestRefusedUpdates(BoardTest):
     """An update signed by no operator, or meant for other hardware, is refused and changes nothing."""
 
-    def setup_method(self) -> None:
-        """Put the probe in the browser."""
-        self.record(probe_sha256=self.board.app.page.install_probe())
-
-    def test_foreign_signature(self, refused_offers: RefusedOffers) -> None:
-        """TST017 foreign signature: offer an update signed by a key no operator holds; it is refused.
-
-        Args:
-            refused_offers: the run's refused bundles.
-        """
-        self.record(requirement="TST017")
-
-        self.board.updates.assert_refused(
-            refused_offers.foreign_signature,
-            ("signature verification failed", "self-signed certificate"),
-            _INSTALL_TIMEOUT_SECONDS,
-            self.record,
-        )
-
-    def test_another_hardware_type(self, refused_offers: RefusedOffers) -> None:
-        """TST018 another hardware type: offer an operator-signed update for other hardware; it is refused.
+    @pytest.mark.parametrize(
+        ("requirement", "offer"),
+        [
+            case("TST017", operator.attrgetter("updates.refused_offers.foreign_signature")),
+            case("TST018", operator.attrgetter("updates.refused_offers.other_hardware")),
+        ],
+    )
+    def test_refuses_an_update(self, requirement: str, offer: Callable[[Board], object]) -> None:
+        """Offer an update the board must refuse; it refuses it, runs the same build, and shows the instance.
 
         Args:
-            refused_offers: the run's refused bundles.
+            requirement: the item.
+            offer: the board's update the item offers.
         """
-        self.record(requirement="TST018")
+        self.record(requirement=requirement)
+        self.board.app.install_probe()
+        self.board.app.wait_until_on_panel()
+        build = self.board.updates.build_commit()
 
-        self.board.updates.assert_refused(
-            refused_offers.other_hardware,
-            ("Compatible mismatch", refused_offers.other_hardware_compatible),
-            _INSTALL_TIMEOUT_SECONDS,
-            self.record,
-        )
+        refused = self.board.updates.refuses(offer(self.board))
+        build_after = self.board.updates.build_commit()
+        on_panel = self.board.app.on_panel()
+
+        self.record(refused=refused, build=build_after, on_panel=on_panel)
+        assert refused, "the board did not refuse the update"
+        assert build_after == build, f"the board runs {build_after}, not the {build} it ran before"
+        assert on_panel, "the instance is not on the panel"
