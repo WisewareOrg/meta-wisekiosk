@@ -12,6 +12,7 @@ class TestTimezone(BoardTest):
     def test_timezone_set_over_the_air(self) -> None:
         """TST026: set a zone unlike the board's current one; its local time is then in that zone."""
         self.record(requirement="TST026")
+        self.board.system.overlay_etc()
         current = self.board.system.utc_offset()
         zone, offset = next((zone, offset) for zone, offset in ZONES.items() if offset != current)
 

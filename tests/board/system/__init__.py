@@ -90,15 +90,12 @@ class System(Part):
         """
         return self._board.run("date +%z", check=True).text
 
-    def set_timezone(self, zone: str) -> None:
-        """Set the time zone over the air with `timedatectl`, into an overlay on /etc, until the test ends.
+    def overlay_etc(self) -> None:
+        """Overlay /etc, so a time zone set lands in /run and never writes the rootfs, until the test ends.
 
-        The overlay's upper layer is in /run, so the set never writes the rootfs; what a dead run left
-        of it is cleared first. timedated is stopped before the mount, so `timedatectl` starts it inside
-        the overlay. When the test ends, /etc is unmounted, and asserted back as it was.
-
-        Args:
-            zone: the zone's name, e.g. `Asia/Tokyo`.
+        What a dead run left of the overlay is cleared first. timedated is stopped before the mount, so
+        the next `timedatectl` starts it inside the overlay. When the test ends, /etc is unmounted, and
+        asserted back as it was.
         """
         board = self._board
         board.run("while findmnt -n /etc >/dev/null; do umount -l /etc || exit 1; done", check=True)
@@ -113,7 +110,14 @@ class System(Part):
             check=True,
         )
         board.cleanup.callback(self._unmount_etc, localtime)
-        board.run(f"timedatectl set-timezone {zone}", check=True)
+
+    def set_timezone(self, zone: str) -> None:
+        """Set the time zone over the air, with `timedatectl`.
+
+        Args:
+            zone: the zone's name, e.g. `Asia/Tokyo`.
+        """
+        self._board.run(f"timedatectl set-timezone {zone}", check=True)
 
     def _unmount_etc(self, localtime: str) -> None:
         """Stop timedated and unmount the /etc overlay; assert it is gone and `/etc/localtime` is as it was.
