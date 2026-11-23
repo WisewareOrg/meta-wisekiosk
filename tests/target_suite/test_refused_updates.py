@@ -21,7 +21,7 @@ class TestRefusedUpdates(BoardTest):
         ],
     )
     def test_refuses_an_update(self, requirement: str, offer: Callable[[Board], Offer]) -> None:
-        """Offer an update the board must refuse; it refuses it, runs the same build, and shows the instance.
+        """Offer an update the board must refuse; it refuses it, will restart into its slot, and shows the instance.
 
         Args:
             requirement: the item.
@@ -30,16 +30,16 @@ class TestRefusedUpdates(BoardTest):
         self.record(requirement=requirement)
         self.board.app.install_probe()
         self.board.app.wait_until_on_panel()
-        build_before = self.board.updates.build_commit()
+        booted = self.board.updates.rauc_status()["booted"]
 
         offered = self.board.updates.offer(offer(self.board))
-        build_after = self.board.updates.build_commit()
+        next_boot = self.board.updates.next_boot_slot()
         on_panel = self.board.app.on_panel()
 
-        self.record(install_rc=offered.returncode, build_after=build_after, on_panel=on_panel)
+        self.record(install_rc=offered.returncode, booted=booted, next_boot=next_boot, on_panel=on_panel)
         assert offered.returncode == 1, (
             f"the install returned {offered.returncode}, not a refusal (1): {offered.output}"
         )
-        assert build_after == build_before, f"the board runs {build_after}, not the {build_before} it ran before"
+        assert next_boot == booted, f"the next restart boots slot {next_boot}, not the booted {booted}"
         assert on_panel, f"the instance is not on the panel; the probe reports {self.board.app.report()!r}"
         offered.confirm_refused_for_its_reasons()

@@ -172,6 +172,15 @@ class Updates(Part):
         attempts_left = {name: int(variables[f"BOOT_{name}_LEFT"]) for name in ("A", "B")}
         return variables["BOOT_ORDER"].split(), attempts_left
 
+    def next_boot_slot(self) -> str | None:
+        """Read which slot the bootloader boots at the next restart: the first in BOOT_ORDER with attempts left.
+
+        Returns:
+            Its bootname, or None if no slot has attempts left.
+        """
+        order, attempts_left = self.boot_order()
+        return next((slot for slot in order if attempts_left[slot] > 0), None)
+
     def build_commit(self) -> str:
         """Read the meta-wisekiosk commit the board's image was built from.
 
