@@ -29,10 +29,10 @@ _NONCE_PATH = "/tmp/kiosk-update-nonce"
 # prints BOOT_ORDER and each slot's BOOT_x_LEFT as name=value lines
 _BOOT_VARIABLES_CMD = "fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT"
 # 3 * (180 s boot wait + 180 s netcheck TimeoutStartSec + 30 s RebootWatchdogSec) + 180 s for the
-# fallback boot; a backstop, the record carries the time it took
+# fallback boot
 _FALLBACK_WAIT_SECONDS = 1350
 _PROGRESS_CMD = "busctl get-property de.pengutronix.rauc / de.pengutronix.rauc.Installer Progress"
-# catches only a hang, with the install tool's own checks included; no refusal item states a bound
+# a hang cutoff, the install tool's own checks included
 _OFFER_TIMEOUT_SECONDS = 120
 _COPY_STEP = "Copying image to "
 # the sectors-written field of /sys/class/block/<dev>/stat

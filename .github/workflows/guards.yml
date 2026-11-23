@@ -30,9 +30,7 @@ jobs:
           sudo tar -xzf /tmp/gitleaks.tgz -C /usr/local/bin gitleaks
           gitleaks version
 
-      # uv on PATH serves two readers: wise-ci's check-reqs action, and the
-      # `uv sync` below, which builds the repo .venv from uv.lock. ci-guards.sh
-      # takes its python3 (PyYAML) and its ruff from that .venv.
+      # uv: the check-reqs action, and `uv sync`, which builds the .venv ci-guards.sh uses
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.13.9"

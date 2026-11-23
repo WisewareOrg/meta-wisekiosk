@@ -56,7 +56,7 @@ class RefusedOffers(NamedTuple):
             check=True,
         )
         work.run_script("refused_bundles.sh", board_compatible)
-        # refused_bundles.sh is the one owner of the other-hardware `compatible`
+        # the `compatible` refused_bundles.sh wrote into the other-hardware manifest
         manifest = configparser.ConfigParser()
         manifest.read(work.path / "other-hardware" / "manifest.raucm")
         return cls(

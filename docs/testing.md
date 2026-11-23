@@ -35,15 +35,14 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   and `systemctl is-enabled`, both `--root=`-pointed at it, against every unit this layer's recipes
   ship, so a unit that would strand the board never reaches it either.
 - `tests/target_suite` — one autouse fixture (`conftest.py`) switches on `install_candidate`
-  (`tests/conftest.py`'s shared setup). It clears what a dead run left in `/run`, then, when there is
-  a candidate, reads the board's `config.json` hash, writes a marker to the board's log, installs the
-  candidate through `just kiosk-ota`, restarts the board (`Board.restart`), and reads the hash again;
-  what it found is the `Installed` that TST016<!-- Running the image update's build -->,
+  (`tests/conftest.py`'s shared setup, whose docstring gives its steps). It installs the candidate
+  through `just kiosk-ota` when there is one, and what it found before and after is the `Installed`
+  that TST016<!-- Running the image update's build -->,
   TST019<!-- Configuration held across an image update --> and
-  TST028<!-- Log kept across an image update --> judge, as `board.updates.installed`. It then reads
-  the board's `/etc/buildinfo` and prints its meta-wisekiosk commit into the run's own record on
-  every run — so the record carries the board's commit even under a `-k`-filtered run where
-  TST016<!-- Running the image update's build --> itself would not execute. The commit under test
+  TST028<!-- Log kept across an image update --> judge, as `board.updates.installed`. It prints the
+  board's meta-wisekiosk commit into the run's own record on every run — so the record carries the
+  board's commit even under a `-k`-filtered run where TST016<!-- Running the image update's build -->
+  itself would not execute. The commit under test
   comes from the runner's own `bench_candidate` fixture, never an environment variable — `None`
   outside `bench test`/`bench run`, in which case the setup fixture skips only its install, and the
   three tests that judge it skip.
@@ -161,25 +160,19 @@ frame stalls.
 **A test holds what it measured before the stimulus,** in a name that says so, and compares the
 after against it.
 
-**The board is a tree of parts** (`tests/board/`). `Board` itself is the connection: one
-`run(cmd, check=, timeout=, retry_for=)`, file and port transfer, the undo-registering primitives
-(`bind_over`, `run_later`, `unmount_if_mounted`), the restarts, the crash and the power cut, the
-waits, and `fixture`. Everything else belongs to a part, each a subclass of `Part` built by
-`Board.__init__` as `<Part>(self)`: `board.app` (its `backend`, `browser` and `config`),
-`board.screen`, `board.console`, `board.system` (its `memory`), `board.network` (its `outage`) and
-`board.updates`. Generic concepts are their own classes: a systemd `Unit` (`tests/board/unit.py`)
-and a `Process` by name (`tests/board/process.py`). A part registers its undos on `board.cleanup`
-and reaches a sibling only through the board's public path (ruff's SLF001 gates that). A part never
-holds the record: every method returns what it measured, and the test records it. A recorded read
-returns its raw text, with the parse where a record needs it. A named result type exists only where
-the value is passed whole, carries methods, or has neighbouring fields of one type that a reorder
-could silently swap. `tests/board/` imports nothing from `tests/target_suite/` at run time.
+**The board is a tree of parts** (`tests/board/`). `Board` itself is the connection, the restarts,
+the faults on the whole board, the waits, and the way to a run's fixtures; everything else belongs to
+a part, a subclass of `Part` that `Board.__init__` builds. Their class docstrings say what each one
+holds. A part registers its undos on `board.cleanup` and reaches a sibling only through the board's
+public path (ruff's SLF001 gates that). A part never holds the record: every method returns what it
+measured, and the test records it. A recorded read returns its raw text, with the parse where a
+record needs it. A named result type exists only where the value is passed whole, carries methods,
+or has neighbouring fields of one type that a reorder could silently swap. `tests/board/` imports
+nothing from `tests/target_suite/` at run time.
 
-**Waits are tenacity polls.** `board.seconds_until(<read>, since=, reads=)` reads about once a second
-until the read holds on `reads` reads in a row, counts each read at its end, and fails the test,
-naming the read, once `Board.GIVE_UP_SECONDS` have passed; `board.longest_lapse_s(<read>, over=)`
-reads for a span and returns the longest stretch it did not hold. A read that raises one of
-`Board.ERRORS` does not hold. A polled read keeps its last good result for its caller, as
+**Waits are tenacity polls,** in `Board.seconds_until` and `Board.longest_lapse_s`, which count a read
+at its end, take a read that raises one of `Board.ERRORS` as one that does not hold, and fail the
+test once the wait gives up. A polled read keeps its last good result for its caller, as
 `board.app.last_sample` keeps the probe's last report.
 
 **Teardown and record order.** For each test, in this order: the hook builds the Board and the

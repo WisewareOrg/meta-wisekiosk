@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Repository invariants. CI and the pre-commit hook run this same script, so the
 # guard set cannot diverge. A guard may still fail closed locally where the host
-# lacks a prerequisite CI installs -- guard 4 needs PyYAML (see the README
-# prerequisites) -- a missing prerequisite, not a divergent verdict on the tree.
+# lacks a prerequisite CI installs -- guard 4 needs PyYAML, guard 22 the .venv's
+# lint tools (see the README prerequisites) -- a missing prerequisite, not a
+# divergent verdict on the tree.
 #
 # These are deliberately dependency-light: no bitbake, no network. A Yocto build
 # is hours on this tree and cannot gate a commit; what CAN gate a commit is
@@ -16,8 +17,8 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 # The interpreter the guards run. The Bash tool and the git hooks source no
 # startup file, so a repo .venv is never on PATH and a bare `python3` resolves
 # to a host one that has no PyYAML -- which failed guard 4 on a tree whose
-# checkout could parse YAML perfectly well. Preferred, not required: CI has no
-# .venv and installs PyYAML into its own python3, and the fallback is that.
+# checkout could parse YAML perfectly well. Preferred, not required, for every
+# guard but 22, whose lint tools come only from the .venv.
 PY=python3
 if [ -x ".venv/bin/python3" ]; then
     PY="$PWD/.venv/bin/python3"

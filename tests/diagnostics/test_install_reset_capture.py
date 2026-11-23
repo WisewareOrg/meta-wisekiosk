@@ -44,7 +44,7 @@ def test_install_reset_capture(board: Board) -> None:
         print(line, end="")
         lines.append(line.rstrip("\n"))
         if not seeded and RAUC_TAG in line and SLOT_WRITE in line:
-            # its own ssh, not the SSHDriver: the crash takes the connection down with it
+            # its own ssh, apart from the SSHDriver
             subprocess.Popen(
                 [*board.fresh_ssh_argv(*Board.FAULT_SSH_OPTIONS), SEED],
                 stdout=subprocess.DEVNULL,
