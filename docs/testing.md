@@ -58,7 +58,8 @@ the bench host's environment file names. The refused-update tests' bundles and e
 under `build/`. The image-update tests' bundles are built in the host's `/tmp`, which
 `tools/kas-run.sh` mounts through `KAS_RUN_TMP_DIR`: they are signed by the operator key and carry
 the fleet's `compatible`, so they are kept only in the host's tmpfs, never in the build tree's
-deploy output (#252 image update behaviour).
+deploy output (#252 image update behaviour). Before installing one, `Updates.allow_test_bundle`
+confirms the board refuses it without the run's nonce.
 
 Every install the target suite makes goes through [`tools/kiosk-install.sh`](../tools/kiosk-install.sh),
 so the bench host needs Docker, a free port 80, and a board that reaches the host's port 80 at the

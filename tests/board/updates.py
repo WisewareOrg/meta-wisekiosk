@@ -26,6 +26,8 @@ _INSTALL_TOOL = pathlib.Path(__file__).resolve().parents[2] / "tools" / "kiosk-i
 # how long the install tool may take to clean up after a SIGTERM
 _CLEANUP_SECONDS = 120
 _NONCE_PATH = "/tmp/kiosk-update-nonce"
+# what a test bundle's install-check hook prints when it refuses (update_bundles.sh)
+_NO_NONCE = "test bundle: no run nonce"
 # prints BOOT_ORDER and each slot's BOOT_x_LEFT as name=value lines
 _BOOT_VARIABLES_CMD = "fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT"
 # 3 * (180 s boot wait + 180 s netcheck TimeoutStartSec + 30 s RebootWatchdogSec) + 180 s for the
@@ -233,13 +235,14 @@ class Updates(Part):
         The board returns to the candidate when the test ends.
 
         Args:
-            bundle: one of this run's test bundles.
+            bundle: one of this run's test bundles, or the candidate's own.
 
         Returns:
             How the install ended, the slot booted before and after, and when the restart began.
         """
         self.return_to_candidate_after_test(self.bundles)
-        self.allow_test_bundles(self.bundles.nonce)
+        if bundle != self.bundles.candidate:
+            self.allow_test_bundle(bundle)
         booted_before = self.rauc_status()["booted"]
         returncode, output, _seconds = self.install_bundle(bundle, self.CANDIDATE_INSTALL_TIMEOUT_SECONDS)
         if returncode != 0:
@@ -263,7 +266,7 @@ class Updates(Part):
             The host `time.monotonic()` at which power began to return.
         """
         self.return_to_candidate_after_test(self.bundles)
-        self.allow_test_bundles(self.bundles.nonce)
+        self.allow_test_bundle(bundle)
         status = self.rauc_status()
         others = [slot["device"] for entry in status["slots"] for slot in entry.values() if slot["state"] != "booted"]
         assert others, f"no slot other than the booted one in rauc status: {status!r}"
@@ -293,13 +296,21 @@ class Updates(Part):
         returncode, output, _seconds = self.install_bundle(offer.bundle, _OFFER_TIMEOUT_SECONDS)
         return Offered(returncode, output, offer.reasons)
 
-    def allow_test_bundles(self, nonce: str) -> None:
-        """Put this run's nonce in the board's `/tmp`, until the test ends, so a test bundle's hook accepts it.
+    def allow_test_bundle(self, bundle: pathlib.Path) -> None:
+        """Offer a test bundle without this run's nonce, then put the nonce in the board's `/tmp` until the test ends.
+
+        A test bundle is signed by the operator key and carries the fleet's `compatible`; its install-check
+        hook, which refuses without the nonce, is what keeps a copy from installing on any other board. An
+        assertion fails the test if the board does not refuse the bundle for that reason.
 
         Args:
-            nonce: the run's nonce.
+            bundle: one of this run's test bundles.
         """
-        self._board.run(f"printf %s {nonce} > {_NONCE_PATH}", check=True)
+        self._board.run(f"rm -f {_NONCE_PATH}", check=True)
+        returncode, output, _seconds = self.install_bundle(bundle, self.CANDIDATE_INSTALL_TIMEOUT_SECONDS)
+        assert returncode == 1, f"a test bundle without the run's nonce returned {returncode}, not a refusal: {output}"
+        assert _NO_NONCE in output, f"a test bundle without the run's nonce was refused, but not by its hook: {output}"
+        self._board.run(f"printf %s {self.bundles.nonce} > {_NONCE_PATH}", check=True)
         self._board.cleanup.callback(self._board.run, f"rm -f {_NONCE_PATH}", check=True)
 
     def return_to_candidate_after_test(self, candidate: "CandidateBundles") -> None:
@@ -345,7 +356,7 @@ class Updates(Part):
             How many attempts to start the update failed, as its slot's attempts left count them down.
         """
         self.return_to_candidate_after_test(self.bundles)
-        self.allow_test_bundles(self.bundles.nonce)
+        self.allow_test_bundle(bundle)
         update_slot = ({"A", "B"} - {self.rauc_status()["booted"]}).pop()
         returncode, output, _seconds = self.install_bundle(bundle, self.CANDIDATE_INSTALL_TIMEOUT_SECONDS)
         with invalid_if(f"the update did not install, so there was nothing to fall back from: {output}"):
