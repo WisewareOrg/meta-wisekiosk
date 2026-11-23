@@ -4,16 +4,10 @@ import hashlib
 import re
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, NamedTuple
+from typing import NamedTuple
 
 from board.part import Part
 
-if TYPE_CHECKING:
-    from board import CommandResult
-
-# busybox wget returns 0 only on 2xx
-_PAGE_FETCH_CMD = "wget -q -O- http://127.0.0.1:8080/"
-_PAGE_ATTEMPT_TIMEOUT_SECONDS = 10
 _PROBE_SRC = Path(__file__).resolve().parents[2] / "target_suite" / "probe.js"
 _SURF_DIR = "/home/root/.surf"
 _SURF_SCRIPT_PATH = f"{_SURF_DIR}/script.js"
@@ -71,17 +65,6 @@ class Page(Part):
     """
 
     last_read: PanelRead | None = None
-
-    def fetch(self, with_uptime: bool = False) -> "CommandResult":
-        """Fetch the instance's page on the board once.
-
-        Args:
-            with_uptime: stamp the fetch with the board's uptime, as `Board.run` does.
-
-        Returns:
-            The fetch's output, return code and, when `with_uptime` is set, the board's uptime.
-        """
-        return self._board.run(_PAGE_FETCH_CMD, timeout=_PAGE_ATTEMPT_TIMEOUT_SECONDS, with_uptime=with_uptime)
 
     def install_probe(self, restart_browser: bool = True) -> str:
         """Load the probe into the browser, until the test ends.

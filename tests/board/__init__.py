@@ -403,13 +403,26 @@ class Board:
         """Whether a remote shell of its own opens on the board, apart from the connection the tests use.
 
         Returns:
-            True if a new ssh ran a command.
+            True if a command ran in it.
+        """
+        return self.in_a_new_shell("true") is not None
+
+    def in_a_new_shell(self, cmd: str) -> str | None:
+        """Run `cmd` in a remote shell of its own on the board, apart from the connection the tests use.
+
+        Args:
+            cmd: the command.
+
+        Returns:
+            Its output, stripped; None if no shell opened or the command failed.
         """
         try:
-            ssh = subprocess.run([*self.fresh_ssh_argv("ConnectTimeout=5"), "true"], capture_output=True, timeout=10)
+            ssh = subprocess.run(
+                [*self.fresh_ssh_argv("ConnectTimeout=5"), cmd], capture_output=True, text=True, timeout=10
+            )
         except subprocess.TimeoutExpired:
-            return False
-        return ssh.returncode == 0
+            return None
+        return ssh.stdout.strip() if ssh.returncode == 0 else None
 
     def restart(self) -> float:
         """Restart the board, and reconnect once it is up in a new boot.
