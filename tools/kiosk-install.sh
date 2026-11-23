@@ -59,7 +59,7 @@ target_activated() {
     [[ "$new_order" == "$target"* ]] && [ "${target_left:-0}" -gt 0 ]
 }
 
-nginx_image="nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94"
+nginx_image="nginx:1.30.8-alpine@sha256:6437a63b5c529f0e06162b3f593c0154cff6fa2ea0f94fd7c27928cb399e022d"
 server=kiosk-bundle-server
 
 ssh=(ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
