@@ -108,6 +108,17 @@ class App(Part):
         sample = self._sample()
         return sample is not None and sample["state"] == "applied" and sample["origin"] in _OWN_ORIGINS
 
+    def layout_size(self) -> tuple[int, int]:
+        """Read the size the page is laid out at, as the probe reports its viewport.
+
+        Returns:
+            Its width and height, in CSS pixels.
+        """
+        sample = self._sample()
+        assert sample is not None and "layout" in sample, f"the probe reports no layout: {sample!r}"
+        width, _, height = sample["layout"].partition("x")
+        return int(width), int(height)
+
     def wait_until_on_panel(self) -> None:
         """Wait until the instance is on the panel."""
         self._board.seconds_until(self.on_panel)
