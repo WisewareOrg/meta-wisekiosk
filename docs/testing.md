@@ -130,17 +130,18 @@ values its item judges, under the same names as every test of its kind (a recove
 cannot. A check the item does not ask for is not in the test.
 
 **Every test reads arrange, act, assert,** three blocks separated by single blank lines, against
-`self.board` and `self.record`. A test whose stimulus must be judged taken before its outcome can be
-timed adds one act and assert pair, as TST006<!-- Image update with a new application build --> judges
-the update installed and restarted into before it times the panel from that restart. A test method takes only `self` and its parametrized values: before
+`self.board` and `self.record`. A test method takes only `self` and its parametrized values: before
 each test, the autouse `_board_and_record` in `tests/target_suite/conftest.py` puts a new `Board`
 and the test's `Record` on the instance. That Board is built with the test's fixture lookup, and
-reaches what the run builds on demand through `board.fixture(name)` — the update bundles as `board.updates.bundles`, the refused offers as
-`board.updates.refused_offers`, the start-of-run install as `board.updates.installed`, the keyboard's
-evemu build, and the replay proxy that `@replaying(<recording>)` (`board_test.py`) puts on a test. A
-board a fixture opens for itself has no fixture lookup, and `board.fixture` says so.
-A class holds test methods and, when every test in it starts from the same board state, a
-`setup_method`; no class writes `teardown_method`, which would run after the board's undo.
+reaches what the run builds on demand through `board.fixture(name)` — the update bundles as
+`board.updates.bundles`, the refused offers as `board.updates.refused_offers`, the start-of-run
+install as `board.updates.installed`, the keyboard's evemu build, and the replay proxy that
+`@replaying(<recording>)` (`board_test.py`) puts on a test. A board a fixture opens for itself has
+no fixture lookup, and `board.fixture` says so. A class holds test methods and, when every test in
+it starts from the same board state, a `setup_method`; no class writes `teardown_method`, which
+would run after the board's undo. A test whose stimulus must be judged taken before its outcome can
+be timed adds one act and assert pair, as TST006<!-- Image update with a new application build -->
+judges the update installed and restarted into before it times the panel from that restart.
 
 **Tests that differ only in stimulus and bound are one parametrized test.** Each row is
 `case(<TST id>, <values>…)`, which makes the item's id the case's id and its first value. A
