@@ -1,6 +1,5 @@
 """The app's page in the browser, read through the window titles and the in-page probe."""
 
-import contextlib
 import hashlib
 import re
 import subprocess
@@ -10,7 +9,6 @@ from typing import TYPE_CHECKING, NamedTuple
 
 from labgrid.driver.exception import ExecutionError
 
-from board.app.panel_watch import PanelWatch
 from board.part import Part
 
 if TYPE_CHECKING:
@@ -32,8 +30,6 @@ _ALL_CARDS_LIVE_WAIT_SECONDS = 120
 _ALL_CARDS_LIVE = "4/4"
 _COUNTERS = ("el", "frames", "isum", "ticks", "moving", "changes", "cost")
 _HISTOGRAM_BINS = 7
-# how often TST032's watch reads the page and the panel after the kill
-_KILL_WATCH_POLL_SECONDS = 0.5
 _OWN_ORIGINS = ("http://localhost:8080", "http://127.0.0.1:8080")
 _SETTLED_APP_STATES = ("error:configuration", "error:backend-unreachable")
 _PROBE_FIELDS = ("nonce", "state", "cards", "origin", "layout")
@@ -117,22 +113,6 @@ class HeldRead(NamedTuple):
     served: bool
     shown: tuple | None
     title: str | None
-
-
-class BackendKillRecovery(NamedTuple):
-    """What the page and the panel showed after the backend was killed.
-
-    Attributes:
-        answered_uptime_s: the board uptime at which the page was first served after the kill, None if
-            it was not.
-        on_panel_s: the seconds from the kill to the first read showing the instance on the panel with
-            the backend answering, by board uptime, None if there was none.
-        left_panel: whether any read after the kill did not show the instance on the panel.
-    """
-
-    answered_uptime_s: float | None
-    on_panel_s: float | None
-    left_panel: bool
 
 
 class Page(Part):
@@ -240,53 +220,6 @@ class Page(Part):
         """
         return sample is not None and sample["state"] == "applied" and sample["origin"] in _OWN_ORIGINS
 
-    def kill_browser(self) -> float:
-        """SIGKILL the browser.
-
-        Returns:
-            The board's uptime at the kill.
-        """
-        return self._board.run("kill -KILL $(pgrep -x surf)", check=True, with_uptime=True).uptime_s
-
-    def freeze_browser(self) -> tuple[float, list[str]]:
-        """Stop every web process of the browser with SIGSTOP; they are continued when the test ends.
-
-        Returns:
-            The board's uptime at the stop, and the pids stopped.
-        """
-        frozen = self._board.run(
-            's=$(pgrep -x surf); p=$(pgrep -P "$s" WebKitWebProcess); echo $p; kill -STOP $p', with_uptime=True
-        )
-        pids = frozen.stdout[0].split()
-        if pids:
-            self._board.cleanup.callback(self._board.run, f"kill -CONT {' '.join(pids)}")
-        return frozen.uptime_s, pids
-
-    def web_process_states(self, pids: list[str]) -> dict[str, str | None]:
-        """Read each web process's state, as `/proc/<pid>/status` names it.
-
-        Args:
-            pids: the web processes.
-
-        Returns:
-            Each pid's state letter (`T` for stopped), None where it could not be read.
-        """
-        states = {}
-        for pid in pids:
-            status = self._board.run(f"grep '^State:' /proc/{pid}/status").stdout
-            states[pid] = status[0].split()[1] if status else None
-        return states
-
-    def load_log(self) -> list[str]:
-        """Read the browser's page-load lines from this boot's journal.
-
-        Returns:
-            The lines, with their monotonic stamps.
-        """
-        return self._board.run(
-            "journalctl -b -u kiosk.service -o short-monotonic --no-pager | grep -F 'surf: page'", timeout=None
-        ).stdout
-
     @staticmethod
     def shows_all_cards_live(sample: dict[str, str] | None) -> bool:
         """Whether a sample shows the instance on the panel with every card of the replayed page live.
@@ -339,17 +272,6 @@ class Page(Part):
         except self._board.ERRORS:
             return None
         return [match.group(1) for match in map(_WM_NAME.match, stdout) if match]
-
-    def watch(self, from_uptime: float) -> PanelWatch:
-        """Start a tally of the panel's reads over a span.
-
-        Args:
-            from_uptime: the board uptime at which the span starts.
-
-        Returns:
-            The tally; the test reads the panel through it.
-        """
-        return PanelWatch(self, from_uptime)
 
     def poll(
         self,
@@ -437,48 +359,6 @@ class Page(Part):
         last = self.last_read
         on_panel_s = round(last.uptime - answered_uptime_s, 1) if last and self.shows_instance(last.sample) else None
         return answered_uptime_s, on_panel_s
-
-    def time_on_panel_after_backend_kill(self, killed_at_uptime_s: float) -> BackendKillRecovery:
-        """Time from a backend kill to the instance on the panel with the backend answering.
-
-        Reads every 0.5 s: the page, until it is first served, and the panel each time. Only a panel
-        read once the backend has answered counts, so the page as it stood at the kill cannot pass. A
-        failed page read or panel read is skipped; `last_read` holds the last good panel read after.
-
-        Args:
-            killed_at_uptime_s: the board uptime at the kill.
-
-        Returns:
-            What the reads showed, within `Board.GIVE_UP_SECONDS` of now.
-        """
-        answered_uptime_s = None
-        left_panel = False
-
-        def read_page_and_panel() -> PanelRead:
-            """Read the page if it has not yet answered, then the panel.
-
-            Returns:
-                The panel read.
-            """
-            nonlocal answered_uptime_s, left_panel
-            if answered_uptime_s is None:
-                with contextlib.suppress(self._board.ERRORS):
-                    fetch = self.fetch(with_uptime=True)
-                    if self.shows_served(fetch):
-                        answered_uptime_s = fetch.uptime_s
-            panel = self.read()
-            left_panel = left_panel or not self.shows_instance(panel.sample)
-            return panel
-
-        found_s, found = self.poll(
-            until=lambda read: answered_uptime_s is not None and self.shows_instance(read.sample),
-            within=self._board.GIVE_UP_SECONDS,
-            every=_KILL_WATCH_POLL_SECONDS,
-            read=read_page_and_panel,
-        )
-        # the board uptime of the first passing read, so it overstates by up to one read
-        on_panel_s = round(found.uptime - killed_at_uptime_s, 1) if found_s is not None else None
-        return BackendKillRecovery(answered_uptime_s, on_panel_s, left_panel)
 
     def _read_instance_state(self) -> InstanceState:
         """Read once whether the browser is running and the page is served, into `last_instance_state`.

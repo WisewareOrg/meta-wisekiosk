@@ -1,5 +1,6 @@
 """RAUC and the board's one install path, as the update tests drive them."""
 
+import functools
 import json
 import os
 import pathlib
@@ -7,9 +8,13 @@ import re
 import signal
 import subprocess
 import time
-from typing import TYPE_CHECKING, NamedTuple
+from collections.abc import Callable
+from concurrent.futures import Future, ThreadPoolExecutor
+from typing import TYPE_CHECKING
 
-from board.part import Part
+from labgrid.driver.exception import ExecutionError
+
+from board.part import Part, invalid_if
 
 if TYPE_CHECKING:
     from candidate_bundles import CandidateBundles
@@ -31,27 +36,26 @@ _COPY_STEP = "Copying image to "
 _STAT_SECTORS_WRITTEN = 6
 
 
-class InstallProgress(NamedTuple):
-    """One read of an install in progress.
-
-    Attributes:
-        step: RAUC's install step message.
-        sectors_written: the sectors written so far to the slot's device.
-    """
-
-    step: str
-    sectors_written: int
-
-
 class Updates(Part):
     """RAUC on the board, and the one install path `tools/kiosk-install.sh` takes to it.
 
     Attributes:
+        build_bundles: builds this run's test bundles, or returns them once built; the target suite sets it.
         CANDIDATE_INSTALL_TIMEOUT_SECONDS: a hang backstop on one install, well past a slot's first adaptive
             install, which hashes the whole slot.
     """
 
+    build_bundles: Callable[[], "CandidateBundles"]
     CANDIDATE_INSTALL_TIMEOUT_SECONDS = 1200
+
+    @functools.cached_property
+    def bundles(self) -> "CandidateBundles":
+        """This run's test bundles, built on first use.
+
+        Returns:
+            The bundles.
+        """
+        return self.build_bundles()
 
     def install_built_image(self) -> None:
         """Install the image this checkout built on the board, through `just kiosk-ota`."""
@@ -110,6 +114,51 @@ class Updates(Part):
             tool.communicate(timeout=_CLEANUP_SECONDS)
             raise
         return tool.returncode, output, round(time.monotonic() - started, 1)
+
+    def install_and_restart(self, bundle: pathlib.Path) -> float:
+        """Install `bundle` over the air and restart the board into it; it returns to the candidate when the test ends.
+
+        Args:
+            bundle: one of this run's test bundles.
+
+        Returns:
+            The host `time.monotonic()` just before the restart.
+        """
+        self.return_to_candidate_after_test(self.bundles)
+        self.allow_test_bundles(self.bundles.nonce)
+        booted = self.rauc_status()["booted"]
+        returncode, output, _seconds = self.install_bundle(bundle, self.CANDIDATE_INSTALL_TIMEOUT_SECONDS)
+        assert returncode == 0, f"the install returned {returncode}: {output}"
+        restarted = self._board.restart_with("systemctl reboot")
+        assert self.rauc_status()["booted"] != booted, "the board did not restart into the update"
+        return restarted
+
+    def cut_power_while_writing(self, bundle: pathlib.Path) -> float:
+        """Cut the board's power while `bundle` is being written into the slot not booted, then restore it.
+
+        The cut comes once RAUC reports copying the image and the slot's device has been written to since
+        the install began; the check is invalid if the install ended, or did not reach that, first. The
+        board returns to the candidate when the test ends.
+
+        Args:
+            bundle: one of this run's test bundles, which no slot already holds.
+
+        Returns:
+            The host `time.monotonic()` at which power began to return.
+        """
+        self.return_to_candidate_after_test(self.bundles)
+        self.allow_test_bundles(self.bundles.nonce)
+        status = self.rauc_status()
+        device = next(
+            slot["device"] for entry in status["slots"] for slot in entry.values() if slot["state"] != "booted"
+        )
+        _step, written = self._write_progress(device)
+        pool = ThreadPoolExecutor(max_workers=1)
+        installing = pool.submit(self.install_bundle, bundle, self.CANDIDATE_INSTALL_TIMEOUT_SECONDS)
+        self._board.cleanup.callback(pool.shutdown)
+        with invalid_if("the update was not being written when the power was cut"):
+            self._board.seconds_until(lambda: self._is_writing(installing, device, since=written))
+        return self._board.cut_power()
 
     def assert_refused(self, bundle: pathlib.Path, reasons: tuple[str, ...], timeout: float, record: "Record") -> None:
         """Offer `bundle`; assert it was refused for each of `reasons`, nothing staged, same build, on the panel.
@@ -263,58 +312,6 @@ class Updates(Part):
             "commit": self.build_commit(),
         }
 
-    @staticmethod
-    def other_slot_device(status: dict) -> str:
-        """The device of the slot the board did not boot.
-
-        Args:
-            status: RAUC's detailed status, as `next_boot_and_running_build` parses it.
-
-        Returns:
-            The device.
-
-        Raises:
-            AssertionError: no slot but the booted one is listed.
-        """
-        for entry in status["slots"]:
-            for _name, slot in entry.items():
-                if slot["state"] != "booted":
-                    return slot["device"]
-        raise AssertionError(f"no slot other than the booted one in rauc status: {status!r}")
-
-    def install_progress(self, device: str) -> InstallProgress | None:
-        """Read RAUC's install step and the sectors written so far to `device`.
-
-        Args:
-            device: the slot's device.
-
-        Returns:
-            The read, or None if it failed.
-        """
-        try:
-            result = self._board.run(f"{_PROGRESS_CMD}; cat /sys/class/block/{os.path.basename(device)}/stat")
-        except self._board.ERRORS:
-            return None
-        if result.returncode != 0 or len(result.stdout) != 2:
-            return None
-        progress = re.fullmatch(r'\(isi\) \d+ "(.*)" \d+', result.stdout[0].strip())
-        if progress is None:
-            return None
-        return InstallProgress(progress[1], int(result.stdout[1].split()[_STAT_SECTORS_WRITTEN]))
-
-    @staticmethod
-    def is_copying(progress: InstallProgress | None, since: int) -> bool:
-        """Whether an install is copying the image into its slot and has written to it since `since`.
-
-        Args:
-            progress: a read of the install, or None.
-            since: the slot's sectors written before the install began.
-
-        Returns:
-            True if RAUC reports its copy step and the slot's written-sector count has risen.
-        """
-        return progress is not None and progress.step.startswith(_COPY_STEP) and progress.sectors_written > since
-
     def journal_boot_ids(self) -> set[str]:
         """Read the boot ids in the board's journal.
 
@@ -323,6 +320,40 @@ class Updates(Part):
         """
         stdout = self._board.run("journalctl --list-boots -o json", check=True, timeout=None).stdout
         return {boot["boot_id"] for boot in json.loads("\n".join(stdout))}
+
+    def _is_writing(self, installing: Future, device: str, since: int) -> bool:
+        """Whether an install still running is copying the image into `device`, written to since `since`.
+
+        Args:
+            installing: the install.
+            device: the slot's device.
+            since: the device's sectors written before the install began.
+
+        Returns:
+            True if RAUC reports its copy step and the device's written-sector count has risen; an
+            assertion fails if the install has ended.
+        """
+        assert not installing.done(), f"the install ended: {installing.result()[:2]}"
+        step, written = self._write_progress(device)
+        return step.startswith(_COPY_STEP) and written > since
+
+    def _write_progress(self, device: str) -> tuple[str, int]:
+        """Read RAUC's install step and the sectors written so far to `device`.
+
+        Args:
+            device: the slot's device.
+
+        Returns:
+            The step's message, and the sectors written.
+
+        Raises:
+            ExecutionError: the read failed, which `Board.seconds_until` takes as a read that does not hold.
+        """
+        read = self._board.run(f"{_PROGRESS_CMD} && cat /sys/class/block/{os.path.basename(device)}/stat")
+        step = re.fullmatch(r'\(isi\) \d+ "(.*)" \d+', read.stdout[0].strip()) if len(read.stdout) == 2 else None
+        if step is None:
+            raise ExecutionError(_PROGRESS_CMD, read.stdout, read.stderr)
+        return step[1], int(read.stdout[1].split()[_STAT_SECTORS_WRITTEN])
 
     def _restore_candidate(self, candidate: "CandidateBundles") -> None:
         """Put the board back on the candidate unless it runs it and will boot it next.

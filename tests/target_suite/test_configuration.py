@@ -44,7 +44,7 @@ class TestConfiguration(BoardTest):
         before = config.live_sha256()
         default = config.default_sha256()
 
-        self.board.cut_power(self.record)
+        self.board.cut_power()
         after = config.live_sha256()
 
         config.assert_held(before, after, default, self.record)

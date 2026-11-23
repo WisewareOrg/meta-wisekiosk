@@ -11,11 +11,11 @@ rationale: |
   it. The appliance has to bring itself and the instance back.
 ref: ''
 references:
-- keyword: def test_kernel_crash
-  path: tests/target_suite/test_restart_recovery.py
-  sha: ee864c5dcb7a9af8ced46b7d56db1f2dcd0f88c02697e3b101fc7d66df2f5cfb
+- keyword: def test_back_after_a_fault
+  path: tests/target_suite/test_recovers_the_instance.py
+  sha: 3ebdb234881560ffa5f4390a3e33b0cf15f8a09d024c871a28a5a32a47c98337
   type: file
-reviewed: omA-S84FWGSUjLWtleIYPZ9OBlhptKJdEufBdFo5QHk=
+reviewed: be3E6lBFkE_y3qySccPfW4uGXi0WZ024CqxQqTffwuU=
 status: proposed
 text: |
   With nobody at the panel, crash the kernel over the network so that nothing on the appliance runs.

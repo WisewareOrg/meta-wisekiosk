@@ -1,19 +1,10 @@
-"""Target suite: a board that went down, nobody at the panel, brings the instance back in time.
-
-It restarted, crashed, lost power or started its backend late.
-"""
-
-import time
+"""Target suite: a board that restarted, lost power or started its backend late brings the instance back in time."""
 
 from board import Board
 from board_test import BoardTest
 
-# TST004's bound
-_CRASH_BOUND_SECONDS = 100
 # TST011's bound
 _RESTART_BOUND_SECONDS = 60
-# TST002's bound
-_POWER_CUT_BOUND_SECONDS = 60
 # TST012's bound
 _COLD_BOOT_BOUND_SECONDS = 110
 # TST033's bound
@@ -24,18 +15,6 @@ _USERSPACE_BOOT_CMD = "systemctl show -p ActiveEnterTimestampMonotonic --value m
 
 class TestRestartRecovery(BoardTest):
     """A board that went down is back on the panel in time."""
-
-    def test_kernel_crash(self) -> None:
-        """TST004 kernel crash: crash the kernel and time until the page is served, browser running."""
-        self.record(requirement="TST004")
-        self.board.app.page.wait_until_served()
-
-        started = self.board.restart_with("echo c > /proc/sysrq-trigger")
-        back_s, last_read = self.board.app.page.seconds_until_instance_up(since=started)
-
-        self.record(back_s=back_s, last_read=last_read)
-        assert back_s is not None, f"not back within {Board.GIVE_UP_SECONDS} s of the crash; last read: {last_read}"
-        assert back_s <= _CRASH_BOUND_SECONDS, f"back after {back_s} s; TST004's bound is {_CRASH_BOUND_SECONDS} s"
 
     def test_restart_to_the_panel(self) -> None:
         """TST011 restart to the panel: restart the board; time until the page is served, browser up."""
@@ -49,26 +28,6 @@ class TestRestartRecovery(BoardTest):
         assert back_s is not None, f"not back within {Board.GIVE_UP_SECONDS} s of the restart; last read: {last_read}"
         assert back_s <= _RESTART_BOUND_SECONDS, f"back after {back_s} s; TST011's bound is {_RESTART_BOUND_SECONDS} s"
 
-    def test_power_cut_while_showing(self) -> None:
-        """TST002 power cut while showing: cut power with the instance up.
-
-        Times from power returning until the page is served with the browser running.
-        """
-        self.record(requirement="TST002")
-        ready_s, last_read = self.board.app.page.seconds_until_instance_up(since=time.monotonic())
-        assert ready_s is not None, f"the instance was not up before the cut; last read: {last_read}"
-
-        on_began = self.board.cut_power(self.record)
-        back_s, last_read = self.board.app.page.seconds_until_instance_up(since=on_began)
-
-        self.record(back_s=back_s, last_read=last_read)
-        assert back_s is not None, (
-            f"not back within {Board.GIVE_UP_SECONDS} s of power returning; last read: {last_read}"
-        )
-        assert back_s <= _POWER_CUT_BOUND_SECONDS, (
-            f"back after {back_s} s; TST002's bound is {_POWER_CUT_BOUND_SECONDS} s"
-        )
-
     def test_cold_boot_to_the_panel(self) -> None:
         """TST012 cold boot to the panel: cut power.
 
@@ -77,7 +36,7 @@ class TestRestartRecovery(BoardTest):
         self.record(requirement="TST012")
         page = self.board.app.page
 
-        on_began = self.board.cut_power(self.record)
+        on_began = self.board.cut_power()
         on_panel_s, _ = page.poll(
             until=lambda read: read.instance_loaded_title is not None, within=Board.GIVE_UP_SECONDS, since=on_began
         )

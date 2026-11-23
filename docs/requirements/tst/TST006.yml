@@ -12,11 +12,11 @@ rationale: |
   walked up to it.
 ref: ''
 references:
-- keyword: def test_new_application_build
-  path: tests/target_suite/test_image_update.py
-  sha: 95d994db966abbf17a101b7c1b7c9089289a54e50ced5d4c1ead18a9f8defd15
+- keyword: def test_back_after_a_fault
+  path: tests/target_suite/test_recovers_the_instance.py
+  sha: 3ebdb234881560ffa5f4390a3e33b0cf15f8a09d024c871a28a5a32a47c98337
   type: file
-reviewed: D7gOjHKW_e2ITFHuoOP-KNme0PKmDav8ay3yMFyCSvw=
+reviewed: OP8YfYA_G0sgYedeCZhVPAYnHG8f95IPPfatWxg7ecA=
 status: proposed
 text: |
   With nobody at the panel, install over the air a valid image update carrying a different WiseKiosk

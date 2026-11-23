@@ -142,9 +142,9 @@ whose calls set the record's names, values and order.
 `run(cmd, check=, timeout=, retry_for=, with_uptime=)`, `poll`, file and port transfer, the
 undo-registering primitives (`bind_over`, `run_later`, `unmount_if_mounted`), and the restarts and
 power cut, which drop and re-establish that connection. Everything else belongs to a part:
-`board.app` (`backend`, `config`, `page`), `board.screen` (`display`, `captures`), `board.console`
+`board.app` (`backend`, `browser`, `config`, `page`), `board.screen` (`display`), `board.console`
 (`terminals`, `keyboard`), `board.system` (`clock`, `timezone`, `memory`, `soak`, `kernel`,
-`journal`), `board.network` (`outage`, `load`) and `board.updates`. `Board.__init__` builds the
+`journal`), `board.network` (`outage`) and `board.updates`. `Board.__init__` builds the
 whole tree, one statement per part, by keyword. A composite is a keyword-built dataclass of its
 sub-parts. A sub-part is one small class in its own module, subclassing `Part`; it registers its
 undos on `board.cleanup`, and it reaches a sibling only through the board's public path (ruff's

@@ -1,5 +1,8 @@
-"""The base of every target-suite test class."""
+"""The base of every target-suite test class, and the form of a parametrized case."""
 
+from collections.abc import Collection
+
+import pytest
 from board import Board
 from record import Record
 
@@ -19,3 +22,17 @@ class BoardTest:
 
     board: Board
     record: Record
+
+
+def case(requirement: str, *values: object, marks: Collection[pytest.MarkDecorator] = ()) -> object:
+    """One case of a parametrized test: the item it checks, first and as its id, then its values.
+
+    Args:
+        requirement: the TST item the case checks.
+        *values: the case's other parameters, in order.
+        marks: the case's marks.
+
+    Returns:
+        The case.
+    """
+    return pytest.param(requirement, *values, id=requirement, marks=marks)

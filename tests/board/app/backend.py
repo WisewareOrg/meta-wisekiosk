@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from board.part import Part
+from board.unit import Unit
 
 if TYPE_CHECKING:
     from wisebench.proxy import Proxy
@@ -16,14 +16,13 @@ _PROXY_CA_PATH = Path.home() / ".mitmproxy" / "mitmproxy-ca-cert.pem"
 _PROXY_CA_BOARD_PATH = "/tmp/replay-ca.pem"
 
 
-class Backend(Part):
-    """wisekiosk.service on the board: its process, a delay on its own restart, and its mask.
+class Backend(Unit):
+    """wisekiosk.service on the board: its process, the replay proxy it can run behind, and its mask.
 
     Each change registers its undo on the board's cleanup once it has taken.
     """
 
     _DROP_IN_DIR = "/run/systemd/system/wisekiosk.service.d"
-    _DELAY_DROP_IN = f"{_DROP_IN_DIR}/hold.conf"
     _PROXY_DROP_IN = f"{_DROP_IN_DIR}/replay.conf"
     # covers a daemon-reload plus a backend start
     _RELOAD_TIMEOUT_SECONDS = 60
@@ -52,54 +51,6 @@ class Backend(Part):
         return self._board.run(
             "systemctl show -p MainPID --value wisekiosk.service", check=True, retry_for=retry_for
         ).text
-
-    def sigkill(self) -> float:
-        """SIGKILL the backend.
-
-        Returns:
-            The board's uptime at the kill.
-        """
-        return self._board.run("systemctl kill --signal=KILL wisekiosk.service", check=True, with_uptime=True).uptime_s
-
-    def assert_new_process_after_kill(self, pid_before: str) -> str:
-        """Assert the backend answering after a kill is a new process; INVALID if it is not.
-
-        Args:
-            pid_before: the MainPID the kill was aimed at.
-
-        Returns:
-            The new MainPID.
-        """
-        pid_after = self.pid()
-        assert pid_after != pid_before, (
-            f"INVALID CHECK, not an appliance failure: the kill did not land (MainPID {pid_before} unchanged)"
-        )
-        return pid_after
-
-    def delay_restart(self, seconds: int) -> None:
-        """Delay the backend's own restart to `seconds` with a runtime drop-in, until `undo_restart_delay`.
-
-        The undo is registered on the board's cleanup before the drop-in is written.
-
-        Args:
-            seconds: the `RestartSec` to delay it to.
-        """
-        self._board.cleanup.callback(self.undo_restart_delay)
-        self._board.run(
-            f"mkdir -p {self._DROP_IN_DIR} && printf '[Service]\\nRestartSec={seconds}\\n' > {self._DELAY_DROP_IN} && "
-            "systemctl daemon-reload",
-            check=True,
-            timeout=self._RELOAD_TIMEOUT_SECONDS,
-        )
-
-    def undo_restart_delay(self) -> None:
-        """Remove the restart delay, start the backend and wait for the page; safe to run twice."""
-        self._board.run(
-            f"rm -f {self._DELAY_DROP_IN}; systemctl daemon-reload; systemctl start wisekiosk.service",
-            check=True,
-            timeout=self._RELOAD_TIMEOUT_SECONDS,
-        )
-        self._board.app.page.wait_until_served()
 
     def put_behind(self, proxy: "Proxy", config: str | os.PathLike[str]) -> None:
         """Put the backend behind `proxy`, running the replay set's `config`, until the test ends.

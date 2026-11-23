@@ -1,6 +1,7 @@
 """Target-suite setup: the start-of-run install, the shared builds, the device context, and the Board hooks."""
 
 import contextlib
+import functools
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 
@@ -84,6 +85,17 @@ def candidate_bundles(bench_candidate: str | None) -> Iterator[CandidateBundles]
     """
     with contextlib.ExitStack() as cleanup:
         yield CandidateBundles.build(cleanup, bench_candidate)
+
+
+@pytest.fixture(autouse=True)
+def _bundles_on_demand(request: pytest.FixtureRequest) -> None:
+    """Have a BoardTest's board build this run's test bundles, through `candidate_bundles`, when it first uses them.
+
+    Args:
+        request: requests `candidate_bundles` on demand.
+    """
+    if isinstance(request.instance, BoardTest):
+        request.instance.board.updates.build_bundles = functools.partial(request.getfixturevalue, "candidate_bundles")
 
 
 @pytest.fixture(scope="module")

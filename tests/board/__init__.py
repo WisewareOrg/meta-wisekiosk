@@ -1,28 +1,26 @@
 """The board under test, for one test: its parts, and an undo of everything the test changed."""
 
 import contextlib
+import itertools
 import os
 import subprocess
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, NamedTuple
+from typing import NamedTuple
 
 import pytest
 from labgrid import Target
 from labgrid.binding import StateError
 from labgrid.driver.exception import ExecutionError
-from tenacity import Retrying, retry_if_exception_type, retry_if_result, stop_after_delay, wait_fixed
+from tenacity import RetryError, Retrying, retry_if_exception_type, retry_if_result, stop_after_delay, wait_fixed
 
-from board.app import App, Backend, Config, Page
+from board.app import App
 from board.console import Console, Keyboard, Terminals
-from board.network import Load, Network, Outage
-from board.screen import Captures, Display, Screen
+from board.network import Network
+from board.screen import Screen
 from board.system import Clock, Journal, Kernel, Memory, Soak, System, Timezone
 from board.updates import Updates
-
-if TYPE_CHECKING:
-    from record import Record
 
 
 class CommandResult(NamedTuple):
@@ -113,8 +111,8 @@ class Board:
         service = target.get_resource("NetworkService")
         self.host = f"{service.username}@{service.address}"
         self.cleanup = contextlib.ExitStack()
-        self.app = App(backend=Backend(self), config=Config(self), page=Page(self))
-        self.screen = Screen(display=Display(self), captures=Captures(self))
+        self.app = App(self)
+        self.screen = Screen(self)
         self.console = Console(terminals=Terminals(self), keyboard=Keyboard(self))
         self.system = System(
             clock=Clock(self),
@@ -124,7 +122,7 @@ class Board:
             kernel=Kernel(self),
             journal=Journal(self),
         )
-        self.network = Network(outage=Outage(self), load=Load(self))
+        self.network = Network(self)
         self.updates = Updates(self)
 
     def __enter__(self) -> "Board":
@@ -386,16 +384,19 @@ class Board:
             raise AssertionError(f"{error}; the ssh that sent {cmd!r} ended with {sent_as}") from None
         return started
 
-    def cut_power(self, record: "Record") -> float:
+    def crash_kernel(self) -> float:
+        """Crash the kernel, so that nothing on the board runs, and reconnect once it has restarted by itself.
+
+        Returns:
+            The host `time.monotonic()` taken before the crash was sent.
+        """
+        return self.restart_with("echo c > /proc/sysrq-trigger")
+
+    def cut_power(self) -> float:
         """Cut the board's power through the bench's switched plug, restore it, and reconnect in a new boot.
 
-        Records how long the `on` command took as `power_on_command_s`, before the reconnect, so a
-        reconnect that fails still leaves it in the record. Power is switched back on when the test
-        ends. The run exits if the plug fails, or if the board answers in the same boot after the
-        power was off.
-
-        Args:
-            record: the test's record.
+        Power is switched back on when the test ends. The run exits if the plug fails, or if the board
+        answers in the same boot after the power was off.
 
         Returns:
             The host `time.monotonic()` at which the `on` command started; power returns no earlier,
@@ -412,7 +413,6 @@ class Board:
             power.on()
         except (subprocess.CalledProcessError, OSError) as error:
             pytest.exit(f"the bench's power switch failed: {error}", returncode=2)
-        record(power_on_command_s=round(time.monotonic() - on_began, 1))
         self.reconnect()
         if self.system.kernel.boot_id() == old_boot_id:
             pytest.exit(
@@ -421,6 +421,80 @@ class Board:
                 returncode=2,
             )
         return on_began
+
+    def seconds_until(self, condition: Callable[[], object], *, since: float | None = None, reads: int = 1) -> float:
+        """Read `condition` about once a second until it holds on `reads` reads in a row.
+
+        A read that raises one of `ERRORS` does not hold.
+
+        Args:
+            condition: one read of the board; holds when truthy.
+            since: the host `time.monotonic()` instant the time counts from; now when None.
+            reads: how many reads in a row it must hold on.
+
+        Returns:
+            The seconds from `since` to the first read of the run, to 0.1 s.
+
+        Raises:
+            AssertionError: the run did not begin within `GIVE_UP_SECONDS` of `since`.
+        """
+        since = time.monotonic() if since is None else since
+        run: list[float] = []
+
+        def held() -> bool:
+            """Read `condition` once, and extend or end the run.
+
+            Returns:
+                Whether the run is long enough.
+            """
+            run[:] = [*run, time.monotonic()] if self._holds(condition) else []
+            return len(run) >= reads
+
+        try:
+            Retrying(
+                stop=stop_after_delay(self.GIVE_UP_SECONDS - (time.monotonic() - since)),
+                wait=wait_fixed(1),
+                retry=retry_if_result(lambda done: not done),
+            )(held)
+        except RetryError:
+            raise AssertionError(f"it did not hold within {self.GIVE_UP_SECONDS} s") from None
+        return round(run[0] - since, 1)
+
+    def longest_lapse_s(self, condition: Callable[[], object], *, over: float) -> float:
+        """Read `condition` about once a second for `over` seconds; the longest stretch it did not hold.
+
+        A stretch runs from the start, or a read that held, to the next read that held, or the end. A
+        read that raises one of `ERRORS` does not hold.
+
+        Args:
+            condition: one read of the board; holds when truthy.
+            over: how long to read for, in seconds.
+
+        Returns:
+            The longest stretch, to 0.1 s.
+        """
+        end = time.monotonic() + over
+        held_at = [time.monotonic()]
+        while time.monotonic() < end:
+            if self._holds(condition):
+                held_at.append(time.monotonic())
+            time.sleep(1)
+        held_at.append(time.monotonic())
+        return round(max(b - a for a, b in itertools.pairwise(held_at)), 1)
+
+    def _holds(self, condition: Callable[[], object]) -> bool:
+        """Read `condition` once.
+
+        Args:
+            condition: one read of the board.
+
+        Returns:
+            Whether it was truthy; False if it raised one of `ERRORS`.
+        """
+        try:
+            return bool(condition())
+        except self.ERRORS:
+            return False
 
     def _reconnect_if_it_answers(self) -> None:
         """Reconnect the SSHDriver, and carry on if the board does not answer in time."""

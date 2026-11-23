@@ -11,11 +11,11 @@ rationale: |
   viewer must get the instance back without anyone coming to it.
 ref: ''
 references:
-- keyword: def test_browser_killed
-  path: tests/target_suite/test_browser_killed.py
-  sha: 0a4f9543efbfaab0e1015aee88a207e94cc1c269639db4a78ab3e92329a22e55
+- keyword: def test_back_after_a_fault
+  path: tests/target_suite/test_recovers_the_instance.py
+  sha: 3ebdb234881560ffa5f4390a3e33b0cf15f8a09d024c871a28a5a32a47c98337
   type: file
-reviewed: PyPagd6KkN4UnoF9sFIZwCyTJfr1DgPpGzH1Ved3d7s=
+reviewed: 1WLz4DQ90EQxRFGzn9W-N40D7aJr1vg9OV3ztAcTXH0=
 status: proposed
 text: |
   With nobody at the panel, kill the browser. Pass if the WiseKiosk instance is back on the panel

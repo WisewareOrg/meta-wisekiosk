@@ -17,14 +17,13 @@ _PROBE = "/work/tests/target_suite/probe.js"
 
 
 class CandidateBundles(NamedTuple):
-    """The three test bundles, this run's nonce and stamp, and the candidate they were made from.
+    """The three test bundles, this run's nonce, and the candidate they were made from.
 
     Attributes:
-        new_build: a bundle whose page carries `stamp`.
+        new_build: a bundle whose page carries a stamp of this run's.
         cannot_start: a bundle whose image cannot start.
         no_network: a bundle whose image starts but cannot join the network.
         nonce: what the board's `/tmp` must hold for a test bundle's install-check hook to accept it.
-        stamp: the value the new-build bundle's page carries.
         hash: the candidate bundle's hash, as RAUC records it for the slot it installs.
         candidate: the candidate's own bundle on the host.
         commit: the commit the candidate was built from.
@@ -34,7 +33,6 @@ class CandidateBundles(NamedTuple):
     cannot_start: Path
     no_network: Path
     nonce: str
-    stamp: str
     hash: str
     candidate: Path
     commit: str
@@ -57,14 +55,13 @@ class CandidateBundles(NamedTuple):
         run_dir = Path(tempfile.mkdtemp(prefix="kiosk-update-bundles-", dir="/tmp"))
         cleanup.callback(shutil.rmtree, run_dir)
         nonce = uuid.uuid4().hex
-        stamp = uuid.uuid4().hex
         subprocess.run(
             [
                 str(_REPO / "tools" / "kas-run.sh"),
                 "shell",
                 "kiosk-zero-w.yaml",
                 "-c",
-                f"bash {_BUNDLES_SCRIPT} {run_dir} {nonce} {stamp} {_PROBE}",
+                f"bash {_BUNDLES_SCRIPT} {run_dir} {nonce} {uuid.uuid4().hex} {_PROBE}",
             ],
             cwd=_REPO,
             env={**os.environ, "KAS_RUN_TMP_DIR": str(run_dir)},
@@ -75,7 +72,6 @@ class CandidateBundles(NamedTuple):
             run_dir / "cannot-start.raucb",
             run_dir / "no-network.raucb",
             nonce,
-            stamp,
             (run_dir / "candidate.hash").read_text().strip(),
             _REPO / (run_dir / "candidate.path").read_text().strip(),
             bench_candidate,
