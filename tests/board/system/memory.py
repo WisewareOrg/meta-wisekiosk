@@ -3,8 +3,9 @@
 import itertools
 import math
 import re
-import time
 from typing import NamedTuple
+
+from tenacity import Retrying, retry_if_result, stop_after_delay, wait_fixed
 
 from board.part import Part, invalid_if
 
@@ -24,8 +25,8 @@ class MemoryUse(NamedTuple):
 
     Attributes:
         peak_use: the most memory in use at any sample, as a share of usable memory.
-        growth_mb: the growth in memory in use from the run's start to its end, in MB; NaN when the board
-            restarted, so there is no end.
+        growth_mb: the growth in memory in use from the run's start to its end, in MB; NaN when a breach
+            came first, so it was not measured.
         kills: the board uptime of each process killed for memory.
     """
 
@@ -37,17 +38,20 @@ class MemoryUse(NamedTuple):
 class Memory(Part):
     """The board's memory: in use is MemTotal less MemAvailable; usable is MemTotal."""
 
-    def use_over(self, seconds: float) -> MemoryUse:
+    def use_over(self, seconds: float, peak_limit: float) -> MemoryUse:
         """Run the board for `seconds` with kiosk-soak sampling its memory every five minutes.
 
-        Reads after the run retry through a dropped session for `Board.READ_RETRY_SECONDS`. A run in which
-        the kernel killed a process for memory, in this boot or in the one before a restart, returns
-        those kills and nothing else is judged. Otherwise the check is invalid if the board restarted,
-        the browser or the backend restarted, the page reloaded or changed state, the sampling left a
-        gap, the replay killed a request, or the evidence is unreadable.
+        Reads after the run retry through a dropped session for `Board.READ_RETRY_SECONDS`. A breach the
+        board cannot excuse is returned before anything else is judged: first a process the kernel killed
+        for memory, in this boot or in the one before a restart; then, once the samples are readable, a
+        sample at or over `peak_limit`. Otherwise the check is invalid if the kernel's log is unreadable,
+        the board restarted, the browser or the backend restarted, the page reloaded or changed state,
+        the sampling left a gap, or the replay killed a request; the growth, start to end, is only
+        measured on a run with none of those.
 
         Args:
             seconds: how long the run lasts.
+            peak_limit: the share of usable memory in use at which a sample breaches the item's bound.
 
         Returns:
             What the run used, and what was killed.
@@ -66,14 +70,18 @@ class Memory(Part):
         samples = self._samples(boot, start, end, seconds)
         kills, kernel_log_read = self._kills(start, previous_boot=restarted)
         usable_mb = self._meminfo_kb()["MemTotal"] / 1024
-        with invalid_if("the evidence is unreadable"):
-            assert kills or kernel_log_read, "the kernel's log"
-            assert samples and all(0 <= float(sample["memavail"]) <= usable_mb for sample in samples), "kiosk-soak's"
-        peak_use = max(1 - float(sample["memavail"]) / usable_mb for sample in samples)
-        if kills or restarted:
-            with invalid_if("the board restarted, with no memory kill in the boot before"):
-                assert kills
+        readable = bool(samples) and all(0 <= float(sample["memavail"]) <= usable_mb for sample in samples)
+        peak_use = max(1 - float(sample["memavail"]) / usable_mb for sample in samples) if readable else math.nan
+        if kills:
             return MemoryUse(peak_use, math.nan, kills)
+        with invalid_if("kiosk-soak's samples are unreadable"):
+            assert readable
+        if peak_use >= peak_limit:
+            return MemoryUse(peak_use, math.nan, kills)
+        with invalid_if("the kernel's log is unreadable"):
+            assert kernel_log_read
+        with invalid_if("the board restarted, with no memory kill in the boot before"):
+            assert not restarted
         with invalid_if("the run was not steady"):
             edges = [start, *(float(sample["up"]) for sample in samples), end]
             assert max(b - a for a, b in itertools.pairwise(edges)) <= _SOAK_MAX_GAP_SECONDS, "a sampling gap"
@@ -110,7 +118,7 @@ class Memory(Part):
         return meminfo["MemTotal"] - meminfo["MemAvailable"]
 
     def _sleep_watching_boot(self, boot: str, seconds: float) -> bool:
-        """Sleep out `seconds`, reading the boot every 600 s, and end early if the board booted again.
+        """Sleep out `seconds`, reading the boot now and every 600 s, and end early if the board booted again.
 
         Args:
             boot: the boot the sleep starts in.
@@ -119,12 +127,12 @@ class Memory(Part):
         Returns:
             Whether the board booted again.
         """
-        end = time.monotonic() + seconds
-        while time.monotonic() < end:
-            time.sleep(min(_BOOT_CHECK_SECONDS, max(0, end - time.monotonic())))
-            if self._board.boot_id(retry_for=self._board.READ_RETRY_SECONDS) != boot:
-                return True
-        return self._board.boot_id(retry_for=self._board.READ_RETRY_SECONDS) != boot
+        return Retrying(
+            stop=stop_after_delay(seconds),
+            wait=wait_fixed(_BOOT_CHECK_SECONDS),
+            retry=retry_if_result(lambda restarted: not restarted),
+            retry_error_callback=lambda state: state.outcome.result(),
+        )(lambda: self._board.boot_id(retry_for=self._board.READ_RETRY_SECONDS) != boot)
 
     def _samples(self, boot: str, start: float, end: float, seconds: float) -> list[dict[str, str]]:
         """Read kiosk-soak's samples from the boot `boot` that fall inside an uptime span.

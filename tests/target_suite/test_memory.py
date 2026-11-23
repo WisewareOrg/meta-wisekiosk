@@ -34,9 +34,14 @@ class TestMemory(BoardTest):
         self.board.app.install_probe()
         self.board.seconds_until(self.board.app.all_cards_live)
 
-        use = self.board.system.memory.use_over(period_s)
+        use = self.board.system.memory.use_over(period_s, peak_limit=USE_LIMIT)
 
-        self.record(peak_use=round(use.peak_use, 3), growth_mb=round(use.growth_mb, 1), memory_kills=use.kills)
+        self.record(
+            period_s=period_s,
+            peak_use=round(use.peak_use, 3),
+            growth_mb=round(use.growth_mb, 1),
+            memory_kills=use.kills,
+        )
         assert not use.kills, f"a process was killed for memory at uptime {use.kills[0]:.0f} s"
         assert use.peak_use < USE_LIMIT, f"memory in use reached {use.peak_use:.1%} of usable; TST014's bound is 80%"
         assert use.growth_mb <= growth_limit_mb, (
