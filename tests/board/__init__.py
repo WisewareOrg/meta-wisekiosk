@@ -16,7 +16,7 @@ from labgrid.driver.exception import ExecutionError
 from tenacity import RetryError, Retrying, retry_if_exception_type, retry_if_result, stop_after_delay, wait_fixed
 
 from board.app import App
-from board.console import Console, Keyboard, Terminals
+from board.console import Console
 from board.network import Network
 from board.screen import Screen
 from board.system import System
@@ -67,7 +67,9 @@ class Board:
     Attributes:
         app: the WiseKiosk app on the board.
         cleanup: undoes, last first, what the test changed on the board.
-        console: the board's consoles, and a keyboard attached to them.
+        console: the board's consoles.
+        fixture: returns a pytest fixture's value by name, so a part can reach what the run builds on
+            demand; the target suite sets it.
         host: `user@address` of the board, as the `just kiosk-*` recipes take it.
         network: the board's network.
         screen: the board's screen.
@@ -85,6 +87,7 @@ class Board:
     app: App
     cleanup: contextlib.ExitStack
     console: Console
+    fixture: Callable[[str], object]
     host: str
     network: Network
     screen: Screen
@@ -113,7 +116,7 @@ class Board:
         self.cleanup = contextlib.ExitStack()
         self.app = App(self)
         self.screen = Screen(self)
-        self.console = Console(terminals=Terminals(self), keyboard=Keyboard(self))
+        self.console = Console(self)
         self.system = System(self)
         self.network = Network(self)
         self.updates = Updates(self)

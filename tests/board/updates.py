@@ -8,7 +8,6 @@ import re
 import signal
 import subprocess
 import time
-from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import TYPE_CHECKING, NamedTuple
 
@@ -84,12 +83,10 @@ class Updates(Part):
     """RAUC on the board, and the one install path `tools/kiosk-install.sh` takes to it.
 
     Attributes:
-        fixture: returns a pytest fixture's value by name; the target suite sets it.
         CANDIDATE_INSTALL_TIMEOUT_SECONDS: a hang backstop on one install, well past a slot's first adaptive
             install, which hashes the whole slot.
     """
 
-    fixture: Callable[[str], object]
     CANDIDATE_INSTALL_TIMEOUT_SECONDS = 1200
 
     @functools.cached_property
@@ -99,7 +96,7 @@ class Updates(Part):
         Returns:
             The bundles.
         """
-        return self.fixture("candidate_bundles")
+        return self._board.fixture("candidate_bundles")
 
     @functools.cached_property
     def refused_offers(self) -> "RefusedOffers":
@@ -108,7 +105,7 @@ class Updates(Part):
         Returns:
             The offers.
         """
-        return self.fixture("refused_offers")
+        return self._board.fixture("refused_offers")
 
     @functools.cached_property
     def installed(self) -> Installed:
@@ -117,7 +114,7 @@ class Updates(Part):
         Returns:
             The install.
         """
-        installed = self.fixture("install_candidate")
+        installed = self._board.fixture("install_candidate")
         if installed is None:
             pytest.skip("no bench_candidate: a plain pytest run, or bench test --skip-build")
         return installed

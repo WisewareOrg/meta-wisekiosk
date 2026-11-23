@@ -66,10 +66,10 @@ class Keyboard(Part):
     """A virtual keyboard `keyboard.sh` attaches to the board through uinput and types into the consoles.
 
     Attributes:
-        NONCE_BYTES: the bytes of the nonce the typed command writes.
+        WORD_CHARS: how long the word the typed command writes is.
     """
 
-    NONCE_BYTES = 8
+    WORD_CHARS = 16
 
     @staticmethod
     def typing_seconds() -> float:
@@ -82,7 +82,7 @@ class Keyboard(Part):
             _CHORD_HOLD_US / 1_000_000
             + Keyboard._typing_seconds(_LOGIN)
             + _SCRIPT_PAUSE_SECONDS
-            + Keyboard._typing_seconds(Keyboard._marker_command("0" * 2 * Keyboard.NONCE_BYTES))
+            + Keyboard._typing_seconds(Keyboard._marker_command("0" * Keyboard.WORD_CHARS))
         )
 
     def install(self, helpers: "EvemuHelpers", nonce: str, events_dir: Path) -> None:

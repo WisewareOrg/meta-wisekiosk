@@ -64,7 +64,7 @@ def _fixtures_on_demand(request: pytest.FixtureRequest) -> None:
         request: requests a fixture on demand.
     """
     if isinstance(request.instance, BoardTest):
-        request.instance.board.updates.fixture = request.getfixturevalue
+        request.instance.board.fixture = request.getfixturevalue
 
 
 @pytest.fixture(scope="module")

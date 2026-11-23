@@ -44,7 +44,9 @@ class TestDisplay(BoardTest):
         page_width, page_height = self.board.app.layout_size()
 
         self.record(display_mode=f"{width}x{height}", layout_size=f"{page_width}x{page_height}")
-        assert width >= MIN_WIDTH and height >= MIN_HEIGHT, f"the display mode {width}x{height} is below 1280x720"
+        assert width >= MIN_WIDTH and height >= MIN_HEIGHT, (
+            f"the display mode {width}x{height} is below {MIN_WIDTH}x{MIN_HEIGHT}"
+        )
         assert page_width >= MIN_WIDTH and page_height >= MIN_HEIGHT, (
-            f"the page is laid out at {page_width}x{page_height}, below 1280x720"
+            f"the page is laid out at {page_width}x{page_height}, below {MIN_WIDTH}x{MIN_HEIGHT}"
         )
