@@ -31,16 +31,14 @@ class Config(Part):
         """
         return self._sha256(self._DEFAULT_PATH)
 
-    def sha256_to_keep(self) -> str:
-        """Read the sha256 of the live config, which a fault must leave unchanged.
+    def confirm_a_loss_would_show(self, before: str | None) -> None:
+        """Fail the check as invalid if the config held before a fault could not show its loss.
 
-        Returns:
-            The hash; the check is invalid if a loss of the config could not show.
+        Args:
+            before: the live config's sha256 before the fault, None if it was missing.
         """
-        live = self.sha256()
         with invalid_if("a loss of the board's config could not show"):
-            assert shows_a_loss(live, self.default_sha256())
-        return live
+            assert shows_a_loss(before, self.default_sha256())
 
     def use(self, path: str | os.PathLike[str]) -> None:
         """Swap the app onto `path`'s config, and leave the instance running against it, until the test ends.

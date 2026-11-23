@@ -15,10 +15,11 @@ class TestConfiguration(BoardTest):
         self.record(requirement="TST019")
         installed = self.board.updates.installed
 
-        before, after = installed.config_to_keep(), installed.config_after
+        before, after = installed.config_before, installed.config_after
 
         self.record(config_sha256_before=before, config_sha256_after=after)
         assert after == before, f"the board holds config {after}, not the {before} it held before the update"
+        installed.confirm_a_loss_would_show()
 
     @pytest.mark.parametrize(
         ("requirement", "fault"),
@@ -35,10 +36,11 @@ class TestConfiguration(BoardTest):
             fault: the item's stimulus.
         """
         self.record(requirement=requirement)
-        before = self.board.app.config.sha256_to_keep()
+        before = self.board.app.config.sha256()
 
         fault(self.board)
         after = self.board.app.config.sha256()
 
         self.record(config_sha256_before=before, config_sha256_after=after)
         assert after == before, f"the board holds config {after}, not the {before} it held before"
+        self.board.app.config.confirm_a_loss_would_show(before)

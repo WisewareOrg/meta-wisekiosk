@@ -68,15 +68,10 @@ class Installed(NamedTuple):
             assert self.marker_logged
         return self.marker
 
-    def config_to_keep(self) -> str:
-        """The live config's sha256 before the install, which the install must leave unchanged.
-
-        Returns:
-            The hash; the check is invalid if a loss of the config could not show.
-        """
+    def confirm_a_loss_would_show(self) -> None:
+        """Fail the check as invalid if the config held before the install could not show its loss."""
         with invalid_if("a loss of the board's config could not show"):
             assert shows_a_loss(self.config_before, self.default_config)
-        return self.config_before
 
 
 class Updates(Part):

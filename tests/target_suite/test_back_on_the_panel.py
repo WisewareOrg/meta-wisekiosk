@@ -92,7 +92,7 @@ class TestBackOnThePanel(BoardTest):
         self.board.app.install_probe()
         self.board.app.wait_until_on_panel()
 
-        with self.board.network.load(seconds=NETWORK_LOAD_SECONDS):
+        with self.board.network.load(seconds=NETWORK_LOAD_SECONDS) as load:
             longest_off_s = self.board.longest_lapse_s(
                 self.board.app.on_panel, over=NETWORK_LOAD_SECONDS + BACK_WITHIN_SECONDS
             )
@@ -101,6 +101,7 @@ class TestBackOnThePanel(BoardTest):
         assert longest_off_s <= BACK_WITHIN_SECONDS, (
             f"off the panel for {longest_off_s} s; TST008 allows {BACK_WITHIN_SECONDS} s"
         )
+        load.confirm_applied()
 
     def test_display_blanking_disabled(self) -> None:
         """TST007: the display server's screen saver timeout is zero and its power management is disabled."""

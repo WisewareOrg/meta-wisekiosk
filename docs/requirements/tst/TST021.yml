@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_config_held_across_a_fault
   path: tests/target_suite/test_configuration.py
-  sha: a5b054d0f636235abe7c4920a6b5792c21ec9e4d16d38796c8a6037c426a39c2
+  sha: b03b506a39309107f4c929dc8257072a50ccfc8b370e3ae0f85e9aad593a02b7
   type: file
-reviewed: 89p5szJSH7HzRs9BS9_AsaKwphaS5tqIIJGk1SmnO8g=
+reviewed: HAsdgVaZEIJSr4iKd_th16EAPDzlyZPgch9_qzhBVpk=
 status: proposed
 text: |
   With the appliance holding its configuration, cut its power without warning and restore it. Pass

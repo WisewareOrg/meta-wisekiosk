@@ -125,9 +125,10 @@ apart.
 
 **A test's contract is its item's text.** Each target-suite test checks one `TST` item in
 [`docs/requirements/tst/`](requirements/tst/): the stimulus it states, its bound, and its pass, fail
-and invalid conditions. Nothing else is part of the contract. A test records `requirement` and the
-value its item judges, under the same name as every test of its kind (a recovery records `back_s`),
-and no other property. A check the item does not ask for is not in the test.
+and invalid conditions. Nothing else is part of the contract. A test records `requirement`, the
+values its item judges, under the same names as every test of its kind (a recovery records
+`back_s`), and what tells its case or its stimulus apart, or explains a failure the judged values
+cannot. A check the item does not ask for is not in the test.
 
 **Every test reads arrange, act, assert,** three blocks separated by single blank lines, against
 `self.board` and `self.record`. A test method takes only `self` and its parametrized values: before
@@ -150,8 +151,12 @@ overstate a time.
 **A stimulus that did not take fails the check as invalid, from inside the stimulus.** A method that
 applies a stimulus confirms it took and raises through `invalid_if(<how it did not take>)`
 (`tests/board/part.py`), so the message reads `INVALID CHECK, not an appliance failure: …` and the
-test body carries no validity logic. An observed breach of a pass condition the appliance cannot
-excuse fails before anything is judged invalid; invalid only blocks a pass.
+test body holds no validity logic of its own. An observed breach of a pass condition fails before anything is
+judged invalid, so invalid only blocks a pass. Invalid is judged first only where the invalid
+condition can itself cause the breach, as a page reload makes frame stalls. Otherwise the stimulus
+leaves its validity to a `confirm_…` call that ends the test's assert block, after the breach has
+been judged, as TST008<!-- Sustained network load -->'s load and the configuration tests' loss
+check do.
 
 **A test holds what it measured before the stimulus,** in a name that says so, and compares the
 after against it.

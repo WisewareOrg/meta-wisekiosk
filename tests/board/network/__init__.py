@@ -22,6 +22,30 @@ _HANG_GRACE_SECONDS = 60
 _LOAD_FLOOR_MB_S = 1.0
 
 
+class Load:
+    """A push of random bytes at the board, once it has ended.
+
+    Attributes:
+        sent: the bytes written.
+        counted: the byte count the board returned, empty if the ssh died.
+        seconds: how long the push ran.
+        returncode: the ssh's return code.
+    """
+
+    sent: int = 0
+    counted: str = ""
+    seconds: float = 0.0
+    returncode: int | None = None
+
+    def confirm_applied(self) -> None:
+        """Fail the check as invalid unless the board took every byte, at 1 MB/s or more."""
+        rate = self.sent / self.seconds / 1e6 if self.seconds else 0.0
+        with invalid_if(
+            f"the load was not applied: {self.sent} B at {rate:.2f} MB/s, the board counted {self.counted!r}"
+        ):
+            assert self.returncode == 0 and self.counted == str(self.sent) and rate >= _LOAD_FLOOR_MB_S
+
+
 class Network(Part):
     """The board's network.
 
@@ -78,17 +102,17 @@ class Network(Part):
         return read_at - (uptime_s - record.restored)
 
     @contextlib.contextmanager
-    def load(self, seconds: float) -> Iterator[None]:
+    def load(self, seconds: float) -> Iterator["Load"]:
         """Push random bytes at the board for `seconds`, from this host over an ssh of its own.
 
-        The push starts on entry and ends by itself; the exit waits for it. The check is invalid if the
-        board did not take every byte, or took them below 1 MB/s.
+        The push starts on entry and ends by itself; the exit waits for it, and leaves how it went on the
+        `Load`, whose `confirm_applied` judges it once the test has judged the panel.
 
         Args:
             seconds: how long to push.
 
         Yields:
-            None: the push runs while the body runs.
+            Load: the push, which runs while the body runs.
         """
         ssh = self._board.fresh_ssh_argv("ConnectTimeout=10", "ServerAliveInterval=15", "ServerAliveCountMax=4")
         push = subprocess.Popen([*ssh, "wc -c"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -97,13 +121,12 @@ class Network(Part):
         hung = threading.Timer(seconds + _HANG_GRACE_SECONDS, push.kill)
         self._board.cleanup.callback(hung.cancel)
         hung.start()
+        load = Load()
         with ThreadPoolExecutor(max_workers=1) as pool:
             pushed = pool.submit(self._push, push, seconds)
-            yield
-            sent, counted, elapsed = pushed.result()
-        rate = sent / elapsed / 1e6
-        with invalid_if(f"the load was not applied: sent {sent} B at {rate:.2f} MB/s, the board counted {counted!r}"):
-            assert push.returncode == 0 and counted == str(sent) and rate >= _LOAD_FLOOR_MB_S
+            yield load
+            load.sent, load.counted, load.seconds = pushed.result()
+        load.returncode = push.returncode
 
     @staticmethod
     def _push(ssh: subprocess.Popen, seconds: float) -> tuple[int, str, float]:
