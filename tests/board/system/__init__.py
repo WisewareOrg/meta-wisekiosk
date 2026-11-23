@@ -1,4 +1,4 @@
-"""The board's operating system: its clock and the network time that corrects it, its zone, memory and log."""
+"""The board's operating system: its clock and the network time that corrects it, its time zone, memory and log."""
 
 import json
 import time
@@ -9,7 +9,6 @@ from board.system.journal import Journal
 from board.system.kernel import Kernel
 from board.system.memory import Memory
 from board.system.soak import Soak
-from board.system.timezone import Timezone
 
 if TYPE_CHECKING:
     from board import Board
@@ -21,20 +20,20 @@ _CLOCK_WRONG_BY_SECONDS = 3 * 24 * 3600
 _STILL_WRONG_WITHIN_SECONDS = 24 * 3600
 # the clock agrees with the network's time this close to the host's
 _AGREES_WITHIN_SECONDS = 5
+# where a zone set lands instead of the rootfs's /etc
+_ETC_OVERLAY_DIR = "/run/tst026"
 
 
 class System(Part):
     """The board's operating system.
 
     Attributes:
-        timezone: the zone and the local time.
         memory: memory and the kernel's out-of-memory record.
         soak: the kiosk-soak sampler, its timer and its log.
         kernel: what the running kernel reports.
         journal: the system journal's test markers.
     """
 
-    timezone: Timezone
     memory: Memory
     soak: Soak
     kernel: Kernel
@@ -47,7 +46,6 @@ class System(Part):
             board: the board under test.
         """
         super().__init__(board)
-        self.timezone = Timezone(board)
         self.memory = Memory(board)
         self.soak = Soak(board)
         self.kernel = Kernel(board)
@@ -83,6 +81,51 @@ class System(Part):
             True if it is within 5 s of the host's.
         """
         return abs(self._clock_ahead_s()) <= _AGREES_WITHIN_SECONDS
+
+    def utc_offset(self) -> str:
+        """Read the local time's offset from UTC, as `date +%z` prints it.
+
+        Returns:
+            The offset, e.g. `+0900`.
+        """
+        return self._board.run("date +%z", check=True).text
+
+    def set_timezone(self, zone: str) -> None:
+        """Set the time zone over the air with `timedatectl`, into an overlay on /etc, until the test ends.
+
+        The overlay's upper layer is in /run, so the set never writes the rootfs; what a dead run left
+        of it is cleared first. timedated is stopped before the mount, so `timedatectl` starts it inside
+        the overlay. When the test ends, /etc is unmounted, and asserted back as it was.
+
+        Args:
+            zone: the zone's name, e.g. `Asia/Tokyo`.
+        """
+        board = self._board
+        board.run("while findmnt -n /etc >/dev/null; do umount -l /etc || exit 1; done", check=True)
+        board.run(f"rm -rf {_ETC_OVERLAY_DIR}", check=True)
+        localtime = board.run("readlink /etc/localtime", check=True).text
+        board.run(f"modprobe overlay && mkdir -p {_ETC_OVERLAY_DIR}/upper {_ETC_OVERLAY_DIR}/work", check=True)
+        board.cleanup.callback(board.run, f"rm -rf {_ETC_OVERLAY_DIR}", check=True)
+        board.run("systemctl stop systemd-timedated", check=True)
+        board.run(
+            f"mount -t overlay tst026 -o lowerdir=/etc,upperdir={_ETC_OVERLAY_DIR}/upper,"
+            f"workdir={_ETC_OVERLAY_DIR}/work /etc",
+            check=True,
+        )
+        board.cleanup.callback(self._unmount_etc, localtime)
+        board.run(f"timedatectl set-timezone {zone}", check=True)
+
+    def _unmount_etc(self, localtime: str) -> None:
+        """Stop timedated and unmount the /etc overlay; assert it is gone and `/etc/localtime` is as it was.
+
+        Args:
+            localtime: where `/etc/localtime` pointed before the overlay.
+        """
+        self._board.run("systemctl stop systemd-timedated")
+        self._board.run("umount -l /etc", check=True)
+        assert self._board.run("findmnt -n /etc").returncode != 0, "the /etc overlay is still mounted"
+        restored = self._board.run("readlink /etc/localtime", check=True).text
+        assert restored == localtime, f"/etc/localtime is {restored}, expected {localtime}"
 
     def _clock_ahead_s(self) -> float:
         """Read how far the board's clock is ahead of the host's.
