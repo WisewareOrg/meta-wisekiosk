@@ -10,10 +10,12 @@ import subprocess
 import time
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
+import pytest
 from labgrid.driver.exception import ExecutionError
 
+from board.app.config import unlike_default
 from board.part import Part, invalid_if
 
 if TYPE_CHECKING:
@@ -36,26 +38,74 @@ _COPY_STEP = "Copying image to "
 _STAT_SECTORS_WRITTEN = 6
 
 
+class Installed(NamedTuple):
+    """The start-of-run install: the build it installed, and what the board held before it.
+
+    Attributes:
+        commit: the commit the installed build is from.
+        marker: a line written to the board's log before the install.
+        marker_logged: whether the log held the marker before the install.
+        config_sha256: the live config's sha256 before the install, None if it was missing.
+        default_config_sha256: the installed image's default config's sha256, None if it was missing.
+    """
+
+    commit: str
+    marker: str
+    marker_logged: bool
+    config_sha256: str | None
+    default_config_sha256: str | None
+
+    def logged_marker(self) -> str:
+        """The marker written to the log before the install.
+
+        Returns:
+            The marker; the check is invalid if the log did not hold it before the install.
+        """
+        with invalid_if("the marker never reached the log before the install"):
+            assert self.marker_logged
+        return self.marker
+
+    def held_config_sha256(self) -> str:
+        """The live config's sha256 before the install, which the install must leave unchanged.
+
+        Returns:
+            The hash; the check is invalid if a loss of the config could not show.
+        """
+        return unlike_default(self.config_sha256, self.default_config_sha256)
+
+
 class Updates(Part):
     """RAUC on the board, and the one install path `tools/kiosk-install.sh` takes to it.
 
     Attributes:
-        build_bundles: builds this run's test bundles, or returns them once built; the target suite sets it.
+        fixture: returns a pytest fixture's value by name; the target suite sets it.
         CANDIDATE_INSTALL_TIMEOUT_SECONDS: a hang backstop on one install, well past a slot's first adaptive
             install, which hashes the whole slot.
     """
 
-    build_bundles: Callable[[], "CandidateBundles"]
+    fixture: Callable[[str], object]
     CANDIDATE_INSTALL_TIMEOUT_SECONDS = 1200
 
     @functools.cached_property
     def bundles(self) -> "CandidateBundles":
-        """This run's test bundles, built on first use.
+        """This run's test bundles, built on first use; the test is skipped outside a build.
 
         Returns:
             The bundles.
         """
-        return self.build_bundles()
+        return self.fixture("candidate_bundles")
+
+    @functools.cached_property
+    def installed(self) -> Installed:
+        """The start-of-run install; the test is skipped outside a build, where there was none.
+
+        Returns:
+            The install.
+        """
+        installed = self.fixture("install_candidate")
+        if installed is None:
+            pytest.skip("no bench_candidate: a plain pytest run, or bench test --skip-build")
+        return installed
 
     def install_built_image(self) -> None:
         """Install the image this checkout built on the board, through `just kiosk-ota`."""

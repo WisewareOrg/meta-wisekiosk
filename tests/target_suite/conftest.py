@@ -1,13 +1,12 @@
 """Target-suite setup: the start-of-run install, the shared builds, the device context, and the Board hooks."""
 
 import contextlib
-import functools
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 
 import pytest
 from board import Board
-from board.app.config import LiveAndDefaultHashes
+from board.updates import Installed
 from board_test import BoardTest
 from candidate_bundles import CandidateBundles
 from evemu_helpers import EvemuHelpers
@@ -34,42 +33,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--soak", action="store_true", default=False, help="run TST014 with its long period")
 
 
-@pytest.fixture(scope="session")
-def config_hashes_across_install(
-    request: pytest.FixtureRequest, target: Target, bench_candidate: str | None
-) -> LiveAndDefaultHashes | None:
-    """Hash the board's config before and after `install_candidate`, through a board of its own; writes nothing.
-
-    First clears what a dead run can leave in `/run`: a bind mount over the live config path, the
-    backend's runtime drop-ins and a runtime mask on it.
-
-    Args:
-        request: runs `install_candidate` between the two hashes.
-        target: the board's labgrid target.
-        bench_candidate: the commit under test, or None outside a build.
-
-    Returns:
-        The sha256 of the live config before the install, after it, and of the image default after it
-        (each None if the file is missing); None when there is no candidate to install.
-    """
-    with Board(target) as board:
-        config = board.app.config
-        board.unmount_if_mounted(config.LIVE_PATH)
-        board.app.backend.clear_runtime_overrides()
-        if bench_candidate is None:
-            request.getfixturevalue("install_candidate")
-            return None
-        before = config.live_sha256()
-        request.getfixturevalue("install_candidate")
-        return before, config.live_sha256(), config.default_sha256()
-
-
 @pytest.fixture(scope="session", autouse=True)
-def _install_candidate(config_hashes_across_install: LiveAndDefaultHashes | None) -> None:
-    """Activate `install_candidate` (tests/conftest.py) for every test here, via `config_hashes_across_install`.
+def _install_candidate(install_candidate: Installed | None) -> None:
+    """Activate `install_candidate` (tests/conftest.py) for every test here.
 
     Args:
-        config_hashes_across_install: the config's hashes across the start-of-run install.
+        install_candidate: the start-of-run install.
     """
 
 
@@ -88,14 +57,14 @@ def candidate_bundles(bench_candidate: str | None) -> Iterator[CandidateBundles]
 
 
 @pytest.fixture(autouse=True)
-def _bundles_on_demand(request: pytest.FixtureRequest) -> None:
-    """Have a BoardTest's board build this run's test bundles, through `candidate_bundles`, when it first uses them.
+def _fixtures_on_demand(request: pytest.FixtureRequest) -> None:
+    """Have a BoardTest's board reach the run's fixtures, such as its test bundles, when it first uses them.
 
     Args:
-        request: requests `candidate_bundles` on demand.
+        request: requests a fixture on demand.
     """
     if isinstance(request.instance, BoardTest):
-        request.instance.board.updates.build_bundles = functools.partial(request.getfixturevalue, "candidate_bundles")
+        request.instance.board.updates.fixture = request.getfixturevalue
 
 
 @pytest.fixture(scope="module")

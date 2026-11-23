@@ -14,11 +14,10 @@ class Journal(Part):
         """
         self._board.run(f"echo {text} | systemd-cat -t kiosk-log-marker", check=True)
 
-    def markers(self) -> list[str] | None:
+    def markers(self) -> list[str]:
         """Read the marker lines written to the journal under the identifier `kiosk-log-marker`.
 
         Returns:
-            The lines, or None if `journalctl` returned nonzero.
+            The lines.
         """
-        result = self._board.run("journalctl -t kiosk-log-marker -o cat")
-        return result.stdout if result.returncode == 0 else None
+        return self._board.run("journalctl -t kiosk-log-marker -o cat", check=True).stdout

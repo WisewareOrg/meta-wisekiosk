@@ -12,11 +12,11 @@ rationale: |
   the appliance back on the settings the operator had moved away from.
 ref: ''
 references:
-- keyword: def test_config_held_across_power_cut
+- keyword: def test_config_held_across_a_fault
   path: tests/target_suite/test_configuration.py
-  sha: c69b4a3caa599a786643b05d663667dcd271e6cf5bd1cd4e2d190bfec8f02d58
+  sha: bf1b6e33a01d6d3e5148c0f23875683c146d7cab3445f446c1b5104cb7360183
   type: file
-reviewed: AOYbx4pFQFJWUQ4CKNRmYNmSJioLNVtQq53bpNn88Io=
+reviewed: 26SV3gtNsxPHkBgH6g-Rtbn6Q4_N8kVH8-AAxPU1_Fo=
 status: proposed
 text: |
   With the appliance holding its configuration, cut its power without warning and restore it. Pass

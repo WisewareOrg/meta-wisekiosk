@@ -1,16 +1,8 @@
 """The config the WiseKiosk app runs with."""
 
 import os
-from typing import TYPE_CHECKING
 
-from board.part import Part
-
-if TYPE_CHECKING:
-    from record import Record
-
-
-# the live config's sha256 before a fault and after it, and the image default's; each None if missing
-type LiveAndDefaultHashes = tuple[str | None, str | None, str | None]
+from board.part import Part, invalid_if
 
 
 class Config(Part):
@@ -23,7 +15,7 @@ class Config(Part):
     LIVE_PATH = "/data/config/config.json"
     _DEFAULT_PATH = "/usr/share/wisekiosk/config.example.json"
 
-    def live_sha256(self) -> str | None:
+    def sha256(self) -> str | None:
         """Read the sha256 of the live config.
 
         Returns:
@@ -39,39 +31,13 @@ class Config(Part):
         """
         return self._sha256(self._DEFAULT_PATH)
 
-    def assert_held(self, before: str | None, after: str | None, default: str | None, record: "Record") -> None:
-        """Assert the live config held across a fault, and that a loss would have been seen.
+    def sha256_unlike_default(self) -> str:
+        """Read the sha256 of the live config, which a fault must leave unchanged.
 
-        Records the three hashes, then `validity`: invalid when the board held no config to keep, or held
-        the image default (or the default was unreadable) and kept it, so a loss and a reseed would look
-        alike.
-
-        Args:
-            before: the sha256 of the live config before the fault, None if it was missing.
-            after: the sha256 of the live config after the fault, None if it was missing.
-            default: the sha256 of the image default the board reseeds the live config from, None if it
-                was missing.
-            record: the test's record.
+        Returns:
+            The hash; the check is invalid if `unlike_default` says a loss could not show.
         """
-        record(config_before_sha256=before, config_after_sha256=after, config_default_sha256=default)
-        if before is None:
-            validity = "invalid: the board held no config.json to keep"
-        elif after != before:
-            validity = "valid"
-        elif default is None or before == default:
-            validity = "invalid: the board's config is the image default, or the default is unreadable"
-        else:
-            validity = "valid"
-        record(validity=validity)
-        assert before is not None, "INVALID CHECK, not an appliance failure: the board held no config.json to keep"
-        assert after == before, (
-            f"config held {'missing' if after is None else after}, expected the {before} it held before"
-        )
-        assert default is not None, "INVALID CHECK, not an appliance failure: the image default could not be read"
-        assert before != default, (
-            "INVALID CHECK, not an appliance failure: the board's config is the image default, "
-            "so losing it would go unseen"
-        )
+        return unlike_default(self.sha256(), self.default_sha256())
 
     def use(self, path: str | os.PathLike[str]) -> None:
         """Swap the app onto `path`'s config, and leave the instance running against it, until the test ends.
@@ -110,3 +76,21 @@ class Config(Part):
         """Restart the backend and wait for the page."""
         self._board.run("systemctl restart wisekiosk.service", check=True)
         self._board.seconds_until(self._board.app.is_served)
+
+
+def unlike_default(live: str | None, default: str | None) -> str:
+    """The live config's hash, provided a loss of it would show.
+
+    Args:
+        live: the live config's sha256, None if it was missing.
+        default: the image default's sha256, None if it was missing.
+
+    Returns:
+        `live`; the check is invalid if the board held no config, or held the image default (or the
+        default is unreadable), so that losing it and reseeding the default would look like keeping it.
+    """
+    with invalid_if("the board's config could not show a loss"):
+        assert live is not None, "the board holds no config.json"
+        assert default is not None, "the image default is unreadable"
+        assert live != default, "the board's config is the image default"
+    return live

@@ -4,15 +4,16 @@ from collections.abc import Iterator
 
 import pytest
 from board import Board
+from board.updates import Installed
 from labgrid import Target
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _install_candidate(install_candidate: tuple[str, bool] | None) -> None:
+def _install_candidate(install_candidate: Installed | None) -> None:
     """Activate `install_candidate` (tests/conftest.py) for every test in this suite.
 
     Args:
-        install_candidate: the start-of-run install's marker and whether the log held it.
+        install_candidate: the start-of-run install.
     """
 
 
