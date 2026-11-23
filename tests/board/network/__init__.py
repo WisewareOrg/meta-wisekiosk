@@ -1,4 +1,4 @@
-"""The board's network, as tests take it away and load it."""
+"""The board's network, as tests cut it off and load it."""
 
 import contextlib
 import os
@@ -39,6 +39,29 @@ class Network(Part):
         """
         super().__init__(board)
         self.outage = Outage(board)
+
+    def cut_off(self, seconds: float) -> float:
+        """Cut the board off the site network at the board itself for `seconds`, then let it back on.
+
+        A timer on the board cuts and restores the network, once boot has completed, so the outage
+        cannot land inside kiosk-netcheck's window. The check is invalid if a remote shell opens halfway
+        through the outage.
+
+        Args:
+            seconds: how long the network stays cut off.
+
+        Returns:
+            The host `time.monotonic()` at which the network returns, by the board's timer; taken from
+            before the timer was set, so never later than the return.
+        """
+        self.outage.wait_boot_complete()
+        cut_at = time.monotonic() + Outage.CUT_DELAY_SECONDS
+        self.outage.schedule(seconds)
+        time.sleep(max(0.0, cut_at + seconds / 2 - time.monotonic()))
+        with invalid_if("the network did not go away: a remote shell opened while it was cut off"):
+            assert not self._board.opens_a_shell()
+        time.sleep(max(0.0, cut_at + seconds - time.monotonic()))
+        return cut_at + seconds
 
     @contextlib.contextmanager
     def load(self, seconds: float) -> Iterator[None]:

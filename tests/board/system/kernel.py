@@ -1,4 +1,4 @@
-"""What the running kernel reports: its uptime and boot, its built-in modules, the SoC's temperature."""
+"""What the running kernel reports: its boot across a long sleep, its built-in modules, the SoC's temperature."""
 
 import time
 
@@ -10,28 +10,6 @@ _BOOT_CHECK_SECONDS = 600
 
 class Kernel(Part):
     """The running kernel, as the board reports it."""
-
-    def uptime_s(self, retry_for: float | None = None) -> float:
-        """Read the board's uptime.
-
-        Args:
-            retry_for: how long to retry through a dropped session, as `Board.run` takes it; None reads once.
-
-        Returns:
-            The uptime, in seconds.
-        """
-        return float(self._board.run("cat /proc/uptime", check=True, retry_for=retry_for).text.split()[0])
-
-    def boot_id(self, retry_for: float | None = None) -> str:
-        """Read the kernel's boot id, which differs in each boot.
-
-        Args:
-            retry_for: how long to retry through a dropped session, as `Board.run` takes it; None reads once.
-
-        Returns:
-            The boot id.
-        """
-        return self._board.run(self._board.BOOT_ID_CMD, check=True, retry_for=retry_for).text
 
     def sleep_watching_boot(self, boot_id: str, seconds: float) -> str | None:
         """Sleep out `seconds`, reading the boot every 600 s, and end early if the board booted again.
@@ -78,6 +56,6 @@ class Kernel(Part):
             The boot id, or None if it could not be read.
         """
         try:
-            return self.boot_id(retry_for=self._board.READ_RETRY_SECONDS)
+            return self._board.boot_id(retry_for=self._board.READ_RETRY_SECONDS)
         except self._board.ERRORS:
             return None

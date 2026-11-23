@@ -377,21 +377,39 @@ class Board:
             raise AssertionError(f"{error}; the ssh that sent {cmd!r} ended with {sent_as}") from None
         return started
 
-    def boot_id(self) -> str:
+    def boot_id(self, retry_for: float | None = None) -> str:
         """Read the kernel's boot id, which differs in each boot.
+
+        Args:
+            retry_for: how long to retry through a dropped session, as `run` takes it; None reads once.
 
         Returns:
             The boot id.
         """
-        return self.run(self.BOOT_ID_CMD, check=True).text
+        return self.run(self.BOOT_ID_CMD, check=True, retry_for=retry_for).text
 
-    def uptime_s(self) -> float:
+    def uptime_s(self, retry_for: float | None = None) -> float:
         """Read the board's uptime.
+
+        Args:
+            retry_for: how long to retry through a dropped session, as `run` takes it; None reads once.
 
         Returns:
             The uptime, in seconds.
         """
-        return float(self.run("cat /proc/uptime", check=True).text.split()[0])
+        return float(self.run("cat /proc/uptime", check=True, retry_for=retry_for).text.split()[0])
+
+    def opens_a_shell(self) -> bool:
+        """Whether a remote shell of its own opens on the board, apart from the connection the tests use.
+
+        Returns:
+            True if a new ssh ran a command.
+        """
+        try:
+            ssh = subprocess.run([*self.fresh_ssh_argv("ConnectTimeout=5"), "true"], capture_output=True, timeout=10)
+        except subprocess.TimeoutExpired:
+            return False
+        return ssh.returncode == 0
 
     def restart(self) -> float:
         """Restart the board, and reconnect once it is up in a new boot.

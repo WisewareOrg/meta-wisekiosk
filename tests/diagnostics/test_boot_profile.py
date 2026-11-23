@@ -109,7 +109,7 @@ def test_boot_profile(request: pytest.FixtureRequest, board: Board) -> None:
     request.addfinalizer(_cleanup)
 
     # 1. Record the boot id.
-    boot_before = board.system.kernel.boot_id()
+    boot_before = board.boot_id()
 
     # 2. Arm: copy the binary and the unit, then enable. scp (what board.put() shells out
     # to) does not create destination directories, so make it first.
@@ -136,7 +136,7 @@ def test_boot_profile(request: pytest.FixtureRequest, board: Board) -> None:
         except Exception:  # noqa: BLE001 -- unreachable is "still the old boot", not a failure
             time.sleep(_RETRY_INTERVAL_SECONDS)
             continue
-        boot_after = board.system.kernel.boot_id()
+        boot_after = board.boot_id()
         if boot_after == boot_before:
             time.sleep(_RETRY_INTERVAL_SECONDS)
             continue

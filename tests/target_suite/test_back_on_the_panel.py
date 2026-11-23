@@ -1,4 +1,4 @@
-"""Target suite: with nobody at the panel, the appliance brings the WiseKiosk instance back to it, and promptly."""
+"""Target suite: with nobody at the panel, the appliance brings the WiseKiosk instance back to it."""
 
 import operator
 from collections.abc import Callable
@@ -9,11 +9,10 @@ from board import Board
 from board_test import BoardTest, case
 
 # what "back" is read as: the instance on the panel; its page served with the browser running; the
-# browser finished loading the instance's page; the clock agreeing with the network's time
+# browser finished loading the instance's page
 ON_PANEL = operator.attrgetter("app.on_panel")
 UP = operator.attrgetter("app.is_up")
 LOADED = operator.attrgetter("app.loaded_the_instance")
-CLOCK_AGREES = operator.attrgetter("system.clock_agrees")
 CLOCK_WITH_SECONDS = Path(__file__).resolve().parent / "clock-seconds.json"
 SENDS_UPDATE = [pytest.mark.sends_update]
 # TST008's load, and how long after any stop the panel has to be back
@@ -35,7 +34,6 @@ class TestBackOnThePanel(BoardTest):
             case("TST011", lambda board: board.restart(), UP, 60),
             case("TST012", lambda board: board.cut_power(), LOADED, 110),
             case("TST033", lambda board: board.app.restart_with_backend_held(), ON_PANEL, 60),
-            case("TST015", lambda board: board.system.restart_with_clock_wrong(), CLOCK_AGREES, 100),
             case(
                 "TST003",
                 lambda board: board.updates.cut_power_while_writing(board.updates.bundles.new_build),

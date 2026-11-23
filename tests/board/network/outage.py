@@ -1,6 +1,5 @@
 """The network outage `outage.sh` injects: scheduled on the board, its record read back."""
 
-import subprocess
 from pathlib import Path
 from typing import NamedTuple
 
@@ -11,8 +10,6 @@ _SCRIPT_PATH = "/tmp/test-outage.sh"
 _RECORD_PATH = "/tmp/test-outage.record"
 _UNIT = "test-outage"
 _BOOT_COMPLETE_WAIT_SECONDS = 180
-_FRESH_SHELL_TIMEOUT_SECONDS = 10
-_JOURNAL_TIMEOUT_SECONDS = 60
 
 
 class OutageRecord(NamedTuple):
@@ -95,50 +92,6 @@ class Outage(Part):
             The record; empty if the board holds none.
         """
         return OutageRecord.from_lines(self._board.run(f"cat {_RECORD_PATH} 2>/dev/null || true", check=True).stdout)
-
-    def read_record_over_fresh_ssh(self) -> tuple[float | None, OutageRecord | None, str]:
-        """Open a new ssh shell on the board, apart from the SSHDriver, and read the record over it.
-
-        Returns:
-            The board's uptime the shell read, then the record it read (both None if no shell opened),
-            then how the attempt ended: `opened`, or why no shell opened.
-        """
-        try:
-            done = subprocess.run(
-                [
-                    *self._board.fresh_ssh_argv("ConnectTimeout=5"),
-                    f"cat /proc/uptime; cat {_RECORD_PATH} 2>/dev/null; true",
-                ],
-                capture_output=True,
-                text=True,
-                timeout=_FRESH_SHELL_TIMEOUT_SECONDS,
-            )
-        except subprocess.TimeoutExpired:
-            return None, None, f"timed out after {_FRESH_SHELL_TIMEOUT_SECONDS} s"
-        if done.returncode != 0:
-            return None, None, f"rc {done.returncode}, stderr {done.stderr.strip()[-200:]!r}"
-        lines = done.stdout.splitlines()
-        return float(lines[0].split()[0]), OutageRecord.from_lines(lines[1:]), "opened"
-
-    def journal(self, boot_id: str) -> list[str]:
-        """Reconnect the SSHDriver and read the outage unit's journal for its last run in the boot `boot_id`.
-
-        Args:
-            boot_id: the boot, as `board.system.kernel.boot_id()` reads it.
-
-        Returns:
-            The journal lines of the unit's last run, or a line naming the `journalctl` return code
-            and its stderr when the read failed.
-        """
-        self._board.reconnect()
-        journal = self._board.run(
-            f"journalctl -b {boot_id.replace('-', '')} -u {_UNIT} -o cat --no-pager",
-            timeout=_JOURNAL_TIMEOUT_SECONDS,
-        )
-        if journal.returncode != 0:
-            return [f"journalctl rc {journal.returncode}", *journal.stderr]
-        last_run = max((n for n, line in enumerate(journal.stdout) if line.startswith("id ")), default=0)
-        return journal.stdout[last_run:]
 
     def _unpin(self) -> None:
         """Release the network the record names from the bssid the script pinned it to."""

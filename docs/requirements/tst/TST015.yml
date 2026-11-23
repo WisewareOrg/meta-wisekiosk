@@ -13,10 +13,10 @@ rationale: |
 ref: ''
 references:
 - keyword: def test_back_after_a_fault
-  path: tests/target_suite/test_back_on_the_panel.py
-  sha: f858f755299c689353a7a60f98b07e2bc772a4aca80f9e7abcaa9f5b7edb7f73
+  path: tests/target_suite/test_system_back.py
+  sha: 865341e2370b9ab51b29d47a0e8e6a7618871df0409b188a5fbbf221b6dd1b94
   type: file
-reviewed: 1vvM8YZ2C-8RRwOmOm15_Xr2mihOyXu3sZAZ6Ekxbo0=
+reviewed: gJHnDsWbx6DYXWYaKHN5NKFZga3_wxhsBFmI79ePjOk=
 status: proposed
 text: |
   With the site network up, set the appliance's clock wrong by days, then restart the appliance and

@@ -61,14 +61,16 @@ class System(Part):
         clock is not still wrong after the restart, as timesyncd's first entry of the new boot shows it.
 
         Returns:
-            The host `time.monotonic()` at which the board started up again.
+            The host `time.monotonic()` at which the board started up again, taken from before the uptime
+            read, so never later than the start.
         """
         self._board.cleanup.callback(self._board.run, "systemctl start systemd-timesyncd", check=True)
         self._board.cleanup.callback(self._put_clock_right)
         self._board.run("systemctl stop systemd-timesyncd", check=True)
         self._set_clock(int(time.time()) - _CLOCK_WRONG_BY_SECONDS)
         self._board.restart()
-        started_up = time.monotonic() - self._board.uptime_s()
+        read_at = time.monotonic()
+        started_up = read_at - self._board.uptime_s()
         with invalid_if("the clock was not still wrong after the restart"):
             behind_s = self._first_sync_entry_behind_s()
             assert abs(behind_s - _CLOCK_WRONG_BY_SECONDS) < _STILL_WRONG_WITHIN_SECONDS, f"{behind_s:.0f} s behind"
