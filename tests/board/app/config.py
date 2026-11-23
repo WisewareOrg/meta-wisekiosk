@@ -88,7 +88,7 @@ class Config(Part):
         self._board.bind_over(path, self.LIVE_PATH)
         self._board.run("systemctl restart wisekiosk.service", check=True)
         self._board.cleanup.callback(self._restart_backend_and_wait)
-        self._board.app.page.wait_until_served()
+        self._board.seconds_until(self._board.app.is_served)
         self._board.run("systemctl start kiosk.service", check=True)
         self._board.cleanup.callback(self._board.run, "systemctl stop kiosk.service", check=True)
 
@@ -109,4 +109,4 @@ class Config(Part):
     def _restart_backend_and_wait(self) -> None:
         """Restart the backend and wait for the page."""
         self._board.run("systemctl restart wisekiosk.service", check=True)
-        self._board.app.page.wait_until_served()
+        self._board.seconds_until(self._board.app.is_served)

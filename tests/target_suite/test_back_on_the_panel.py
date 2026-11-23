@@ -1,4 +1,4 @@
-"""Target suite: with nobody at the panel, the appliance brings the WiseKiosk instance back to it."""
+"""Target suite: with nobody at the panel, the appliance brings the WiseKiosk instance back to it, and promptly."""
 
 import functools
 from collections.abc import Callable
@@ -16,8 +16,8 @@ NETWORK_LOAD_SECONDS = 60
 BACK_WITHIN_SECONDS = 60
 
 
-class TestRecoversTheInstance(BoardTest):
-    """With nobody at the panel, the appliance brings the instance back after a fault."""
+class TestBackOnThePanel(BoardTest):
+    """With nobody at the panel, the appliance brings the instance back after a fault or a restart."""
 
     @pytest.mark.parametrize(
         ("requirement", "fault", "back", "bound_s"),
@@ -27,6 +27,9 @@ class TestRecoversTheInstance(BoardTest):
             case("TST034", lambda board: board.app.kill_backend_while_browser_starts(), App.on_panel, 60),
             case("TST004", lambda board: board.crash_kernel(), App.is_up, 100),
             case("TST002", lambda board: board.cut_power(), App.is_up, 60),
+            case("TST011", lambda board: board.restart(), App.is_up, 60),
+            case("TST012", lambda board: board.cut_power(), App.loaded_the_instance, 110),
+            case("TST033", lambda board: board.app.restart_with_backend_held(), App.on_panel, 60),
             case(
                 "TST003",
                 lambda board: board.updates.cut_power_while_writing(board.updates.bundles.new_build),
@@ -46,7 +49,7 @@ class TestRecoversTheInstance(BoardTest):
     def test_back_after_a_fault(
         self, requirement: str, fault: Callable[[Board], float], back: Callable[[App], bool], bound_s: float
     ) -> None:
-        """A fault with the instance on the panel, then the time until the instance is back.
+        """A fault or a restart with the instance on the panel, then the time until the instance is back.
 
         Args:
             requirement: the item.

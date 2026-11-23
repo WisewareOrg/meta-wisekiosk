@@ -11,11 +11,11 @@ rationale: |
   is at the panel to bring it back. The appliance has to return to the instance on its own.
 ref: ''
 references:
-- keyword: def test_restart_to_the_panel
-  path: tests/target_suite/test_restart_recovery.py
-  sha: 8a0416f721c5ceb69bf3ed03544852436b34f455916e4c8bc67c52f7ff7b2b11
+- keyword: def test_back_after_a_fault
+  path: tests/target_suite/test_back_on_the_panel.py
+  sha: e55e05d597dc5ee7770f21955c79ab8f151e3f6e157fbc04ec10df471b90e3be
   type: file
-reviewed: XR0lG30_UIz9DN3KkdnympzZm80NRe1xRhBQyBfQgow=
+reviewed: jCaAEi7NeAyIeCIp9bvkph5i1KMkLTloiiei6EuRCjM=
 status: proposed
 text: |
   Restart the appliance over the network, with nobody at the panel. Pass if, within 60 s of the

@@ -384,6 +384,14 @@ class Board:
             raise AssertionError(f"{error}; the ssh that sent {cmd!r} ended with {sent_as}") from None
         return started
 
+    def restart(self) -> float:
+        """Restart the board, and reconnect once it is up in a new boot.
+
+        Returns:
+            The host `time.monotonic()` taken before the restart was asked for.
+        """
+        return self.restart_with("systemctl reboot")
+
     def crash_kernel(self) -> float:
         """Crash the kernel, so that nothing on the board runs, and reconnect once it has restarted by itself.
 

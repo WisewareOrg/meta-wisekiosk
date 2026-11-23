@@ -2,6 +2,7 @@
 
 import re
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -26,8 +27,10 @@ _TITLES = (
     "for id in $(DISPLAY=:0 xwininfo -root -tree 2>/dev/null | awk '/^ +0x/ { print $1 }'); do "
     'DISPLAY=:0 xprop -id "$id" WM_NAME 2>/dev/null; done'
 )
-# how long a crashed backend is held down, so the browser starts without it
-_BACKEND_HOLD_SECONDS = 60
+# how long a crashed backend's own restart is held back, so the browser starts without it
+_BACKEND_HOLD_SECONDS = 600
+# a soft reboot restarts userspace only, so a new boot shows as a new start of multi-user.target
+_USERSPACE_BOOT = "systemctl show -p ActiveEnterTimestampMonotonic --value multi-user.target"
 
 
 class App(Part):
@@ -59,16 +62,20 @@ class App(Part):
         self._kiosk = Unit(board, "kiosk.service")
         self._web_processes = Process(board, "WebKitWebProcess", parent="surf")
 
-    def install_probe(self) -> None:
-        """Load the probe into the browser, which restarts to load it, until the test ends.
+    def install_probe(self, restart_browser: bool = True) -> None:
+        """Load the probe into the browser, until the test ends.
 
         The browser restart's undo is registered before the bind mount, so when the test ends the probe
         is unmounted and its copy removed before the browser restarts.
+
+        Args:
+            restart_browser: restart the browser so it loads the probe now; else its next page load loads it.
         """
         self._board.run(f"mkdir -p {Path(_SURF_SCRIPT).parent} && touch {_SURF_SCRIPT}", check=True)
         self._board.cleanup.callback(self._kiosk.restart)
         self._board.bind_over(_PROBE, _SURF_SCRIPT)
-        self._kiosk.restart()
+        if restart_browser:
+            self._kiosk.restart()
 
     def is_served(self) -> bool:
         """Whether the backend serves the instance's page.
@@ -126,8 +133,8 @@ class App(Part):
     def kill_backend_while_browser_starts(self) -> float:
         """Kill the backend outright, and start the browser again while the backend is down.
 
-        The backend's own restart is held back until the test ends or 60 s pass, so the browser loads
-        a page without it; the check is invalid if it did not.
+        The backend's own restart is held back, until the test ends, so the browser loads a page without it;
+        the check is invalid if it did not. Then the backend is started again.
 
         Returns:
             The host `time.monotonic()` at the end of the read that first saw the backend answering again.
@@ -135,11 +142,52 @@ class App(Part):
         self.backend.drop_in(f"[Service]\\nRestartSec={_BACKEND_HOLD_SECONDS}\\n")
         self.backend.kill()
         self._kiosk.restart()
+        return self._answers_after_a_load_without_it(self.backend.start)
+
+    def restart_with_backend_held(self) -> float:
+        """Restart the board's userspace with the backend held back until the browser has started.
+
+        The backend is masked for this boot across a soft reboot, then let go once the browser has loaded a
+        page without it; the check is invalid if the hold did not survive the restart or the browser loaded
+        nothing while it held. A board-side timer lets the backend go anyway once the wait would have
+        given up, in case the host goes away.
+
+        Returns:
+            The host `time.monotonic()` at the end of the read that first saw the backend answering.
+        """
+        self.backend.mask()
+        self._board.restart_with("systemctl soft-reboot", boot_cmd=_USERSPACE_BOOT)
+        self.backend.unmask_later(self._board.GIVE_UP_SECONDS)
+        with invalid_if("the backend was not held back across the restart"):
+            assert not self.backend.is_active()
+        self.install_probe(restart_browser=False)
+        return self._answers_after_a_load_without_it(self.backend.unmask)
+
+    def loaded_the_instance(self) -> bool:
+        """Whether the browser has finished loading the instance's page, whose title is `WiseKiosk`.
+
+        Returns:
+            True if a window carries it, loaded.
+        """
+        return any(not title.startswith("[") and title.endswith(" | WiseKiosk") for title in self._titles())
+
+    def _answers_after_a_load_without_it(self, release: Callable[[], None]) -> float:
+        """Wait until the browser has loaded a page with the backend held down, then let it go.
+
+        The check is invalid if the browser loaded nothing, or the backend answered first.
+
+        Args:
+            release: lets the backend go.
+
+        Returns:
+            The host `time.monotonic()` at the end of the read that first saw the backend answering.
+        """
         with invalid_if("the browser did not load a page while the backend was down"):
             self._board.seconds_until(self._loaded_a_page)
             assert not self.is_served(), "the backend answered first"
-        down_since = time.monotonic()
-        return down_since + self._board.seconds_until(self.is_served, since=down_since)
+        release()
+        released = time.monotonic()
+        return released + self._board.seconds_until(self.is_served, since=released)
 
     def _titles(self) -> list[str]:
         """Read every window's title.

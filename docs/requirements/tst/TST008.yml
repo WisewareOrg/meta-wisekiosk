@@ -13,10 +13,10 @@ rationale: |
 ref: ''
 references:
 - keyword: def test_sustained_network_load
-  path: tests/target_suite/test_recovers_the_instance.py
-  sha: a2f1bbe4212da433d9ec4ad28e41f84c09a4b0ed3f07d70dfca31ee3b6ab936f
+  path: tests/target_suite/test_back_on_the_panel.py
+  sha: e55e05d597dc5ee7770f21955c79ab8f151e3f6e157fbc04ec10df471b90e3be
   type: file
-reviewed: nl0aX7HjPFYe6jmmBSq6GUz1GcoKf2sfB_HNyC_Ca-c=
+reviewed: aaT-2Yxn_dy5L0xd5m4MBYQjEACy1hGkrkgTkb6oIfA=
 status: proposed
 text: |
   With the WiseKiosk instance on the panel, hold the appliance's network under sustained load from

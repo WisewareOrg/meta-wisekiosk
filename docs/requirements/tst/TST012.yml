@@ -11,11 +11,11 @@ rationale: |
   has loaded. The viewer needs it there promptly after power returns.
 ref: ''
 references:
-- keyword: def test_cold_boot_to_the_panel
-  path: tests/target_suite/test_restart_recovery.py
-  sha: 8a0416f721c5ceb69bf3ed03544852436b34f455916e4c8bc67c52f7ff7b2b11
+- keyword: def test_back_after_a_fault
+  path: tests/target_suite/test_back_on_the_panel.py
+  sha: e55e05d597dc5ee7770f21955c79ab8f151e3f6e157fbc04ec10df471b90e3be
   type: file
-reviewed: echs590lVtDtx0oUIOqHmK7LMrMSo8Y9hHia5U29_Lo=
+reviewed: vPElfm7tSwLpwYo5CJpGBy-2CBKcQ2HKFCLQ20gkpOs=
 status: proposed
 text: |
   With the appliance powered off and nobody at the panel, apply power. Pass if, within 110 s of

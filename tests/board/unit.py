@@ -45,6 +45,44 @@ class Unit(Part):
         """Restart the unit."""
         self._board.run(f"systemctl restart {self.name}", check=True)
 
+    def start(self) -> None:
+        """Start the unit; one already running is left as it is."""
+        self._board.run(f"systemctl start {self.name}", check=True)
+
+    def is_active(self) -> bool:
+        """Whether the unit is active.
+
+        Returns:
+            True if systemd says so.
+        """
+        return self._board.run(f"systemctl is-active {self.name}").returncode == 0
+
+    def mask(self) -> None:
+        """Mask the unit for this boot only, so nothing starts it; when the test ends it is unmasked and started."""
+        self._board.cleanup.callback(self.unmask)
+        self._board.run(f"systemctl mask --runtime {self.name}", check=True)
+
+    def unmask(self) -> None:
+        """Unmask a unit masked for this boot, and start it."""
+        self._board.run(self._unmask, check=True)
+
+    def unmask_later(self, delay: float) -> None:
+        """Have the board unmask and start the unit in `delay` seconds by itself, until the test ends.
+
+        Args:
+            delay: seconds from now.
+        """
+        self._board.run_later("test-unmask", delay, f"/bin/sh -c '{self._unmask}'")
+
+    @property
+    def _unmask(self) -> str:
+        """The command that unmasks the unit for this boot and starts it.
+
+        Returns:
+            The command.
+        """
+        return f"systemctl unmask --runtime {self.name}; systemctl start {self.name}"
+
     def drop_in(self, text: str) -> None:
         """Add `text` to the unit as a runtime drop-in, until the test ends, then start the unit.
 
