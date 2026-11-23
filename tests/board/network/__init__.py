@@ -70,9 +70,10 @@ class Network(Part):
         """Cut the board off the site network at the board itself for `seconds`, then let it back on.
 
         A timer on the board cuts and restores the network, once boot has completed, so the outage
-        cannot land inside kiosk-netcheck's window. Once the restore is due, the board is reconnected
-        and the outage's record read: the check is invalid unless it shows the board without an address
-        halfway through.
+        cannot land inside kiosk-netcheck's window. Once the restore is due, the board is reconnected. A
+        board in a new boot fails the test: the outage restarts a board that has no address
+        `Outage.GIVE_UP_SECONDS` after the network returned. Otherwise the outage's record is read, and the
+        check is invalid unless it shows the board without an address halfway through.
 
         Args:
             seconds: how long the network stays cut off.
@@ -83,10 +84,14 @@ class Network(Part):
             so it is never later than the return.
         """
         self.outage.wait_boot_complete()
+        boot = self._board.boot_id()
         cut_at = time.monotonic() + Outage.CUT_DELAY_SECONDS
         self.outage.schedule(seconds)
         time.sleep(max(0.0, cut_at + seconds - time.monotonic()))
         self._board.reconnect()
+        assert self._board.boot_id() == boot, (
+            f"the board did not rejoin: the outage restarted it, {Outage.GIVE_UP_SECONDS} s after the network returned"
+        )
         read_at = time.monotonic()
         uptime_s, record = self.outage.uptime_and_record()
         with invalid_if(f"the record does not show the board cut off and back: {record.lines}"):

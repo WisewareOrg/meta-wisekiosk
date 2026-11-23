@@ -47,14 +47,15 @@ class Update(NamedTuple):
         output: the tool's combined output.
         booted_before: the slot the board booted before the install.
         booted_after: the slot the board booted after the restart.
-        restarted_at: the host `time.monotonic()` just before the restart.
+        restarted_at: the host `time.monotonic()` just before the restart; None if the install failed, so
+            there was none.
     """
 
     returncode: int
     output: str
     booted_before: str
     booted_after: str
-    restarted_at: float
+    restarted_at: float | None
 
 
 class Offered(NamedTuple):
@@ -183,6 +184,8 @@ class Updates(Part):
     def install_bundle(self, bundle: pathlib.Path, timeout: float) -> tuple[int, str, float]:
         """Install `bundle` through `tools/kiosk-install.sh`, the board's one install path.
 
+        An assertion fails the test if it is not marked `sends_update`, which runs it after every other.
+
         Args:
             bundle: the bundle on the host.
             timeout: the longest the install may take.
@@ -213,7 +216,9 @@ class Updates(Part):
         return tool.returncode, output, round(time.monotonic() - started, 1)
 
     def install_and_restart(self, bundle: pathlib.Path) -> Update:
-        """Install `bundle` over the air and restart the board; it returns to the candidate when the test ends.
+        """Install `bundle` over the air and, if it installed, restart the board.
+
+        The board returns to the candidate when the test ends.
 
         Args:
             bundle: one of this run's test bundles.
@@ -225,6 +230,8 @@ class Updates(Part):
         self.allow_test_bundles(self.bundles.nonce)
         booted_before = self.rauc_status()["booted"]
         returncode, output, _seconds = self.install_bundle(bundle, self.CANDIDATE_INSTALL_TIMEOUT_SECONDS)
+        if returncode != 0:
+            return Update(returncode, output, booted_before, booted_before, None)
         restarted_at = self._board.restart_with("systemctl reboot")
         return Update(returncode, output, booted_before, self.rauc_status()["booted"], restarted_at)
 

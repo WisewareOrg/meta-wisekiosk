@@ -70,17 +70,24 @@ class TestBackOnThePanel(BoardTest):
 
     @pytest.mark.sends_update
     def test_new_application_build(self) -> None:
-        """TST006: install a different WiseKiosk build over the air; the instance is on the panel once restarted."""
+        """TST006: install a different WiseKiosk build over the air; the instance is on the panel once restarted.
+
+        The update is judged taken before the panel is timed: an update that is not taken leaves no
+        restart into it to time from.
+        """
         self.record(requirement="TST006")
         self.board.app.install_probe()
         self.board.app.wait_until_on_panel()
 
         update = self.board.updates.install_and_restart(self.board.updates.bundles.new_build)
-        back_s = self.board.seconds_until(self.board.app.on_panel, since=update.restarted_at)
 
-        self.record(install_rc=update.returncode, back_s=back_s)
+        self.record(install_rc=update.returncode)
         assert update.returncode == 0, f"the install returned {update.returncode}: {update.output}"
         assert update.booted_after != update.booted_before, "the board did not restart into the update"
+
+        back_s = self.board.seconds_until(self.board.app.on_panel, since=update.restarted_at)
+
+        self.record(back_s=back_s)
         assert back_s <= 160, f"on the panel after {back_s} s; TST006's bound is 160 s"
 
     def test_frozen_page_recovered(self) -> None:
