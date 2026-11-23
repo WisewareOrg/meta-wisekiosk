@@ -436,7 +436,7 @@ class Board:
     def seconds_until(self, condition: Callable[[], object], *, since: float | None = None, reads: int = 1) -> float:
         """Read `condition` about once a second until it holds on `reads` reads in a row.
 
-        A read that raises one of `ERRORS` does not hold. An assertion fails if the run did not begin within
+        A read that raises one of `ERRORS` does not hold. An assertion fails if the streak did not begin within
         `GIVE_UP_SECONDS` of `since`.
 
         Args:
@@ -446,26 +446,26 @@ class Board:
             reads: how many reads in a row it must hold on.
 
         Returns:
-            The seconds from `since` to the end of the run's first read, to 0.1 s.
+            The seconds from `since` to the end of the streak's first read, to 0.1 s.
         """
         since = time.monotonic() if since is None else since
-        run: list[float] = []
+        streak: list[float] = []
 
         def read() -> int:
-            """Read `condition` once, stamped with the read's end, extending the run or ending it.
+            """Read `condition` once, stamped with the read's end, extending the streak or ending it.
 
             Returns:
                 How many reads in a row have held.
             """
-            nonlocal run
-            run = [*run, time.monotonic()] if self._holds(condition) else []
-            return len(run)
+            nonlocal streak
+            streak = [*streak, time.monotonic()] if self._holds(condition) else []
+            return len(streak)
 
         held = self._each_second(
             read, until=lambda held: held >= reads, within=self.GIVE_UP_SECONDS - (time.monotonic() - since)
         )
         assert held >= reads, f"{self._name(condition)} did not hold within {self.GIVE_UP_SECONDS} s"
-        return round(run[0] - since, 1)
+        return round(streak[0] - since, 1)
 
     def wait_for[T](self, read: Callable[[], T | None]) -> T:
         """Read about once a second until a read returns a value, and return that value.

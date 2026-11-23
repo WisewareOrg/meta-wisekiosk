@@ -13,4 +13,5 @@ class TestLogKept(BoardTest):
 
         logged = self.board.system.log_markers()
 
+        self.record(marker=marker, marker_kept=marker in logged)
         assert marker in logged, f"the marker {marker} is not among the log's markers after the update: {logged}"

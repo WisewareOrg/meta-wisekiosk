@@ -41,10 +41,13 @@ class TestImageUpdate(BoardTest):
 
         failed_attempts = self.board.updates.install_and_fall_back(update(self.board), starts=starts)
         fell_back_to = self.board.updates.running_bundle()
-        valid = self.board.updates.install_and_restart(bundles.candidate)
 
-        self.record(failed_attempts=failed_attempts, fell_back_to=fell_back_to, valid_install_rc=valid.returncode)
+        self.record(failed_attempts=failed_attempts, fell_back_to=fell_back_to)
         assert failed_attempts <= 3, f"{failed_attempts} failed attempts to start the update; the bound is 3"
         assert fell_back_to == previous, f"the board runs bundle {fell_back_to}, not its previous {previous}"
+
+        valid = self.board.updates.install_and_restart(bundles.candidate)
+
+        self.record(valid_install_rc=valid.returncode)
         assert valid.returncode == 0, f"the valid update's install returned {valid.returncode}: {valid.output}"
         assert valid.booted_after != valid.booted_before, "the board did not restart into the valid update"

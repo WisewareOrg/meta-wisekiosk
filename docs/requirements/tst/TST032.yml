@@ -12,9 +12,9 @@ ref: ''
 references:
 - keyword: def test_back_after_a_fault
   path: tests/target_suite/test_back_on_the_panel.py
-  sha: e5b4323dadd341d44536d47c93c582e55619c5840eb37ec025ba3c561aa21909
+  sha: a3ebec3fce47c5e3d828e9eaf25d1e128e6040bb2783fc25296ba79b950e9269
   type: file
-reviewed: F7ebikRoqOqFEYaSQ5SKlRCNDYc36Y82BFQQAsxDQdo=
+reviewed: 20_0OclYjYA-oJstlQSveEqMQSvloHUYeqv4qC6G7ww=
 status: proposed
 text: |
   With nobody at the panel, crash the WiseKiosk backend by killing it outright. Pass if the

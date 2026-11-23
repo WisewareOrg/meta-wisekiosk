@@ -47,7 +47,7 @@ def candidate_bundles(bench_candidate: str | None) -> Iterator[CandidateBundles]
         bench_candidate: the commit under test, or None outside a build.
 
     Yields:
-        CandidateBundles: the bundles, whose run directory is removed once the module ends.
+        CandidateBundles: the bundles, whose run directory is removed once the run ends.
     """
     with contextlib.ExitStack() as cleanup:
         yield CandidateBundles.build(cleanup, bench_candidate)

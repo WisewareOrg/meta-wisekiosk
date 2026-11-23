@@ -125,7 +125,10 @@ class Updates(Part):
 
     @functools.cached_property
     def bundles(self) -> "CandidateBundles":
-        """This run's test bundles, built on first use; the test is skipped outside a build.
+        """This run's test bundles; the test is skipped outside a build.
+
+        The run's first read builds them, minutes of bitbake in the kas container, inside whichever test
+        reads them first: in a full run, TST003's fault.
 
         Returns:
             The bundles.

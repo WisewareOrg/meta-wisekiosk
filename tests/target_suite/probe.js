@@ -17,7 +17,6 @@
 //           scrollLeft > 0
 //   cost    the probe's own callback time
 //   layout  the viewport, in CSS pixels
-//   stamp   the page's kiosk-test-stamp meta content, or - when it has none
 (function () {
   if (window.__wk1) { return; }
   window.__wk1 = true;
@@ -53,12 +52,6 @@
       if (all[i].querySelector('[data-pwt-leaderboard]')) { live++; }
     }
     return all.length + '/' + live;
-  }
-
-  // The content of the page's kiosk-test-stamp meta tag, or '-' when it has none.
-  function stamp() {
-    var meta = document.querySelector('meta[name="kiosk-test-stamp"]');
-    return meta ? meta.getAttribute('content') : '-';
   }
 
   // One interval per frame: count, sum, histogram.
@@ -110,8 +103,7 @@
       ' ticks=' + ticks +
       ' moving=' + moving +
       ' cost=' + Math.round(cost) +
-      ' layout=' + window.innerWidth + 'x' + window.innerHeight +
-      ' stamp=' + stamp();
+      ' layout=' + window.innerWidth + 'x' + window.innerHeight;
     if (document.title !== title) { document.title = title; }
     cost += performance.now() - begin;
   }

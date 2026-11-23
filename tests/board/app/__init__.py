@@ -227,7 +227,7 @@ class App(Part):
         the check is invalid if it did not. Then the backend is restarted: a start would wait out the hold.
 
         Returns:
-            The host `time.monotonic()` at the start of the read that first saw the backend answering again.
+            An instant before the backend first answered again, from `_answers_after_a_load_without_it`.
         """
         self.backend.drop_in(f"[Service]\\nRestartSec={_BACKEND_HOLD_SECONDS}\\n")
         self.backend.kill()
@@ -243,7 +243,7 @@ class App(Part):
         given up, in case the host goes away.
 
         Returns:
-            The host `time.monotonic()` at the start of the read that first saw the backend answering.
+            An instant before the backend first answered, from `_answers_after_a_load_without_it`.
         """
         self.backend.mask()
         self._board.restart_with("systemctl soft-reboot", boot_cmd=_USERSPACE_BOOT)
@@ -270,24 +270,30 @@ class App(Part):
             release: lets the backend go.
 
         Returns:
-            The host `time.monotonic()` at the start of the read that first saw the backend answering, so the
-            time counted from it can only overstate.
+            The host `time.monotonic()` at the start of the last read that saw the backend not answering, or
+            just before the release if none did. The backend first answered after it, so the time counted
+            from it can only overstate.
         """
         with invalid_if("the browser did not load a page while the backend was down"):
             self._board.seconds_until(self._loaded_a_page)
             assert not self.is_served(), "the backend answered first"
+        last_unanswered = time.monotonic()
         release()
 
-        def answered_at() -> float | None:
+        def answered_since() -> float | None:
             """Read once whether the backend answers.
 
             Returns:
-                The host `time.monotonic()` at the start of the read, if it answered; else None.
+                The start of the last read that saw it not answering, if it answers; else None.
             """
+            nonlocal last_unanswered
             began = time.monotonic()
-            return began if self.is_served() else None
+            if self.is_served():
+                return last_unanswered
+            last_unanswered = began
+            return None
 
-        return self._board.wait_for(answered_at)
+        return self._board.wait_for(answered_since)
 
     def _titles(self) -> list[str]:
         """Read every window's title.

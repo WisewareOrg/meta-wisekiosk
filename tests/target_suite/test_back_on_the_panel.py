@@ -1,4 +1,4 @@
-"""Target suite: with nobody at the panel, the appliance brings the WiseKiosk instance back to it."""
+"""Target suite: with nobody at the panel, it keeps showing the WiseKiosk instance, and gets it back if it stops."""
 
 import operator
 from collections.abc import Callable
@@ -76,10 +76,11 @@ class TestBackOnThePanel(BoardTest):
         restart into it to time from.
         """
         self.record(requirement="TST006")
+        new_build = self.board.updates.bundles.new_build
         self.board.app.install_probe()
         self.board.app.wait_until_on_panel()
 
-        update = self.board.updates.install_and_restart(self.board.updates.bundles.new_build)
+        update = self.board.updates.install_and_restart(new_build)
 
         self.record(install_rc=update.returncode)
         assert update.returncode == 0, f"the install returned {update.returncode}: {update.output}"
@@ -123,6 +124,10 @@ class TestBackOnThePanel(BoardTest):
             f"off the panel for {longest_off_s} s; TST008 allows {BACK_WITHIN_SECONDS} s"
         )
         load.confirm_applied()
+
+
+class TestPanelNeverBlanks(BoardTest):
+    """With nobody at the panel, the display server does not blank it."""
 
     def test_display_blanking_disabled(self) -> None:
         """TST007: the display server's screen saver timeout is zero and its power management is disabled."""

@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_back_after_a_fault
   path: tests/target_suite/test_back_on_the_panel.py
-  sha: e5b4323dadd341d44536d47c93c582e55619c5840eb37ec025ba3c561aa21909
+  sha: a3ebec3fce47c5e3d828e9eaf25d1e128e6040bb2783fc25296ba79b950e9269
   type: file
-reviewed: Y3YjPYtTllwckaEXT2-zAyAkRR_g1qz-ndR7Hlf5mDw=
+reviewed: 7YvFVze1N6MT66JU-Au5WNyX8pUm0RFz3CTZGMwb_Jg=
 status: proposed
 text: |
   With nobody at the panel, kill the browser. Pass if the WiseKiosk instance is back on the panel
