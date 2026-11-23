@@ -10,11 +10,11 @@ rationale: |
   A crashed backend leaves the panel on the application's error, with nobody there to restart it.
 ref: ''
 references:
-- keyword: def test_backend_crash
-  path: tests/target_suite/test_wisekiosk.py
-  sha: 9a77e2ae020a6d852e8919b08d94f032daa1d2a15f46ff2b19499a81987c016d
+- keyword: def test_back_after_a_fault
+  path: tests/target_suite/test_back_on_the_panel.py
+  sha: e5b4323dadd341d44536d47c93c582e55619c5840eb37ec025ba3c561aa21909
   type: file
-reviewed: B4RlopQyt-00_bI0cf3PnUiTXxOpRuZhnfozmczJfuk=
+reviewed: F7ebikRoqOqFEYaSQ5SKlRCNDYc36Y82BFQQAsxDQdo=
 status: proposed
 text: |
   With nobody at the panel, crash the WiseKiosk backend by killing it outright. Pass if the

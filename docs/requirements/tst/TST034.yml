@@ -12,11 +12,11 @@ rationale: |
   bring the instance back.
 ref: ''
 references:
-- keyword: def test_backend_crash_during_browser_start
-  path: tests/target_suite/test_wisekiosk.py
-  sha: 9a77e2ae020a6d852e8919b08d94f032daa1d2a15f46ff2b19499a81987c016d
+- keyword: def test_back_after_a_fault
+  path: tests/target_suite/test_back_on_the_panel.py
+  sha: e5b4323dadd341d44536d47c93c582e55619c5840eb37ec025ba3c561aa21909
   type: file
-reviewed: x6QFdzqcqFuAR98eFZUEXUKDHvUoCmC3KF0WpVCE6hE=
+reviewed: CY0367y-utnjluWC0CpmANmkOX1O1nR5m7u-0RKBea0=
 status: proposed
 text: |
   With nobody at the panel, crash the WiseKiosk backend by killing it outright, and have the browser

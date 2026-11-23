@@ -11,32 +11,35 @@ through the bench driver:
 """
 
 import json
+from collections.abc import Callable
+
+from board import Board
 
 
-def _booted_bootname(board):
-    """The bootname of the slot the board booted from, as `rauc status` names it."""
-    stdout = board.run("rauc status --output-format=json", check=True, timeout=None)[0]
-    return json.loads("\n".join(stdout))["booted"]
+def test_fallback_probe(board: Board, record_property: Callable[[str, object], None]) -> None:
+    """A slot with no attempts left is skipped and the board boots the other slot.
 
-
-def test_fallback_probe(board, record_property):
-    """A slot with no attempts left is skipped and the board boots the other slot."""
-    booted = _booted_bootname(board)
+    Args:
+        board: the board under test.
+        record_property: records the slots and the boot variables at each step.
+    """
+    booted = board.updates.rauc_status()["booted"]
     other = ({"A", "B"} - {booted}).pop()
     record_property("booted", booted)
-    record_property("before", json.dumps(board.boot_variables()))
+    order, attempts_left = board.updates.boot_order()
+    record_property("before", json.dumps([order, attempts_left]))
 
-    board.install_image()
-    order, left = board.boot_variables()
-    record_property("installed", json.dumps([order, left]))
+    board.updates.install_built_image()
+    order, attempts_left = board.updates.boot_order()
+    record_property("installed", json.dumps([order, attempts_left]))
     assert order[0] == other, f"slot {other} does not lead BOOT_ORDER after the install: {order}"
-    assert left[other] > 0, f"slot {other} has no attempts left after the install"
+    assert attempts_left[other] > 0, f"slot {other} has no attempts left after the install"
 
     board.run(f"fw_setenv BOOT_{other}_LEFT 0", check=True)
-    board.restart_by("systemctl reboot")
+    board.restart_with("systemctl reboot")
 
-    order, left = board.boot_variables()
-    record_property("after", json.dumps([order, left]))
-    assert _booted_bootname(board) == booted, f"the board is not back on slot {booted}"
+    order, attempts_left = board.updates.boot_order()
+    record_property("after", json.dumps([order, attempts_left]))
+    assert board.updates.rauc_status()["booted"] == booted, f"the board is not back on slot {booted}"
     assert order[0] == other, f"slot {other} no longer leads BOOT_ORDER: {order}"
-    assert left[other] == 0, f"slot {other} has {left[other]} attempts left, not 0"
+    assert attempts_left[other] == 0, f"slot {other} has {attempts_left[other]} attempts left, not 0"

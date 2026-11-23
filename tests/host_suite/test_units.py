@@ -12,13 +12,16 @@ import subprocess
 from pathlib import Path
 
 ROOTFS_TARBALL = (
-    "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/"
-    "core-image-base-raspberrypi0-wifi.rootfs.tar.bz2"
+    "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/core-image-base-raspberrypi0-wifi.rootfs.tar.bz2"
 )
 
 
-def shipped_units():
-    """List the basenames of every unit/timer file this layer's recipes ship."""
+def shipped_units() -> list[str]:
+    """List the basenames of every unit/timer file this layer's recipes ship.
+
+    Returns:
+        The basenames.
+    """
     root = Path(__file__).resolve().parent.parent.parent
     names = []
     for pattern in ("*.service", "*.timer"):
@@ -27,8 +30,12 @@ def shipped_units():
     return names
 
 
-def test_units_verify_and_are_enabled(tmp_path):
-    """Every shipped unit passes `systemd-analyze verify` and reports enabled or static."""
+def test_units_verify_and_are_enabled(tmp_path: Path) -> None:
+    """Every shipped unit passes `systemd-analyze verify` and reports enabled or static.
+
+    Args:
+        tmp_path: where the rootfs tarball is unpacked.
+    """
     for tool in ("systemd-analyze", "systemctl", "tar"):
         assert shutil.which(tool) is not None, f"{tool} is not on PATH"
 
@@ -37,9 +44,7 @@ def test_units_verify_and_are_enabled(tmp_path):
 
     rootfs = tmp_path / "rootfs"
     rootfs.mkdir()
-    subprocess.run(
-        ["tar", "--exclude=./dev", "-xjf", ROOTFS_TARBALL, "-C", str(rootfs)], check=True
-    )
+    subprocess.run(["tar", "--exclude=./dev", "-xjf", ROOTFS_TARBALL, "-C", str(rootfs)], check=True)
 
     failures = []
     for unit in unit_names:

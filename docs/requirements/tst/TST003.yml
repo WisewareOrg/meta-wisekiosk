@@ -12,11 +12,11 @@ rationale: |
   bringing itself and the instance back when power returns.
 ref: ''
 references:
-- keyword: def test_power_cut_during_an_update
-  path: tests/target_suite/test_image_update.py
-  sha: e9deb60f80892459d80a58a2fc9ff8a75d051f0c348db0d8a1de3bb160bff61d
+- keyword: def test_back_after_a_fault
+  path: tests/target_suite/test_back_on_the_panel.py
+  sha: e5b4323dadd341d44536d47c93c582e55619c5840eb37ec025ba3c561aa21909
   type: file
-reviewed: XKs_MlyZjIvvcX2Tlmt-NPk1fTlO2p-w7K5umweyRAQ=
+reviewed: KwRkMoIx2he9AMkS1nLHKyYkepB_TwDnM8ASaS9RJV4=
 status: proposed
 text: |
   Cut the appliance's power without warning while an image update is being written to it, then

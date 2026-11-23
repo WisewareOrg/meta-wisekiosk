@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Repository invariants. CI and the pre-commit hook run this same script, so the
 # guard set cannot diverge. A guard may still fail closed locally where the host
-# lacks a prerequisite CI installs -- guard 4 needs PyYAML (see the README
-# prerequisites) -- a missing prerequisite, not a divergent verdict on the tree.
+# lacks a prerequisite CI installs -- guard 4 needs PyYAML, guard 22 the .venv's
+# lint tools (see the README prerequisites) -- a missing prerequisite, not a
+# divergent verdict on the tree.
 #
 # These are deliberately dependency-light: no bitbake, no network. A Yocto build
 # is hours on this tree and cannot gate a commit; what CAN gate a commit is
@@ -16,8 +17,8 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 # The interpreter the guards run. The Bash tool and the git hooks source no
 # startup file, so a repo .venv is never on PATH and a bare `python3` resolves
 # to a host one that has no PyYAML -- which failed guard 4 on a tree whose
-# checkout could parse YAML perfectly well. Preferred, not required: CI has no
-# .venv and installs PyYAML into its own python3, and the fallback is that.
+# checkout could parse YAML perfectly well. Preferred, not required, for every
+# guard but 22, whose lint tools come only from the .venv.
 PY=python3
 if [ -x ".venv/bin/python3" ]; then
     PY="$PWD/.venv/bin/python3"
@@ -974,6 +975,40 @@ elif out21=$(bash "$nettest21" 2>&1); then
 else
     bad "kiosk-netcheck FAILS its own self-test:"
     printf '%s\n' "$out21" | sed 's/^/        /'
+fi
+
+# --- 22. the tests' Python meets the lint, format and docstring checks ---
+# ruff check (the select in pyproject.toml, line length 120 included), ruff format
+# --check, interrogate at 100 % and pydoclint, over the tracked tests/*.py. The repo-venv
+# tools are the pinned ones; cannot-check is not check-clean, so a missing tool fails.
+pyfiles22=()
+while IFS= read -r f; do
+    [ -f "$f" ] && pyfiles22+=("$f")
+done < <(git ls-files -- 'tests/*.py')
+missing22=""
+for tool22 in ruff interrogate pydoclint; do
+    [ -x ".venv/bin/$tool22" ] || missing22="$missing22 $tool22"
+done
+if [ -n "$missing22" ]; then
+    bad "guard 22 cannot check the tests' Python -- missing from .venv/bin:$missing22 -- run uv sync"
+elif [ "${#pyfiles22[@]}" -eq 0 ]; then
+    bad "guard 22 cannot scan -- no tracked .py file under tests/"
+else
+    ok22=1
+    run22() {
+        local tool=$1
+        shift
+        if ! out22=$(".venv/bin/$tool" "$@" "${pyfiles22[@]}" 2>&1); then
+            bad "guard 22: $tool $* fails on the tests' Python:"
+            printf '%s\n' "$out22" | sed 's/^/        /'
+            ok22=0
+        fi
+    }
+    run22 ruff check --no-cache
+    run22 ruff format --check
+    run22 interrogate -v --fail-under 100
+    run22 pydoclint
+    [ "$ok22" -eq 1 ] && ok "the tests' Python passes ruff, ruff format, interrogate and pydoclint"
 fi
 
 if [ "$fail" -ne 0 ]; then

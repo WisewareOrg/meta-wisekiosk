@@ -11,11 +11,11 @@ rationale: |
   page keeps the instance off the panel, and with nobody at the panel nobody brings it back.
 ref: ''
 references:
-- keyword: def test_backend_late_at_boot
-  path: tests/target_suite/test_restart_recovery.py
-  sha: 05dc660e7d8a1765ff2b054a8e70805a3c6608f58b2ce711930569867defe4ec
+- keyword: def test_back_after_a_fault
+  path: tests/target_suite/test_back_on_the_panel.py
+  sha: e5b4323dadd341d44536d47c93c582e55619c5840eb37ec025ba3c561aa21909
   type: file
-reviewed: 8f-5Qvm7nJW2IRCBcmEPooEX7Lt7z5zlGHEYgTh6GaM=
+reviewed: HbY3njDYTqdapBva9vVEoZmKJFev4N2MbVobwyvJ44o=
 status: proposed
 text: |
   With nobody at the panel, restart the appliance with the WiseKiosk backend held back from starting

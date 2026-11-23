@@ -11,11 +11,11 @@ rationale: |
   appliance has to bring itself and the instance back when power returns.
 ref: ''
 references:
-- keyword: def test_power_cut_while_showing
-  path: tests/target_suite/test_restart_recovery.py
-  sha: 05dc660e7d8a1765ff2b054a8e70805a3c6608f58b2ce711930569867defe4ec
+- keyword: def test_back_after_a_fault
+  path: tests/target_suite/test_back_on_the_panel.py
+  sha: e5b4323dadd341d44536d47c93c582e55619c5840eb37ec025ba3c561aa21909
   type: file
-reviewed: KXp1gT-MoZNHyjIvgKJsyzZkWE_6jYamsxGf9aLmAXU=
+reviewed: kB6Tvasqr4kXctv5vK7nZWbcGlKDbFIj1_SBFmzU9SY=
 status: proposed
 text: |
   With the appliance serving the WiseKiosk instance's page and the browser running, cut its power

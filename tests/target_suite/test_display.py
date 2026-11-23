@@ -1,151 +1,52 @@
-"""Target suite: the panel shows only the instance, at the minimum resolution."""
+"""Target suite: the panel shows nothing but the instance, at the minimum resolution."""
 
-import re
+from board_test import BoardTest
 
 # TST031's floor
-_MIN_WIDTH = 1280
-_MIN_HEIGHT = 720
-
-_SEPARATOR = "=== windows"
-_LAYOUT_READ = (
-    "DISPLAY=:0 xrandr --current; "
-    f"echo '{_SEPARATOR}'; "
-    "for id in $(DISPLAY=:0 xwininfo -root -children | awk '/^ +0x/ {print $1}'); do "
-    'echo "=== $id"; DISPLAY=:0 xwininfo -id "$id"; done'
-)
-_CONNECTED = re.compile(r"^\S+ connected (?:primary )?(\d+)x(\d+)\+(\d+)\+(\d+)")
-_WINDOW_ID = re.compile(r'^xwininfo: Window id: (0x[0-9a-fA-F]+)(?: "(.*)"| \(has no name\))?$')
-_INT_FIELDS = {
-    "x": re.compile(r"^\s*Absolute upper-left X:\s+(-?\d+)"),
-    "y": re.compile(r"^\s*Absolute upper-left Y:\s+(-?\d+)"),
-    "width": re.compile(r"^\s*Width:\s+(\d+)"),
-    "height": re.compile(r"^\s*Height:\s+(\d+)"),
-    "border": re.compile(r"^\s*Border width:\s+(\d+)"),
-}
-_MAP_STATE = re.compile(r"^\s*Map State:\s+(\w+)")
+MIN_WIDTH, MIN_HEIGHT = 1280, 720
 
 
-def _x_pid(board):
-    """The pid of the one running X server."""
-    stdout, _stderr, _returncode = board.run("pidof Xorg")
-    pids = " ".join(stdout).split()
-    assert pids, "X is not running"
-    assert len(pids) == 1, f"more than one X: {pids}"
-    return pids[0]
+class TestDisplay(BoardTest):
+    """The panel shows only the instance, with no pointer, at the minimum resolution."""
 
+    def setup_method(self) -> None:
+        """Put the probe in the browser, and wait for the instance on the panel."""
+        self.board.app.install_probe()
+        self.board.app.wait_until_on_panel()
 
-def _windows(lines):
-    """One dict per `xwininfo -id` block in `lines`, in the order read: id, name, the integer
-    fields of `_INT_FIELDS` and `map_state`."""
-    windows = []
-    for line in lines:
-        header = _WINDOW_ID.match(line)
-        if header:
-            windows.append({"id": header.group(1), "name": header.group(2) or ""})
-            continue
-        for key, pattern in _INT_FIELDS.items():
-            match = pattern.match(line)
-            if match:
-                windows[-1][key] = int(match.group(1))
-        match = _MAP_STATE.match(line)
-        if match:
-            windows[-1]["map_state"] = match.group(1)
-    return windows
+    def test_pointer_display_disabled(self) -> None:
+        """TST013: the options the display server was started with disable the pointer's display."""
+        self.record(requirement="TST013")
 
+        options = self.board.screen.x_server_options()
 
-def _overlaps(window, panel_area):
-    """Whether `window`'s outer rectangle, border included, overlaps `panel_area` with positive area."""
-    left = window["x"] - window["border"]
-    top = window["y"] - window["border"]
-    right = window["x"] + window["width"] + window["border"]
-    bottom = window["y"] + window["height"] + window["border"]
-    return (
-        left < panel_area["x"] + panel_area["width"]
-        and right > panel_area["x"]
-        and top < panel_area["y"] + panel_area["height"]
-        and bottom > panel_area["y"]
-    )
+        self.record(x_server_options=" ".join(options))
+        assert "-nocursor" in options, f"X runs without -nocursor: {options}"
 
+    def test_instance_covers_the_panel(self) -> None:
+        """TST030: the instance's window is shown over the whole panel, and no window shown above it overlaps it."""
+        self.record(requirement="TST030")
 
-def test_pointer_display_disabled(board, panel, record_property):
-    """TST013 pointer display disabled: read X's start-up options and require `-nocursor`."""
-    record_property("requirement", "TST013")
-    panel.wait_on_panel()
+        layout = self.board.screen.window_layout()
 
-    pid = _x_pid(board)
-    stdout, _stderr, _returncode = board.run(
-        f"tr '\\0' '\\n' < /proc/{pid}/cmdline", check=True
-    )
-    record_property("x_cmdline", "\n".join(stdout))
+        self.record(window_layout=layout.text)
+        instance, panel = layout.instance, layout.panel
+        assert instance.shown, f"the instance's window is {instance.map_state}"
+        assert instance.contains(panel), f"the instance's window {instance} does not cover the panel {panel}"
+        overlapping = [window for window in layout.above(instance) if window.shown and window.overlaps(panel)]
+        assert not overlapping, f"shown above the instance and over the panel: {overlapping}"
 
-    assert "-nocursor" in stdout, f"X runs without -nocursor: {stdout}"
+    def test_minimum_resolution(self) -> None:
+        """TST031: the display mode the panel is driven at, and the page's layout size, are each at least 1280x720."""
+        self.record(requirement="TST031")
 
+        width, height = self.board.screen.mode()
+        page_width, page_height = self.board.app.layout_size()
 
-def test_instance_covers_the_panel(board, panel, record_property):
-    """TST030 instance covers the panel: its window contains the panel and nothing shown overlies it."""
-    record_property("requirement", "TST030")
-    panel.wait_on_panel()
-
-    stdout, _stderr, _returncode = board.run(_LAYOUT_READ, check=True)
-    split = stdout.index(_SEPARATOR)
-    xrandr, window_lines = stdout[:split], stdout[split + 1 :]
-    record_property("xrandr", "\n".join(xrandr))
-    record_property("window_layout", "\n".join(window_lines))
-
-    connected = [match for match in map(_CONNECTED.match, xrandr) if match]
-    assert connected, "no connected output with a mode"
-    assert len(connected) == 1, f"more than one connected output: {[m.group(0) for m in connected]}"
-    width, height, x, y = (int(group) for group in connected[0].groups())
-    panel_area = {"x": x, "y": y, "width": width, "height": height}
-
-    windows = _windows(window_lines)
-    instances = [index for index, window in enumerate(windows) if "WK1 " in window["name"]]
-    assert instances, "no window carries the instance's title"
-    assert len(instances) == 1, (
-        f"more than one window carries the instance's title: {[windows[i]['id'] for i in instances]}"
-    )
-    instance = windows[instances[0]]
-    assert instance["map_state"] == "IsViewable", f"the instance's window is {instance['map_state']}"
-
-    contains = (
-        instance["x"] <= panel_area["x"]
-        and instance["y"] <= panel_area["y"]
-        and instance["x"] + instance["width"] >= panel_area["x"] + panel_area["width"]
-        and instance["y"] + instance["height"] >= panel_area["y"] + panel_area["height"]
-    )
-    assert contains, (
-        f"the instance's window {instance['width']}x{instance['height']}+{instance['x']}+{instance['y']} "
-        f"does not contain the panel {width}x{height}+{x}+{y}"
-    )
-
-    for above in windows[: instances[0]]:
-        assert above["map_state"] != "IsViewable" or not _overlaps(above, panel_area), (
-            f"window {above['id']} {above['name']!r} "
-            f"{above['width']}x{above['height']}+{above['x']}+{above['y']} is shown above the instance "
-            f"and overlaps the panel"
+        self.record(display_mode=f"{width}x{height}", layout_size=f"{page_width}x{page_height}")
+        assert width >= MIN_WIDTH and height >= MIN_HEIGHT, (
+            f"the display mode {width}x{height} is below {MIN_WIDTH}x{MIN_HEIGHT}"
         )
-
-
-def test_minimum_resolution(board, panel, record_property):
-    """TST031 minimum resolution: the display mode and the page's layout size are each at least 1280x720."""
-    record_property("requirement", "TST031")
-    _uptime_s, sample = panel.wait_on_panel()
-    record_property("layout", sample["layout"])
-
-    stdout, _stderr, _returncode = board.run("DISPLAY=:0 xrandr --current", check=True)
-    record_property("xrandr", "\n".join(stdout))
-    current = [line.strip() for line in stdout if "*" in line]
-    assert current, "xrandr reports no current mode"
-    assert len(current) == 1, f"more than one current mode: {current}"
-    mode = re.match(r"^(\d+)x(\d+)", current[0])
-    assert mode, f"xrandr's current mode line is unreadable: {current[0]!r}"
-
-    layout = re.match(r"^(\d+)x(\d+)$", sample["layout"])
-    assert layout, f"the probe's layout is unreadable: {sample['layout']!r}"
-
-    mode_width, mode_height = int(mode.group(1)), int(mode.group(2))
-    layout_width, layout_height = int(layout.group(1)), int(layout.group(2))
-    assert mode_width >= _MIN_WIDTH, f"display mode width {mode_width} is below {_MIN_WIDTH}"
-    assert mode_height >= _MIN_HEIGHT, f"display mode height {mode_height} is below {_MIN_HEIGHT}"
-    assert layout_width >= _MIN_WIDTH, f"layout width {layout_width} is below {_MIN_WIDTH}"
-    assert layout_height >= _MIN_HEIGHT, f"layout height {layout_height} is below {_MIN_HEIGHT}"
+        assert page_width >= MIN_WIDTH and page_height >= MIN_HEIGHT, (
+            f"the page is laid out at {page_width}x{page_height}, below {MIN_WIDTH}x{MIN_HEIGHT}"
+        )

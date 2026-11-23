@@ -1,29 +1,27 @@
-"""Target suite: the instance's own HTTPS fetches, proved against a replayed recording."""
+"""Target suite: the instance's own HTTPS fetches, answered from a replayed recording."""
 
 import time
 
-import pytest
-
+from board_test import BoardTest, replaying
 from replay import CARDS4_LIVE
 
-OBSERVE_AFTER_BROWSER_START_SECONDS = 60
+# how long the instance is let fetch its data, from the browser's start
+FETCH_SECONDS = 60
 
 
-@pytest.mark.parametrize("proxy", [str(CARDS4_LIVE / "flows.har")], indirect=True)
-def test_instance_reaches_out(proxy, replay_window, record_property):
-    """The instance's own HTTPS fetches are answered from the recording, none unanswered.
+class TestWisekioskReachesOut(BoardTest):
+    """The instance's own HTTPS fetches are answered from the recording."""
 
-    Both halves are read once `OBSERVE_AFTER_BROWSER_START_SECONDS` have passed since the
-    browser start.
-    """
-    record_property("requirement", "TST010")
+    @replaying(CARDS4_LIVE)
+    def test_instance_reaches_out(self) -> None:
+        """TST010: start the instance behind the replay; each recorded request is answered, and none goes unanswered."""
+        self.record(requirement="TST010")
 
-    deadline = replay_window + OBSERVE_AFTER_BROWSER_START_SECONDS
-    time.sleep(max(0, deadline - time.monotonic()))
+        replay = self.board.app.run_behind_replay()
+        time.sleep(FETCH_SECONDS)
+        never_answered = [url for (_method, url), count in replay.served().items() if count == 0]
+        unanswered = replay.killed()
 
-    served = proxy.served()
-    unserved = [url for (_method, url), count in served.items() if count == 0]
-    assert not unserved, f"never served from the recording: {unserved}"
-
-    killed = proxy.killed()
-    assert not killed, f"killed, not served from the recording: {killed}"
+        self.record(never_answered=never_answered, unanswered=unanswered)
+        assert not never_answered, f"never answered from the recording: {never_answered}"
+        assert not unanswered, f"the instance's requests the recording did not answer: {unanswered}"

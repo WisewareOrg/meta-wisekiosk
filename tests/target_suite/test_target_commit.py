@@ -1,13 +1,17 @@
-"""Target suite: the booted image update names the commit it was built from."""
+"""Target suite: the appliance runs the build an image update carried."""
 
-import pytest
+from board_test import BoardTest
 
 
-def test_buildinfo_names_commit(board, bench_candidate, record_property):
-    """After an image update, /etc/buildinfo names the installed commit."""
-    if bench_candidate is None:
-        pytest.skip("no bench_candidate: a plain pytest run, or bench test --skip-build")
-    record_property("requirement", "TST016")
-    expected = bench_candidate
-    commit = board.commit()
-    assert commit == expected, f"board reports commit {commit}, expected {expected} (bench_candidate)"
+class TestTargetCommit(BoardTest):
+    """After an image update, the appliance reports the build the update carried."""
+
+    def test_buildinfo_names_commit(self) -> None:
+        """TST016: after the start-of-run image update, the board reports the build the update carried."""
+        self.record(requirement="TST016")
+        installed = self.board.updates.installed
+
+        commit = self.board.updates.build_commit()
+
+        self.record(commit=commit)
+        assert commit == installed.commit, f"the board runs {commit}, not the update's {installed.commit}"

@@ -1,58 +1,23 @@
-"""Target suite: a timezone set with timedatectl is the one the board reports local time in.
+"""Target suite: a time zone set over the air is the one the board reports local time in."""
 
-The set lands in an overlay on /etc whose upper layer is in /run, so the rootfs is never written.
-"""
+from board_test import BoardTest
 
-import pytest
-
-_ZONES = {"Asia/Tokyo": "+0900", "Etc/UTC": "+0000"}
-_RUN_DIR = "/run/tst026"
+# two zones with different offsets, so one always differs from the board's
+ZONES = {"Asia/Tokyo": "+0900", "Etc/UTC": "+0000"}
 
 
-@pytest.fixture
-def zone_in_run(request, board):
-    """Overlay /etc with an upper layer in /run; return the original `/etc/localtime` link.
+class TestTimezone(BoardTest):
+    """A time zone set over the air is the one the board reports local time in."""
 
-    First clears an overlay and `/run/tst026` that a dead run left behind.
+    def test_timezone_set_over_the_air(self) -> None:
+        """TST026: set a zone unlike the board's current one; its local time is then in that zone."""
+        self.record(requirement="TST026")
+        self.board.system.overlay_etc()
+        current = self.board.system.utc_offset()
+        zone, offset = next((zone, offset) for zone, offset in ZONES.items() if offset != current)
 
-    timedated builds its own mount namespace when it starts, so it is stopped before the mount
-    and the test's own `timedatectl` starts it inside the overlay; it is stopped again before the
-    unmount. Each step's undo is registered once that step succeeds; teardown unmounts, asserts the
-    overlay is gone and `/etc/localtime` points where it did, then removes the directory.
-    """
-    board.run("while findmnt -n /etc >/dev/null; do umount -l /etc || exit 1; done", check=True)
-    board.run(f"rm -rf {_RUN_DIR}", check=True)
-    original = board.run("readlink /etc/localtime", check=True)[0][0].strip()
-    board.run("modprobe overlay", check=True)
-    board.run(f"mkdir -p {_RUN_DIR}/upper {_RUN_DIR}/work", check=True)
-    request.addfinalizer(lambda: board.run(f"rm -rf {_RUN_DIR}", check=True))
-    board.run("systemctl stop systemd-timedated", check=True)
-    board.run(
-        f"mount -t overlay tst026 -o lowerdir=/etc,upperdir={_RUN_DIR}/upper,workdir={_RUN_DIR}/work /etc",
-        check=True,
-    )
+        self.board.system.set_timezone(zone)
+        reported = self.board.system.utc_offset()
 
-    def unmount():
-        board.run("systemctl stop systemd-timedated")
-        board.run("umount -l /etc", check=True)
-        assert board.run("findmnt -n /etc")[2] != 0, "the /etc overlay is still mounted"
-        restored = board.run("readlink /etc/localtime", check=True)[0][0].strip()
-        assert restored == original, f"/etc/localtime is {restored}, expected {original}"
-
-    request.addfinalizer(unmount)
-    return original
-
-
-def test_timezone_set_over_the_air(zone_in_run, board, record_property):
-    """A zone with a different offset, set over ssh, is the zone `date` reports."""
-    record_property("requirement", "TST026")
-    current = board.run("date +%z", check=True)[0][0].strip()
-    zone = next(z for z, offset in _ZONES.items() if offset != current)
-    board.run(f"timedatectl set-timezone {zone}", check=True)
-    reported = board.run("date '+%Y-%m-%dT%H:%M:%S%z %Z'", check=True)[0][0].strip()
-    record_property("timezone_original", zone_in_run)
-    record_property("timezone_set", zone)
-    record_property("local_time_reported", reported)
-    assert reported.split()[0][-5:] == _ZONES[zone], (
-        f"{zone} set, board reports {reported}, expected offset {_ZONES[zone]}"
-    )
+        self.record(timezone_set=zone, utc_offset=reported)
+        assert reported == offset, f"{zone} set, but the board's local time is at {reported}, not {offset}"

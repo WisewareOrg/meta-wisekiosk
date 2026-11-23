@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_instance_covers_the_panel
   path: tests/target_suite/test_display.py
-  sha: 0fbda3becb49f8a94964114b7211ce2b0ad4a392ce1ed4553c0aaecd8ed3b1fa
+  sha: fab07964a401cf9a40951df3b18b915f7322caf32a107d50e552a6914689f75f
   type: file
-reviewed: ZYQjOHHuXx3JCrDTnfGO1QcnB0VT8Z-sTsdSyeyYEQY=
+reviewed: d-mb8qsFOWcKOYvRDnLmqWSxCDMTOBQi5U8fZnAOzoE=
 status: proposed
 text: |
   With the WiseKiosk instance on the panel, read the window layout from its display server. Pass if

@@ -12,11 +12,11 @@ rationale: |
   the site network healthy, and still take the next valid image update.
 ref: ''
 references:
-- keyword: def test_cannot_reach_the_network
+- keyword: def test_falls_back
   path: tests/target_suite/test_image_update.py
-  sha: e9deb60f80892459d80a58a2fc9ff8a75d051f0c348db0d8a1de3bb160bff61d
+  sha: 638a901d6325dbaf3aeb3d0af2d8e2aaf3a8ba908eb60545ccc3a9aa0d889c1b
   type: file
-reviewed: 5yW8zsQ6yojwzJ3jn2xIGjuNw6JaXSc6-TSVbrI-ji4=
+reviewed: zohCTukN6ROlJLc6o0m1EBxj1YV9sVzGY7MipwR628k=
 status: proposed
 text: |
   With the site network healthy and nobody at the panel, install over the air an image update that

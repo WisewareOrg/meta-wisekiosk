@@ -11,11 +11,11 @@ rationale: |
   took it, whoever made it would decide what runs on the panel, with nobody there to notice.
 ref: ''
 references:
-- keyword: def test_foreign_signature
+- keyword: def test_refuses_an_update
   path: tests/target_suite/test_refused_updates.py
-  sha: a806e02f18a21bde3dfa0fdb191fda62f336370325d18feafc1b1d373888d020
+  sha: 2df3bd9ce8692cdd1609d2c90252b3940f91127635431b5d5f04760d68b78abc
   type: file
-reviewed: 6nTyucbGmMLUCRiGWFCguw5-cT49nqY1IYN86vXI1xw=
+reviewed: doBKd9C0tgJ9EOgwJt7J1EFmsBPIilx2gAixaohuDi8=
 status: proposed
 text: |
   Offer the appliance an image update signed by a self-signed key none of its operators holds. Pass

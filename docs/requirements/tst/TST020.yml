@@ -12,11 +12,11 @@ rationale: |
   silently put the appliance back on the settings the operator had moved away from.
 ref: ''
 references:
-- keyword: def test_config_held_across_restart
+- keyword: def test_config_held_across_a_fault
   path: tests/target_suite/test_configuration.py
-  sha: 52e805815dbf2ed00c7a4ac952e37652c79bfd4c556f07bb2f73dd2676026cb4
+  sha: b03b506a39309107f4c929dc8257072a50ccfc8b370e3ae0f85e9aad593a02b7
   type: file
-reviewed: Ze8o-oTXeaHG_dJ2PwoNiUdt4pdIYCdRYUl7YE8AEiE=
+reviewed: 4DmQecNXQTnwWnVrb040OLj9W28-tAWUD8Vo5VBQ_xA=
 status: proposed
 text: |
   Restart the appliance over the network. Pass if the configuration it holds afterwards is byte for
