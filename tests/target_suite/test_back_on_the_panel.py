@@ -91,9 +91,15 @@ class TestBackOnThePanel(BoardTest):
         assert back_s <= 160, f"on the panel after {back_s} s; TST006's bound is 160 s"
 
     def test_frozen_page_recovered(self) -> None:
-        """TST005: freeze the page showing a clock with seconds, then time until the panel is changing again."""
+        """TST005: freeze the page showing a clock with seconds, then time until the panel is changing again.
+
+        The page is frozen only once the instance is on the panel, which the probe reports when surf has
+        finished loading it: surf watches a page for answers only from then on.
+        """
         self.record(requirement="TST005")
+        self.board.app.install_probe()
         self.board.app.config.use(CLOCK_WITH_SECONDS)
+        self.board.app.wait_until_on_panel()
 
         since = self.board.app.freeze_page()
         back_s = self.board.seconds_until(self.board.screen.is_changing, since=since, reads=3)

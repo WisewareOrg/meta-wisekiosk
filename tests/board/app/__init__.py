@@ -204,8 +204,9 @@ class App(Part):
     def freeze_page(self) -> float:
         """Freeze the page without ending the browser: stop its web processes, until the test ends.
 
-        The check is invalid if the panel was not changing before the freeze, the browser had no web
-        process to stop, or the panel did not stand still after the freeze.
+        The page must have finished loading: surf watches a page for answers, and reloads one that stops
+        answering, only from then on. The check is invalid if the panel was not changing before the
+        freeze, the browser had no web process to stop, or the panel did not stand still after the freeze.
 
         Returns:
             The host `time.monotonic()` just before the freeze.
