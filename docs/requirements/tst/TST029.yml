@@ -12,15 +12,15 @@ rationale: |
   own.
 ref: ''
 references:
-- keyword: def test_rejoins_after_an_outage
-  path: tests/target_suite/test_network.py
-  sha: b9f31910ee21f7165d28305f68dee544d6dd058e04fef5f53da3b3b3e73e70ca
+- keyword: def test_back_after_a_fault
+  path: tests/target_suite/test_system_back.py
+  sha: 865341e2370b9ab51b29d47a0e8e6a7618871df0409b188a5fbbf221b6dd1b94
   type: file
-reviewed: obEVnixDxyf_yrU6gvTS2h9HVxYbDJttEIk1yvbDhQE=
+reviewed: SBpcbKJGBhGU6ZxCjCNNPEQrnO46shqqOXykdB6qlAc=
 status: proposed
 text: |
-  Take the site network away from the running appliance, then restore it. Pass if the operator can
-  open a remote shell within 30 s of the network returning.
+  Cut the running appliance off the site network at the appliance itself, then restore it. Pass if
+  the operator can open a remote shell within 30 s of the network returning.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.

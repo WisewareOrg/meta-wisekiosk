@@ -4,7 +4,7 @@ header: |
   Sustained network load
 level: 1.1.8
 links:
-- SRS001: mJPXcAkSNEcGQaecPKwCJDrOMXsJRs1pWu-GXRZ10lo=
+- SRS001: AgauZ0qJaMlOEbRsn-JU3og-7PKri_bZTGf-n179uQk=
 normative: true
 rationale: |
   An image update, or any other heavy traffic, loads the appliance's network while the instance is on
@@ -13,15 +13,15 @@ rationale: |
 ref: ''
 references:
 - keyword: def test_sustained_network_load
-  path: tests/target_suite/test_network.py
-  sha: b9f31910ee21f7165d28305f68dee544d6dd058e04fef5f53da3b3b3e73e70ca
+  path: tests/target_suite/test_back_on_the_panel.py
+  sha: a3ebec3fce47c5e3d828e9eaf25d1e128e6040bb2783fc25296ba79b950e9269
   type: file
-reviewed: Ye1Z8CZps2ud1VrxJ9YhtsuuTte3yNcBXFkJG5rIggA=
+reviewed: 2IqEr2mpa02U4h0DwoJZOqGf7JaHL5V-Rb4pHfdBnNQ=
 status: proposed
 text: |
-  With the WiseKiosk instance on the panel, hold the appliance's network under sustained load for
-  60 s. Pass if the panel shows the live instance throughout, or is back within 60 s of any time it
-  stops.
+  With the WiseKiosk instance on the panel, hold the appliance's network under sustained load from
+  one host for 60 s. Pass if the panel shows the live instance throughout, or is back within 60 s of
+  any time it stops.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.

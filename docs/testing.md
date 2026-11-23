@@ -1,14 +1,13 @@
 # Testing
 
-What proves a change is good enough to ship, at each tier, and — just as importantly — what a green
-result at that tier does **not** let you conclude.
+What proves a change is good enough to ship, at each tier.
 
-| Tier | Guarantees | Runs | What green does not say |
-|---|---|---|---|
-| Static (`just guards`, CI) | Repository invariants hold: no secret or identity reaches a tracked file, shell and YAML parse, every wiring self-test passes. | Every commit (pre-commit hook), every PR and merge-group commit (CI). | Anything about a Yocto build. This tier never invokes bitbake. |
-| Build (`just build`) | The kas config resolves and bitbake completes: an image artifact exists. | On demand, locally — never in CI, which does not build. | Whether the image differs from the last one, whether it boots, whether it serves anything. |
-| Host (`tests/host_suite`) | Both checks pass before any install: the rootfs is attributable to a clean, pushed commit, and `systemd-analyze verify`/`systemctl is-enabled`, run against the unpacked rootfs, are clean for every unit this layer's recipes ship. | After the build, never under `bench test --skip-build`. | Whether a unit actually loads or fails at runtime, errors in a generator-produced dependency unit (`--recursive-errors=no` suppresses those), or anything host-vs-image systemd version drift (259 vs. 255) would mask or add noise to. |
-| Device smoke (`tests/target_suite`) | The board's `/etc/buildinfo` names the installed commit, the page is served, the page is served again within 60 s of a backend crash, the browser killed with nobody at the panel has the WiseKiosk instance back on the panel — the app applied, served by the board's own backend — within TST001<!-- Browser killed -->'s bound, the board restarted, or its kernel crashed, with nobody at the panel serves the instance's page with the browser running again within TST011<!-- Restart to the panel -->'s and TST004<!-- Kernel crash -->'s bound, a clock set wrong by days and persisted across a restart is corrected within TST015<!-- Clock set wrong -->'s bound, the board cut off its network rejoins it by itself and opens a remote shell within TST029<!-- Rejoins after an outage -->'s bound, the panel keeps showing the live instance, or has it back within 60 s, while one host's ssh push loads the network for TST008<!-- Sustained network load -->'s period, a keyboard attached to the board at its input layer, with the network cut, switches the panel to a console, logs in as root and runs a typed command, and the running kernel has the USB keyboard drivers built in, TST027<!-- Shell from an attached keyboard -->, an image update signed by a key no operator holds, TST017<!-- Refuses a foreign signature -->, or one built for another hardware type, TST018<!-- Refuses another hardware type's image update -->, is refused at the board's own install with nothing staged for the next boot and the build and instance unchanged, the board's own `config.json` is byte for byte the same after the candidate's own image update, TST019<!-- Configuration held across an image update -->, and after a restart, TST020<!-- Configuration held across a restart -->, a timezone set with `timedatectl` is the one the board reports local time in, TST026<!-- Timezone set over the air -->, and the instance's own HTTPS fetches, made through the proxy it is set to use, complete and are answered from a recording of its upstream, every recorded request at least once and none unanswered. | `bench run`, once per queue job. | The shared boot partition (`config.txt`, `cmdline.txt`, `boot.scr`, and `uboot.env` apart from RAUC's own boot-selection variables) — an OTA writes only the slot rootfs it boots, which does carry the kernel. The RAUC slot layout, which an OTA never touches. Whether the instance's traffic leaves the board, whether the board resolves its upstreams' names, or whether its system CA store verifies them: the recording is served by a proxy on the test host, reached through an SSH tunnel on the board's own loopback, which resolves names and presents certificates its own CA signs, and the backend trusts that CA alongside the store. The access point itself disappearing or rebooting, the site's DHCP server being the part that is down, or an outage longer than the check's: the outage is a board-side pin in the supplicant. SD writes during a real image update, traffic from many hosts, or airtime contention on the WLAN: the load is one host's ssh push for TST008<!-- Sustained network load -->'s period. A physical USB keyboard being enumerated: the keyboard is a uinput device created on the board, so the USB host port and its power are not exercised. A keymap other than the kernel's default US one. A root password: root has none. The content of an offered image update: the refused updates carry a placeholder image, and RAUC refuses them before reading it. An update streamed over HTTP: only a local bundle file is offered. A signer chained to some other CA: only a self-signed foreign key is tried. Whether a change the operator makes holds: only a config already present is checked, and none is written. Any `/data/config` file other than `config.json`. Whether the application acts on the configuration it holds: that is the application's own requirement, per SRS010<!-- Configuration changed over the air -->'s rationale. A power cut: #258 power cuts. Whether a set zone persists: TST026<!-- Timezone set over the air -->'s set lives in a `/run` overlay on `/etc`, and survival across an image update is #328 timezone survives an image update. What the panel's clock shows: the check reads `date`. |
+| Tier | Guarantees | Runs |
+|---|---|---|
+| Static (`just guards`, CI) | Repository invariants hold: no secret or identity reaches a tracked file, shell and YAML parse, every wiring self-test passes. | Every commit (pre-commit hook), every PR and merge-group commit (CI). |
+| Build (`just build`) | The kas config resolves and bitbake completes: an image artifact exists. | On demand, locally — never in CI, which does not build. |
+| Host (`tests/host_suite`) | Both checks pass before any install: the rootfs is attributable to a clean, pushed commit, and `systemd-analyze verify`/`systemctl is-enabled`, run against the unpacked rootfs, are clean for every unit this layer's recipes ship. | After the build, never under `bench test --skip-build`. |
+| Device smoke (`tests/target_suite`) | The candidate, installed on the bench board by an image update, passes every active `TST` item whose check is in `tests/target_suite`. Each item in the [requirements tree](requirements/README.md) states its own stimulus and pass condition. | `bench run`, once per queue job. |
 
 ## Running it
 
@@ -24,6 +23,8 @@ bench test <ref> --skip-build  # by hand: the target suite only, against the boa
 bench run                      # on a timer: the merge queue's head entry, the same path
 ```
 
+`--soak` (`bench test <ref> -- --soak`) adds a day-long run of TST014<!-- Memory over a long run --> on top of its queue-period run, and does not judge that run's growth bound; `bench run` never passes it.
+
 `bench.toml`'s `[hooks]` carries a no-op `precondition` — the runner requires one; this layer's board
 needs no state check before a run — `build` (`just build`) and `bundle` (`just kiosk-bundle`).
 `[tests]` names the two suites:
@@ -34,26 +35,37 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   and `systemctl is-enabled`, both `--root=`-pointed at it, against every unit this layer's recipes
   ship, so a unit that would strand the board never reaches it either.
 - `tests/target_suite` — one autouse fixture (`conftest.py`) switches on `install_candidate`
-  (`tests/conftest.py`'s shared setup) through `config_across_update`, which hashes the board's
-  `config.json` before and after the install for TST019<!-- Configuration held across an image update -->
-  and writes nothing. `install_candidate` installs the candidate on the board through
-  `just kiosk-ota` and `just kiosk-reboot` when there is one, then reads the board's `/etc/buildinfo`
-  over the ssh connection `Board` opens before the install and `Board.restart` reconnects,
-  printing its meta-wisekiosk commit into the run's own record on every run — so the record carries the board's commit even
-  under a `-k`-filtered run where TST016<!-- Running the image update's build --> itself would not
-  execute. The commit under test comes from the runner's own `bench_candidate` fixture, never an
-  environment variable — `None` outside `bench test`/`bench run`, in which case the setup fixture
-  skips only its install step, and TST016<!-- Running the image update's build --> and
-  TST019<!-- Configuration held across an image update --> skip. TST016<!-- Running the image update's build -->
-  reads the board's `/etc/buildinfo` itself and fails unless it names `bench_candidate`.
-  The timezone test overlays `/etc` from `/run` while it runs and unmounts it at teardown.
-  The `panel` fixture bind-mounts a probe from `/tmp` over surf's script path and restarts the
-  browser so the test can read what the page shows; teardown unmounts it and restarts the browser
-  again. The device context (`device_context` in `conftest.py`) is recorded on every test. The
-  refused-update tests build two small bundles through `tools/kas-run.sh`, so they need the
-  checkout's own build tree and the signing keys the bench host's environment file names. The
-  keyboard test builds evemu-tools through `tools/kas-run.sh` the same way, so it needs the build
-  tree too, and while it runs the panel shows the board's text console.
+  (`tests/conftest.py`'s shared setup, whose docstring gives its steps). It installs the candidate
+  through `just kiosk-ota` when there is one, and what it found before and after is the `Installed`
+  that TST016<!-- Running the image update's build -->,
+  TST019<!-- Configuration held across an image update --> and
+  TST028<!-- Log kept across an image update --> judge, as `board.updates.installed`. It prints the
+  board's meta-wisekiosk commit into the run's own record on every run — so the record carries the
+  board's commit even under a `-k`-filtered run where TST016<!-- Running the image update's build -->
+  itself would not execute. The commit under test
+  comes from the runner's own `bench_candidate` fixture, never an environment variable — `None`
+  outside `bench test`/`bench run`, in which case the setup fixture skips only its install, and the
+  tests that judge it skip.
+  What a test changes on the board, and how it is undone, is in the docstring of the `tests/board/`
+  method that changes it. Apart from an image update's slots, which the test returns to the
+  candidate, each change lives in `/run` or `/tmp`, so a real reboot clears any a dead run leaves,
+  and `install_candidate` clears the backend's runtime drop-ins and mask at the start of every
+  session. While the keyboard test runs, the panel shows the board's text console.
+
+The target suite builds its test bundles and the keyboard test's evemu-tools in the kas container
+through `tools/kas-run.sh`, so the bench needs the checkout's own build tree, and the signing keys
+the bench host's environment file names. The refused-update tests' bundles and evemu-tools are built
+under `build/`. The image-update tests' bundles are built in the host's `/tmp`, which
+`tools/kas-run.sh` mounts through `KAS_RUN_TMP_DIR`: they are signed by the operator key and carry
+the fleet's `compatible`, so they are kept only in the host's tmpfs, never in the build tree's
+deploy output (#252 image update behaviour). Before installing one, `Updates.allow_test_bundle`
+confirms the board refuses it without the run's nonce.
+
+Every install the target suite makes goes through [`tools/kiosk-install.sh`](../tools/kiosk-install.sh),
+so the bench host needs Docker, a free port 80, and a board that reaches the host's port 80 at the
+address the host's ssh session comes from. A plain LAN meets that, and so does WSL2 with Docker
+Desktop, which publishes the port on the Windows side; NAT or an ssh jump between the board and the
+host does not, and the install then fails to fetch the bundle.
 
 `bench run` also reads `[github]` — the GitHub App that posts the `bench-pipeline` check run, and the
 path to its private key on the bench host — and `[run]`, naming the systemd unit it disables on the
@@ -79,9 +91,108 @@ kiosk-ota` and crashes the board once rauc reports writing the slot, and passes 
 install's own output carries the reset and the board's pstore read back after it. It crashes the
 board on purpose, so it runs only by hand, never in the queue job.
 
+`tests/diagnostics -k fallback_probe` is the safe check of the slot fallback before any install meant
+to fail: it installs a good copy of the candidate in the slot not booted, zeroes that slot's boot
+attempts and restarts, and passes only when U-Boot boots the other slot. Both slots stay bootable, so
+it strands nothing.
+
 The board comes from labgrid's own env file, pointed at with `LG_ENV` — a target named `main`, a
 `NetworkService` resource carrying the board's address, an `SSHDriver` — kept untracked under
 `local/`, since this repository is public and the address is site-specific.
 
 On the bench host, `bench run`'s environment file sets `LG_ENV` and, for this layer,
 `PIPELINE_KEYS_DIR`.
+
+The power-cut tests also need an `ExternalPowerDriver` in that file, whose commands run
+`uv run --locked --env-file <file> kasa --host <plug> on` and `off` from the checkout, with the
+plug's login in a `KEY=value` file outside the tree, passed by `--env-file` and never shell-sourced.
+The `python-kasa` git pin in `pyproject.toml` is for that plug's login, and `renovate.json` records
+why it is pinned.
+
+A failure of the plug, or a board that answers in the same boot after the cut, ends the session as
+the bench's failure rather than the candidate's, as
+[WiseBenchManager's job](https://github.com/WisewareOrg/WiseBenchManager#the-job) tells the two
+apart.
+
+## How a target-suite test is written
+
+**A test's contract is its item's text.** Each target-suite test checks one `TST` item in
+[`docs/requirements/tst/`](requirements/tst/): the stimulus it states, its bound, and its pass, fail
+and invalid conditions. Nothing else is part of the contract. A test records `requirement`, the
+values its item judges, under the same names as every test of its kind (a recovery records
+`back_s`), and what tells its case or its stimulus apart, or explains a failure the judged values
+cannot. A check the item does not ask for is not in the test.
+
+**Every test reads arrange, act, assert,** three blocks separated by single blank lines, against
+`self.board` and `self.record`. A test method takes only `self` and its parametrized values: before
+each test, the autouse `_board_and_record` in `tests/target_suite/conftest.py` puts a new `Board`
+and the test's `Record` on the instance. That Board is built with the test's fixture lookup, and
+reaches what the run builds on demand through `board.fixture(name)` — the update bundles as
+`board.updates.bundles`, the refused offers as `board.updates.refused_offers`, the start-of-run
+install as `board.updates.installed`, the keyboard's evemu build, and the replay proxy that
+`@replaying(<recording>)` (`board_test.py`) puts on a test. A board a fixture opens for itself has
+no fixture lookup, and `board.fixture` says so. A class holds test methods and, when every test in
+it starts from the same board state, a `setup_method`; no class writes `teardown_method`, which
+would run after the board's undo. A test whose stimulus must be judged taken before its outcome can
+be timed adds one act and assert pair, as TST006<!-- Image update with a new application build -->
+judges the update installed and restarted into before it times the panel from that restart. So does
+a test with a second stimulus: TST023<!-- Image that cannot start --> and
+TST024<!-- Image that cannot reach the network --> judge the fallback before they install a
+valid update.
+
+**Tests that differ only in stimulus and bound are one parametrized test.** Each row is
+`case(<TST id>, <values>…)`, which makes the item's id the case's id and its first value. A
+fault-to-back test's row is the item, its fault, the read that says the thing is back, and its
+bound: the fault returns the host instant its time counts from, mapped from the board's own record
+where only the board knows it, and `board.seconds_until(<read>, since=…)` times from it. Instants are
+the host's `time.monotonic()`, taken on the side of the event that can only overstate a time.
+
+**A stimulus that did not take fails the check as invalid, from inside the stimulus.** A method that
+applies a stimulus confirms it took and raises through `invalid_if(<how it did not take>)`
+(`tests/board/part.py`), so the message reads `INVALID CHECK, not an appliance failure: …` and the
+test body holds no validity logic of its own. Where the stimulus was applied and only its strength
+or the board's starting state is in doubt, a `confirm_…` call ends the assert block instead, so an
+observed breach fails first: TST008<!-- Sustained network load -->'s load, and the configuration
+tests' loss check. A stimulus that did not take is judged invalid from inside it, before its outcome
+is read, and so is one whose invalid condition can itself cause the breach, as a page reload makes
+frame stalls. A breach the stimulus itself reveals fails the test from inside it, as an assertion that
+is not marked invalid: `Board.restart_with` fails a board that does not come back in a new boot,
+which is TST004<!-- Kernel crash -->'s restart by itself, and `Network.cut_off` fails a board that
+restarted during the outage.
+
+**A test holds what it measured before the stimulus,** in a name that says so, and compares the
+after against it.
+
+**The board is a tree of parts** (`tests/board/`). `Board` itself is the connection, the restarts,
+the faults on the whole board, the waits, and the way to a run's fixtures; everything else belongs to
+a part, a subclass of `Part` that `Board.__init__` builds. Their class docstrings say what each one
+holds. A part registers its undos on `board.cleanup` and reaches a sibling only through the board's
+public path (ruff's SLF001 gates that). A part never holds the record: every method returns what it
+measured, and the test records it. A recorded read returns its raw text, with the parse where a
+record needs it. A named result type exists only where the value is passed whole, carries methods,
+or has neighbouring fields of one type that a reorder could silently swap. `tests/board/` imports
+nothing from `tests/target_suite/` at run time.
+
+**Waits for a condition are tenacity polls,** in `Board.seconds_until`, `Board.wait_for` and
+`Board.longest_lapse_s`, which take a read that raises one of `Board.ERRORS` as one that does not
+hold, and fail the test once the wait gives up. A read a wait polls says "not yet" by returning
+False or None, or by raising one of `Board.ERRORS`; an assertion inside it ends the wait at once,
+which is right only where the read means it to. A wait whose caller needs what the read saw returns
+it: `wait_for` returns the first read that has a value, so no part keeps a read aside for a later
+caller.
+
+**Teardown and record order.** For each test, in this order: the autouse fixtures run,
+`_board_and_record` builds the Board and the Record, and `device_context` records the device facts;
+`setup_method` runs; the test's own fixtures start; the test runs;
+`pytest_runtest_teardown` (`tests/target_suite/conftest.py`) closes the Board's cleanup, last first,
+while the fixtures are still alive; then the fixtures tear down, each recording what it holds as it
+goes.
+
+**Ordering and selection.** `@pytest.mark.sends_update` is the only ordering rule:
+`pytest_collection_modifyitems` runs the marked tests after every other, and an install from a test
+without the mark fails it. A case marked
+`@pytest.mark.soak` is deselected unless the run passes `--soak`.
+
+**The lint gate.** [`tools/ci-guards.sh`](../tools/ci-guards.sh) guard 22 runs the repo `.venv`'s
+pinned `ruff check` (the select in `pyproject.toml`), `ruff format --check`, `interrogate --fail-under
+100` and `pydoclint` over every tracked `tests/*.py`; a missing tool fails the guard.

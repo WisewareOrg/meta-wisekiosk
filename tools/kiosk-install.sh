@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
-# Install a staged RAUC bundle over ssh and show slot state. Does NOT reboot
-# -- inspect `rauc status` first, then `just kiosk-reboot`.
+# Install a RAUC bundle on a board and show slot state. Does NOT reboot --
+# inspect `rauc status` first, then `just kiosk-reboot`.
 #
-#   tools/kiosk-install.sh root@<host>
+#   tools/kiosk-install.sh root@<host> <bundle>
 #   tools/kiosk-install.sh --check-only <before> <after>
+#
+# Every install goes through this script: just kiosk-ota, tools/rauc-rotate.sh
+# and the target suite's update tests. The board streams BUNDLE: for the length
+# of the install, a pinned nginx container on this host's port 80 serves it,
+# with only BUNDLE mounted, and the board runs `rauc install` on its URL at the
+# address its own ssh session comes from (SSH_CLIENT). rauc checks the
+# signature against the board's keyring before it writes anything.
 #
 # Checks, in order: the reproducibility gate against the tree containing this
 # script, regardless of the caller's working directory (--tree: what installs
 # is already on the device); the device clock's skew from the host (reported,
 # never set -- a cold clock after a fresh slot's first boot is the documented
-# cause of a "certificate is not yet valid" refusal below, see #31); the
-# bundle's signature against the device keyring (`rauc info`); and, after
+# cause of a "certificate is not yet valid" refusal below, see #31); and, after
 # `rauc install`, that BOOT_ORDER now leads with the slot that was NOT booted
 # before, with that slot's *_LEFT counter reset above 0 (target_activated).
 #
@@ -28,8 +34,9 @@
 # fw_printenv/rauc-status blocks, with no ssh and no device.
 #
 # Exit: 0 installed and the target slot activated, or --check-only passed;
-# 1 the gate failed, the bundle did not verify, the target slot did not
-# activate, or --check-only failed; 2 no host given. An ssh or rauc command
+# 1 no bundle at the path, the gate failed, the bundle server did not start,
+# rauc refused or failed the install, the target slot did not activate, or
+# --check-only failed; 2 no host or no bundle given. An ssh or rauc command
 # that fails outright exits with that command's own status (e.g. 255).
 set -euo pipefail
 
@@ -52,8 +59,14 @@ target_activated() {
     [[ "$new_order" == "$target"* ]] && [ "${target_left:-0}" -gt 0 ]
 }
 
+nginx_image="nginx:1.30.5-alpine@sha256:0985e772fb9f729e6fa0980da05fca5d9c468e870eed43071545afa9d2e27d94"
+server=kiosk-bundle-server
+
 ssh=(ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
 host=
+url=
+served=0
+capturing=0
 prev_thresh=
 capture_pids=()
 
@@ -112,7 +125,7 @@ arm() {
 
 start_capture() {
     line_ts "capture started" >&2
-    trap stop_capture EXIT
+    capturing=1
     stream kernel 'dmesg -w --time-format iso'
     stream journal 'journalctl -f -o short-iso-precise'
     stream stats "$stats_cmd"
@@ -124,10 +137,12 @@ disarm() {
     "${ssh[@]}" "$host" "$cmd" 2>&1 | stamp disarm || true
 }
 
-# Stops the capture on any exit from the install call. Idempotent and
-# failure-tolerant throughout: safe as the EXIT trap and as the explicit call.
+# Stops the capture. Idempotent and failure-tolerant throughout: safe from
+# cleanup and as the explicit call.
 stop_capture() {
-    local status=$? pid
+    local pid
+    [ "$capturing" -eq 1 ] || return 0
+    capturing=0
     disarm
     line_ts "capture stopped" >&2
     if [ "${#capture_pids[@]}" -gt 0 ]; then
@@ -137,8 +152,50 @@ stop_capture() {
         wait "${capture_pids[@]}" 2>/dev/null || true
     fi
     capture_pids=()
-    trap - EXIT
-    return "$status"
+}
+
+# serve BUNDLE -- serves BUNDLE on this host's port 80 and sets url to it at the
+# address the board's ssh session comes from.
+serve() {
+    local bundle=$1 addr t0 existing owner
+    # shellcheck disable=SC2016 # the board's shell expands SSH_CLIENT
+    addr=$("${ssh[@]}" "$host" 'echo "${SSH_CLIENT%% *}"')
+    [ -n "$addr" ] || { echo "the board did not report its ssh client address"; return 1; }
+    existing=$(docker ps -aq --filter "name=^${server}\$")
+    if [ -n "$existing" ]; then
+        owner=$(docker inspect -f '{{index .Config.Labels "kiosk-install.pid"}}' "$existing" 2>/dev/null) || owner=
+        if [ -n "$owner" ] && ps -p "$owner" >/dev/null 2>&1; then
+            echo "another install on this host (pid $owner) is serving a bundle"
+            return 1
+        fi
+        # left by an install that was killed before its cleanup ran
+        docker rm -f "$existing" >/dev/null 2>&1 || true
+    fi
+    docker image inspect "$nginx_image" >/dev/null 2>&1 || docker pull -q "$nginx_image" >/dev/null \
+        || { echo "could not pull $nginx_image"; return 1; }
+    docker run -d --rm --name "$server" --label "kiosk-install.pid=$$" -p 80:80 \
+        -v "$bundle:/usr/share/nginx/html/$(basename "$bundle"):ro" "$nginx_image" >/dev/null \
+        || { echo "could not start the bundle server on port 80"; return 1; }
+    served=1
+    t0=$SECONDS
+    until curl -sf -o /dev/null -r 0-0 "http://127.0.0.1/$(basename "$bundle")"; do
+        (( SECONDS - t0 < 30 )) || { echo "the bundle server did not answer within 30s"; return 1; }
+        sleep 1
+    done
+    url="http://$addr/$(basename "$bundle")"
+    echo "== serving $bundle at $url"
+}
+
+stop_server() {
+    [ "$served" -eq 1 ] || return 0
+    served=0
+    docker stop "$server" >/dev/null 2>&1 || true
+}
+
+# On any exit: the server first, so a failing capture stop cannot leave it up.
+cleanup() {
+    stop_server
+    stop_capture || true
 }
 
 # reset_readback BOOT_ID -- waits up to 300 s for the board to answer, as
@@ -173,9 +230,14 @@ main() {
         target_activated "${2:-}" "${3:-}"
         exit $?
     fi
-    [ -n "${1:-}" ] || { usage >&2; exit 2; }
+    if [ -z "${1:-}" ] || [ -z "${2:-}" ]; then
+        usage >&2
+        exit 2
+    fi
+    [ -f "$2" ] || { echo "no bundle at $2"; exit 1; }
     host=$1
-    local root gate
+    local root gate bundle
+    bundle=$(readlink -f "$2")
     root=$(cd "$(dirname "$0")/.." && pwd)
     gate="$root/tools/reproducibility-gate.sh"
     cd "$root"
@@ -196,9 +258,8 @@ main() {
         echo "   WARNING: device clock off by ${skew}s -- if rauc rejects the cert below,"
         echo "            this is why: clock persistence may have failed (see #31)."
     fi
-    echo "== verifying bundle signature against the device keyring"
-    "${ssh[@]}" "$host" 'rauc info /data/update.raucb' \
-        || { echo "bundle did not verify -- refusing to install"; exit 1; }
+    trap cleanup EXIT
+    serve "$bundle" || exit 1
     local boot_id
     boot_id=$("${ssh[@]}" "$host" 'cat /proc/sys/kernel/random/boot_id')
     prev_thresh=$("${ssh[@]}" "$host" 'cat /proc/sys/kernel/watchdog_thresh') || prev_thresh=
@@ -206,8 +267,9 @@ main() {
     start_capture
     arm "$root"
     local rc=0
-    "${ssh[@]}" -o ServerAliveInterval=5 -o ServerAliveCountMax=6 "$host" 'rauc install /data/update.raucb' || rc=$?
+    "${ssh[@]}" -o ServerAliveInterval=5 -o ServerAliveCountMax=6 "$host" "rauc install $url" || rc=$?
     stop_capture
+    stop_server
     if [ "$rc" -ne 0 ]; then
         [ "$rc" -ne 255 ] || reset_readback "$boot_id"
         exit "$rc"

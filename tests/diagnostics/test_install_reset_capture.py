@@ -13,63 +13,30 @@ through the bench driver:
 import re
 import subprocess
 
+from board import Board
+
 RAUC_TAG = "rauc["
 SLOT_WRITE = "writing data to device"
-ARMED = re.compile(
-    r"\[arm\] armed: record_ftrace=1 filter_entries=\d+ watchdog_thresh=1 softlockup_panic=1$"
-)
+ARMED = re.compile(r"\[arm\] armed: record_ftrace=1 filter_entries=\d+ watchdog_thresh=1 softlockup_panic=1$")
 SEED = "echo c > /proc/sysrq-trigger"
 
 
-def _booted_slot(board):
-    """The slot the board booted from, as `rauc status` names it.
-
-    Args:
-        board (Board): the board under test (tests/conftest.py).
-
-    Returns:
-        str: the `Booted from:` line.
-
-    Raises:
-        AssertionError: `rauc status` failed or named no booted slot.
-    """
-    stdout, _stderr, returncode = board.run("rauc status", timeout=None)
-    assert returncode == 0, "rauc status failed"
-    line = next((entry for entry in stdout if entry.startswith("Booted from:")), None)
-    assert line is not None, f"no booted slot in rauc status:\n{chr(10).join(stdout)}"
-    return line
-
-
-def _crash(host):
-    """Crash the board with sysrq.
-
-    A plain ssh rather than the SSHDriver: the crash takes the connection down with it,
-    and the driver's shared connection would have to be torn down mid-command.
-
-    Args:
-        host (str): `user@address` of the board.
-    """
-    subprocess.Popen(
-        ["ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=no",
-         "-o", "UserKnownHostsFile=/dev/null", "-o", "ConnectTimeout=10",
-         "-o", "ServerAliveInterval=2",
-         "-o", "ServerAliveCountMax=3", host, SEED],
-        stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
-    )
-
-
-def test_install_reset_capture(board):
+def test_install_reset_capture(board: Board) -> None:
     """A crash mid-install leaves the panic and the ftrace ring in the install's output.
 
     The crashed install never activates the slot it was writing, so the board comes back
     on the slot it booted from before.
+
+    Args:
+        board: the board under test, crashed mid-install.
     """
-    host = board.host
-    slot_before = _booted_slot(board)
+    slot_before = board.updates.rauc_status()["booted"]
 
     ota = subprocess.Popen(
-        ["just", "kiosk-ota", host],
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        ["just", "kiosk-ota", board.host],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
     )
     lines = []
     seeded = False
@@ -77,7 +44,12 @@ def test_install_reset_capture(board):
         print(line, end="")
         lines.append(line.rstrip("\n"))
         if not seeded and RAUC_TAG in line and SLOT_WRITE in line:
-            _crash(host)
+            # its own ssh, apart from the SSHDriver
+            subprocess.Popen(
+                [*board.fresh_ssh_argv(*Board.FAULT_SSH_OPTIONS), SEED],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.STDOUT,
+            )
             seeded = True
     rc = ota.wait()
     output = "\n".join(lines)
@@ -90,13 +62,11 @@ def test_install_reset_capture(board):
     assert any(line.endswith("== /sys/fs/pstore/dmesg-ramoops-0") for line in pstore), (
         "no dmesg-ramoops record in the read-back"
     )
-    assert any("sysrq triggered crash" in line for line in pstore), (
-        "the read-back does not carry the seeded panic"
-    )
+    assert any("sysrq triggered crash" in line for line in pstore), "the read-back does not carry the seeded panic"
     assert any(line.endswith("== /sys/fs/pstore/ftrace-ramoops-0") for line in pstore), (
         "no ftrace-ramoops record in the read-back"
     )
 
     board.disconnect()
     board.connect()
-    assert _booted_slot(board) == slot_before, "the board did not come back on its own slot"
+    assert board.updates.rauc_status()["booted"] == slot_before, "the board did not come back on its own slot"

@@ -52,9 +52,6 @@ dev_certs() { $SSH "$HOST" 'grep -c "BEGIN CERTIFICATE" /etc/rauc/keyring.pem'; 
 # skew; pinning here covers the sub-hour case for the new-signed phase too.
 pin_clock() { $SSH "$HOST" "date -u -s '$(date -u '+%Y-%m-%d %H:%M:%S')'" >/dev/null; }
 
-# Transfer path: one plain md5-verified scp (fast, safe on the capped board).
-send_bundle() { just kiosk-send-direct "$1" "$HOST"; }
-
 NEW_FP=$(fp "$NEW_KEYDIR/signing.cert.pem")
 test -f "$T" || { echo "missing $T -- run: just rotate-build" >&2; exit 1; }
 test -f "$N" || { echo "missing $N -- run: just rotate-build" >&2; exit 1; }
@@ -70,8 +67,7 @@ else
     echo "=== phase 1: transition bundle (new keyring, OLD-signed) -> inactive slot"
     pin_clock
     just kiosk-preflight "$IMG" "$T" "$HOST"
-    send_bundle "$T"
-    just kiosk-install "$HOST"
+    just kiosk-install "$HOST" "$T"
     just kiosk-reboot "$HOST"
     SLOT1=$(dev_slot); FP1=$(dev_fp)
     if [ -z "$SLOT1" ] || [ "$SLOT1" = "$SLOT0" ]; then
@@ -99,8 +95,7 @@ echo "=== phase 2: end-state bundle (new keyring, NEW-signed) -> the other slot"
 PRESLOT=$(dev_slot)
 pin_clock
 just kiosk-preflight "$IMG" "$N" "$HOST"
-send_bundle "$N"
-just kiosk-install "$HOST"
+just kiosk-install "$HOST" "$N"
 just kiosk-reboot "$HOST"
 SLOT2=$(dev_slot); FP2=$(dev_fp)
 if [ -z "$SLOT2" ] || [ "$SLOT2" = "$PRESLOT" ]; then

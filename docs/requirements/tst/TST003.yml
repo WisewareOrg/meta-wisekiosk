@@ -1,21 +1,33 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Power cut during an image update
+  Power cut during an image update
 level: 1.1.3
 links:
-- SRS001: mJPXcAkSNEcGQaecPKwCJDrOMXsJRs1pWu-GXRZ10lo=
+- SRS001: AgauZ0qJaMlOEbRsn-JU3og-7PKri_bZTGf-n179uQk=
 normative: true
 rationale: |
-  Waits on its test, and on power control at the bench, which the project does not have.
+  An image update takes minutes to write, so a power cut can land in the middle of one, and nobody
+  at the panel can bring the appliance back. A half-written update must not stop the appliance
+  bringing itself and the instance back when power returns.
 ref: ''
-references: []
-reviewed: Eh6mu0UAgmrqQCjvMn9365TP3ufhHNHRk6edqkly-VM=
+references:
+- keyword: def test_back_after_a_fault
+  path: tests/target_suite/test_back_on_the_panel.py
+  sha: a3ebec3fce47c5e3d828e9eaf25d1e128e6040bb2783fc25296ba79b950e9269
+  type: file
+reviewed: Guhhc7jku-gqKcEWF5smguO29jgt1nL34ojR7QLYgF4=
 status: proposed
 text: |
-  Cut the appliance's power while an image update is being installed, then restore it. Pass if the
-  WiseKiosk instance is on the panel within 60 s of power returning, on either image.
+  Cut the appliance's power without warning while an image update is being written to it, then
+  restore it. Pass if, within 60 s of power returning, the appliance serves the WiseKiosk
+  instance's page with the browser running, on either image.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.
+  The cut lands while the update's image is being written, never during the brief writes of the
+  boot settings both images share, at the start and end of an install, which a cut could leave
+  unbootable on either image.
+  It stops at the page served with the browser running. A boot's own time to the instance on the
+  panel is TST012<!-- Cold boot to the panel -->'s.
 verification-method: test

@@ -23,6 +23,10 @@ export SURF_MILESTONES=1
 : "${WEBKIT_FORCE_VBLANK_TIMER:=1}"
 export WEBKIT_DISABLE_DMABUF_RENDERER WEBKIT_FORCE_VBLANK_TIMER
 
+# Frozen-page reload: see SURF_PAGE_DEADLINE in surf_%.bbappend.
+: "${SURF_PAGE_DEADLINE:=20}"
+export SURF_PAGE_DEADLINE
+
 # Remote Web Inspector. OFF by default for two reasons: it must not perturb a
 # complete-display measurement, and it should not listen unless asked. Turn it
 # on over SSH with no rebuild and no trip to the device:
@@ -56,8 +60,8 @@ xrandr --output HDMI-1 --mode 1280x720 ||
 # There is no backend-readiness wait before the exec, and one must not be built
 # on busybox `nc`: it exits 1 against an open port as well as a closed one, so
 # the probe can never report success -- a readiness check that cannot pass looks
-# exactly like a backend that is never ready. kiosk.service already gates on
-# network-online.target, which is the part that was doing any work.
+# exactly like a backend that is never ready. A load that lands before the
+# backend listens is surf's to retry: see 0003-retry-a-load-that-fails.patch.
 #
 # Milestones go to BOTH the journal and a file: measure-surf.sh reads the file,
 # and the journal is what makes a first boot debuggable over SSH.

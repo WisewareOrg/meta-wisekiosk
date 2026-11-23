@@ -11,7 +11,32 @@ dependencies = [
 [dependency-groups]
 dev = [
     "check-reqs",
+    "interrogate>=1.7.0",
+    "pydoclint>=0.12.0",
+    "python-kasa",
+    "ruff>=0.17.6",
 ]
 
 [tool.uv.sources]
 check-reqs = { git = "https://github.com/WisewareOrg/wise-ci", subdirectory = "check-reqs", rev = "491858538bf01b19cfb86aab1195ad3822b59903" }
+python-kasa = { git = "https://github.com/python-kasa/python-kasa", rev = "a1a6c3854ace705b21357b357354d4ae8b6307b4" }
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "D", "D417", "SLF001"]
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 120
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.pydoclint]
+style = "google"
+arg-type-hints-in-signature = true
+arg-type-hints-in-docstring = false
+check-return-types = false
+skip-checking-short-docstrings = false
+allow-init-docstring = true

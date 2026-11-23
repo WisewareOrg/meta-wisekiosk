@@ -6,11 +6,8 @@ needs a person with a USB keyboard. \
 \
 Ordered Before=boot-complete.target, which rauc-mark-good.service Requires. A non-zero exit \
 leaves that target unreached, mark-good does not run, the boot counter is not reset, and \
-three such boots drop the slot from BOOT_ORDER. \
-\
-It only ever WITHHOLDS -- it never marks a slot bad, because withholding is recoverable from \
-the other slot and marking bad is not, and it suppresses itself entirely when the partner \
-slot is not good, so it can never strand the board with no bootable slot."
+three such boots drop the slot from BOOT_ORDER. When it withholds, restarts or suppresses \
+itself is stated in the script's header."
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 

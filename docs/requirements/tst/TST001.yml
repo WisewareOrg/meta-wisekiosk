@@ -4,18 +4,18 @@ header: |
   Browser killed
 level: 1.1.1
 links:
-- SRS001: mJPXcAkSNEcGQaecPKwCJDrOMXsJRs1pWu-GXRZ10lo=
+- SRS001: AgauZ0qJaMlOEbRsn-JU3og-7PKri_bZTGf-n179uQk=
 normative: true
 rationale: |
   A browser that dies leaves the panel blank, and with nobody at the panel nobody restarts it. The
   viewer must get the instance back without anyone coming to it.
 ref: ''
 references:
-- keyword: def test_browser_killed
-  path: tests/target_suite/test_browser_killed.py
-  sha: cfe0b89e2cbc6f208b8dd5c5bf2aa389970c7a88a03dc1b7467d5152c9bf8edb
+- keyword: def test_back_after_a_fault
+  path: tests/target_suite/test_back_on_the_panel.py
+  sha: a3ebec3fce47c5e3d828e9eaf25d1e128e6040bb2783fc25296ba79b950e9269
   type: file
-reviewed: wbXnmVyXvmvSfNvbavbvzlu4Yr6ZFv3Kk8vbQrKAIkM=
+reviewed: 7YvFVze1N6MT66JU-Au5WNyX8pUm0RFz3CTZGMwb_Jg=
 status: proposed
 text: |
   With nobody at the panel, kill the browser. Pass if the WiseKiosk instance is back on the panel

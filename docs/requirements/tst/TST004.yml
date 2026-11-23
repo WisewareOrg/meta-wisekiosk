@@ -4,18 +4,18 @@ header: |
   Kernel crash
 level: 1.1.4
 links:
-- SRS001: mJPXcAkSNEcGQaecPKwCJDrOMXsJRs1pWu-GXRZ10lo=
+- SRS001: AgauZ0qJaMlOEbRsn-JU3og-7PKri_bZTGf-n179uQk=
 normative: true
 rationale: |
   A crashed kernel leaves the panel frozen or blank, and with nobody at the panel nobody restarts
   it. The appliance has to bring itself and the instance back.
 ref: ''
 references:
-- keyword: def test_kernel_crash
-  path: tests/target_suite/test_restart_recovery.py
-  sha: 001a97dbcdaad3274791761712e649b13d9848363cb353a32fee33b5c1144e4f
+- keyword: def test_back_after_a_fault
+  path: tests/target_suite/test_back_on_the_panel.py
+  sha: a3ebec3fce47c5e3d828e9eaf25d1e128e6040bb2783fc25296ba79b950e9269
   type: file
-reviewed: bYh_JMX6HGtcuyGND2E60domPJjnBWlW83KgVYpGaLI=
+reviewed: n5O2fSauJh_-xZI446iDgkwcEY51W6THTtFvgtXBV7s=
 status: proposed
 text: |
   With nobody at the panel, crash the kernel over the network so that nothing on the appliance runs.
@@ -25,5 +25,5 @@ verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.
   It stops at the page served with the browser running. A boot's own time to the instance on the
-  panel is TST012<!-- Pending: Cold boot to the panel -->'s.
+  panel is TST012<!-- Cold boot to the panel -->'s.
 verification-method: test

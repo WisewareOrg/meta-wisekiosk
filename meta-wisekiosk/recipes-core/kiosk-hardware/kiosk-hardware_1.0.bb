@@ -1,14 +1,14 @@
-SUMMARY = "Kiosk hardware trim: keep unused subsystems out of the boot, and reboot on panic"
+SUMMARY = "Kiosk hardware trim: keep unused subsystems out of the boot, reboot on panic, and end memory thrash in an OOM kill"
 DESCRIPTION = "Drop-in configuration only -- no binaries, no services. Deliberately a \
 separate recipe rather than a systemd_%.bbappend: touching the systemd recipe risks a \
-multi-hour WebKit rebuild for three config files, and dbus is the load-bearing hop, not \
+multi-hour WebKit rebuild for a few config files, and dbus is the load-bearing hop, not \
 gtk+3. The chain is at recipes-core/packagegroups/packagegroup-base.bbappend and the \
 removal routes it closes are in docs/issue_investigation/webkit_dependency_trims/README.md. \
 The same reasoning is why kiosk-journal exists."
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
-SRC_URI = "file://kiosk-blacklist.conf file://watchdog.conf file://60-kiosk-panic.conf"
+SRC_URI = "file://kiosk-blacklist.conf file://watchdog.conf file://60-kiosk-panic.conf file://60-kiosk-mglru.conf"
 # scarthgap unpacks file:// SRC_URI straight into WORKDIR.
 S = "${WORKDIR}"
 
@@ -23,6 +23,9 @@ do_install() {
 
     install -d ${D}${sysconfdir}/sysctl.d
     install -m 0644 ${WORKDIR}/60-kiosk-panic.conf ${D}${sysconfdir}/sysctl.d/
+
+    install -d ${D}${nonarch_libdir}/tmpfiles.d
+    install -m 0644 ${WORKDIR}/60-kiosk-mglru.conf ${D}${nonarch_libdir}/tmpfiles.d/
 
     # zram ships BOTH mechanisms for one job: zram_0.2.bb inherits update-rc.d
     # (/etc/init.d/zram, picked up by systemd-sysv-generator) and systemd
@@ -97,6 +100,7 @@ FILES:${PN} = " \
     ${sysconfdir}/modprobe.d/kiosk-blacklist.conf \
     ${sysconfdir}/systemd/system.conf.d/watchdog.conf \
     ${sysconfdir}/sysctl.d/60-kiosk-panic.conf \
+    ${nonarch_libdir}/tmpfiles.d/60-kiosk-mglru.conf \
     ${sysconfdir}/systemd/system/zram.service \
     ${sysconfdir}/systemd/system/systemd-resolved.service \
     ${sysconfdir}/systemd/system/systemd-logind.service \

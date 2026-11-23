@@ -4,21 +4,21 @@ header: |
   Backend crash
 level: 1.1.9
 links:
-- SRS001: mJPXcAkSNEcGQaecPKwCJDrOMXsJRs1pWu-GXRZ10lo=
+- SRS001: AgauZ0qJaMlOEbRsn-JU3og-7PKri_bZTGf-n179uQk=
 normative: true
 rationale: |
   A crashed backend leaves the panel on the application's error, with nobody there to restart it.
 ref: ''
 references:
-- keyword: def test_backend_crash
-  path: tests/target_suite/test_wisekiosk.py
-  sha: 247c2f913b709eda6b417c8712d81d1975ad82ddb242fe6536bdb60e556660a9
+- keyword: def test_back_after_a_fault
+  path: tests/target_suite/test_back_on_the_panel.py
+  sha: a3ebec3fce47c5e3d828e9eaf25d1e128e6040bb2783fc25296ba79b950e9269
   type: file
-reviewed: cXnL02NXcn5UFOVpAX_-GQNM6KvUmCay0dqn9CtsCOI=
+reviewed: 20_0OclYjYA-oJstlQSveEqMQSvloHUYeqv4qC6G7ww=
 status: proposed
 text: |
   With nobody at the panel, crash the WiseKiosk backend by killing it outright. Pass if the
-  WiseKiosk instance's page is served on the appliance again within 60 s of the crash.
+  WiseKiosk instance is on the panel again within 60 s of the crash.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.

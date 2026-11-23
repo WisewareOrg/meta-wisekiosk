@@ -11,11 +11,11 @@ rationale: |
   to the appliance.
 ref: ''
 references:
-- keyword: def test_page_serves
-  path: tests/target_suite/test_wisekiosk.py
-  sha: 247c2f913b709eda6b417c8712d81d1975ad82ddb242fe6536bdb60e556660a9
+- keyword: def test_remote_shell_runs_a_command
+  path: tests/target_suite/test_remote_shell.py
+  sha: 29c9e2dcb512e272104156561fbc061664a660a53dbf3b5966b504bd6a73cad5
   type: file
-reviewed: 3dZeYEUbEVEiTmsYjFH-10Kmnvk5b-k84LwsRt0FfSw=
+reviewed: 957F8D4xYiyTC55rpVQbf-6ZOTgwhCo1PTUI0HV2cw8=
 status: proposed
 text: |
   From another machine on the network, open a remote shell on the appliance and run a command in it.

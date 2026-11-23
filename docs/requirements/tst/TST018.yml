@@ -11,16 +11,16 @@ rationale: |
   panel. The appliance has to refuse it rather than leave the viewer's panel to whatever it does.
 ref: ''
 references:
-- keyword: def test_another_hardware_type
+- keyword: def test_refuses_an_update
   path: tests/target_suite/test_refused_updates.py
-  sha: 7a0ea88146f11b430a73ff9610d91d9319c09555f021805edad419d8f487b059
+  sha: 84603e6ee853e5a1b603fdae2fa26d27a1f04af81cb9c51edca4c0d17c202dd4
   type: file
-reviewed: Tpi62jzhH9QXB1ChSMy2Hf5vK7Z2LsvvOg-5-VOcD_I=
+reviewed: RqDYPzIMEGaZQ6zdqSF7yC3IN6jE4IxYLS5RC8C9VkM=
 status: proposed
 text: |
   Offer the appliance an image update signed by one of its operators but built for a different kind
-  of hardware. Pass if it refuses the image update and is still running the same build, with the
-  WiseKiosk instance on the panel.
+  of hardware. Pass if it refuses the image update and its next restart is into the same build, with
+  the WiseKiosk instance on the panel.
 verification-justification: |
   Test. It exercises the capability and reads the result mechanically; the pass condition needs no
   judgement.

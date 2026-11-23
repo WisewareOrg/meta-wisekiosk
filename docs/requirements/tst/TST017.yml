@@ -11,16 +11,16 @@ rationale: |
   took it, whoever made it would decide what runs on the panel, with nobody there to notice.
 ref: ''
 references:
-- keyword: def test_foreign_signature
+- keyword: def test_refuses_an_update
   path: tests/target_suite/test_refused_updates.py
-  sha: 7a0ea88146f11b430a73ff9610d91d9319c09555f021805edad419d8f487b059
+  sha: 84603e6ee853e5a1b603fdae2fa26d27a1f04af81cb9c51edca4c0d17c202dd4
   type: file
-reviewed: XkEML0fFZe0PVlINOXerR_qd4-S1zvvuQshVSSLXvEc=
+reviewed: 6MRn6-lU7GDBfknn1kVMdd7wG74oqtl4t2KeYpCR4-I=
 status: proposed
 text: |
-  Offer the appliance an image update signed by a key none of its operators holds. Pass if it
-  refuses the image update and is still running the same build, with the WiseKiosk instance on the
-  panel.
+  Offer the appliance an image update signed by a self-signed key none of its operators holds. Pass
+  if it refuses the image update and its next restart is into the same build, with the WiseKiosk
+  instance on the panel.
 verification-justification: |
   Test. It exercises the capability and reads the result mechanically; the pass condition needs no
   judgement.

@@ -30,13 +30,13 @@ jobs:
           sudo tar -xzf /tmp/gitleaks.tgz -C /usr/local/bin gitleaks
           gitleaks version
 
-      - name: Install PyYAML
-        run: python3 -m pip install --quiet pyyaml
-
-      # wise-ci's check-reqs action needs uv on PATH.
+      # uv: the check-reqs action, and `uv sync`, which builds the .venv ci-guards.sh uses
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.13.9"
+
+      - name: Install the pinned dev environment
+        run: uv sync --locked
 
       - name: Run repository guards
         run: tools/ci-guards.sh

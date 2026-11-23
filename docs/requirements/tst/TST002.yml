@@ -1,21 +1,29 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Power cut while showing
+  Power cut while showing
 level: 1.1.2
 links:
-- SRS001: mJPXcAkSNEcGQaecPKwCJDrOMXsJRs1pWu-GXRZ10lo=
+- SRS001: AgauZ0qJaMlOEbRsn-JU3og-7PKri_bZTGf-n179uQk=
 normative: true
 rationale: |
-  Waits on its test, and on power control at the bench, which the project does not have.
+  A wall-mounted unit loses power without warning, and nobody at the panel can bring it back. The
+  appliance has to bring itself and the instance back when power returns.
 ref: ''
-references: []
-reviewed: m381pDBStnOHZH-S89U5sdLDeweIILMja_w5n6-Lm5U=
+references:
+- keyword: def test_back_after_a_fault
+  path: tests/target_suite/test_back_on_the_panel.py
+  sha: a3ebec3fce47c5e3d828e9eaf25d1e128e6040bb2783fc25296ba79b950e9269
+  type: file
+reviewed: w5SPp0eJ-sg9qfiAK-_OjydAaBw4iI4hzceAPv3460I=
 status: proposed
 text: |
-  While the WiseKiosk instance is on the panel, cut the appliance's power without warning, then
-  restore it. Pass if the instance is on the panel within 60 s of power returning.
+  With the appliance serving the WiseKiosk instance's page and the browser running, cut its power
+  without warning, then restore it. Pass if, within 60 s of power returning, the appliance serves
+  the instance's page with the browser running.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.
+  It stops at the page served with the browser running. A boot's own time to the instance on the
+  panel is TST012<!-- Cold boot to the panel -->'s.
 verification-method: test

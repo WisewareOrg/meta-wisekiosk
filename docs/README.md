@@ -6,10 +6,12 @@
 | [`rauc-key-rotation.md`](rauc-key-rotation.md) | How do you replace the RAUC signing key the devices trust, and why must it happen in a fixed order? |
 | [`cve-and-sbom.md`](cve-and-sbom.md) | What is the image made of, which of those packages carry published vulnerabilities, and how do you find out? |
 | [`layer-currency.md`](layer-currency.md) | How old is the image's software — have the pins fallen behind, is a newer recipe already inside a pinned layer, and what would a bump close? |
-| [`testing.md`](testing.md) | What does each testing tier prove, what does a green result at that tier not say, and how do you run it through the bench runner? |
+| [`testing.md`](testing.md) | What does each testing tier prove, and how do you run it through the bench runner? |
 | [`../tests/replay/README.md`](../tests/replay/README.md) | What does a replay set hold, and how do you re-record one by hand? |
 | [`requirements/README.md`](requirements/README.md) | What does the image own as an obligation, and which check discharges each one? |
 | [`../meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md`](../meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md) | How do you bump the WiseKiosk app pin, and why does the build regenerate its API client and types instead of committing them? |
+| [`../meta-wisekiosk/recipes-core/bundles/README.md`](../meta-wisekiosk/recipes-core/bundles/README.md) | How does an update reach a slot, and why is it streamed and the image sized to its content? |
+| [`../meta-wisekiosk/recipes-core/kiosk-hardware/README.md`](../meta-wisekiosk/recipes-core/kiosk-hardware/README.md) | Why does the image set MGLRU `min_ttl_ms`, and which other ways of handling memory exhaustion were set aside? |
 | [`issue_investigation/TEMPLATE.md`](issue_investigation/TEMPLATE.md) | What shape must an issue investigation take, and what must every test run in it name? |
 | [`issue_investigation/boot_cpu_saturation/`](issue_investigation/boot_cpu_saturation/README.md) | Across a boot, is the single core doing work, waiting on hardware, or queued behind something else? |
 | [`issue_investigation/wlan0_udev_queue/`](issue_investigation/wlan0_udev_queue/README.md) | What occupies the gap between the WiFi chip appearing on the bus and `wlan0` existing, and what is removing it worth? |

@@ -25,6 +25,16 @@
       "groupName": "grype"
     },
     {
+      "description": "Pinned to python-kasa/python-kasa PR 1592's commit for the bench plug's TPAP login; move to a release that carries TPAP.",
+      "matchDepNames": ["python-kasa"],
+      "enabled": false
+    },
+    {
+      "description": "nginx's stable releases have even minor versions; the odd ones are mainline.",
+      "matchPackageNames": ["nginx"],
+      "allowedVersions": "/^1\\.\\d*[02468]\\.\\d+-alpine$/"
+    },
+    {
       "description": "Neither registry returns a release timestamp, so the preset's release-age wait would hold these forever.",
       "matchManagers": ["custom.regex"],
       "matchDatasources": ["docker"],
@@ -75,6 +85,13 @@
         "\"(?<depName>anchore/grype|ghcr\\.io/siemens/kas/kas):(?<currentValue>[^\"@]+)(?:@(?<currentDigest>sha256:[0-9a-f]{64}))?\""
       ],
       "autoReplaceStringTemplate": "\"{{depName}}:{{newValue}}{{#if newDigest}}@{{newDigest}}{{/if}}\"",
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^tools/kiosk-install\\.sh$/"],
+      "matchStrings": ["\"(?<depName>nginx):(?<currentValue>[^\"@]+)@(?<currentDigest>sha256:[0-9a-f]{64})\""],
+      "autoReplaceStringTemplate": "\"{{depName}}:{{newValue}}@{{newDigest}}\"",
       "datasourceTemplate": "docker"
     }
   ]

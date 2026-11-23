@@ -4,7 +4,7 @@ header: |
   Configuration held across a restart
 level: 2.3.2
 links:
-- SRS010: 7BSrI4LQ6IW3pkqKIa6bpxKuSbPkS9ssdM7zQ09rPIg=
+- SRS010: cXUUm3LnnNsW2-SqUXIWeXYkTUWlEIeSDrD3ofOF6Zg=
 normative: true
 rationale: |
   An operator who changes the appliance's configuration expects it to stay changed. A restart is the
@@ -12,11 +12,11 @@ rationale: |
   silently put the appliance back on the settings the operator had moved away from.
 ref: ''
 references:
-- keyword: def test_config_held_across_restart
+- keyword: def test_config_held_across_a_fault
   path: tests/target_suite/test_configuration.py
-  sha: 2eb110b2b1726f93d4fe8bad4328e8bab485610d2d1361d6b4347185c67f7fca
+  sha: b03b506a39309107f4c929dc8257072a50ccfc8b370e3ae0f85e9aad593a02b7
   type: file
-reviewed: 0lsw9wRbrX3Jik36XyAe5yqPQJ8rzMdZMwgqdpvH_n8=
+reviewed: 4DmQecNXQTnwWnVrb040OLj9W28-tAWUD8Vo5VBQ_xA=
 status: proposed
 text: |
   Restart the appliance over the network. Pass if the configuration it holds afterwards is byte for

@@ -1,20 +1,33 @@
-active: false
+active: true
 derived: false
 header: |
-  Pending: Motion stutter measured
+  Motion stutter measured
 level: 1.2.1
 links:
-- SRS002: LEdl4V48HbyxoyKPScKLujsTew6813LK1scJt-c1K4U=
+- SRS002: tPNXJn2N065rGvUEa6EWmtif48LQIh7Mj03uTJs9LMY=
 normative: true
 rationale: |
-  Waits on its test and its bound.
+  Stutter on this board moves with load, page content and the display stack, and is not visible in a
+  single look. Without a counted baseline on a fixed page, a change that makes motion worse ships
+  unnoticed.
 ref: ''
-references: []
-reviewed: WFYX_fXq3vGIQ5aSqkNvTReJeKgCaU2_3TIGlcElh6o=
+references:
+- keyword: def test_motion_stutter
+  path: tests/target_suite/test_motion.py
+  sha: 3271027646447dc2cba4bda8a9bff204beb7de0925ca191be02ffdabb82d8d30
+  type: file
+- keyword: EDGES
+  path: tests/target_suite/probe.js
+  sha: 4505f94d12b5a696988a0ecb0c3c7374a3a55b5813bb32d3d49ed7b578c4d00e
+  type: file
+reviewed: b_AdZl7CRUA2_5y_yESgk6mfQ06w5WKC_Kixe4nr5yE=
 status: proposed
 text: |
-  With the WiseKiosk instance configured to show repeatable motion, measure stutter over the check's
-  window. Pass if it is within a bound not yet set.
+  With the WiseKiosk instance showing the replayed page, four park cards live, ride names scrolling,
+  the tour and the weather series turning on their own timers, measure the page's frame intervals
+  over a 320 second window that opens 40 seconds after the page is complete. Pass if no more than 24
+  of them are 250 milliseconds or longer. The check is invalid if the page reloads or changes state
+  inside the window, or shows too little motion.
 verification-justification: |
   Test. It measures against a stated bound; the pass condition needs no judgement.
 verification-method: test
