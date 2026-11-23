@@ -457,7 +457,9 @@ class Board:
             )
         return on_began
 
-    def seconds_until(self, condition: Callable[[], object], *, since: float | None = None, reads: int = 1) -> float:
+    def seconds_until(
+        self, condition: Callable[[], object], *, since: float | Callable[[], float] | None = None, reads: int = 1
+    ) -> float:
         """Read `condition` about once a second until it holds on `reads` reads in a row.
 
         A read that raises one of `ERRORS` does not hold.
@@ -465,7 +467,9 @@ class Board:
         Args:
             condition: one read of the board; holds when truthy. A give-up names it by its qualified name,
                 or its function's for a `functools.partial`.
-            since: the host `time.monotonic()` instant the time counts from; now when None.
+            since: the host `time.monotonic()` instant the time counts from; now when None. A callable
+                returns it once the run is complete, for an instant only known once the board answers
+                again; the give-up then counts from now.
             reads: how many reads in a row it must hold on.
 
         Returns:
@@ -474,7 +478,7 @@ class Board:
         Raises:
             AssertionError: the run did not begin within `GIVE_UP_SECONDS` of `since`.
         """
-        since = time.monotonic() if since is None else since
+        known_since = time.monotonic() if since is None or callable(since) else since
         run: list[float] = []
 
         def read() -> int:
@@ -489,14 +493,14 @@ class Board:
 
         try:
             Retrying(
-                stop=stop_after_delay(self.GIVE_UP_SECONDS - (time.monotonic() - since)),
+                stop=stop_after_delay(self.GIVE_UP_SECONDS - (time.monotonic() - known_since)),
                 wait=wait_fixed(1),
                 retry=retry_if_result(lambda held: held < reads),
             )(read)
         except RetryError:
             what = getattr(condition, "func", condition).__qualname__
             raise AssertionError(f"{what} did not hold within {self.GIVE_UP_SECONDS} s") from None
-        return round(run[0] - since, 1)
+        return round(run[0] - (since() if callable(since) else known_since), 1)
 
     def longest_lapse_s(self, condition: Callable[[], object], *, over: float) -> float:
         """Read `condition` about once a second for `over` seconds; the longest stretch it did not hold.

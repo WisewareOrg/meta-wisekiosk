@@ -5,7 +5,7 @@ import os
 import subprocess
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
@@ -40,19 +40,19 @@ class Network(Part):
         super().__init__(board)
         self.outage = Outage(board)
 
-    def cut_off(self, seconds: float) -> float:
+    def cut_off(self, seconds: float) -> Callable[[], float]:
         """Cut the board off the site network at the board itself for `seconds`, then let it back on.
 
         A timer on the board cuts and restores the network, once boot has completed, so the outage
-        cannot land inside kiosk-netcheck's window. The check is invalid if a remote shell opens halfway
-        through the outage.
+        cannot land inside kiosk-netcheck's window. Returns once the timer's restore is due. The check is
+        invalid if a remote shell opens halfway through the outage.
 
         Args:
             seconds: how long the network stays cut off.
 
         Returns:
-            The host `time.monotonic()` at which the network returns, by the board's timer; taken from
-            before the timer was set, so never later than the return.
+            What reads the host `time.monotonic()` at which the board let the network back on, from the
+            outage's record, once the board answers again.
         """
         self.outage.wait_boot_complete()
         cut_at = time.monotonic() + Outage.CUT_DELAY_SECONDS
@@ -61,7 +61,23 @@ class Network(Part):
         with invalid_if("the network did not go away: a remote shell opened while it was cut off"):
             assert not self._board.opens_a_shell()
         time.sleep(max(0.0, cut_at + seconds - time.monotonic()))
-        return cut_at + seconds
+        return self._returned_at
+
+    def _returned_at(self) -> float:
+        """Read when the board let the network back on, as the host's clock.
+
+        The record's `t0` is the board's uptime at the return, read with the uptime in one command. The
+        host instant is taken before that read, so it is never later than the return.
+
+        Returns:
+            The host `time.monotonic()` at the return.
+        """
+        self._board.reconnect()
+        read_at = time.monotonic()
+        uptime_s, returned_s = self.outage.uptime_and_return()
+        with invalid_if("the outage's record holds no return"):
+            assert returned_s is not None
+        return read_at - (uptime_s - returned_s)
 
     @contextlib.contextmanager
     def load(self, seconds: float) -> Iterator[None]:

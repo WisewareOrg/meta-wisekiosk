@@ -85,6 +85,15 @@ class Outage(Part):
         self._board.cleanup.callback(self._board.reconnect)
         self._board.disconnect()
 
+    def uptime_and_return(self) -> tuple[float, float | None]:
+        """Read the board's uptime, and the uptime the record says the network returned at, in one command.
+
+        Returns:
+            The uptime, and the record's `t0`, None if it holds none.
+        """
+        lines = self._board.run(f"cat /proc/uptime; cat {_RECORD_PATH} 2>/dev/null || true", check=True).stdout
+        return float(lines[0].split()[0]), OutageRecord.from_lines(lines[1:]).restored
+
     def read_record(self) -> OutageRecord:
         """Read the record as the board holds it, over the SSHDriver.
 

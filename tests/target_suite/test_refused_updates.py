@@ -6,6 +6,7 @@ from collections.abc import Callable
 import pytest
 from board import Board
 from board_test import BoardTest, case
+from refused_offers import Offer
 
 
 @pytest.mark.sends_update
@@ -19,7 +20,7 @@ class TestRefusedUpdates(BoardTest):
             case("TST018", operator.attrgetter("updates.refused_offers.other_hardware")),
         ],
     )
-    def test_refuses_an_update(self, requirement: str, offer: Callable[[Board], object]) -> None:
+    def test_refuses_an_update(self, requirement: str, offer: Callable[[Board], Offer]) -> None:
         """Offer an update the board must refuse; it refuses it, runs the same build, and shows the instance.
 
         Args:
@@ -29,13 +30,13 @@ class TestRefusedUpdates(BoardTest):
         self.record(requirement=requirement)
         self.board.app.install_probe()
         self.board.app.wait_until_on_panel()
-        build = self.board.updates.build_commit()
+        build_before = self.board.updates.build_commit()
 
         refused = self.board.updates.refuses(offer(self.board))
         build_after = self.board.updates.build_commit()
         on_panel = self.board.app.on_panel()
 
-        self.record(refused=refused, build=build_after, on_panel=on_panel)
+        self.record(refused=refused, build_after=build_after, on_panel=on_panel)
         assert refused, "the board did not refuse the update"
-        assert build_after == build, f"the board runs {build_after}, not the {build} it ran before"
+        assert build_after == build_before, f"the board runs {build_after}, not the {build_before} it ran before"
         assert on_panel, "the instance is not on the panel"

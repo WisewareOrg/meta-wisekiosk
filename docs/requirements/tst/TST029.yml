@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_back_after_a_fault
   path: tests/target_suite/test_system_back.py
-  sha: 865341e2370b9ab51b29d47a0e8e6a7618871df0409b188a5fbbf221b6dd1b94
+  sha: e969f06e874cf038920e5236c1dffa4d2b2609295fee4ae80431c080ef74708d
   type: file
-reviewed: SBpcbKJGBhGU6ZxCjCNNPEQrnO46shqqOXykdB6qlAc=
+reviewed: nQ5R2KxGKD4u-tzyrC6YbW3en0g12T-w5vuRAmRDiWc=
 status: proposed
 text: |
   Cut the running appliance off the site network at the appliance itself, then restore it. Pass if
