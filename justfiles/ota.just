@@ -141,8 +141,6 @@ kiosk-bundle-file := "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wif
 kiosk-bundle kconfig="kiosk-zero-w.yaml":
     tools/kas-run.sh shell {{kconfig}} -c "bitbake update-bundle"
 
-# Every check here catches a failure that otherwise surfaces only mid-install,
-# or does not surface at all.
 [group('ota')]
 [script('bash')]
 [doc("Refuse a delivery that cannot work: slot size, stale bundle")]
@@ -174,9 +172,8 @@ kiosk-preflight image=kiosk-image-file bundle=kiosk-bundle-file host=kiosk-host:
     done
     echo "preflight OK"
 
-# Does NOT reboot -- inspect `rauc status` first, then `just kiosk-reboot`.
 [group('ota')]
-[doc("Stream a bundle to the board, install it and show slot state")]
+[doc("Stream a bundle to the board, install it and show slot state, without rebooting")]
 kiosk-install host=kiosk-host bundle=kiosk-bundle-file:
     tools/kiosk-install.sh {{host}} {{bundle}}
 
