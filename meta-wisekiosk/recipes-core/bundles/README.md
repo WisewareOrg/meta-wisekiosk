@@ -44,8 +44,8 @@ answer to an ext4 image smaller than its slot.
   small, and `resize2fs` keeps the block size when it grows the filesystem.
 - `rauc-conf` pulls in `e2fsprogs-resize2fs`, which `resize=true` runs on the board.
 - `resize=true` is read from the running system's `system.conf`, so an install made from an image
-  without it, as the one that first moves a board onto this layout is, leaves that slot's filesystem
-  at its content size until the slot is next written.
+  whose `system.conf` lacks it leaves that slot's filesystem at its content size until the slot is
+  next written.
 - The host that installs needs Docker and a port 80 the board can reach at the address its ssh
   session comes from; [`docs/testing.md`](../../../docs/testing.md) §"Running it" states this for the
   bench.

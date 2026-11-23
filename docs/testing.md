@@ -58,7 +58,7 @@ the bench host's environment file names. The refused-update tests' bundles and e
 under `build/`. The image-update tests' bundles are built in the host's `/tmp`, which
 `tools/kas-run.sh` mounts through `KAS_RUN_TMP_DIR`: they are signed by the operator key and carry
 the fleet's `compatible`, so they are kept only in the host's tmpfs, never in the build tree's
-deploy output (#252 image update behaviour, ruling E2).
+deploy output (#252 image update behaviour).
 
 Every install the target suite makes goes through [`tools/kiosk-install.sh`](../tools/kiosk-install.sh),
 so the bench host needs Docker, a free port 80, and a board that reaches the host's port 80 at the
@@ -172,12 +172,13 @@ record needs it. A named result type exists only where the value is passed whole
 or has neighbouring fields of one type that a reorder could silently swap. `tests/board/` imports
 nothing from `tests/target_suite/` at run time.
 
-**Waits for a condition are tenacity polls,** in `Board.seconds_until`, `Board.wait_for` and `Board.longest_lapse_s`,
-which take a read that raises one of `Board.ERRORS` as one that does not hold, and fail the test
-once the wait gives up. A read a wait polls says "not yet" by returning False or None, or by raising
-one of `Board.ERRORS`; an assertion inside it ends the wait at once, which is right only where the
-read means it to. A wait whose caller needs what the read saw returns it: `wait_for` returns
-the first read that has a value, so no part keeps a read aside for a later caller.
+**Waits for a condition are tenacity polls,** in `Board.seconds_until`, `Board.wait_for` and
+`Board.longest_lapse_s`, which take a read that raises one of `Board.ERRORS` as one that does not
+hold, and fail the test once the wait gives up. A read a wait polls says "not yet" by returning
+False or None, or by raising one of `Board.ERRORS`; an assertion inside it ends the wait at once,
+which is right only where the read means it to. A wait whose caller needs what the read saw returns
+it: `wait_for` returns the first read that has a value, so no part keeps a read aside for a later
+caller.
 
 **Teardown and record order.** For each test, in this order: the autouse fixtures run,
 `_board_and_record` builds the Board and the Record, and `device_context` records the device facts;
