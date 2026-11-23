@@ -1,14 +1,19 @@
 """Target suite: with nobody at the panel, the appliance brings the WiseKiosk instance back to it, and promptly."""
 
-import functools
+import operator
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 from board import Board
-from board.app import App
 from board_test import BoardTest, case
 
+# what "back" is read as: the instance on the panel; its page served with the browser running; the
+# browser finished loading the instance's page; the clock agreeing with the network's time
+ON_PANEL = operator.attrgetter("app.on_panel")
+UP = operator.attrgetter("app.is_up")
+LOADED = operator.attrgetter("app.loaded_the_instance")
+CLOCK_AGREES = operator.attrgetter("system.clock_agrees")
 CLOCK_WITH_SECONDS = Path(__file__).resolve().parent / "clock-seconds.json"
 SENDS_UPDATE = [pytest.mark.sends_update]
 # TST008's load, and how long after any stop the panel has to be back
@@ -22,39 +27,44 @@ class TestBackOnThePanel(BoardTest):
     @pytest.mark.parametrize(
         ("requirement", "fault", "back", "bound_s"),
         [
-            case("TST001", lambda board: board.app.browser.kill(), App.on_panel, 45),
-            case("TST032", lambda board: board.app.backend.kill(), App.on_panel, 60),
-            case("TST034", lambda board: board.app.kill_backend_while_browser_starts(), App.on_panel, 60),
-            case("TST004", lambda board: board.crash_kernel(), App.is_up, 100),
-            case("TST002", lambda board: board.cut_power(), App.is_up, 60),
-            case("TST011", lambda board: board.restart(), App.is_up, 60),
-            case("TST012", lambda board: board.cut_power(), App.loaded_the_instance, 110),
-            case("TST033", lambda board: board.app.restart_with_backend_held(), App.on_panel, 60),
+            case("TST001", lambda board: board.app.browser.kill(), ON_PANEL, 45),
+            case("TST032", lambda board: board.app.backend.kill(), ON_PANEL, 60),
+            case("TST034", lambda board: board.app.kill_backend_while_browser_starts(), ON_PANEL, 60),
+            case("TST004", lambda board: board.crash_kernel(), UP, 100),
+            case("TST002", lambda board: board.cut_power(), UP, 60),
+            case("TST011", lambda board: board.restart(), UP, 60),
+            case("TST012", lambda board: board.cut_power(), LOADED, 110),
+            case("TST033", lambda board: board.app.restart_with_backend_held(), ON_PANEL, 60),
+            case("TST015", lambda board: board.system.restart_with_clock_wrong(), CLOCK_AGREES, 100),
             case(
                 "TST003",
                 lambda board: board.updates.cut_power_while_writing(board.updates.bundles.new_build),
-                App.is_up,
+                UP,
                 60,
                 marks=SENDS_UPDATE,
             ),
             case(
                 "TST006",
                 lambda board: board.updates.install_and_restart(board.updates.bundles.new_build),
-                App.on_panel,
+                ON_PANEL,
                 160,
                 marks=SENDS_UPDATE,
             ),
         ],
     )
     def test_back_after_a_fault(
-        self, requirement: str, fault: Callable[[Board], float], back: Callable[[App], bool], bound_s: float
+        self,
+        requirement: str,
+        fault: Callable[[Board], float],
+        back: Callable[[Board], Callable[[], bool]],
+        bound_s: float,
     ) -> None:
         """A fault or a restart with the instance on the panel, then the time until the instance is back.
 
         Args:
             requirement: the item.
             fault: the item's stimulus; returns the instant its time counts from.
-            back: whether the instance is back, as the item judges it.
+            back: the board's read of whether the instance is back, as the item judges it.
             bound_s: the item's bound.
         """
         self.record(requirement=requirement)
@@ -62,7 +72,7 @@ class TestBackOnThePanel(BoardTest):
         self.board.app.wait_until_on_panel()
 
         since = fault(self.board)
-        back_s = self.board.seconds_until(functools.partial(back, self.board.app), since=since)
+        back_s = self.board.seconds_until(back(self.board), since=since)
 
         self.record(back_s=back_s)
         assert back_s <= bound_s, f"back after {back_s} s; {requirement}'s bound is {bound_s} s"

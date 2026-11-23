@@ -19,7 +19,7 @@ from board.app import App
 from board.console import Console, Keyboard, Terminals
 from board.network import Network
 from board.screen import Screen
-from board.system import Clock, Journal, Kernel, Memory, Soak, System, Timezone
+from board.system import System
 from board.updates import Updates
 
 
@@ -114,14 +114,7 @@ class Board:
         self.app = App(self)
         self.screen = Screen(self)
         self.console = Console(terminals=Terminals(self), keyboard=Keyboard(self))
-        self.system = System(
-            clock=Clock(self),
-            timezone=Timezone(self),
-            memory=Memory(self),
-            soak=Soak(self),
-            kernel=Kernel(self),
-            journal=Journal(self),
-        )
+        self.system = System(self)
         self.network = Network(self)
         self.updates = Updates(self)
 
@@ -384,6 +377,22 @@ class Board:
             raise AssertionError(f"{error}; the ssh that sent {cmd!r} ended with {sent_as}") from None
         return started
 
+    def boot_id(self) -> str:
+        """Read the kernel's boot id, which differs in each boot.
+
+        Returns:
+            The boot id.
+        """
+        return self.run(self.BOOT_ID_CMD, check=True).text
+
+    def uptime_s(self) -> float:
+        """Read the board's uptime.
+
+        Returns:
+            The uptime, in seconds.
+        """
+        return float(self.run("cat /proc/uptime", check=True).text.split()[0])
+
     def restart(self) -> float:
         """Restart the board, and reconnect once it is up in a new boot.
 
@@ -412,7 +421,7 @@ class Board:
         """
         power = self._target.get_driver("ExternalPowerDriver")
         self.cleanup.callback(power.on)
-        old_boot_id = self.system.kernel.boot_id()
+        old_boot_id = self.boot_id()
         self.disconnect()
         try:
             power.off()
@@ -422,7 +431,7 @@ class Board:
         except (subprocess.CalledProcessError, OSError) as error:
             pytest.exit(f"the bench's power switch failed: {error}", returncode=2)
         self.reconnect()
-        if self.system.kernel.boot_id() == old_boot_id:
+        if self.boot_id() == old_boot_id:
             pytest.exit(
                 f"the board answered in the same boot after {self._POWER_OFF_SECONDS} s off: "
                 "the plug or its supply did not cut power",
