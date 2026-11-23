@@ -9,6 +9,15 @@ from board_test import BoardTest, case
 from refused_offers import Offer
 
 
+def _seed_offer(board: Board) -> Offer:
+    """SEED: stage the candidate's own bundle in the other slot, then make the foreign-signature offer."""
+    updates = board.updates
+    updates.return_to_candidate_after_test(updates.bundles)
+    returncode, output, _seconds = updates.install_bundle(updates.bundles.candidate, updates.CANDIDATE_INSTALL_TIMEOUT_SECONDS)
+    assert returncode == 0, f"SEED: staging the candidate returned {returncode}: {output}"
+    return updates.refused_offers.foreign_signature
+
+
 @pytest.mark.sends_update
 class TestRefusedUpdates(BoardTest):
     """An update signed by no operator, or meant for other hardware, is refused and changes nothing."""
@@ -16,7 +25,7 @@ class TestRefusedUpdates(BoardTest):
     @pytest.mark.parametrize(
         ("requirement", "offer"),
         [
-            case("TST017", operator.attrgetter("updates.refused_offers.foreign_signature")),
+            case("TST017", lambda board: _seed_offer(board)),
             case("TST018", operator.attrgetter("updates.refused_offers.other_hardware")),
         ],
     )
