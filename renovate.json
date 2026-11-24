@@ -14,9 +14,9 @@
       "minimumReleaseAge": null
     },
     {
-      "description": "A poky or meta-openembedded bump invalidates WebKit's build cache, so both ride one rebuild instead of two.",
+      "description": "WebKit's toolchain, libc and build dependencies come from poky and the engine recipe from meta-webkit, so a bump of either invalidates WebKit's build cache; both ride one rebuild instead of two. meta-openembedded reaches WebKit through one leaf, brotli, and moves on its own.",
       "matchFileNames": ["includes/**"],
-      "matchDepNames": ["poky", "meta-openembedded"],
+      "matchDepNames": ["poky", "meta-webkit"],
       "groupName": "webkit-closure pins"
     },
     {
