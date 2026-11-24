@@ -261,7 +261,20 @@ local_conf_header:
     # both are keyed on MACHINE_FEATURES/COMBINED_FEATURES, so the machine-side
     # removal is sufficient, and touching DISTRO_FEATURES risks re-hashing
     # gstreamer -> webkitgtk3 into a multi-hour rebuild for no extra benefit.
-    DISTRO_FEATURES:remove = " vulkan ptest bluetooth"
+    #
+    # 3g, nfc, nfs and zeroconf are services no kiosk runs. systemd-resolved, whose
+    # own mDNS zeroconf's absence turns back on, is masked in kiosk-hardware.
+    DISTRO_FEATURES:remove = " vulkan ptest bluetooth 3g nfc nfs zeroconf"
+
+    # Introspection data is for language bindings, and is built by running each
+    # GLib library under QEMU. libsoup's vala is the same kind of binding.
+    DISTRO_FEATURES_BACKFILL_CONSIDERED:append = " gobject-introspection-data"
+    DEPENDS:remove:pn-libsoup = "vala"
+
+    # WebKit draws with Skia; harfbuzz's cairo is the only user of cairo, and on
+    # the build host of X.
+    PACKAGECONFIG:remove:pn-harfbuzz = "cairo"
+    PACKAGECONFIG:remove:pn-harfbuzz-native = "cairo"
 
     # Nothing on this kiosk pairs, scans or streams; the only link is WiFi
     # (owner, 2026-08-12). rpi-base.inc adds bluetooth to MACHINE_FEATURES, which
