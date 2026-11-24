@@ -343,7 +343,7 @@ local_conf_header:
   parallel: |
     BB_NUMBER_THREADS = "6"
     PARALLEL_MAKE = "-j6"
-    PARALLEL_MAKE:pn-wpewebkit = "-j6"
+    PARALLEL_MAKE:pn-wpewebkit = "-j4"
     # Strips -g and -g1 from wpewebkit's DEBUG_FLAGS; DEBUG_PREFIX_MAP stays.
     DEBUG_FLAGS:remove:pn-wpewebkit = "-g -g1"
     BB_PRESSURE_MAX_MEMORY = "20000"
