@@ -140,7 +140,11 @@ def main() -> int:
         The exit status.
     """
     capture, out = Path(sys.argv[1]), Path(sys.argv[2])
-    scanout = Scanout(capture.read_bytes())
+    try:
+        scanout = Scanout(capture.read_bytes())
+    except ValueError as error:
+        print(error, file=sys.stderr)
+        return 1
     rgb = scanout.rgb()
     out.write_bytes(png(scanout.width, scanout.height, rgb))
     print(f"wrote {out}: {scanout.width}x{scanout.height} min={min(rgb)} max={max(rgb)} mean={sum(rgb) / len(rgb):.1f}")

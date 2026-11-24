@@ -47,6 +47,7 @@ int main(void)
 	struct dma_buf_sync sync = { .flags = DMA_BUF_SYNC_START | DMA_BUF_SYNC_READ };
 	int card = open("/dev/dri/card0", O_RDWR | O_CLOEXEC), buffer;
 	drmModeFB2 *fb;
+	off_t end;
 	size_t size;
 	void *map, *copy;
 
@@ -56,11 +57,18 @@ int main(void)
 	drmDropMaster(card);
 
 	fb = drmModeGetFB2(card, scanned_out(card));
-	if (!fb || !fb->handles[0])
-		die("no handle to the buffer");
+	if (!fb)
+		die("describe the buffer");
+	if (!fb->handles[0]) {
+		fputs("kiosk-drmgrab: the driver gives this user no handle to the buffer\n", stderr);
+		exit(1);
+	}
 	if (drmPrimeHandleToFD(card, fb->handles[0], DRM_CLOEXEC, &buffer))
 		die("export the buffer");
-	size = lseek(buffer, 0, SEEK_END) - fb->offsets[0];
+	end = lseek(buffer, 0, SEEK_END);
+	if (end < 0)
+		die("size the buffer");
+	size = end - fb->offsets[0];
 	map = mmap(NULL, fb->offsets[0] + size, PROT_READ, MAP_SHARED, buffer, 0);
 	copy = malloc(size);
 	if (map == MAP_FAILED || !copy)

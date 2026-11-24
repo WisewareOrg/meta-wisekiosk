@@ -80,8 +80,9 @@ count and byte-sum per class; a diff of two censuses names what accumulates.
 
 ## Gotchas that cost real time
 
-- **Never connect before a page is listed: it crashes the browser.** `webkit-inspect.mjs` throws when
-  no page is listed, so it already keeps this rule; a client of your own must too.
+- **Never connect before a page is listed: it crashes the browser.** `webkit-inspect.mjs` throws `no socket
+  path in target list` when no page is listed, and `no targetId announced by the inspector` when the
+  page never announces itself, so it already keeps this rule; a client of your own must too.
 - **One connection at a time.** A hung or half-open connection (an earlier client that timed out, a
   browser tab left open on the port) blocks the server, and then even a correct `GET /` hangs. If the
   server stops answering, `systemctl restart kiosk` clears it — a stuck client, not a broken protocol,

@@ -27,8 +27,6 @@ _PAINT = """(() => {
     return `${w}x${h}`;
 })()"""
 _SETTLE_SECONDS = 3
-# rounding in the page's own colour handling; a misplaced pixel is at least 4 places out
-_TOLERANCE = 2
 # the text keeps the red console from being a flat frame, which the tool calls blank
 _RED = "printf '\\033[41m\\033[2Jconsole' > /dev/tty2"
 _BLACK = "printf '\\033[?25l\\033[40m\\033[2J' > /dev/tty2"
@@ -76,7 +74,7 @@ def _screenshot(board: Board, out: Path) -> subprocess.CompletedProcess[str]:
         The finished command.
     """
     command = subprocess.run(
-        ["just", "screenshot", board.host.partition("@")[2], str(out)], capture_output=True, text=True
+        ["just", "screenshot", board.host.rpartition("@")[2], str(out)], capture_output=True, text=True
     )
     print(command.stdout, command.stderr)
     return command
@@ -111,10 +109,7 @@ def test_screenshot(board: Board, tmp_path: Path) -> None:
     assert page.returncode == 0, "no screenshot of the page"
     width, height, pixels = _pixels(tmp_path / "page.png")
     assert (width, height) == board.screen.mode() and painted == f"{width}x{height}", f"{width}x{height}, {painted}"
-    wrong = sum(
-        any(abs(a - b) > _TOLERANCE for a, b in zip(pixel, _pattern(i % width, i // width), strict=True))
-        for i, pixel in enumerate(pixels)
-    )
+    wrong = sum(pixel != _pattern(i % width, i // width) for i, pixel in enumerate(pixels))
     assert wrong == 0, f"{wrong} of {len(pixels)} pixels are not the ones painted there"
 
     board.cleanup.callback(board.seconds_until, lambda: _shown_by(board) == ["kiosk-browser"])
