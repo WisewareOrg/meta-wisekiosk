@@ -1,5 +1,6 @@
 """A mouse attached to the board."""
 
+from board.app.inspector import NoPageError
 from board.part import invalid_if
 from board.virtual_input import VirtualInput
 
@@ -51,8 +52,11 @@ class Mouse(VirtualInput):
         """Move the mouse once.
 
         Returns:
-            Whether the page saw it move.
+            Whether the page saw it move; False if there was no page to ask.
         """
-        before = self._board.app.mouse_at()
-        self._board.run(f"{_EVEMU}-play $(grep -o '/dev/input/event[0-9]*' {_DIR}/device.out) <{_DIR}/mouse.events")
-        return self._board.app.mouse_at() not in ("", before)
+        try:
+            before = self._board.app.mouse_at()
+            self._board.run(f"{_EVEMU}-play $(grep -o '/dev/input/event[0-9]*' {_DIR}/device.out) <{_DIR}/mouse.events")
+            return self._board.app.mouse_at() not in ("", before)
+        except NoPageError:
+            return False

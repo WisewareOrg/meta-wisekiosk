@@ -9,7 +9,7 @@ It is connected only for the length of one evaluation, as a connected inspector 
 only to a page the inspector lists: connecting to one that is not there yet crashes the browser.
 
 Exits 3 if there is no page to evaluate in: the inspector does not answer, lists no page, or refuses
-or drops the connection. Anything else that fails is a traceback, exit 1.
+or drops the connection; the reason goes to stderr. Anything else that fails is a traceback, exit 1.
 """
 
 import http.client
@@ -113,7 +113,8 @@ def main() -> None:
     port, script = int(sys.argv[1]), sys.stdin.read()
     try:
         value = evaluate(port, script)
-    except (OSError, EOFError, http.client.HTTPException, websocket.WebSocketException):
+    except (OSError, EOFError, http.client.HTTPException, websocket.WebSocketException) as error:
+        print(f"kiosk-inspect: no page: {error!r}", file=sys.stderr)
         sys.exit(_NO_PAGE)
     print(json.dumps(value))
 
