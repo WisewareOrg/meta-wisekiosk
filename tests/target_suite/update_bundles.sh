@@ -6,17 +6,19 @@
 # Each is a copy of the candidate's bundle with its rootfs edited, an install-check hook that
 # refuses without this run's nonce, and the operator's signature.
 #
-# Usage: update_bundles.sh <run-dir> <nonce> <stamp>
+# Usage: update_bundles.sh <run-dir> <nonce> <stamp> <inspector-env>
 #   run-dir   receives new-build.raucb, cannot-start.raucb, no-network.raucb,
 #             candidate.hash and candidate.path (the candidate bundle, relative to the repo)
 #   nonce     the content /tmp/kiosk-update-nonce must hold on the board for the hook to accept
 #   stamp     the value the new-build bundle's page carries in its kiosk-test-stamp meta tag
+#   inspector-env the VARIABLE=value that turns the browser's remote inspector on
 set -euo pipefail
 
-usage="usage: update_bundles.sh <run-dir> <nonce> <stamp>"
+usage="usage: update_bundles.sh <run-dir> <nonce> <stamp> <inspector-env>"
 run_dir=${1:?$usage}
 nonce=${2:?$usage}
 stamp=${3:?$usage}
+inspector_env=${4:?$usage}
 
 cd "$run_dir"
 work=$(mktemp -d "$run_dir/work.XXXXXX")
@@ -152,7 +154,7 @@ turn_the_inspector_on() {
     local image=$1 dir=/etc/systemd/system/kiosk.service.d
     require_present "$image" /etc/systemd/system
     require_gone "$image" "$dir"
-    printf '[Service]\nEnvironment=WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:2999\n' > "$work/inspector.conf"
+    printf '[Service]\nEnvironment=%s\n' "$inspector_env" > "$work/inspector.conf"
     edit "$image" <<EOF
 mkdir $dir
 write $work/inspector.conf $dir/inspector.conf

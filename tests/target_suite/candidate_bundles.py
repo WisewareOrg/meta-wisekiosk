@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 import pytest
+from board.app.inspector import Inspector
 
 _REPO = Path(__file__).resolve().parents[2]
 _BUNDLES_SCRIPT = "/work/tests/target_suite/update_bundles.sh"
@@ -60,7 +61,7 @@ class CandidateBundles(NamedTuple):
                 "shell",
                 "kiosk-zero-w.yaml",
                 "-c",
-                f"bash {_BUNDLES_SCRIPT} {run_dir} {nonce} {stamp}",
+                f"bash {_BUNDLES_SCRIPT} {run_dir} {nonce} {stamp} {Inspector.ENVIRONMENT}",
             ],
             cwd=_REPO,
             env={**os.environ, "KAS_RUN_TMP_DIR": str(run_dir)},

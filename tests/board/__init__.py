@@ -17,6 +17,7 @@ from tenacity import Retrying, retry_if_exception_type, retry_if_result, stop_af
 
 from board.app import App
 from board.console import Console
+from board.mouse import Mouse
 from board.network import Network
 from board.screen import Screen
 from board.system import System
@@ -67,6 +68,7 @@ class Board:
         cleanup: undoes, last first, what the test changed on the board.
         console: the board's consoles.
         host: `user@address` of the board, as the `just kiosk-*` recipes take it.
+        mouse: a mouse attached to the board.
         network: the board's network.
         screen: the board's screen.
         system: the board's operating system.
@@ -85,6 +87,7 @@ class Board:
     cleanup: contextlib.ExitStack
     console: Console
     host: str
+    mouse: Mouse
     network: Network
     screen: Screen
     system: System
@@ -117,6 +120,7 @@ class Board:
         self.app = App(self)
         self.screen = Screen(self)
         self.console = Console(self)
+        self.mouse = Mouse(self)
         self.system = System(self)
         self.network = Network(self)
         self.updates = Updates(self)

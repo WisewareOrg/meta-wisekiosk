@@ -52,7 +52,7 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   and `install_candidate` clears the backend's runtime drop-ins and mask at the start of every
   session. While the keyboard test runs, the panel shows the board's text console.
 
-The target suite builds its test bundles and the keyboard test's evemu-tools in the kas container
+The target suite builds its test bundles and the virtual mouse's and keyboard's evemu-tools in the kas container
 through `tools/kas-run.sh`, so the bench needs the checkout's own build tree, and the signing keys
 the bench host's environment file names. The refused-update tests' bundles and evemu-tools are built
 under `build/`. The image-update tests' bundles are built in the host's `/tmp`, which
@@ -109,6 +109,11 @@ plug's login in a `KEY=value` file outside the tree, passed by `--env-file` and 
 The `python-kasa` git pin in `pyproject.toml` is for that plug's login, and `renovate.json` records
 why it is pinned.
 
+The suites run in the runner's own environment. A package that only this layer's tests need is
+declared in `pyproject.toml` instead, locked in `uv.lock`, and used by a process of its own, started
+with `uv run --locked` from the checkout: `kasa` above, and `tools/kiosk-inspect.py`, through which
+the tests read the page.
+
 A failure of the plug, or a board that answers in the same boot after the cut, ends the session as
 the bench's failure rather than the candidate's, as
 [WiseBenchManager's job](https://github.com/WisewareOrg/WiseBenchManager#the-job) tells the two
@@ -129,7 +134,7 @@ each test, the autouse `_board_and_record` in `tests/target_suite/conftest.py` p
 and the test's `Record` on the instance. That Board is built with the test's fixture lookup, and
 reaches what the run builds on demand through `board.fixture(name)` — the update bundles as
 `board.updates.bundles`, the refused offers as `board.updates.refused_offers`, the start-of-run
-install as `board.updates.installed`, the keyboard's evemu build, and the replay proxy that
+install as `board.updates.installed`, the evemu build, and the replay proxy that
 `@replaying(<recording>)` (`board_test.py`) puts on a test. A board a fixture opens for itself has
 no fixture lookup, and `board.fixture` says so. A class holds test methods and, when every test in
 it starts from the same board state, a `setup_method`; no class writes `teardown_method`, which

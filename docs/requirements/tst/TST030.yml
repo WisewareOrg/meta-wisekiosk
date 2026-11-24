@@ -7,7 +7,7 @@ links:
 - SRS005: _Jm0I29XYosWpzvjdgfpxuXQpkYiix39X6sbH7YPGOM=
 normative: true
 rationale: |
-  Any part of the panel the instance leaves uncovered, or that another window covers, shows the
+  Any part of the panel the instance leaves uncovered, or that something else covers, shows the
   viewer something the WiseKiosk application did not draw.
 ref: ''
 references:
@@ -18,10 +18,9 @@ references:
 reviewed: d-mb8qsFOWcKOYvRDnLmqWSxCDMTOBQi5U8fZnAOzoE=
 status: proposed
 text: |
-  With the WiseKiosk instance on the panel, read the window layout from its display server. Pass if
-  the instance's window is shown and covers the whole panel, and no window shown above it overlaps
-  the panel.
+  With the WiseKiosk instance on the panel, read what the panel is showing. Pass if the instance is
+  shown over the whole panel and nothing else is shown.
 verification-justification: |
-  Test. It reads the display server's own window layout from outside the appliance; the pass
-  condition needs no judgement.
+  Test. It reads the display driver's own report of what the panel is showing from outside the
+  appliance; the pass condition needs no judgement.
 verification-method: test

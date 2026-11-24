@@ -648,6 +648,7 @@ dev = [
     { name = "pydoclint" },
     { name = "python-kasa" },
     { name = "ruff" },
+    { name = "websocket-client" },
 ]
 
 [package.metadata]
@@ -660,6 +661,7 @@ dev = [
     { name = "pydoclint", specifier = ">=0.12.0" },
     { name = "python-kasa", git = "https://github.com/python-kasa/python-kasa?rev=a1a6c3854ace705b21357b357354d4ae8b6307b4" },
     { name = "ruff", specifier = ">=0.17.6" },
+    { name = "websocket-client", specifier = ">=1.9.2" },
 ]
 
 [[package]]
@@ -1115,6 +1117,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/92/69/543e3a2fb6a8fb4dcc0d18bc34ebd54d789dc844c8f83af0926ba0b8bcf6/verchew-3.4.2.tar.gz", hash = "sha256:98f3f8e4894528afe316879ac848d1a6c8b47168a3b3de2e44fc2f5b83b29149", size = 9528, upload-time = "2023-09-15T17:02:05.577Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ab/8a/697eb1daee017b9313336c4899c897542d8c011cbbfbb1a6e87a8370fd89/verchew-3.4.2-py3-none-any.whl", hash = "sha256:d000ec54ccc87240feae05cf9e37b29016ca73406b6f39af69114a32773dfb7e", size = 10629, upload-time = "2023-09-15T17:02:02.166Z" },
+]
+
+[[package]]
+name = "websocket-client"
+version = "1.9.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d8/cb/a5abcc2891249f393827c650c6296660ce40374ac22d99ab9aea41f9d2a2/websocket_client-1.9.2.tar.gz", hash = "sha256:0fcb57545848be86992e128218fd96dd87a6769ffdb1a968dff79632b85604d0", size = 84110, upload-time = "2026-08-31T14:08:40.964Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d5/d2/cc4dc1271e464942db7ee278baae2daa99ee77cb2af744025c04da585a3e/websocket_client-1.9.2-py3-none-any.whl", hash = "sha256:e1a673830a9c7bfa47b1cd3d5e4178f4c9651d80a4eab02c9c23a1c3ec6250ce", size = 95786, upload-time = "2026-08-31T14:08:39.899Z" },
 ]
 
 [[package]]

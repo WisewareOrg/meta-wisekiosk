@@ -87,12 +87,12 @@ def refused_offers(target: Target) -> Iterator[RefusedOffers]:
         yield RefusedOffers.build(cleanup, compatible)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def evemu_helpers() -> Iterator[EvemuHelpers]:
-    """Build evemu-tools and its library once per module, for TST027's keyboard.
+    """Build evemu-tools and its library once per run, for TST013's mouse and TST027's keyboard.
 
     Yields:
-        EvemuHelpers: the built files, whose work directory is removed once the module ends.
+        EvemuHelpers: the built files, whose work directory is removed once the run ends.
     """
     with contextlib.ExitStack() as cleanup:
         yield EvemuHelpers.build(cleanup)

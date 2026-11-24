@@ -1,13 +1,9 @@
 """The evemu keyboard `keyboard.sh` attaches to the board and types into its consoles."""
 
 from pathlib import Path
-from typing import TYPE_CHECKING, NamedTuple
+from typing import NamedTuple
 
-from board.part import Part
-
-if TYPE_CHECKING:
-    from evemu_helpers import EvemuHelpers
-
+from board.virtual_input import VirtualInput
 
 _SRC_DIR = Path(__file__).resolve().parents[2] / "target_suite"
 _DIR = "/tmp/test-keyboard"
@@ -64,7 +60,7 @@ class TypedMarker(NamedTuple):
     uptime: float | None = None
 
 
-class Keyboard(Part):
+class Keyboard(VirtualInput):
     """A virtual keyboard `keyboard.sh` attaches to the board through uinput and types into the consoles.
 
     Attributes:
@@ -87,34 +83,26 @@ class Keyboard(Part):
             + Keyboard._typing_seconds(Keyboard._marker_command("0" * Keyboard.WORD_CHARS))
         )
 
-    def install(self, helpers: "EvemuHelpers", nonce: str, events_dir: Path) -> None:
-        """Put the keyboard on the board: the evemu helpers, `keyboard.sh`, and the events it plays.
+    def install(self, nonce: str) -> None:
+        """Put the keyboard on the board until the test ends: `keyboard.sh`, and the events it plays.
 
-        Makes `/tmp/test-keyboard` and loads uinput, each until the test ends. The events type the
-        login, then a command that writes `nonce`, the terminal and the uptime to the marker.
+        The events type the login, then a command that writes `nonce`, the terminal and the uptime to
+        the marker.
 
         Args:
-            helpers: the built evemu tools.
             nonce: what the typed command writes first to the marker.
-            events_dir: an empty host directory the event files are written in before they are put.
         """
-        self._board.cleanup.callback(self._board.run, f"rm -rf {_DIR}")
-        self._board.run(f"rm -rf {_DIR}; mkdir {_DIR}", check=True)
-        uinput_loaded = self._board.run("test -d /sys/module/uinput").returncode == 0
-        self._board.run("modprobe uinput", check=True)
-        if not uinput_loaded:
-            self._board.cleanup.callback(self._board.run, "rmmod uinput", check=True)
-        (events_dir / "keyboard.desc").write_text(_DESC)
-        (events_dir / "chord.events").write_text(self._chord_events(_KEY_F2))
-        (events_dir / "login.events").write_text(self._typing_events(_LOGIN))
-        (events_dir / "command.events").write_text(self._typing_events(self._marker_command(nonce)))
-        (events_dir / "back.events").write_text(self._chord_events(_KEY_F1))
-        for name in sorted(path.name for path in events_dir.iterdir()):
-            self._board.put(str(events_dir / name), f"{_DIR}/{name}")
-        for name in helpers.sha256:
-            self._board.put(str(helpers.directory / name), f"{_DIR}/{name}")
-        self._board.put(str(_SRC_DIR / "keyboard.sh"), f"{_DIR}/keyboard.sh")
-        self._board.run("chmod 0755 " + " ".join(f"{_DIR}/{name}" for name in helpers.sha256), check=True)
+        self._put(
+            _DIR,
+            {
+                "keyboard.sh": (_SRC_DIR / "keyboard.sh").read_text(),
+                "keyboard.desc": _DESC,
+                "chord.events": self._chord_events(_KEY_F2),
+                "login.events": self._typing_events(_LOGIN),
+                "command.events": self._typing_events(self._marker_command(nonce)),
+                "back.events": self._chord_events(_KEY_F1),
+            },
+        )
 
     def type_after(self, delay: float, bounds: tuple[float, ...]) -> None:
         """Have a board-side timer run `keyboard.sh` in `delay` seconds, until the test ends.
@@ -151,15 +139,13 @@ class Keyboard(Part):
         fields = lines[0].split() if lines else []
         return TypedMarker(fields[0], fields[1], float(fields[2])) if len(fields) >= 3 else TypedMarker()
 
-    def typed_panel(self) -> tuple[str, str]:
+    def typed_panel(self) -> str:
         """Read what `keyboard.sh` kept of the panel when the typed command had run.
 
         Returns:
-            The display driver's state, and the foreground console; each empty if it kept none.
+            The display driver's state; empty if it kept none.
         """
-        state = self._board.run(f"cat {_DIR}/panel 2>/dev/null || true", check=True).stdout
-        vt = self._board.run(f"cat {_DIR}/vt 2>/dev/null || true", check=True).stdout
-        return "\n".join(state) + "\n" if state else "", vt[0] if vt else ""
+        return self._board.run(f"cat {_DIR}/panel 2>/dev/null || true", check=True).text
 
     def journal(self) -> str:
         """Read `keyboard.sh`'s journal, from its timer unit.

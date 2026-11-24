@@ -18,9 +18,9 @@ references:
 reviewed: 2_OAVDxo2ZdQOZMbBcwx7F7e9YfC04MHLW4UBQELLvI=
 status: proposed
 text: |
-  Read the display's blanking settings from its display server. Pass if the screen saver's
-  timeout is zero and display power management is disabled.
+  Read whether anything blanks the panel. Pass if the panel is powered and nothing is set to blank
+  it after a spell with no input.
 verification-justification: |
-  Test. It reads the display server's own blanking settings from outside the appliance; the pass
-  condition needs no judgement.
+  Test. It reads the kernel's own report of the panel's power and blanking from outside the
+  appliance; the pass condition needs no judgement.
 verification-method: test
