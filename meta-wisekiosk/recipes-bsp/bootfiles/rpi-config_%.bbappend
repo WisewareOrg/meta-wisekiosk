@@ -6,9 +6,9 @@
 # These are FIRMWARE settings and are inert under full KMS, which takes the mode
 # off the firmware. This image builds firmware KMS -- kiosk-zero-w.yaml's
 # `graphics` block sets VC4DTBO = "vc4-fkms-v3d" -- so they are the live
-# mechanism, and nothing on the kernel command line asserts the mode in their
-# place. The kiosk's own 1280x720 is set on top of this by xrandr in
-# kiosk-launch. Removing these keys reaches no deployed board in any case:
+# mechanism for the firmware's own mode. The kiosk's 1280x720 is set on top of
+# this by video= in the kernel's panel-mode.cfg
+# (meta-wisekiosk/recipes-kernel/linux/files/panel-mode.cfg). Removing these keys reaches no deployed board in any case:
 # config.txt lives on the shared FAT partition, which RAUC never touches.
 do_deploy:append() {
     CONFIG=${DEPLOYDIR}/${BOOTFILES_DIR_NAME}/config.txt
