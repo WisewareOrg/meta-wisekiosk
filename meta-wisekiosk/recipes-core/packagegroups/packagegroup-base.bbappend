@@ -2,7 +2,7 @@
 #
 # Measured on the device 2026-08-12, n=3 per arm: masking ofono, avahi-daemon,
 # rpcbind, busybox syslog/klogd and the failing zram init script together moved
-# surf exec 34.42s -> 32.50s, ranges non-overlapping. avahi carries most of it
+# surf exec (the previous browser's start) 34.42s -> 32.50s, ranges non-overlapping. avahi carries most of it
 # despite being only 190ms of CPU, because it starts at 22.57s -- inside the
 # window where brcmfmac downloads firmware and registers the netdev.
 #
@@ -14,10 +14,9 @@
 #      Removing zeroconf therefore RE-ENABLES systemd-resolved's own mDNS and
 #      LLMNR responders -- trading avahi for a daemon that starts 2.6s earlier
 #      and costs ~4x the CPU. The win would have partly cancelled itself.
-#   2. It re-hashes systemd:do_configure. systemd reaches webkitgtk3 via
-#      dbus -> at-spi2-core (PROVIDES atk) -> webkitgtk3, and bitbake's hash
-#      equivalence cannot rule the cascade out until systemd has actually
-#      rebuilt. `bitbake -S printdiff` reports a lower bound, not a guarantee.
+#   2. It re-hashes systemd:do_configure. wpewebkit depends on udev, which
+#      systemd provides, and bitbake's hash equivalence cannot rule the cascade
+#      out until systemd has actually rebuilt. `bitbake -S printdiff` reports a lower bound, not a guarantee.
 #
 # Editing RDEPENDS here re-hashes exactly one task, packagegroup-base:do_package,
 # which nothing depends on. Verified with `bitbake -S printdiff core-image-base`.

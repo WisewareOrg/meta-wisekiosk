@@ -190,8 +190,8 @@ and then runs `kas-container build kiosk-zero-w.yaml`. Calling `kas-container` d
 first half: on a fresh clone bitbake refuses to parse, and on a tree that has built before it builds
 against the *previous* run's commit — which the gate then refuses at flash. The first run clones
 every repo declared across the kas include chain — `includes/base.yaml`, `includes/rauc.yaml` and
-`includes/platforms/raspberrypi.yaml` — into `sources/`: eleven repositories, several GB and a long
-while before any compiling starts.
+`includes/platforms/raspberrypi.yaml` — into `sources/`: several GB and a long while before any
+compiling starts.
 
 A change to webkit's `PACKAGECONFIG`, to a WebKit recipe, or **a bump of the meta-webkit pin**
 invalidates WebKit alone. A change to `DISTRO_FEATURES`, to `MACHINE_FEATURES`, or **a bump of the
