@@ -1,8 +1,5 @@
 """Target suite: the panel shows nothing but the instance, at the minimum resolution."""
 
-import struct
-import tempfile
-
 from board.screen import Plane
 from board_test import BoardTest
 
@@ -15,34 +12,8 @@ class TestDisplay(BoardTest):
 
     def setup_method(self) -> None:
         """Put the probe in the browser, and wait for the instance on the panel."""
-        theme = "/tmp/seed/icons/default/cursors"
-        drop_in = "/run/systemd/system/kiosk.service.d/seed.conf"
-        self.board.cleanup.callback(
-            self.board.run,
-            f"rm -rf {drop_in} /tmp/seed; systemctl daemon-reload; systemctl restart kiosk.service",
-            check=True,
-            timeout=60,
-        )
-        with tempfile.NamedTemporaryFile() as cursor:
-            cursor.write(
-                struct.pack(
-                    "<4s15I", b"Xcur", 16, 0x10000, 1, 0xFFFD0002, 24, 28, 36, 0xFFFD0002, 24, 1, 24, 24, 0, 0, 0
-                )
-                + struct.pack("<I", 0xFFFF0000) * 24 * 24
-            )
-            cursor.flush()
-            self.board.run(f"mkdir -p {theme} $(dirname {drop_in})", check=True)
-            for name in ("default", "text", "pointer"):
-                self.board.put(cursor.name, f"{theme}/{name}")
-        self.board.run(f"printf '[Service]\\nEnvironment=XDG_DATA_HOME=/tmp/seed\\n' >{drop_in}", check=True)
         self.board.app.install_probe()
         self.board.app.wait_until_on_panel()
-        self.record(
-            seed=self.board.run(
-                "tr '\\0' '\\n' </proc/$(pidof kiosk-browser)/environ | grep XDG_DATA_HOME; "
-                "journalctl -u kiosk.service _PID=$(pidof kiosk-browser) -o cat --no-pager | grep -i cursor"
-            ).output
-        )
 
     def test_no_pointer_on_the_panel(self) -> None:
         """TST013: with a mouse attached and moved, the panel shows no pointer."""
