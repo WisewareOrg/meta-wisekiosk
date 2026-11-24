@@ -8,6 +8,8 @@ SRC_URI = "file://kiosk.service file://kiosk-browser.c"
 S = "${WORKDIR}"
 
 DEPENDS = "wpewebkit"
+# WPE crashes at start without a keymap.
+RDEPENDS:${PN} = "xkeyboard-config"
 
 inherit pkgconfig systemd
 
