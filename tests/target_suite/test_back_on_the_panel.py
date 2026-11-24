@@ -59,7 +59,7 @@ class TestBackOnThePanel(BoardTest):
             bound_s: the item's bound.
         """
         self.record(requirement=requirement)
-        self.board.app.install_probe()
+        self.board.app.turn_the_inspector_on()
         self.board.app.wait_until_on_panel()
 
         since = fault(self.board)
@@ -77,7 +77,7 @@ class TestBackOnThePanel(BoardTest):
         """
         self.record(requirement="TST006")
         new_build = self.board.updates.bundles.new_build
-        self.board.app.install_probe()
+        self.board.app.turn_the_inspector_on()
         self.board.app.wait_until_on_panel()
 
         update = self.board.updates.install_and_restart(new_build)
@@ -92,22 +92,28 @@ class TestBackOnThePanel(BoardTest):
         assert back_s <= 160, f"on the panel after {back_s} s; TST006's bound is 160 s"
 
     def test_frozen_page_recovered(self) -> None:
-        """TST005: freeze the page showing a clock with seconds, then time until the panel is changing again."""
+        """TST005: freeze the page showing a clock with seconds, then time until the panel is changing again.
+
+        The time is read from the buffers the panel shows; once it is back, its picture must be changing too.
+        """
         self.record(requirement="TST005")
-        self.board.app.install_probe()
+        self.board.app.turn_the_inspector_on()
         self.board.app.config.use(CLOCK_WITH_SECONDS)
         self.board.app.wait_until_on_panel()
 
         since = self.board.app.freeze_page()
         back_s = self.board.seconds_until(self.board.screen.is_changing, since=since, reads=3)
-
         self.record(back_s=back_s)
+        picture_changes = self.board.screen.picture_changes()
+
+        self.record(picture_changes=picture_changes)
         assert back_s <= 60, f"changing again after {back_s} s; TST005's bound is 60 s"
+        assert picture_changes, f"{back_s} s after the freeze the panel's buffers changed, but its picture did not"
 
     def test_sustained_network_load(self) -> None:
         """TST008: load the network; no time off the panel, through the load and after it, may pass 60 s."""
         self.record(requirement="TST008")
-        self.board.app.install_probe()
+        self.board.app.turn_the_inspector_on()
         self.board.app.wait_until_on_panel()
 
         with self.board.network.load(seconds=NETWORK_LOAD_SECONDS) as load:

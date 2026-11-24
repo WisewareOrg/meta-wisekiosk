@@ -1,6 +1,10 @@
 """The board's screen: the mode it is driven at and the planes it shows, as the kernel's display driver reports them."""
 
 import re
+import subprocess
+import tempfile
+import time
+from pathlib import Path
 from typing import NamedTuple
 
 from board.part import Part
@@ -12,6 +16,9 @@ _PLANE = re.compile(r"^plane\[\d+\].*?(?=^plane\[|^crtc\[)", re.MULTILINE | re.D
 _MODE = re.compile(r'mode: "(\d+)x(\d+)"')
 _READS = 12
 _READ_EVERY_US = 250_000
+_SCREENSHOT = Path(__file__).resolve().parents[3] / "tools" / "kiosk-screenshot.sh"
+_SCREENSHOT_TIMEOUT_SECONDS = 60
+_PICTURES_APART_SECONDS = 5
 
 
 class Plane(NamedTuple):
@@ -30,7 +37,8 @@ class Screen(Part):
     """The board's screen, as the kernel's display driver reports it.
 
     A program that draws puts a new buffer on the screen for each frame, so a screen showing more than
-    one buffer over 3 s is changing, and one showing a single buffer stands still.
+    one buffer over 3 s is changing, and one showing a single buffer stands still. Which buffer it shows
+    does not say what is in it; `picture_changes` reads that.
     """
 
     def blanking(self) -> tuple[str, int]:
@@ -58,6 +66,17 @@ class Screen(Part):
                 planes.append(Plane(fields["allocated by"], fields["crtc-pos"]))
         return planes
 
+    def shown_by(self, planes: list[Plane] | None = None) -> list[str]:
+        """Read whose buffers the screen shows.
+
+        Args:
+            planes: planes as read earlier; if None, they are read now.
+
+        Returns:
+            The program that allocated each plane's buffer.
+        """
+        return [plane.allocated_by for plane in (self.planes() if planes is None else planes)]
+
     def mode(self) -> tuple[int, int]:
         """Read the display mode the panel is driven at.
 
@@ -84,11 +103,39 @@ class Screen(Part):
         """
         return len(self._buffers()) == 1
 
+    def picture_changes(self) -> bool:
+        """Take two pictures of the panel, 5 s apart, and say whether they differ.
+
+        Returns:
+            True if they do.
+        """
+        before = self._picture()
+        time.sleep(_PICTURES_APART_SECONDS)
+        return self._picture() != before
+
+    def _picture(self) -> bytes:
+        """Take a picture of the panel with `tools/kiosk-screenshot.sh`.
+
+        Returns:
+            The PNG.
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            png = Path(directory) / "panel.png"
+            command = subprocess.run(
+                [_SCREENSHOT, self._board.host, png],
+                capture_output=True,
+                text=True,
+                timeout=_SCREENSHOT_TIMEOUT_SECONDS,
+            )
+            # a blank panel is still a picture, though the tool returns 1 for it
+            assert png.exists(), f"no picture of the panel: {command.stderr}"
+            return png.read_bytes()
+
     def _buffers(self) -> set[str]:
         """Read the buffer on the screen 12 times, a quarter second apart.
 
         Returns:
-            The buffers seen; `0` is none.
+            The `fb=` lines seen; `fb=0` is none.
         """
         reads = " ".join(str(read) for read in range(_READS))
         lines = self._board.run(

@@ -11,8 +11,8 @@ class TestDisplay(BoardTest):
     """The panel shows only the instance, with no pointer, at the minimum resolution."""
 
     def setup_method(self) -> None:
-        """Put the probe in the browser, and wait for the instance on the panel."""
-        self.board.app.install_probe()
+        """Turn on the browser's inspector, and wait for the instance on the panel."""
+        self.board.app.turn_the_inspector_on()
         self.board.app.wait_until_on_panel()
 
     def test_no_pointer_on_the_panel(self) -> None:
@@ -26,7 +26,7 @@ class TestDisplay(BoardTest):
         assert len(planes) == 1, f"with the mouse at {mouse_at}, the panel shows {planes}"
 
     def test_instance_covers_the_panel(self) -> None:
-        """TST030: the screen shows the browser over the whole panel, and nothing above it."""
+        """TST030: the screen shows the browser over the whole panel, and nothing else."""
         self.record(requirement="TST030")
 
         planes = self.board.screen.planes()

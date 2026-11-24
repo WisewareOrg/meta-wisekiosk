@@ -8,8 +8,9 @@ PORT is this host's port to the inspector. Prints the value as JSON, null for on
 It is connected only for the length of one evaluation, as a connected inspector slows the page, and
 only to a page the inspector lists: connecting to one that is not there yet crashes the browser.
 
-Exits 3 if there is no page to evaluate in: the inspector does not answer, lists no page, or refuses
-or drops the connection; the reason goes to stderr. Anything else that fails is a traceback, exit 1.
+Exits 3 if there is no page to evaluate in: the inspector does not answer, lists no page, refuses or
+drops the connection, or answers with an error, as while a page loads; the reason goes to stderr.
+Anything else that fails, a script that throws included, is a traceback, exit 1.
 """
 
 import http.client
@@ -58,6 +59,10 @@ def evaluate(port: int, script: str) -> object:
 
     Returns:
         Its value, as JSON carries it; None for a value that is not JSON.
+
+    Raises:
+        EOFError: the inspector answered with an error.
+        RuntimeError: the script threw; its message is what it threw.
     """
     inspector = websocket.create_connection(
         f"ws://127.0.0.1:{port}{listed_page(port)}", timeout=_TIMEOUT_SECONDS, suppress_origin=True
@@ -80,14 +85,20 @@ def evaluate(port: int, script: str) -> object:
             "params": {"targetId": page, "message": json.dumps(call)},
         }
         inspector.send(json.dumps(to_page))
-        for message in messages:
-            if message.get("method") == "Target.dispatchMessageFromTarget":
-                answer = json.loads(message["params"]["message"])
-                if answer.get("id") == _CALL_ID:
-                    return answer.get("result", {}).get("result", {}).get("value")
+        answers = (
+            json.loads(message["params"]["message"])
+            for message in messages
+            if message.get("method") == "Target.dispatchMessageFromTarget"
+        )
+        answer = next(answer for answer in answers if answer.get("id") == _CALL_ID)
     finally:
         inspector.shutdown()
-    return None
+    if "error" in answer:
+        raise EOFError(f"the inspector answered: {answer['error']['message']}")
+    value = answer["result"]["result"]
+    if answer["result"].get("wasThrown"):
+        raise RuntimeError(value["description"])
+    return value.get("value")
 
 
 def _messages(inspector: websocket.WebSocket) -> Iterator[dict]:

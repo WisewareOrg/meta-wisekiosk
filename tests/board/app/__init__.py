@@ -75,8 +75,8 @@ class App(Part):
         self.kiosk = Unit(board, "kiosk.service")
         self._web_processes = Process(board, "WPEWebProcess", parent="kiosk-browser")
 
-    def install_probe(self) -> None:
-        """Turn on the browser's inspector, through which the probe is put in the page, until the test ends."""
+    def turn_the_inspector_on(self) -> None:
+        """Turn on the browser's inspector until the test ends. The page's reads put the probe in through it."""
         self._board.cleanup.callback(self.kiosk.restart)
         self.kiosk.drop_in(f"[Service]\\nEnvironment={Inspector.ENVIRONMENT}\\n")
         self.kiosk.restart()

@@ -6,6 +6,7 @@ test. It leaves the page on the panel:
     bench test <ref> -- tests/diagnostics -k screenshot -rP
 """
 
+import functools
 import subprocess
 import time
 import zlib
@@ -13,18 +14,23 @@ from pathlib import Path
 
 from board import Board
 
-# paints every pixel of the page the colour `_pattern` gives its place
+# the first read in this page load starts painting every pixel of the page the colour `_pattern` gives its
+# place, which can outlast one read; the size painted, once it is
 _PAINT = """(() => {
-    const c = document.createElement("canvas"), w = c.width = innerWidth, h = c.height = innerHeight;
-    c.style.cssText = `position:fixed;left:0;top:0;width:${w}px;height:${h}px;z-index:2147483647`;
-    const x = c.getContext("2d"), d = x.createImageData(w, h);
-    for (let i = 0, p = 0; i < h; i++)
-        for (let j = 0; j < w; j++) {
-            d.data[p++] = j & 255; d.data[p++] = i & 255; d.data[p++] = (j >> 8) << 4 | i >> 8; d.data[p++] = 255;
-        }
-    x.putImageData(d, 0, 0);
-    document.body.append(c);
-    return `${w}x${h}`;
+    const paint = () => {
+        const c = document.createElement("canvas"), w = c.width = innerWidth, h = c.height = innerHeight;
+        c.style.cssText = `position:fixed;left:0;top:0;width:${w}px;height:${h}px;z-index:2147483647`;
+        const x = c.getContext("2d"), d = x.createImageData(w, h);
+        for (let i = 0, p = 0; i < h; i++)
+            for (let j = 0; j < w; j++) {
+                d.data[p++] = j & 255; d.data[p++] = i & 255; d.data[p++] = (j >> 8) << 4 | i >> 8; d.data[p++] = 255;
+            }
+        x.putImageData(d, 0, 0);
+        document.body.append(c);
+        window.painted = `${w}x${h}`;
+    };
+    if (!window.painting) window.painting = setTimeout(paint);
+    return window.painted;
 })()"""
 _SETTLE_SECONDS = 3
 # the text keeps the red console from being a flat frame, which the tool calls blank
@@ -80,18 +86,6 @@ def _screenshot(board: Board, out: Path) -> subprocess.CompletedProcess[str]:
     return command
 
 
-def _shown_by(board: Board) -> list[str]:
-    """Read whose buffers the panel shows.
-
-    Args:
-        board: the board under test.
-
-    Returns:
-        What allocated each.
-    """
-    return [plane.allocated_by for plane in board.screen.planes()]
-
-
 def test_screenshot(board: Board, tmp_path: Path) -> None:
     """The PNG holds the painted page pixel for pixel, then the console's colour, then a blank console.
 
@@ -99,9 +93,9 @@ def test_screenshot(board: Board, tmp_path: Path) -> None:
         board: the board under test.
         tmp_path: where the PNGs are written.
     """
-    board.app.install_probe()
+    board.app.turn_the_inspector_on()
     board.app.wait_until_on_panel()
-    painted = board.app.inspector.evaluate(_PAINT)
+    painted = board.wait_for(functools.partial(board.app.inspector.evaluate, _PAINT))
     time.sleep(_SETTLE_SECONDS)
 
     page = _screenshot(board, tmp_path / "page.png")
@@ -112,10 +106,10 @@ def test_screenshot(board: Board, tmp_path: Path) -> None:
     wrong = sum(pixel != _pattern(i % width, i // width) for i, pixel in enumerate(pixels))
     assert wrong == 0, f"{wrong} of {len(pixels)} pixels are not the ones painted there"
 
-    board.cleanup.callback(board.seconds_until, lambda: _shown_by(board) == ["kiosk-browser"])
+    board.cleanup.callback(board.seconds_until, lambda: board.screen.shown_by() == ["kiosk-browser"])
     board.cleanup.callback(board.run, "systemctl kill -s KILL getty@tty2.service; chvt 1", check=True)
     board.run("chvt 2", check=True)
-    board.seconds_until(lambda: _shown_by(board) == ["fbcon"])
+    board.seconds_until(lambda: board.screen.shown_by() == ["fbcon"])
     board.run(_RED, check=True)
     time.sleep(_SETTLE_SECONDS)
 

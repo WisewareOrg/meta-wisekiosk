@@ -12,7 +12,7 @@ class TestMotion(BoardTest):
         """TST009: over 320 s opening 40 s after the replayed page is complete, at most 24 frames of 250 ms or more."""
         self.record(requirement="TST009")
         self.board.app.run_behind_replay()
-        self.board.app.install_probe()
+        self.board.app.turn_the_inspector_on()
 
         stalls = self.board.app.frame_stalls(cutoff_ms=250, window_s=320, after_s=40)
 

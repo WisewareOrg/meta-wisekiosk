@@ -33,7 +33,7 @@ class TestMemory(BoardTest):
         """
         self.record(requirement="TST014")
         replay = self.board.app.run_behind_replay()
-        self.board.app.install_probe()
+        self.board.app.turn_the_inspector_on()
         self.board.seconds_until(self.board.app.all_cards_live)
 
         use = self.board.system.memory.use_over(period_s)

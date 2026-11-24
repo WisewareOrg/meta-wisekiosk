@@ -24,9 +24,9 @@ class TestKeyboard(BoardTest):
         )
         assert typed.marker.terminal == "/dev/tty2", f"the command did not run at tty2's login: {typed}"
         assert typed.marker.word == typed.word, f"the command ran, but did not write what was typed: {typed}"
-        assert [plane.allocated_by for plane in typed.panel_when_typed] == ["fbcon"], (
+        assert self.board.screen.shown_by(typed.panel_when_typed) == ["fbcon"], (
             f"when the command had run the panel showed {typed.panel_when_typed}, not the console"
         )
-        assert [plane.allocated_by for plane in typed.panel] == ["fbcon"], (
+        assert self.board.screen.shown_by(typed.panel) == ["fbcon"], (
             f"once the outage had ended the panel showed {typed.panel}, not the console"
         )
