@@ -29,7 +29,7 @@ attributed by reading their `PPid`.
 
 The chain from `systemd` to WebKit, and what a `bitbake -S printdiff` estimate of it is worth, are
 recorded at
-[`packagegroup-base.bbappend`](https://github.com/WisewareOrg/meta-wisekiosk/blob/6d7ecfe/meta-wisekiosk/recipes-core/packagegroups/packagegroup-base.bbappend),
+[`packagegroup-base.bbappend`](../../../meta-wisekiosk/recipes-core/packagegroups/packagegroup-base.bbappend),
 next to the edit whose cost it decides. Two hops that look like the path and are not: `at-spi2-core`'s
 own `inherit systemd` adds only `systemd-systemctl-native`, a native helper; and `gtk+3` reaches
 systemd through `atk` as well, so it is a parallel branch rather than the route. Every hop is a
