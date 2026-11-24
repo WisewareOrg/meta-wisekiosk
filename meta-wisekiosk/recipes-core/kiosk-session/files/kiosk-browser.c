@@ -6,7 +6,7 @@
  * every PERIOD seconds, with the error as the status; the first failure since
  * a page last loaded is logged. It exits 1 when its web process ends, and pets
  * the watchdog each time the page answers, so kiosk.service brings back a page
- * that stops. Its status is "loaded" and the page's title once the page has
+ * that stops, or one that cannot answer within the watchdog's time from the start. Its status is "loaded" and the page's title once the page has
  * loaded.
  */
 #include <fcntl.h>
