@@ -8,8 +8,9 @@
 # `graphics` block sets VC4DTBO = "vc4-fkms-v3d" -- so they are the live
 # mechanism for the firmware's own mode. The kiosk's 1280x720 is set on top of
 # this by video= in the kernel's panel-mode.cfg
-# (meta-wisekiosk/recipes-kernel/linux/files/panel-mode.cfg). Removing these keys reaches no deployed board in any case:
-# config.txt lives on the shared FAT partition, which RAUC never touches.
+# (meta-wisekiosk/recipes-kernel/linux/files/panel-mode.cfg). Removing these
+# keys reaches no deployed board in any case: config.txt lives on the shared
+# FAT partition, which RAUC never touches.
 do_deploy:append() {
     CONFIG=${DEPLOYDIR}/${BOOTFILES_DIR_NAME}/config.txt
     cat >> $CONFIG <<'RPICFG'
