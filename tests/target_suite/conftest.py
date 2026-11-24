@@ -160,7 +160,7 @@ def device_context(target: Target, record_property: Callable[[str, object], None
     with Board(target) as board:
         # the browser starts some seconds after ssh does following a restart
         board.seconds_until(board.app.browser.is_running)
-        pid = board.run("pgrep -x kiosk-browser", check=True).text.partition("\n")[0]
+        pid = board.run("pidof kiosk-browser", check=True).text
         hashed = " ".join((board.app.config.LIVE_PATH, *_HASHED_PATHS))
         sums = board.run("sha256sum " + hashed)
         assert sums.returncode in (0, 1), f"sha256sum failed (rc {sums.returncode}): {chr(10).join(sums.stderr)}"

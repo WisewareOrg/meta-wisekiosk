@@ -89,7 +89,7 @@ fi
 # ----------------------------------------------------------------- sample mode
 COMM=kiosk-browser
 
-PID=$(pgrep -x "$COMM" 2>/dev/null | head -n1)
+PID=$(pidof "$COMM")
 
 # Renderers are separate processes and hold most of the memory. Count the whole
 # family, or a leak in the renderer looks like a flat launcher. busybox has no
