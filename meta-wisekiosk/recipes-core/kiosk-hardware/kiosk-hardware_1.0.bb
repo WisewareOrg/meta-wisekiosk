@@ -1,10 +1,9 @@
 SUMMARY = "Kiosk hardware trim: keep unused subsystems out of the boot, reboot on panic, and end memory thrash in an OOM kill"
 DESCRIPTION = "Drop-in configuration only -- no binaries, no services. Deliberately a \
 separate recipe rather than a systemd_%.bbappend: touching the systemd recipe risks a \
-multi-hour WebKit rebuild for a few config files, and systemd is the hop: wpewebkit \
-depends on udev, which systemd provides. The chain is at \
-recipes-core/packagegroups/packagegroup-base.bbappend and the removal routes it closes \
-are in docs/issue_investigation/webkit_dependency_trims/README.md. \
+multi-hour WebKit rebuild for a few config files, and dbus is the load-bearing hop, not \
+gtk+3. The chain is at recipes-core/packagegroups/packagegroup-base.bbappend and the \
+removal routes it closes are in docs/issue_investigation/webkit_dependency_trims/README.md. \
 The same reasoning is why kiosk-journal exists."
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"

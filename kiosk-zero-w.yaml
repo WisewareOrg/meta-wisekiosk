@@ -262,7 +262,9 @@ local_conf_header:
     # removal is sufficient, and touching DISTRO_FEATURES re-hashes much of the
     # build for no extra benefit.
     #
-    DISTRO_FEATURES:remove = " vulkan ptest bluetooth"
+    # 3g, nfc, nfs and zeroconf are services no kiosk runs. systemd-resolved, whose
+    # own mDNS zeroconf's absence turns back on, is masked in kiosk-hardware.
+    DISTRO_FEATURES:remove = " vulkan ptest bluetooth 3g nfc nfs zeroconf"
 
     # Introspection data is for language bindings, and is built by running each
     # GLib library under QEMU. libsoup's vala is the same kind of binding.
