@@ -79,9 +79,9 @@ umask 022
 # Unset: no KIOSK_URL line at all, so kiosk.service's own localhost default
 # applies -- the same as a board that was never provisioned with one.
 if [ -n "$URL" ]; then
-    printf 'KIOSK_URL=%s\nKIOSK_INSPECTOR=0\n' "$URL" > "$STAGE/config/kiosk.conf"
+    printf 'KIOSK_URL=%s\n' "$URL" > "$STAGE/config/kiosk.conf"
 else
-    printf 'KIOSK_INSPECTOR=0\n' > "$STAGE/config/kiosk.conf"
+    printf '# no KIOSK_URL: kiosk.service uses its own default\n' > "$STAGE/config/kiosk.conf"
 fi
 printf '%s\n' "$HOST" > "$STAGE/config/hostname"
 : > "$STAGE/config/resolv.conf"

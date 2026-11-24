@@ -12,7 +12,7 @@ description: >-
 
 # The WebKit remote inspector, actually connected
 
-This board runs WebKit 605 (webkit2gtk-4.1). Its JavaScriptCore gives the page **no** self-instrumentation
+This board runs WPE WebKit 2.54.3. Its JavaScriptCore gives the page **no** self-instrumentation
 that survives a saturated core: `performance.memory` is absent, `FinalizationRegistry` callbacks never
 fire (no idle turn to deliver them), and `JSC_logGC` / other `JSC_*` options are compiled out. The one
 instrument that reports the collector and the heap from the engine is the **remote inspector** — and
@@ -24,20 +24,19 @@ There are two server env vars and they are not interchangeable:
 
 - **`WEBKIT_INSPECTOR_SERVER`** — the `inspector://` variant. A **WebSocket-only** server: a plain
   `GET /` connects at the TCP layer and then **hangs with zero bytes**, forever. Only another WebKit
-  browser opening `inspector://host:port` can use it. This is what the launcher sets, and what every
-  HTTP-based client (including this repo's own earlier `inspect*.mjs`) waits on until it times out.
+  browser opening `inspector://host:port` can use it. It is what every HTTP-based client (including
+  this repo's own earlier `inspect*.mjs`) waits on until it times out.
 - **`WEBKIT_INSPECTOR_HTTP_SERVER`** — serves the **HTML target-list page** at `GET /`, which carries
   the WebSocket path. This is the one a script can drive.
 
-`recipes-core/kiosk-session/files/kiosk-launch` wires `KIOSK_INSPECTOR=1` to the **WS-only** variant,
-so following its own "turn it on over SSH" comment gives a server that hangs. Enable the HTTP variant
-over the wire instead — no rebuild:
+Enable the HTTP variant over the wire — no rebuild — with a runtime drop-in for `kiosk.service`
+in `/run/systemd/system/kiosk.service.d/`:
 
 ```sh
-# on the board, in /data/config/kiosk.conf (the kiosk.service EnvironmentFile)
-KIOSK_INSPECTOR=0                                 # stop the launcher binding the WS-only server (same port)
-WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:2999       # loopback only — reach it through the tunnel below
-# then: systemctl restart kiosk
+# on the board
+[Service]
+Environment=WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:2999   # loopback only — reach it through the tunnel below
+# then: systemctl daemon-reload; systemctl restart kiosk
 ```
 
 Bound to loopback on purpose; reach it from the workstation with a forward:
@@ -46,7 +45,7 @@ Bound to loopback on purpose; reach it from the workstation with a forward:
 ssh -L 2999:127.0.0.1:2999 -N root@<board>        # resolve <board> from local/device-identity.md
 ```
 
-Restore `kiosk.conf` (`KIOSK_INSPECTOR=0`, no `WEBKIT_INSPECTOR_HTTP_SERVER`) and restart when done —
+Remove the drop-in, reload systemd and restart when done —
 the inspector is a listening server and a perturbation, not a thing to leave running on prod.
 
 ## The client
@@ -81,6 +80,8 @@ count and byte-sum per class; a diff of two censuses names what accumulates.
 
 ## Gotchas that cost real time
 
+- **Never connect before a page is listed: it crashes the browser.** `webkit-inspect.mjs` throws when
+  no page is listed, so it already keeps this rule; a client of your own must too.
 - **One connection at a time.** A hung or half-open connection (an earlier client that timed out, a
   browser tab left open on the port) blocks the server, and then even a correct `GET /` hangs. If the
   server stops answering, `systemctl restart kiosk` clears it — a stuck client, not a broken protocol,

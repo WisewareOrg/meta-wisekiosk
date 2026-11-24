@@ -96,6 +96,12 @@ to fail: it installs a good copy of the candidate in the slot not booted, zeroes
 attempts and restarts, and passes only when U-Boot boots the other slot. Both slots stay bootable, so
 it strands nothing.
 
+`tests/diagnostics -k screenshot` is the check of `just screenshot`: it paints every pixel of the page
+a colour that names its place, takes the capture, and passes only when the PNG holds each pixel as
+painted, then reads the console's red and a blank console as `BLANK`. It touches the page and the
+foreground console only, and leaves the page on the panel: `bench test <ref> -- tests/diagnostics -k
+screenshot -rP`.
+
 The board comes from labgrid's own env file, pointed at with `LG_ENV` — a target named `main`, a
 `NetworkService` resource carrying the board's address, an `SSHDriver` — kept untracked under
 `local/`, since this repository is public and the address is site-specific.

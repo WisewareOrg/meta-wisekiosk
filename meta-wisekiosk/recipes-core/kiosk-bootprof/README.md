@@ -20,15 +20,15 @@ them again when it stops.
 
 An `sshd` per-connection daemon burns **3 340 ms of CPU**, measured from its own `CPUUsageNSec` on
 the device. A connection opened at 32.2s during a profiling run landed inside browser startup and
-inflated `surf` exec on that boot. **One connection per boot, opened no earlier than 90s after the
+inflated browser start on that boot. **One connection per boot, opened no earlier than 90s after the
 reboot** — not a session left attached across the window.
 
 Which figures a contaminated run still supports is worth stating exactly, because it decides what
 can be salvaged: this board has no network at all before ~30s, so nothing done from a workstation
 can reach `mmc1`, `brcmfmac`, `wlan0` or `Reached target Network is Online`. Those survive on any
-boot. Everything from `SURFMS uptime_at_exec` onward does not.
+boot. Everything from `Started Kiosk browser` onward does not.
 
-90s clears the latest `surf` exec ever observed here (40.24s, on a deliberately misconfigured arm)
+90s clears the latest browser start ever observed here (40.24s, measured on surf, on a deliberately misconfigured arm)
 with ~35s of margin. Raise it to 120s when complete display is the endpoint. The wait is latency,
 not a measurement parameter: it changes when the journal is read, never what the journal says, so
 shortening it does not invalidate comparison against arms measured earlier.
