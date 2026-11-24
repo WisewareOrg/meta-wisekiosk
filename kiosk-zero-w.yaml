@@ -1,8 +1,8 @@
 ##########
 # HEADER #
 ##########
-# Kiosk image for the Raspberry Pi Zero W: surf on WebKitGTK, no desktop, no
-# window manager. This is the only kas config in the repo; it pulls in the repo
+# Kiosk image for the Raspberry Pi Zero W: WPE WebKit straight to DRM, no
+# display server. This is the only kas config in the repo; it pulls in the repo
 # pins (includes/base.yaml, which fetches meta-autonomos and patches it) and the
 # machine, then adds everything specific to this image below.
 header:
@@ -51,18 +51,6 @@ local_conf_header:
   kernel: |
     PREFERRED_VERSION_linux-raspberrypi = "6.12.%"
 
-  # vc4graphics is in MACHINE_FEATURES (rpi-base.inc gates it on
-  # DISABLE_VC4GRAPHICS, which this file does not set), so the image takes the
-  # vc4 path: mesa for virtual/egl, xf86-video-modesetting instead of
-  # xf86-video-fbdev, and xserver-xorg-extension-glx in the X server. That is
-  # what gives the X server glamor -- GPU-accelerated 2D for the display path,
-  # confirmed enabled on the board with no software rasteriser mapped. It is
-  # load-bearing for the throughput the panel reaches, and it is the display
-  # path only: WebKit paints above it in software, because accelerated
-  # compositing measures worse on this SoC. See
-  # docs/issue_investigation/gpu_compositing/README.md under "Engine levers,
-  # measured and exhausted". The `graphics` block carries the overlay and the
-  # mesa pin that go with it; kiosk-launch carries the renderer and the mode.
   display: |
     # console=tty1 ONLY. The kiosk panel is the console (owner, 2026-08-12) --
     # this unit IS a display, so kernel output always has a screen, and there is
@@ -98,14 +86,8 @@ local_conf_header:
   # nothing, and sibling machine configs (raspberrypi3, raspberrypi-armv8) do
   # override it.
   #
-  # No `video=` on the kernel command line. Firmware KMS leaves the mode to the
-  # firmware, so the HDMI keys in
-  # meta-wisekiosk/recipes-bsp/bootfiles/rpi-config_%.bbappend are the live
-  # mechanism: hdmi_force_hotplug asserts a connector the panel behind the glass
-  # is too slow to answer for, and hdmi_group/hdmi_mode name the mode. The kiosk
-  # then runs at 1280x720, set by xrandr in kiosk-launch -- 2.25x fewer pixels is
-  # the one display-stack lever that moves the during-motion framerate, per the
-  # same section.
+  # The panel runs at 1280x720: 2.25x fewer pixels than its own 1080p, set by
+  # `video=` in the kernel's panel-mode.cfg.
   #
   # mesa is pinned to poky's 24.0.7. meta-raspberrypi ships mesa 25.1.6, which
   # inherits the rust class -- a rust toolchain build on armv6 nothing else in
@@ -119,23 +101,14 @@ local_conf_header:
     VC4DTBO = "vc4-fkms-v3d"
     PREFERRED_VERSION_mesa = "24.0.7"
     PREFERRED_VERSION_mesa-gl = "24.0.7"
-    # WebKit dlopens libGLESv2.so.2 on its accelerated path, and a runtime dlopen
-    # is invisible to build-time RDEPENDS, so mesa's GLESv2 package ships only if
-    # named here -- without it the web process segfaults the instant compositing
-    # is attempted. kiosk-launch defaults the renderer to software and
-    # /data/config/kiosk.conf can switch it back over the wire, so this package
-    # is what keeps that switch from crashing the browser instead of answering.
-    IMAGE_INSTALL:append = " libgles2-mesa"
 
   kiosk: |
-    AUTONOMOS_FEATURES = "graphics"
-    # enchant is spellcheck. There is no text input on this kiosk -- no keyboard,
-    # no form, nothing focusable -- so it is a dictionary and two libraries
-    # (enchant2, aspell) for a feature that cannot be reached. It is a real
-    # PACKAGECONFIG, unlike gstreamer, which webkitgtk3 carries in its hard
-    # DEPENDS and which therefore needs a bbappend plus cmake video/audio flags:
-    # a different kind of change, deliberately not batched with this one.
-    PACKAGECONFIG:remove:pn-webkitgtk3 = "jit gtk4 enchant"
+    # Only what the page uses; everything else in the recipe's default list is
+    # left out, GStreamer with it. woff2 decodes the app's bundled fonts;
+    # remote-inspector is how the page is debugged.
+    PACKAGECONFIG:pn-wpewebkit = "gbm journald reduce-size remote-inspector unified-builds woff2 wpe-platform wpe-platform-drm"
+    EXTRA_OECMAKE:append:pn-wpewebkit = " -DUSE_GSTREAMER=OFF -DENABLE_WEBGL=OFF"
+    BAD_RECOMMENDATIONS += "ttf-dejavu-sans ttf-dejavu-sans-mono ttf-dejavu-serif"
 
     # kiosk-cpufreq: caps scaling_max_freq below this board's unstable top OPP.
     # THE fix for the crash diagnosed 2026-08-13 -- 1000 MHz corrupts memory
@@ -162,15 +135,7 @@ local_conf_header:
     # than the unit in the field.
     RPI_KERNEL_DEVICETREE_OVERLAYS:append = " overlays/ramoops.dtbo"
     RPI_EXTRA_CONFIG:append = "\ndtoverlay=ramoops,total-size=0x40000,record-size=0x8000,console-size=0x20000\n"
-    PACKAGECONFIG:append:pn-webkitgtk3 = " reduce-size"
-    # woff2: the app's bundled Inter and weather-icon faces are WOFF2-only, and
-    # webkitgtk3's default build cannot decode that format at all -- neither
-    # face ever loads without this. Recipe: meta-wisekiosk/recipes-graphics/woff2.
-    PACKAGECONFIG:append:pn-webkitgtk3 = " woff2"
-    # imagemagick is here for `import -window root`, the only screenshot path
-    # this image has: fbgrab was dropped on a misdiagnosis and never restored.
-    # See docs/issue_investigation/screenshot_capture_fbgrab/README.md.
-    IMAGE_INSTALL:append = " surf kiosk-session kiosk-soak kiosk-journal kiosk-timesync-persist kiosk-hardware kiosk-netcheck kiosk-bootprof zram wpa-supplicant-service packagegroup-core-x11 xwininfo xprop ttf-roboto imagemagick tzdata-core tzdata-americas"
+    IMAGE_INSTALL:append = " kiosk-session kiosk-soak kiosk-journal kiosk-timesync-persist kiosk-hardware kiosk-netcheck zram wpa-supplicant-service ttf-roboto tzdata-core tzdata-americas"
 
     # kiosk-provision: applies /data/config over the image defaults at boot --
     # sets the hostname into the kernel (nothing reads a hostname file) and
@@ -198,7 +163,7 @@ local_conf_header:
     #
     # It is also cheap. systemd-serialgetty is its OWN recipe, not part of
     # systemd, and is PACKAGE_ARCH = MACHINE_ARCH -- so this re-hashes one small
-    # recipe rather than dragging webkitgtk3 into a rebuild.
+    # recipe rather than dragging wpewebkit into a rebuild.
     SERIAL_CONSOLES = ""
 
     # core-image-base ships no tzdata at all, so the first boot ran in UTC and
@@ -244,7 +209,7 @@ local_conf_header:
     INHERIT += "create-spdx"
 
   # update-bundle.bb packages whichever image RAUC_SLOT_rootfs names, and its
-  # default is autonomos-devel -- a different image, with no surf and no kiosk
+  # default is autonomos-devel -- a different image, with no browser and no kiosk
   # unit. Installing that bundle would replace the slot and report success.
   # The :pn- form is required, not stylistic: update-bundle.bb assigns both of
   # these with a plain "=", which beats a bare local.conf value, so the override
@@ -296,7 +261,7 @@ local_conf_header:
     # both are keyed on MACHINE_FEATURES/COMBINED_FEATURES, so the machine-side
     # removal is sufficient, and touching DISTRO_FEATURES risks re-hashing
     # gstreamer -> webkitgtk3 into a multi-hour rebuild for no extra benefit.
-    DISTRO_FEATURES:remove = " wayland vulkan ptest bluetooth"
+    DISTRO_FEATURES:remove = " vulkan ptest bluetooth"
 
     # Nothing on this kiosk pairs, scans or streams; the only link is WiFi
     # (owner, 2026-08-12). rpi-base.inc adds bluetooth to MACHINE_FEATURES, which
@@ -350,10 +315,6 @@ local_conf_header:
     # lever -- no bbappend, and therefore no systemd re-hash.
     BAD_RECOMMENDATIONS += "udev-hwdb"
 
-    # Drops adwaita-icon-theme-symbolic from gtk+3's RRECOMMENDS, which pulls
-    # adwaita-icon-theme -> librsvg -> rust-llvm-native out of the build graph.
-    RRECOMMENDS:gtk+3:remove = "adwaita-icon-theme-symbolic"
-
     # tzdata is a metapackage RDEPENDing on every region; tzdata-americas does
     # NOT pull tzdata-core, so both are named above. /usr/share/zoneinfo is 7.4MB
     # on the device for one fixed site that reads only America/New_York.
@@ -369,9 +330,9 @@ local_conf_header:
   parallel: |
     BB_NUMBER_THREADS = "6"
     PARALLEL_MAKE = "-j6"
-    PARALLEL_MAKE:pn-webkitgtk3 = "-j6"
-    # Strips -g and -g1 from webkitgtk3's DEBUG_FLAGS; DEBUG_PREFIX_MAP stays.
-    DEBUG_FLAGS:remove:pn-webkitgtk3 = "-g -g1"
+    PARALLEL_MAKE:pn-wpewebkit = "-j6"
+    # Strips -g and -g1 from wpewebkit's DEBUG_FLAGS; DEBUG_PREFIX_MAP stays.
+    DEBUG_FLAGS:remove:pn-wpewebkit = "-g -g1"
     BB_PRESSURE_MAX_MEMORY = "20000"
 
   diskmonitoring: |

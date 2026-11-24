@@ -17,7 +17,7 @@ The instrument is the
 sampler at 2 Hz, with
 [`analyze-boot-cpu-io.py`](../../../meta-wisekiosk/recipes-core/kiosk-bootprof/files/analyze-boot-cpu-io.py)
 reducing its samples to per-window figures and
-[`measure-surf.sh`](../../../meta-wisekiosk/recipes-core/kiosk-bootprof/files/measure-surf.sh)
+[`measure-surf.sh`](https://github.com/WisewareOrg/meta-wisekiosk/blob/6d7ecfe/meta-wisekiosk/recipes-core/kiosk-bootprof/files/measure-surf.sh)
 timing complete display. The sampler's cost, its blind spots and the SSH-session cost that
 contaminates a run are documented at
 [the tool](../../../meta-wisekiosk/recipes-core/kiosk-bootprof/README.md); every figure below is

@@ -1,5 +1,5 @@
 [Unit]
-Description=Kiosk browser: surf on bare Xorg, no display manager, no window manager
+Description=Kiosk browser: WPE WebKit on DRM, no display server
 After=network-online.target data.mount
 Wants=network-online.target
 Requires=data.mount
@@ -10,12 +10,9 @@ Type=simple
 # applies these in file order, so a provisioned kiosk.conf overrides it; the
 # leading dash makes the file optional.
 Environment=KIOSK_URL=http://localhost:8080
+# WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:2999 in it turns the remote inspector on.
 EnvironmentFile=-/data/config/kiosk.conf
-# -s 0 -dpms -nocursor live on the X server command line, not in a config file.
-# On the Raspbian kiosk these were supplied by lightdm; dropping the display
-# manager drops them with it, and the failure shows up days later as a screen
-# that blanks when nobody is watching.
-ExecStart=/usr/bin/xinit /usr/bin/kiosk-launch -- :0 vt1 -s 0 -dpms -nocursor
+ExecStart=/usr/bin/kiosk-browser $KIOSK_URL
 Restart=always
 RestartSec=10
 

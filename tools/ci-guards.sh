@@ -115,7 +115,6 @@ fi
 scan3=(meta-wisekiosk/recipes-core/kiosk-netcheck/files/kiosk-netcheck
        meta-wisekiosk/recipes-core/kiosk-provision/files/kiosk-provision
        meta-wisekiosk/recipes-core/kiosk-recover/files/kiosk-recover
-       meta-wisekiosk/recipes-core/kiosk-session/files/kiosk-launch
        .githooks/pre-commit)
 missing3=""
 for p in "${scan3[@]}"; do [ -e "$p" ] || missing3="$missing3 $p"; done

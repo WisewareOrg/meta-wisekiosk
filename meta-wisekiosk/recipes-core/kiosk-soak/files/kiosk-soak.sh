@@ -40,7 +40,6 @@
 # docs/issue_investigation/surf_memory_soak/README.md.
 set -u
 LOG=${KIOSK_SOAK_LOG:-/data/kiosk-soak.log}
-LAUNCHER=${KIOSK_LAUNCHER:-/usr/bin/kiosk-launch}
 MAXLINES=${KIOSK_SOAK_MAXLINES:-20000}
 
 if [ "${1:-}" = "--summary" ]; then
@@ -88,12 +87,7 @@ if [ "${1:-}" = "--summary" ]; then
 fi
 
 # ----------------------------------------------------------------- sample mode
-# Ask the launcher which browser this is. It invokes a bare command name, so
-# resolve it on PATH rather than looking for an absolute path.
-CMD=$(grep -oE '^[[:space:]]*exec[[:space:]]+[A-Za-z0-9._-]+' "$LAUNCHER" 2>/dev/null \
-      | head -n1 | awk '{print $2}')
-BIN=$(command -v "${CMD:-surf}" 2>/dev/null)
-COMM=$(basename "${BIN:-unknown}" | cut -c1-15)
+COMM=kiosk-browser
 
 PID=$(pgrep -x "$COMM" 2>/dev/null | head -n1)
 
@@ -104,7 +98,7 @@ NPROC=0; RSS_TOTAL=0
 for d in /proc/[0-9]*; do
   c=$(cat "$d/comm" 2>/dev/null) || continue
   case "$c" in
-    WebKit*|webkit*|"$COMM")
+    WPE*|"$COMM")
       r=$(awk '/^VmRSS/{print $2}' "$d/status" 2>/dev/null)
       [ -n "$r" ] && { NPROC=$((NPROC + 1)); RSS_TOTAL=$((RSS_TOTAL + r)); } ;;
   esac

@@ -20,3 +20,6 @@ SRC_URI += " file://lockup-detect.cfg"
 # tools/kiosk-install.sh arms it for the length of an install.
 SRC_URI += " file://pstore-ftrace.cfg"
 SRC_URI += " file://0001-pstore-ram-default-ftrace-zone.patch"
+
+# The panel's mode. WPE shows its page at whatever mode it finds set.
+SRC_URI += " file://panel-mode.cfg"
