@@ -8,8 +8,8 @@ SRC_URI = "file://kiosk.service file://kiosk-browser.c"
 S = "${WORKDIR}"
 
 DEPENDS = "wpewebkit"
-# WPE crashes at start without a keymap.
-RDEPENDS:${PN} = "xkeyboard-config"
+# WPE crashes at start without a keymap, and opens libEGL at run time.
+RDEPENDS:${PN} = "xkeyboard-config libegl-mesa"
 
 inherit pkgconfig systemd
 
