@@ -58,13 +58,12 @@ class Console(Part):
         """With the network cut off, attach a keyboard at the input layer, log in at tty2, and type a command.
 
         The command writes a random word, the terminal and the uptime to a marker. Before the outage, vt1 is
-        brought forward and tty2 given a fresh login; the panel's planes are kept
-        when the command has run, and the planes are read again once the outage has ended, before
-        anything puts the page back. When the test ends, vt1 is put back in front and the browser is
-        waited for on the panel, whatever the chord did. The check is invalid if the keyboard was not
-        created, the board restarted during the outage (taking the evidence in /tmp with it), or the
-        outage's record does not show the board cut off when the command ran, or the script kept no display state
-        then.
+        brought forward and tty2 given a fresh login; the panel's planes are kept when the command has run, and
+        the planes are read again once the outage has ended, before anything puts the page back. When the test
+        ends, vt1 is put back in front and the browser is waited for on the panel, whatever the chord did. The
+        check is invalid if the keyboard was not created, the board restarted during the outage (taking the
+        evidence in /tmp with it), the outage's record does not show the board cut off when the command ran, or
+        the script kept no display state when the command had run.
 
         Returns:
             The command, what it left, the panel's planes once the outage had ended, and its planes when the
