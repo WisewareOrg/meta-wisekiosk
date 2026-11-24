@@ -12,8 +12,8 @@ description: >-
 
 # The WebKit remote inspector, actually connected
 
-This board runs WPE WebKit. What this skill says about *this build* or *this board* was observed on
-WebKitGTK 605 and has not been re-read on WPE. Its JavaScriptCore gives the page **no** self-instrumentation
+This board runs WPE WebKit. The engine facts below were observed on WebKitGTK 605 and have not been
+re-read on WPE, except where a line says so. That JavaScriptCore gave the page **no** self-instrumentation
 that survives a saturated core: `performance.memory` is absent, `FinalizationRegistry` callbacks never
 fire (no idle turn to deliver them), and `JSC_logGC` / other `JSC_*` options are compiled out. The one
 instrument that reports the collector and the heap from the engine is the **remote inspector** — and

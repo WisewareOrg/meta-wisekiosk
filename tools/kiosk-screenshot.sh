@@ -17,7 +17,8 @@
 #                          starting, or an operator is on another console.
 #
 # It is the primary plane handed to the display hardware, so a mouse pointer is
-# not in it, and not what reaches the glass: an unplugged panel reads the same. A frame the page replaces mid-copy can mix two.
+# not in it. It is not what reaches the glass: an unplugged panel reads the same.
+# A frame the page replaces mid-copy can mix two.
 #
 # A capture cannot tell you the render is LIVE, so the device's clock is taken
 # in the same ssh: compare it with the clock the page renders. An existing file

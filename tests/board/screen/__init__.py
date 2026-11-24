@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from typing import NamedTuple
 
-from board.part import Part
+from board.part import Part, invalid_if
 
 _STATE = "/sys/kernel/debug/dri/0/state"
 _DPMS = "/sys/class/drm/card0-HDMI-A-1/dpms"
@@ -128,7 +128,8 @@ class Screen(Part):
                 timeout=_SCREENSHOT_TIMEOUT_SECONDS,
             )
             # a blank panel is still a picture, though the tool returns 1 for it
-            assert png.exists(), f"no picture of the panel: {command.stderr}"
+            with invalid_if("the tool took no picture of the panel"):
+                assert png.exists(), command.stderr
             return png.read_bytes()
 
     def _buffers(self) -> set[str]:

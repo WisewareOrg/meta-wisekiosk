@@ -9,7 +9,8 @@ It is connected only for the length of one evaluation, as a connected inspector 
 only to a page the inspector lists: connecting to one that is not there yet crashes the browser.
 
 Exits 3 if there is no page to evaluate in: the inspector does not answer, lists no page, refuses or
-drops the connection, or answers with an error, as while a page loads; the reason goes to stderr.
+drops the connection, or answers with an error, as while a page loads; or if it has not answered in 10 s,
+a long script included, which is not the same as no page; the reason goes to stderr.
 Anything else that fails, a script that throws included, is a traceback, exit 1.
 """
 
@@ -124,6 +125,9 @@ def main() -> None:
     port, script = int(sys.argv[1]), sys.stdin.read()
     try:
         value = evaluate(port, script)
+    except (TimeoutError, websocket.WebSocketTimeoutException) as error:
+        print(f"kiosk-inspect: no answer in {_TIMEOUT_SECONDS} s, a long script included: {error!r}", file=sys.stderr)
+        sys.exit(_NO_PAGE)
     except (OSError, EOFError, http.client.HTTPException, websocket.WebSocketException) as error:
         print(f"kiosk-inspect: no page: {error!r}", file=sys.stderr)
         sys.exit(_NO_PAGE)

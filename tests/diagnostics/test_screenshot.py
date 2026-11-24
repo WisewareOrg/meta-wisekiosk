@@ -1,7 +1,7 @@
 """Diagnostics: `just screenshot` reads what the panel shows, for the page, the console and a blank console.
 
-Outside the regression suite: it checks an operator's tool, tied to no TST, so its on-board run is its
-test. It leaves the page on the panel:
+Outside the regression suite: it checks an operator's tool, tied to no TST though TST005 reads its pictures
+through it, so its on-board run is its test. It leaves the page on the panel:
 
     bench test <ref> -- tests/diagnostics -k screenshot -rP
 """
