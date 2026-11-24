@@ -3,8 +3,8 @@
 #
 #   tools/kiosk-screenshot.sh root@<host> [out.png]
 #
-# Exits 0 with a PNG; 1 with a PNG and BLANK if every pixel is the same; 1 with
-# no PNG if the panel shows no buffer or the device could not be read.
+# Exits 0 with a PNG; 1 with a PNG and BLANK if every pixel is the same; any
+# other failure is 1 with the reason on stderr.
 #
 # The default output goes under local/: a capture is a picture of the site's
 # live kiosk page, and local/ is gitignored.
@@ -16,8 +16,8 @@
 #   text console           the browser is not on the panel: not running, still
 #                          starting, or an operator is on another console.
 #
-# It is what is handed to the display hardware, not what reaches the glass: an
-# unplugged panel reads the same. A frame the page replaces mid-copy can mix two.
+# It is the primary plane handed to the display hardware, so a mouse pointer is
+# not in it, and not what reaches the glass: an unplugged panel reads the same. A frame the page replaces mid-copy can mix two.
 #
 # A capture cannot tell you the render is LIVE, so the device's clock is taken
 # in the same ssh: compare it with the clock the page renders. An existing file

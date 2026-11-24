@@ -19,7 +19,7 @@ tree refers to them by role (`prod`, `bench`) and discovers an address at use ti
 built before you build against the *previous* run's commit — an image the reproducibility gate then
 refuses at flash. See [`README.md`](README.md) §"Quick start".
 
-**Touching webkit's `PACKAGECONFIG` invalidates WebKit alone; touching `DISTRO_FEATURES`,
+**Touching webkit's `PACKAGECONFIG` or bumping the meta-webkit pin invalidates WebKit alone; touching `DISTRO_FEATURES`,
 `MACHINE_FEATURES`, or bumping the poky or meta-openembedded pin, invalidates more than WebKit.**
 Either is a multi-hour rebuild — see [`README.md`](README.md) §"Quick start" for the measured
 costs — so it is a decision made before starting, not a tweak. `config.txt`-only knobs are free.
@@ -160,7 +160,7 @@ silently to whatever occupies it after a renumber.
 
 **Build config & pins**
 
-4. **WebKit cost.** Does this touch webkit's `PACKAGECONFIG` or a WebKit recipe (invalidates
+4. **WebKit cost.** Does this touch webkit's `PACKAGECONFIG`, a WebKit recipe or the meta-webkit pin (invalidates
    WebKit alone)? Or `DISTRO_FEATURES`, `MACHINE_FEATURES`, or a poky/meta-openembedded pin bump
    (invalidates more than WebKit)? Either is a multi-hour rebuild — see [`README.md`](README.md)
    §"Quick start" — so it is a decision to take before starting, not one to discover afterwards.

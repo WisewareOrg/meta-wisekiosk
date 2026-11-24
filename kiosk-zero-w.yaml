@@ -315,7 +315,7 @@ local_conf_header:
     MACHINE_EXTRA_RRECOMMENDS:remove = "bluez-firmware-rpidistro-bcm43430a1-hcd"
 
     # A hardware database for matching peripherals, on a board that has none:
-    # /sys/class/sound empty, no video4linux, no DRM card, no input devices, no
+    # /sys/class/sound empty, no video4linux, no input devices, no
     # USB devices. hwdb.bin alone is 10.9MB of a 20MB /usr/lib/udev, measured on
     # the device.
     #

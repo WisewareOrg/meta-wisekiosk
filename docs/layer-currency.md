@@ -19,10 +19,8 @@ fixes, so a pin left alone long enough is an image that is missing them.
 No package-manifest reader can see this, because a kas `commit:` is not a manifest.
 [`../renovate.json`](../renovate.json) reads the pins with a regex for the self-hosted Renovate in
 `WisewareOrg/wise-renovate`, which keeps one pull request per behind repo and rolls it forward in place
-while it stays unmerged, except poky and meta-webkit, which share one pull request because a
-bump of either rebuilds WebKit: poky supplies its toolchain, libc and build dependencies, meta-webkit
-the engine recipe ([`../README.md`](../README.md) §"Quick start"). meta-openembedded reaches WebKit
-through one leaf, brotli, and moves on its own. Those pull requests
+while it stays unmerged, except poky and meta-webkit, which share one pull request
+([`../renovate.json`](../renovate.json) says why). Those pull requests
 automerge through the merge queue, gated by `bench run`'s build of the queued commit
 ([`testing.md`](testing.md) §"Running it"). Renovate says *that* a pin is behind. This
 report and `just gap` say what the pin is worth.

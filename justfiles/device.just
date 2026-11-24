@@ -68,7 +68,7 @@ tcp-state kiosk-addr port="8080":
     tools/kiosk-tcp-state.sh {{kiosk-addr}} {{port}}
 
 [group('device')]
-[doc("Read the panel's buffer into a PNG, and warn if it is blank")]
+[doc("Read the panel's buffer into a PNG, and fail if it is blank")]
 screenshot host out="":
     tools/kiosk-screenshot.sh root@{{host}} {{out}}
 

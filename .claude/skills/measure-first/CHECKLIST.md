@@ -14,10 +14,8 @@ The operational form of [`SKILL.md`](SKILL.md), which holds the reasoning behind
 4. **Frontend change?** Edit, then rebuild the mirror detached
    (`docker compose -f compose.dev.yaml up -d --build`, in a subagent) and note the served bundle
    hash. Run `svelte-check` separately; the container build does not type-check.
-5. **Turn the inspector on** with a runtime drop-in holding
-   `Environment=WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:2999` in
-   `/run/systemd/system/kiosk.service.d/`, then `systemctl daemon-reload` and restart the kiosk.
-   Forward the port: `ssh -L 2999:127.0.0.1:2999 -N root@<board>`. **Deploy the probe** through it:
+5. **Turn the inspector on and forward its port** as
+   [`webkit-inspector`](../webkit-inspector/SKILL.md) says. **Deploy the probe** through it:
    `uv run --locked tools/kiosk-inspect.py 2999 < probe.js`.
 6. **Verify the intended bundle actually loaded** —
    `echo 'document.scripts[0].src' | uv run --locked tools/kiosk-inspect.py 2999` — before trusting
@@ -27,8 +25,7 @@ The operational form of [`SKILL.md`](SKILL.md), which holds the reasoning behind
    and assert it is non-empty. An empty read fails the run; it never scores as a null.
 9. **Parse.** Drop every block whose landing check failed; an arm with no landed blocks is
     unmeasured, not unchanged.
-10. **Clean the board**: remove the drop-in, `systemctl daemon-reload`, restart the kiosk, confirm
-    it renders.
+10. **Clean the board**: remove the drop-in as that skill says, confirm the page renders.
 11. **Record under R1-R3**: board role, image commit, bundle hash, one board × one build × one
     test per table.
 

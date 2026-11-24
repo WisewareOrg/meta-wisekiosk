@@ -8,8 +8,8 @@
 # machine reports nothing and reads exactly like a kiosk that is not connecting.
 #
 # This is the read of last resort: the kiosk's correct display is a black
-# background, so "working", "browser crashed", "JavaScript threw" and "X never
-# started" are indistinguishable from the room. Socket state is definite.
+# background, so "working", "browser crashed", "JavaScript threw" and "the browser
+# could not open the display" are indistinguishable from the room. Socket state is definite.
 #
 #   no connections                        browser not running, or not attempting
 #   1, ending FIN_WAIT_2 / TIME_WAIT      fetched the HTML only -- scripts never

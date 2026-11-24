@@ -12,7 +12,8 @@ description: >-
 
 # The WebKit remote inspector, actually connected
 
-This board runs WPE WebKit 2.54.3. Its JavaScriptCore gives the page **no** self-instrumentation
+This board runs WPE WebKit. What this skill says about *this build* or *this board* was observed on
+WebKitGTK 605 and has not been re-read on WPE. Its JavaScriptCore gives the page **no** self-instrumentation
 that survives a saturated core: `performance.memory` is absent, `FinalizationRegistry` callbacks never
 fire (no idle turn to deliver them), and `JSC_logGC` / other `JSC_*` options are compiled out. The one
 instrument that reports the collector and the heap from the engine is the **remote inspector** — and
@@ -29,15 +30,16 @@ There are two server env vars and they are not interchangeable:
 - **`WEBKIT_INSPECTOR_HTTP_SERVER`** — serves the **HTML target-list page** at `GET /`, which carries
   the WebSocket path. This is the one a script can drive.
 
-Enable the HTTP variant over the wire — no rebuild — with a runtime drop-in for `kiosk.service`
-in `/run/systemd/system/kiosk.service.d/`:
+Enable the HTTP variant over the wire — no rebuild — with a runtime drop-in for `kiosk.service`,
+`/run/systemd/system/kiosk.service.d/inspector.conf` (systemd ignores a drop-in whose name does not end
+in `.conf`; loopback only, so reach it through the tunnel below):
 
-```sh
-# on the board
+```ini
 [Service]
-Environment=WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:2999   # loopback only — reach it through the tunnel below
-# then: systemctl daemon-reload; systemctl restart kiosk
+Environment=WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:2999
 ```
+
+Then `systemctl daemon-reload` and `systemctl restart kiosk`.
 
 Bound to loopback on purpose; reach it from the workstation with a forward:
 

@@ -54,7 +54,7 @@ Run `kas-container build kiosk-zero-w.yaml` and, in order, kas:
    checkout after cloning. See below.
 4. **Writes `build/conf/bblayers.conf`** — BitBake's list of enabled layers — from the `layers:` key
    of each repo. A repo with no `layers:` key contributes its own root as one layer; a repo with
-   `layers:` contributes exactly the subdirectories listed. This build enables 17 layers.
+   `layers:` contributes exactly the subdirectories listed.
 5. **Writes `build/conf/local.conf`** from `machine:`, `distro:` and every `local_conf_header:`
    block, concatenated. This is where `kiosk-zero-w.yaml`'s long commented blocks end up — they are
    ordinary BitBake variable assignments with the reasoning kept next to them.

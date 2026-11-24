@@ -98,7 +98,7 @@ meta-wisekiosk/                    <- the repository (project scaffolding)
 
 Nothing outside `meta-wisekiosk/` is read by BitBake. Nothing inside it is read by anything else.
 If you are new to Yocto, read **[docs/layers-and-kas.md](docs/layers-and-kas.md)** — it explains what
-a layer is, what kas does with these files, and why meta-autonomos's patches cannot be bbappends.
+a layer is, what kas does with these files, and why meta-autonomos's patch cannot be a bbappend.
 
 Every change that was acted on is documented at the recipe carrying it; the per-issue investigations
 behind those changes are indexed in **[docs/README.md](docs/README.md)**.
@@ -196,11 +196,11 @@ compiling starts.
 A change to webkit's `PACKAGECONFIG`, to a WebKit recipe, or **a bump of the meta-webkit pin**
 invalidates WebKit alone. A change to `DISTRO_FEATURES`, to `MACHINE_FEATURES`, or **a bump of the
 poky or meta-openembedded pin** invalidates more than WebKit. Either is a multi-hour rebuild — see
-[cold build time](docs/issue_investigation/cold_build_time/README.md) for the measured costs and
-the host they were measured on, which was the WebKitGTK image. Make those decisions before
+[cold build time](docs/issue_investigation/cold_build_time/README.md) for the measured costs, which
+come from the WebKitGTK image and so are not an estimate for WPE. Make those decisions before
 starting, not after. `config.txt`-only knobs (`GPU_MEM`, HDMI, overscan, UART) are free to change,
-and so is the kernel's `PREFERRED_VERSION` — the kernel is outside webkit's dependency closure. Cheap to rebuild is not the
-same as reaching a board: the `config.txt` knobs are on the shared FAT partition RAUC never writes —
+and so is the kernel's `PREFERRED_VERSION` — the kernel is outside webkit's dependency closure.
+Cheap to rebuild is not the same as reaching a board: the `config.txt` knobs are on the shared FAT partition RAUC never writes —
 see [gpu compositing](docs/issue_investigation/gpu_compositing/README.md) §"Delivery and board".
 
 ### Flashing a card

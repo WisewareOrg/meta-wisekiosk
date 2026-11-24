@@ -81,6 +81,7 @@ umask 022
 if [ -n "$URL" ]; then
     printf 'KIOSK_URL=%s\n' "$URL" > "$STAGE/config/kiosk.conf"
 else
+    # a comment, not an empty file: kiosk-provision tests -s and logs UNPROVISIONED for an empty one
     printf '# no KIOSK_URL: kiosk.service uses its own default\n' > "$STAGE/config/kiosk.conf"
 fi
 printf '%s\n' "$HOST" > "$STAGE/config/hostname"

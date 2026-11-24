@@ -12,7 +12,7 @@ description: >-
 
 # Debugging a display you cannot see
 
-The device has no keyboard and no console anyone can read, and the screen itself cannot report
+The device has no keyboard, and the screen itself cannot report
 its own state — [`tools/kiosk-tcp-state.sh`](../../../tools/kiosk-tcp-state.sh)'s header says
 which faults it hides. Every tool here exists to replace looking at the screen with reading
 something definite.
@@ -50,7 +50,8 @@ reused. During a boot profile the connection is itself an instrument — see
 2. **Is it rendering?** `kiosk-screenshot.sh`. A blank result exits 1 with a PNG. A correct-but-stale
    result is a different fault with the same appearance, which is why the script takes the device
    clock in the same call as the pixels; a frozen page still needs that clock compared, with two
-   captures if the page shows none.
+   captures if the page shows none. A panel left on a text console comes back to the page with
+   `chvt 1`; a remote `systemctl restart kiosk` does not bring it forward.
 3. **If it is not rendering, is it fetching?** `kiosk-tcp-state.sh` from the serving host
    separates "the browser is not running" from "the page will not execute".
 4. **If it is rendering but degraded**, read the soak log before rebooting. A reboot destroys
@@ -59,7 +60,8 @@ reused. During a boot profile the connection is itself an instrument — see
 ## Tips that cost real time to learn
 
 - **`pgrep -f <pattern>` matches your own command line** over SSH, so it finds your shell and
-  reports the process as running. Use `pgrep -x`, or match the binary path.
+  reports the process as running. Use `pidof` for the browser: busybox `pgrep -x` matches the full
+  path the launcher runs as, so it finds nothing while the browser runs.
 - **Sample twice before believing a one-shot read.** One sample cannot tell a state from a
   moment.
 - **Read `kiosk-ssh.sh`'s header before writing a probe of your own.** What it says about

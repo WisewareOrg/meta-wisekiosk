@@ -35,7 +35,7 @@ One owner per fact. Read the owner; do not restate it here or anywhere else.
 - **`just build`, never `kas-container` directly.** kas alone skips
   `tools/write-build-rev.sh`, so a tree that has built before builds against the *previous* commit
   and the reproducibility gate refuses the image at flash time.
-- **A webkit `PACKAGECONFIG` change or a WebKit recipe edit invalidates WebKit.**
+- **A webkit `PACKAGECONFIG` change, a WebKit recipe edit or a meta-webkit pin bump invalidates WebKit.**
   `DISTRO_FEATURES`, `MACHINE_FEATURES`, or a poky/meta-openembedded pin bump invalidate more than
   WebKit. Either is a multi-hour rebuild — see [`README.md`](README.md) §"Quick start" for the
   measured costs — so decide before starting.
