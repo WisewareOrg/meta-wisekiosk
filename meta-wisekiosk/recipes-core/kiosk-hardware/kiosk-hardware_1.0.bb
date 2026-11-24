@@ -66,6 +66,8 @@ do_install() {
     install -d ${D}${sysconfdir}/systemd/system/getty.target.wants
     ln -sf ${systemd_system_unitdir}/getty@.service \
         ${D}${sysconfdir}/systemd/system/getty.target.wants/getty@tty2.service
+    # tty1 belongs to the page; a login prompt there would take the keys typed at it.
+    ln -sf /dev/null ${D}${sysconfdir}/systemd/system/getty@tty1.service
 
     # udev evaluates every rule file against all 345 device uevents. This board
     # has no sound card (/sys/class/sound empty), no V4L (/sys/class/video4linux
@@ -107,5 +109,6 @@ FILES:${PN} = " \
     ${sysconfdir}/systemd/system/systemd-userdbd.service \
     ${sysconfdir}/systemd/system/systemd-userdbd.socket \
     ${sysconfdir}/systemd/system/getty.target.wants/getty@tty2.service \
+    ${sysconfdir}/systemd/system/getty@tty1.service \
     ${sysconfdir}/udev/rules.d \
 "

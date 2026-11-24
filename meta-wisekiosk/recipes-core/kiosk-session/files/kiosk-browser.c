@@ -1,14 +1,25 @@
 /* kiosk-browser URL: show one page fullscreen on WPE WebKit.
  *
- * Exits 1 when the page fails to load or its web process ends, and pets
- * systemd's watchdog each time the page answers, so kiosk.service brings back
- * a page that stops. Its status is "loaded" once the page has loaded.
+ * Runs the page only while vt1 is in front: it waits, petting systemd's
+ * watchdog, until vt1 is, and exits 0 when another console is switched to,
+ * leaving the panel to that console. A page that fails to load is tried again
+ * every PERIOD seconds, with the error as the status. It exits 1 when its web
+ * process ends, and pets the watchdog each time the page answers, so
+ * kiosk.service brings back a page that stops. Its status is "loaded" and the
+ * page's title once the page has loaded.
  */
+#include <fcntl.h>
+#include <glib-unix.h>
+#include <poll.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <systemd/sd-daemon.h>
 #include <wpe/webkit.h>
 
 #define PERIOD 5
+
+static const char *url;
 
 static void die(const char *why)
 {
@@ -16,16 +27,27 @@ static void die(const char *why)
 	exit(1);
 }
 
+static gboolean load(gpointer view)
+{
+	webkit_web_view_load_uri(view, url);
+	return G_SOURCE_REMOVE;
+}
+
 static gboolean on_load_failed(WebKitWebView *view, WebKitLoadEvent event, char *uri, GError *error)
 {
-	die(error->message);
-	return TRUE;
+	if (g_error_matches(error, WEBKIT_NETWORK_ERROR, WEBKIT_NETWORK_ERROR_CANCELLED))
+		return FALSE;
+	sd_notifyf(0, "STATUS=load failed: %s", error->message);
+	g_timeout_add_seconds(PERIOD, load, view);
+	return FALSE;
 }
 
 static void on_load_changed(WebKitWebView *view, WebKitLoadEvent event)
 {
-	if (event == WEBKIT_LOAD_FINISHED)
-		sd_notify(0, "STATUS=loaded");
+	const char *title = webkit_web_view_get_title(view);
+
+	if (event == WEBKIT_LOAD_FINISHED && title && *title)
+		sd_notifyf(0, "STATUS=loaded %s", title);
 }
 
 static void on_terminated(WebKitWebView *view, WebKitWebProcessTerminationReason reason)
@@ -47,19 +69,49 @@ static gboolean ask(gpointer view)
 	return G_SOURCE_CONTINUE;
 }
 
+/* Reading the file from its start is what arms the next poll for a switch. */
+static gboolean on_vt1(int active)
+{
+	char name[16];
+	ssize_t length = pread(active, name, sizeof name, 0);
+
+	return length < 0 || (length == 5 && !memcmp(name, "tty1\n", 5));
+}
+
+static gboolean on_switch(int active, GIOCondition condition, gpointer data)
+{
+	if (!on_vt1(active))
+		exit(0);
+	return G_SOURCE_CONTINUE;
+}
+
 int main(int argc, char **argv)
 {
 	if (argc != 2)
 		die("usage: kiosk-browser URL");
+	url = argv[1];
+
+	int active = open("/sys/class/tty/tty0/active", O_RDONLY | O_CLOEXEC);
+	while (!on_vt1(active)) {
+		poll(&(struct pollfd){ .fd = active, .events = POLLPRI }, 1, PERIOD * 1000);
+		sd_notify(0, "WATCHDOG=1");
+	}
 
 	WebKitSettings *settings = webkit_settings_new_with_settings("enable-developer-extras", TRUE, NULL);
+	g_autoptr(WebKitFeatureList) features = webkit_settings_get_all_features();
+	WebKitFeature *damage = webkit_feature_list_find(features, "PropagateDamagingInformation");
+
+	if (!damage)
+		die("this WebKit has no PropagateDamagingInformation");
+	webkit_settings_set_feature_enabled(settings, damage, FALSE);
 	WebKitWebView *view = g_object_new(WEBKIT_TYPE_WEB_VIEW,
 		"network-session", webkit_network_session_new_ephemeral(), "settings", settings, NULL);
 
 	g_signal_connect(view, "load-failed", G_CALLBACK(on_load_failed), NULL);
 	g_signal_connect(view, "load-changed", G_CALLBACK(on_load_changed), NULL);
 	g_signal_connect(view, "web-process-terminated", G_CALLBACK(on_terminated), NULL);
-	webkit_web_view_load_uri(view, argv[1]);
+	load(view);
 	g_timeout_add_seconds(PERIOD, ask, view);
+	g_unix_fd_add(active, G_IO_PRI, on_switch, NULL);
 	g_main_loop_run(g_main_loop_new(NULL, FALSE));
 }

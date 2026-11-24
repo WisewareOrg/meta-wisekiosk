@@ -116,8 +116,11 @@ class Console(Part):
         self._board.run("systemctl kill -s KILL getty@tty2.service")
 
     def _restore(self) -> None:
-        """Put vt1 back in the foreground with a fresh tty2 login."""
+        """Put vt1 back in the foreground with a fresh tty2 login, and wait for the page to be back on the panel."""
         self._keyboard.press_vt1_chord()
         self._kill_tty2_login()
         self._bring_vt1_forward()
         assert self._foreground_vt() == "1", "vt1 is not the foreground console after the test"
+        self._board.seconds_until(
+            lambda: [plane.allocated_by for plane in self._board.screen.planes()] == ["kiosk-browser"]
+        )

@@ -295,7 +295,7 @@ local_conf_header:
     # unconditionally, so they are stripped here rather than at the platform
     # include (which only controls this project's own append).
     #
-    # keyboard and usbhost are deliberately KEPT: a USB keyboard on tty1 is the
+    # keyboard and usbhost are deliberately KEPT: a USB keyboard on tty2 is the
     # only way into this device if the network is gone, and the panel is the
     # console.
     MACHINE_FEATURES:remove = "bluetooth alsa touchscreen serial"

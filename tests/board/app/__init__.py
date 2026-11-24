@@ -70,16 +70,11 @@ class App(Part):
         self.kiosk = Unit(board, "kiosk.service")
         self._web_processes = Process(board, "WPEWebProcess", parent="kiosk-browser")
 
-    def install_probe(self, restart_browser: bool = True) -> None:
-        """Turn on the browser's inspector, through which the probe is put in the page, until the test ends.
-
-        Args:
-            restart_browser: restart the browser so it has the inspector now; else its next start has it.
-        """
+    def install_probe(self) -> None:
+        """Turn on the browser's inspector, through which the probe is put in the page, until the test ends."""
         self._board.cleanup.callback(self.kiosk.restart)
         self.kiosk.drop_in(f"[Service]\\nEnvironment={Inspector.ENVIRONMENT}\\n")
-        if restart_browser:
-            self.kiosk.restart()
+        self.kiosk.restart()
 
     def is_served(self) -> bool:
         """Whether the backend serves the instance's page.
@@ -243,7 +238,6 @@ class App(Part):
         self.backend.unmask_later(self._board.GIVE_UP_SECONDS)
         with invalid_if("the backend was not held back across the restart"):
             assert not self.backend.is_active()
-        self.install_probe(restart_browser=False)
         return self._answers_after_a_load_without_it(self.backend.unmask)
 
     def loaded_the_instance(self) -> bool:
@@ -289,12 +283,12 @@ class App(Part):
         return self._board.wait_for(answered_since)
 
     def _failed_a_load(self) -> bool:
-        """Whether the browser has exited on a load that failed, and been started again, since it was last started.
+        """Whether the browser has failed a load since it was last started, as kiosk.service's status says.
 
         Returns:
             True if it has.
         """
-        return int(self._kiosk_property("NRestarts")) > 0
+        return self._kiosk_property("StatusText").startswith("load failed")
 
     def _kiosk_property(self, name: str) -> str:
         """Read a property of kiosk.service.
