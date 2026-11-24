@@ -15,6 +15,8 @@ EnvironmentFile=-/data/config/kiosk.conf
 ExecStart=/usr/bin/kiosk-browser $KIOSK_URL
 Restart=always
 RestartSec=10
+# The page answers every 5 s; see kiosk-browser.c.
+WatchdogSec=30
 
 [Install]
 WantedBy=multi-user.target

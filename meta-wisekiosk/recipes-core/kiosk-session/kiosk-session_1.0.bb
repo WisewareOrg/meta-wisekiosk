@@ -7,7 +7,7 @@ SRC_URI = "file://kiosk.service file://kiosk-browser.c"
 # UNPACKDIR/sources layout is a later-release convention.
 S = "${WORKDIR}"
 
-DEPENDS = "wpewebkit"
+DEPENDS = "wpewebkit systemd"
 # WPE crashes at start without a keymap, and opens libEGL at run time.
 RDEPENDS:${PN} = "xkeyboard-config libegl-mesa"
 
@@ -17,8 +17,8 @@ SYSTEMD_SERVICE:${PN} = "kiosk.service"
 SYSTEMD_AUTO_ENABLE = "enable"
 
 do_compile() {
-    ${CC} ${CFLAGS} $(pkg-config --cflags wpe-webkit-2.0) -o kiosk-browser kiosk-browser.c \
-        ${LDFLAGS} $(pkg-config --libs wpe-webkit-2.0)
+    ${CC} ${CFLAGS} $(pkg-config --cflags wpe-webkit-2.0 libsystemd) -o kiosk-browser kiosk-browser.c \
+        ${LDFLAGS} $(pkg-config --libs wpe-webkit-2.0 libsystemd)
 }
 
 do_install() {

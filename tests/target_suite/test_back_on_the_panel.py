@@ -92,11 +92,7 @@ class TestBackOnThePanel(BoardTest):
         assert back_s <= 160, f"on the panel after {back_s} s; TST006's bound is 160 s"
 
     def test_frozen_page_recovered(self) -> None:
-        """TST005: freeze the page showing a clock with seconds, then time until the panel is changing again.
-
-        The page is frozen only once the instance is on the panel, which the probe reports when surf has
-        finished loading it: surf watches a page for answers only from then on.
-        """
+        """TST005: freeze the page showing a clock with seconds, then time until the panel is changing again."""
         self.record(requirement="TST005")
         self.board.app.install_probe()
         self.board.app.config.use(CLOCK_WITH_SECONDS)
@@ -127,14 +123,14 @@ class TestBackOnThePanel(BoardTest):
 
 
 class TestPanelNeverBlanks(BoardTest):
-    """With nobody at the panel, the display server does not blank it."""
+    """With nobody at the panel, nothing blanks it."""
 
     def test_display_blanking_disabled(self) -> None:
-        """TST007: the display server's screen saver timeout is zero and its power management is disabled."""
+        """TST007: the screen is powered, and the console does not blank it."""
         self.record(requirement="TST007")
 
-        screen_saver_timeout_s, dpms_enabled = self.board.screen.blanking()
+        power, console_blank_s = self.board.screen.blanking()
 
-        self.record(screen_saver_timeout_s=screen_saver_timeout_s, dpms_enabled=dpms_enabled)
-        assert screen_saver_timeout_s == 0, f"the screen saver's timeout is {screen_saver_timeout_s} s"
-        assert not dpms_enabled, "display power management is enabled"
+        self.record(power=power, console_blank_s=console_blank_s)
+        assert power == "On", f"the screen's power is {power}"
+        assert console_blank_s == 0, f"the console blanks the screen after {console_blank_s} s"

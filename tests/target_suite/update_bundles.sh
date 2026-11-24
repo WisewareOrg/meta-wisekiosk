@@ -6,19 +6,17 @@
 # Each is a copy of the candidate's bundle with its rootfs edited, an install-check hook that
 # refuses without this run's nonce, and the operator's signature.
 #
-# Usage: update_bundles.sh <run-dir> <nonce> <stamp> <probe-js>
+# Usage: update_bundles.sh <run-dir> <nonce> <stamp>
 #   run-dir   receives new-build.raucb, cannot-start.raucb, no-network.raucb,
 #             candidate.hash and candidate.path (the candidate bundle, relative to the repo)
 #   nonce     the content /tmp/kiosk-update-nonce must hold on the board for the hook to accept
 #   stamp     the value the new-build bundle's page carries in its kiosk-test-stamp meta tag
-#   probe-js  the in-page probe, as a path inside the container
 set -euo pipefail
 
-usage="usage: update_bundles.sh <run-dir> <nonce> <stamp> <probe-js>"
+usage="usage: update_bundles.sh <run-dir> <nonce> <stamp>"
 run_dir=${1:?$usage}
 nonce=${2:?$usage}
 stamp=${3:?$usage}
-probe_js=${4:?$usage}
 
 cd "$run_dir"
 work=$(mktemp -d "$run_dir/work.XXXXXX")
@@ -150,27 +148,16 @@ EOF
     require_inode "$image" "$page" "$uid" "$gid" "$mode"
 }
 
-install_the_probe() {
-    local image=$1
-    require_present "$image" /home/root
-    require_gone "$image" /home/root/.surf
+turn_the_inspector_on() {
+    local image=$1 dir=/etc/systemd/system/kiosk.service.d
+    require_present "$image" /etc/systemd/system
+    require_gone "$image" "$dir"
+    printf '[Service]\nEnvironment=WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:2999\n' > "$work/inspector.conf"
     edit "$image" <<EOF
-mkdir /home/root/.surf
-write $probe_js /home/root/.surf/script.js
-set_inode_field /home/root/.surf uid 0
-set_inode_field /home/root/.surf gid 0
-set_inode_field /home/root/.surf mode 040755
-set_inode_field /home/root/.surf/script.js uid 0
-set_inode_field /home/root/.surf/script.js gid 0
-set_inode_field /home/root/.surf/script.js mode 0100644
+mkdir $dir
+write $work/inspector.conf $dir/inspector.conf
 EOF
-    require_inode "$image" /home/root/.surf 0 0 0755
-    require_inode "$image" /home/root/.surf/script.js 0 0 0644
-    debugfs -R "dump /home/root/.surf/script.js $work/script.check.js" "$image" 2> /dev/null
-    cmp -s "$probe_js" "$work/script.check.js" || {
-        echo "update_bundles.sh: the probe did not reach the image intact" >&2
-        exit 1
-    }
+    require_present "$image" "$dir/inspector.conf"
 }
 
 remove_paths() {
@@ -248,7 +235,7 @@ build_bundle() {
     case "$kind" in
         new-build)
             stamp_the_page "$dir/$rootfs_name"
-            install_the_probe "$dir/$rootfs_name"
+            turn_the_inspector_on "$dir/$rootfs_name"
             ;;
         cannot-start)
             remove_paths "$dir/$rootfs_name" /usr/sbin/init /usr/bin/sh

@@ -160,12 +160,11 @@ def device_context(target: Target, record_property: Callable[[str, object], None
     with Board(target) as board:
         # the browser starts some seconds after ssh does following a restart
         board.seconds_until(board.app.browser.is_running)
-        pid = board.run("pgrep -x surf", check=True).text.partition("\n")[0]
+        pid = board.run("pgrep -x kiosk-browser", check=True).text.partition("\n")[0]
         hashed = " ".join((board.app.config.LIVE_PATH, *_HASHED_PATHS))
         sums = board.run("sha256sum " + hashed)
         assert sums.returncode in (0, 1), f"sha256sum failed (rc {sums.returncode}): {chr(10).join(sums.stderr)}"
         environ = board.run(f"tr '\\0' '\\n' < /proc/{pid}/environ", check=True).text.splitlines()
-        xrandr = board.run("DISPLAY=:0 xrandr", check=True).text.splitlines()
         facts = {
             "boot_id": board.boot_id(),
             "uptime_s": board.uptime_s(),
@@ -173,7 +172,7 @@ def device_context(target: Target, record_property: Callable[[str, object], None
             "file_sha256": "\n".join(sums.stdout),
             "browser_cmdline_sha256": board.run(f"sha256sum /proc/{pid}/cmdline", check=True).text.split()[0],
             "browser_webkit_env": ",".join(line for line in environ if line.startswith("WEBKIT_")),
-            "display_mode": next((line.strip() for line in xrandr if "*" in line), ""),
+            "display_mode": "{}x{}".format(*board.screen.mode()),
             "timesync": board.run("timedatectl show -p NTPSynchronized --value", check=True).text,
             "start": datetime.now(UTC).isoformat(),
         }

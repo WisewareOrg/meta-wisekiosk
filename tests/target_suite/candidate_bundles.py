@@ -13,7 +13,6 @@ import pytest
 
 _REPO = Path(__file__).resolve().parents[2]
 _BUNDLES_SCRIPT = "/work/tests/target_suite/update_bundles.sh"
-_PROBE = "/work/tests/target_suite/probe.js"
 
 
 class CandidateBundles(NamedTuple):
@@ -61,7 +60,7 @@ class CandidateBundles(NamedTuple):
                 "shell",
                 "kiosk-zero-w.yaml",
                 "-c",
-                f"bash {_BUNDLES_SCRIPT} {run_dir} {nonce} {stamp} {_PROBE}",
+                f"bash {_BUNDLES_SCRIPT} {run_dir} {nonce} {stamp}",
             ],
             cwd=_REPO,
             env={**os.environ, "KAS_RUN_TMP_DIR": str(run_dir)},

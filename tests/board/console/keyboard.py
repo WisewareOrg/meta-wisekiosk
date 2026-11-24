@@ -121,7 +121,7 @@ class Keyboard(Part):
 
         Args:
             delay: seconds from now to the start.
-            bounds: `keyboard.sh`'s bound on each phase's wait, in its order: device, X opened,
+            bounds: `keyboard.sh`'s bound on each phase's wait, in its order: device, browser opened,
                 console, shell, marker.
         """
         self._board.run_later(_UNIT, delay, f"/bin/sh {_DIR}/keyboard.sh {' '.join(str(b) for b in bounds)}")

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from board.app.backend import Backend
 from board.app.config import Config
+from board.app.inspector import Inspector
 from board.part import Part, invalid_if
 from board.process import Process
 from board.unit import Unit
@@ -21,15 +22,9 @@ if TYPE_CHECKING:
 _FETCH = "wget -q -O- http://127.0.0.1:8080/"
 _FETCH_TIMEOUT_SECONDS = 10
 _PROBE = Path(__file__).resolve().parents[2] / "target_suite" / "probe.js"
-_SURF_SCRIPT = "/home/root/.surf/script.js"
 _OWN_ORIGINS = ("http://localhost:8080", "http://127.0.0.1:8080")
 # what opens the title the probe writes its report into
 PROBE_TITLE = "WK1 "
-_WM_NAME = re.compile(r'WM_NAME\(\w+\) = "(.*)"$')
-_TITLES = (
-    "for id in $(DISPLAY=:0 xwininfo -root -tree 2>/dev/null | awk '/^ +0x/ { print $1 }'); do "
-    'DISPLAY=:0 xprop -id "$id" WM_NAME 2>/dev/null; done'
-)
 # the replayed page complete: four park cards, all live
 _ALL_CARDS_LIVE = "4/4"
 # the edges of the probe's histogram of frame intervals, as the probe itself sets them
@@ -49,14 +44,16 @@ class App(Part):
 
     Attributes:
         backend: wisekiosk.service, which serves the instance's page.
-        browser: the browser, surf.
+        browser: the browser, kiosk-browser.
         config: the config the app runs with.
-        kiosk: kiosk.service, which runs X and the browser.
+        inspector: the browser's remote inspector.
+        kiosk: kiosk.service, which runs the browser.
     """
 
     backend: Backend
     browser: Process
     config: Config
+    inspector: Inspector
     kiosk: Unit
 
     def __init__(self, board: "Board") -> None:
@@ -67,23 +64,20 @@ class App(Part):
         """
         super().__init__(board)
         self.backend = Backend(board, "wisekiosk.service")
-        self.browser = Process(board, "surf")
+        self.browser = Process(board, "kiosk-browser")
         self.config = Config(board)
+        self.inspector = Inspector(board)
         self.kiosk = Unit(board, "kiosk.service")
-        self._web_processes = Process(board, "WebKitWebProcess", parent="surf")
+        self._web_processes = Process(board, "WPEWebProcess", parent="kiosk-browser")
 
     def install_probe(self, restart_browser: bool = True) -> None:
-        """Load the probe into the browser, until the test ends.
-
-        The browser restart's undo is registered before the bind mount, so when the test ends the probe
-        is unmounted and its copy removed before the browser restarts.
+        """Turn on the browser's inspector, through which the probe is put in the page, until the test ends.
 
         Args:
-            restart_browser: restart the browser so it loads the probe now; else its next page load loads it.
+            restart_browser: restart the browser so it has the inspector now; else its next start has it.
         """
-        self._board.run(f"mkdir -p {Path(_SURF_SCRIPT).parent} && touch {_SURF_SCRIPT}", check=True)
         self._board.cleanup.callback(self.kiosk.restart)
-        self._board.bind_over(_PROBE, _SURF_SCRIPT)
+        self.kiosk.drop_in(f"[Service]\\nEnvironment={Inspector.ENVIRONMENT}\\n")
         if restart_browser:
             self.kiosk.restart()
 
@@ -204,9 +198,8 @@ class App(Part):
     def freeze_page(self) -> float:
         """Freeze the page without ending the browser: stop its web processes, until the test ends.
 
-        The page must have finished loading: surf watches a page for answers, and reloads one that stops
-        answering, only from then on. The check is invalid if the panel was not changing before the
-        freeze, the browser had no web process to stop, or the panel did not stand still after the freeze.
+        The check is invalid if the panel was not changing before the freeze, the browser had no web process
+        to stop, or the panel did not stand still after the freeze.
 
         Returns:
             The host `time.monotonic()` just before the freeze.
@@ -238,8 +231,8 @@ class App(Part):
         """Restart the board's userspace with the backend held back until the browser has started.
 
         The backend is masked for this boot across a soft reboot, then let go once the browser has loaded a
-        page without it; the check is invalid if the hold did not survive the restart or the browser loaded
-        nothing while it held. A board-side timer lets the backend go anyway once the wait would have
+        page without it; the check is invalid if the hold did not survive the restart or the browser tried no
+        load while it held. A board-side timer lets the backend go anyway once the wait would have
         given up, in case the host goes away.
 
         Returns:
@@ -254,17 +247,17 @@ class App(Part):
         return self._answers_after_a_load_without_it(self.backend.unmask)
 
     def loaded_the_instance(self) -> bool:
-        """Whether the browser has finished loading the instance's page, whose title is `WiseKiosk`.
+        """Whether the browser has finished loading the instance's page, as kiosk.service's status says.
 
         Returns:
-            True if a window carries it, loaded.
+            True if it has.
         """
-        return any(not title.startswith("[") and title.endswith(" | WiseKiosk") for title in self._titles())
+        return self._kiosk_property("StatusText") == "loaded"
 
     def _answers_after_a_load_without_it(self, release: Callable[[], None]) -> float:
-        """Wait until the browser has loaded a page with the backend held down, then let it go.
+        """Wait until the browser has failed to load the page with the backend held down, then let it go.
 
-        The check is invalid if the browser loaded nothing, or the backend answered first.
+        The check is invalid if the browser tried no load, or the backend answered first.
 
         Args:
             release: lets the backend go.
@@ -274,8 +267,8 @@ class App(Part):
             just before the release if none did. The backend first answered after it, so the time counted
             from it can only overstate.
         """
-        with invalid_if("the browser did not load a page while the backend was down"):
-            self._board.seconds_until(self._loaded_a_page)
+        with invalid_if("the browser did not try a load while the backend was down"):
+            self._board.seconds_until(self._failed_a_load)
             assert not self.is_served(), "the backend answered first"
         last_unanswered = time.monotonic()
         release()
@@ -295,37 +288,39 @@ class App(Part):
 
         return self._board.wait_for(answered_since)
 
-    def _titles(self) -> list[str]:
-        """Read every window's title.
+    def _failed_a_load(self) -> bool:
+        """Whether the browser has exited on a load that failed, and been started again, since it was last started.
 
         Returns:
-            The titles.
+            True if it has.
         """
-        return [match[1] for match in map(_WM_NAME.match, self._board.run(_TITLES).stdout) if match]
+        return int(self._kiosk_property("NRestarts")) > 0
 
-    def _loaded_a_page(self) -> bool:
-        """Whether the browser has finished loading a page.
+    def _kiosk_property(self, name: str) -> str:
+        """Read a property of kiosk.service.
 
-        surf titles a window `<indicators> | <page title>`, prefixed `[NN%] ` while a page loads.
+        Args:
+            name: the property.
 
         Returns:
-            True if a window carries a finished page's title.
+            Its value.
         """
-        return any(not title.startswith("[") and title.partition(" | ")[2] for title in self._titles())
+        return self._board.run(f"systemctl show -p {name} --value {self.kiosk.name}", check=True).text
 
     def report(self) -> dict[str, str] | None:
-        """Read the probe's latest report, from the title it writes.
+        """Put the probe in the page if it is not there, and read its latest report.
 
         Returns:
-            Each `key=value` token of the report, or None if no window carries one.
+            Each `key=value` token of the report, or None if there is no page to read it in.
         """
-        for title in self._titles():
-            if PROBE_TITLE in title:
-                tokens = title.split(PROBE_TITLE, 1)[1].split()
-                report = dict(token.split("=", 1) for token in tokens if "=" in token)
-                if {"state", "origin"} <= report.keys():
-                    return report
-        return None
+        try:
+            title = self.inspector.evaluate(f"{_PROBE.read_text()}\ndocument.title")
+        except Inspector.ERRORS:
+            return None
+        if not isinstance(title, str) or not title.startswith(PROBE_TITLE):
+            return None
+        report = dict(token.split("=", 1) for token in title.removeprefix(PROBE_TITLE).split() if "=" in token)
+        return report if {"state", "origin"} <= report.keys() else None
 
     def _page_time_reached(self, since: dict[str, str], seconds: float) -> dict[str, str]:
         """Read the probe until `seconds` of page time have passed since the report `since`, or the page reloaded.

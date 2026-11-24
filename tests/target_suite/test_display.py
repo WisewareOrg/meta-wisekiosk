@@ -1,5 +1,6 @@
 """Target suite: the panel shows nothing but the instance, at the minimum resolution."""
 
+from board.screen import Plane
 from board_test import BoardTest
 
 # TST031's floor
@@ -15,26 +16,23 @@ class TestDisplay(BoardTest):
         self.board.app.wait_until_on_panel()
 
     def test_pointer_display_disabled(self) -> None:
-        """TST013: the options the display server was started with disable the pointer's display."""
+        """TST013: the screen shows no pointer, which is drawn on a plane of its own."""
         self.record(requirement="TST013")
 
-        options = self.board.screen.x_server_options()
+        planes = self.board.screen.planes()
 
-        self.record(x_server_options=" ".join(options))
-        assert "-nocursor" in options, f"X runs without -nocursor: {options}"
+        self.record(planes=str(planes))
+        assert len(planes) == 1, f"the screen shows more than one plane: {planes}"
 
     def test_instance_covers_the_panel(self) -> None:
-        """TST030: the instance's window is shown over the whole panel, and no window shown above it overlaps it."""
+        """TST030: the screen shows the browser over the whole panel, and nothing above it."""
         self.record(requirement="TST030")
 
-        layout = self.board.screen.window_layout()
+        planes = self.board.screen.planes()
+        width, height = self.board.screen.mode()
 
-        self.record(window_layout=layout.text)
-        instance, panel = layout.instance, layout.panel
-        assert instance.shown, f"the instance's window is {instance.map_state}"
-        assert instance.contains(panel), f"the instance's window {instance} does not cover the panel {panel}"
-        overlapping = [window for window in layout.above(instance) if window.shown and window.overlaps(panel)]
-        assert not overlapping, f"shown above the instance and over the panel: {overlapping}"
+        self.record(planes=str(planes), display_mode=f"{width}x{height}")
+        assert planes == [Plane("kiosk-browser", f"{width}x{height}+0+0")], f"the screen shows {planes}"
 
     def test_minimum_resolution(self) -> None:
         """TST031: the display mode the panel is driven at, and the page's layout size, are each at least 1280x720."""

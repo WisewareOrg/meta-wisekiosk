@@ -212,6 +212,17 @@ class Board:
         """
         return self._ssh.forward_remote_port(remoteport=remote, localport=local)
 
+    def forward_local_port(self, remote: int) -> contextlib.AbstractContextManager[int]:
+        """Forward a port of the host to the board's port `remote`.
+
+        Args:
+            remote: port on the board.
+
+        Returns:
+            labgrid's forwarding context manager, which gives the host's port.
+        """
+        return self._ssh.forward_local_port(remote)
+
     def unmount_if_mounted(self, path: str) -> None:
         """Unmount `path` on the board if it is a mount point; a path that is not one is fine.
 

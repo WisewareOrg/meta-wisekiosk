@@ -14,7 +14,7 @@ from board.part import Part, invalid_if
 if TYPE_CHECKING:
     from board import Board
 
-# `keyboard.sh`'s bounds on each wait, in its order: device, X opened, console, shell, marker
+# `keyboard.sh`'s bounds on each wait, in its order: device, browser opened, console, shell, marker
 _BOUNDS_SECONDS = (10, 20, 20, 20, 10)
 # the supplicant's leaving COMPLETED after the outage cuts, before `keyboard.sh` starts
 _KEYBOARD_START_SECONDS = Outage.CUT_DELAY_SECONDS + 5
