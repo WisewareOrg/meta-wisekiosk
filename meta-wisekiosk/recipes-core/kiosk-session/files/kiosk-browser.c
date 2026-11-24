@@ -3,10 +3,11 @@
  * Runs the page only while vt1 is in front: it waits, petting systemd's
  * watchdog, until vt1 is, and exits 0 when another console is switched to,
  * leaving the panel to that console. A page that fails to load is tried again
- * every PERIOD seconds, with the error as the status. It exits 1 when its web
- * process ends, and pets the watchdog each time the page answers, so
- * kiosk.service brings back a page that stops. Its status is "loaded" and the
- * page's title once the page has loaded.
+ * every PERIOD seconds, with the error as the status; the first failure since
+ * a page last loaded is logged. It exits 1 when its web process ends, and pets
+ * the watchdog each time the page answers, so kiosk.service brings back a page
+ * that stops. Its status is "loaded" and the page's title once the page has
+ * loaded.
  */
 #include <fcntl.h>
 #include <glib-unix.h>
@@ -20,6 +21,10 @@
 #define PERIOD 5
 
 static const char *url;
+/* the load under way failed or was cancelled */
+static gboolean failed;
+/* a failure has been logged since a page last loaded */
+static gboolean logged;
 
 static void die(const char *why)
 {
@@ -35,19 +40,28 @@ static gboolean load(gpointer view)
 
 static gboolean on_load_failed(WebKitWebView *view, WebKitLoadEvent event, char *uri, GError *error)
 {
+	failed = TRUE;
 	if (g_error_matches(error, WEBKIT_NETWORK_ERROR, WEBKIT_NETWORK_ERROR_CANCELLED))
 		return FALSE;
+	if (!logged)
+		g_printerr("kiosk-browser: load of %s failed: %s, retrying every %d s\n", uri, error->message, PERIOD);
+	logged = TRUE;
 	sd_notifyf(0, "STATUS=load failed: %s", error->message);
 	g_timeout_add_seconds(PERIOD, load, view);
 	return FALSE;
 }
 
+/* A load that failed is FINISHED too, with the last page's title still set. */
 static void on_load_changed(WebKitWebView *view, WebKitLoadEvent event)
 {
 	const char *title = webkit_web_view_get_title(view);
 
-	if (event == WEBKIT_LOAD_FINISHED && title && *title)
+	if (event == WEBKIT_LOAD_STARTED)
+		failed = FALSE;
+	if (event == WEBKIT_LOAD_FINISHED && !failed && title && *title) {
+		logged = FALSE;
 		sd_notifyf(0, "STATUS=loaded %s", title);
+	}
 }
 
 static void on_terminated(WebKitWebView *view, WebKitWebProcessTerminationReason reason)
@@ -69,7 +83,8 @@ static gboolean ask(gpointer view)
 	return G_SOURCE_CONTINUE;
 }
 
-/* Reading the file from its start is what arms the next poll for a switch. */
+/* Reading the file from its start is what arms the next poll for a switch.
+ * A file that cannot be read counts as vt1, so the page is shown. */
 static gboolean on_vt1(int active)
 {
 	char name[16];
@@ -98,6 +113,7 @@ int main(int argc, char **argv)
 	}
 
 	WebKitSettings *settings = webkit_settings_new_with_settings("enable-developer-extras", TRUE, NULL);
+	/* Repaint the whole frame, not only its damaged parts. */
 	g_autoptr(WebKitFeatureList) features = webkit_settings_get_all_features();
 	WebKitFeature *damage = webkit_feature_list_find(features, "PropagateDamagingInformation");
 

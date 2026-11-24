@@ -10,10 +10,12 @@ Type=simple
 # applies these in file order, so a provisioned kiosk.conf overrides it; the
 # leading dash makes the file optional.
 Environment=KIOSK_URL=http://localhost:8080
-Environment=WPE_PLATFORM=drm
 # WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:2999 in it turns the remote inspector on.
 EnvironmentFile=-/data/config/kiosk.conf
+# A display that cannot be opened aborts the browser with the reason, rather than leaving it without a view.
+Environment=WPE_PLATFORM=drm
 ExecStart=/usr/bin/kiosk-browser $KIOSK_URL
+# The launcher exits 0 when the panel is switched to another console; only always brings the page back.
 Restart=always
 RestartSec=10
 # The page answers every 5 s; see kiosk-browser.c.

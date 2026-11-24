@@ -42,14 +42,17 @@ class Screen(Part):
         dpms, console = self._board.run(f"cat {_DPMS} {_CONSOLE_BLANK}", check=True).stdout
         return dpms, int(console)
 
-    def planes(self) -> list[Plane]:
+    def planes(self, state: str | None = None) -> list[Plane]:
         """Read the planes the screen shows.
+
+        Args:
+            state: the display driver's state as read earlier; if None, it is read now.
 
         Returns:
             Each plane with a buffer.
         """
         planes = []
-        for match in _PLANE.finditer(self._state()):
+        for match in _PLANE.finditer(self._state() if state is None else state):
             fields = dict(re.findall(r"^\s+([\w -]+?) ?= ?\[?([^\]\n]+)", match[0], re.MULTILINE))
             if fields["fb"] != "0":
                 planes.append(Plane(fields["allocated by"], fields["crtc-pos"]))

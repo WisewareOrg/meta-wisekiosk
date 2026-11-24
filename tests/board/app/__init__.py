@@ -283,7 +283,7 @@ class App(Part):
         return self._board.wait_for(answered_since)
 
     def _failed_a_load(self) -> bool:
-        """Whether the browser has failed a load since it was last started, as kiosk.service's status says.
+        """Whether the browser's last report, in kiosk.service's status, is a failed load.
 
         Returns:
             True if it has.
