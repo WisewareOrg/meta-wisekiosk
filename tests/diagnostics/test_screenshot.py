@@ -29,7 +29,8 @@ _PAINT = """(() => {
 _SETTLE_SECONDS = 3
 # rounding in the page's own colour handling; a misplaced pixel is at least 4 places out
 _TOLERANCE = 2
-_RED = "printf '\\033[41m\\033[2J' > /dev/tty2"
+# the text keeps the red console from being a flat frame, which the tool calls blank
+_RED = "printf '\\033[41m\\033[2Jconsole' > /dev/tty2"
 _BLACK = "printf '\\033[?25l\\033[40m\\033[2J' > /dev/tty2"
 
 
