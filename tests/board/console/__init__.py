@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, NamedTuple
 from board.console.keyboard import Keyboard, TypedMarker
 from board.network.outage import Outage
 from board.part import Part, invalid_if
+from board.screen import Plane
 
 if TYPE_CHECKING:
     from board import Board
@@ -32,15 +33,17 @@ class Typed(NamedTuple):
         word: what the command was typed to write first.
         marker: what the command wrote; empty if it did not run.
         progress: `keyboard.sh`'s log of how far it got.
+        panel: the planes the panel was showing once the outage had ended.
     """
 
     word: str
     marker: TypedMarker
     progress: str
+    panel: list[Plane]
 
 
 class Console(Part):
-    """The board's virtual terminals: X on vt1, and a login prompt on tty2."""
+    """The board's virtual terminals: the page on vt1, and a login prompt on tty2."""
 
     def __init__(self, board: "Board") -> None:
         """Bind to the board.
@@ -79,6 +82,7 @@ class Console(Part):
         self._board.reconnect()
         with invalid_if("the board restarted during the outage, and the evidence in /tmp with it"):
             assert self._board.boot_id() == boot_id
+        panel = self._board.screen.planes()
         lines, phases = self._keyboard.typed_record()
         with invalid_if(f"the virtual keyboard was not created: {self._keyboard.journal()}"):
             assert "device" in phases
@@ -87,7 +91,7 @@ class Console(Part):
             record = outage.read_record()
             with invalid_if(f"the record does not show the board cut off when the command ran: {record.lines}"):
                 assert record.offline_at(marker.uptime)
-        return Typed(word, marker, "\n".join(lines))
+        return Typed(word, marker, "\n".join(lines), panel)
 
     def _foreground_vt(self) -> str:
         """Read the virtual terminal in the foreground.
@@ -99,9 +103,9 @@ class Console(Part):
         return fgconsole.text if fgconsole.returncode == 0 else ""
 
     def _bring_vt1_forward(self) -> None:
-        """Make vt1 the foreground terminal, restarting `kiosk.service`, whose X takes vt1, if it is not."""
+        """Make vt1 the foreground terminal, switching to it if it is not."""
         if self._foreground_vt() != "1":
-            self._board.app.kiosk.restart()
+            self._board.run("chvt 1")
             self._board.seconds_until(lambda: self._foreground_vt() == "1")
 
     def _kill_tty2_login(self) -> None:

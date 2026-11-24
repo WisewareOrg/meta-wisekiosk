@@ -12,6 +12,14 @@ class TestKeyboard(BoardTest):
 
         typed = self.board.console.type_offline()
 
-        self.record(terminal=typed.marker.terminal, word_written=typed.marker.word, keyboard_progress=typed.progress)
+        self.record(
+            terminal=typed.marker.terminal,
+            word_written=typed.marker.word,
+            keyboard_progress=typed.progress,
+            panel=str(typed.panel),
+        )
         assert typed.marker.terminal == "/dev/tty2", f"the command did not run at tty2's login: {typed}"
         assert typed.marker.word == typed.word, f"the command ran, but did not write what was typed: {typed}"
+        assert [plane.allocated_by for plane in typed.panel] == ["fbcon"], (
+            f"the panel showed {typed.panel}, not the console"
+        )

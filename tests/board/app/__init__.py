@@ -247,12 +247,12 @@ class App(Part):
         return self._answers_after_a_load_without_it(self.backend.unmask)
 
     def loaded_the_instance(self) -> bool:
-        """Whether the browser has finished loading the instance's page, as kiosk.service's status says.
+        """Whether the browser has loaded the instance's page, the one titled WiseKiosk, as kiosk.service's status says.
 
         Returns:
             True if it has.
         """
-        return self._kiosk_property("StatusText") == "loaded"
+        return self._kiosk_property("StatusText") == "loaded WiseKiosk"
 
     def _answers_after_a_load_without_it(self, release: Callable[[], None]) -> float:
         """Wait until the browser has failed to load the page with the backend held down, then let it go.

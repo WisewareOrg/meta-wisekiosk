@@ -19,7 +19,7 @@ reviewed: TRago_LC1V-fpLNMbcm1z74IdamG8UvVtp9O6sqSwjs=
 status: proposed
 text: |
   With the appliance's network unavailable, attach a keyboard at the appliance's input layer and log
-  in with it. Pass if a command typed there runs.
+  in with it. Pass if a command typed there runs, and the panel shows the console it is typed at.
 verification-justification: |
   Test. It exercises the capability and reads the result mechanically; the pass condition needs no
   judgement.
