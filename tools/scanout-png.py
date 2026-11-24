@@ -76,7 +76,7 @@ class Scanout:
             odd = y >> 5 & 1
             row = bytearray()
             for x in range(0, self._pitch // 4, 4):
-                tile_x = across - 1 - (x >> 5) if odd else x >> 5
+                tile_x = x >> 5
                 subtile = _SUBTILES[odd][(y >> 4 & 1) << 1 | (x >> 4 & 1)]
                 at = 4096 * ((y >> 5) * across + tile_x) + 1024 * subtile
                 at += 64 * ((y >> 2 & 3) << 2 | (x >> 2 & 3)) + 16 * (y & 3)
