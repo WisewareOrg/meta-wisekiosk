@@ -33,7 +33,7 @@ status host:
 
 # === Diagnostics ===
 #
-# Thin wrappers over tools/kiosk-*.sh, except bootprofile, which runs through the
+# Thin wrappers over tools/kiosk-*, except bootprofile, which runs through the
 # bench runner. The reasoning behind each check lives in the script it wraps (or,
 # for bootprofile, tests/diagnostics/test_boot_profile.py);
 # .claude/skills/kiosk-debug/SKILL.md decides which one a given symptom calls for.

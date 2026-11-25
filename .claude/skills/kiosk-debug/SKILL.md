@@ -3,7 +3,7 @@ name: kiosk-debug
 description: >-
   Diagnose a running wisekiosk device that has no keyboard, no visible console and a display
   whose correct state is a black screen. Decides which instrument to reach for — TCP-state
-  inference, a screenshot, a soak read, or a boot profile — and drives the tools/kiosk-*.sh
+  inference, a screenshot, a soak read, or a boot profile — and drives the tools/kiosk-*
   scripts behind them (the boot profile runs through `just bootprofile`, a pytest check driven
   by the bench runner, not one of those scripts). Invoke when the kiosk is unreachable, blank,
   stale, suspected of leaking memory, or slow to come up, and when a boot-time change needs
