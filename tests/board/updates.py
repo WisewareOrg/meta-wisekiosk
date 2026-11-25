@@ -8,6 +8,7 @@ import re
 import signal
 import subprocess
 import time
+from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import TYPE_CHECKING, NamedTuple
 
@@ -58,6 +59,24 @@ class Update(NamedTuple):
     booted_before: str
     booted_after: str
     restarted_at: float | None
+
+
+class Watched(NamedTuple):
+    """An install whose slot write was watched.
+
+    Attributes:
+        returncode: the install tool's return code; 0 installed.
+        output: the tool's combined output.
+        seconds: how long the install took.
+        write_began: the host `time.monotonic()` at which RAUC's copy was first seen; None if never.
+        write_ended: the instant it was last seen; None if never.
+    """
+
+    returncode: int
+    output: str
+    seconds: float
+    write_began: float | None
+    write_ended: float | None
 
 
 class Offered(NamedTuple):
@@ -229,6 +248,45 @@ class Updates(Part):
             raise
         return tool.returncode, output, round(time.monotonic() - started, 1)
 
+    def install_watched(self, bundle: pathlib.Path, while_writing: Callable[[], None], every_s: float) -> "Watched":
+        """Install `bundle`, calling `while_writing` every `every_s` seconds while RAUC copies the image.
+
+        The first call comes as soon as RAUC reports its copy step and the slot's device has been
+        written to. The install's own end is waited for.
+
+        Args:
+            bundle: the bundle on the host.
+            while_writing: called with no arguments on the test's thread; it must not raise.
+            every_s: the seconds between calls.
+
+        Returns:
+            How the install ended, and the host `time.monotonic()` instants at which the copy was first
+            and last seen.
+        """
+        device = self._other_slot_device(self.rauc_status())
+        _step, since = self._write_progress(device)
+        pool = ThreadPoolExecutor(max_workers=1)
+        installing = pool.submit(self.install_bundle, bundle, self.CANDIDATE_INSTALL_TIMEOUT_SECONDS)
+        began = ended = last_call = None
+        try:
+            while not installing.done():
+                try:
+                    writing = self._is_writing(installing, device, since)
+                except (AssertionError, *self._board.ERRORS):
+                    writing = False
+                now = time.monotonic()
+                if writing:
+                    began = began or now
+                    ended = now
+                    if last_call is None or now - last_call >= every_s:
+                        while_writing()
+                        last_call = time.monotonic()
+                time.sleep(1)
+        finally:
+            returncode, output, seconds = installing.result()
+            pool.shutdown()
+        return Watched(returncode, output, seconds, began, ended)
+
     def install_and_restart(self, bundle: pathlib.Path) -> Update:
         """Install `bundle` over the air and, if it installed, restart the board.
 
@@ -268,9 +326,7 @@ class Updates(Part):
         self.return_to_candidate_after_test(self.bundles)
         self.allow_test_bundle(bundle)
         status = self.rauc_status()
-        others = [slot["device"] for entry in status["slots"] for slot in entry.values() if slot["state"] != "booted"]
-        assert others, f"no slot other than the booted one in rauc status: {status!r}"
-        device = others[0]
+        device = self._other_slot_device(status)
         _step, written = self._write_progress(device)
         pool = ThreadPoolExecutor(max_workers=1)
         installing = pool.submit(self.install_bundle, bundle, self.CANDIDATE_INSTALL_TIMEOUT_SECONDS)
@@ -386,6 +442,19 @@ class Updates(Part):
         """
         stdout = self._board.run("journalctl --list-boots -o json", check=True, timeout=None).stdout
         return {boot["boot_id"] for boot in json.loads("\n".join(stdout))}
+
+    def _other_slot_device(self, status: dict) -> str:
+        """Name the device of the slot the board did not boot from.
+
+        Args:
+            status: RAUC's status.
+
+        Returns:
+            The device path.
+        """
+        others = [slot["device"] for entry in status["slots"] for slot in entry.values() if slot["state"] != "booted"]
+        assert others, f"no slot other than the booted one in rauc status: {status!r}"
+        return others[0]
 
     def _is_writing(self, installing: Future, device: str, since: int) -> bool:
         """Whether an install still running is copying the image into `device`, written to since `since`.
