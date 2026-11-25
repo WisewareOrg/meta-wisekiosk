@@ -16,11 +16,13 @@ install's stats, the first install's span, a reset (the boot id changed: that is
 is installed), an install that failed, or a write under `MIN_FULL_WRITE_MIB` (the full-slot build did not take).
 It waits until the board has been up `UP_AT_START_S` first, and fails only when no `timeleft` was read.
 
-The first A and the first B are the only installs alike to the old records; none are pooled.
+The first A and the first B are the only installs alike to the old records, so they are printed alone;
+the rest pool by arm, with the repeats' difference stated beside.
 
 Outside the regression suite: run by hand through the bench driver, last in its session.
 """
 
+import contextlib
 import re
 import subprocess
 import threading
@@ -52,6 +54,13 @@ FIRST_SPAN_STOP_S = 285
 # the first endpoint in arm A: PID 1 in state D within this many seconds of a journal start
 NEAR_START_BEFORE_S = 15
 NEAR_START_AFTER_S = 5
+# a start counts as overlapping the write from this long before it to this long after it ended
+OVERLAP_BEFORE_S = 5
+OVERLAP_AFTER_S = 15
+# the timer's next start reads as this while the soak unit runs
+NEXT_UNSET = 2**64 - 1
+NEXT_TRIES = 60
+SILENT_BOARD_S = 600
 UNDER_VOLTAGE = re.compile(r"\buv=1\b")
 UP_AT_START_S = 400
 A_LEAD_S = 225
@@ -77,11 +86,38 @@ def _wait_for_the_arm(board: Board, planned: str) -> float:
     Returns:
         The seconds waited.
     """
-    next_start = int(board.run(NEXT_START_CMD, check=True).text.split()[1])
+    next_start = NEXT_UNSET
+    for _try in range(NEXT_TRIES):
+        next_start = int(board.run(NEXT_START_CMD, check=True).text.split()[1])
+        if next_start != NEXT_UNSET:
+            break
+        time.sleep(5)
+    assert next_start != NEXT_UNSET, "the timer's next start was never set"
     ahead = next_start / 1e6 - board.uptime_s()
     wait = (ahead - A_LEAD_S) % SOAK_PERIOD_S if planned == "A" else ahead + AFTER_START_S
     time.sleep(max(0.0, wait))
     return max(0.0, wait)
+
+
+def _boot_id_after(board: Board) -> str | None:
+    """Read the boot id, reconnecting for up to `SILENT_BOARD_S` if the board does not answer.
+
+    Args:
+        board: the board under test.
+
+    Returns:
+        The boot id; None if the board did not answer in that time.
+    """
+    deadline = time.monotonic() + SILENT_BOARD_S
+    while True:
+        try:
+            return board.boot_id()
+        except Board.ERRORS:
+            if time.monotonic() >= deadline:
+                return None
+            with contextlib.suppress(AssertionError, *Board.ERRORS):
+                board.reconnect()
+            time.sleep(5)
 
 
 def _journal_starts(board: Board, boot: str) -> list[float]:
@@ -122,6 +158,7 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
     )
     collector = threading.Thread(target=_read, args=(reader, samples))
     collector.start()
+    endpoint = {"A": 0, "B": 0}
     dips = {"start": 0, "none": 0, "natural": 0, "void": 0}
     counted = {"start": 0, "none": 0, "natural": 0, "void": 0}
     stopped = "ended by an exception"
@@ -177,10 +214,10 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
                 stamps = [began, *(s.host for s in window), finished]
                 gaps = [b - a for a, b in zip(stamps, stamps[1:], strict=False) if b - a > GAP_S]
                 record_property(f"{key}.gaps_over_2s", gaps)
-            try:
-                boot_now = board.boot_id()
-            except Board.ERRORS:
-                boot_now = None
+            boot_now = _boot_id_after(board)
+            if boot_now is None:
+                stopped = f"install {number}: the board did not answer for {SILENT_BOARD_S} s"
+                break
             if boot_now != boot:
                 record_property(f"{key}.boot_changed", True)
                 stopped = f"install {number}: the boot id changed or could not be read: a reset is the result"
@@ -197,8 +234,17 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
                 write_from = _uptime_at(window, watched.write_began)
                 write_to = _uptime_at(window, watched.write_ended)
                 record_property(f"{key}.write_uptime", f"{write_from:.1f}-{write_to:.1f}")
-                in_write = [t for t in _journal_starts(board, boot) if write_from <= t <= write_to]
+                in_write = [
+                    t
+                    for t in _journal_starts(board, boot)
+                    if write_from - OVERLAP_BEFORE_S <= t <= write_to + OVERLAP_AFTER_S
+                ]
             record_property(f"{key}.journal_starts_in_write", in_write)
+            if write_from is not None and write_to > write_from:
+                record_property(
+                    f"{key}.start_share_of_write",
+                    " ".join(f"{(t - write_from) / (write_to - write_from):.2f}" for t in in_write),
+                )
             arm = ("start" if planned == "A" else "natural") if in_write else ("void" if planned == "A" else "none")
             record_property(f"{key}.arm_by_journal", arm)
             counted[arm] += 1
@@ -215,10 +261,9 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
             ]
             record_property(f"{key}.pid1_in_D_in_write", len(d_in_write))
             record_property(f"{key}.pid1_in_D_near_a_start", len(near))
-            record_property(
-                f"{key}.first_endpoint",
-                len(near) > 0 if planned == "A" else len(d_in_write) > 0,
-            )
+            reached = len(near) > 0 if planned == "A" else len(d_in_write) > 0
+            record_property(f"{key}.first_endpoint", reached)
+            endpoint[planned] += reached
         else:
             stopped = "all installs done"
     finally:
@@ -226,6 +271,7 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
         collector.join()
         record_property("stopped", stopped)
         record_property("installs_by_arm", counted)
+        record_property("first_endpoint_installs_by_planned_arm", endpoint)
         record_property("installs_with_a_dip_by_arm", dips)
         record_property("samples", len(samples))
 
