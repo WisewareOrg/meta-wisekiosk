@@ -6,7 +6,7 @@
 
 ## Revisions
 
-- **rev 2** — 2026-11-25 — a frozen page's recovery is stated as the browser service's restart delay and its backoff, not a fixed 10 s (the unit now restarts after 1 s; PR 378).
+- **rev 2** — 2026-11-25 — a frozen page's recovery is stated as the restart delay and the browser's start, not a fixed 10 s (the unit's restart delay changed; PR 378).
 - **rev 1** — 2026-11-25 — first written (#185 Evaluate WPE WebKit).
 
 ## Context
@@ -209,10 +209,7 @@ server and patches to another project's browser, for a page that needs none of t
   none of them was read on this stack.
 - **Behaviour that changes from the `surf` image:**
   - Restarting the kiosk's service does not bring the page's console forward; `chvt 1` does.
-  - A frozen page's recovery shows the console for the browser service's restart delay: 1 s for the first
-    restart, growing to 10 s if the browser keeps failing (`RestartSec=1`, `RestartSteps=4`,
-    `RestartMaxDelaySec=10` in `kiosk.service`). A console switch counts as a restart, so the fifth in one
-    boot waits 10 s. No test resolves the recovery's size.
+  - A frozen page's recovery shows the console for the restart delay and the browser's start.
   - The frozen-page watch covers start-up, and a page that answers with a script error is not alive.
     No test covers a page that hangs while loading.
   - Cookies and local storage do not survive a browser restart. The pinned application uses neither,
