@@ -64,7 +64,7 @@ installing one, `Updates.allow_test_bundle` confirms the board refuses it withou
 Every install the target suite makes goes through [`tools/kiosk-install.sh`](../tools/kiosk-install.sh),
 so the bench host needs Docker and a board that reaches the port Docker publishes for the install's
 server (one it chooses, per install) at the address the host's ssh session comes from. A plain LAN
-meets that, and so does WSL2 with Docker Desktop if it publishes the port on the Windows side; NAT or
+meets that, and so does WSL2 with Docker Desktop, which publishes the port on the Windows side; NAT or
 an ssh jump between the board and the host does not, and the install then fails to fetch the bundle.
 
 `bench run` also reads `[github]` — the GitHub App that posts the `bench-pipeline` check run, and the
