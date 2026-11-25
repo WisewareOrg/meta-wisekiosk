@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Self-test for the build lock in tools/kas-run.sh.
+# Self-test for tools/kas-run.sh: the build lock and the keys directory.
 #
 #   tools/kas-run-test.sh
 #
@@ -37,6 +37,8 @@ export LOG=$log
 cat > "$scratch/bin/kas-container" <<'STUB'
 #!/bin/bash
 echo "begin ${TAG:-?}" >> "$LOG"
+echo "local=$([ -d local ] && echo yes || echo no) keys_owner=$(stat -c %u local/keys 2>/dev/null || echo none)" >> "$LOG.local"
+echo "$*" >> "$LOG.args"
 # held until the test releases it, or for HOLD seconds
 if [ -n "${RELEASE:-}" ]; then
     for _ in $(seq 1 600); do [ -e "$RELEASE" ] && break; sleep 0.1; done
@@ -202,5 +204,32 @@ hold
 let_go
 check "an interrupted waiter never builds" not has "begin B"
 
-echo "kas-run lock: $fails case(s) failed"
+# 11. a keyed call makes local/keys, as the caller, before the container starts, and the keys mount stays
+# read-only; a call without PIPELINE_KEYS_DIR makes nothing
+for c in four five; do
+    mkdir -p "$scratch/$c/tools"
+    cp "$scratch/two/tools/"* "$scratch/$c/tools/"
+done
+mkdir -p "$scratch/keys-src"
+rm -f "$log.local" "$log.args"
+(cd "$scratch/four" && PIPELINE_KEYS_DIR="$scratch/keys-src" tools/kas-run.sh build k.yaml > /dev/null 2>&1)
+check "a keyed call makes local/keys as the caller before the container starts" \
+    grep -qx "local=yes keys_owner=$(id -u)" "$log.local"
+check "the keys mount stays read-only" grep -q -- "-v $scratch/keys-src:/work/local/keys:ro" "$log.args"
+rm -f "$log.local"
+(cd "$scratch/five" && tools/kas-run.sh build n.yaml > /dev/null 2>&1)
+check "a call without PIPELINE_KEYS_DIR makes no local/" grep -qx "local=no keys_owner=none" "$log.local"
+
+# 12. a failed mkdir of local/keys stops before the container starts, and the error names the path
+mkdir -p "$scratch/six/tools" "$scratch/six/local"
+cp "$scratch/two/tools/"* "$scratch/six/tools/"
+chmod 555 "$scratch/six/local"
+rm -f "$log.local"
+out=$(cd "$scratch/six" && PIPELINE_KEYS_DIR="$scratch/keys-src" tools/kas-run.sh build k.yaml 2>&1)
+rc=$?
+chmod 755 "$scratch/six/local"
+stopped_early() { [ "$rc" -ne 0 ] && [ ! -e "$log.local" ] && printf '%s' "$out" | grep -q "$scratch/six/local/keys"; }
+check "a failed mkdir of local/keys stops before the container and names the path" stopped_early
+
+echo "kas-run: $fails case(s) failed"
 [ "$fails" -eq 0 ]

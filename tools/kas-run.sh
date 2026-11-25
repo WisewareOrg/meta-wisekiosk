@@ -16,7 +16,8 @@ build (the pid and checkout in the lock file) holds it. An interactive shell (`s
 --command) does not take it.
 
 Environment:
-  PIPELINE_KEYS_DIR   mounted read-only at /work/local/keys; no whitespace
+  PIPELINE_KEYS_DIR   mounted read-only at /work/local/keys; no whitespace. The checkout's
+                      local/keys is made first, by the caller, so Docker does not make it root's
   KAS_RUN_TMP_DIR     mounted read-write at the same path inside the container; no
                       whitespace
   KAS_RUN_ENV         space-separated variable NAMES passed through to
@@ -94,6 +95,7 @@ tools/write-build-rev.sh
 
 runtime="-v $HASHSERV_DIR:/hashserv:ro"
 if [ -n "${PIPELINE_KEYS_DIR:-}" ]; then
+    mkdir -p local/keys || { echo "tools/kas-run.sh: cannot make $PWD/local/keys" >&2; exit 1; }
     runtime="$runtime -v $PIPELINE_KEYS_DIR:/work/local/keys:ro"
 fi
 if [ -n "${KAS_RUN_TMP_DIR:-}" ]; then
