@@ -212,7 +212,7 @@ class App(Part):
         Returns:
             The place, as `<x>,<y>`; empty if it has not seen it.
         """
-        return str(self.inspector.evaluate(_MOUSE_AT))
+        return self.inspector.evaluate(_MOUSE_AT)
 
     def wait_until_on_panel(self) -> None:
         """Wait until the instance is on the panel."""
