@@ -9,11 +9,11 @@ S = "${WORKDIR}"
 
 inherit systemd
 
-# Deliberately does NOT set VOLATILE_LOG_DIR. That variable is read by
-# systemd's do_install, so changing it re-hashes systemd and
-# then everything that depends on it, wpewebkit included -- a multi-hour WebKit
-# rebuild for a symlink. It also puts
-# the journal on the rootfs slot, which an A/B update replaces wholesale.
+# Deliberately does NOT set VOLATILE_LOG_DIR. That variable is read by systemd's
+# do_install, so changing it re-hashes systemd and then everything that depends
+# on it, wpewebkit included (through udev) -- a multi-hour WebKit rebuild for a
+# symlink. It also puts the journal on the rootfs slot, which an A/B update
+# replaces, destroying the logs of the boot that failed.
 SYSTEMD_SERVICE:${PN} = "kiosk-journal-flush.service"
 SYSTEMD_AUTO_ENABLE = "enable"
 

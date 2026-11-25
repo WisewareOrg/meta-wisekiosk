@@ -81,22 +81,19 @@ local_conf_header:
   # an xrandr kick, and compositing both on and off -- it is not a performance
   # lever on this display, it is a blank one. See
   # docs/issue_investigation/gpu_compositing/README.md under "Engine levers,
-  # measured and exhausted". A hard set rather than a default taken:
+  # measured". A hard set rather than a default taken:
   # rpi-config_git.bb spells VC4DTBO `?=`, raspberrypi0-wifi.conf overrides
   # nothing, and sibling machine configs (raspberrypi3, raspberrypi-armv8) do
   # override it.
-  #
-  # The panel runs at 1280x720: 2.25x fewer pixels than its own 1080p, set by
-  # `video=` in the kernel's panel-mode.cfg.
   #
   # mesa is pinned to poky's 24.0.7. meta-raspberrypi ships mesa 25.1.6, which
   # inherits the rust class -- a rust toolchain build on armv6 nothing else in
   # this image needs -- and ships no mesa-gl at that version, so the two halves
   # of one source tree would build at different versions. meta-raspberrypi's
   # PACKAGECONFIG bbappends are `_%` and still apply at 24.0.7, so the vc4/v3d
-  # gallium drivers and dri3 come with the older recipe. `just
-  # preferred-version` reports this pin as behind by design; this comment is
-  # the reason it is not a bump to take. See docs/layer-currency.md.
+  # gallium drivers come with the older recipe. `just preferred-version`
+  # reports this pin as behind by design; this comment is the reason it is not
+  # a bump to take. See docs/layer-currency.md.
   graphics: |
     VC4DTBO = "vc4-fkms-v3d"
     PREFERRED_VERSION_mesa = "24.0.7"
@@ -171,11 +168,8 @@ local_conf_header:
     # update -- A/B replaces the whole rootfs slot -- so it belongs here.
     DEFAULT_TIMEZONE = "America/New_York"
 
-    # Journal persistence is the kiosk-journal recipe, not VOLATILE_LOG_DIR.
-    # That variable is read by systemd's do_install, so setting it re-hashes
-    # systemd -> wpewebkit, costing a multi-hour WebKit rebuild. It also puts
-    # the journal on the rootfs slot, which an A/B update replaces -- destroying
-    # the logs of the boot that failed.
+    # Journal persistence is the kiosk-journal recipe, not VOLATILE_LOG_DIR; its
+    # recipe says why.
     # hostname is NOT baked. It is site configuration; kiosk-provision sets it
     # from /data/config/hostname at boot.
 
@@ -248,8 +242,7 @@ local_conf_header:
     AUTONOMOS_RAUC_KEYRING_FILE = "signing.cert.pem"
 
   # VC4 has no Vulkan, ptest builds test suites for a board that will never run
-  # them, and bluetooth is dropped below. Removing them is free before the first
-  # build and costs a rebuild after it.
+  # them, and bluetooth is dropped below.
   trim: |
     # bluetooth is removed from DISTRO_FEATURES as well as MACHINE_FEATURES
     # because packagegroup-base.bb pulls packagegroup-base-bluetooth on
@@ -262,8 +255,8 @@ local_conf_header:
     # removal is sufficient, and touching DISTRO_FEATURES re-hashes much of the
     # build for no extra benefit.
     #
-    # 3g, nfc, nfs and zeroconf are services no kiosk runs. systemd-resolved, whose
-    # own mDNS zeroconf's absence turns back on, is masked in kiosk-hardware.
+    # 3g, nfc, nfs and zeroconf are services no kiosk runs. Without zeroconf
+    # systemd builds resolved's own mDNS responder; kiosk-hardware masks resolved.
     DISTRO_FEATURES:remove = " vulkan ptest bluetooth 3g nfc nfs zeroconf"
 
     # Introspection data is for language bindings, and is built by running each
@@ -314,10 +307,9 @@ local_conf_header:
     # Inert once hciuart and bluez are gone, but it is bytes for nothing.
     MACHINE_EXTRA_RRECOMMENDS:remove = "bluez-firmware-rpidistro-bcm43430a1-hcd"
 
-    # A hardware database for matching peripherals, on a board that has none:
-    # /sys/class/sound empty, no video4linux, no DRM card, no input devices, no
-    # USB devices. hwdb.bin alone is 10.9MB of a 20MB /usr/lib/udev, measured on
-    # the device.
+    # A hardware database for matching peripherals, on a board with no sound card
+    # (/sys/class/sound empty) and no video4linux. hwdb.bin alone is 10.9MB of a
+    # 20MB /usr/lib/udev, measured on the device.
     #
     # Bytes only -- do NOT expect boot time. An earlier draft put udevd's cost at
     # 7.88s of "walking the module set"; measured cold, a hwdb query is ~30ms

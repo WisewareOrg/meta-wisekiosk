@@ -1,10 +1,7 @@
 SUMMARY = "Kiosk hardware trim: keep unused subsystems out of the boot, reboot on panic, and end memory thrash in an OOM kill"
 DESCRIPTION = "Drop-in configuration only -- no binaries, no services. Deliberately a \
-separate recipe rather than a systemd_%.bbappend: touching the systemd recipe risks a \
-multi-hour WebKit rebuild for a few config files, and dbus is the load-bearing hop, not \
-gtk+3. The chain is at recipes-core/packagegroups/packagegroup-base.bbappend and the \
-removal routes it closes are in docs/issue_investigation/webkit_dependency_trims/README.md. \
-The same reasoning is why kiosk-journal exists."
+separate recipe rather than a systemd_%.bbappend, which would rebuild WebKit: the \
+chain is in recipes-core/kiosk-journal/kiosk-journal_1.0.bb."
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
@@ -45,9 +42,8 @@ do_install() {
     # not overlapping. DNS still resolves; timesyncd is the only consumer.
     ln -sf /dev/null ${D}${sysconfdir}/systemd/system/systemd-resolved.service
 
-    # Nobody logs in interactively on a kiosk behind glass. logind owns seat and
-    # session management that the display stack MAY want, which is why this was
-    # flagged rather than recommended until it was tried.
+    # logind owns seat and session management, which neither the browser nor the
+    # tty2 login uses.
     #
     # Measured n=3 at basic.target, on top of the resolved masking above:
     #   resolved masked only          21.30 / 21.15 / 21.07  mean 21.17
@@ -70,10 +66,10 @@ do_install() {
     ln -sf /dev/null ${D}${sysconfdir}/systemd/system/getty@tty1.service
 
     # udev evaluates every rule file against all 345 device uevents. This board
-    # has no sound card (/sys/class/sound empty), no V4L (/sys/class/video4linux
-    # absent) and no DRM card -- yet the image still ships rules for cameras,
-    # mice, touchpads, joysticks, tape, MTD, CD-ROM, InfiniBand, FIDO and btrfs.
-    # Masking these cuts the rule set udevd evaluates per uevent.
+    # has no sound card (/sys/class/sound empty) and no V4L (/sys/class/video4linux
+    # absent) -- yet the image still ships rules for cameras, mice, touchpads,
+    # joysticks, tape, MTD, CD-ROM, InfiniBand, FIDO and btrfs. Masking these cuts
+    # the rule set udevd evaluates per uevent.
     #
     # A /dev/null symlink in /etc/udev/rules.d shadows the /usr/lib file of the
     # same name -- udev(7). Nothing under /usr/lib is modified, so this does not

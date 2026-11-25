@@ -21,5 +21,6 @@ SRC_URI += " file://lockup-detect.cfg"
 SRC_URI += " file://pstore-ftrace.cfg"
 SRC_URI += " file://0001-pstore-ram-default-ftrace-zone.patch"
 
-# The panel's mode. WPE shows its page at whatever mode it finds set.
+# The panel's mode, with 2.25x fewer pixels than its own 1080p. WPE shows its page
+# at whatever mode it finds set.
 SRC_URI += " file://panel-mode.cfg"
