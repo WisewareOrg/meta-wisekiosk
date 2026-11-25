@@ -1,23 +1,27 @@
 """Diagnostics: does a soak start inside a full-slot write make PID 1 miss the watchdog's feed, and not without?
 
-Runs `PAIRS` pairs of installs of the candidate's own bundle, strictly in turn, arm A then arm B, with no
-reboot between (RAUC writes the slot the board did not boot, so each install writes the whole slot) and
-one 1 Hz reader (`test_install_watchdog_margin.READER`) through all of it:
+Runs the installs of `ARMS` in turn, one after another with no reboot between (RAUC writes the slot the
+board did not boot, so each install writes the whole slot), with one 1 Hz reader (`READER`) through all of
+it. The case starts nothing:
 
-- arm A: the case starts `kiosk-soak.service` every `EVERY_S` seconds while RAUC writes;
-- arm B: the case starts nothing. The timer is not stopped, so B first waits, if it must, until the whole
-  install fits before the timer's next start; a B write that still overlapped a start is reclassified
-  "natural" afterwards.
+- arm A: the install begins `A_LEAD_S` seconds before the timer's next start (`NextElapseUSecMonotonic`),
+  so the timer's own start falls late in the write;
+- arm B: the install begins `AFTER_START_S` seconds after a start, so that arming and write end before the
+  next one. A B write that overlapped a start anyway is reclassified "natural".
 
 The arm of each install is decided by the journal's `Starting` lines against the write, and both the
-planned and the journal's arm are recorded. It records every install's readings and gives no verdict. It
-stops, recording why, on: a reset (the boot id changed: that is the result, and nothing more is installed),
-an install that failed, or a write under `MIN_FULL_WRITE_MIB` (the full-slot build did not take). It
-waits until the board has been up `MIN_UPTIME_S` first, and fails only when no `timeleft` was read.
+planned and the journal's arm are recorded, each install by its ordinal. It records every install's readings and
+gives no verdict. It stops, recording why, on: the clock (`NO_NEW_PAIR_AFTER`, `NO_INSTALL_AFTER`), a reset
+(the boot id changed: that is the result, and nothing more is installed), an install that failed, or a write
+under `MIN_FULL_WRITE_MIB` (the full-slot build did not take). It
+waits until the board has been up `UP_AT_START_S` first, and fails only when no `timeleft` was read.
+
+The first A and the first B are the only installs alike to the old records; none are pooled.
 
 Outside the regression suite: run by hand through the bench driver, last in its session.
 """
 
+import datetime
 import subprocess
 import threading
 import time
@@ -28,10 +32,8 @@ from board import Board
 from board.part import invalid_if
 from test_install_watchdog_margin import (
     CANDIDATE_BUNDLE,
-    EVERY_S,
     GAP_S,
     LOW_TIMELEFT_S,
-    MIN_UPTIME_S,
     READER,
     SECTOR_BYTES,
     SECTORS_WRITTEN,
@@ -42,26 +44,37 @@ from test_install_watchdog_margin import (
     _uptime_at,
 )
 
-PAIRS = 4
+ARMS = "ABBAABBA"
+# the host's local wall time: no pair (two installs) begins after the first, and no install after the second
+NO_NEW_PAIR_AFTER = datetime.time(18, 45)
+NO_INSTALL_AFTER = datetime.time(19, 10)
+UP_AT_START_S = 400
+A_LEAD_S = 225
+SOAK_PERIOD_S = 300
 MIN_FULL_WRITE_MIB = 1900
-# arming about 55 s, the write about 190 s, and the end
-INSTALL_SPAN_S = 280
-AFTER_START_S = 10
-SOAK_TIMER = "kiosk-soak.timer"
+AFTER_START_S = 5
+# arming 50 to 90 s, a write about 190 s, the end about 5 s, and margin; B begins within AFTER_START_S of a start
+INSTALL_SPAN_S = 290
+# systemctl prints the time as a span; the property raw is "t <microseconds>"
+NEXT_START_CMD = (
+    "busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1/unit/kiosk_2dsoak_2etimer "
+    "org.freedesktop.systemd1.Timer NextElapseUSecMonotonic"
+)
 
 
-def _wait_for_a_clear_span(board: Board) -> float:
-    """Wait, if need be, until a whole install fits before the soak timer's next start.
+def _wait_for_the_arm(board: Board, planned: str) -> float:
+    """Wait until the install of arm `planned` should begin, from the timer's next start.
 
     Args:
         board: the board under test.
+        planned: "A" or "B".
 
     Returns:
         The seconds waited.
     """
-    next_start = float(board.run(f"systemctl show -p NextElapseUSecMonotonic --value {SOAK_TIMER}", check=True).text)
-    left = next_start / 1e6 - board.uptime_s()
-    wait = left + AFTER_START_S if left < INSTALL_SPAN_S else 0.0
+    next_start = int(board.run(NEXT_START_CMD, check=True).text.split()[1])
+    ahead = next_start / 1e6 - board.uptime_s()
+    wait = (ahead - A_LEAD_S) % SOAK_PERIOD_S if planned == "A" else ahead + AFTER_START_S
     time.sleep(max(0.0, wait))
     return max(0.0, wait)
 
@@ -82,38 +95,16 @@ def _journal_starts(board: Board, boot: str) -> list[float]:
     return [float(m["up"]) for line in lines if (m := SOAK_LINE.match(line))]
 
 
-def _soak_starter(board: Board, log: list[str]) -> Callable[[], None]:
-    """Make the hook that starts the soak unit and notes whether it worked.
-
-    Args:
-        board: the board under test.
-        log: where each start's outcome goes.
-
-    Returns:
-        The hook, which does not raise.
-    """
-
-    def start_soak() -> None:
-        """Start the soak unit and note whether it worked."""
-        try:
-            board.run("systemctl start --no-block kiosk-soak.service", check=True)
-            log.append("ok")
-        except (AssertionError, *Board.ERRORS) as error:
-            log.append(f"failed: {type(error).__name__}")
-
-    return start_soak
-
-
 @pytest.mark.sends_update
 def test_soak_start_arms(board: Board, record_property: Callable[[str, object], None]) -> None:
-    """Install in turn with and without soak starts in the write, and record each install's watchdog reading.
+    """Install in turn, with the timer's start late in the write and with none, and record each reading.
 
     Args:
         board: the board under test.
         record_property: records each install's readings and the arm counts.
     """
     uptime = board.uptime_s()
-    time.sleep(max(0.0, MIN_UPTIME_S - uptime))
+    time.sleep(max(0.0, UP_AT_START_S - uptime))
     boot = board.boot_id()
     samples: list[Sample] = []
     reader = subprocess.Popen(
@@ -127,18 +118,19 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
     collector.start()
     dips = {"start": 0, "none": 0, "natural": 0, "void": 0}
     counted = {"start": 0, "none": 0, "natural": 0, "void": 0}
-    stopped = "all installs done"
+    stopped = "ended by an exception"
     try:
-        for number in range(1, 2 * PAIRS + 1):
-            planned = "A" if number % 2 else "B"
-            waited = _wait_for_a_clear_span(board) if planned == "B" else 0.0
-            by_test: list[str] = []
-            start_soak = _soak_starter(board, by_test)
+        for number, planned in enumerate(ARMS, start=1):
+            if number % 2 and datetime.datetime.now().time() >= NO_NEW_PAIR_AFTER:
+                stopped = f"install {number}: past {NO_NEW_PAIR_AFTER:%H:%M}, no new pair begins"
+                break
+            waited = _wait_for_the_arm(board, planned)
+            if datetime.datetime.now().time() >= NO_INSTALL_AFTER:
+                stopped = f"install {number}: past {NO_INSTALL_AFTER:%H:%M}, no install begins"
+                break
 
             began = time.monotonic()
-            watched = board.updates.install_watched(
-                CANDIDATE_BUNDLE, start_soak if planned == "A" else (lambda: None), EVERY_S
-            )
+            watched = board.updates.install_watched(CANDIDATE_BUNDLE, lambda: None, SOAK_PERIOD_S)
             finished = time.monotonic()
             key = f"i{number}.{planned}"
             window = [s for s in samples if began <= s.host <= finished]
@@ -149,8 +141,15 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
             record_property(f"{key}.install_rc", watched.returncode)
             record_property(f"{key}.written_mib", mib)
             record_property(f"{key}.waited_s", waited)
-            record_property(f"{key}.starts_by_test", "; ".join(by_test))
             record_property(f"{key}.samples", len(window))
+            record_property(f"{key}.span_s", round(finished - began, 1))
+            record_property(f"{key}.over_span", finished - began > INSTALL_SPAN_S)
+            record_property(
+                f"{key}.samples_all",
+                "\n".join(
+                    f"{s.uptime:.1f} {s.timeleft} {s.state} {s.pid1_state} {s.wchan} {s.reader_ticks}" for s in window
+                ),
+            )
             if window:
                 low = [s for s in window if s.timeleft < LOW_TIMELEFT_S]
                 lowest = min(window, key=lambda s: s.timeleft)
@@ -178,6 +177,7 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
                 stopped = f"install {number} wrote {mib:.0f} MiB: the full-slot build did not take, the run is void"
                 break
             in_write = []
+            write_from = write_to = None
             if window and watched.write_began is not None and watched.write_ended is not None:
                 write_from = _uptime_at(window, watched.write_began)
                 write_to = _uptime_at(window, watched.write_ended)
@@ -187,7 +187,13 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
             arm = ("start" if planned == "A" else "natural") if in_write else ("void" if planned == "A" else "none")
             record_property(f"{key}.arm_by_journal", arm)
             counted[arm] += 1
-            dips[arm] += any(s.timeleft < LOW_TIMELEFT_S for s in window)
+            in_write_samples = (
+                [s for s in window if write_from <= s.uptime <= write_to] if write_from is not None else []
+            )
+            record_property(f"{key}.dip_in_write", any(s.timeleft < LOW_TIMELEFT_S for s in in_write_samples))
+            dips[arm] += any(s.timeleft < LOW_TIMELEFT_S for s in in_write_samples)
+        else:
+            stopped = "all installs done"
     finally:
         reader.terminate()
         collector.join()
