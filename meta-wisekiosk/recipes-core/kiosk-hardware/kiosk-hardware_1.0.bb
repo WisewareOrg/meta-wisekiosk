@@ -77,10 +77,9 @@ do_install() {
     #
     # NOT masked, deliberately: 71-seat, 73-seat-late and 70-uaccess (seat and
     # ACL handling), 60-drm (display), 60-persistent-storage and the net rules
-    # (SD card and lifeline), and
-    # 60-input-id, 60-evdev and the libinput rules: 60-input-id sets the
-    # ID_INPUT_* tags libinput picks an input device by, and the other two set
-    # the device's evdev and libinput properties.
+    # (SD card and lifeline), and 60-input-id, 60-evdev and the libinput rules:
+    # 60-input-id sets the ID_INPUT_* tags libinput picks an input device by, and
+    # the other two set the device's evdev and libinput properties.
     install -d ${D}${sysconfdir}/udev/rules.d
     for r in ${KIOSK_UDEV_RULES_MASKED}; do
         ln -sf /dev/null ${D}${sysconfdir}/udev/rules.d/$r.rules
