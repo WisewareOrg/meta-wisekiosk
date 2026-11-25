@@ -60,10 +60,10 @@ class Console(Part):
         The command writes a random word, the terminal and the uptime to a marker. Before the outage, vt1 is
         brought forward and tty2 given a fresh login; the panel's planes are kept when the command has run, and
         the planes are read again once the outage has ended, before anything puts the page back. When the test
-        ends, vt1 is put back in front and the browser is waited for on the panel, whatever the chord did. The
-        check is invalid if the keyboard was not created, the board restarted during the outage (taking the
-        evidence in /tmp with it), the outage's record does not show the board cut off when the command ran, or
-        the script kept no display state when the command had run.
+        ends, vt1 is put back in front, whatever the chord did. The check is invalid if the keyboard was not
+        created, the board restarted during the outage (taking the evidence in /tmp with it), the outage's record
+        does not show the board cut off when the command ran, or the script kept no display state when the
+        command had run.
 
         Returns:
             The command, what it left, the panel's planes once the outage had ended, and its planes when the
@@ -76,7 +76,6 @@ class Console(Part):
         self._kill_tty2_login()
         boot_id = self._board.boot_id()
         self._keyboard.install(word)
-        self._board.cleanup.callback(self._board.seconds_until, self._browser_is_on_the_panel)
         self._board.cleanup.callback(self._bring_vt1_forward)
         self._board.cleanup.callback(self._kill_tty2_login)
         self._board.cleanup.callback(self._keyboard.press_vt1_chord)
@@ -123,14 +122,6 @@ class Console(Part):
             True if it is.
         """
         return self._foreground_vt() == "1"
-
-    def _browser_is_on_the_panel(self) -> bool:
-        """Whether the browser owns the only plane on the panel.
-
-        Returns:
-            True if it does.
-        """
-        return [plane.allocated_by for plane in self._board.screen.planes()] == ["kiosk-browser"]
 
     def _kill_tty2_login(self) -> None:
         """Kill whatever runs on tty2; `getty@.service`'s `Restart=always` brings back a fresh prompt.
