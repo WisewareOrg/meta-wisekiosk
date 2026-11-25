@@ -13,14 +13,14 @@ ref: ''
 references:
 - keyword: def test_pointer_display_disabled
   path: tests/target_suite/test_display.py
-  sha: fab07964a401cf9a40951df3b18b915f7322caf32a107d50e552a6914689f75f
+  sha: 4eb3ee236211cfe7f8cdf149ffe7d0fe87234d9c6633965148c06716994d8bc4
   type: file
-reviewed: rpaCeCnmoJkb1vktYvbGD76hzWcD5L4pDUx9Xe2CMzs=
+reviewed: 2CubgtVy3wUBxjgZzitOfbDs1J_J6hSKyk6KxXN8thI=
 status: proposed
 text: |
-  With the WiseKiosk instance on the panel, read the options its display server was started
-  with. Pass if they disable the display of the pointer.
+  With the WiseKiosk instance on the panel, read what the panel is showing. Pass if no pointer is
+  among it.
 verification-justification: |
-  Test. It reads the running display server's own start-up options from outside the appliance; the
-  pass condition needs no judgement.
+  Test. It reads the display driver's own report of what the panel is showing from outside the
+  appliance; the pass condition needs no judgement.
 verification-method: test
