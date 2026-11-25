@@ -30,7 +30,7 @@ repos:
       meta-wisekiosk:
 
   # Upstream, consumed as a dependency instead of forked. Pinned at its tip
-  # (dormant since 2026-01-20). patches/ carries the two changes that cannot
+  # (dormant since 2026-01-20). patches/ carries the change that cannot
   # be expressed from a downstream layer -- see patches/meta-autonomos/.
   meta-autonomos:
     url: "https://github.com/jsmith212/meta-autonomos.git"

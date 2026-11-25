@@ -21,7 +21,7 @@ everything else is convention. Inside it:
 - `recipes-<category>/<name>/<name>_%.bbappend` — a **bbappend**, a fragment that *adds to* a recipe
   someone else's layer defines. It does not replace the recipe; BitBake parses the `.bb` and then
   every `.bbappend` that matches its name, in layer-priority order. The `%` is a wildcard over the
-  version, so `surf_%.bbappend` applies to whatever version of `surf` is in play.
+  version, so `linux-raspberrypi_%.bbappend` applies to whatever version of it is in play.
 - `classes/*.bbclass` — reusable logic a recipe can `inherit`.
 - side directories such as `files/` holding the loose files a recipe installs.
 
@@ -86,9 +86,6 @@ meta-autonomos:
   layers:
     meta-autonomos-core:
   patches:
-    01-graphics:
-      repo: meta-wisekiosk
-      path: "patches/meta-autonomos/0001-distro-make-graphics-strip-conditional.patch"
     02-wpa:
       repo: meta-wisekiosk
       path: "patches/meta-autonomos/0002-wpa-supplicant-stop-baking-credentials.patch"
@@ -99,16 +96,8 @@ meta-autonomos:
 that repository's root. The patch is applied to `sources/meta-autonomos`.
 
 Almost everything this project needs is expressible as a bbappend or a higher-priority file in
-`meta-wisekiosk/`, and lives there. Two things in meta-autonomos are not, and only those two are
+`meta-wisekiosk/`, and lives there. One thing in meta-autonomos is not, and only that one is
 patched there.
-
-### Why patch 0001 cannot be a bbappend
-
-Upstream's `autonomos.conf` had `DISTRO_FEATURES:remove = " x11 wayland"`. BitBake applies every
-`:remove` **after** every `:append`, no matter which file or layer they came from. So there is no
-downstream file — not a bbappend, not an image recipe, not `local.conf` — that can put `x11` back.
-A kiosk needs x11. The removal has to become conditional where it is written, which means changing
-upstream's file, which means a patch.
 
 ### Why patch 0002 cannot be a bbappend
 
@@ -122,7 +111,7 @@ Adding our own bbappend does not help, because **bbappend bodies concatenate**. 
 `/etc/wpa_supplicant.conf` itself, so masking it would change what the image contains. The only
 surgical option is to patch the body to a no-op.
 
-meta-autonomos's two patch headers record this reasoning and whether the change is suitable to send
+meta-autonomos's patch header records this reasoning and whether the change is suitable to send
 upstream.
 
 ## Layer priority

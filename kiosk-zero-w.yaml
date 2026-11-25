@@ -173,9 +173,9 @@ local_conf_header:
 
     # Journal persistence is the kiosk-journal recipe, not VOLATILE_LOG_DIR.
     # That variable is read by systemd's do_install, so setting it re-hashes
-    # systemd -> gtk+3/at-spi2-core -> webkitgtk3, costing a multi-hour WebKit
-    # rebuild. It also puts the journal on the rootfs slot, which an A/B update
-    # replaces -- destroying the logs of the boot that failed.
+    # systemd -> wpewebkit, costing a multi-hour WebKit rebuild. It also puts
+    # the journal on the rootfs slot, which an A/B update replaces -- destroying
+    # the logs of the boot that failed.
     # hostname is NOT baked. It is site configuration; kiosk-provision sets it
     # from /data/config/hostname at boot.
 
@@ -247,9 +247,9 @@ local_conf_header:
     AUTONOMOS_RAUC_CERT_FILE = "signing.cert.pem"
     AUTONOMOS_RAUC_KEYRING_FILE = "signing.cert.pem"
 
-  # Nothing here runs a Wayland compositor, VC4 has no Vulkan, and ptest builds
-  # test suites for a board that will never run them. Removing them is free
-  # before the first build and costs a rebuild after it.
+  # VC4 has no Vulkan, ptest builds test suites for a board that will never run
+  # them, and bluetooth is dropped below. Removing them is free before the first
+  # build and costs a rebuild after it.
   trim: |
     # bluetooth is removed from DISTRO_FEATURES as well as MACHINE_FEATURES
     # because packagegroup-base.bb pulls packagegroup-base-bluetooth on
@@ -259,8 +259,8 @@ local_conf_header:
     #
     # alsa and touchscreen are deliberately NOT removed from DISTRO_FEATURES:
     # both are keyed on MACHINE_FEATURES/COMBINED_FEATURES, so the machine-side
-    # removal is sufficient, and touching DISTRO_FEATURES risks re-hashing
-    # gstreamer -> webkitgtk3 into a multi-hour rebuild for no extra benefit.
+    # removal is sufficient, and touching DISTRO_FEATURES re-hashes much of the
+    # build for no extra benefit.
     #
     # 3g, nfc, nfs and zeroconf are services no kiosk runs. systemd-resolved, whose
     # own mDNS zeroconf's absence turns back on, is masked in kiosk-hardware.
@@ -271,8 +271,8 @@ local_conf_header:
     DISTRO_FEATURES_BACKFILL_CONSIDERED:append = " gobject-introspection-data"
     DEPENDS:remove:pn-libsoup = "vala"
 
-    # WebKit draws with Skia; harfbuzz's cairo is the only user of cairo, and on
-    # the build host of X.
+    # WebKit draws with Skia and nothing in the image uses cairo; harfbuzz's
+    # cairo option is what would build it.
     PACKAGECONFIG:remove:pn-harfbuzz = "cairo"
     PACKAGECONFIG:remove:pn-harfbuzz-native = "cairo"
 

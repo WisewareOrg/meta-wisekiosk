@@ -11,22 +11,18 @@
 #   * busybox has no `ps -eo`, no `df --output`, and its `free -m` reports KB
 #     regardless of the flag. Memory is divided to MB explicitly so the line
 #     format stays byte-comparable with the old log.
-#   * the launcher runs a bare `surf`, not an absolute path, so the browser is
-#     resolved with command -v rather than by grepping for a path. The principle
-#     is unchanged: ask the launcher, never hardcode. A sampler that names one
-#     browser records zeros for the other and calls it data.
 #
 # The fields that are not self-evident from the printf below:
 #   boot       first 8 of boot_id. A change means the device rebooted, and the
 #              samples either side are not one series
 #   pid        main browser pid. A change means the browser restarted; `none`
 #              means it was not running at that sample
-#   nproc      processes in the browser family (surf plus its WebKit children)
+#   nproc      processes in the browser family (kiosk-browser plus its WPE children)
 #   rss_total  RSS across that whole family, and the memory number that matters
 #              -- the renderer is a separate process and holds most of it
 #   thr        vcgencmd get_throttled. Anything but 0x0 means it throttled at
 #              some point SINCE BOOT, not that it is throttling now
-#   ent        entropy pool. Low is expected; rngd is deliberately off for surf
+#   ent        entropy pool. Low is expected; the image has no rngd
 #
 # Read a --summary in this order, weakest evidence last:
 #   1. reboots and browser restarts. Non-zero means the memory series is really
