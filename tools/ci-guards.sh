@@ -1024,15 +1024,15 @@ else
     printf '%s\n' "$out23" | sed 's/^/        /'
 fi
 
-# --- 24. the build lock in tools/kas-run.sh passes its self-test ---------
+# --- 24. tools/kas-run.sh passes its self-test (the build lock and the keys directory) ---
 # What it proves and how is the header of tools/kas-run-test.sh.
 kastest24="tools/kas-run-test.sh"
 if [ ! -f "$kastest24" ]; then
-    bad "guard 24: $kastest24 missing -- the kas build lock goes untested"
+    bad "guard 24: $kastest24 missing -- tools/kas-run.sh goes untested"
 elif out24=$(timeout 120 bash "$kastest24" 2>&1); then
-    ok "the kas build lock passes its self-test ($(printf '%s\n' "$out24" | tail -n1))"
+    ok "tools/kas-run.sh passes its self-test ($(printf '%s\n' "$out24" | tail -n1))"
 else
-    bad "the kas build lock FAILS its self-test:"
+    bad "tools/kas-run.sh FAILS its self-test:"
     printf '%s\n' "$out24" | sed 's/^/        /'
 fi
 

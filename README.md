@@ -176,6 +176,9 @@ the build container.
 just build          # kas fetches sources/, applies the patches, builds core-image-base and deploys kiosk-bootprof
 ```
 
+Builds on one host take turns: a second `just build` (or any call of `tools/kas-run.sh`) waits for the first
+and says which build holds the host.
+
 **The version in that `curl` URL is the kas version the build uses, and it changes nothing on its
 own.** `just build` runs whatever `kas-container` sits in `~/bin`; nothing downloads it but that
 `curl`. Renovate opens a pull request when kas releases and automerges it through the merge queue,
