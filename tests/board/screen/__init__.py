@@ -10,6 +10,7 @@ _DPMS = "/sys/class/drm/card0-HDMI-A-1/dpms"
 _CONSOLE_BLANK = "/sys/module/kernel/parameters/consoleblank"
 _PLANE = re.compile(r"^plane\[\d+\].*?(?=^plane\[|^crtc\[)", re.MULTILINE | re.DOTALL)
 _MODE = re.compile(r'mode: "(\d+)x(\d+)"')
+_NO_BUFFER = "fb=0"
 _READS = 12
 _READ_EVERY_US = 250_000
 
@@ -29,8 +30,8 @@ class Plane(NamedTuple):
 class Screen(Part):
     """The board's screen, as the kernel's display driver reports it.
 
-    A program that draws puts a new buffer on the screen for each frame, so a screen showing more than
-    one buffer over 3 s is changing, and one showing a single buffer stands still.
+    A program that draws puts a new buffer on the screen for each frame, so a screen showing more than one
+    buffer over some seconds is changing, and one showing a single buffer stands still.
     """
 
     def blanking(self) -> tuple[str, int]:
@@ -73,14 +74,13 @@ class Screen(Part):
         """Read the display mode the panel is driven at.
 
         Returns:
-            Its width and height.
+            Its width and height; 0 and 0 if it is driven at none.
         """
         mode = _MODE.search(self._state())
-        assert mode, "the panel is driven at no mode"
-        return int(mode[1]), int(mode[2])
+        return (int(mode[1]), int(mode[2])) if mode else (0, 0)
 
     def is_changing(self) -> bool:
-        """Read the buffer on the screen over 3 s, and say whether it changed.
+        """Read the buffer on the screen for some seconds, and say whether it changed.
 
         Returns:
             True if it did.
@@ -88,18 +88,19 @@ class Screen(Part):
         return len(self._buffers()) > 1
 
     def stands_still(self) -> bool:
-        """Read the buffer on the screen over 3 s, and say whether it stayed the same.
+        """Read the buffer on the screen for some seconds, and say whether there is one that stayed the same.
 
         Returns:
             True if it did.
         """
-        return len(self._buffers()) == 1
+        buffers = self._buffers()
+        return len(buffers) == 1 and _NO_BUFFER not in buffers
 
     def _buffers(self) -> set[str]:
-        """Read the buffer on the screen 12 times, a quarter second apart.
+        """Read the buffer on the screen a number of times in a row.
 
         Returns:
-            The buffers seen; `0` is none.
+            The `fb=` lines seen; `fb=0` is none.
         """
         reads = " ".join(str(read) for read in range(_READS))
         lines = self._board.run(
