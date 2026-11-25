@@ -3,6 +3,7 @@ Description=Kiosk browser: WPE WebKit on DRM, no display server
 After=network-online.target data.mount
 Wants=network-online.target
 Requires=data.mount
+# No start limit: the restarts below never end in a failed state.
 StartLimitIntervalSec=0
 
 [Service]
@@ -18,7 +19,7 @@ ExecStart=/usr/bin/kiosk-browser $KIOSK_URL
 # The launcher exits 0 when the panel is switched to another console; only always brings the page back.
 Restart=always
 RestartSec=1
-# Backs off 1, 1.8, 3.2, 5.6 s, then 10 s; the counter clears only on a manual start or stop.
+# Backs off 1, 1.8, 3.2, 5.6 s, then 10 s; the counter clears on a manual start, stop or reset-failed.
 RestartSteps=4
 RestartMaxDelaySec=10
 # kiosk-browser.c pets it.
