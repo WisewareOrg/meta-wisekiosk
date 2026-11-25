@@ -1,6 +1,6 @@
 SUMMARY = "Recovery script that reverses kiosk-hardware's boot trims; placed on /data by provisioning"
 DESCRIPTION = "kiosk-recover unmasks the resolver, login/session and userdb units, deletes the masked \
-udev symlinks, re-enables Bluetooth, restores the /etc/resolv.conf symlink, and reboots -- turning \
+udev symlinks, restores the /etc/resolv.conf symlink, and reboots -- turning \
 the locked-down kiosk back into a debuggable box. Not a boot un-bricker. Placed on /data by \
 tools/provision.sh, not installed into any image (see do_install)."
 LICENSE = "MIT"

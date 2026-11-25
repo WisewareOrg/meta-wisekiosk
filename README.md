@@ -272,8 +272,8 @@ multi-GB image to put back.
 ## Recovery
 
 `kiosk-recover` reverses `kiosk-hardware`'s boot trims for a debugging session: it unmasks the DNS
-resolver, login/session and userdb units, deletes the masked udev rule symlinks, re-enables
-Bluetooth, restores the `/etc/resolv.conf` symlink into `/data`, and reboots.
+resolver, login/session and userdb units, deletes the masked udev rule symlinks, restores the
+`/etc/resolv.conf` symlink into `/data`, and reboots.
 
 It is **not a boot un-bricker**: it runs on a slot that already gives a shell; a slot that does not is
 an A/B rollback (`just kiosk-rollback`). It is idempotent, touches neither `/boot`, `sshd`, networkd
