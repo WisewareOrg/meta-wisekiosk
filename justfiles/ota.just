@@ -128,8 +128,9 @@ casync-stats store:
 kiosk-image-file := "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/core-image-base-raspberrypi0-wifi.rootfs.ext4"
 kiosk-bundle-file := "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/update-bundle-raspberrypi0-wifi.raucb"
 
-# `just build` makes this bundle too (update-bundle is in the kas `target:`); this
-# recipe makes it alone.
+# NOT covered by `just build`, which makes the kas `target:` images
+# (core-image-base, kiosk-bootprof) only -- shipping a stale .raucb silently
+# reinstalls the previous image.
 #
 # kconfig is its own parameter rather than the root Justfile's `config` so that
 # a KAS_CONFIG pointing at some other product cannot silently build the wrong

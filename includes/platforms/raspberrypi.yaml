@@ -40,8 +40,9 @@ local_conf_header:
     # alsa and touchscreen, so the kiosk config also carries a :remove.
     MACHINE_FEATURES:append = " wifi"
     IMAGE_INSTALL:append = " kernel-image kernel-devicetree packagegroup-autonomos-raspberrypi"
+    IMAGE_FSTYPES:remove = " rpi-sdimg"
     LICENSE_FLAGS_ACCEPTED = "synaptics-killswitch"
 
   rauc-wks: |
     WKS_FILE = "autonomos-dual-raspberrypi.wks.in"
-    IMAGE_FSTYPES = "ext4 tar.bz2"
+    IMAGE_FSTYPES:append = " wic wic.bz2 wic.bmap ext4"

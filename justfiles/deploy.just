@@ -25,7 +25,7 @@ flash device:
     fi
     if [ ! -f "$IMAGE" ]; then
         echo "Error: Image not found: $IMAGE"
-        echo "Did you run 'just card-build' first?"
+        echo "Did you run 'just build' first?"
         exit 1
     fi
 
@@ -54,7 +54,7 @@ flash device:
         echo "Error: cannot tie the rootfs to the image being flashed" >&2
         echo "  image  build: ${IMG_STAMP:-unknown}" >&2
         echo "  rootfs build: ${EXT_STAMP:-unknown}" >&2
-        echo "One is stale. Re-run 'just card-build' so both come from one build." >&2
+        echo "One is stale. Re-run 'just build' so both come from one build." >&2
         exit 1
     fi
 

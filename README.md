@@ -78,7 +78,6 @@ meta-wisekiosk/                    <- the repository (project scaffolding)
 │   ├── base.yaml                  every repo + commit, incl. meta-autonomos and its patches
 │   ├── rauc.yaml
 │   ├── cve-audit.yaml             opt-in cve-check overlay, joined on by `just cve-build`
-│   ├── card.yaml                  card-image overlay (wic.bz2, wic.bmap), joined on by `just card-build`
 │   └── platforms/
 │       ├── raspberrypi.yaml
 │       └── raspberrypi-zero-w.yaml
@@ -174,7 +173,7 @@ The server listens on `~/.local/share/bitbake-hashserv/hashserv.sock`;
 the build container.
 
 ```sh
-just build          # kas fetches sources/, applies the patches, builds core-image-base, kiosk-bootprof and the update bundle (ext4 and tar.bz2 images)
+just build          # kas fetches sources/, applies the patches, builds core-image-base and deploys kiosk-bootprof
 ```
 
 **The version in that `curl` URL is the kas version the build uses, and it changes nothing on its
@@ -208,7 +207,6 @@ partition RAUC never writes — see
 ### Flashing a card
 
 ```sh
-just card-build                    # as `just build`, plus the .wic.bz2 and .wic.bmap that `flash` writes
 just flash /dev/sdX                 # writes build/.../*.wic.bz2, re-reads the partition table
 just provision-fresh-card /dev/sdX  # mounts partition 4, writes the site config, unmounts
 ```

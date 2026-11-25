@@ -4,8 +4,7 @@
 # and deploying to the device.
 #
 # Quick start:
-#   just build              # Build the image and bundle (kas fetches sources/ on first run)
-#   just card-build         # As build, plus the card image `flash` writes
+#   just build              # Build the image (kas fetches sources/ on first run)
 #   just kiosk-ota          # Build a bundle and install it on the device
 #   just flash /dev/sdX     # Flash to SD card
 #   just rauc-status <ip>   # Check device RAUC status
@@ -76,11 +75,6 @@ help:
 [group('build')]
 build:
     tools/kas-run.sh build {{config}}
-
-# Build the kiosk image, bundle and the card image that `flash` writes
-[group('build')]
-card-build:
-    tools/kas-run.sh build {{config}}:includes/card.yaml
 
 # Open a shell in the build environment
 [group('build')]
