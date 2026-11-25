@@ -340,6 +340,10 @@ local_conf_header:
     DEBUG_FLAGS:remove:pn-wpewebkit = "-g -g1"
     BB_PRESSURE_MAX_MEMORY = "20000"
 
+  # Shared by every checkout that shares SSTATE_DIR; bitbake leaves it out of signatures.
+  ccache: |
+    CCACHE_TOP_DIR = "${SSTATE_DIR}/ccache"
+
   diskmonitoring: |
     BB_DISKMON_DIRS ??= "\
     STOPTASKS,${TMPDIR},1G,100K \
