@@ -18,14 +18,15 @@ def _install_candidate(install_candidate: Installed | None) -> None:
 
 
 @pytest.fixture
-def board(target: Target) -> Iterator[Board]:
+def board(target: Target, request: pytest.FixtureRequest) -> Iterator[Board]:
     """The board under test, for one diagnostic.
 
     Args:
         target: the board's labgrid target.
+        request: the diagnostic's own request, for the fixtures the board reaches on demand.
 
     Yields:
         Board: the board; what the diagnostic registered on its cleanup is undone once it ends.
     """
-    with Board(target) as board:
+    with Board(target, fixtures=request.getfixturevalue) as board:
         yield board
