@@ -10,10 +10,10 @@ Mounts $HOME/.local/share/bitbake-hashserv read-only at /hashserv; refuses to
 run if that directory is missing.
 
 Takes an exclusive lock on $HOME/.local/share/bitbake-hashserv/kas-build.lock
-for as long as kas-container runs, so one kas build at a time runs on this host;
-a second waits and says which
-build (the pid and checkout in the lock file) holds it. Only an interactive shell
-(`shell` with at most one more argument, as `just shell` makes it) does not take it.
+for as long as kas-container runs, so one kas build at a time runs on this
+host; a second waits and says which build (the pid and checkout in the lock
+file) holds it. Only an interactive shell (`shell` with at most one more
+argument, as `just shell` makes it) does not take it.
 
 Environment:
   PIPELINE_KEYS_DIR   mounted read-only at /work/local/keys; no whitespace. The checkout's
@@ -26,7 +26,8 @@ Environment:
 Refuses --runtime-args and --docker-args in <kas-container args...>.
 
 Exits with kas-container's status, a failing writer's status, 1 if the
-bitbake-hashserv data directory is missing, or 2 on bad usage.
+bitbake-hashserv data directory is missing, the lock cannot be opened or
+local/keys cannot be made, or 2 on bad usage.
 EOF
 }
 

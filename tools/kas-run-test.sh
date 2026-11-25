@@ -11,8 +11,11 @@
 # Cases are judged by the order of begin and end lines in one log, never by elapsed time. They are:
 # two builds never overlap; a waiter names the holder; a killed holder frees the lock; the exit status
 # is kas-container's; only `shell` with at most one more argument does not take it, and
-# `shell f -c x`, `shell f --command=x` and `shell f -kc x` do; a
-# lock that cannot be opened is an error that names its path; a refused call does not wait.
+# `shell f -c x`, `shell f --command=x` and `shell f -kc x` do; a lock that cannot be opened is an error
+# that names its path; a refused call does not wait; two waiters both name the holder and both run after
+# it; an interrupted waiter never builds; a keyed call makes local/keys as the caller, with the mount still
+# read-only, and an unkeyed call makes nothing; a failed mkdir of local/keys stops before the container
+# and names the path.
 #
 # TO WATCH THIS FAIL -- before trusting a green run, run it against a scratch copy of the script,
 # one seed each, with KAS_RUN_UNDER_TEST=<copy>:
@@ -20,6 +23,10 @@
 #   * read the shell case as `shell` with none of -c, --cmd or --command: "shell --command=x takes the lock"
 #   * make the lock block run for every verb: "interactive shell does not wait"
 #   * move the lock block above the --runtime-args refusal: "refusal does not wait"
+#   * delete `mkdir -p local/keys`: "a keyed call makes local/keys"
+#   * move that mkdir out of the PIPELINE_KEYS_DIR block: "a call without PIPELINE_KEYS_DIR makes no local/"
+#   * drop `:ro` from the keys mount: "the keys mount stays read-only"
+#   * replace the mkdir's error with `|| true`: "a failed mkdir of local/keys stops before the container"
 #
 # Exit: 0 every case passed; 1 a case failed, or the script or stub never started.
 set -u
@@ -41,11 +48,9 @@ cat > "$scratch/bin/kas-container" <<'STUB'
 echo "begin ${TAG:-?}" >> "$LOG"
 echo "local=$([ -d local ] && echo yes || echo no) keys_owner=$(stat -c %u local/keys 2>/dev/null || echo none)" >> "$LOG.local"
 echo "$*" >> "$LOG.args"
-# held until the test releases it, or for HOLD seconds
+# held until the test releases it
 if [ -n "${RELEASE:-}" ]; then
     for _ in $(seq 1 600); do [ -e "$RELEASE" ] && break; sleep 0.1; done
-else
-    sleep "${HOLD:-0}"
 fi
 echo "end ${TAG:-?}" >> "$LOG"
 exit "${EXITS:-0}"
@@ -191,7 +196,10 @@ cp "$scratch/two/tools/"* "$scratch/three/tools/"
 hold
 (cd "$scratch/two" && TAG=B timeout 30 tools/kas-run.sh build b.yaml > "$scratch/w2.out" 2>&1) &
 (cd "$scratch/three" && TAG=C timeout 30 tools/kas-run.sh build c.yaml > "$scratch/w3.out" 2>&1) &
-sleep 1
+for _ in $(seq 1 100); do
+    [ "$(grep -l "waiting for another kas build" "$scratch/w2.out" "$scratch/w3.out" 2>/dev/null | wc -l)" -eq 2 ] && break
+    sleep 0.1
+done
 let_go
 n=$(grep -l "waiting for another kas build on this host: [0-9]* $scratch/one" "$scratch/w2.out" "$scratch/w3.out" | wc -l)
 both_wait_and_run() { [ "$n" -eq 2 ] && before "end A" "begin B" && before "end A" "begin C" && has "end B" && has "end C"; }
