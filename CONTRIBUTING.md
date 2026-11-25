@@ -49,7 +49,7 @@ just                # the recipe roster, each beside what it does
 just verify         # every documentation check: cross-references + docs-vs-image
 just links          # cross-references only (this is the one CI requires)
 just guards         # repository invariants: secrets, identity, syntax, wiring;
-                    # runs the device guard's, the CVE tools' and tools/kas-run.sh's self-tests too
+                    # runs the self-tests of the device guard, the CVE tools and the host-side tools too
 just reqs           # the requirements tree, through wise-ci's check-reqs
 just adrs           # docs/decisions/ and every ADR citation, through wise-ci's check-adrs
 just install-hooks  # once per clone: point core.hooksPath at .githooks
