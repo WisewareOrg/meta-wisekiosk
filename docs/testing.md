@@ -60,8 +60,8 @@ evemu-tools are built under `build/`. The image-update tests' bundles are built 
 `tools/kas-run.sh` mounts through `KAS_RUN_TMP_DIR`: they are signed by the operator key and carry
 the fleet's `compatible`, so they are kept only in memory (the host's `/tmp`, and the bundle
 server's memory for the length of an install), never in the build tree's deploy output (#252 image
-update behaviour). Before
-installing one, `Updates.allow_test_bundle` confirms the board refuses it without the run's nonce.
+update behaviour). Before installing one, `Updates.allow_test_bundle` confirms the board refuses it
+without the run's nonce.
 
 Every install the target suite makes goes through [`tools/kiosk-install.sh`](../tools/kiosk-install.sh),
 so the bench host needs Docker and a board that reaches the port Docker publishes for the install's
