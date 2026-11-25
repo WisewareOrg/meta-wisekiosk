@@ -68,9 +68,9 @@ tcp-state kiosk-addr port="8080":
     tools/kiosk-tcp-state.sh {{kiosk-addr}} {{port}}
 
 [group('device')]
-[doc("Capture the screen and check it is neither blank nor stale")]
+[doc("Read the panel's buffer into a PNG, and fail if it is blank")]
 screenshot host out="":
-    tools/kiosk-screenshot.sh root@{{host}} {{out}}
+    tools/kiosk-screenshot.py root@{{host}} {{out}}
 
 # n is a SAMPLE COUNT, not hours: the sampler writes one line every 5 minutes,
 # so 12 is the last hour and 288 the last day. Omitting it reads the whole log.

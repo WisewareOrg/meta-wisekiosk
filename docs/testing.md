@@ -96,6 +96,11 @@ to fail: it installs a good copy of the candidate in the slot not booted, zeroes
 attempts and restarts, and passes only when U-Boot boots the other slot. Both slots stay bootable, so
 it strands nothing.
 
+`tests/tools/screenshot` is the screenshot tool's own suite, which the queue job does not run:
+`test_decoder.py`, on constructed buffers and no board, runs in `just guards` and CI. `bench test
+<ref> -- tests/tools/screenshot -rP` installs the candidate and also runs `test_on_board.py`, which
+reads a painted page back pixel for pixel, then a red console and a blank one.
+
 The board comes from labgrid's own env file, pointed at with `LG_ENV` — a target named `main`, a
 `NetworkService` resource carrying the board's address, an `SSHDriver` — kept untracked under
 `local/`, since this repository is public and the address is site-specific.
