@@ -158,8 +158,20 @@ turn_the_inspector_on() {
     edit "$image" <<EOF
 mkdir $dir
 write $work/inspector.conf $dir/inspector.conf
+set_inode_field $dir uid 0
+set_inode_field $dir gid 0
+set_inode_field $dir mode 040755
+set_inode_field $dir/inspector.conf uid 0
+set_inode_field $dir/inspector.conf gid 0
+set_inode_field $dir/inspector.conf mode 0100644
 EOF
-    require_present "$image" "$dir/inspector.conf"
+    require_inode "$image" "$dir" 0 0 0755
+    require_inode "$image" "$dir/inspector.conf" 0 0 0644
+    debugfs -R "dump $dir/inspector.conf $work/inspector.check.conf" "$image" 2> /dev/null
+    cmp -s "$work/inspector.conf" "$work/inspector.check.conf" || {
+        echo "update_bundles.sh: the drop-in did not reach the image intact" >&2
+        exit 1
+    }
 }
 
 remove_paths() {
