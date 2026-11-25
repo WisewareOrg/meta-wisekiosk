@@ -3,6 +3,7 @@ Description=Kiosk browser: WPE WebKit on DRM, no display server
 After=network-online.target data.mount
 Wants=network-online.target
 Requires=data.mount
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -16,7 +17,7 @@ EnvironmentFile=-/data/config/kiosk.conf
 ExecStart=/usr/bin/kiosk-browser $KIOSK_URL
 # The launcher exits 0 when the panel is switched to another console; only always brings the page back.
 Restart=always
-RestartSec=10
+RestartSec=1
 # kiosk-browser.c pets it.
 WatchdogSec=30
 
