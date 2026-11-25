@@ -8,8 +8,8 @@
 # Every install goes through this script: just kiosk-ota, tools/rauc-rotate.sh
 # and the target suite's update tests. The board streams BUNDLE: for the length
 # of the install, a pinned nginx container on this host's port 80 serves it,
-# with only BUNDLE mounted, and the board runs `rauc install` on its URL at the
-# address its own ssh session comes from (SSH_CLIENT). rauc checks the
+# holding only BUNDLE, in memory, and the board runs `rauc install` on its URL
+# at the address its own ssh session comes from (SSH_CLIENT). rauc checks the
 # signature against the board's keyring before it writes anything.
 #
 # Checks, in order: the reproducibility gate against the tree containing this
@@ -157,7 +157,7 @@ stop_capture() {
 # serve BUNDLE -- serves BUNDLE on this host's port 80 and sets url to it at the
 # address the board's ssh session comes from.
 serve() {
-    local bundle=$1 addr t0 existing owner
+    local bundle=$1 addr t0 existing owner name
     # shellcheck disable=SC2016 # the board's shell expands SSH_CLIENT
     addr=$("${ssh[@]}" "$host" 'echo "${SSH_CLIENT%% *}"')
     [ -n "$addr" ] || { echo "the board did not report its ssh client address"; return 1; }
@@ -174,9 +174,12 @@ serve() {
     docker image inspect "$nginx_image" >/dev/null 2>&1 || docker pull -q "$nginx_image" >/dev/null \
         || { echo "could not pull $nginx_image"; return 1; }
     docker run -d --rm --name "$server" --label "kiosk-install.pid=$$" -p 80:80 \
-        -v "$bundle:/usr/share/nginx/html/$(basename "$bundle"):ro" "$nginx_image" >/dev/null \
+        --tmpfs /usr/share/nginx/html "$nginx_image" >/dev/null \
         || { echo "could not start the bundle server on port 80"; return 1; }
     served=1
+    name=$(basename "$bundle")
+    docker exec -i "$server" sh -c 'cat > "/usr/share/nginx/html/$1"' sh "$name" < "$bundle" \
+        || { echo "could not copy the bundle into the server"; return 1; }
     t0=$SECONDS
     until curl -sf -o /dev/null -r 0-0 "http://127.0.0.1/$(basename "$bundle")"; do
         (( SECONDS - t0 < 30 )) || { echo "the bundle server did not answer within 30s"; return 1; }
