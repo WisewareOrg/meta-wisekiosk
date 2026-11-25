@@ -540,7 +540,7 @@ Device state touched, on every run: `~/.surf/script.js`, the WebKit cache, and i
 script in device `/tmp`. No image rebuild, no `/boot` write, no OTA, no reboot, no keyring touch, no
 `/data/config/kiosk.conf` write. Each run ends by deploying a zero-byte `script.js`, restarting, and
 verifying the board is clean and the render advancing with
-[`kiosk-render-check.sh`](../../../tools/kiosk-render-check.sh).
+[`kiosk-render-check.sh`](https://github.com/WisewareOrg/meta-wisekiosk/blob/6d7ecfe/tools/kiosk-render-check.sh).
 
 ### Run 8 — the residual floor, and the app-level ablations that do not move it
 
@@ -709,7 +709,7 @@ Bound conditions on all three: **each arm is n=1** within its own run, and `anim
 suppresses keyframe animations only — CSS transitions and Web Animations API animations were not
 enumerated. Device state touched is `~/.surf/script.js` and the WebKit cache; no image rebuild, no
 `/boot` write, no OTA, no reboot, no `/data/config/kiosk.conf` write. Each run ends with a zero-byte
-`script.js`, a restart, and [`kiosk-render-check.sh`](../../../tools/kiosk-render-check.sh)
+`script.js`, a restart, and [`kiosk-render-check.sh`](https://github.com/WisewareOrg/meta-wisekiosk/blob/6d7ecfe/tools/kiosk-render-check.sh)
 reporting the render advancing.
 
 ### Run 14 — the floor with the app's render tree taken out of the page
@@ -798,7 +798,7 @@ Device state touched, every run: `~/.surf/script.js` and the WebKit cache. No im
 no reboot, no keyring touch. The 720p runs and the compositing arm are the exception and say so: they
 change `/data/config/kiosk.conf` or the launcher's `xrandr` line, each named in its own block. Every
 run ends with a zero-byte `script.js`, a restart, and
-[`kiosk-render-check.sh`](../../../tools/kiosk-render-check.sh) reporting the render advancing.
+[`kiosk-render-check.sh`](https://github.com/WisewareOrg/meta-wisekiosk/blob/6d7ecfe/tools/kiosk-render-check.sh) reporting the render advancing.
 
 ### Run 17 — the during-motion framerate, measured rather than derived
 
@@ -4682,8 +4682,8 @@ gap "Changes configured as a result" records for the `.seconds` fix.
   systemctl restart kiosk`. Whether it belongs in the image is an owner decision that has not been
   taken, and the measurement behind it is 25 minutes long, not a soak.
 
-- **[`kiosk-render-check.sh`](../../../tools/kiosk-render-check.sh) and its self-test
-  [`kiosk-render-check-test.sh`](../../../tools/kiosk-render-check-test.sh)** — the render-advance
+- **[`kiosk-render-check.sh`](https://github.com/WisewareOrg/meta-wisekiosk/blob/6d7ecfe/tools/kiosk-render-check.sh) and its self-test
+  [`kiosk-render-check-test.sh`](https://github.com/WisewareOrg/meta-wisekiosk/blob/6d7ecfe/tools/kiosk-render-check-test.sh)** — the render-advance
   detector built against the freeze, with 34 verdict fixtures and 7 mutations proving each guard can
   fail independently. Committed at those paths; invocation matched `kiosk-gpu-check.sh`'s, at the
   time of this run. It has **no `just` recipe and is not wired into

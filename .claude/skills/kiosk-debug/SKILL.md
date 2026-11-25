@@ -49,8 +49,9 @@ reused. During a boot profile the connection is itself an instrument — see
    proves only which addresses replied, never that a silent one is unused.
 2. **Is it rendering?** `kiosk-screenshot.py`. A blank result exits 1 with a PNG. A correct-but-stale
    result is a different fault with the same appearance, which is why the script takes the device
-   clock in the same call as the pixels; a frozen page still needs that clock compared, with two
-   captures if the page shows none. A panel left on a text console comes back to the page with
+   clock in the same call as the pixels. Two `just screenshot`s a few seconds apart, the PNGs compared,
+   tell a moving panel from a frozen one; a capture that fails or comes back BLANK is not a frozen
+   panel. A panel left on a text console comes back to the page with
    `chvt 1`; a remote `systemctl restart kiosk` does not bring it forward.
 3. **If it is not rendering, is it fetching?** `kiosk-tcp-state.sh` from the serving host
    separates "the browser is not running" from "the page will not execute".
