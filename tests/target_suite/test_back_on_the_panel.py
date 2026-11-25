@@ -92,7 +92,10 @@ class TestBackOnThePanel(BoardTest):
         assert back_s <= 160, f"on the panel after {back_s} s; TST006's bound is 160 s"
 
     def test_frozen_page_recovered(self) -> None:
-        """TST005: freeze the page showing a clock with seconds, then time until the panel is changing again."""
+        """TST005: freeze the page showing a clock with seconds, then time until the panel is changing again.
+
+        The time is read from the buffers the panel shows; once it is back, its picture must be changing too.
+        """
         self.record(requirement="TST005")
         self.board.app.turn_the_inspector_on()
         self.board.app.config.use(CLOCK_WITH_SECONDS)
@@ -103,6 +106,11 @@ class TestBackOnThePanel(BoardTest):
 
         self.record(back_s=back_s)
         assert back_s <= 60, f"changing again after {back_s} s; TST005's bound is 60 s"
+
+        picture_changes = self.board.screen.picture_changes()
+
+        self.record(picture_changes=picture_changes)
+        assert picture_changes, f"{back_s} s after the freeze the panel's buffers changed, but its picture did not"
 
     def test_sustained_network_load(self) -> None:
         """TST008: load the network; no time off the panel, through the load and after it, may pass 60 s."""

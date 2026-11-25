@@ -1,9 +1,13 @@
 """The board's screen: the mode it is driven at and the planes it shows, as the kernel's display driver reports them."""
 
 import re
+import subprocess
+import tempfile
+import time
+from pathlib import Path
 from typing import NamedTuple
 
-from board.part import Part
+from board.part import Part, invalid_if
 
 _STATE = "/sys/kernel/debug/dri/0/state"
 _DPMS = "/sys/class/drm/card0-HDMI-A-1/dpms"
@@ -13,6 +17,8 @@ _MODE = re.compile(r'mode: "(\d+)x(\d+)"')
 _NO_BUFFER = "fb=0"
 _READS = 12
 _READ_EVERY_US = 250_000
+_PICTURES_APART_SECONDS = 5
+_PICTURE_TIMEOUT_SECONDS = 60
 
 
 class Plane(NamedTuple):
@@ -31,7 +37,8 @@ class Screen(Part):
     """The board's screen, as the kernel's display driver reports it.
 
     A program that draws puts a new buffer on the screen for each frame, so a screen showing more than one
-    buffer over some seconds is changing, and one showing a single buffer stands still.
+    buffer over some seconds is changing buffers, and one showing a single buffer stands still. Which buffer
+    it shows does not say what is in it; `picture_changes` reads that.
     """
 
     def blanking(self) -> tuple[str, int]:
@@ -95,6 +102,34 @@ class Screen(Part):
         """
         buffers = self._buffers()
         return len(buffers) == 1 and _NO_BUFFER not in buffers
+
+    def picture_changes(self) -> bool:
+        """Take two pictures of the panel some seconds apart, and say whether they differ.
+
+        Returns:
+            True if they do.
+        """
+        before = self._picture()
+        time.sleep(_PICTURES_APART_SECONDS)
+        return self._picture() != before
+
+    def _picture(self) -> bytes:
+        """Take a picture of the panel with `just screenshot`; the check is invalid if it took none.
+
+        Returns:
+            The PNG.
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            png = Path(directory) / "panel.png"
+            tool = subprocess.run(
+                ["just", "screenshot", self._board.host.rpartition("@")[2], png],
+                capture_output=True,
+                text=True,
+                timeout=_PICTURE_TIMEOUT_SECONDS,
+            )
+            with invalid_if("the tool took no picture of the panel"):
+                assert png.exists(), tool.stderr
+            return png.read_bytes()
 
     def _buffers(self) -> set[str]:
         """Read the buffer on the screen a number of times in a row.
