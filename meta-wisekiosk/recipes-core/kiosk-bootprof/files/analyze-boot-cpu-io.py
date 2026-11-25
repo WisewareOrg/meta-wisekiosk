@@ -26,8 +26,6 @@ MILESTONES = [
     ("t_wlan", r"Found device /sys/subsystem/net/devices/wlan0\."),
     ("t_online", r"Reached target Network is Online\."),
     ("t_kiosk", r"Started Kiosk browser"),
-    ("t_exec", r"SURFMS uptime_at_exec"),
-    ("t_loaded", r"SURFMS load_finished"),
 ]
 
 PHASES = [
@@ -36,18 +34,6 @@ PHASES = [
     ("sysinit -> basic", "t_fs", "t_basic"),
     ("waiting for wlan0", "t_basic", "t_wlan"),
     ("assoc + DHCP", "t_wlan", "t_online"),
-    ("Xorg -> surf exec", "t_kiosk", "t_exec"),
-    ("surf -> load_finished", "t_exec", "t_loaded"),
-]
-
-DEFAULT_WINDOWS = [
-    ("kernel + early systemd", 0.0, 7.7),
-    ("local filesystems", 7.7, 20.3),
-    ("sysinit -> basic", 20.3, 25.3),
-    ("waiting for wlan0", 25.3, 33.8),
-    ("assoc + DHCP", 33.8, 36.9),
-    ("Xorg -> surf exec", 36.9, 41.4),
-    ("surf -> load_finished", 41.4, 53.0),
 ]
 
 
@@ -55,7 +41,7 @@ def journal_windows(sample_path):
     """Derive per-boot phase edges from the matching -o short-monotonic journal."""
     jpath = Path(str(sample_path).replace(".txt", ".journal.txt"))
     if not jpath.exists():
-        return DEFAULT_WINDOWS, None
+        return [], None
     import re
     text = jpath.read_text(errors="replace")
     marks = {}
@@ -70,7 +56,7 @@ def journal_windows(sample_path):
         if t0 is None or t1 is None or t1 <= t0:
             continue
         windows.append((label, t0, t1))
-    return (windows or DEFAULT_WINDOWS), marks
+    return windows, marks
 
 
 def load_meta(path):
@@ -145,7 +131,7 @@ def bracket(rows, t0, t1):
 
 def report(path, rows):
     windows, marks = journal_windows(path)
-    src = "journal" if marks else "defaults"
+    src = "journal" if windows else "none"
     meta = load_meta(path)
     print(f"\n=== {Path(path).name}   {len(rows)} samples, "
           f"uptime {rows[0]['up']:.1f}-{rows[-1]['up']:.1f}s   (edges from {src})")
@@ -169,6 +155,11 @@ def report(path, rows):
         print(f"{name:<22}{s['wall']:>7.1f}{s['busy_pct']:>8.1f}{s['idle_pct']:>8.2f}"
               f"{s['iowait_pct']:>9.2f}{s['idle_s']:>8.2f}"
               f"{s['rd_ios']:>8}{s['rd_ms']:>8}{s['wr_ios']:>8}")
+    if not windows:
+        if marks is None:
+            print(f"no phases: {Path(str(path).replace('.txt', '.journal.txt')).name} does not exist")
+        else:
+            print("no phases: the journal holds no pair of boot milestones")
 
     first, last = rows[0], rows[-1]
     boot_end = min((r for r in rows if r["up"] >= 60.0),
