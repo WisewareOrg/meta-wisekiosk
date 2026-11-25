@@ -68,7 +68,7 @@ class TestOnBoard:
     def test_reads_what_the_panel_shows(self) -> None:
         """The PNG holds the painted page pixel for pixel, then a red console, and a blank console is called blank."""
         self.board.cleanup.callback(self.board.seconds_until, partial(self._is_shown, "kiosk-browser"))
-        self.board.app.install_probe()
+        self.board.app.turn_the_inspector_on()
         self.board.app.wait_until_on_panel()
         with invalid_if("the page was not painted"):
             painted = self.board.wait_for(self._paint)

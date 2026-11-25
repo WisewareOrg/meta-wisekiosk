@@ -59,7 +59,7 @@ class TestBackOnThePanel(BoardTest):
             bound_s: the item's bound.
         """
         self.record(requirement=requirement)
-        self.board.app.install_probe()
+        self.board.app.turn_the_inspector_on()
         self.board.app.wait_until_on_panel()
 
         since = fault(self.board)
@@ -77,7 +77,7 @@ class TestBackOnThePanel(BoardTest):
         """
         self.record(requirement="TST006")
         new_build = self.board.updates.bundles.new_build
-        self.board.app.install_probe()
+        self.board.app.turn_the_inspector_on()
         self.board.app.wait_until_on_panel()
 
         update = self.board.updates.install_and_restart(new_build)
@@ -94,7 +94,7 @@ class TestBackOnThePanel(BoardTest):
     def test_frozen_page_recovered(self) -> None:
         """TST005: freeze the page showing a clock with seconds, then time until the panel is changing again."""
         self.record(requirement="TST005")
-        self.board.app.install_probe()
+        self.board.app.turn_the_inspector_on()
         self.board.app.config.use(CLOCK_WITH_SECONDS)
         self.board.app.wait_until_on_panel()
 
@@ -107,7 +107,7 @@ class TestBackOnThePanel(BoardTest):
     def test_sustained_network_load(self) -> None:
         """TST008: load the network; no time off the panel, through the load and after it, may pass 60 s."""
         self.record(requirement="TST008")
-        self.board.app.install_probe()
+        self.board.app.turn_the_inspector_on()
         self.board.app.wait_until_on_panel()
 
         with self.board.network.load(seconds=NETWORK_LOAD_SECONDS) as load:

@@ -75,8 +75,8 @@ class App(Part):
         self.kiosk = Unit(board, "kiosk.service")
         self._web_processes = Process(board, "WPEWebProcess", parent="kiosk-browser")
 
-    def install_probe(self) -> None:
-        """Turn on the browser's inspector, through which the probe is put in the page, until the test ends."""
+    def turn_the_inspector_on(self) -> None:
+        """Turn on the browser's inspector until the test ends. The page's reads put the probe in through it."""
         self._board.cleanup.callback(self.kiosk.restart)
         self.kiosk.drop_in(f"[Service]\\nEnvironment={Inspector.ENVIRONMENT}\\n")
         self.kiosk.restart()
@@ -108,6 +108,21 @@ class App(Part):
             True if both hold.
         """
         return self.on_panel_report() is not None
+
+    def report(self) -> dict[str, str] | None:
+        """Put the probe in the page if it is not there, and read its latest report.
+
+        Returns:
+            Each `key=value` token of the report, or None if there is no page to read it in.
+        """
+        try:
+            title = self.inspector.evaluate(f"{_PROBE.read_text()}\ndocument.title")
+        except NoPageError:
+            return None
+        if not isinstance(title, str) or not title.startswith(PROBE_TITLE):
+            return None
+        report = dict(token.split("=", 1) for token in title.removeprefix(PROBE_TITLE).split() if "=" in token)
+        return report if {"state", "origin"} <= report.keys() else None
 
     def on_panel_report(self) -> dict[str, str] | None:
         """Read the probe's report, when it shows the instance on the panel.
@@ -313,21 +328,6 @@ class App(Part):
             Its value.
         """
         return self._board.run(f"systemctl show -p {name} --value {self.kiosk.name}", check=True).text
-
-    def report(self) -> dict[str, str] | None:
-        """Put the probe in the page if it is not there, and read its latest report.
-
-        Returns:
-            Each `key=value` token of the report, or None if there is no page to read it in.
-        """
-        try:
-            title = self.inspector.evaluate(f"{_PROBE.read_text()}\ndocument.title")
-        except NoPageError:
-            return None
-        if not isinstance(title, str) or not title.startswith(PROBE_TITLE):
-            return None
-        report = dict(token.split("=", 1) for token in title.removeprefix(PROBE_TITLE).split() if "=" in token)
-        return report if {"state", "origin"} <= report.keys() else None
 
     def _page_time_reached(self, since: dict[str, str], seconds: float) -> dict[str, str]:
         """Read the probe until `seconds` of page time have passed since the report `since`, or the page reloaded.
