@@ -1,6 +1,6 @@
 """Screenshot suite: on the board, `just screenshot` reads the page, the console and a blank console.
 
-It leaves the page on the panel. Without the `-k`, the runner also runs `tests/target_suite`:
+It leaves the page on the panel:
 
     bench test <ref> -- tests/tools/screenshot -k on_board -rP
 """
