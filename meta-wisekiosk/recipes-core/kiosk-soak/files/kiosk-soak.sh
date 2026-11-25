@@ -85,6 +85,7 @@ fi
 # ----------------------------------------------------------------- sample mode
 COMM=kiosk-browser
 
+# pidof, not pgrep -x: busybox's pgrep -x matches the full path the launcher runs as.
 PID=$(pidof "$COMM")
 
 # Renderers are separate processes and hold most of the memory. Count the whole
