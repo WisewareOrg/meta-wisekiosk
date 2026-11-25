@@ -51,7 +51,7 @@ ARMS = "ABBAABBA"
 # host wall clock: no pair (two installs) begins unless it can end by then, checked before installs 1, 3, 5 and 7
 END_BY = datetime.time(19, 20)
 # a pair's length, until a longer one has been seen
-PAIR_S = 650
+PAIR_S = 850
 # the first pair ends the run when its first install took longer than this: no B can then be clean
 FIRST_SPAN_STOP_S = 330
 # the first endpoint in arm A: PID 1 in state D within this many seconds of a journal start
