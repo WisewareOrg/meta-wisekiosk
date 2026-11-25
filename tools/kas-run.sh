@@ -12,8 +12,8 @@ run if that directory is missing.
 Takes an exclusive lock on $HOME/.local/share/bitbake-hashserv/kas-build.lock
 for as long as kas-container runs, so one kas build at a time runs on this host;
 a second waits and says which
-build (the pid and checkout in the lock file) holds it. An interactive shell (`shell` with no -c) does not
-take it.
+build (the pid and checkout in the lock file) holds it. An interactive shell (`shell` with none of -c, --cmd or
+--command) does not take it.
 
 Environment:
   PIPELINE_KEYS_DIR   mounted read-only at /work/local/keys; no whitespace
@@ -65,7 +65,14 @@ if [ ! -d "$HASHSERV_DIR" ]; then
 fi
 
 case "${1:-}" in
-    shell) interactive=1; for arg in "$@"; do case "$arg" in -c|--cmd|--command) interactive=0 ;; esac; done ;;
+    shell)
+        interactive=1
+        for arg in "$@"; do
+            case "$arg" in
+                -c|--cmd|--command) interactive=0 ;;
+            esac
+        done
+        ;;
     *) interactive=0 ;;
 esac
 if [ "$interactive" -eq 0 ]; then
