@@ -115,8 +115,8 @@ plug's login in a `KEY=value` file outside the tree, passed by `--env-file` and 
 The `python-kasa` git pin in `pyproject.toml` is for that plug's login, and `renovate.json` records
 why it is pinned.
 
-The suites run in the runner's own environment. A package the test helpers import that is not in it
-is in `pyproject.toml`'s `tests` group, locked in `uv.lock`. `bench.toml`'s `precondition` hook
+The suites run in the runner's own environment. What the test helpers import and that environment
+lacks is in `pyproject.toml`'s `tests` group, locked in `uv.lock`. `bench.toml`'s `precondition` hook
 installs that group into `build/test-packages`, and pytest's `pythonpath` setting makes it
 importable. The directory holds only that group, so it replaces no package of the runner's. `kasa` is
 not imported: labgrid runs it as the plug's command.

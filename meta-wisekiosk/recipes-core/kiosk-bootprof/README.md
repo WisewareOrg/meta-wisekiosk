@@ -3,7 +3,7 @@
 `kiosk-bootprof` samples `/proc/stat`, `/sys/block/mmcblk0/stat`, `/proc/loadavg` and
 `/proc/modules` from early boot and writes `/data/boot-cpu-io.<boot_id>.txt` once at the end;
 `analyze-boot-cpu-io.py` turns that into per-window CPU and I/O figures. Why the sampler is written
-the way it is belongs in `files/kiosk-bootprof.c`'s header, and what ships in the image belongs in
+the way it is belongs in `files/kiosk-bootprof.c`'s header, and why it is not in the image belongs in
 `kiosk-bootprof_1.0.bb`. This file is about *taking* a profile and *reading* one — the parts the
 code cannot state about itself.
 

@@ -14,10 +14,10 @@ The operational form of [`SKILL.md`](SKILL.md), which holds the reasoning behind
 4. **Frontend change?** Edit, then rebuild the mirror detached
    (`docker compose -f compose.dev.yaml up -d --build`, in a subagent) and note the served bundle
    hash. Run `svelte-check` separately; the container build does not type-check.
-5. **Turn the inspector on and forward its port** as
-   [`webkit-inspector`](../webkit-inspector/SKILL.md) says. **Deploy the probe** in a pytest
-   diagnostic in `tests/diagnostics`, which runs script in the page through `board.app` and is run
-   through the bench driver ([`docs/testing.md`](../../../docs/testing.md) §"Running it").
+5. **Deploy the probe** in a pytest diagnostic in `tests/diagnostics`, run through the bench driver
+   ([`docs/testing.md`](../../../docs/testing.md) §"Running it"). It turns the inspector on with
+   `board.app.turn_the_inspector_on` and runs script in the page with `board.app.inspector.evaluate`.
+   Steps 6 to 8 are in that same diagnostic.
 6. **Verify the intended bundle actually loaded** — the diagnostic reads `document.scripts[0].src` —
    before trusting anything the capture produces.
 7. **Capture**, long enough that the warm-up block is a discard rather than a fraction of an arm.
@@ -25,7 +25,8 @@ The operational form of [`SKILL.md`](SKILL.md), which holds the reasoning behind
    empty read fails the run; it never scores as a null.
 9. **Parse.** Drop every block whose landing check failed; an arm with no landed blocks is
     unmeasured, not unchanged.
-10. **Clean the board**: remove the drop-in as that skill says, confirm the page renders.
+10. **Clean the board**: the board's cleanup turns the inspector off when the diagnostic ends. Confirm
+    the page renders.
 11. **Record under R1-R3**: board role, image commit, bundle hash, one board × one build × one
     test per table.
 

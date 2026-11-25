@@ -75,9 +75,9 @@ do_install() {
     # same name -- udev(7). Nothing under /usr/lib is modified, so this does not
     # re-hash systemd.
     #
-    # NOT masked, deliberately: 71-seat, 73-seat-late and 70-uaccess (logind
-    # seat/ACL handling the display and input stack may want), 60-drm (display),
-    # 60-persistent-storage and the net rules (SD card and lifeline), and
+    # NOT masked, deliberately: 71-seat, 73-seat-late and 70-uaccess (seat and
+    # ACL handling), 60-drm (display), 60-persistent-storage and the net rules
+    # (SD card and lifeline), and
     # 60-input-id, 60-evdev and the libinput rules: 60-input-id sets the
     # ID_INPUT_* tags libinput picks an input device by, and the other two set
     # the device's evdev and libinput properties.

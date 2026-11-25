@@ -119,8 +119,8 @@ The ordered loop and the pre-trust list are [`CHECKLIST.md`](CHECKLIST.md).
 - **`2>/dev/null` on an ssh to a board is blocked** by `.claude/hooks/guard.sh`. A suppressed probe
   cannot distinguish a broken check from a broken device. Let stderr through, or capture it and
   print it on failure.
-- **Leave the board as you found it**: remove the inspector drop-in, reload systemd, restart the
-  kiosk, confirm it renders.
+- **Leave the board as you found it**: what a diagnostic changes, the board's cleanup undoes when it
+  ends. Confirm the page renders.
 - **Record under R1-R3** —
   [`../../../CONTRIBUTING.md`](../../../CONTRIBUTING.md) §"Documentation conventions". Every run names its
   board role, its image commit and its frontend bundle hash; every probe is committed beside the
