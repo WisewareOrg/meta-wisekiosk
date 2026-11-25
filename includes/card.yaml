@@ -1,0 +1,12 @@
+# Card image overlay, colon-joined onto the image config by `just card-build`. Adds the
+# compressed card image and its block map that `just flash` writes; the ordinary build makes
+# neither.
+#
+# The block name must stay unique across the include chain: kas merges
+# local_conf_header by name and discards a duplicate in silence.
+header:
+  version: 20
+
+local_conf_header:
+  card-image: |
+    IMAGE_FSTYPES:append = " wic.bz2 wic.bmap"

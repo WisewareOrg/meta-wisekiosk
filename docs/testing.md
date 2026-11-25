@@ -26,7 +26,7 @@ bench run                      # on a timer: the merge queue's head entry, the s
 `--soak` (`bench test <ref> -- --soak`) adds a day-long run of TST014<!-- Memory over a long run --> on top of its queue-period run, and does not judge that run's growth bound; `bench run` never passes it.
 
 `bench.toml`'s `[hooks]` carries `precondition`, which installs the packages the test helpers import,
-`build` (`just build`) and `bundle` (`just kiosk-bundle`).
+`build` (`just build`, which also builds the bundle) and `bundle` (`just kiosk-bundle`, which finds it already built).
 `[tests]` names the two suites:
 
 - `tests/host_suite` — runs before anything is installed, against the build hook's own output. One
