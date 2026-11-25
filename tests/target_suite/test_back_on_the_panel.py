@@ -103,10 +103,13 @@ class TestBackOnThePanel(BoardTest):
 
         since = self.board.app.freeze_page()
         back_s = self.board.seconds_until(self.board.screen.is_changing, since=since, reads=3)
+
+        self.record(back_s=back_s)
+        assert back_s <= 60, f"changing again after {back_s} s; TST005's bound is 60 s"
+
         picture_changes = self.board.screen.picture_changes()
 
-        self.record(back_s=back_s, picture_changes=picture_changes)
-        assert back_s <= 60, f"changing again after {back_s} s; TST005's bound is 60 s"
+        self.record(picture_changes=picture_changes)
         assert picture_changes, f"{back_s} s after the freeze the panel's buffers changed, but its picture did not"
 
     def test_sustained_network_load(self) -> None:

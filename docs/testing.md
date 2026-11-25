@@ -146,11 +146,11 @@ install as `board.updates.installed`, the evemu build, and the replay proxy that
 no fixture lookup, and `board.fixture` says so. A class holds test methods and, when every test in
 it starts from the same board state, a `setup_method`; no class writes `teardown_method`, which
 would run after the board's undo. A test whose stimulus must be judged taken before its outcome can
-be timed adds one act and assert pair, as TST006<!-- Image update with a new application build -->
-judges the update installed and restarted into before it times the panel from that restart. So does
-a test with a second stimulus: TST023<!-- Image that cannot start --> and
-TST024<!-- Image that cannot reach the network --> judge the fallback before they install a
-valid update.
+be timed, or whose second read can be invalid, adds one act and assert pair, as
+TST006<!-- Image update with a new application build --> judges the update installed and restarted
+into before it times the panel from that restart. So does a test with a second stimulus:
+TST023<!-- Image that cannot start --> and TST024<!-- Image that cannot reach the network --> judge
+the fallback before they install a valid update.
 
 **Tests that differ only in stimulus and bound are one parametrized test.** Each row is
 `case(<TST id>, <values>…)`, which makes the item's id the case's id and its first value. A
