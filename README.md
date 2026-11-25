@@ -330,10 +330,9 @@ Two more fixes belong upstream but did not need a patch, because a downstream la
 - **Root login is unauthenticated.** The image carries `debug-tweaks`, so root has an empty password.
   Deferred deliberately while a second device still depends on unauthenticated access; tracked as
   issue #7 debug-tweaks empty root password, which carries the detail.
-- **Screen blanking is checked by the display server's settings, not by watching a long idle.**
-  `-s 0 -dpms -nocursor` moved from lightdm into the kiosk unit; TST007<!-- Display blanking disabled --> reads `xset q` on every
-  queue job and fails if the screen saver timeout is not zero or DPMS is enabled. A panel that
-  powers itself down is not covered.
+- **Screen blanking is checked by the kernel's own report of the screen's power and the console's
+  blanking timeout, not by watching a long idle.** TST007<!-- Display blanking disabled --> reads both
+  on every queue job. A panel that powers itself down is not covered.
 - **The image's packages are scanned for CVEs only when somebody asks.** The scan is a manual opt-in
   audit build on a build host, and nothing detects that the last one was months ago. Deciding which
   finding matters is manual too. [CVE and SBOM](docs/cve-and-sbom.md)

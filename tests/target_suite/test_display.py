@@ -15,14 +15,15 @@ class TestDisplay(BoardTest):
         self.board.app.install_probe()
         self.board.app.wait_until_on_panel()
 
-    def test_pointer_display_disabled(self) -> None:
-        """TST013: the screen shows no pointer, which is drawn on a plane of its own."""
+    def test_no_pointer_on_the_panel(self) -> None:
+        """TST013: with a mouse attached and moved, the panel shows no pointer."""
         self.record(requirement="TST013")
 
+        mouse_at = self.board.mouse.move_over_the_page()
         planes = self.board.screen.planes()
 
-        self.record(planes=str(planes))
-        assert len(planes) == 1, f"the screen shows more than one plane: {planes}"
+        self.record(mouse_at=mouse_at, planes=str(planes))
+        assert len(planes) == 1, f"with the mouse at {mouse_at}, the panel shows {planes}"
 
     def test_instance_covers_the_panel(self) -> None:
         """TST030: the screen shows the browser over the whole panel, and nothing above it."""

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from board.app.backend import Backend
 from board.app.config import Config
-from board.app.inspector import Inspector
+from board.app.inspector import Inspector, NoPageError
 from board.part import Part, invalid_if
 from board.process import Process
 from board.unit import Unit
@@ -33,6 +33,11 @@ _HISTOGRAM_EDGES_MS = tuple(
 )
 # the least share of the probe's report ticks that caught a marquee scrolling, for a window to count
 _MOTION_FLOOR = 0.29
+# where the page last saw the mouse, which it watches from the first read in this page load
+_MOUSE_AT = (
+    "if (!('mouseAt' in window)) { window.mouseAt = ''; "
+    "addEventListener('mousemove', e => { window.mouseAt = e.clientX + ',' + e.clientY; }, true); } window.mouseAt"
+)
 # how long a crashed backend's own restart is held back, so the browser starts without it
 _BACKEND_HOLD_SECONDS = 600
 # a soft reboot restarts userspace only, so a new boot shows as a new start of multi-user.target
@@ -186,6 +191,14 @@ class App(Part):
         width, _, height = sample["layout"].partition("x")
         return int(width), int(height)
 
+    def mouse_at(self) -> str:
+        """Read where the page last saw the mouse, which it watches from the first read.
+
+        Returns:
+            The place, as `<x>,<y>`; empty if it has not seen it.
+        """
+        return str(self.inspector.evaluate(_MOUSE_AT))
+
     def wait_until_on_panel(self) -> None:
         """Wait until the instance is on the panel."""
         self._board.seconds_until(self.on_panel)
@@ -309,7 +322,7 @@ class App(Part):
         """
         try:
             title = self.inspector.evaluate(f"{_PROBE.read_text()}\ndocument.title")
-        except Inspector.ERRORS:
+        except NoPageError:
             return None
         if not isinstance(title, str) or not title.startswith(PROBE_TITLE):
             return None

@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_instance_covers_the_panel
   path: tests/target_suite/test_display.py
-  sha: 4eb3ee236211cfe7f8cdf149ffe7d0fe87234d9c6633965148c06716994d8bc4
+  sha: 4f9194af0f8192e2a45572b5f4e4660e2dbd715c89d481575fd64f6ff68f8f4e
   type: file
-reviewed: Rah0D7axPvQMtEGqb-_C2mJOQye3a1WZL59Lqo5zpH4=
+reviewed: j2EvhCkiSlrS_nZD7e57tIU8bOqHV4jcf9EB1IV3u0g=
 status: proposed
 text: |
   With the WiseKiosk instance on the panel, read what the panel is showing. Pass if the instance is
