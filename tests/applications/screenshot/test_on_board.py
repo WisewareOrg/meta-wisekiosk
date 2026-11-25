@@ -2,7 +2,7 @@
 
 It leaves the page on the panel:
 
-    bench test <ref> -- tests/tools/screenshot -k on_board -rP
+    bench test <ref> -- tests/applications/screenshot -k on_board -rP
 """
 
 import subprocess

@@ -1012,7 +1012,7 @@ fi
 
 # --- 23. the screenshot tool's decoder must still pass its tests ----------
 # What they cover and how is the docstring of the file.
-shottest23="tests/tools/screenshot/test_decoder.py"
+shottest23="tests/applications/screenshot/test_decoder.py"
 if [ ! -f "$shottest23" ]; then
     bad "guard 23: $shottest23 missing -- the screenshot tool's decoder goes untested"
 elif ! command -v "$PY" > /dev/null 2>&1; then
