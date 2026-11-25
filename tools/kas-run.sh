@@ -65,7 +65,7 @@ if [ ! -d "$HASHSERV_DIR" ]; then
 fi
 
 case "${1:-}" in
-    shell) interactive=1; for arg in "$@"; do [ "$arg" != -c ] || interactive=0; done ;;
+    shell) interactive=1; for arg in "$@"; do case "$arg" in -c|--cmd|--command) interactive=0 ;; esac; done ;;
     *) interactive=0 ;;
 esac
 if [ "$interactive" -eq 0 ]; then
