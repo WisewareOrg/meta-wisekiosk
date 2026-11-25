@@ -27,3 +27,6 @@ SRC_URI += " file://panel-mode.cfg"
 
 # Subsystems this board has no device or user for, and fewer devices at coldplug.
 SRC_URI += " file://board.cfg"
+
+# Per recipe: a global INHERIT would add ccache-native and the exported CCACHE_* variables to every recipe's signature.
+inherit ccache
