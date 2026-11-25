@@ -3,11 +3,16 @@
 import http.client
 import json
 import re
+import sys
 from collections.abc import Iterator
+from typing import TYPE_CHECKING
 
 import websocket
 
 from board.part import Part
+
+if TYPE_CHECKING:
+    from board import Board
 
 _PORT = 2999
 _TIMEOUT_SECONDS = 10
@@ -28,11 +33,23 @@ class Inspector(Part):
 
     ENVIRONMENT = f"WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:{_PORT}"
 
+    def __init__(self, board: "Board") -> None:
+        """Bind to the board, with no read failed.
+
+        Args:
+            board: the board under test.
+        """
+        super().__init__(board)
+        self._no_page = ""
+
     def evaluate(self, script: str) -> object:
         """Evaluate `script` in the page.
 
         It is connected only for the length of one evaluation, as a connected inspector slows the page, and
         only to a page the inspector lists: connecting to one that is not there yet crashes the browser.
+
+        Why there is no page goes to stderr each time it changes, as a wait takes the error as a read that
+        does not hold.
 
         Args:
             script: the JavaScript.
@@ -45,6 +62,31 @@ class Inspector(Part):
                 answers with an error, as while a page loads.
             RuntimeError: the script threw; its message is what it threw.
         """
+        try:
+            result = self._result(script)
+        except NoPageError as error:
+            if str(error) != self._no_page:
+                self._no_page = str(error)
+                print(f"no page: {error}", file=sys.stderr)
+            raise
+        self._no_page = ""
+        value = result["result"]
+        if result.get("wasThrown"):
+            raise RuntimeError(value.get("description", value.get("value")))
+        return value.get("value")
+
+    def _result(self, script: str) -> dict:
+        """Evaluate `script` in the page the inspector lists, through a forwarded port.
+
+        Args:
+            script: the JavaScript.
+
+        Returns:
+            What it evaluated to, and whether it threw.
+
+        Raises:
+            NoPageError: there is no page to evaluate in.
+        """
         with self._board.forward_local_port(_PORT) as port:
             try:
                 answer = _answer(port, script)
@@ -52,10 +94,7 @@ class Inspector(Part):
                 raise NoPageError(f"the inspector did not answer: {error!r}") from error
         if "error" in answer:
             raise NoPageError(f"the inspector answered: {answer['error']['message']}")
-        value = answer["result"]["result"]
-        if answer["result"].get("wasThrown"):
-            raise RuntimeError(value.get("description", value.get("value")))
-        return value.get("value")
+        return answer["result"]
 
 
 def _answer(port: int, script: str) -> dict:
