@@ -11,8 +11,10 @@
 # Cases: a second call to one board is refused before any ssh and names the holder; the first ends normally; a
 # call to another board goes on; the lock is free after the first ends or is killed whole; a script killed alone
 # frees the lock at once although its streaming ssh sessions live on (rauc goes on installing, and a later call is
-# refused by rauc only, after its arming; the real ssh closes the descriptor, so the lock cannot outlive the script); no streaming ssh is left after a normal end; callers with different XDG_RUNTIME_DIR meet on one lock; two names for one address meet, another address
-# does not, and a name that does not resolve is keyed as typed (user stripped).
+# refused by rauc only, after its arming; the real ssh closes the descriptor, so the lock cannot outlive the
+# script); no streaming ssh is left after a normal end; callers with different XDG_RUNTIME_DIR meet on one
+# lock; two names for one address meet, another address does not, and a name that does not resolve is keyed
+# as typed (user stripped).
 #
 # TO WATCH THIS FAIL, with KIOSK_INSTALL_UNDER_TEST=<a copy of the script with one seed>:
 #   * delete the `flock -n 8` condition: "a second call is refused"
@@ -102,6 +104,7 @@ install() { # call-id host: one install in the background, in a session of its o
     # shellcheck disable=SC2016 # the inner shell expands its own arguments
     (cd "$scratch/co" && exec setsid bash -c 'echo $$ > "$1"; env CALL="$2" tools/kiosk-install.sh "$3" "$4" > "$5" 2>&1; echo $? > "$6"' \
         _ "$scratch/pg.$id" "$id" "$host" "$scratch/bundle.raucb" "$scratch/out.$id" "$scratch/rc.$id") &
+    disown
     await test -s "$scratch/pg.$id"
 }
 one="root@board-one-$tag.invalid"
@@ -168,11 +171,20 @@ await not kill -0 -- "-$(cat "$scratch/pg.7")"
 : > "$LOG"; rm -f "$RELEASE" "$STATE/installed"
 install 8 "$one"
 await reached 8 "docker run"
+await reached 8 "ssh .*rauc install"
 await reached 8 "ssh .*dmesg -w"
 script=$(pgrep -P "$(cat "$scratch/pg.8")" | head -n 1)
 await test -n "$script"
 kill -9 "$script" 2>/dev/null
 await not kill -0 "$script"
+streams_alive() {
+    local p
+    [ -s "$STATE/streams.8" ] || return 1
+    while read -r p; do
+        kill -0 "$p" 2>/dev/null || return 1
+    done < "$STATE/streams.8"
+}
+check "the streaming ssh of the killed script are still alive" streams_alive
 install 10 "$one"
 await reached 10 "docker run"
 check "a script killed alone frees the lock though its streaming ssh live on" reached 10 "docker run"
