@@ -28,7 +28,14 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 shipped=${KIOSK_INSTALL_UNDER_TEST:-$root/tools/kiosk-install.sh}
 scratch=$(mktemp -d)
 tag=lt$$
-trap 'kill -9 -- $(jobs -p) 2>/dev/null; for f in "$scratch"/pg.*; do kill -9 -- "-$(cat "$f")" 2>/dev/null; done; rm -f /tmp/kiosk-install-*"$tag"*.lock /tmp/kiosk-install-ADDR-*"$tag"*.lock; rm -rf "$scratch"' EXIT
+cleanup() {
+    local f
+    jobs -p | xargs -r kill -9 2>/dev/null
+    for f in "$scratch"/pg.*; do kill -9 -- "-$(cat "$f")" 2>/dev/null; done
+    rm -f /tmp/kiosk-install-*"$tag"*.lock /tmp/kiosk-install-ADDR-*"$tag"*.lock
+    rm -rf "$scratch"
+}
+trap cleanup EXIT
 mkdir -p "$scratch/co/tools" "$scratch/bin" "$scratch/state"
 export LOG=$scratch/log STATE=$scratch/state RELEASE=$scratch/release
 : > "$LOG"
@@ -83,12 +90,17 @@ fails=0
 check() { local name=$1; shift; if "$@"; then echo "ok    $name"; else echo "FAIL  $name"; fails=$((fails + 1)); fi; }
 not() { ! "$@"; }
 reached() { grep -q "^$1 $2" "$LOG"; }
-await() { local n; for n in $(seq 1 150); do "$@" && return 0; sleep 0.1; done; echo "FAIL  never reached: $*"; exit 1; }
+await() {
+    local _
+    for _ in $(seq 1 150); do "$@" && return 0; sleep 0.1; done
+    echo "FAIL  never reached: $*"
+    exit 1
+}
 install() { # call-id host: one install in the background, in a session of its own, its output in out.<id>
     local id=$1 host=$2
+    # shellcheck disable=SC2016 # the inner shell expands its own arguments
     (cd "$scratch/co" && exec setsid bash -c 'echo $$ > "$1"; env CALL="$2" tools/kiosk-install.sh "$3" "$4" > "$5" 2>&1; echo $? > "$6"' \
         _ "$scratch/pg.$id" "$id" "$host" "$scratch/bundle.raucb" "$scratch/out.$id" "$scratch/rc.$id") &
-    echo "$id" >> "$scratch/ids"
     await test -s "$scratch/pg.$id"
 }
 one="root@board-one-$tag.invalid"
@@ -125,7 +137,13 @@ await test -e "$scratch/rc.1"
 check "the first call ends normally" test "$(rcof 1)" = 0
 await test -e "$scratch/rc.3"
 await test -e "$scratch/rc.11"
-none_alive() { local p; for p in $(cat "$STATE/streams.1" 2>/dev/null); do ! kill -0 "$p" 2>/dev/null || return 1; done; [ -s "$STATE/streams.1" ]; }
+none_alive() {
+    local p
+    [ -s "$STATE/streams.1" ] || return 1
+    while read -r p; do
+        ! kill -0 "$p" 2>/dev/null || return 1
+    done < "$STATE/streams.1"
+}
 check "after the script ends none of its streaming ssh is left" none_alive
 
 # 6. free after the first ends, then killed whole
