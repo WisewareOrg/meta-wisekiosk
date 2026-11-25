@@ -30,6 +30,16 @@ OUTPUT_DIR = "local"
 WAIT_SECONDS = 180
 BOARD_BINARY_PATH = "/usr/local/bin/kiosk-bootprof"
 
+# One command, the first read after the first reconnect and before any systemctl: the modules the boot
+# loaded and the CPU time of PID 1, the unit slices and the whole machine.
+_BOOT_READ = (
+    "echo '## /proc/modules'; cat /proc/modules; echo '## usage_usec'; "
+    "grep -H usage_usec /sys/fs/cgroup/init.scope/cpu.stat /sys/fs/cgroup/system.slice/cpu.stat "
+    "/sys/fs/cgroup/system.slice/*/cpu.stat /sys/fs/cgroup/cpu.stat"
+)
+# A finished oneshot's own cgroup is gone, so its CPU time is only here; read last.
+_UDEV_TRIGGER_READ = "systemctl show -p CPUUsageNSec systemd-udev-trigger.service"
+
 _UNIT_NAME = "kiosk-bootprofile"
 _UNIT_REMOTE = "/etc/systemd/system/kiosk-bootprofile.service"
 _ENABLE_LINK = f"/etc/systemd/system/sysinit.target.wants/{_UNIT_NAME}.service"
@@ -144,6 +154,7 @@ def test_boot_profile(request: pytest.FixtureRequest, board: Board) -> None:
     # 4. Reconnect; a failed activation counts as still the old boot.
     boot_after = None
     sample_remote = None
+    boot_read = None
     for _attempt in range(_RETRY_ATTEMPTS):
         try:
             board.connect()
@@ -154,6 +165,8 @@ def test_boot_profile(request: pytest.FixtureRequest, board: Board) -> None:
         if boot_after == boot_before:
             time.sleep(_RETRY_INTERVAL_SECONDS)
             continue
+        if boot_read is None:
+            boot_read = board.run(_BOOT_READ, timeout=None, check=True).text
         candidate = f"/data/boot-cpu-io.{boot_after}.txt"
         if board.run(f"test -f {candidate}", timeout=None).returncode == 0:
             sample_remote = candidate
@@ -174,6 +187,8 @@ def test_boot_profile(request: pytest.FixtureRequest, board: Board) -> None:
     journal_text = "\n".join(journal.stdout)
     assert journal_text.strip(), f"journal for boot {journal_id} is empty"
     (outdir / f"{stem}.journal.txt").write_text(journal_text + "\n")
+    udev_trigger_read = board.run(_UDEV_TRIGGER_READ, timeout=None, check=True).text
+    print(f"boot {boot_after}\n{boot_read}\n## {_UDEV_TRIGGER_READ}\n{udev_trigger_read}")
 
     # 6. Analyze on the host.
     result = subprocess.run(
