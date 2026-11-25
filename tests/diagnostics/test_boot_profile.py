@@ -26,7 +26,7 @@ DEPLOYED_BINARY = (
 )
 
 # The script's own defaults.
-OUTPUT_DIR = "local"
+OUTPUT_DIR = "build/boot-profile"
 WAIT_SECONDS = 180
 BOARD_BINARY_PATH = "/usr/local/bin/kiosk-bootprof"
 
