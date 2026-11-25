@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Self-test for the build lock in tools/kas-run.sh.
+# Self-test for tools/kas-run.sh: the build lock and the keys directory.
 #
 #   tools/kas-run-test.sh
 #
@@ -220,5 +220,16 @@ rm -f "$log.local"
 (cd "$scratch/five" && tools/kas-run.sh build n.yaml > /dev/null 2>&1)
 check "a call without PIPELINE_KEYS_DIR makes no local/" grep -qx "local=no keys_owner=none" "$log.local"
 
-echo "kas-run lock: $fails case(s) failed"
+# 12. a failed mkdir of local/keys stops before the container starts, and the error names the path
+mkdir -p "$scratch/six/tools" "$scratch/six/local"
+cp "$scratch/two/tools/"* "$scratch/six/tools/"
+chmod 555 "$scratch/six/local"
+rm -f "$log.local"
+out=$(cd "$scratch/six" && PIPELINE_KEYS_DIR="$scratch/keys-src" tools/kas-run.sh build k.yaml 2>&1)
+rc=$?
+chmod 755 "$scratch/six/local"
+stopped_early() { [ "$rc" -ne 0 ] && [ ! -e "$log.local" ] && printf '%s' "$out" | grep -q "$scratch/six/local/keys"; }
+check "a failed mkdir of local/keys stops before the container and names the path" stopped_early
+
+echo "kas-run: $fails case(s) failed"
 [ "$fails" -eq 0 ]

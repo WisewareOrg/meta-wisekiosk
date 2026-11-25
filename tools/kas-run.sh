@@ -95,7 +95,7 @@ tools/write-build-rev.sh
 
 runtime="-v $HASHSERV_DIR:/hashserv:ro"
 if [ -n "${PIPELINE_KEYS_DIR:-}" ]; then
-    mkdir -p local/keys
+    mkdir -p local/keys || { echo "tools/kas-run.sh: cannot make $PWD/local/keys" >&2; exit 1; }
     runtime="$runtime -v $PIPELINE_KEYS_DIR:/work/local/keys:ro"
 fi
 if [ -n "${KAS_RUN_TMP_DIR:-}" ]; then
