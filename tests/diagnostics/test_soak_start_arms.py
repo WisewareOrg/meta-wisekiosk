@@ -6,12 +6,12 @@ it. The case starts nothing:
 
 - arm A: the install begins `A_LEAD_S` seconds before the timer's next start (`NextElapseUSecMonotonic`),
   so the timer's own start falls late in the write;
-- arm B: the install begins `AFTER_START_S` seconds after a start, so that arming and write end before the
-  next one. A B write that overlapped a start anyway is reclassified "natural".
+- arm B: the install begins `B_LEAD_S` seconds before a start, so the start falls in the arming and is over
+  before the write begins. A B write that overlapped a start anyway is reclassified "natural".
 
 The arm of each install is decided by the journal's `Starting` lines against the write, and both the
 planned and the journal's arm are recorded, each install by its ordinal. It records every install's readings and
-gives no verdict. It stops, recording why, on: the clock (`CUT_AFTER_S`), an under-voltage reading in an
+gives no verdict. It stops, recording why, on: the clock (`END_BY`), an under-voltage reading in an
 install's stats, the first install's span, a reset (the boot id changed: that is the result, and nothing more
 is installed), an install that failed, or a write under `MIN_FULL_WRITE_MIB` (the full-slot build did not take).
 It waits until the board has been up `UP_AT_START_S` first, and fails only when no `timeleft` was read.
@@ -23,6 +23,7 @@ Outside the regression suite: run by hand through the bench driver, last in its 
 """
 
 import contextlib
+import datetime
 import re
 import subprocess
 import threading
@@ -47,10 +48,12 @@ from test_install_watchdog_margin import (
 )
 
 ARMS = "ABBAABBA"
-# seconds from the case's start: no pair (two installs) begins after it, checked before installs 1, 3, 5 and 7
-CUT_AFTER_S = 2000
-# the first pair ends the run when its first install took longer than this
-FIRST_SPAN_STOP_S = 285
+# host wall clock: no pair (two installs) begins unless it can end by then, checked before installs 1, 3, 5 and 7
+END_BY = datetime.time(19, 20)
+# a pair's length, until a longer one has been seen
+PAIR_S = 650
+# the first pair ends the run when its first install took longer than this: no B can then be clean
+FIRST_SPAN_STOP_S = 330
 # the first endpoint in arm A: PID 1 in state D within this many seconds of a journal start
 NEAR_START_BEFORE_S = 15
 NEAR_START_AFTER_S = 5
@@ -66,9 +69,7 @@ UP_AT_START_S = 400
 A_LEAD_S = 225
 SOAK_PERIOD_S = 300
 MIN_FULL_WRITE_MIB = 1900
-AFTER_START_S = 5
-# arming 50 to 90 s, a write about 190 s, the end about 5 s, and margin; B begins within AFTER_START_S of a start
-INSTALL_SPAN_S = 290
+B_LEAD_S = 45
 # systemctl prints the time as a span; the property raw is "t <microseconds>"
 NEXT_START_CMD = (
     "busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1/unit/kiosk_2dsoak_2etimer "
@@ -94,7 +95,7 @@ def _wait_for_the_arm(board: Board, planned: str) -> float:
         time.sleep(5)
     assert next_start != NEXT_UNSET, "the timer's next start was never set"
     ahead = next_start / 1e6 - board.uptime_s()
-    wait = (ahead - A_LEAD_S) % SOAK_PERIOD_S if planned == "A" else ahead + AFTER_START_S
+    wait = (ahead - (A_LEAD_S if planned == "A" else B_LEAD_S)) % SOAK_PERIOD_S
     time.sleep(max(0.0, wait))
     return max(0.0, wait)
 
@@ -146,7 +147,8 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
     """
     uptime = board.uptime_s()
     time.sleep(max(0.0, UP_AT_START_S - uptime))
-    case_began = time.monotonic()
+    longest_pair = float(PAIR_S)
+    pair_began = time.monotonic()
     boot = board.boot_id()
     samples: list[Sample] = []
     reader = subprocess.Popen(
@@ -165,9 +167,14 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
     first_span = 0.0
     try:
         for number, planned in enumerate(ARMS, start=1):
-            if number % 2 and time.monotonic() - case_began >= CUT_AFTER_S:
-                stopped = f"install {number}: past {CUT_AFTER_S} s from the case's start, no new pair begins"
-                break
+            if number % 2:
+                if number > 1:
+                    longest_pair = max(longest_pair, time.monotonic() - pair_began)
+                pair_began = time.monotonic()
+                ends = datetime.datetime.now() + datetime.timedelta(seconds=longest_pair)
+                if ends.time() > END_BY:
+                    stopped = f"install {number}: a pair of {longest_pair:.0f} s would end after {END_BY:%H:%M}"
+                    break
             if number == 3 and first_span > FIRST_SPAN_STOP_S:
                 stopped = (
                     f"the first install took {first_span:.0f} s, over {FIRST_SPAN_STOP_S}: the first pair ends the run"
@@ -189,7 +196,7 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
             record_property(f"{key}.waited_s", waited)
             record_property(f"{key}.samples", len(window))
             record_property(f"{key}.span_s", round(finished - began, 1))
-            record_property(f"{key}.over_span", finished - began > INSTALL_SPAN_S)
+            record_property(f"{key}.over_span", finished - began > FIRST_SPAN_STOP_S)
             if number == 1:
                 first_span = finished - began
             under_voltage = bool(UNDER_VOLTAGE.search(watched.output))
@@ -218,7 +225,9 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
                 break
             if boot_now != boot:
                 record_property(f"{key}.boot_changed", True)
-                stopped = f"install {number}: the boot id changed or could not be read: a reset is the result"
+                with contextlib.suppress(AssertionError, *Board.ERRORS):
+                    record_property(f"{key}.journal_starts_of_the_old_boot", _journal_starts(board, boot))
+                stopped = f"install {number}: the boot id changed: a reset is the result"
                 break
             if watched.returncode != 0:
                 stopped = f"install {number} failed (rc {watched.returncode})"
@@ -241,7 +250,10 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
                     f"{key}.start_share_of_write",
                     " ".join(f"{(t - write_from) / (write_to - write_from):.2f}" for t in in_write),
                 )
-            arm = ("start" if planned == "A" else "natural") if in_write else ("void" if planned == "A" else "none")
+            if write_from is None:
+                arm = "void"
+            else:
+                arm = ("start" if planned == "A" else "natural") if in_write else ("void" if planned == "A" else "none")
             record_property(f"{key}.arm_by_journal", arm)
             counted[arm] += 1
             in_write_samples = (
@@ -259,7 +271,7 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
             record_property(f"{key}.pid1_in_D_near_a_start", len(near))
             reached = len(near) > 0 if planned == "A" else len(d_in_write) > 0
             record_property(f"{key}.first_endpoint", reached)
-            endpoint[planned] += reached
+            endpoint[planned] += reached and arm != "void"
             if under_voltage:
                 stopped = f"install {number}: under-voltage in its stats"
                 break
