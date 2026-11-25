@@ -60,8 +60,16 @@ for c in one two; do
 done
 
 fails=0
-check() { # name, condition result (0 pass)
-    if [ "$2" -eq 0 ]; then echo "ok    $1"; else echo "FAIL  $1"; fails=$((fails + 1)); fi
+check() { # name, then the command that must succeed
+    local name=$1
+    shift
+    if "$@"; then echo "ok    $name"; else echo "FAIL  $name"; fails=$((fails + 1)); fi
+}
+not() { # the command must fail
+    ! "$@"
+}
+log_is() { # the log holds exactly these words, in order
+    [ "$(tr '\n' ' ' < "$log")" = "$*" ]
 }
 has() { # a line is in the log
     grep -qx "$1" "$log"
@@ -100,8 +108,9 @@ await "begin A"
 (cd "$scratch/two" && TAG=B tools/kas-run.sh build b.yaml > "$scratch/b.out" 2>&1) &
 for _ in $(seq 1 100); do grep -q waiting "$scratch/b.out" 2>/dev/null && break; sleep 0.1; done
 let_go
-if [ "$(tr '\n' ' ' < "$log")" = "begin A end A begin B end B " ]; then check "builds never overlap" 0; else check "builds never overlap" 1; fi
-if grep -q "waiting for another kas build on this host: [0-9]* $scratch/one" "$scratch/b.out"; then check "the waiter names the holder's pid and checkout" 0; else check "the waiter names the holder's pid and checkout" 1; fi
+check "builds never overlap" log_is "begin A end A begin B end B "
+check "the waiter names the holder's pid and checkout" \
+    grep -q "waiting for another kas build on this host: [0-9]* $scratch/one" "$scratch/b.out"
 
 # 2. a killed holder frees the lock: its own process group, killed whole, as every process that
 # inherited the descriptor holds the lock
@@ -112,18 +121,20 @@ holder=$!
 await "begin A"
 (sleep 1; kill -9 -- "-$holder" 2>/dev/null || kill -9 "$holder") &
 (cd "$scratch/two" && TAG=B timeout 15 tools/kas-run.sh build b.yaml > /dev/null 2>&1)
-if has "end B"; then check "a killed holder frees the lock" 0; else check "a killed holder frees the lock" 1; fi
+check "a killed holder frees the lock" has "end B"
 wait 2>/dev/null
 
 # 3. the exit status is kas-container's
 (cd "$scratch/one" && EXITS=7 tools/kas-run.sh build a.yaml > /dev/null 2>&1)
-if [ "$?" -eq 7 ]; then check "the exit status is kas-container's" 0; else check "the exit status is kas-container's" 1; fi
+status=$?
+check "the exit status is kas-container's" test "$status" -eq 7
 
 # 4. an interactive shell does not take the lock; shell with -c, --cmd or --command does
 : > "$log"
 hold
 (cd "$scratch/two" && TAG=S tools/kas-run.sh shell s.yaml > /dev/null 2>&1)
-if has "end S" && ! has "end A"; then check "interactive shell does not wait" 0; else check "interactive shell does not wait" 1; fi
+ran_beside_holder() { has "end S" && not has "end A"; }
+check "interactive shell does not wait" ran_beside_holder
 let_go
 for flag in -c --cmd --command; do
     : > "$log"
@@ -133,13 +144,15 @@ for flag in -c --cmd --command; do
     ! has "begin C"
     held=$?
     let_go
-    if [ "$held" -eq 0 ] && before "end A" "begin C"; then check "shell $flag takes the lock" 0; else check "shell $flag takes the lock" 1; fi
+    waited_for_holder() { [ "$held" -eq 0 ] && before "end A" "begin C"; }
+    check "shell $flag takes the lock" waited_for_holder
 done
 
 # 5. a nested call is refused with exit 2
 : > "$log"; rm -f "$log.nested"
 (cd "$scratch/one" && NEST="$scratch/one/tools/kas-run.sh" TAG=A tools/kas-run.sh build a.yaml > /dev/null 2>&1)
-if [ "$(tail -n 1 "$log.nested")" = "2" ] && grep -q 'nested' "$log.nested"; then check "nested call refused with exit 2" 0; else check "nested call refused with exit 2" 1; fi
+nested_refused() { [ "$(tail -n 1 "$log.nested")" = "2" ] && grep -q 'nested' "$log.nested"; }
+check "nested call refused with exit 2" nested_refused
 
 # 6. a lock that cannot be opened is an error naming the path
 rm -f "$hs/kas-build.lock"
@@ -147,7 +160,8 @@ chmod 555 "$hs"
 out=$(cd "$scratch/one" && tools/kas-run.sh build a.yaml 2>&1)
 rc=$?
 chmod 755 "$hs"
-if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q 'kas-build.lock'; then check "an unopenable lock is an error that names the path" 0; else check "an unopenable lock is an error that names the path" 1; fi
+names_the_path() { [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q 'kas-build.lock'; }
+check "an unopenable lock is an error that names the path" names_the_path
 
 # 7. a refused call does not wait for a held lock
 : > "$log"
@@ -157,7 +171,8 @@ rc=$?
 ! has "end A"
 refused_early=$?
 let_go
-if [ "$rc" -eq 2 ] && [ "$refused_early" -eq 0 ]; then check "a refusal does not wait" 0; else check "a refusal does not wait" 1; fi
+refused_at_once() { [ "$rc" -eq 2 ] && [ "$refused_early" -eq 0 ]; }
+check "a refusal does not wait" refused_at_once
 
 # 8. the waiter's exit status is kas-container's too
 : > "$log"
@@ -165,7 +180,7 @@ hold
 (cd "$scratch/two" && EXITS=9 TAG=B timeout 30 tools/kas-run.sh build b.yaml > /dev/null 2>&1; echo "$?" > "$scratch/rc8") &
 sleep 1
 let_go
-if [ "$(cat "$scratch/rc8")" -eq 9 ]; then check "the waiter's exit status is kas-container's" 0; else check "the waiter's exit status is kas-container's" 1; fi
+check "the waiter's exit status is kas-container's" test "$(cat "$scratch/rc8")" -eq 9
 
 # 9. two waiters both name the holder, and both run after it
 : > "$log"
@@ -177,14 +192,15 @@ hold
 sleep 1
 let_go
 n=$(grep -l "waiting for another kas build on this host: [0-9]* $scratch/one" "$scratch/w2.out" "$scratch/w3.out" | wc -l)
-if [ "$n" -eq 2 ] && before "end A" "begin B" && before "end A" "begin C" && has "end B" && has "end C"; then check "two waiters both name the holder and both run after it" 0; else check "two waiters both name the holder and both run after it" 1; fi
+both_wait_and_run() { [ "$n" -eq 2 ] && before "end A" "begin B" && before "end A" "begin C" && has "end B" && has "end C"; }
+check "two waiters both name the holder and both run after it" both_wait_and_run
 
 # 10. an interrupted waiter never runs kas-container (TERM: a caller without job control ignores INT)
 : > "$log"
 hold
 (cd "$scratch/two" && TAG=B timeout -s TERM 1 tools/kas-run.sh build b.yaml > /dev/null 2>&1)
 let_go
-if ! has "begin B"; then check "an interrupted waiter never builds" 0; else check "an interrupted waiter never builds" 1; fi
+check "an interrupted waiter never builds" not has "begin B"
 
 echo "kas-run lock: $fails case(s) failed"
 [ "$fails" -eq 0 ]
