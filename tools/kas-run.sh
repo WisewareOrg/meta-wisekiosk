@@ -14,7 +14,8 @@ for as long as kas-container runs, so one kas build at a time runs on this
 host; a second waits and says which build (the pid and checkout in the lock
 file) holds it. Only an interactive shell (`shell` with at most one more
 argument, as `just shell` makes it) does not take it; a shell given more
-arguments takes the lock for as long as it is open.
+arguments takes the lock for as long as it is open. The lock is held by this script, not by the
+container: a container that outlives its killed script builds with the lock free.
 
 Environment:
   PIPELINE_KEYS_DIR   mounted read-only at /work/local/keys; no whitespace. The checkout's
