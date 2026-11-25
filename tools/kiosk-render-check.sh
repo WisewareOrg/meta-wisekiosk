@@ -152,14 +152,14 @@ render_verdict() {
     # the crop no longer covers the moving element the verdict assumes. Scoring
     # that as FROZEN is how a mis-aimed crop sends someone to a wall-mounted
     # panel that is working. The whole-screen blank test is
-    # kiosk-screenshot.sh's, and it stays there.
+    # kiosk-screenshot.py's, and it stays there.
     mn=$(printf '%s\n' "$probe" | sed -n 's/^blank .*min=\([0-9.]*\).*/\1/p')
     mx=$(printf '%s\n' "$probe" | sed -n 's/^blank .*max=\([0-9.]*\).*/\1/p')
     if [ -n "$mn" ] && [ -n "$mx" ] && [ "$mn" = "$mx" ]; then
         echo "cannot tell: every pixel in the captured region is identical (min=max=$mn)." >&2
         echo "Frame identity carries no information about a uniform region. Either the" >&2
         echo "page never painted there or the crop is aimed at background -- re-aim it," >&2
-        echo "and use kiosk-screenshot.sh for the whole-screen blank test." >&2
+        echo "and use kiosk-screenshot.py for the whole-screen blank test." >&2
         return 2
     fi
 
@@ -231,8 +231,7 @@ HERE=$(dirname "$0")
 # `sh`, not `bash`: busybox userland, no bash. Nothing here uses `head -20`,
 # `date +%N` or `ss`, all of which busybox refuses.
 #
-# The staged PNG goes in /tmp, not /data. kiosk-screenshot.sh uses /data because
-# its capture has to survive a reboot racing the scp; this one lives for
+# The staged PNG goes in /tmp, not /data. It lives for
 # milliseconds and never leaves the device, so tmpfs is the lighter choice --
 # no flash write, and nothing persists if the run dies.
 #
@@ -276,8 +275,7 @@ grab 2
 
 # Secondary, and informational only -- the verdict treats a uniform region as
 # could-not-tell, not as a failure of the board. Measured on the SECOND frame,
-# the one nearest the verdict. Normalised to 0-255 so the numbers read the same
-# as kiosk-screenshot.sh's, whose quantum range is 65535.
+# the one nearest the verdict. Normalised to 0-255.
 if command -v identify > /dev/null 2>&1 && [ -f "$F.2.png" ]; then
     identify -format 'blank min=%[fx:minima*255] max=%[fx:maxima*255] mean=%[fx:mean*255]\n' "$F.2.png" 2>/dev/null
 fi
