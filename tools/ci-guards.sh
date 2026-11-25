@@ -1036,6 +1036,18 @@ else
     printf '%s\n' "$out24" | sed 's/^/        /'
 fi
 
+# --- 25. the per-board install lock in tools/kiosk-install.sh passes its self-test ---
+# What it proves and how is the header of tools/kiosk-install-lock-test.sh.
+locktest25="tools/kiosk-install-lock-test.sh"
+if [ ! -f "$locktest25" ]; then
+    bad "guard 25: $locktest25 missing -- the install lock goes untested"
+elif out25=$(timeout 120 bash "$locktest25" 2>&1); then
+    ok "the install lock passes its self-test ($(printf '%s\n' "$out25" | tail -n1))"
+else
+    bad "the install lock FAILS its self-test:"
+    printf '%s\n' "$out25" | sed 's/^/        /'
+fi
+
 if [ "$fail" -ne 0 ]; then
     printf '\nguards FAILED\n'
     exit 1
