@@ -16,7 +16,7 @@ hardware-in-the-loop runner, cloned and built outside this tree per its own READ
 checkout, it reads the tracked `bench.toml` here — which never names a machine or a board — runs its
 `build` and `bundle` hooks, a host suite before anything is installed, then a target suite against the
 booted board. Builds on one host take turns, so a run that builds waits for a build already running,
-and says so; the wait counts in the runner's time limit. The runner never touches the board itself:
+and says so (README.md, "Quick start"). The runner never touches the board itself:
 
 ```sh
 bench test <ref>               # by hand: build, run both suites; the target suite installs on the board LG_ENV names
