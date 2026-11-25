@@ -135,7 +135,7 @@ local_conf_header:
     # than the unit in the field.
     RPI_KERNEL_DEVICETREE_OVERLAYS:append = " overlays/ramoops.dtbo"
     RPI_EXTRA_CONFIG:append = "\ndtoverlay=ramoops,total-size=0x40000,record-size=0x8000,console-size=0x20000\n"
-    IMAGE_INSTALL:append = " kiosk-session kiosk-soak kiosk-journal kiosk-timesync-persist kiosk-hardware kiosk-netcheck zram wpa-supplicant-service ttf-roboto tzdata-core tzdata-americas"
+    IMAGE_INSTALL:append = " kiosk-session kiosk-soak kiosk-journal kiosk-timesync-persist kiosk-hardware kiosk-drmgrab kiosk-netcheck zram wpa-supplicant-service ttf-roboto tzdata-core tzdata-americas"
 
     # kiosk-provision: applies /data/config over the image defaults at boot --
     # sets the hostname into the kernel (nothing reads a hostname file) and

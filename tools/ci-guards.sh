@@ -1010,6 +1010,20 @@ else
     [ "$ok22" -eq 1 ] && ok "the tests' Python passes ruff, ruff format, interrogate and pydoclint"
 fi
 
+# --- 23. the screenshot tool's decoder must still pass its tests ----------
+# What they cover and how is the docstring of the file.
+shottest23="tests/applications/screenshot/test_decoder.py"
+if [ ! -f "$shottest23" ]; then
+    bad "guard 23: $shottest23 missing -- the screenshot tool's decoder goes untested"
+elif ! command -v "$PY" > /dev/null 2>&1; then
+    bad "guard 23: $PY missing -- the screenshot tool's decoder cannot be tested"
+elif out23=$("$PY" -B "$shottest23" 2>&1); then
+    ok "the screenshot tool's decoder passes its tests ($(printf '%s\n' "$out23" | grep '^Ran '))"
+else
+    bad "the screenshot tool's decoder FAILS its tests:"
+    printf '%s\n' "$out23" | sed 's/^/        /'
+fi
+
 if [ "$fail" -ne 0 ]; then
     printf '\nguards FAILED\n'
     exit 1
