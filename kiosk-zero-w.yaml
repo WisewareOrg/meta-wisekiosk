@@ -343,6 +343,8 @@ local_conf_header:
   # Shared by every checkout that shares SSTATE_DIR; bitbake leaves it out of signatures.
   ccache: |
     CCACHE_TOP_DIR = "${SSTATE_DIR}/ccache"
+    CCACHE_LOGFILE:pn-wpewebkit = "${CCACHE_TOP_DIR}/wpewebkit-ccache.log"
+    CCACHE_LOGFILE[export] = "1"
 
   diskmonitoring: |
     BB_DISKMON_DIRS ??= "\
