@@ -6,7 +6,7 @@
 
 ## Revisions
 
-- **rev 2** — 2026-11-25 — a frozen page's recovery is stated as the restart delay and the browser's start, not a fixed 10 s (the unit's restart delay changed; PR 378).
+- **rev 2** — 2026-11-25 — a frozen page's recovery is stated as the restart delay and the browser's start, not a fixed 10 s (#383 The page and the service come back sooner after a crash).
 - **rev 1** — 2026-11-25 — first written (#185 Evaluate WPE WebKit).
 
 ## Context
