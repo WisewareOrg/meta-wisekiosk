@@ -14,17 +14,19 @@ The operational form of [`SKILL.md`](SKILL.md), which holds the reasoning behind
 4. **Frontend change?** Edit, then rebuild the mirror detached
    (`docker compose -f compose.dev.yaml up -d --build`, in a subagent) and note the served bundle
    hash. Run `svelte-check` separately; the container build does not type-check.
-5. **Deploy the probe** to `~/.surf/script.js`.
-6. **Clear `~/.surf/cache`, then restart the kiosk.** In that order — the restart re-fetches.
-7. **Verify the intended bundle actually loaded** — grep the board's WebKit cache for the hash —
-   before trusting anything the capture produces.
-8. **Capture**, long enough that the warm-up block is a discard rather than a fraction of an arm.
-9. **Read the payload back with `xprop`** and assert it is non-empty. An empty read fails the run;
-   it never scores as a null.
-10. **Parse.** Drop every block whose landing check failed; an arm with no landed blocks is
+5. **Turn the inspector on and forward its port** as
+   [`webkit-inspector`](../webkit-inspector/SKILL.md) says. **Deploy the probe** through it:
+   `uv run --locked tools/kiosk-inspect.py 2999 < probe.js`.
+6. **Verify the intended bundle actually loaded** —
+   `echo 'document.scripts[0].src' | uv run --locked tools/kiosk-inspect.py 2999` — before trusting
+   anything the capture produces.
+7. **Capture**, long enough that the warm-up block is a discard rather than a fraction of an arm.
+8. **Read the payload back**: `echo document.title | uv run --locked tools/kiosk-inspect.py 2999`,
+   and assert it is non-empty. An empty read fails the run; it never scores as a null.
+9. **Parse.** Drop every block whose landing check failed; an arm with no landed blocks is
     unmeasured, not unchanged.
-11. **Clean the board**: `: > ~/.surf/script.js`, restart, confirm it renders.
-12. **Record under R1-R3**: board role, image commit, bundle hash, one board × one build × one
+10. **Clean the board**: remove the drop-in as that skill says, confirm the page renders.
+11. **Record under R1-R3**: board role, image commit, bundle hash, one board × one build × one
     test per table.
 
 ## Before you trust a number
