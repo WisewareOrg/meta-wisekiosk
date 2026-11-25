@@ -37,9 +37,9 @@
 # fw_printenv/rauc-status blocks, with no ssh and no device.
 #
 # Exit: 0 installed and the target slot activated, or --check-only passed;
-# 1 no bundle at the path, the gate failed, the bundle server did not start,
-# rauc refused or failed the install, the target slot did not activate, or
-# --check-only failed; 2 no host or no bundle given. An ssh or rauc command
+# 1 no bundle at the path, the gate failed, another install holds the board,
+# the bundle server did not start, rauc refused or failed the install, the
+# target slot did not activate, or --check-only failed; 2 no host or no bundle given. An ssh or rauc command
 # that fails outright exits with that command's own status (e.g. 255).
 set -euo pipefail
 
@@ -119,7 +119,7 @@ stamp() {
 # stripped name when nothing resolves, so two names for one board meet on one install lock.
 board_address() {
     local name=${1#*@} resolved addr
-    resolved=$(ssh -G "$name" 2>/dev/null | awk '$1 == "hostname" { print $2; exit }') || resolved=
+    resolved=$(ssh -G "$name" 2>/dev/null | awk '$1 == "hostname" { print $2 }' | head -n 1) || resolved=
     resolved=${resolved:-$name}
     addr=$(getent ahostsv4 "$resolved" 2>/dev/null | awk 'NR == 1 { print $1 }') || addr=
     echo "${addr:-$resolved}"
@@ -263,10 +263,10 @@ main() {
     cd "$root"
 
     # One install per board: a second would clear the first's pstore records and turn its recorders off. The
-    # lock is the board's address, at a fixed path, appended to and never truncated; the holder writes its pid and
-    # checkout into it. The descriptor stays on the install's own foreground children, so a script killed alone
-    # still holds the lock while its rauc ssh lives; rauc goes on installing after that, and a later call is then
-    # refused by rauc only, after its arming.
+    # lock is the board's address, at a fixed path, opened for append; the holder writes its pid and checkout into
+    # it. The streaming sessions run in a subshell that closes the descriptor, so their stamp processes do not hold
+    # it. A script killed alone frees the lock at once while rauc goes on installing; a later call is then refused
+    # by rauc only, after its arming.
     local lock holder
     lock="/tmp/kiosk-install-$(board_address "$host" | tr -c 'A-Za-z0-9._:\n-' _).lock"
     exec 8>>"$lock"

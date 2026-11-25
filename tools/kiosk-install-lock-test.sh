@@ -10,13 +10,13 @@
 #
 # Cases: a second call to one board is refused before any ssh and names the holder; the first ends normally; a
 # call to another board goes on; the lock is free after the first ends or is killed whole; a script killed alone
-# is still refused while its rauc ssh lives, and not once that ends although its streaming ssh sessions still
-# run; no streaming ssh is left after a normal end; callers with different XDG_RUNTIME_DIR meet on one lock; two names for one address meet, another address
+# frees the lock at once although its streaming ssh sessions live on (rauc goes on installing, and a later call is
+# refused by rauc only, after its arming; the real ssh closes the descriptor, so the lock cannot outlive the script); no streaming ssh is left after a normal end; callers with different XDG_RUNTIME_DIR meet on one lock; two names for one address meet, another address
 # does not, and a name that does not resolve is keyed as typed (user stripped).
 #
 # TO WATCH THIS FAIL, with KIOSK_INSTALL_UNDER_TEST=<a copy of the script with one seed>:
 #   * delete the `flock -n 8` condition: "a second call is refused"
-#   * delete `exec 8>&-` in stream(): "streaming sessions do not hold the lock"
+#   * delete `exec 8>&-` in stream(): "a script killed alone frees the lock"
 #   * leave out `exec` before the stream's ssh: "none of its streaming ssh is left"
 #   * key the lock on "$host" as typed: "two names for one address meet"
 #   * put XDG_RUNTIME_DIR into the lock path: "other environments meet on one lock"
@@ -47,6 +47,7 @@ touch "$scratch/bundle.raucb"
 
 cat > "$scratch/bin/ssh" <<'STUB'
 #!/bin/bash
+exec 8>&-
 cmd="${*: -1}"
 echo "$CALL ssh $(printf '%s' "$*" | tr '\n' ' ' | cut -c1-400)" >> "$LOG"
 case "$*" in
@@ -115,8 +116,8 @@ await reached 1 "docker run"
 (cd "$scratch/co" && CALL=2 tools/kiosk-install.sh "$one" "$scratch/bundle.raucb" > "$scratch/out.2" 2>&1; echo $? > "$scratch/rc.2")
 refused() { [ "$(rcof 2)" = 1 ] && grep -q "another install holds $one" "$scratch/out.2" && grep -q "[0-9] $scratch/co" "$scratch/out.2"; }
 check "a second call is refused and names the holder" refused
-only_g() { ! grep "^2 " "$LOG" | grep -v ' ssh -G' | grep -q .; }
-check "the refused call reached nothing but ssh -G" only_g
+only_g() { ! grep "^$1 " "$LOG" | grep -v ' ssh -G' | grep -q .; }
+check "the refused call reached nothing but ssh -G" only_g 2
 # 3. a call to another board goes on, and a call with another XDG_RUNTIME_DIR to the first board is refused
 install 3 "$two"
 await reached 3 "docker run"
@@ -124,17 +125,22 @@ check "another board goes on" reached 3 "docker run"
 mkdir -p "$scratch/xdg"
 (cd "$scratch/co" && CALL=4 XDG_RUNTIME_DIR="$scratch/xdg" tools/kiosk-install.sh "$one" "$scratch/bundle.raucb" > /dev/null 2>&1; echo $? > "$scratch/rc.4")
 check "other environments meet on one lock" test "$(rcof 4)" = 1
+check "that call reached nothing but ssh -G" only_g 4
 # 5. two names for one address meet; a name that does not resolve is keyed as typed
 (cd "$scratch/co" && CALL=5 tools/kiosk-install.sh "$alias1" "$scratch/bundle.raucb" > /dev/null 2>&1; echo $? > "$scratch/rc.5")
 check "two names for one address meet" test "$(rcof 5)" = 1
+check "that call reached nothing but ssh -G" only_g 5
 # a name that does not resolve is keyed as typed, user stripped: two users on it meet
 install 11 "root@nores-$tag.invalid"
 await reached 11 "docker run"
 (cd "$scratch/co" && CALL=12 tools/kiosk-install.sh "admin@nores-$tag.invalid" "$scratch/bundle.raucb" > /dev/null 2>&1; echo $? > "$scratch/rc.12")
 check "a name that does not resolve is keyed with the user stripped" test "$(rcof 12)" = 1
+check "that call reached nothing but ssh -G" only_g 12
 touch "$RELEASE"
 await test -e "$scratch/rc.1"
 check "the first call ends normally" test "$(rcof 1)" = 0
+disarmed_once() { [ "$(grep -c '^1 ssh .*echo 0 > /sys/kernel/debug/pstore/record_ftrace' "$LOG")" -eq 1 ]; }
+check "the first call disarmed its recorders once" disarmed_once
 await test -e "$scratch/rc.3"
 await test -e "$scratch/rc.11"
 none_alive() {
@@ -146,31 +152,30 @@ none_alive() {
 }
 check "after the script ends none of its streaming ssh is left" none_alive
 
-# 6. free after the first ends, then killed whole
+# 6. free after one killed whole
 rm -f "$RELEASE" "$STATE/installed"; : > "$LOG"
 install 6 "$one"
 await reached 6 "docker run"
 kill -9 -- "-$(cat "$scratch/pg.6")" 2>/dev/null
+await not kill -0 -- "-$(cat "$scratch/pg.6")"
 install 7 "$one"
 await reached 7 "docker run"
 check "the lock is free after the first ended and after one killed whole" reached 7 "docker run"
 kill -9 -- "-$(cat "$scratch/pg.7")" 2>/dev/null
+await not kill -0 -- "-$(cat "$scratch/pg.7")"
 
-# 7. killed alone: still refused while its rauc ssh lives; free once that ends though the streaming ssh runs on
+# 7. a script killed alone frees the lock at once, though its streaming ssh live on: the next call goes
 : > "$LOG"; rm -f "$RELEASE" "$STATE/installed"
 install 8 "$one"
 await reached 8 "docker run"
-await reached 8 "ssh .*rauc install"
 await reached 8 "ssh .*dmesg -w"
 script=$(pgrep -P "$(cat "$scratch/pg.8")" | head -n 1)
+check "the script of call 8 was found" test -n "$script"
 kill -9 "${script:-0}" 2>/dev/null
-(cd "$scratch/co" && CALL=9 tools/kiosk-install.sh "$one" "$scratch/bundle.raucb" > /dev/null 2>&1; echo $? > "$scratch/rc.9")
-check "a script killed alone is refused while its rauc ssh lives" test "$(rcof 9)" = 1
-touch "$RELEASE"
-sleep 1
+await not kill -0 "${script:-0}"
 install 10 "$one"
 await reached 10 "docker run"
-check "streaming sessions do not hold the lock" reached 10 "docker run"
+check "a script killed alone frees the lock though its streaming ssh live on" reached 10 "docker run"
 
 echo "kiosk-install lock: $fails case(s) failed"
 [ "$fails" -eq 0 ]
