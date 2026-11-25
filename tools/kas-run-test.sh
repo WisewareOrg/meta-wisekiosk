@@ -160,8 +160,7 @@ for words in "-c|bitbake x" "--command=bitbake x" "-kc|bitbake x"; do
     check "shell <config> ${args[0]} takes the lock" shell_waits "${args[@]}"
 done
 
-
-# 6. a lock that cannot be opened is an error naming the path
+# 5. a lock that cannot be opened is an error naming the path
 rm -f "$hs/kas-build.lock"
 chmod 555 "$hs"
 out=$(cd "$scratch/one" && tools/kas-run.sh build a.yaml 2>&1)
@@ -170,7 +169,7 @@ chmod 755 "$hs"
 names_the_path() { [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q 'kas-build.lock'; }
 check "an unopenable lock is an error that names the path" names_the_path
 
-# 7. a refused call does not wait for a held lock
+# 6. a refused call does not wait for a held lock
 : > "$log"
 hold
 (cd "$scratch/two" && tools/kas-run.sh build x.yaml --runtime-args y > /dev/null 2>&1)
@@ -181,7 +180,7 @@ let_go
 refused_at_once() { [ "$rc" -eq 2 ] && [ "$refused_early" -eq 0 ]; }
 check "a refusal does not wait" refused_at_once
 
-# 8. the waiter's exit status is kas-container's too
+# 7. the waiter's exit status is kas-container's too
 : > "$log"
 hold
 (cd "$scratch/two" && EXITS=9 TAG=B timeout 30 tools/kas-run.sh build b.yaml > /dev/null 2>&1; echo "$?" > "$scratch/rc8") &
@@ -189,7 +188,7 @@ sleep 1
 let_go
 check "the waiter's exit status is kas-container's" test "$(cat "$scratch/rc8")" -eq 9
 
-# 9. two waiters both name the holder, and both run after it
+# 8. two waiters both name the holder, and both run after it
 : > "$log"
 mkdir -p "$scratch/three/tools"
 cp "$scratch/two/tools/"* "$scratch/three/tools/"
@@ -205,14 +204,14 @@ n=$(grep -l "waiting for another kas build on this host: [0-9]* $scratch/one" "$
 both_wait_and_run() { [ "$n" -eq 2 ] && before "end A" "begin B" && before "end A" "begin C" && has "end B" && has "end C"; }
 check "two waiters both name the holder and both run after it" both_wait_and_run
 
-# 10. an interrupted waiter never runs kas-container (TERM: a caller without job control ignores INT)
+# 9. an interrupted waiter never runs kas-container (TERM: a caller without job control ignores INT)
 : > "$log"
 hold
 (cd "$scratch/two" && TAG=B timeout -s TERM 1 tools/kas-run.sh build b.yaml > /dev/null 2>&1)
 let_go
 check "an interrupted waiter never builds" not has "begin B"
 
-# 11. a keyed call makes local/keys, as the caller, before the container starts, and the keys mount stays
+# 10. a keyed call makes local/keys, as the caller, before the container starts, and the keys mount stays
 # read-only; a call without PIPELINE_KEYS_DIR makes nothing
 for c in four five; do
     mkdir -p "$scratch/$c/tools"
@@ -228,7 +227,7 @@ rm -f "$log.local"
 (cd "$scratch/five" && tools/kas-run.sh build n.yaml > /dev/null 2>&1)
 check "a call without PIPELINE_KEYS_DIR makes no local/" grep -qx "local=no keys_owner=none" "$log.local"
 
-# 12. a failed mkdir of local/keys stops before the container starts, and the error names the path
+# 11. a failed mkdir of local/keys stops before the container starts, and the error names the path
 mkdir -p "$scratch/six/tools" "$scratch/six/local"
 cp "$scratch/two/tools/"* "$scratch/six/tools/"
 chmod 555 "$scratch/six/local"

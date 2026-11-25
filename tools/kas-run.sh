@@ -13,7 +13,8 @@ Takes an exclusive lock on $HOME/.local/share/bitbake-hashserv/kas-build.lock
 for as long as kas-container runs, so one kas build at a time runs on this
 host; a second waits and says which build (the pid and checkout in the lock
 file) holds it. Only an interactive shell (`shell` with at most one more
-argument, as `just shell` makes it) does not take it.
+argument, as `just shell` makes it) does not take it; a shell given more
+arguments takes the lock for as long as it is open.
 
 Environment:
   PIPELINE_KEYS_DIR   mounted read-only at /work/local/keys; no whitespace. The checkout's
@@ -66,12 +67,7 @@ if [ ! -d "$HASHSERV_DIR" ]; then
     exit 1
 fi
 
-if [ "${1:-}" = shell ] && [ "$#" -le 2 ]; then
-    interactive=1
-else
-    interactive=0
-fi
-if [ "$interactive" -eq 0 ]; then
+if [ "${1:-}" != shell ] || [ "$#" -gt 2 ]; then
     lock="$HASHSERV_DIR/kas-build.lock"
     exec 9>>"$lock"
     flock -n 9 || { echo "kas-run: waiting for another kas build on this host: $(cat "$lock")" >&2; flock 9; }
