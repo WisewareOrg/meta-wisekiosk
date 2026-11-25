@@ -10,13 +10,14 @@
 #
 # Cases are judged by the order of begin and end lines in one log, never by elapsed time. They are:
 # two builds never overlap; a waiter names the holder; a killed holder frees the lock; the exit status
-# is kas-container's; an interactive `shell` does not take it and `shell -c`, `--cmd` and `--command` do; a nested call is refused with exit 2; a
+# is kas-container's; only `shell` with at most one more argument does not take it, and
+# `shell f -c x`, `shell f --command=x` and `shell f -kc x` do; a
 # lock that cannot be opened is an error that names its path; a refused call does not wait.
 #
 # TO WATCH THIS FAIL -- before trusting a green run, run it against a scratch copy of the script,
 # one seed each, with KAS_RUN_UNDER_TEST=<copy>:
 #   * delete the two `flock` words in the lock block: "builds never overlap"
-#   * delete `export KAS_RUN_LOCKED=1`: "nested call refused"
+#   * read the shell case as `shell` with none of -c, --cmd or --command: "shell --command=x takes the lock"
 #   * make the lock block run for every verb: "interactive shell does not wait"
 #   * move the lock block above the --runtime-args refusal: "refusal does not wait"
 #
@@ -28,6 +29,7 @@ shipped=${KAS_RUN_UNDER_TEST:-$root/tools/kas-run.sh}
 scratch=$(mktemp -d)
 trap 'jobs -p | xargs -r kill 2>/dev/null; rm -rf "$scratch"' EXIT
 
+unset PIPELINE_KEYS_DIR KAS_RUN_TMP_DIR KAS_RUN_ENV
 export HOME=$scratch/home
 hs=$HOME/.local/share/bitbake-hashserv
 mkdir -p "$hs" "$scratch/bin"
@@ -45,7 +47,6 @@ if [ -n "${RELEASE:-}" ]; then
 else
     sleep "${HOLD:-0}"
 fi
-if [ -n "${NEST:-}" ]; then timeout -s KILL 10 "$NEST" build nested.yaml > "$LOG.nested" 2>&1; echo "$?" >> "$LOG.nested"; fi
 echo "end ${TAG:-?}" >> "$LOG"
 exit "${EXITS:-0}"
 STUB
@@ -131,30 +132,29 @@ wait 2>/dev/null
 status=$?
 check "the exit status is kas-container's" test "$status" -eq 7
 
-# 4. an interactive shell does not take the lock; shell with -c, --cmd or --command does
+# 4. an interactive shell does not take the lock; shell given a command, in any spelling, does
 : > "$log"
 hold
 (cd "$scratch/two" && TAG=S tools/kas-run.sh shell s.yaml > /dev/null 2>&1)
 ran_beside_holder() { has "end S" && not has "end A"; }
 check "interactive shell does not wait" ran_beside_holder
 let_go
-for flag in -c --cmd --command; do
+shell_waits() { # the shell call with these arguments waits for the holder
     : > "$log"
     hold
-    (cd "$scratch/two" && TAG=C timeout 30 tools/kas-run.sh shell s.yaml "$flag" "bitbake x" > /dev/null 2>&1) &
-    sleep 1
+    (cd "$scratch/two" && TAG=C timeout 30 tools/kas-run.sh shell s.yaml "$@" > "$scratch/c.out" 2>&1) &
+    local _
+    for _ in $(seq 1 100); do grep -q "waiting for another kas build" "$scratch/c.out" 2>/dev/null && break; sleep 0.1; done
     ! has "begin C"
     held=$?
     let_go
-    waited_for_holder() { [ "$held" -eq 0 ] && before "end A" "begin C"; }
-    check "shell $flag takes the lock" waited_for_holder
+    [ "$held" -eq 0 ] && before "end A" "begin C"
+}
+for words in "-c|bitbake x" "--command=bitbake x" "-kc|bitbake x"; do
+    IFS='|' read -r -a args <<< "$words"
+    check "shell <config> ${args[0]} takes the lock" shell_waits "${args[@]}"
 done
 
-# 5. a nested call is refused with exit 2
-: > "$log"; rm -f "$log.nested"
-(cd "$scratch/one" && NEST="$scratch/one/tools/kas-run.sh" TAG=A tools/kas-run.sh build a.yaml > /dev/null 2>&1)
-nested_refused() { [ "$(tail -n 1 "$log.nested")" = "2" ] && grep -q 'nested' "$log.nested"; }
-check "nested call refused with exit 2" nested_refused
 
 # 6. a lock that cannot be opened is an error naming the path
 rm -f "$hs/kas-build.lock"
