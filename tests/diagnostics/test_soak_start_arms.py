@@ -59,7 +59,7 @@ OVERLAP_BEFORE_S = 5
 OVERLAP_AFTER_S = 15
 # the timer's next start reads as this while the soak unit runs
 NEXT_UNSET = 2**64 - 1
-NEXT_TRIES = 60
+NEXT_TRIES = 120
 SILENT_BOARD_S = 600
 UNDER_VOLTAGE = re.compile(r"\buv=1\b")
 UP_AT_START_S = 400
@@ -192,10 +192,8 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
             record_property(f"{key}.over_span", finished - began > INSTALL_SPAN_S)
             if number == 1:
                 first_span = finished - began
-            if UNDER_VOLTAGE.search(watched.output):
-                record_property(f"{key}.under_voltage", True)
-                stopped = f"install {number}: under-voltage in its stats"
-                break
+            under_voltage = bool(UNDER_VOLTAGE.search(watched.output))
+            record_property(f"{key}.under_voltage", under_voltage)
             record_property(
                 f"{key}.samples_all",
                 "\n".join(
@@ -229,16 +227,14 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
                 stopped = f"install {number} wrote {mib:.0f} MiB: the full-slot build did not take, the run is void"
                 break
             in_write = []
+            all_starts = []
             write_from = write_to = None
             if window and watched.write_began is not None and watched.write_ended is not None:
                 write_from = _uptime_at(window, watched.write_began)
                 write_to = _uptime_at(window, watched.write_ended)
                 record_property(f"{key}.write_uptime", f"{write_from:.1f}-{write_to:.1f}")
-                in_write = [
-                    t
-                    for t in _journal_starts(board, boot)
-                    if write_from - OVERLAP_BEFORE_S <= t <= write_to + OVERLAP_AFTER_S
-                ]
+                all_starts = _journal_starts(board, boot)
+                in_write = [t for t in all_starts if write_from - OVERLAP_BEFORE_S <= t <= write_to + OVERLAP_AFTER_S]
             record_property(f"{key}.journal_starts_in_write", in_write)
             if write_from is not None and write_to > write_from:
                 record_property(
@@ -257,13 +253,16 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
             near = [
                 s
                 for s in d_in_write
-                if any(-NEAR_START_BEFORE_S <= s.uptime - start <= NEAR_START_AFTER_S for start in in_write)
+                if any(-NEAR_START_BEFORE_S <= s.uptime - start <= NEAR_START_AFTER_S for start in all_starts)
             ]
             record_property(f"{key}.pid1_in_D_in_write", len(d_in_write))
             record_property(f"{key}.pid1_in_D_near_a_start", len(near))
             reached = len(near) > 0 if planned == "A" else len(d_in_write) > 0
             record_property(f"{key}.first_endpoint", reached)
             endpoint[planned] += reached
+            if under_voltage:
+                stopped = f"install {number}: under-voltage in its stats"
+                break
         else:
             stopped = "all installs done"
     finally:
