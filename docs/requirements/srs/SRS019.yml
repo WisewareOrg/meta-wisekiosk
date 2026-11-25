@@ -1,0 +1,22 @@
+active: true
+derived: false
+header: |
+  Logs survive a repeating fault
+level: 2.11
+links:
+- SYS002: we4-sQcWch5HDwJ-oXfvp9Sv6m3b5_G4qYVQ1_9S9QY=
+normative: true
+rationale: |
+  A fault that repeats writes the same lines again and again. If they push out what came before, the
+  operator who comes to diagnose it finds only the repetition, and the cause is gone with what led up
+  to it.
+ref: ''
+reviewed: OURf4b_3anDWolGBwP1B7dhOqs_l81mAhzucXFGTXtg=
+status: proposed
+text: |
+  When a fault on the appliance keeps repeating by itself, its logs from before the fault began shall
+  stay readable by the operator.
+verification-justification: |
+  Test. Each check beneath it exercises the capability directly and reads whether it worked, so the
+  result needs no judgement.
+verification-method: test
