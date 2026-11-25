@@ -7,7 +7,7 @@
 #
 # Every install goes through this script: just kiosk-ota, tools/rauc-rotate.sh
 # and the target suite's update tests. The board streams BUNDLE: for the length
-# of the install, a pinned nginx container on this host's port 80 serves it,
+# of the install, a pinned nginx container on a port docker chooses serves it,
 # holding only BUNDLE, in memory, and the board runs `rauc install` on its URL
 # at the address its own ssh session comes from (SSH_CLIENT). rauc checks the
 # signature against the board's keyring before it writes anything.
@@ -60,7 +60,8 @@ target_activated() {
 }
 
 nginx_image="nginx:1.30.8-alpine@sha256:6437a63b5c529f0e06162b3f593c0154cff6fa2ea0f94fd7c27928cb399e022d"
-server=kiosk-bundle-server
+server=
+port=
 
 ssh=(ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
 host=
@@ -154,38 +155,36 @@ stop_capture() {
     capture_pids=()
 }
 
-# serve BUNDLE -- serves BUNDLE on this host's port 80 and sets url to it at the
+# serve BUNDLE -- serves BUNDLE on a port docker chooses and sets url to it at the
 # address the board's ssh session comes from.
 serve() {
     local bundle=$1 addr t0 existing owner name
     # shellcheck disable=SC2016 # the board's shell expands SSH_CLIENT
     addr=$("${ssh[@]}" "$host" 'echo "${SSH_CLIENT%% *}"')
     [ -n "$addr" ] || { echo "the board did not report its ssh client address"; return 1; }
-    existing=$(docker ps -aq --filter "name=^${server}\$")
-    if [ -n "$existing" ]; then
+    for existing in $(docker ps -aq --filter "label=kiosk-install.pid"); do
         owner=$(docker inspect -f '{{index .Config.Labels "kiosk-install.pid"}}' "$existing" 2>/dev/null) || owner=
-        if [ -n "$owner" ] && ps -p "$owner" >/dev/null 2>&1; then
-            echo "another install on this host (pid $owner) is serving a bundle"
-            return 1
-        fi
         # left by an install that was killed before its cleanup ran
-        docker rm -f "$existing" >/dev/null 2>&1 || true
-    fi
+        { [ -n "$owner" ] && ps -p "$owner" >/dev/null 2>&1; } || docker rm -f "$existing" >/dev/null 2>&1 || true
+    done
     docker image inspect "$nginx_image" >/dev/null 2>&1 || docker pull -q "$nginx_image" >/dev/null \
         || { echo "could not pull $nginx_image"; return 1; }
-    docker run -d --rm --name "$server" --label "kiosk-install.pid=$$" -p 80:80 \
-        --tmpfs /usr/share/nginx/html "$nginx_image" >/dev/null \
-        || { echo "could not start the bundle server on port 80"; return 1; }
+    server=$(docker run -d --rm --label "kiosk-install.pid=$$" -p 80 \
+        --tmpfs /usr/share/nginx/html "$nginx_image") \
+        || { echo "could not start the bundle server"; return 1; }
     served=1
+    port=$(docker port "$server" 80/tcp | head -n 1)
+    port=${port##*:}
+    [ -n "$port" ] || { echo "docker did not report the bundle server's port"; return 1; }
     name=$(basename "$bundle")
     docker exec -i "$server" sh -c 'cat > "/usr/share/nginx/html/$1"' sh "$name" < "$bundle" \
         || { echo "could not copy the bundle into the server"; return 1; }
     t0=$SECONDS
-    until curl -sf -o /dev/null -r 0-0 "http://127.0.0.1/$(basename "$bundle")"; do
+    until curl -sf -o /dev/null -r 0-0 "http://127.0.0.1:$port/$name"; do
         (( SECONDS - t0 < 30 )) || { echo "the bundle server did not answer within 30s"; return 1; }
         sleep 1
     done
-    url="http://$addr/$(basename "$bundle")"
+    url="http://$addr:$port/$name"
     echo "== serving $bundle at $url"
 }
 

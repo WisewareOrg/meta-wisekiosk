@@ -28,7 +28,7 @@ answer to an ext4 image smaller than its slot.
   first install was slower than a plain one (PR 335 image update behaviour, "Install times");
   RAUC documents adaptive mode as a streaming optimisation.
 - **An `ssh -R` tunnel to a server on the host's loopback** — not RAUC's documented setup; the board
-  reaches the host directly where the host publishes port 80 on the LAN.
+  reaches the host directly where the host publishes the server's port on the LAN.
 - **A small Python server pinned in `uv.lock`** — a prebuilt, digest-pinned image needs no code of
   the layer's own.
 - **casync bundles** — need a converted bundle and a separate chunk store; RAUC documents streaming
@@ -46,7 +46,7 @@ answer to an ext4 image smaller than its slot.
 - `resize=true` is read from the running system's `system.conf`, so an install made from an image
   whose `system.conf` lacks it leaves that slot's filesystem at its content size until the slot is
   next written.
-- The host that installs needs Docker and a port 80 the board can reach at the address its ssh
+- The host that installs needs Docker and a published port the board can reach at the address its ssh
   session comes from; [`docs/testing.md`](../../../docs/testing.md) §"Running it" states this for the
   bench.
 
