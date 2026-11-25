@@ -30,7 +30,7 @@ jobs:
           sudo tar -xzf /tmp/gitleaks.tgz -C /usr/local/bin gitleaks
           gitleaks version
 
-      # uv: the check-reqs action, and `uv sync`, which builds the .venv ci-guards.sh uses
+      # uv: the wise-ci actions, and `uv sync`, which builds the .venv ci-guards.sh uses
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: "0.13.9"
@@ -46,6 +46,10 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           root: docs/requirements
+
+      # !cancelled(): runs even when an earlier step failed.
+      - uses: WisewareOrg/wise-ci/check-adrs@b27c5858566679b604bfcbf56f07ff93aeb5c81f
+        if: ${{ !cancelled() }}
 
       # Pure stdlib, no install step. tools/doc-image.py is deliberately NOT
       # here: it compares prose against a built rootfs, CI never builds one, and

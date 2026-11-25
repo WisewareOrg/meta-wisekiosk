@@ -144,6 +144,11 @@ links:
 reqs:
     uv run --locked check-reqs --root docs/requirements
 
+[group('check')]
+[doc("Check docs/decisions/ and every ADR citation with wise-ci's check-adrs")]
+adrs:
+    uv run --locked check-adrs
+
 # What the prose says the image ships, against what it ships. Needs a populated
 # build/ rootfs and is therefore local-only -- CI never builds, so wiring it
 # into a required check would mean a permanently skipping gate.

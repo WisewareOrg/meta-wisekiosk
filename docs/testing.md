@@ -76,8 +76,8 @@ host suite, and `bench_candidate` stays `None` — so it tests a running board w
 installs nothing. `just bootprofile` runs this way, against `tests/diagnostics` — see
 [the bootprof README](../meta-wisekiosk/recipes-core/kiosk-bootprof/README.md) for what that run
 does. Whether such a run counts as evidence for a review or an investigation is
-[WiseBenchManager's own rule](https://github.com/WisewareOrg/WiseBenchManager/blob/main/docs/decisions/0001-verify-with-a-python-bench-runner.md),
-ADR 0001 rev 6 decision 9 (provenance), not this layer's.
+[WiseBenchManager's own rule](https://github.com/WisewareOrg/WiseBenchManager/blob/main/README.md#two-commands),
+not this layer's.
 
 Every dedicated test on a board is a pytest case under `tests/`, run through the bench driver as
 `bench test <ref> -- <suite> -k <name>` — never an ad hoc script, loop or ssh one-liner. A test

@@ -374,6 +374,11 @@ wheels = [
 ]
 
 [[package]]
+name = "check-adrs"
+version = "0"
+source = { git = "https://github.com/WisewareOrg/wise-ci?subdirectory=check-adrs&rev=b27c5858566679b604bfcbf56f07ff93aeb5c81f#b27c5858566679b604bfcbf56f07ff93aeb5c81f" }
+
+[[package]]
 name = "check-reqs"
 version = "0"
 source = { git = "https://github.com/WisewareOrg/wise-ci?subdirectory=check-reqs&rev=b27c5858566679b604bfcbf56f07ff93aeb5c81f#b27c5858566679b604bfcbf56f07ff93aeb5c81f" }
@@ -643,6 +648,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "check-adrs" },
     { name = "check-reqs" },
     { name = "interrogate" },
     { name = "pydoclint" },
@@ -658,6 +664,7 @@ requires-dist = [{ name = "pyyaml" }]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "check-adrs", git = "https://github.com/WisewareOrg/wise-ci?subdirectory=check-adrs&rev=b27c5858566679b604bfcbf56f07ff93aeb5c81f" },
     { name = "check-reqs", git = "https://github.com/WisewareOrg/wise-ci?subdirectory=check-reqs&rev=b27c5858566679b604bfcbf56f07ff93aeb5c81f" },
     { name = "interrogate", specifier = ">=1.7.0" },
     { name = "pydoclint", specifier = ">=0.12.0" },

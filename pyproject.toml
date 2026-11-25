@@ -10,6 +10,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "check-adrs",
     "check-reqs",
     "interrogate>=1.7.0",
     "pydoclint>=0.12.0",
@@ -22,6 +23,7 @@ tests = [
 ]
 
 [tool.uv.sources]
+check-adrs = { git = "https://github.com/WisewareOrg/wise-ci", subdirectory = "check-adrs", rev = "b27c5858566679b604bfcbf56f07ff93aeb5c81f" }
 check-reqs = { git = "https://github.com/WisewareOrg/wise-ci", subdirectory = "check-reqs", rev = "b27c5858566679b604bfcbf56f07ff93aeb5c81f" }
 python-kasa = { git = "https://github.com/python-kasa/python-kasa", rev = "a1a6c3854ace705b21357b357354d4ae8b6307b4" }
 
