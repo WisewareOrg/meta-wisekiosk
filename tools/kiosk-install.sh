@@ -265,7 +265,6 @@ main() {
     prev_thresh=$("${ssh[@]}" "$host" 'cat /proc/sys/kernel/watchdog_thresh') || prev_thresh=
     echo "== installing"
     start_capture
-    arm "$root"
     local rc=0
     "${ssh[@]}" -o ServerAliveInterval=5 -o ServerAliveCountMax=6 "$host" "rauc install $url" || rc=$?
     stop_capture
