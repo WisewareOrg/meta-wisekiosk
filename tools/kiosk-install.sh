@@ -61,7 +61,6 @@ target_activated() {
 
 nginx_image="nginx:1.30.8-alpine@sha256:6437a63b5c529f0e06162b3f593c0154cff6fa2ea0f94fd7c27928cb399e022d"
 server=
-port=
 
 ssh=(ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
 host=
@@ -158,22 +157,24 @@ stop_capture() {
 # serve BUNDLE -- serves BUNDLE on a port docker chooses and sets url to it at the
 # address the board's ssh session comes from.
 serve() {
-    local bundle=$1 addr t0 existing owner name
+    local bundle=$1 addr t0 existing owner name port
     # shellcheck disable=SC2016 # the board's shell expands SSH_CLIENT
     addr=$("${ssh[@]}" "$host" 'echo "${SSH_CLIENT%% *}"')
     [ -n "$addr" ] || { echo "the board did not report its ssh client address"; return 1; }
-    for existing in $(docker ps -aq --filter "label=kiosk-install.pid"); do
-        owner=$(docker inspect -f '{{index .Config.Labels "kiosk-install.pid"}}' "$existing" 2>/dev/null) || owner=
-        # left by an install that was killed before its cleanup ran
-        { [ -n "$owner" ] && ps -p "$owner" >/dev/null 2>&1; } || docker rm -f "$existing" >/dev/null 2>&1 || true
-    done
+    # one listing, so a failed read removes nothing; a server whose install is dead was left by one
+    # that was killed before its cleanup ran
+    while read -r existing owner; do
+        [ -n "$existing" ] && [ -n "$owner" ] || continue
+        ps -p "$owner" >/dev/null 2>&1 || docker rm -f "$existing" >/dev/null 2>&1 || true
+    done < <(docker ps -a --filter "label=kiosk-install.pid" --format '{{.ID}} {{.Label "kiosk-install.pid"}}')
     docker image inspect "$nginx_image" >/dev/null 2>&1 || docker pull -q "$nginx_image" >/dev/null \
         || { echo "could not pull $nginx_image"; return 1; }
     server=$(docker run -d --rm --label "kiosk-install.pid=$$" -p 80 \
         --tmpfs /usr/share/nginx/html "$nginx_image") \
         || { echo "could not start the bundle server"; return 1; }
     served=1
-    port=$(docker port "$server" 80/tcp | head -n 1)
+    port=$(docker port "$server" 80/tcp)
+    port=${port%%$'\n'*}
     port=${port##*:}
     [ -n "$port" ] || { echo "docker did not report the bundle server's port"; return 1; }
     name=$(basename "$bundle")
