@@ -21,7 +21,7 @@
 # operator's file is never touched.
 #
 # It never fails the boot. An unprovisioned device has no network and needs a
-# USB keyboard on tty1 -- which the image keeps `keyboard` and `usbhost` for --
+# USB keyboard on tty2 -- which the image keeps `keyboard` and `usbhost` for --
 # so the useful thing this can do is say so, loudly, in the journal.
 
 set -u

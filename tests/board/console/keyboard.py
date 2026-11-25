@@ -151,6 +151,16 @@ class Keyboard(Part):
         fields = lines[0].split() if lines else []
         return TypedMarker(fields[0], fields[1], float(fields[2])) if len(fields) >= 3 else TypedMarker()
 
+    def typed_panel(self) -> tuple[str, str]:
+        """Read what `keyboard.sh` kept of the panel when the typed command had run.
+
+        Returns:
+            The display driver's state, and the foreground console; each empty if it kept none.
+        """
+        state = self._board.run(f"cat {_DIR}/panel 2>/dev/null || true", check=True).stdout
+        vt = self._board.run(f"cat {_DIR}/vt 2>/dev/null || true", check=True).stdout
+        return "\n".join(state) + "\n" if state else "", vt[0] if vt else ""
+
     def journal(self) -> str:
         """Read `keyboard.sh`'s journal, from its timer unit.
 

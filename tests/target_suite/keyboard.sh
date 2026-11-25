@@ -5,6 +5,7 @@
 # Creates a virtual keyboard from keyboard.desc, plays chord.events, login.events and
 # command.events into it as each phase's condition holds, then removes it. Each phase writes
 # `phase <name> <uptime>` to the record, or `timeout <name> <uptime>` and stops if its bound passes.
+# After the marker phase it keeps the display driver's state in `panel` and the foreground console in `vt`.
 # `--chord` plays one events file into a new virtual keyboard and removes it.
 dir=$(dirname "$0")
 record=$dir/record
@@ -120,4 +121,6 @@ fi
 sleep 1
 play command.events
 wait_for marker "$marker_s" || finish 1
+cp /sys/kernel/debug/dri/0/state "$dir/panel"
+fgconsole > "$dir/vt"
 finish 0
