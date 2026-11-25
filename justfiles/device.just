@@ -33,7 +33,7 @@ status host:
 
 # === Diagnostics ===
 #
-# Thin wrappers over tools/kiosk-*.sh, except bootprofile, which runs through the
+# Thin wrappers over tools/kiosk-*, except bootprofile, which runs through the
 # bench runner. The reasoning behind each check lives in the script it wraps (or,
 # for bootprofile, tests/diagnostics/test_boot_profile.py);
 # .claude/skills/kiosk-debug/SKILL.md decides which one a given symptom calls for.
@@ -70,7 +70,7 @@ tcp-state kiosk-addr port="8080":
 [group('device')]
 [doc("Read the panel's buffer into a PNG, and fail if it is blank")]
 screenshot host out="":
-    tools/kiosk-screenshot.sh root@{{host}} {{out}}
+    tools/kiosk-screenshot.py root@{{host}} {{out}}
 
 # n is a SAMPLE COUNT, not hours: the sampler writes one line every 5 minutes,
 # so 12 is the last hour and 288 the last day. Omitting it reads the whole log.

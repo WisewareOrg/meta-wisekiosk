@@ -7,7 +7,7 @@ What proves a change is good enough to ship, at each tier.
 | Static (`just guards`, CI) | Repository invariants hold: no secret or identity reaches a tracked file, shell and YAML parse, every wiring self-test passes. | Every commit (pre-commit hook), every PR and merge-group commit (CI). |
 | Build (`just build`) | The kas config resolves and bitbake completes: an image artifact exists. | On demand, locally — never in CI, which does not build. |
 | Host (`tests/host_suite`) | Both checks pass before any install: the rootfs is attributable to a clean, pushed commit, and `systemd-analyze verify`/`systemctl is-enabled`, run against the unpacked rootfs, are clean for every unit this layer's recipes ship. | After the build, never under `bench test --skip-build`. |
-| Device smoke (`tests/target_suite`) | The candidate, installed on the bench board by an image update, passes every active `TST` item whose check is in `tests/target_suite`. Each item in the [requirements tree](requirements/README.md) states its own stimulus and pass condition. | `bench run`, once per queue job. |
+| Device smoke (`tests/target_suite`) | The candidate, installed on the bench board by an image update, passes every active `TST` item whose check is in `tests/target_suite`, and `just screenshot` reads its panel. Each item in the [requirements tree](requirements/README.md) states its own stimulus and pass condition. | `bench run`, once per queue job. |
 
 ## Running it
 
@@ -50,7 +50,8 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   method that changes it. Apart from an image update's slots, which the test returns to the
   candidate, each change lives in `/run` or `/tmp`, so a real reboot clears any a dead run leaves,
   and `install_candidate` clears the backend's runtime drop-ins and mask at the start of every
-  session. While the keyboard test runs, the panel shows the board's text console.
+  session. While the keyboard and screenshot tests run, the panel shows the board's
+  text console.
 
 The target suite builds its test bundles and the virtual mouse's and keyboard's evemu-tools in the kas container
 through `tools/kas-run.sh`, so the bench needs the checkout's own build tree, and the signing keys
@@ -96,12 +97,6 @@ to fail: it installs a good copy of the candidate in the slot not booted, zeroes
 attempts and restarts, and passes only when U-Boot boots the other slot. Both slots stay bootable, so
 it strands nothing.
 
-`tests/diagnostics -k screenshot` is the check of `just screenshot`: it paints every pixel of the page
-a colour that names its place, takes the capture, and passes only when the PNG holds each pixel as
-painted, then reads the console's red and a blank console as `BLANK`. It touches the page and the
-foreground console only, and leaves the page on the panel: `bench test <ref> -- tests/diagnostics -k
-screenshot -rP`.
-
 The board comes from labgrid's own env file, pointed at with `LG_ENV` — a target named `main`, a
 `NetworkService` resource carrying the board's address, an `SSHDriver` — kept untracked under
 `local/`, since this repository is public and the address is site-specific.
@@ -132,7 +127,8 @@ apart.
 and invalid conditions. Nothing else is part of the contract. A test records `requirement`, the
 values its item judges, under the same names as every test of its kind (a recovery records
 `back_s`), and what tells its case or its stimulus apart, or explains a failure the judged values
-cannot. A check the item does not ask for is not in the test.
+cannot. A check the item does not ask for is not in the test. `test_screenshot.py` alone has no
+item: it checks `just screenshot`, through which TST005<!-- Frozen page recovered --> reads the panel.
 
 **Every test reads arrange, act, assert,** three blocks separated by single blank lines, against
 `self.board` and `self.record`. A test method takes only `self` and its parametrized values: before

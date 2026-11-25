@@ -3,7 +3,7 @@ name: kiosk-debug
 description: >-
   Diagnose a running wisekiosk device that has no keyboard and a display
   whose correct state is a black screen. Decides which instrument to reach for — TCP-state
-  inference, a screenshot, a soak read, or a boot profile — and drives the tools/kiosk-*.sh
+  inference, a screenshot, a soak read, or a boot profile — and drives the tools/kiosk-*
   scripts behind them (the boot profile runs through `just bootprofile`, a pytest check driven
   by the bench runner, not one of those scripts). Invoke when the kiosk is unreachable, blank,
   stale, suspected of leaking memory, or slow to come up, and when a boot-time change needs
@@ -22,7 +22,7 @@ something definite.
 | Question | Reach for | Why this one |
 |---|---|---|
 | Is the browser fetching the page at all, and did its scripts run? | [`tools/kiosk-tcp-state.sh`](../../../tools/kiosk-tcp-state.sh) | Socket state distinguishes "never connected", "fetched HTML only" and "rendering" without touching the device. Needs no access to the kiosk — run it on the host serving the page, because a socket table only holds that host's own sockets. Reads `ss`, falling back to `netstat`, and prints which; state names are canonicalised to the spelling the script's own header table uses — neither engine's — so the table matches the output either way. |
-| Is the screen showing the right thing, right now? | [`tools/kiosk-screenshot.sh`](../../../tools/kiosk-screenshot.sh) | The only check that sees what is on the panel, page or console; a text console means the browser is not there. |
+| Is the screen showing the right thing, right now? | [`tools/kiosk-screenshot.py`](../../../tools/kiosk-screenshot.py) | The only check that sees what is on the panel, page or console; a text console means the browser is not there. |
 | Is memory flat, or climbing over hours? | `kiosk-soak.sh --summary` on the device, via [`tools/kiosk-ssh.sh`](../../../tools/kiosk-ssh.sh) | The sampler already runs; the answer is in `/data/kiosk-soak.log`, and its own header says how to read it. |
 | Where is boot time going, and would reordering work help? | `just bootprofile`, through [`tests/diagnostics/test_boot_profile.py`](../../../tests/diagnostics/test_boot_profile.py) | Only source of per-window CPU/I-O and the module timeline. Costs a reboot and ~3 minutes. |
 | The device is not answering and its address is unknown | [`tools/kiosk-find.sh`](../../../tools/kiosk-find.sh) | The router's client list is DHCP leases, so a reachable host can be missing from it. Identifying a board needs its MAC, so the script picks the best L2 view it has — Windows interop under WSL, a local interface otherwise — and names it, because under WSL2's NAT this host's own neighbour table never holds a LAN peer. |
@@ -47,7 +47,7 @@ reused. During a boot profile the connection is itself an instrument — see
    answers there but not over SSH, close a stale multiplex master (`kiosk-ssh.sh <host>
    --close`) before diagnosing anything else. Read the `L2 view:` line first: on `none` the run
    proves only which addresses replied, never that a silent one is unused.
-2. **Is it rendering?** `kiosk-screenshot.sh`. A blank result exits 1 with a PNG. A correct-but-stale
+2. **Is it rendering?** `kiosk-screenshot.py`. A blank result exits 1 with a PNG. A correct-but-stale
    result is a different fault with the same appearance, which is why the script takes the device
    clock in the same call as the pixels; a frozen page still needs that clock compared, with two
    captures if the page shows none. A panel left on a text console comes back to the page with

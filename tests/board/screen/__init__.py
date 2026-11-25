@@ -16,7 +16,6 @@ _PLANE = re.compile(r"^plane\[\d+\].*?(?=^plane\[|^crtc\[)", re.MULTILINE | re.D
 _MODE = re.compile(r'mode: "(\d+)x(\d+)"')
 _READS = 12
 _READ_EVERY_US = 250_000
-_SCREENSHOT = Path(__file__).resolve().parents[3] / "tools" / "kiosk-screenshot.sh"
 _SCREENSHOT_TIMEOUT_SECONDS = 60
 _PICTURES_APART_SECONDS = 5
 
@@ -109,28 +108,28 @@ class Screen(Part):
         Returns:
             True if they do.
         """
-        before = self._picture()
+        _, before = self.screenshot()
         time.sleep(_PICTURES_APART_SECONDS)
-        return self._picture() != before
+        _, after = self.screenshot()
+        return after != before
 
-    def _picture(self) -> bytes:
-        """Take a picture of the panel with `tools/kiosk-screenshot.sh`.
+    def screenshot(self) -> tuple[subprocess.CompletedProcess[str], bytes]:
+        """Take a picture of the panel with `just screenshot`; the check is invalid if it took none.
 
         Returns:
-            The PNG.
+            The finished command, which returns 1 for a blank panel, and the PNG.
         """
         with tempfile.TemporaryDirectory() as directory:
             png = Path(directory) / "panel.png"
             command = subprocess.run(
-                [_SCREENSHOT, self._board.host, png],
+                ["just", "screenshot", self._board.host.rpartition("@")[2], png],
                 capture_output=True,
                 text=True,
                 timeout=_SCREENSHOT_TIMEOUT_SECONDS,
             )
-            # a blank panel is still a picture, though the tool returns 1 for it
             with invalid_if("the tool took no picture of the panel"):
                 assert png.exists(), command.stderr
-            return png.read_bytes()
+            return command, png.read_bytes()
 
     def _buffers(self) -> set[str]:
         """Read the buffer on the screen 12 times, a quarter second apart.
