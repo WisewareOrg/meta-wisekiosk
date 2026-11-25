@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Self-test for the per-board install lock in tools/kiosk-install.sh.
+# Self-test for the per-board install lock, from this host, in tools/kiosk-install.sh.
 #
 #   tools/kiosk-install-lock-test.sh
 #
@@ -16,12 +16,16 @@
 # lock; two names for one address meet, another address does not, and a name that does not resolve is keyed
 # as typed (user stripped).
 #
-# TO WATCH THIS FAIL, with KIOSK_INSTALL_UNDER_TEST=<a copy of the script with one seed>:
-#   * delete the `flock -n 8` condition: "a second call is refused"
-#   * delete `exec 8>&-` in stream(): "a script killed alone frees the lock"
-#   * leave out `exec` before the stream's ssh: "none of its streaming ssh is left"
-#   * key the lock on "$host" as typed: "two names for one address meet"
+# TO WATCH THIS FAIL, with KIOSK_INSTALL_UNDER_TEST=<a copy of the script with one seed>; each prints these
+# lines and ends within guard 25's 60 s (a call that must be refused is bounded at 5 s):
+#   * make the `flock -n 8` condition always false: "a second call is refused and names the holder"
+#   * delete `exec 8>&-` in stream(): the run stops at "never reached: reached 10 docker run"
+#   * leave out `exec` before the stream's ssh: "after the script ends none of its streaming ssh is left"
+#   * key the lock on "$host" as typed: "a name that ssh -G maps to the board's own meets its lock" and
+#     "a name that only getent maps to the board's address meets its lock"
 #   * put XDG_RUNTIME_DIR into the lock path: "other environments meet on one lock"
+#   * take no address from getent: "a name that only getent maps to the board's address meets its lock"
+#   * take no HostName from ssh -G: "a name that ssh -G maps to the board's own meets its lock"
 #
 # Exit: 0 every case passed; 1 a case failed.
 set -u
@@ -38,6 +42,7 @@ cleanup() {
     rm -rf "$scratch"
 }
 trap cleanup EXIT
+trap 'exit 143' TERM
 mkdir -p "$scratch/co/tools" "$scratch/bin" "$scratch/state"
 export LOG=$scratch/log STATE=$scratch/state RELEASE=$scratch/release
 : > "$LOG"
@@ -82,6 +87,7 @@ cat > "$scratch/bin/getent" <<'STUB'
 case "$2" in
     board-one-*) echo "ADDR-ONE-$TAGNAME STREAM $2" ;;
     board-two-*) echo "ADDR-TWO-$TAGNAME STREAM $2" ;;
+    third-one-*) echo "ADDR-ONE-$TAGNAME STREAM $2" ;;
 esac
 exit 0
 STUB
@@ -110,14 +116,25 @@ install() { # call-id host: one install in the background, in a session of its o
 one="root@board-one-$tag.invalid"
 two="root@board-two-$tag.invalid"
 alias1="root@alias-one-$tag.invalid"
+third="root@third-one-$tag.invalid"
 rcof() { cat "$scratch/rc.$1" 2>/dev/null; }
+refused_call() { # id host [VAR=value...]: a call that must be refused, bounded, its output in out.<id>
+    local id=$1 host=$2
+    shift 2
+    (cd "$scratch/co" && env CALL="$id" "$@" timeout 5 tools/kiosk-install.sh "$host" "$scratch/bundle.raucb" > "$scratch/out.$id" 2>&1
+        echo $? > "$scratch/rc.$id")
+}
+refused_by() { # id: refused with exit 1 and a message naming its holder
+    [ "$(rcof "$1")" = 1 ] && grep -q "another install holds" "$scratch/out.$1"
+}
 
 # 1. a second call to one board is refused, names the holder, and reached nothing but `ssh -G`
 rm -f "$RELEASE" "$STATE/installed"
 install 1 "$one"
 await reached 1 "docker run"
-(cd "$scratch/co" && CALL=2 tools/kiosk-install.sh "$one" "$scratch/bundle.raucb" > "$scratch/out.2" 2>&1; echo $? > "$scratch/rc.2")
-refused() { [ "$(rcof 2)" = 1 ] && grep -q "another install holds $one" "$scratch/out.2" && grep -q "[0-9] $scratch/co" "$scratch/out.2"; }
+refused_call 2 "$one"
+first_pid=$(pgrep -P "$(cat "$scratch/pg.1")" | head -n 1)
+refused() { refused_by 2 && grep -q "another install holds $one (pid and checkout: $first_pid $scratch/co)" "$scratch/out.2"; }
 check "a second call is refused and names the holder" refused
 only_g() { ! grep "^$1 " "$LOG" | grep -v ' ssh -G' | grep -q .; }
 check "the refused call reached nothing but ssh -G" only_g 2
@@ -126,18 +143,21 @@ install 3 "$two"
 await reached 3 "docker run"
 check "another board goes on" reached 3 "docker run"
 mkdir -p "$scratch/xdg"
-(cd "$scratch/co" && CALL=4 XDG_RUNTIME_DIR="$scratch/xdg" tools/kiosk-install.sh "$one" "$scratch/bundle.raucb" > /dev/null 2>&1; echo $? > "$scratch/rc.4")
-check "other environments meet on one lock" test "$(rcof 4)" = 1
+refused_call 4 "$one" XDG_RUNTIME_DIR="$scratch/xdg"
+check "other environments meet on one lock" refused_by 4
 check "that call reached nothing but ssh -G" only_g 4
 # 5. two names for one address meet; a name that does not resolve is keyed as typed
-(cd "$scratch/co" && CALL=5 tools/kiosk-install.sh "$alias1" "$scratch/bundle.raucb" > /dev/null 2>&1; echo $? > "$scratch/rc.5")
-check "two names for one address meet" test "$(rcof 5)" = 1
+refused_call 5 "$alias1"
+check "a name that ssh -G maps to the board's own meets its lock" refused_by 5
 check "that call reached nothing but ssh -G" only_g 5
+refused_call 13 "$third"
+check "a name that only getent maps to the board's address meets its lock" refused_by 13
+check "that call reached nothing but ssh -G" only_g 13
 # a name that does not resolve is keyed as typed, user stripped: two users on it meet
 install 11 "root@nores-$tag.invalid"
 await reached 11 "docker run"
-(cd "$scratch/co" && CALL=12 tools/kiosk-install.sh "admin@nores-$tag.invalid" "$scratch/bundle.raucb" > /dev/null 2>&1; echo $? > "$scratch/rc.12")
-check "a name that does not resolve is keyed with the user stripped" test "$(rcof 12)" = 1
+refused_call 12 "admin@nores-$tag.invalid"
+check "a name that does not resolve is keyed with the user stripped" refused_by 12
 check "that call reached nothing but ssh -G" only_g 12
 touch "$RELEASE"
 await test -e "$scratch/rc.1"
