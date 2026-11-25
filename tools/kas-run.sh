@@ -9,6 +9,12 @@ Usage: tools/kas-run.sh [--help] <kas-container args...>
 Mounts $HOME/.local/share/bitbake-hashserv read-only at /hashserv; refuses to
 run if that directory is missing.
 
+Takes an exclusive lock on $HOME/.local/share/bitbake-hashserv/kas-build.lock
+for as long as kas-container runs, so one kas build at a time runs on this host;
+a second waits and says which
+build (the pid and checkout in the lock file) holds it. An interactive shell (`shell` with no -c) does not
+take it.
+
 Environment:
   PIPELINE_KEYS_DIR   mounted read-only at /work/local/keys; no whitespace
   KAS_RUN_TMP_DIR     mounted read-write at the same path inside the container; no
@@ -56,6 +62,22 @@ HASHSERV_DIR="$HOME/.local/share/bitbake-hashserv"
 if [ ! -d "$HASHSERV_DIR" ]; then
     echo 'tools/kas-run.sh: bitbake-hashserv data directory missing: see README.md §"Quick start"' >&2
     exit 1
+fi
+
+case "${1:-}" in
+    shell) interactive=1; for arg in "$@"; do [ "$arg" != -c ] || interactive=0; done ;;
+    *) interactive=0 ;;
+esac
+if [ "$interactive" -eq 0 ]; then
+    if [ -n "${KAS_RUN_LOCKED:-}" ]; then
+        echo "tools/kas-run.sh: called from a kas-run.sh that holds the build lock (nested): refusing, it would wait for itself" >&2
+        exit 2
+    fi
+    lock="$HASHSERV_DIR/kas-build.lock"
+    exec 9>>"$lock"
+    flock -n 9 || { echo "kas-run: waiting for another kas build on this host: $(cat "$lock")" >&2; flock 9; }
+    printf '%s %s\n' "$$" "$PWD" > "$lock"
+    export KAS_RUN_LOCKED=1
 fi
 
 py="${py:-python3}"
