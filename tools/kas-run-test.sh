@@ -20,7 +20,7 @@
 # TO WATCH THIS FAIL -- before trusting a green run, run it against a scratch copy of the script,
 # one seed each, with KAS_RUN_UNDER_TEST=<copy>:
 #   * delete the `flock -n 9 || …` line in the lock block: "builds never overlap"
-#   * read the shell case as `shell` with none of -c, --cmd or --command: "shell --command=x takes the lock"
+#   * read the shell case as `shell` with none of -c, --cmd or --command: "shell <config> --command=bitbake x takes the lock"
 #   * make the lock block run for every verb: "interactive shell does not wait"
 #   * move the lock block above the --runtime-args refusal: "refusal does not wait"
 #   * delete `mkdir -p local/keys`: "a keyed call makes local/keys"

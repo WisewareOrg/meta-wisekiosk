@@ -14,9 +14,9 @@ What proves a change is good enough to ship, at each tier.
 [WiseBenchManager](https://github.com/WisewareOrg/WiseBenchManager) is a separate, generic
 hardware-in-the-loop runner, cloned and built outside this tree per its own README. Pointed at this
 checkout, it reads the tracked `bench.toml` here — which never names a machine or a board — runs its
-`build` and `bundle` hooks, a host suite before anything is installed, then a target suite against the
-booted board. Builds on one host take turns ([`../README.md`](../README.md) §"Quick start"). The runner never touches
-the board itself:
+`build` and `bundle` hooks, a host suite before anything is installed, then a target suite against
+the booted board. Builds on one host take turns ([`../README.md`](../README.md) §"Quick start"). The
+runner never touches the board itself:
 
 ```sh
 bench test <ref>               # by hand: build, run both suites; the target suite installs on the board LG_ENV names
