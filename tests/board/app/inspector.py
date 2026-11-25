@@ -1,17 +1,18 @@
 """The browser's remote inspector, which runs JavaScript in the page it shows."""
 
+import http.client
 import json
-import subprocess
-from pathlib import Path
+import re
+from collections.abc import Iterator
+
+import websocket
 
 from board.part import Part
 
-_REPO = Path(__file__).resolve().parents[3]
-_CLIENT = ("uv", "run", "--locked", "tools/kiosk-inspect.py")
-# the client's exit when there is no page to evaluate in
-_NO_PAGE = 3
-_TIMEOUT_SECONDS = 60
 _PORT = 2999
+_TIMEOUT_SECONDS = 10
+_CALL_ID = 1
+_PAGE = re.compile(r"/socket/\d+/\d+/WebPage")
 
 
 class NoPageError(Exception):
@@ -19,7 +20,7 @@ class NoPageError(Exception):
 
 
 class Inspector(Part):
-    """WebKit's remote inspector on the board, reached through a forwarded port by `tools/kiosk-inspect.py`.
+    """WebKit's remote inspector on the board, reached through a forwarded port.
 
     Attributes:
         ENVIRONMENT: the browser's environment variable that turns the inspector on.
@@ -30,6 +31,9 @@ class Inspector(Part):
     def evaluate(self, script: str) -> object:
         """Evaluate `script` in the page.
 
+        It is connected only for the length of one evaluation, as a connected inspector slows the page, and
+        only to a page the inspector lists: connecting to one that is not there yet crashes the browser.
+
         Args:
             script: the JavaScript.
 
@@ -37,19 +41,100 @@ class Inspector(Part):
             Its value, as JSON carries it; None for a value that is not JSON.
 
         Raises:
-            NoPageError: there is no page to evaluate in.
+            NoPageError: the inspector does not answer, lists no page, refuses or drops the connection, or
+                answers with an error, as while a page loads.
+            RuntimeError: the script threw; its message is what it threw.
         """
         with self._board.forward_local_port(_PORT) as port:
-            client = subprocess.run(
-                [*_CLIENT, str(port)],
-                cwd=_REPO,
-                input=script,
-                stdout=subprocess.PIPE,
-                text=True,
-                timeout=_TIMEOUT_SECONDS,
-                check=False,
-            )
-        if client.returncode == _NO_PAGE:
-            raise NoPageError
-        client.check_returncode()
-        return json.loads(client.stdout)
+            try:
+                answer = _answer(port, script)
+            except (OSError, http.client.HTTPException, websocket.WebSocketException) as error:
+                raise NoPageError(f"the inspector did not answer: {error!r}") from error
+        if "error" in answer:
+            raise NoPageError(f"the inspector answered: {answer['error']['message']}")
+        value = answer["result"]["result"]
+        if answer["result"].get("wasThrown"):
+            raise RuntimeError(value.get("description", value.get("value")))
+        return value.get("value")
+
+
+def _answer(port: int, script: str) -> dict:
+    """Evaluate `script` in the page the inspector lists.
+
+    Args:
+        port: the host's port to the inspector.
+        script: the JavaScript.
+
+    Returns:
+        The inspector's answer.
+    """
+    inspector = websocket.create_connection(
+        f"ws://127.0.0.1:{port}{_listed_page(port)}", timeout=_TIMEOUT_SECONDS, suppress_origin=True
+    )
+    try:
+        messages = _messages(inspector)
+        page = next(
+            message["params"]["targetInfo"]["targetId"]
+            for message in messages
+            if message.get("method") == "Target.targetCreated" and message["params"]["targetInfo"]["type"] == "page"
+        )
+        call = {
+            "id": _CALL_ID,
+            "method": "Runtime.evaluate",
+            "params": {"expression": script, "returnByValue": True},
+        }
+        to_page = {
+            "id": _CALL_ID,
+            "method": "Target.sendMessageToTarget",
+            "params": {"targetId": page, "message": json.dumps(call)},
+        }
+        inspector.send(json.dumps(to_page))
+        answers = (
+            json.loads(message["params"]["message"])
+            for message in messages
+            if message.get("method") == "Target.dispatchMessageFromTarget"
+        )
+        return next(answer for answer in answers if answer.get("id") == _CALL_ID)
+    finally:
+        inspector.shutdown()
+
+
+def _listed_page(port: int) -> str:
+    """Read the page the inspector lists.
+
+    Args:
+        port: the host's port to the inspector.
+
+    Returns:
+        The path of its WebSocket.
+
+    Raises:
+        NoPageError: it lists none.
+    """
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=_TIMEOUT_SECONDS)
+    try:
+        connection.request("GET", "/")
+        page = _PAGE.search(connection.getresponse().read().decode())
+    finally:
+        connection.close()
+    if page is None:
+        raise NoPageError("the inspector lists no page")
+    return page[0]
+
+
+def _messages(inspector: websocket.WebSocket) -> Iterator[dict]:
+    """Read the inspector's messages as they arrive.
+
+    Args:
+        inspector: the connection to the inspector.
+
+    Yields:
+        dict: each message.
+
+    Raises:
+        NoPageError: the inspector closed the connection.
+    """
+    # recv returns "" for a close
+    while text := inspector.recv():
+        yield json.loads(text)
+    raise NoPageError("the inspector closed the connection")

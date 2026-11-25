@@ -25,8 +25,8 @@ bench run                      # on a timer: the merge queue's head entry, the s
 
 `--soak` (`bench test <ref> -- --soak`) adds a day-long run of TST014<!-- Memory over a long run --> on top of its queue-period run, and does not judge that run's growth bound; `bench run` never passes it.
 
-`bench.toml`'s `[hooks]` carries a no-op `precondition` — the runner requires one; this layer's board
-needs no state check before a run — `build` (`just build`) and `bundle` (`just kiosk-bundle`).
+`bench.toml`'s `[hooks]` carries `precondition`, which installs the packages the test helpers import,
+`build` (`just build`) and `bundle` (`just kiosk-bundle`).
 `[tests]` names the two suites:
 
 - `tests/host_suite` — runs before anything is installed, against the build hook's own output. One
@@ -115,10 +115,11 @@ plug's login in a `KEY=value` file outside the tree, passed by `--env-file` and 
 The `python-kasa` git pin in `pyproject.toml` is for that plug's login, and `renovate.json` records
 why it is pinned.
 
-The suites run in the runner's own environment. A package that only this layer's tests need is
-declared in `pyproject.toml` instead, locked in `uv.lock`, and used by a process of its own, started
-with `uv run --locked` from the checkout: `kasa` above, and `tools/kiosk-inspect.py`, through which
-the tests read the page.
+The suites run in the runner's own environment. A package the test helpers import that is not in it
+is in `pyproject.toml`'s `tests` group, locked in `uv.lock`. `bench.toml`'s `precondition` hook
+installs that group into `build/test-packages`, and pytest's `pythonpath` setting makes it
+importable. The directory holds only that group, so it replaces no package of the runner's. `kasa` is
+not imported: labgrid runs it as the plug's command.
 
 A failure of the plug, or a board that answers in the same boot after the cut, ends the session as
 the bench's failure rather than the candidate's, as

@@ -15,14 +15,14 @@ The operational form of [`SKILL.md`](SKILL.md), which holds the reasoning behind
    (`docker compose -f compose.dev.yaml up -d --build`, in a subagent) and note the served bundle
    hash. Run `svelte-check` separately; the container build does not type-check.
 5. **Turn the inspector on and forward its port** as
-   [`webkit-inspector`](../webkit-inspector/SKILL.md) says. **Deploy the probe** through it:
-   `uv run --locked tools/kiosk-inspect.py 2999 < probe.js`.
-6. **Verify the intended bundle actually loaded** —
-   `echo 'document.scripts[0].src' | uv run --locked tools/kiosk-inspect.py 2999` — before trusting
-   anything the capture produces.
+   [`webkit-inspector`](../webkit-inspector/SKILL.md) says. **Deploy the probe** in a pytest
+   diagnostic in `tests/diagnostics`, which runs script in the page through `board.app` and is run
+   through the bench driver ([`docs/testing.md`](../../../docs/testing.md) §"Running it").
+6. **Verify the intended bundle actually loaded** — the diagnostic reads `document.scripts[0].src` —
+   before trusting anything the capture produces.
 7. **Capture**, long enough that the warm-up block is a discard rather than a fraction of an arm.
-8. **Read the payload back**: `echo document.title | uv run --locked tools/kiosk-inspect.py 2999`,
-   and assert it is non-empty. An empty read fails the run; it never scores as a null.
+8. **Read the payload back**: the diagnostic reads `document.title` and asserts it is non-empty. An
+   empty read fails the run; it never scores as a null.
 9. **Parse.** Drop every block whose landing check failed; an arm with no landed blocks is
     unmeasured, not unchanged.
 10. **Clean the board**: remove the drop-in as that skill says, confirm the page renders.

@@ -648,6 +648,8 @@ dev = [
     { name = "pydoclint" },
     { name = "python-kasa" },
     { name = "ruff" },
+]
+tests = [
     { name = "websocket-client" },
 ]
 
@@ -661,8 +663,8 @@ dev = [
     { name = "pydoclint", specifier = ">=0.12.0" },
     { name = "python-kasa", git = "https://github.com/python-kasa/python-kasa?rev=a1a6c3854ace705b21357b357354d4ae8b6307b4" },
     { name = "ruff", specifier = ">=0.17.6" },
-    { name = "websocket-client", specifier = ">=1.9.2" },
 ]
+tests = [{ name = "websocket-client", specifier = ">=1.9.2" }]
 
 [[package]]
 name = "multidict"

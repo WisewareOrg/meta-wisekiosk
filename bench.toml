@@ -1,6 +1,6 @@
 [hooks]
-# The runner requires a precondition hook; this layer's board state needs none.
-precondition = "true"
+# Installs what the test helpers import (docs/testing.md).
+precondition = "UV_PROJECT_ENVIRONMENT=build/test-packages uv sync --frozen --only-group tests --python 3.13"
 build        = "just build"
 bundle       = "just kiosk-bundle"
 
