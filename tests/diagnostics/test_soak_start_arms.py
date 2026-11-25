@@ -160,7 +160,7 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
     )
     collector = threading.Thread(target=_read, args=(reader, samples))
     collector.start()
-    endpoint = {"A": 0, "B": 0}
+    endpoint = {"start": 0, "none": 0}
     dips = {"start": 0, "none": 0, "natural": 0, "void": 0}
     counted = {"start": 0, "none": 0, "natural": 0, "void": 0}
     stopped = "ended by an exception"
@@ -271,7 +271,8 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
             record_property(f"{key}.pid1_in_D_near_a_start", len(near))
             reached = len(near) > 0 if planned == "A" else len(d_in_write) > 0
             record_property(f"{key}.first_endpoint", reached)
-            endpoint[planned] += reached and arm != "void"
+            if arm in endpoint:
+                endpoint[arm] += reached
             if under_voltage:
                 stopped = f"install {number}: under-voltage in its stats"
                 break
@@ -282,7 +283,7 @@ def test_soak_start_arms(board: Board, record_property: Callable[[str, object], 
         collector.join()
         record_property("stopped", stopped)
         record_property("installs_by_arm", counted)
-        record_property("first_endpoint_installs_by_planned_arm", endpoint)
+        record_property("first_endpoint_installs_by_journal_arm", endpoint)
         record_property("installs_with_a_dip_by_arm", dips)
         record_property("samples", len(samples))
 
