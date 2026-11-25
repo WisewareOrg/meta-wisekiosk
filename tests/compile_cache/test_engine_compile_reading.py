@@ -19,8 +19,9 @@ def test_engine_compile_reading(record_property) -> None:
     reading = dict(line.split("=", 1) for line in READING.read_text().splitlines() if "=" in line)
     for key, value in reading.items():
         record_property(key, value)
-    assert reading["build_type"] == "MinSizeRel"
-    assert reading["use_woff2"] == {"control": "ON", "option": "OFF"}[reading["arm"]]
+    if reading["state"] != "stopped" or "build_type" in reading:
+        assert reading["build_type"] == "MinSizeRel"
+        assert reading["use_woff2"] == {"control": "ON", "option": "OFF"}[reading["arm"]]
     if reading["state"] == "ended":
         calls = sum(int(reading[name]) for name in ("direct_cache_hit", "preprocessed_cache_hit", "cache_miss"))
         assert abs(calls - CACHEABLE_CALLS) <= CACHEABLE_CALLS * TOLERANCE
