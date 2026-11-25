@@ -23,6 +23,7 @@
 #   thr        vcgencmd get_throttled. Anything but 0x0 means it throttled at
 #              some point SINCE BOOT, not that it is throttling now
 #   ent        entropy pool. Low is expected; the image has no rngd
+#   rsts       the firmware's reset status of this boot (what the board last reset from)
 #
 # Read a --summary in this order, weakest evidence last:
 #   1. reboots and browser restarts. Non-zero means the memory series is really
@@ -110,13 +111,14 @@ BOOT=$(cut -c1-8 /proc/sys/kernel/random/boot_id)
 TEMP=$(awk '{printf "%.1f", $1 / 1000}' /sys/class/thermal/thermal_zone0/temp)
 THR=$(vcgencmd get_throttled 2>/dev/null | cut -d= -f2)
 ENT=$(cat /proc/sys/kernel/random/entropy_avail)
+RSTS=$(hexdump -v -e '1/1 "%02x"' /proc/device-tree/chosen/bootloader/rsts 2>/dev/null)
 DISK=$(df / | awk 'NR==2{print $5}' | tr -d ' %')
 MU=$(free | awk '/^Mem/{printf "%d", $3 / 1024}')
 MA=$(free | awk '/^Mem/{printf "%d", $7 / 1024}')
 
-printf 'ts=%s iso=%s boot=%s up=%s load1=%s load5=%s load15=%s temp=%s thr=%s memused=%s memavail=%s ent=%s disk=%s browser=%s pid=%s nproc=%s rss_main=%s rss_total=%s\n' \
+printf 'ts=%s iso=%s boot=%s up=%s load1=%s load5=%s load15=%s temp=%s thr=%s memused=%s memavail=%s ent=%s disk=%s browser=%s pid=%s nproc=%s rss_main=%s rss_total=%s rsts=%s\n' \
   "$(date +%s)" "$(date +%Y-%m-%dT%H:%M:%S%z)" "$BOOT" "$UP" "$L1" "$L5" "$L15" "$TEMP" "${THR:-unknown}" \
-  "$MU" "$MA" "$ENT" "$DISK" "$COMM" "${PID:-none}" "$NPROC" "$RSS_MAIN" "$RSS_TOTAL" \
+  "$MU" "$MA" "$ENT" "$DISK" "$COMM" "${PID:-none}" "$NPROC" "$RSS_MAIN" "$RSS_TOTAL" "${RSTS:-unknown}" \
   >> "$LOG"
 
 # Cap the log so a sampler left running for a year cannot fill the partition.
