@@ -164,7 +164,6 @@ serve() {
     # one listing, so a failed read removes nothing; a server whose install is dead was left by one
     # that was killed before its cleanup ran
     while read -r existing owner; do
-        [ -n "$existing" ] && [ -n "$owner" ] || continue
         ps -p "$owner" >/dev/null 2>&1 || docker rm -f "$existing" >/dev/null 2>&1 || true
     done < <(docker ps -a --filter "label=kiosk-install.pid" --format '{{.ID}} {{.Label "kiosk-install.pid"}}')
     docker image inspect "$nginx_image" >/dev/null 2>&1 || docker pull -q "$nginx_image" >/dev/null \
