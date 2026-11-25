@@ -58,6 +58,17 @@ class Screen(Part):
                 planes.append(Plane(fields["allocated by"], fields["crtc-pos"]))
         return planes
 
+    def shown_by(self, planes: list[Plane] | None = None) -> list[str]:
+        """Read whose buffers the screen shows.
+
+        Args:
+            planes: planes as read earlier; if None, they are read now.
+
+        Returns:
+            The program that allocated each plane's buffer.
+        """
+        return [plane.allocated_by for plane in (self.planes() if planes is None else planes)]
+
     def mode(self) -> tuple[int, int]:
         """Read the display mode the panel is driven at.
 

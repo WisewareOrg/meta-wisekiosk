@@ -134,7 +134,7 @@ class TestOnBoard:
         Returns:
             True if it does.
         """
-        return [plane.allocated_by for plane in self.board.screen.planes()] == [program]
+        return self.board.screen.shown_by() == [program]
 
     def _screenshot(self) -> tuple[subprocess.CompletedProcess[str], bytes]:
         """Run `just screenshot`.
