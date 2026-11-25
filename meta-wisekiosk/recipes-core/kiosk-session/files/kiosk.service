@@ -6,19 +6,18 @@ Requires=data.mount
 
 [Service]
 Type=simple
-# The default target is the local app, served by wisekiosk.service. systemd
-# applies these in file order, so a provisioned kiosk.conf overrides it; the
-# leading dash makes the file optional.
+# The default target is the local app, served by wisekiosk.service. A provisioned kiosk.conf
+# overrides these, as EnvironmentFile settings override Environment=; the leading dash makes the
+# file optional. WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:2999 in it turns the remote inspector on.
 Environment=KIOSK_URL=http://localhost:8080
-# WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:2999 in it turns the remote inspector on.
-EnvironmentFile=-/data/config/kiosk.conf
 # A display that cannot be opened aborts the browser with the reason, rather than leaving it without a view.
 Environment=WPE_PLATFORM=drm
+EnvironmentFile=-/data/config/kiosk.conf
 ExecStart=/usr/bin/kiosk-browser $KIOSK_URL
 # The launcher exits 0 when the panel is switched to another console; only always brings the page back.
 Restart=always
 RestartSec=10
-# The page answers every 5 s; see kiosk-browser.c.
+# kiosk-browser.c pets it.
 WatchdogSec=30
 
 [Install]
