@@ -103,7 +103,7 @@ local_conf_header:
     # Only what the page uses; everything else in the recipe's default list is
     # left out, GStreamer with it. woff2 decodes the app's bundled fonts;
     # remote-inspector is how the page is debugged.
-    PACKAGECONFIG:pn-wpewebkit = "gbm journald reduce-size remote-inspector unified-builds woff2 wpe-platform wpe-platform-drm"
+    PACKAGECONFIG:pn-wpewebkit = "gbm journald reduce-size remote-inspector unified-builds wpe-platform wpe-platform-drm"
     EXTRA_OECMAKE:append:pn-wpewebkit = " -DUSE_GSTREAMER=OFF -DENABLE_WEBGL=OFF"
     BAD_RECOMMENDATIONS += "ttf-dejavu-sans ttf-dejavu-sans-mono ttf-dejavu-serif"
 

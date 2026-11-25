@@ -2,7 +2,7 @@
 # Compiles wpewebkit once against the shared compile cache and writes what the cache did to
 # build/engine-compile-reading.txt. Read by tests/compile_cache.
 set -euo pipefail
-ARM=control
+ARM=option
 cd "$(dirname "$0")/.."
 rm -f build/engine-compile-reading.txt
 
