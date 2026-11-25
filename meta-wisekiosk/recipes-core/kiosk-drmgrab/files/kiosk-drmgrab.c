@@ -77,7 +77,7 @@ int main(void)
 	/* Copied before it is written out, which takes seconds over the network. */
 	if (ioctl(buffer, DMA_BUF_IOCTL_SYNC, &sync))
 		die("wait for the buffer");
-	memcpy(copy, (char *)map + fb->offsets[0] + 4, size - 4);
+	memcpy(copy, (char *)map + fb->offsets[0], size);
 
 	printf("%u %u %u %.4s %" PRIu64 "\n", fb->width, fb->height, fb->pitches[0],
 	       (char *)&fb->pixel_format, fb->modifier);
