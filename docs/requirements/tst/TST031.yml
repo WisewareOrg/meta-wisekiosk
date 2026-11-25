@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_minimum_resolution
   path: tests/target_suite/test_display.py
-  sha: 4f9194af0f8192e2a45572b5f4e4660e2dbd715c89d481575fd64f6ff68f8f4e
+  sha: f636dec4455e342950dcaaf9c0931a2d4e6d7997ca656740250eb93f4588ef08
   type: file
-reviewed: 8CkSQX_UTVfxA3f0zxLQ3jl5jzLIO0Wu9vLR2Mjbc-c=
+reviewed: 2a6jPKGtKMyQ_Gw7hbUhJ-g8xCeigmbpGQl6_8AdmCY=
 status: proposed
 text: |
   Read the display mode the panel is driven at and the size the WiseKiosk page is laid out at. Pass
