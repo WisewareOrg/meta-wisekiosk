@@ -319,7 +319,7 @@ Two more fixes belong upstream but did not need a patch, because a downstream la
 | | |
 |---|---|
 | Engine | WPE WebKit, the version the meta-webkit pin in `includes/base.yaml` carries; `ENABLE_JIT=OFF`, `USE_WOFF2=ON`, `MinSizeRel` |
-| Browser | `kiosk-browser`, a small C launcher on WPE's platform API with a systemd watchdog ([ADR 0001 rev 1](docs/decisions/0001-wpe-webkit-on-drm-with-our-own-launcher.md)) |
+| Browser | `kiosk-browser`, a small C launcher on WPE's platform API with a systemd watchdog ([ADR 0001 rev 2](docs/decisions/0001-wpe-webkit-on-drm-with-our-own-launcher.md)) |
 | Display | WPE's DRM platform on vc4 firmware KMS, in the mode `video=` in the kernel's `panel-mode.cfg` sets, mesa for EGL, no display server |
 | Update | RAUC A/B over U-Boot — both slots visible |
 

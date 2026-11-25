@@ -2,7 +2,7 @@
 # HEADER #
 ##########
 # Kiosk image for the Raspberry Pi Zero W: WPE WebKit straight to DRM, no
-# display server (ADR 0001 rev 1). This is the only kas config in the repo; it
+# display server (ADR 0001 rev 2). This is the only kas config in the repo; it
 # pulls in the repo pins (includes/base.yaml, which fetches meta-autonomos and
 # patches it) and the machine, then adds everything specific to this image below.
 header:
