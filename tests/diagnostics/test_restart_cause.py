@@ -3,7 +3,8 @@
 Resets the board four ways, in this order: a power cut, a restart, a kernel panic and a watchdog
 bite. After each it reads the `kiosk-last-reset` line that `kiosk-journal-flush.service` prints in the new
 boot (`last reset rsts=<status> console=<how the previous console ended>`). After the bite it reads the
-lines of the three boots before it, and each must equal what was read in that boot. `rsts` is recorded
+lines of the three boots before it, named by their boot ids, and each must equal what was read in that boot;
+the running boot's line carries a time within a day of the board's clock. `rsts` is recorded
 and its power-on bit asserted: set after the cut, clear after each of the others. `console` is asserted,
 and the bite is the only one among restart, panic and bite whose console read silent.
 
@@ -26,6 +27,8 @@ from board import Board
 # status register.
 POWER_ON = 0x1000
 LINE = re.compile(r"last reset rsts=(?P<rsts>\S+) console=(?P<console>\w+)")
+STAMPED_LINE = re.compile(r"^(?P<unix>\d+\.\d+) .*last reset rsts=", re.MULTILINE)
+CLOCK_TOLERANCE_SECONDS = 86400
 
 
 class ResetLine(NamedTuple):
@@ -40,13 +43,13 @@ class ResetLine(NamedTuple):
     console: str
 
 
-def _reset_line(board: Board, errors: list[str], boot: int = 0) -> ResetLine | None:
+def _reset_line(board: Board, errors: list[str], boot: str = "0") -> ResetLine | None:
     """Read the `rsts` and `console` of a boot's `kiosk-last-reset` line.
 
     Args:
         board: the board under test.
         errors: collects the error of a read the board did not answer.
-        boot: 0 for the running boot, -1 for the one before it, and so on.
+        boot: `journalctl -b`'s argument: 0 for the running boot, or a boot id.
 
     Returns:
         The line's fields; None if the boot has not logged the line yet, or the read got no answer.
@@ -74,6 +77,7 @@ def test_restart_cause(board: Board, record_property: Callable[[str, object], No
         "watchdog bite": board.starve_watchdog,
     }
     seen = {}
+    boot_ids = {}
     for cause, stimulus in stimuli.items():
         stimulus()
         errors: list[str] = []
@@ -81,15 +85,22 @@ def test_restart_cause(board: Board, record_property: Callable[[str, object], No
             seen[cause] = board.wait_for(lambda errors=errors: _reset_line(board, errors))
         except AssertionError as gave_up:
             pytest.fail(f"{gave_up}; the last read error: {errors[-1] if errors else 'none'}", pytrace=False)
+        boot_ids[cause] = board.boot_id().strip().replace("-", "")
         record_property(f"{cause}.rsts", seen[cause].rsts)
         record_property(f"{cause}.console", seen[cause].console)
 
-    for boots_back, cause in enumerate(("kernel panic", "restart", "power cut"), start=1):
+    for cause in ("kernel panic", "restart", "power cut"):
         errors = []
-        kept = _reset_line(board, errors, -boots_back)
-        assert kept == seen[cause], (
-            f"the {cause}'s boot read {seen[cause]}; {boots_back} boot(s) later the journal gives {kept} {errors}"
-        )
+        kept = _reset_line(board, errors, boot_ids[cause])
+        assert kept == seen[cause], f"the {cause}'s boot read {seen[cause]}; the journal now gives {kept} {errors}"
+    stamped = STAMPED_LINE.search(
+        board.run("journalctl -b 0 -u kiosk-journal-flush.service -o short-unix --no-pager", check=True).text
+    )
+    assert stamped, "the running boot's line has no time in the journal"
+    skew = abs(float(stamped.group("unix")) - float(board.run("date +%s", check=True).text.strip()))
+    assert skew < CLOCK_TOLERANCE_SECONDS, (
+        f"the line's time is {skew:.0f} s from the board's clock: written before the clock was restored"
+    )
     for cause, read in seen.items():
         assert re.fullmatch(r"[0-9a-f]+", read.rsts), f"after the {cause} rsts read {read.rsts}, not hex"
     cut = seen["power cut"]
