@@ -5,6 +5,9 @@
 #   tools/kiosk-install.sh root@<host> <bundle>
 #   tools/kiosk-install.sh --check-only <before> <after>
 #
+# One install per board at a time, by the address its host name resolves to (a second is refused, naming the
+# holder's pid and checkout).
+#
 # Every install goes through this script: just kiosk-ota, tools/rauc-rotate.sh
 # and the target suite's update tests. The board streams BUNDLE: for the length
 # of the install, a pinned nginx container on a port docker chooses serves it,
@@ -34,9 +37,9 @@
 # fw_printenv/rauc-status blocks, with no ssh and no device.
 #
 # Exit: 0 installed and the target slot activated, or --check-only passed;
-# 1 no bundle at the path, the gate failed, the bundle server did not start,
-# rauc refused or failed the install, the target slot did not activate, or
-# --check-only failed; 2 no host or no bundle given. An ssh or rauc command
+# 1 no bundle at the path, the gate failed, another install holds the board,
+# the bundle server did not start, rauc refused or failed the install, the
+# target slot did not activate, or --check-only failed; 2 no host or no bundle given. An ssh or rauc command
 # that fails outright exits with that command's own status (e.g. 255).
 set -euo pipefail
 
@@ -112,9 +115,24 @@ stamp() {
     line_ts "[$tag] session ended" >&2
 }
 
+# board_address HOST -- the address HOST names (user@ stripped, ssh's HostName, then its first IPv4), or the
+# stripped name when nothing resolves, so two names for one board meet on one install lock.
+board_address() {
+    local name=${1#*@} resolved addr
+    resolved=$(ssh -G "$name" 2>/dev/null | awk '$1 == "hostname" { print $2 }' | head -n 1) || resolved=
+    resolved=${resolved:-$name}
+    addr=$(getent ahostsv4 "$resolved" 2>/dev/null | awk 'NR == 1 { print $1 }') || addr=
+    echo "${addr:-$resolved}"
+}
+
 # stream TAG CMD -- runs CMD on the board in the background, stamped as TAG.
 stream() {
-    "${ssh[@]}" -o ServerAliveInterval=2 -o ServerAliveCountMax=3 "$host" "$2" > >(stamp "$1") 2>&1 &
+    # In a subshell that closes the install lock's descriptor first, so neither the ssh nor its stamp process holds
+    # the lock; the subshell becomes the ssh, so $! is the ssh.
+    (
+        exec 8>&-
+        exec "${ssh[@]}" -o ServerAliveInterval=2 -o ServerAliveCountMax=3 "$host" "$2" > >(stamp "$1") 2>&1
+    ) &
     capture_pids+=("$!")
 }
 
@@ -243,6 +261,21 @@ main() {
     root=$(cd "$(dirname "$0")/.." && pwd)
     gate="$root/tools/reproducibility-gate.sh"
     cd "$root"
+
+    # One install per board: a second would clear the first's pstore records and turn its recorders off. The
+    # lock is the board's address, at a fixed path, opened for append; the holder writes its pid and checkout into
+    # it. The streaming sessions run in a subshell that closes the descriptor, so their stamp processes do not hold
+    # it. A script killed alone frees the lock at once while rauc goes on installing; a later call is then refused
+    # by rauc only, after its arming.
+    local lock holder
+    lock="/tmp/kiosk-install-$(board_address "$host" | tr -c 'A-Za-z0-9._:\n-' _).lock"
+    exec 8>>"$lock"
+    if ! flock -n 8; then
+        read -r holder < "$lock" || holder="unknown holder"
+        echo "another install holds $host (pid and checkout: $holder)"
+        exit 1
+    fi
+    printf '%s %s\n' "$$" "$PWD" > "$lock"
 
     # Directly invocable, so it cannot rely on kiosk-preflight having run.
     # --tree: what installs is already on the device.
