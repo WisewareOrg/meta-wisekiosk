@@ -224,34 +224,34 @@ class App(Part):
     def kill_backend_while_browser_starts(self) -> float:
         """Kill the backend outright, and start the browser again while the backend is down.
 
-        The backend's own restart is held back, until the test ends, so the browser loads a page without it;
-        the check is invalid if it did not. Then the backend is restarted: a start would wait out the hold.
+        The backend's own restart is held back, until the test ends, so the browser's load fails; the check
+        is invalid if it did not. Then the backend is restarted: a start would wait out the hold.
 
         Returns:
-            An instant before the backend first answered again, from `_answers_after_a_load_without_it`.
+            An instant before the backend first answered again, from `_answers_after_a_failed_load`.
         """
         self.backend.drop_in(f"[Service]\\nRestartSec={_BACKEND_HOLD_SECONDS}\\n")
         self.backend.kill()
         self.kiosk.restart()
-        return self._answers_after_a_load_without_it(self.backend.restart)
+        return self._answers_after_a_failed_load(self.backend.restart)
 
     def restart_with_backend_held(self) -> float:
         """Restart the board's userspace with the backend held back until the browser has started.
 
-        The backend is masked for this boot across a soft reboot, then let go once the browser has loaded a
-        page without it; the check is invalid if the hold did not survive the restart or the browser tried no
-        load while it held. A board-side timer lets the backend go anyway once the wait would have
-        given up, in case the host goes away.
+        The backend is masked for this boot across a soft reboot, then let go once the browser has failed a
+        load; the check is invalid if the hold did not survive the restart or the browser failed no load while
+        it held. A board-side timer lets the backend go anyway once the wait would have given up, in case the
+        host goes away.
 
         Returns:
-            An instant before the backend first answered, from `_answers_after_a_load_without_it`.
+            An instant before the backend first answered, from `_answers_after_a_failed_load`.
         """
         self.backend.mask()
         self._board.restart_with("systemctl soft-reboot", boot_cmd=_USERSPACE_BOOT)
         self.backend.unmask_later(self._board.GIVE_UP_SECONDS)
         with invalid_if("the backend was not held back across the restart"):
             assert not self.backend.is_active()
-        return self._answers_after_a_load_without_it(self.backend.unmask)
+        return self._answers_after_a_failed_load(self.backend.unmask)
 
     def loaded_the_instance(self) -> bool:
         """Whether the browser has loaded the instance's page, the one titled WiseKiosk, as kiosk.service's status says.
@@ -261,10 +261,10 @@ class App(Part):
         """
         return self._kiosk_property("StatusText") == "loaded WiseKiosk"
 
-    def _answers_after_a_load_without_it(self, release: Callable[[], None]) -> float:
+    def _answers_after_a_failed_load(self, release: Callable[[], None]) -> float:
         """Wait until the browser has failed to load the page with the backend held down, then let it go.
 
-        The check is invalid if the browser tried no load, or the backend answered first.
+        The check is invalid if the browser failed no load, or the backend answered first.
 
         Args:
             release: lets the backend go.
@@ -274,7 +274,7 @@ class App(Part):
             just before the release if none did. The backend first answered after it, so the time counted
             from it can only overstate.
         """
-        with invalid_if("the browser did not try a load while the backend was down"):
+        with invalid_if("the browser did not fail a load while the backend was down"):
             self._board.seconds_until(self._failed_a_load)
             assert not self.is_served(), "the backend answered first"
         last_unanswered = time.monotonic()
@@ -299,7 +299,7 @@ class App(Part):
         """Whether the browser's last report, in kiosk.service's status, is a failed load.
 
         Returns:
-            True if it has.
+            True if it is.
         """
         return self._kiosk_property("StatusText").startswith("load failed")
 
