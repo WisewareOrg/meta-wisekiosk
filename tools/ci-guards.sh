@@ -1029,7 +1029,7 @@ fi
 kastest24="tools/kas-run-test.sh"
 if [ ! -f "$kastest24" ]; then
     bad "guard 24: $kastest24 missing -- the kas build lock goes untested"
-elif out24=$(bash "$kastest24" 2>&1); then
+elif out24=$(timeout 120 bash "$kastest24" 2>&1); then
     ok "the kas build lock passes its self-test ($(printf '%s\n' "$out24" | tail -n1))"
 else
     bad "the kas build lock FAILS its self-test:"
