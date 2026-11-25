@@ -35,7 +35,7 @@ _SSH = ("ssh", "-oBatchMode=yes", "-oStrictHostKeyChecking=no", "-oUserKnownHost
 _CAPTURE = "date '+device clock at capture: %H:%M:%S' >&2; kiosk-drmgrab"
 _LINEAR = 0
 _T_TILED = 0x0700000000000001
-# the order a tile's four 1 KB subtiles lie in, on even and odd rows of tiles
+# where in a tile its top-left, top-right, bottom-left and bottom-right 1 KB subtiles lie, on even and odd rows of tiles
 _SUBTILES = ((0, 3, 1, 2), (2, 1, 3, 0))
 
 

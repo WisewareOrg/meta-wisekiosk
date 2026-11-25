@@ -21,6 +21,7 @@ def pixels(png: bytes) -> tuple[int, int, list[tuple[int, int, int]]]:
         assert zlib.crc32(png[at + 4 : end]) == int.from_bytes(png[end : end + 4]), f"a chunk's checksum at {at}"
         chunks[png[at + 4 : at + 8]] = png[at + 8 : end]
         at = end + 4
+    assert list(chunks) == [b"IHDR", b"IDAT", b"IEND"], f"not a PNG's chunks: {list(chunks)}"
     width, height, *form = struct.unpack(">IIBBBBB", chunks[b"IHDR"])
     assert form == [8, 2, 0, 0, 0], f"not 8-bit red, green and blue: {form}"
     rows = zlib.decompress(chunks[b"IDAT"])
