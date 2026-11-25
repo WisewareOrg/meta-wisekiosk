@@ -2,7 +2,7 @@ SUMMARY = "Persistent journal on /data, across A/B updates"
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
-SRC_URI = "file://99-kiosk-journal.conf file://persistent.conf file://kiosk-journal-flush.service"
+SRC_URI = "file://99-kiosk-journal.conf file://persistent.conf file://kiosk-journal-flush.service file://kiosk-last-reset"
 # scarthgap unpacks file:// SRC_URI straight into WORKDIR; the
 # UNPACKDIR/sources layout is a later-release convention.
 S = "${WORKDIR}"
@@ -24,8 +24,11 @@ do_install() {
     install -d ${D}${sysconfdir}/systemd/journald.conf.d
     install -m 0644 ${WORKDIR}/persistent.conf ${D}${sysconfdir}/systemd/journald.conf.d/
 
+    install -d ${D}${bindir}
+    install -m 0755 ${WORKDIR}/kiosk-last-reset ${D}${bindir}/
+
     install -d ${D}${systemd_system_unitdir}
     install -m 0644 ${WORKDIR}/kiosk-journal-flush.service ${D}${systemd_system_unitdir}/
 }
 
-FILES:${PN} += "${nonarch_libdir}/tmpfiles.d ${sysconfdir}/systemd/journald.conf.d ${systemd_system_unitdir}/kiosk-journal-flush.service"
+FILES:${PN} += "${bindir}/kiosk-last-reset ${nonarch_libdir}/tmpfiles.d ${sysconfdir}/systemd/journald.conf.d ${systemd_system_unitdir}/kiosk-journal-flush.service"

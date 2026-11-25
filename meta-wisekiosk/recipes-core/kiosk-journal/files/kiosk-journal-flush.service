@@ -13,6 +13,7 @@ RequiresMountsFor=/data
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/bin/journalctl --flush
+ExecStartPost=-/usr/bin/kiosk-last-reset
 
 [Install]
 WantedBy=multi-user.target

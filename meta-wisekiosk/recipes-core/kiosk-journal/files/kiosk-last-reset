@@ -1,0 +1,35 @@
+#!/bin/sh
+# Logs why the board last reset: the firmware's reset status and how the previous boot's console ended.
+#
+# Run as ExecStartPost of kiosk-journal-flush.service, so the line is written after the journal has
+# been flushed to /data and the clock restored. Written earlier, a journal near its cap drops it with the
+# rest of the boot's first seconds.
+#
+#   rsts     the firmware's reset status, hex; bit 0x1000 is power-on, so it is set after a power cut
+#   console  how the previous boot's console ended, read from the pstore console record:
+#              panic    "Kernel panic - not syncing"
+#              restart  systemd-shutdown's restart line; a hang after systemd's last step reads the same
+#              silent   neither: a watchdog bite, a hang or a reset line alike
+#              none     no console record
+#
+# It prints nothing else and exits 0 whatever is missing.
+
+rsts=$(hexdump -v -e '1/1 "%02x"' /proc/device-tree/chosen/bootloader/rsts 2>/dev/null)
+mounted=
+if ! grep -q ' /sys/fs/pstore ' /proc/mounts 2>/dev/null && mount -t pstore pstore /sys/fs/pstore 2>/dev/null; then
+    mounted=1
+fi
+console=none
+if [ -e /sys/fs/pstore/console-ramoops-0 ]; then
+    if grep -q -F 'Kernel panic - not syncing' /sys/fs/pstore/console-ramoops-0 2>/dev/null; then
+        console=panic
+    elif grep -q -F -e 'systemd-shutdown[1]: Rebooting' -e 'Restarting system' /sys/fs/pstore/console-ramoops-0 2>/dev/null; then
+        console=restart
+    else
+        console=silent
+    fi
+fi
+[ -z "$mounted" ] || umount /sys/fs/pstore 2>/dev/null
+echo "kiosk-last-reset: last reset rsts=${rsts:-unknown} console=$console"
+
+exit 0

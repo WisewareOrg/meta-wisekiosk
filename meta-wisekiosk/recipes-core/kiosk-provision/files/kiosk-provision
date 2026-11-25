@@ -20,9 +20,6 @@
 # it from the image's own default, and only when nothing is there yet; an
 # operator's file is never touched.
 #
-# It also logs why the board last reset (the firmware's reset status, and how the
-# previous boot's console ended).
-#
 # It never fails the boot. An unprovisioned device has no network and needs a
 # USB keyboard on tty2 -- which the image keeps `keyboard` and `usbhost` for --
 # so the useful thing this can do is say so, loudly, in the journal.
@@ -60,23 +57,5 @@ if [ ! -s /data/etc/machine-id ] && [ -s /etc/machine-id ]; then
 fi
 
 kiosk-seed-config
-
-rsts=$(hexdump -v -e '1/1 "%02x"' /proc/device-tree/chosen/bootloader/rsts 2>/dev/null)
-mounted=
-if ! grep -q ' /sys/fs/pstore ' /proc/mounts && mount -t pstore pstore /sys/fs/pstore 2>/dev/null; then
-    mounted=1
-fi
-console=none
-if [ -e /sys/fs/pstore/console-ramoops-0 ]; then
-    if grep -q -F 'Kernel panic - not syncing' /sys/fs/pstore/console-ramoops-0; then
-        console=panic
-    elif grep -q -F -e 'systemd-shutdown[1]: Rebooting' -e 'Restarting system' /sys/fs/pstore/console-ramoops-0; then
-        console=restart
-    else
-        console=silent
-    fi
-fi
-[ -z "$mounted" ] || umount /sys/fs/pstore 2>/dev/null
-log "last reset rsts=${rsts:-unknown} console=$console"
 
 exit 0
