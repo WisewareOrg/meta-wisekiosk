@@ -19,7 +19,7 @@
 #
 # TO WATCH THIS FAIL -- before trusting a green run, run it against a scratch copy of the script,
 # one seed each, with KAS_RUN_UNDER_TEST=<copy>:
-#   * delete the two `flock` words in the lock block: "builds never overlap"
+#   * delete the `flock -n 9 || …` line in the lock block: "builds never overlap"
 #   * read the shell case as `shell` with none of -c, --cmd or --command: "shell --command=x takes the lock"
 #   * make the lock block run for every verb: "interactive shell does not wait"
 #   * move the lock block above the --runtime-args refusal: "refusal does not wait"
@@ -48,9 +48,11 @@ cat > "$scratch/bin/kas-container" <<'STUB'
 echo "begin ${TAG:-?}" >> "$LOG"
 echo "local=$([ -d local ] && echo yes || echo no) keys_owner=$(stat -c %u local/keys 2>/dev/null || echo none)" >> "$LOG.local"
 echo "$*" >> "$LOG.args"
-# held until the test releases it
+# held until the test releases it, or for HOLD seconds
 if [ -n "${RELEASE:-}" ]; then
     for _ in $(seq 1 600); do [ -e "$RELEASE" ] && break; sleep 0.1; done
+else
+    sleep "${HOLD:-0}"
 fi
 echo "end ${TAG:-?}" >> "$LOG"
 exit "${EXITS:-0}"
@@ -193,15 +195,17 @@ check "the waiter's exit status is kas-container's" test "$(cat "$scratch/rc8")"
 mkdir -p "$scratch/three/tools"
 cp "$scratch/two/tools/"* "$scratch/three/tools/"
 hold
-(cd "$scratch/two" && TAG=B timeout 30 tools/kas-run.sh build b.yaml > "$scratch/w2.out" 2>&1) &
-(cd "$scratch/three" && TAG=C timeout 30 tools/kas-run.sh build c.yaml > "$scratch/w3.out" 2>&1) &
+(cd "$scratch/two" && HOLD=1 TAG=B timeout 30 tools/kas-run.sh build b.yaml > "$scratch/w2.out" 2>&1) &
+(cd "$scratch/three" && HOLD=1 TAG=C timeout 30 tools/kas-run.sh build c.yaml > "$scratch/w3.out" 2>&1) &
 for _ in $(seq 1 100); do
     [ "$(grep -l "waiting for another kas build" "$scratch/w2.out" "$scratch/w3.out" 2>/dev/null | wc -l)" -eq 2 ] && break
     sleep 0.1
 done
 let_go
 n=$(grep -l "waiting for another kas build on this host: [0-9]* $scratch/one" "$scratch/w2.out" "$scratch/w3.out" | wc -l)
-both_wait_and_run() { [ "$n" -eq 2 ] && before "end A" "begin B" && before "end A" "begin C" && has "end B" && has "end C"; }
+both_wait_and_run() {
+    [ "$n" -eq 2 ] && { log_is "begin A end A begin B end B begin C end C " || log_is "begin A end A begin C end C begin B end B "; }
+}
 check "two waiters both name the holder and both run after it" both_wait_and_run
 
 # 9. an interrupted waiter never runs kas-container (TERM: a caller without job control ignores INT)
