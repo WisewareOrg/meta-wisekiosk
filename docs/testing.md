@@ -15,8 +15,8 @@ What proves a change is good enough to ship, at each tier.
 hardware-in-the-loop runner, cloned and built outside this tree per its own README. Pointed at this
 checkout, it reads the tracked `bench.toml` here — which never names a machine or a board — runs its
 `build` and `bundle` hooks, a host suite before anything is installed, then a target suite against the
-booted board. Builds on one host take turns, so a run that builds waits for a build already running, and says
-so; the wait counts in the runner's time limit. The runner never touches the board itself:
+booted board. Builds on one host take turns, so a run that builds waits for a build already running, and
+says so; the wait counts in the runner's time limit. The runner never touches the board itself:
 
 ```sh
 bench test <ref>               # by hand: build, run both suites; the target suite installs on the board LG_ENV names
@@ -58,8 +58,8 @@ kas container through `tools/kas-run.sh`, so the bench needs the checkout's own 
 signing keys the bench host's environment file names. The refused-update tests' bundles and
 evemu-tools are built under `build/`. The image-update tests' bundles are built in the host's `/tmp`, which
 `tools/kas-run.sh` mounts through `KAS_RUN_TMP_DIR`: they are signed by the operator key and carry
-the fleet's `compatible`, so they are kept only in memory (the host's `/tmp`, and the bundle server's memory for
-the length of an install), never in the build tree's deploy output (#252 image update behaviour). Before
+the fleet's `compatible`, so they are kept only in memory (the host's `/tmp`, and the bundle server's memory
+for the length of an install), never in the build tree's deploy output (#252 image update behaviour). Before
 installing one, `Updates.allow_test_bundle` confirms the board refuses it without the run's nonce.
 
 Every install the target suite makes goes through [`tools/kiosk-install.sh`](../tools/kiosk-install.sh),
