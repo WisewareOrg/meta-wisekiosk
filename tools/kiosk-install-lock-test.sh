@@ -170,9 +170,9 @@ install 8 "$one"
 await reached 8 "docker run"
 await reached 8 "ssh .*dmesg -w"
 script=$(pgrep -P "$(cat "$scratch/pg.8")" | head -n 1)
-check "the script of call 8 was found" test -n "$script"
-kill -9 "${script:-0}" 2>/dev/null
-await not kill -0 "${script:-0}"
+await test -n "$script"
+kill -9 "$script" 2>/dev/null
+await not kill -0 "$script"
 install 10 "$one"
 await reached 10 "docker run"
 check "a script killed alone frees the lock though its streaming ssh live on" reached 10 "docker run"
