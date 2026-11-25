@@ -52,10 +52,10 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   and `install_candidate` clears the backend's runtime drop-ins and mask at the start of every
   session. While the keyboard test runs, the panel shows the board's text console.
 
-The target suite builds its test bundles and the virtual mouse's and keyboard's evemu-tools in the kas container
-through `tools/kas-run.sh`, so the bench needs the checkout's own build tree, and the signing keys
-the bench host's environment file names. The refused-update tests' bundles and evemu-tools are built
-under `build/`. The image-update tests' bundles are built in the host's `/tmp`, which
+The target suite builds its test bundles and the virtual mouse's and keyboard's evemu-tools in the
+kas container through `tools/kas-run.sh`, so the bench needs the checkout's own build tree, and the
+signing keys the bench host's environment file names. The refused-update tests' bundles and
+evemu-tools are built under `build/`. The image-update tests' bundles are built in the host's `/tmp`, which
 `tools/kas-run.sh` mounts through `KAS_RUN_TMP_DIR`: they are signed by the operator key and carry
 the fleet's `compatible`, so they are kept only in the host's tmpfs, never in the build tree's
 deploy output (#252 image update behaviour). Before installing one, `Updates.allow_test_bundle`
@@ -96,10 +96,11 @@ to fail: it installs a good copy of the candidate in the slot not booted, zeroes
 attempts and restarts, and passes only when U-Boot boots the other slot. Both slots stay bootable, so
 it strands nothing.
 
-`tests/applications/screenshot` is the suite of the screenshot application, which runs on the board, with its tests beside it, separate from the image suite and the diagnostics; the queue job does not run it:
+`tests/applications/screenshot` is the suite of the screenshot application, which runs on the board.
+It is separate from the image suite and the diagnostics, and the queue job does not run it.
 `test_decoder.py`, on constructed buffers and no board, runs in `just guards` and CI. `bench test
-<ref> -- tests/applications/screenshot -k on_board -rP` installs the candidate and runs `test_on_board.py`;
-without the `-k`, the runner also runs `tests/target_suite`.
+<ref> -- tests/applications/screenshot -k on_board -rP` installs the candidate and runs
+`test_on_board.py`; without the `-k`, the runner also runs `tests/target_suite`.
 
 The board comes from labgrid's own env file, pointed at with `LG_ENV` — a target named `main`, a
 `NetworkService` resource carrying the board's address, an `SSHDriver` — kept untracked under

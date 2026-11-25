@@ -11,10 +11,10 @@ is gitignored.
 
 Reading it:
 
-    min=0 max=255 mean~4   healthy page -- black background, sparse light text.
-                           A mean near zero is NORMAL.
-    text console           the browser is not on the panel: not running, still
-                           starting, or an operator is on another console.
+    min=0 max=255   healthy page -- black background, sparse light text.
+                    A mean near zero is NORMAL.
+    text console    the browser is not on the panel: not running, still
+                    starting, or an operator is on another console.
 
 It is the primary plane handed to the display hardware, so a mouse pointer is not in it. It is not what
 reaches the glass: an unplugged panel reads the same. A frame the page replaces mid-copy can mix two.

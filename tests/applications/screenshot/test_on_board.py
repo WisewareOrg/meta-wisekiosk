@@ -1,8 +1,6 @@
 """Screenshot suite: on the board, `just screenshot` reads the page, the console and a blank console.
 
-It leaves the page on the panel:
-
-    bench test <ref> -- tests/applications/screenshot -k on_board -rP
+It leaves the page on the panel. docs/testing.md has the command that runs it.
 """
 
 import subprocess

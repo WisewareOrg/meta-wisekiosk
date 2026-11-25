@@ -33,7 +33,7 @@ is a layer, and BitBake never reads any of it.
 `meta-wisekiosk/` contains both. The `kiosk-*` recipes are ours from scratch — nothing upstream
 builds them. The bbappends adjust software that poky, meta-raspberrypi or meta-autonomos already
 package: `icu_%.bbappend` filters out locale data we do not ship, `u-boot_%.bbappend` sets
-`bootdelay=0`, `linux-raspberrypi_%.bbappend` adds two kernel patches.
+`bootdelay=0`, `linux-raspberrypi_%.bbappend` patches and configures the kernel.
 
 The distinction matters when reading a build failure: a recipe failing is our code; a bbappend
 failing usually means upstream's recipe changed underneath it.
@@ -54,7 +54,7 @@ Run `kas-container build kiosk-zero-w.yaml` and, in order, kas:
    checkout after cloning. See below.
 4. **Writes `build/conf/bblayers.conf`** — BitBake's list of enabled layers — from the `layers:` key
    of each repo. A repo with no `layers:` key contributes its own root as one layer; a repo with
-   `layers:` contributes exactly the subdirectories listed. This build enables 17 layers.
+   `layers:` contributes exactly the subdirectories listed.
 5. **Writes `build/conf/local.conf`** from `machine:`, `distro:` and every `local_conf_header:`
    block, concatenated. This is where `kiosk-zero-w.yaml`'s long commented blocks end up — they are
    ordinary BitBake variable assignments with the reasoning kept next to them.

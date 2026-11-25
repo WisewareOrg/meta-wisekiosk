@@ -196,12 +196,13 @@ compiling starts.
 A change to webkit's `PACKAGECONFIG`, to a WebKit recipe, or **a bump of the meta-webkit pin**
 invalidates WebKit alone. A change to `DISTRO_FEATURES`, to `MACHINE_FEATURES`, or **a bump of the
 poky or meta-openembedded pin** invalidates more than WebKit. Either is a multi-hour rebuild — see
-[cold build time](docs/issue_investigation/cold_build_time/README.md) for the measured costs and
-the host they were measured on, which was the WebKitGTK image. Make those decisions before
+[cold build time](docs/issue_investigation/cold_build_time/README.md) for the measured costs, which
+are of the WebKitGTK image, and the host they were measured on. Make those decisions before
 starting, not after. `config.txt`-only knobs (`GPU_MEM`, HDMI, overscan, UART) are free to change,
-and so is the kernel's `PREFERRED_VERSION` — the kernel is outside webkit's dependency closure. Cheap to rebuild is not the
-same as reaching a board: the `config.txt` knobs are on the shared FAT partition RAUC never writes —
-see [gpu compositing](docs/issue_investigation/gpu_compositing/README.md) §"Delivery and board".
+and so is the kernel's `PREFERRED_VERSION` — the kernel is outside webkit's dependency closure.
+Cheap to rebuild is not the same as reaching a board: the `config.txt` knobs are on the shared FAT
+partition RAUC never writes — see
+[gpu compositing](docs/issue_investigation/gpu_compositing/README.md) §"Delivery and board".
 
 ### Flashing a card
 
@@ -296,8 +297,8 @@ One change to upstream cannot be expressed from a downstream layer and lives as 
 `patches/meta-autonomos/`, its header recording why it cannot be a bbappend and whether it is
 suitable to submit upstream:
 
-1. **The wpa-supplicant bbappend baked WIFI_SSID and WIFI_PSK_HASH into the image.** One image per
-   site, and the site's wireless credentials inside every update bundle.
+**The wpa-supplicant bbappend baked WIFI_SSID and WIFI_PSK_HASH into the image.** One image per
+site, and the site's wireless credentials inside every update bundle.
 
 Two more fixes belong upstream but did not need a patch, because a downstream layer can express them:
 
@@ -319,7 +320,7 @@ Two more fixes belong upstream but did not need a patch, because a downstream la
 |---|---|
 | Engine | WPE WebKit, the version the meta-webkit pin in `includes/base.yaml` carries; `ENABLE_JIT=OFF`, `USE_WOFF2=ON`, `MinSizeRel` |
 | Browser | `kiosk-browser`, a small C launcher on WPE's platform API with a systemd watchdog |
-| Display | WPE's DRM platform on vc4 firmware KMS at 1280x720 (`video=` in the kernel's `panel-mode.cfg`), mesa for EGL, no display server |
+| Display | WPE's DRM platform on vc4 firmware KMS, in the mode `video=` in the kernel's `panel-mode.cfg` sets, mesa for EGL, no display server |
 | Update | RAUC A/B over U-Boot — both slots visible |
 
 ### Known gaps
