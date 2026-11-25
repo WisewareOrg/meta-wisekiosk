@@ -6,7 +6,6 @@ After=network.target data.mount
 # Wants, not Requires: an unmounted /data leaves the server serving, config.json
 # 404s and the page renders its own absent state.
 Wants=data.mount
-StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -15,7 +14,7 @@ User=kiosk
 Group=kiosk
 ExecStart=/usr/bin/wisekiosk -static-root /srv/kiosk
 Restart=always
-RestartSec=1
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
