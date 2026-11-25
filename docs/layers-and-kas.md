@@ -21,7 +21,7 @@ everything else is convention. Inside it:
 - `recipes-<category>/<name>/<name>_%.bbappend` — a **bbappend**, a fragment that *adds to* a recipe
   someone else's layer defines. It does not replace the recipe; BitBake parses the `.bb` and then
   every `.bbappend` that matches its name, in layer-priority order. The `%` is a wildcard over the
-  version, so `surf_%.bbappend` applies to whatever version of `surf` is in play.
+  version, so `linux-raspberrypi_%.bbappend` applies to whatever version of it is in play.
 - `classes/*.bbclass` — reusable logic a recipe can `inherit`.
 - side directories such as `files/` holding the loose files a recipe installs.
 
@@ -33,7 +33,7 @@ is a layer, and BitBake never reads any of it.
 `meta-wisekiosk/` contains both. The `kiosk-*` recipes are ours from scratch — nothing upstream
 builds them. The bbappends adjust software that poky, meta-raspberrypi or meta-autonomos already
 package: `icu_%.bbappend` filters out locale data we do not ship, `u-boot_%.bbappend` sets
-`bootdelay=0`, `linux-raspberrypi_%.bbappend` adds two kernel patches.
+`bootdelay=0`, `linux-raspberrypi_%.bbappend` patches and configures the kernel.
 
 The distinction matters when reading a build failure: a recipe failing is our code; a bbappend
 failing usually means upstream's recipe changed underneath it.
@@ -54,7 +54,7 @@ Run `kas-container build kiosk-zero-w.yaml` and, in order, kas:
    checkout after cloning. See below.
 4. **Writes `build/conf/bblayers.conf`** — BitBake's list of enabled layers — from the `layers:` key
    of each repo. A repo with no `layers:` key contributes its own root as one layer; a repo with
-   `layers:` contributes exactly the subdirectories listed. This build enables 17 layers.
+   `layers:` contributes exactly the subdirectories listed.
 5. **Writes `build/conf/local.conf`** from `machine:`, `distro:` and every `local_conf_header:`
    block, concatenated. This is where `kiosk-zero-w.yaml`'s long commented blocks end up — they are
    ordinary BitBake variable assignments with the reasoning kept next to them.
@@ -86,9 +86,6 @@ meta-autonomos:
   layers:
     meta-autonomos-core:
   patches:
-    01-graphics:
-      repo: meta-wisekiosk
-      path: "patches/meta-autonomos/0001-distro-make-graphics-strip-conditional.patch"
     02-wpa:
       repo: meta-wisekiosk
       path: "patches/meta-autonomos/0002-wpa-supplicant-stop-baking-credentials.patch"
@@ -99,16 +96,8 @@ meta-autonomos:
 that repository's root. The patch is applied to `sources/meta-autonomos`.
 
 Almost everything this project needs is expressible as a bbappend or a higher-priority file in
-`meta-wisekiosk/`, and lives there. Two things in meta-autonomos are not, and only those two are
+`meta-wisekiosk/`, and lives there. One thing in meta-autonomos is not, and only that one is
 patched there.
-
-### Why patch 0001 cannot be a bbappend
-
-Upstream's `autonomos.conf` had `DISTRO_FEATURES:remove = " x11 wayland"`. BitBake applies every
-`:remove` **after** every `:append`, no matter which file or layer they came from. So there is no
-downstream file — not a bbappend, not an image recipe, not `local.conf` — that can put `x11` back.
-A kiosk needs x11. The removal has to become conditional where it is written, which means changing
-upstream's file, which means a patch.
 
 ### Why patch 0002 cannot be a bbappend
 
@@ -122,7 +111,7 @@ Adding our own bbappend does not help, because **bbappend bodies concatenate**. 
 `/etc/wpa_supplicant.conf` itself, so masking it would change what the image contains. The only
 surgical option is to patch the body to a no-op.
 
-meta-autonomos's two patch headers record this reasoning and whether the change is suitable to send
+meta-autonomos's patch header records this reasoning and whether the change is suitable to send
 upstream.
 
 ## Layer priority

@@ -51,6 +51,7 @@ just links          # cross-references only (this is the one CI requires)
 just guards         # repository invariants: secrets, identity, syntax, wiring;
                     # runs the device guard's and the CVE tools' self-tests too
 just reqs           # the requirements tree, through wise-ci's check-reqs
+just adrs           # docs/decisions/ and every ADR citation, through wise-ci's check-adrs
 just install-hooks  # once per clone: point core.hooksPath at .githooks
 bash .claude/hooks/guard-test.sh   # the device guard's self-test on its own
 ```
@@ -58,11 +59,12 @@ bash .claude/hooks/guard-test.sh   # the device guard's self-test on its own
 CI runs [`tools/ci-guards.sh`](tools/ci-guards.sh),
 [`tools/scrub-identity.py`](tools/scrub-identity.py) `--check` and
 [`tools/doc-links.py`](tools/doc-links.py). The pre-commit hook runs the same three, so a commit
-cannot pass locally and fail there on them. CI also runs wise-ci's `check-reqs` over the requirements
-tree, which the hook does not run; [`docs/requirements/README.md`](docs/requirements/README.md)
-covers the tree and its gate. `just image` and `just verify`'s second half need a populated
-`build/` and are local-only: CI never builds, and a required check that skips on every run is noise
-rather than a gate.
+cannot pass locally and fail there on them. CI also runs two wise-ci checks the hook does not:
+`check-reqs` over the requirements tree, which
+[`docs/requirements/README.md`](docs/requirements/README.md) covers with its gate, and `check-adrs`
+over [`docs/decisions/`](docs/decisions/README.md) and every ADR citation. `just image` and
+`just verify`'s second half need a populated `build/` and are local-only: CI never builds, and a
+required check that skips on every run is noise rather than a gate.
 
 `tools/scrub-identity.py --check` has two halves and says which ran. The pattern half needs no
 configuration and runs everywhere. The known-value half reads `local/device-identity.md`, which is
@@ -88,9 +90,10 @@ and cite it from everywhere else; [`docs/README.md`](docs/README.md) and [`CLAUD
 one copy while the other stays right, with nothing comparing them.
 
 **Code is the living proof of what is built now; history belongs to the investigation.** A recipe, a
-class or a justfile says what the tree does today. What was tried, what it cost and what was rejected
-goes in `docs/issue_investigation/`, not in a comment and not in a "no longer" clause. State the
-timeless fact — no *now*, *no longer*, *as of*.
+class or a justfile says what the tree does today. Tracing an issue to its cause and resolution goes
+in `docs/issue_investigation/`; a design choice, with the alternatives it rejected and why, goes in
+its ADR ([`docs/decisions/`](docs/decisions/README.md)). Neither goes in a comment or a "no longer"
+clause. State the timeless fact — no *now*, *no longer*, *as of*.
 
 **Cite a section by name, never by line number.** A section reference is a Markdown link to the
 file, then `§`, then the heading in double quotes — as [`README.md`](README.md) §"Quick start" is

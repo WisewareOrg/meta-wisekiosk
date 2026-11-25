@@ -11,22 +11,18 @@
 #   * busybox has no `ps -eo`, no `df --output`, and its `free -m` reports KB
 #     regardless of the flag. Memory is divided to MB explicitly so the line
 #     format stays byte-comparable with the old log.
-#   * the launcher runs a bare `surf`, not an absolute path, so the browser is
-#     resolved with command -v rather than by grepping for a path. The principle
-#     is unchanged: ask the launcher, never hardcode. A sampler that names one
-#     browser records zeros for the other and calls it data.
 #
 # The fields that are not self-evident from the printf below:
 #   boot       first 8 of boot_id. A change means the device rebooted, and the
 #              samples either side are not one series
 #   pid        main browser pid. A change means the browser restarted; `none`
 #              means it was not running at that sample
-#   nproc      processes in the browser family (surf plus its WebKit children)
+#   nproc      processes in the browser family (kiosk-browser plus its WPE children)
 #   rss_total  RSS across that whole family, and the memory number that matters
 #              -- the renderer is a separate process and holds most of it
 #   thr        vcgencmd get_throttled. Anything but 0x0 means it throttled at
 #              some point SINCE BOOT, not that it is throttling now
-#   ent        entropy pool. Low is expected; rngd is deliberately off for surf
+#   ent        entropy pool. Low is expected; the image has no rngd
 #
 # Read a --summary in this order, weakest evidence last:
 #   1. reboots and browser restarts. Non-zero means the memory series is really
@@ -40,7 +36,6 @@
 # docs/issue_investigation/surf_memory_soak/README.md.
 set -u
 LOG=${KIOSK_SOAK_LOG:-/data/kiosk-soak.log}
-LAUNCHER=${KIOSK_LAUNCHER:-/usr/bin/kiosk-launch}
 MAXLINES=${KIOSK_SOAK_MAXLINES:-20000}
 
 if [ "${1:-}" = "--summary" ]; then
@@ -88,14 +83,10 @@ if [ "${1:-}" = "--summary" ]; then
 fi
 
 # ----------------------------------------------------------------- sample mode
-# Ask the launcher which browser this is. It invokes a bare command name, so
-# resolve it on PATH rather than looking for an absolute path.
-CMD=$(grep -oE '^[[:space:]]*exec[[:space:]]+[A-Za-z0-9._-]+' "$LAUNCHER" 2>/dev/null \
-      | head -n1 | awk '{print $2}')
-BIN=$(command -v "${CMD:-surf}" 2>/dev/null)
-COMM=$(basename "${BIN:-unknown}" | cut -c1-15)
+COMM=kiosk-browser
 
-PID=$(pgrep -x "$COMM" 2>/dev/null | head -n1)
+# pidof, not pgrep -x: busybox's pgrep -x matches the full path the launcher runs as.
+PID=$(pidof "$COMM")
 
 # Renderers are separate processes and hold most of the memory. Count the whole
 # family, or a leak in the renderer looks like a flat launcher. busybox has no
@@ -104,7 +95,7 @@ NPROC=0; RSS_TOTAL=0
 for d in /proc/[0-9]*; do
   c=$(cat "$d/comm" 2>/dev/null) || continue
   case "$c" in
-    WebKit*|webkit*|"$COMM")
+    WPE*|"$COMM")
       r=$(awk '/^VmRSS/{print $2}' "$d/status" 2>/dev/null)
       [ -n "$r" ] && { NPROC=$((NPROC + 1)); RSS_TOTAL=$((RSS_TOTAL + r)); } ;;
   esac

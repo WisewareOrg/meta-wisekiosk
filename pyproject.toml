@@ -10,16 +10,26 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "check-adrs",
     "check-reqs",
     "interrogate>=1.7.0",
     "pydoclint>=0.12.0",
     "python-kasa",
     "ruff>=0.17.6",
 ]
+# what the test helpers import and the runner's environment lacks (docs/testing.md)
+tests = [
+    "websocket-client>=1.9.2",
+]
 
 [tool.uv.sources]
+check-adrs = { git = "https://github.com/WisewareOrg/wise-ci", subdirectory = "check-adrs", rev = "b27c5858566679b604bfcbf56f07ff93aeb5c81f" }
 check-reqs = { git = "https://github.com/WisewareOrg/wise-ci", subdirectory = "check-reqs", rev = "b27c5858566679b604bfcbf56f07ff93aeb5c81f" }
 python-kasa = { git = "https://github.com/python-kasa/python-kasa", rev = "a1a6c3854ace705b21357b357354d4ae8b6307b4" }
+
+[tool.pytest.ini_options]
+# where bench.toml's precondition hook installs the tests group
+pythonpath = ["build/test-packages/lib/python3.13/site-packages"]
 
 [tool.ruff]
 line-length = 120

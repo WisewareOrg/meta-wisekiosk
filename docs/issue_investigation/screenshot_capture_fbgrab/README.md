@@ -47,5 +47,5 @@ wait times varied; font rendered as Roboto Condensed rather than the DejaVu fall
 pixels, and its absence is the record of the trade.
 
 The capture, the blank-screen signature and the content-against-`date` check are scripted at
-[`kiosk-screenshot.sh`](../../../tools/kiosk-screenshot.sh), so the reading rule cannot be applied
+[`kiosk-screenshot.sh`](https://github.com/WisewareOrg/meta-wisekiosk/blob/6d7ecfe/tools/kiosk-screenshot.sh), so the reading rule cannot be applied
 from memory.

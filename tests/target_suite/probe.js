@@ -1,6 +1,6 @@
-// In-page probe for the kiosk page. surf has no channel out of a page but the
-// window title, so the probe writes its report there; the host reads it back
-// through xprop. Evaluated by surf in every page load. No network, no storage.
+// In-page probe for the kiosk page. The host puts it in the page and reads its
+// report, which it writes to the title, through the browser's inspector. No
+// network, no storage.
 // Payload: "WK1 " then key=value tokens. nonce is performance.timeOrigin; state
 // is the app's own state, its unreachable-backend band included; cards is
 // <present>/<live>. Every other token is cumulative from the probe's own start

@@ -10,10 +10,7 @@ board for the one boot it measures, and the unit removes both again when it stop
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
-SRC_URI = " \
-    file://kiosk-bootprof.c \
-    file://measure-surf.sh \
-"
+SRC_URI = "file://kiosk-bootprof.c"
 # scarthgap unpacks file:// SRC_URI straight into WORKDIR.
 S = "${WORKDIR}"
 
@@ -33,17 +30,3 @@ do_deploy() {
     install -m 0755 kiosk-bootprof ${DEPLOYDIR}/kiosk-bootprof
 }
 addtask deploy after do_compile before do_build
-
-do_install() {
-    install -d ${D}${bindir}
-    install -m 0755 ${S}/measure-surf.sh ${D}${bindir}/measure-surf.sh
-}
-
-FILES:${PN} = " \
-    ${bindir}/measure-surf.sh \
-"
-
-# xprop/xwininfo for measure-surf.sh; they are already in the image via
-# packagegroup-core-x11, named here so the dependency is explicit rather than
-# incidental.
-RDEPENDS:${PN} = "xprop xwininfo"

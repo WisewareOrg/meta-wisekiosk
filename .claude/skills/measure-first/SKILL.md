@@ -94,8 +94,8 @@ Two corollaries:
 
 ## Driving one live board
 
-**One board owner at a time.** Two agents driving the board clobber each other's `~/.surf/script.js`
-and each other's cache, and neither capture means anything. The **main thread executes board
+**One board owner at a time.** Two agents driving the board clobber each other's probe and each
+other's restarts, and neither capture means anything. The **main thread executes board
 captures**; **subagents do the off-board work** — authoring probes and parsers, the mirror build,
 implementation, analysis, review — so the capture context stays clean.
 
@@ -112,17 +112,15 @@ The ordered loop and the pre-trust list are [`CHECKLIST.md`](CHECKLIST.md).
 ## Gotchas that cost real time
 
 - **The page console does not reach the journal on this image.** Exfiltrate through
-  `document.title` and read it back with `xprop`, as
+  `document.title` and read it back through the inspector (the steps are in
+  [`CHECKLIST.md`](CHECKLIST.md)), as
   [`run-phase-motion.sh`](../../../docs/issue_investigation/gpu_compositing/run-phase-motion.sh)
-  does.
+  did on the surf image.
 - **`2>/dev/null` on an ssh to a board is blocked** by `.claude/hooks/guard.sh`. A suppressed probe
   cannot distinguish a broken check from a broken device. Let stderr through, or capture it and
   print it on failure.
-- **The mirror serves `index.html` with no `Cache-Control` and no `ETag`.** WebKit reuses the
-  document across restarts, its content-hashed assets rotate, and a failed module import is
-  terminal — the panel stays white. Clearing `~/.surf/cache` is a precondition of the restart, not
-  a tidy-up.
-- **Leave the board as you found it**: `: > ~/.surf/script.js`, restart, confirm it renders.
+- **Leave the board as you found it**: what a diagnostic changes, the board's cleanup undoes when it
+  ends. Confirm the page renders.
 - **Record under R1-R3** —
   [`../../../CONTRIBUTING.md`](../../../CONTRIBUTING.md) §"Documentation conventions". Every run names its
   board role, its image commit and its frontend bundle hash; every probe is committed beside the

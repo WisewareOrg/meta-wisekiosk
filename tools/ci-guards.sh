@@ -115,7 +115,6 @@ fi
 scan3=(meta-wisekiosk/recipes-core/kiosk-netcheck/files/kiosk-netcheck
        meta-wisekiosk/recipes-core/kiosk-provision/files/kiosk-provision
        meta-wisekiosk/recipes-core/kiosk-recover/files/kiosk-recover
-       meta-wisekiosk/recipes-core/kiosk-session/files/kiosk-launch
        .githooks/pre-commit)
 missing3=""
 for p in "${scan3[@]}"; do [ -e "$p" ] || missing3="$missing3 $p"; done
@@ -1009,6 +1008,20 @@ else
     run22 interrogate -v --fail-under 100
     run22 pydoclint
     [ "$ok22" -eq 1 ] && ok "the tests' Python passes ruff, ruff format, interrogate and pydoclint"
+fi
+
+# --- 23. the screenshot tool's decoder must still pass its tests ----------
+# What they cover and how is the docstring of the file.
+shottest23="tests/applications/screenshot/test_decoder.py"
+if [ ! -f "$shottest23" ]; then
+    bad "guard 23: $shottest23 missing -- the screenshot tool's decoder goes untested"
+elif ! command -v "$PY" > /dev/null 2>&1; then
+    bad "guard 23: $PY missing -- the screenshot tool's decoder cannot be tested"
+elif out23=$("$PY" -B "$shottest23" 2>&1); then
+    ok "the screenshot tool's decoder passes its tests ($(printf '%s\n' "$out23" | grep '^Ran '))"
+else
+    bad "the screenshot tool's decoder FAILS its tests:"
+    printf '%s\n' "$out23" | sed 's/^/        /'
 fi
 
 if [ "$fail" -ne 0 ]; then

@@ -21,7 +21,8 @@ class Process(Part):
             parent: the name of the process they run under, or None for any.
         """
         super().__init__(board)
-        self._pids = f'$(pgrep -P "$(pgrep -x {parent})" {name})' if parent else f"$(pgrep -x {name})"
+        # pidof, not pgrep -x: busybox's pgrep -x matches the full path the launcher runs as.
+        self._pids = f'$(pgrep -P "$(pidof {parent})" {name})' if parent else f"$(pidof {name})"
 
     def is_running(self) -> bool:
         """Whether any of the processes is running.

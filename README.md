@@ -1,8 +1,8 @@
 # meta-wisekiosk
 
-A wall-mounted Raspberry Pi Zero W kiosk: `surf` on WebKitGTK against a bare Xorg, no desktop, no
-window manager, no display manager. The unit shows one page and is reached only over WiFi, so
-everything here is shaped by the fact that a broken image costs a physical trip to the wall.
+A wall-mounted Raspberry Pi Zero W kiosk: WPE WebKit straight to DRM, no desktop, no display
+server. The unit shows one page and is reached only over WiFi, so everything here is shaped by the
+fact that a broken image costs a physical trip to the wall.
 
 Updates are RAUC A/B over U-Boot, delivered over the LAN. Site configuration — SSID, PSK hash, URL,
 hostname, machine-id — is **never** in the image; it is written to the device's `/data` partition by
@@ -45,8 +45,8 @@ How to work in this repository — the gates, the conventions and the review che
 > names — are deliberately left unrenamed. Two concrete reasons: the RAUC *compatible* string is
 > `autonomos-${MACHINE}`, a literal set by upstream's `autonomos-rauc.bbclass`, and a deployed board
 > refuses a bundle whose compatible does not match its own — so moving off upstream's class or
-> renaming its identifiers is a one-way change that strands every unit in the field. And the two patches
-> in `patches/meta-autonomos/` have to apply to upstream's files as upstream writes them.
+> renaming its identifiers is a one-way change that strands every unit in the field. And the patch
+> in `patches/meta-autonomos/` has to apply to upstream's files as upstream writes them.
 
 ## Mission
 
@@ -98,7 +98,7 @@ meta-wisekiosk/                    <- the repository (project scaffolding)
 
 Nothing outside `meta-wisekiosk/` is read by BitBake. Nothing inside it is read by anything else.
 If you are new to Yocto, read **[docs/layers-and-kas.md](docs/layers-and-kas.md)** — it explains what
-a layer is, what kas does with these files, and why meta-autonomos's patches cannot be bbappends.
+a layer is, what kas does with these files, and why meta-autonomos's patch cannot be a bbappend.
 
 Every change that was acted on is documented at the recipe carrying it; the per-issue investigations
 behind those changes are indexed in **[docs/README.md](docs/README.md)**.
@@ -190,18 +190,19 @@ and then runs `kas-container build kiosk-zero-w.yaml`. Calling `kas-container` d
 first half: on a fresh clone bitbake refuses to parse, and on a tree that has built before it builds
 against the *previous* run's commit — which the gate then refuses at flash. The first run clones
 every repo declared across the kas include chain — `includes/base.yaml`, `includes/rauc.yaml` and
-`includes/platforms/raspberrypi.yaml` — into `sources/`: ten repositories, several GB and a long
-while before any compiling starts.
+`includes/platforms/raspberrypi.yaml` — into `sources/`: several GB and a long while before any
+compiling starts.
 
-A change to webkit's `PACKAGECONFIG`, or to a WebKit recipe, invalidates WebKit alone. A change to
-`DISTRO_FEATURES`, to `MACHINE_FEATURES`, or **a bump of the poky or meta-openembedded pin**
-invalidates more than WebKit. Either is a multi-hour rebuild — see
-[cold build time](docs/issue_investigation/cold_build_time/README.md) for the measured costs and
-the host they were measured on. Make those decisions before starting, not after.
-`config.txt`-only knobs (`GPU_MEM`, HDMI, overscan, UART) are free to change, and so is the kernel's
-`PREFERRED_VERSION` — the kernel is outside webkit's dependency closure. Cheap to rebuild is not the
-same as reaching a board: the `config.txt` knobs are on the shared FAT partition RAUC never writes —
-see [gpu compositing](docs/issue_investigation/gpu_compositing/README.md) §"Delivery and board".
+A change to webkit's `PACKAGECONFIG`, to a WebKit recipe, or **a bump of the meta-webkit pin**
+invalidates WebKit alone. A change to `DISTRO_FEATURES`, to `MACHINE_FEATURES`, or **a bump of the
+poky or meta-openembedded pin** invalidates more than WebKit. Either is a multi-hour rebuild — see
+[cold build time](docs/issue_investigation/cold_build_time/README.md) for the measured costs, which
+are of the WebKitGTK image, and the host they were measured on. Make those decisions before
+starting, not after. `config.txt`-only knobs (`GPU_MEM`, HDMI, overscan, UART) are free to change,
+and so is the kernel's `PREFERRED_VERSION` — the kernel is outside webkit's dependency closure.
+Cheap to rebuild is not the same as reaching a board: the `config.txt` knobs are on the shared FAT
+partition RAUC never writes — see
+[gpu compositing](docs/issue_investigation/gpu_compositing/README.md) §"Delivery and board".
 
 ### Flashing a card
 
@@ -292,15 +293,12 @@ Run `--dry-run` first to confirm targeting.
 
 ## Upstream fixes
 
-Two changes to upstream cannot be expressed from a downstream layer and live as patches in
-`patches/meta-autonomos/`, each header recording why it cannot be a bbappend and whether it is
+One change to upstream cannot be expressed from a downstream layer and lives as a patch in
+`patches/meta-autonomos/`, its header recording why it cannot be a bbappend and whether it is
 suitable to submit upstream:
 
-1. **`DISTRO_FEATURES:remove = " x11 wayland"` cannot be undone downstream.** bitbake applies
-   `:remove` after every append, so no image or `local.conf` can put x11 back. Made conditional on
-   `AUTONOMOS_FEATURES`, matching how the distro already gates `containers` and `kubernetes`.
-2. **The wpa-supplicant bbappend baked WIFI_SSID and WIFI_PSK_HASH into the image.** One image per
-   site, and the site's wireless credentials inside every update bundle.
+**The wpa-supplicant bbappend baked WIFI_SSID and WIFI_PSK_HASH into the image.** One image per
+site, and the site's wireless credentials inside every update bundle.
 
 Two more fixes belong upstream but did not need a patch, because a downstream layer can express them:
 
@@ -316,38 +314,26 @@ Two more fixes belong upstream but did not need a patch, because a downstream la
 ## Status
 
 **Working.** Boots, joins WiFi, renders the kiosk page on the real hardware — verified on a Pi Zero W
-(BCM2835, ARMv6, 512 MB). The vc4 display path the table below describes runs on prod and is measured
-there, but it reaches the board as hand-edits rather than out of a build; the cells say which rows
-that qualifies, and "Known gaps" says what closes it.
+(BCM2835, ARMv6, 512 MB).
 
 | | |
 |---|---|
-| Engine | WebKitGTK 2.44.3, `ENABLE_JIT=OFF`, `USE_WOFF2=ON`, `MinSizeRel` — genuine ARMv6 (`Tag_CPU_arch: v6KZ`) |
-| Browser | `surf` 2.1 + the kiosk patches (milestones, override-redirect, shims, frozen-page reload) |
-| Display | bare Xorg on vc4 firmware KMS at 1280x720, `xf86-video-modesetting` + mesa for glamor, WebKit painting in software, no display manager, no window manager — **measured on prod, never out of a build** |
+| Engine | WPE WebKit, the version the meta-webkit pin in `includes/base.yaml` carries; `ENABLE_JIT=OFF`, `USE_WOFF2=ON`, `MinSizeRel` |
+| Browser | `kiosk-browser`, a small C launcher on WPE's platform API with a systemd watchdog ([ADR 0001 rev 1](docs/decisions/0001-wpe-webkit-on-drm-with-our-own-launcher.md)) |
+| Display | WPE's DRM platform on vc4 firmware KMS, in the mode `video=` in the kernel's `panel-mode.cfg` sets, mesa for EGL, no display server |
 | Update | RAUC A/B over U-Boot — both slots visible |
-| Memory | 87 MB used of 428; zram present and never touched — **measured on the fbdev image** |
 
 ### Known gaps
 
-- **The display path has never come out of a build.** It runs on prod, and every number for it was
-  measured there, but the overlay and the mode-set reached that board as hand-edits to an image that
-  built neither. This tree is reconciled to what was measured; the build and the delivery that close
-  the gap are
-  [`docs/issue_investigation/gpu_compositing/README.md`](docs/issue_investigation/gpu_compositing/README.md) §"Durable image delivery — pending owner decision".
-  Two of its findings decide the shape and are not open questions: full KMS **boots and presents a
-  black scanout on this panel**, and accelerated compositing measures **5.2x worse than software** —
-  [`docs/issue_investigation/gpu_compositing/README.md`](docs/issue_investigation/gpu_compositing/README.md) §"Engine levers, measured".
 - **Issue #6 RAUC signing private key is committed in this public repository** — closed by rotation;
   history keeps the dev key and purging it undoes nothing. Its replacement, the WiseKiosk 2026 key,
   is uncommitted in gitignored `local/` — back it up, git cannot. [rotation](docs/rauc-key-rotation.md)
 - **Root login is unauthenticated.** The image carries `debug-tweaks`, so root has an empty password.
   Deferred deliberately while a second device still depends on unauthenticated access; tracked as
   issue #7 debug-tweaks empty root password, which carries the detail.
-- **Screen blanking is checked by the display server's settings, not by watching a long idle.**
-  `-s 0 -dpms -nocursor` moved from lightdm into the kiosk unit; TST007<!-- Display blanking disabled --> reads `xset q` on every
-  queue job and fails if the screen saver timeout is not zero or DPMS is enabled. A panel that
-  powers itself down is not covered.
+- **Screen blanking is checked by the kernel's own report of the screen's power and the console's
+  blanking timeout, not by watching a long idle.** TST007<!-- Display blanking disabled --> reads both
+  on every queue job. A panel that powers itself down is not covered.
 - **The image's packages are scanned for CVEs only when somebody asks.** The scan is a manual opt-in
   audit build on a build host, and nothing detects that the last one was months ago. Deciding which
   finding matters is manual too. [CVE and SBOM](docs/cve-and-sbom.md)

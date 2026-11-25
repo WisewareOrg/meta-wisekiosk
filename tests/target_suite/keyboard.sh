@@ -1,10 +1,11 @@
 #!/bin/sh
 # Type at an attached keyboard on the board, one gated phase at a time, and keep a record.
-# Usage: keyboard.sh DEVICE_S X_OPENED_S CONSOLE_S SHELL_S MARKER_S
+# Usage: keyboard.sh DEVICE_S BROWSER_OPENED_S CONSOLE_S SHELL_S MARKER_S
 #        keyboard.sh --chord EVENTS_FILE   (a file name inside /tmp/test-keyboard)
 # Creates a virtual keyboard from keyboard.desc, plays chord.events, login.events and
 # command.events into it as each phase's condition holds, then removes it. Each phase writes
 # `phase <name> <uptime>` to the record, or `timeout <name> <uptime>` and stops if its bound passes.
+# After the marker phase it keeps the display driver's state in `panel`.
 # `--chord` plays one events file into a new virtual keyboard and removes it.
 dir=$(dirname "$0")
 record=$dir/record
@@ -32,9 +33,9 @@ holds() {
             node=$(sed -n 's|.*: \(/dev/input/event[0-9]*\)$|\1|p' "$dir/device.out")
             [ -n "$node" ]
             ;;
-        x_opened)
-            xorg=$(pidof Xorg)
-            [ -n "$xorg" ] && holders_of "$node" | grep -qx "$xorg"
+        browser_opened)
+            browser=$(pidof kiosk-browser)
+            [ -n "$browser" ] && holders_of "$node" | grep -qx "$browser"
             ;;
         console)
             [ "$(fgconsole)" = 2 ] && grep -q 'login:' /dev/vcs2
@@ -95,15 +96,15 @@ if [ "$1" = --chord ]; then
     finish 0
 fi
 
-device_s=${1:?usage: keyboard.sh DEVICE_S X_OPENED_S CONSOLE_S SHELL_S MARKER_S}
-x_opened_s=${2:?}
+device_s=${1:?usage: keyboard.sh DEVICE_S BROWSER_OPENED_S CONSOLE_S SHELL_S MARKER_S}
+browser_opened_s=${2:?}
 console_s=${3:?}
 shell_s=${4:?}
 marker_s=${5:?}
 
 rm -f "$record"
 start_device "$device_s"
-wait_for x_opened "$x_opened_s" || finish 1
+wait_for browser_opened "$browser_opened_s" || finish 1
 play chord.events
 wait_for console "$console_s" || finish 1
 play login.events
@@ -120,4 +121,5 @@ fi
 sleep 1
 play command.events
 wait_for marker "$marker_s" || finish 1
+cp /sys/kernel/debug/dri/0/state "$dir/panel"
 finish 0

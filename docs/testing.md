@@ -25,8 +25,8 @@ bench run                      # on a timer: the merge queue's head entry, the s
 
 `--soak` (`bench test <ref> -- --soak`) adds a day-long run of TST014<!-- Memory over a long run --> on top of its queue-period run, and does not judge that run's growth bound; `bench run` never passes it.
 
-`bench.toml`'s `[hooks]` carries a no-op `precondition` — the runner requires one; this layer's board
-needs no state check before a run — `build` (`just build`) and `bundle` (`just kiosk-bundle`).
+`bench.toml`'s `[hooks]` carries `precondition`, which installs the packages the test helpers import,
+`build` (`just build`) and `bundle` (`just kiosk-bundle`).
 `[tests]` names the two suites:
 
 - `tests/host_suite` — runs before anything is installed, against the build hook's own output. One
@@ -52,10 +52,10 @@ needs no state check before a run — `build` (`just build`) and `bundle` (`just
   and `install_candidate` clears the backend's runtime drop-ins and mask at the start of every
   session. While the keyboard test runs, the panel shows the board's text console.
 
-The target suite builds its test bundles and the keyboard test's evemu-tools in the kas container
-through `tools/kas-run.sh`, so the bench needs the checkout's own build tree, and the signing keys
-the bench host's environment file names. The refused-update tests' bundles and evemu-tools are built
-under `build/`. The image-update tests' bundles are built in the host's `/tmp`, which
+The target suite builds its test bundles and the virtual mouse's and keyboard's evemu-tools in the
+kas container through `tools/kas-run.sh`, so the bench needs the checkout's own build tree, and the
+signing keys the bench host's environment file names. The refused-update tests' bundles and
+evemu-tools are built under `build/`. The image-update tests' bundles are built in the host's `/tmp`, which
 `tools/kas-run.sh` mounts through `KAS_RUN_TMP_DIR`: they are signed by the operator key and carry
 the fleet's `compatible`, so they are kept only in the host's tmpfs, never in the build tree's
 deploy output (#252 image update behaviour). Before installing one, `Updates.allow_test_bundle`
@@ -76,8 +76,8 @@ host suite, and `bench_candidate` stays `None` — so it tests a running board w
 installs nothing. `just bootprofile` runs this way, against `tests/diagnostics` — see
 [the bootprof README](../meta-wisekiosk/recipes-core/kiosk-bootprof/README.md) for what that run
 does. Whether such a run counts as evidence for a review or an investigation is
-[WiseBenchManager's own rule](https://github.com/WisewareOrg/WiseBenchManager/blob/main/docs/decisions/0001-verify-with-a-python-bench-runner.md),
-ADR 0001 rev 6 decision 9 (provenance), not this layer's.
+[WiseBenchManager's own rule](https://github.com/WisewareOrg/WiseBenchManager/blob/main/README.md#two-commands),
+not this layer's.
 
 Every dedicated test on a board is a pytest case under `tests/`, run through the bench driver as
 `bench test <ref> -- <suite> -k <name>` — never an ad hoc script, loop or ssh one-liner. A test
@@ -96,6 +96,12 @@ to fail: it installs a good copy of the candidate in the slot not booted, zeroes
 attempts and restarts, and passes only when U-Boot boots the other slot. Both slots stay bootable, so
 it strands nothing.
 
+`tests/applications/screenshot` is the suite of the screenshot application, which runs on the board.
+It is separate from the image suite and the diagnostics, and the queue job does not run it.
+`test_decoder.py`, on constructed buffers and no board, runs in `just guards` and CI. `bench test
+<ref> -- tests/applications/screenshot -k on_board -rP` installs the candidate and runs
+`test_on_board.py`; without the `-k`, the runner also runs `tests/target_suite`.
+
 The board comes from labgrid's own env file, pointed at with `LG_ENV` — a target named `main`, a
 `NetworkService` resource carrying the board's address, an `SSHDriver` — kept untracked under
 `local/`, since this repository is public and the address is site-specific.
@@ -108,6 +114,12 @@ The power-cut tests also need an `ExternalPowerDriver` in that file, whose comma
 plug's login in a `KEY=value` file outside the tree, passed by `--env-file` and never shell-sourced.
 The `python-kasa` git pin in `pyproject.toml` is for that plug's login, and `renovate.json` records
 why it is pinned.
+
+The suites run in the runner's own environment. What the test helpers import and that environment
+lacks is in `pyproject.toml`'s `tests` group, locked in `uv.lock`. `bench.toml`'s `precondition` hook
+installs that group into `build/test-packages`, and pytest's `pythonpath` setting makes it
+importable. The directory holds only that group, so it replaces no package of the runner's. `kasa` is
+not imported: labgrid runs it as the plug's command.
 
 A failure of the plug, or a board that answers in the same boot after the cut, ends the session as
 the bench's failure rather than the candidate's, as
@@ -129,7 +141,7 @@ each test, the autouse `_board_and_record` in `tests/target_suite/conftest.py` p
 and the test's `Record` on the instance. That Board is built with the test's fixture lookup, and
 reaches what the run builds on demand through `board.fixture(name)` — the update bundles as
 `board.updates.bundles`, the refused offers as `board.updates.refused_offers`, the start-of-run
-install as `board.updates.installed`, the keyboard's evemu build, and the replay proxy that
+install as `board.updates.installed`, the evemu build, and the replay proxy that
 `@replaying(<recording>)` (`board_test.py`) puts on a test. A board a fixture opens for itself has
 no fixture lookup, and `board.fixture` says so. A class holds test methods and, when every test in
 it starts from the same board state, a `setup_method`; no class writes `teardown_method`, which
@@ -138,7 +150,9 @@ be timed adds one act and assert pair, as TST006<!-- Image update with a new app
 judges the update installed and restarted into before it times the panel from that restart. So does
 a test with a second stimulus: TST023<!-- Image that cannot start --> and
 TST024<!-- Image that cannot reach the network --> judge the fallback before they install a
-valid update.
+valid update. So does a test whose second read can be invalid where the first can already show a
+breach: TST005<!-- Frozen page recovered --> judges its time before it reads the picture, so that an
+invalid read does not hide a late panel.
 
 **Tests that differ only in stimulus and bound are one parametrized test.** Each row is
 `case(<TST id>, <values>…)`, which makes the item's id the case's id and its first value. A

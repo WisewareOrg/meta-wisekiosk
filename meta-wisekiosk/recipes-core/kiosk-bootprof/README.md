@@ -3,7 +3,7 @@
 `kiosk-bootprof` samples `/proc/stat`, `/sys/block/mmcblk0/stat`, `/proc/loadavg` and
 `/proc/modules` from early boot and writes `/data/boot-cpu-io.<boot_id>.txt` once at the end;
 `analyze-boot-cpu-io.py` turns that into per-window CPU and I/O figures. Why the sampler is written
-the way it is belongs in `files/kiosk-bootprof.c`'s header, and what ships in the image belongs in
+the way it is belongs in `files/kiosk-bootprof.c`'s header, and why it is not in the image belongs in
 `kiosk-bootprof_1.0.bb`. This file is about *taking* a profile and *reading* one — the parts the
 code cannot state about itself.
 
@@ -20,16 +20,16 @@ them again when it stops.
 
 An `sshd` per-connection daemon burns **3 340 ms of CPU**, measured from its own `CPUUsageNSec` on
 the device. A connection opened at 32.2s during a profiling run landed inside browser startup and
-inflated `surf` exec on that boot. **One connection per boot, opened no earlier than 90s after the
+inflated browser start on that boot. **One connection per boot, opened no earlier than 90s after the
 reboot** — not a session left attached across the window.
 
 Which figures a contaminated run still supports is worth stating exactly, because it decides what
 can be salvaged: this board has no network at all before ~30s, so nothing done from a workstation
 can reach `mmc1`, `brcmfmac`, `wlan0` or `Reached target Network is Online`. Those survive on any
-boot. Everything from `SURFMS uptime_at_exec` onward does not.
+boot. Everything from `Started Kiosk browser` onward does not.
 
-90s clears the latest `surf` exec ever observed here (40.24s, on a deliberately misconfigured arm)
-with ~35s of margin. Raise it to 120s when complete display is the endpoint. The wait is latency,
+90s clears the latest browser start ever observed here (40.24s, measured on surf, on a
+deliberately misconfigured arm) with ~35s of margin. The wait is latency,
 not a measurement parameter: it changes when the journal is read, never what the journal says, so
 shortening it does not invalidate comparison against arms measured earlier.
 

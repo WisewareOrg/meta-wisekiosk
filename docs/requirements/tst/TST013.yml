@@ -1,26 +1,26 @@
 active: true
 derived: false
 header: |
-  Pointer display disabled
+  No pointer on the panel
 level: 1.5.1
 links:
 - SRS005: _Jm0I29XYosWpzvjdgfpxuXQpkYiix39X6sbH7YPGOM=
 normative: true
 rationale: |
-  A pointer drawn on the panel sits over the instance where the viewer reads it, and with no mouse
-  at the appliance nobody can move it away.
+  A pointer drawn on the panel sits over the instance where the viewer reads it, and once the mouse
+  that moved it is taken away nobody can move it off.
 ref: ''
 references:
-- keyword: def test_pointer_display_disabled
+- keyword: def test_no_pointer_on_the_panel
   path: tests/target_suite/test_display.py
-  sha: fab07964a401cf9a40951df3b18b915f7322caf32a107d50e552a6914689f75f
+  sha: f636dec4455e342950dcaaf9c0931a2d4e6d7997ca656740250eb93f4588ef08
   type: file
-reviewed: rpaCeCnmoJkb1vktYvbGD76hzWcD5L4pDUx9Xe2CMzs=
+reviewed: MKv-SOFsxm5N7RfjIrOTsDxNB1a5_YJfABSTxwLO9wc=
 status: proposed
 text: |
-  With the WiseKiosk instance on the panel, read the options its display server was started
-  with. Pass if they disable the display of the pointer.
+  With the WiseKiosk instance on the panel, attach a mouse at the appliance's input layer and move
+  it over the instance. Pass if the panel shows no pointer.
 verification-justification: |
-  Test. It reads the running display server's own start-up options from outside the appliance; the
-  pass condition needs no judgement.
+  Test. It moves the mouse and reads the display driver's own report of what the panel is showing
+  from outside the appliance; the pass condition needs no judgement.
 verification-method: test

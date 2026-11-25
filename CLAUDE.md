@@ -22,7 +22,8 @@ One owner per fact. Read the owner; do not restate it here or anywhere else.
 | Replacing the RAUC signing key, and the order it must happen in | [`docs/rauc-key-rotation.md`](docs/rauc-key-rotation.md) |
 | Scanning the image for CVEs, reading the SBOM, and what `CVE_STATUS` means | [`docs/cve-and-sbom.md`](docs/cve-and-sbom.md) |
 | Whether the pins, or the recipes inside them, have fallen behind, and what a bump would close | [`docs/layer-currency.md`](docs/layer-currency.md) |
-| What was tried, what it cost, what was rejected | [`docs/issue_investigation/`](docs/issue_investigation/TEMPLATE.md) |
+| An issue traced to its cause, and how it was resolved | [`docs/issue_investigation/`](docs/issue_investigation/TEMPLATE.md) |
+| A design choice: what was chosen, the alternatives it rejected and why | [`docs/decisions/`](docs/decisions/README.md) |
 | The shape every investigation takes, and R1-R3 | [`docs/issue_investigation/TEMPLATE.md`](docs/issue_investigation/TEMPLATE.md) |
 | Site configuration — SSID, PSK hash, URL, hostname, machine-id | out-of-tree `~/.config/wisekiosk/secrets.yaml` |
 | Which board is prod, which is bench, and their real addresses | gitignored `local/device-identity.md` |

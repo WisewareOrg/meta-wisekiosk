@@ -1,9 +1,9 @@
 ---
 name: kiosk-debug
 description: >-
-  Diagnose a running wisekiosk device that has no keyboard, no visible console and a display
+  Diagnose a running wisekiosk device that has no keyboard and a display
   whose correct state is a black screen. Decides which instrument to reach for — TCP-state
-  inference, a screenshot, a soak read, or a boot profile — and drives the tools/kiosk-*.sh
+  inference, a screenshot, a soak read, or a boot profile — and drives the tools/kiosk-*
   scripts behind them (the boot profile runs through `just bootprofile`, a pytest check driven
   by the bench runner, not one of those scripts). Invoke when the kiosk is unreachable, blank,
   stale, suspected of leaking memory, or slow to come up, and when a boot-time change needs
@@ -12,7 +12,7 @@ description: >-
 
 # Debugging a display you cannot see
 
-The device has no keyboard and no console anyone can read, and the screen itself cannot report
+The device has no keyboard, and the screen itself cannot report
 its own state — [`tools/kiosk-tcp-state.sh`](../../../tools/kiosk-tcp-state.sh)'s header says
 which faults it hides. Every tool here exists to replace looking at the screen with reading
 something definite.
@@ -22,7 +22,7 @@ something definite.
 | Question | Reach for | Why this one |
 |---|---|---|
 | Is the browser fetching the page at all, and did its scripts run? | [`tools/kiosk-tcp-state.sh`](../../../tools/kiosk-tcp-state.sh) | Socket state distinguishes "never connected", "fetched HTML only" and "rendering" without touching the device. Needs no access to the kiosk — run it on the host serving the page, because a socket table only holds that host's own sockets. Reads `ss`, falling back to `netstat`, and prints which; state names are canonicalised to the spelling the script's own header table uses — neither engine's — so the table matches the output either way. |
-| Is the screen showing the right thing, right now? | [`tools/kiosk-screenshot.sh`](../../../tools/kiosk-screenshot.sh) | The only check that can catch a *frozen* render. Nothing process-level can. |
+| Is the screen showing the right thing, right now? | [`tools/kiosk-screenshot.py`](../../../tools/kiosk-screenshot.py) | The only check that sees what is on the panel, page or console; a text console means the browser is not there. |
 | Is memory flat, or climbing over hours? | `kiosk-soak.sh --summary` on the device, via [`tools/kiosk-ssh.sh`](../../../tools/kiosk-ssh.sh) | The sampler already runs; the answer is in `/data/kiosk-soak.log`, and its own header says how to read it. |
 | Where is boot time going, and would reordering work help? | `just bootprofile`, through [`tests/diagnostics/test_boot_profile.py`](../../../tests/diagnostics/test_boot_profile.py) | Only source of per-window CPU/I-O and the module timeline. Costs a reboot and ~3 minutes. |
 | The device is not answering and its address is unknown | [`tools/kiosk-find.sh`](../../../tools/kiosk-find.sh) | The router's client list is DHCP leases, so a reachable host can be missing from it. Identifying a board needs its MAC, so the script picks the best L2 view it has — Windows interop under WSL, a local interface otherwise — and names it, because under WSL2's NAT this host's own neighbour table never holds a LAN peer. |
@@ -47,9 +47,12 @@ reused. During a boot profile the connection is itself an instrument — see
    answers there but not over SSH, close a stale multiplex master (`kiosk-ssh.sh <host>
    --close`) before diagnosing anything else. Read the `L2 view:` line first: on `none` the run
    proves only which addresses replied, never that a silent one is unused.
-2. **Is it rendering?** `kiosk-screenshot.sh`. A blank result and a correct-but-stale result are
-   different faults with the same appearance, which is why the script takes the device clock in
-   the same call as the pixels.
+2. **Is it rendering?** `kiosk-screenshot.py`. A blank result exits 1 with a PNG. A correct-but-stale
+   result is a different fault with the same appearance, which is why the script takes the device
+   clock in the same call as the pixels. Of two `just screenshot`s a few seconds apart, differing PNGs
+   prove movement; identical ones prove nothing unless the page shows something that moves in that
+   time. A capture that fails or comes back BLANK is not a frozen panel. A panel left on a text console
+   comes back to the page with `chvt 1`; a remote `systemctl restart kiosk` does not bring it forward.
 3. **If it is not rendering, is it fetching?** `kiosk-tcp-state.sh` from the serving host
    separates "the browser is not running" from "the page will not execute".
 4. **If it is rendering but degraded**, read the soak log before rebooting. A reboot destroys
@@ -58,7 +61,8 @@ reused. During a boot profile the connection is itself an instrument — see
 ## Tips that cost real time to learn
 
 - **`pgrep -f <pattern>` matches your own command line** over SSH, so it finds your shell and
-  reports the process as running. Use `pgrep -x`, or match the binary path.
+  reports the process as running. Use `pidof` for the browser: busybox `pgrep -x` matches the full
+  path the launcher runs as, so it finds nothing while the browser runs.
 - **Sample twice before believing a one-shot read.** One sample cannot tell a state from a
   moment.
 - **Read `kiosk-ssh.sh`'s header before writing a probe of your own.** What it says about

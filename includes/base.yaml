@@ -30,7 +30,7 @@ repos:
       meta-wisekiosk:
 
   # Upstream, consumed as a dependency instead of forked. Pinned at its tip
-  # (dormant since 2026-01-20). patches/ carries the two changes that cannot
+  # (dormant since 2026-01-20). patches/ carries the change that cannot
   # be expressed from a downstream layer -- see patches/meta-autonomos/.
   meta-autonomos:
     url: "https://github.com/jsmith212/meta-autonomos.git"
@@ -40,9 +40,6 @@ repos:
     layers:
       meta-autonomos-core:
     patches:
-      01-graphics:
-        repo: meta-wisekiosk
-        path: "patches/meta-autonomos/0001-distro-make-graphics-strip-conditional.patch"
       02-wpa:
         repo: meta-wisekiosk
         path: "patches/meta-autonomos/0002-wpa-supplicant-stop-baking-credentials.patch"
@@ -67,6 +64,13 @@ repos:
       meta-filesystems:
       meta-networking:
       meta-python:
+
+  # wpewebkit, which neither poky nor meta-openembedded carries.
+  meta-webkit:
+    url: "https://github.com/Igalia/meta-webkit.git"
+    branch: scarthgap-latest
+    commit: d64d4bae6e7116ac8102081fdee5ed193e8d0061
+    path: "sources/meta-webkit"
 
   meta-arm:
     url: "https://git.yoctoproject.org/meta-arm"

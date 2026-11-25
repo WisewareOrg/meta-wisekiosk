@@ -102,7 +102,7 @@ spotless: clean
 # two independent findings are worth more than the first one twice.
 [group('guards')]
 [script('bash')]
-[doc("Run repository guards: secrets, template, shell syntax, YAML, gitleaks, IPs, service reachability, recovery wiring, trailing-; hooks, guard wiring, guard self-test, review-checklist taxonomy, CVE tools self-test, python interpreter, Go module generator self-test, config seed self-test, default-config path agreement, app lockfile self-test, tests' Python lint, device identity")]
+[doc("Run repository guards: the invariants in tools/ci-guards.sh, self-tests included, and the device-identity scan")]
 guards:
     rc=0
     tools/ci-guards.sh || rc=1
@@ -143,6 +143,11 @@ links:
 [doc("Check the requirements tree with wise-ci's check-reqs")]
 reqs:
     uv run --locked check-reqs --root docs/requirements
+
+[group('check')]
+[doc("Check docs/decisions/ and every ADR citation with wise-ci's check-adrs")]
+adrs:
+    uv run --locked check-adrs
 
 # What the prose says the image ships, against what it ships. Needs a populated
 # build/ rootfs and is therefore local-only -- CI never builds, so wiring it

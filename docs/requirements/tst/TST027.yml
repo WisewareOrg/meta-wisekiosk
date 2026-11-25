@@ -13,13 +13,13 @@ ref: ''
 references:
 - keyword: def test_shell_from_an_attached_keyboard
   path: tests/target_suite/test_keyboard.py
-  sha: 0807ff18b2fb47ccf5e9cc530a0cf836ac0b1256d8db5c80be8b17f7e0bcb43f
+  sha: bda8c70d94fe04398900b69918505de6d465b2668aae636a4fabbbcc85b4fe7c
   type: file
-reviewed: TRago_LC1V-fpLNMbcm1z74IdamG8UvVtp9O6sqSwjs=
+reviewed: kni1XOvwR2eKvZrtaNcFgUoP0u9thW2iXCQ1n9oGpKk=
 status: proposed
 text: |
   With the appliance's network unavailable, attach a keyboard at the appliance's input layer and log
-  in with it. Pass if a command typed there runs.
+  in with it. Pass if a command typed there runs, and the panel shows the console it is typed at.
 verification-justification: |
   Test. It exercises the capability and reads the result mechanically; the pass condition needs no
   judgement.

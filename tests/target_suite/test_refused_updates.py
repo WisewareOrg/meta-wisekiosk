@@ -28,7 +28,7 @@ class TestRefusedUpdates(BoardTest):
             offer: the board's update the item offers.
         """
         self.record(requirement=requirement)
-        self.board.app.install_probe()
+        self.board.app.turn_the_inspector_on()
         self.board.app.wait_until_on_panel()
         booted = self.board.updates.rauc_status()["booted"]
 

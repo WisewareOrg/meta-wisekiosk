@@ -13,14 +13,14 @@ ref: ''
 references:
 - keyword: def test_display_blanking_disabled
   path: tests/target_suite/test_back_on_the_panel.py
-  sha: a3ebec3fce47c5e3d828e9eaf25d1e128e6040bb2783fc25296ba79b950e9269
+  sha: 737ef1cf171e75059a3fa6178eb2c52db4b6af49aa2cd4306ab569ea9ac0b412
   type: file
-reviewed: 2_OAVDxo2ZdQOZMbBcwx7F7e9YfC04MHLW4UBQELLvI=
+reviewed: BzgeTkFwTNMxDArj_iaKjvjW8LrB3Y0nKUxAkl-DCMs=
 status: proposed
 text: |
-  Read the display's blanking settings from its display server. Pass if the screen saver's
-  timeout is zero and display power management is disabled.
+  Read whether anything blanks the panel. Pass if the panel is powered and nothing is set to blank
+  it after a spell with no input.
 verification-justification: |
-  Test. It reads the display server's own blanking settings from outside the appliance; the pass
-  condition needs no judgement.
+  Test. It reads the kernel's own report of the panel's power and blanking from outside the
+  appliance; the pass condition needs no judgement.
 verification-method: test

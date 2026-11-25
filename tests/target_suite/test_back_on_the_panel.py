@@ -59,7 +59,7 @@ class TestBackOnThePanel(BoardTest):
             bound_s: the item's bound.
         """
         self.record(requirement=requirement)
-        self.board.app.install_probe()
+        self.board.app.turn_the_inspector_on()
         self.board.app.wait_until_on_panel()
 
         since = fault(self.board)
@@ -77,7 +77,7 @@ class TestBackOnThePanel(BoardTest):
         """
         self.record(requirement="TST006")
         new_build = self.board.updates.bundles.new_build
-        self.board.app.install_probe()
+        self.board.app.turn_the_inspector_on()
         self.board.app.wait_until_on_panel()
 
         update = self.board.updates.install_and_restart(new_build)
@@ -94,11 +94,10 @@ class TestBackOnThePanel(BoardTest):
     def test_frozen_page_recovered(self) -> None:
         """TST005: freeze the page showing a clock with seconds, then time until the panel is changing again.
 
-        The page is frozen only once the instance is on the panel, which the probe reports when surf has
-        finished loading it: surf watches a page for answers only from then on.
+        The time is read from the buffers the panel shows; once it is back, its picture must be changing too.
         """
         self.record(requirement="TST005")
-        self.board.app.install_probe()
+        self.board.app.turn_the_inspector_on()
         self.board.app.config.use(CLOCK_WITH_SECONDS)
         self.board.app.wait_until_on_panel()
 
@@ -108,10 +107,15 @@ class TestBackOnThePanel(BoardTest):
         self.record(back_s=back_s)
         assert back_s <= 60, f"changing again after {back_s} s; TST005's bound is 60 s"
 
+        picture_changes = self.board.screen.picture_changes()
+
+        self.record(picture_changes=picture_changes)
+        assert picture_changes, f"{back_s} s after the freeze the panel's buffers changed, but its picture did not"
+
     def test_sustained_network_load(self) -> None:
         """TST008: load the network; no time off the panel, through the load and after it, may pass 60 s."""
         self.record(requirement="TST008")
-        self.board.app.install_probe()
+        self.board.app.turn_the_inspector_on()
         self.board.app.wait_until_on_panel()
 
         with self.board.network.load(seconds=NETWORK_LOAD_SECONDS) as load:
@@ -127,14 +131,14 @@ class TestBackOnThePanel(BoardTest):
 
 
 class TestPanelNeverBlanks(BoardTest):
-    """With nobody at the panel, the display server does not blank it."""
+    """With nobody at the panel, nothing blanks it."""
 
     def test_display_blanking_disabled(self) -> None:
-        """TST007: the display server's screen saver timeout is zero and its power management is disabled."""
+        """TST007: the screen is powered, and the console does not blank it."""
         self.record(requirement="TST007")
 
-        screen_saver_timeout_s, dpms_enabled = self.board.screen.blanking()
+        power, console_blank_s = self.board.screen.blanking()
 
-        self.record(screen_saver_timeout_s=screen_saver_timeout_s, dpms_enabled=dpms_enabled)
-        assert screen_saver_timeout_s == 0, f"the screen saver's timeout is {screen_saver_timeout_s} s"
-        assert not dpms_enabled, "display power management is enabled"
+        self.record(power=power, console_blank_s=console_blank_s)
+        assert power == "On", f"the screen's power is {power}"
+        assert console_blank_s == 0, f"the console blanks the screen after {console_blank_s} s"

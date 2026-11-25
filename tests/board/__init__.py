@@ -5,7 +5,7 @@ import itertools
 import os
 import subprocess
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import NamedTuple
 
@@ -16,7 +16,9 @@ from labgrid.driver.exception import ExecutionError
 from tenacity import Retrying, retry_if_exception_type, retry_if_result, stop_after_delay, wait_fixed
 
 from board.app import App
+from board.app.inspector import NoPageError
 from board.console import Console
+from board.mouse import Mouse
 from board.network import Network
 from board.screen import Screen
 from board.system import System
@@ -67,13 +69,14 @@ class Board:
         cleanup: undoes, last first, what the test changed on the board.
         console: the board's consoles.
         host: `user@address` of the board, as the `just kiosk-*` recipes take it.
+        mouse: a mouse attached to the board.
         network: the board's network.
         screen: the board's screen.
         system: the board's operating system.
         updates: RAUC and the board's install path.
         BOOT_ID_CMD: prints the kernel's boot id, which differs in each boot.
-        ERRORS: what a read of the board raises when the board does not answer; `seconds_until` takes
-            these as a read that does not hold.
+        ERRORS: what a read of the board raises when the board, or its page, does not answer;
+            `seconds_until` takes these as a read that does not hold.
         FAULT_SSH_OPTIONS: the `fresh_ssh_argv` options for an ssh that sends a fault taking the board
             down, so it gives up soon once the board stops answering.
         GIVE_UP_SECONDS: how long a wait for the board lasts; past every bound, so a slow board fails on
@@ -85,12 +88,13 @@ class Board:
     cleanup: contextlib.ExitStack
     console: Console
     host: str
+    mouse: Mouse
     network: Network
     screen: Screen
     system: System
     updates: Updates
     BOOT_ID_CMD = "cat /proc/sys/kernel/random/boot_id"
-    ERRORS = (ExecutionError, StateError, subprocess.TimeoutExpired)
+    ERRORS = (ExecutionError, StateError, subprocess.TimeoutExpired, NoPageError)
     FAULT_SSH_OPTIONS = ("ConnectTimeout=10", "ServerAliveInterval=2", "ServerAliveCountMax=3")
     GIVE_UP_SECONDS = 180
     READ_RETRY_SECONDS = 300
@@ -117,6 +121,7 @@ class Board:
         self.app = App(self)
         self.screen = Screen(self)
         self.console = Console(self)
+        self.mouse = Mouse(self)
         self.system = System(self)
         self.network = Network(self)
         self.updates = Updates(self)
@@ -211,6 +216,26 @@ class Board:
             labgrid's forwarding context manager.
         """
         return self._ssh.forward_remote_port(remoteport=remote, localport=local)
+
+    @contextlib.contextmanager
+    def forward_local_port(self, remote: int) -> Iterator[int]:
+        """Forward a port of the host to the board's port `remote`.
+
+        Args:
+            remote: port on the board.
+
+        Yields:
+            int: the host's port.
+
+        Raises:
+            ExecutionError: the connection to the board is gone.
+        """
+        with contextlib.ExitStack() as forwarding:
+            try:
+                port = forwarding.enter_context(self._ssh.forward_local_port(remote))
+            except subprocess.CalledProcessError as error:
+                raise ExecutionError(f"the port was not forwarded: {error}") from error
+            yield port
 
     def unmount_if_mounted(self, path: str) -> None:
         """Unmount `path` on the board if it is a mount point; a path that is not one is fine.

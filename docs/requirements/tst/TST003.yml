@@ -14,9 +14,9 @@ ref: ''
 references:
 - keyword: def test_back_after_a_fault
   path: tests/target_suite/test_back_on_the_panel.py
-  sha: a3ebec3fce47c5e3d828e9eaf25d1e128e6040bb2783fc25296ba79b950e9269
+  sha: 737ef1cf171e75059a3fa6178eb2c52db4b6af49aa2cd4306ab569ea9ac0b412
   type: file
-reviewed: Guhhc7jku-gqKcEWF5smguO29jgt1nL34ojR7QLYgF4=
+reviewed: H4JVKHlQGjYbvzttNZ1SSrQ18rj_zFFvH2yOAjNu7_E=
 status: proposed
 text: |
   Cut the appliance's power without warning while an image update is being written to it, then

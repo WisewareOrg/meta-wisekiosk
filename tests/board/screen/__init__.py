@@ -1,142 +1,152 @@
-"""The board's screen: its X server, the windows and mode it shows, and what the panel shows."""
+"""The board's screen: the mode it is driven at and the planes it shows, as the kernel's display driver reports them."""
 
 import re
+import subprocess
+import tempfile
 import time
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import NamedTuple
 
-from labgrid.driver.exception import ExecutionError
+from board.part import Part, invalid_if
 
-from board.part import Part
-from board.screen.layout import WindowLayout
+_STATE = "/sys/kernel/debug/dri/0/state"
+_DPMS = "/sys/class/drm/card0-HDMI-A-1/dpms"
+_CONSOLE_BLANK = "/sys/module/kernel/parameters/consoleblank"
+_PLANE = re.compile(r"^plane\[\d+\].*?(?=^plane\[|^crtc\[)", re.MULTILINE | re.DOTALL)
+_MODE = re.compile(r'mode: "(\d+)x(\d+)"')
+_NO_BUFFER = "fb=0"
+_READS = 12
+_READ_EVERY_US = 250_000
+_PICTURES_APART_SECONDS = 5
+_PICTURE_TIMEOUT_SECONDS = 60
 
-if TYPE_CHECKING:
-    from board import Board
 
-_LAYOUT_SEPARATOR = "=== windows"
-_LAYOUT_READ = (
-    "DISPLAY=:0 xrandr --current; "
-    f"echo '{_LAYOUT_SEPARATOR}'; "
-    "for id in $(DISPLAY=:0 xwininfo -root -children | awk '/^ +0x/ {print $1}'); do "
-    'echo "=== $id"; DISPLAY=:0 xwininfo -id "$id"; done'
-)
-_MODE = re.compile(r"^(\d+)x(\d+)")
-_GRAB_PATH = "/tmp/kiosk-grab.png"
-_GRAB_EVERY_SECONDS = 5
-# below this an import that returned 0 did not write a picture (kiosk-render-check.sh)
-_MIN_PNG_BYTES = 100
-_DIMENSIONS = re.compile(r"dimensions:\s+(\d+)x(\d+)")
-_SCREEN_SAVER_TIMEOUT = re.compile(r"timeout:\s+(\d+)")
-# power management is off when it is disabled, or the server has no such extension
-_DPMS_OFF = ("DPMS is Disabled", "Server does not have the DPMS Extension")
+class Plane(NamedTuple):
+    """One plane the screen shows.
+
+    Attributes:
+        allocated_by: the program whose buffer it shows.
+        position: where it is shown, as `<width>x<height>+<x>+<y>`.
+    """
+
+    allocated_by: str
+    position: str
 
 
 class Screen(Part):
-    """The board's screen, read from its X server.
+    """The board's screen, as the kernel's display driver reports it.
 
-    What the panel shows is read as grabs of its middle third, at least 5 s apart; two good grabs in
-    a row either differ (the panel is changing) or match (it stands still).
+    A program that draws puts a new buffer on the screen for each frame, so a screen showing more than one
+    buffer over some seconds is changing buffers, and one showing a single buffer stands still. Which buffer
+    it shows does not say what is in it; `picture_changes` reads that.
     """
 
-    def __init__(self, board: "Board") -> None:
-        """Bind to the board, with no grab taken.
+    def blanking(self) -> tuple[str, int]:
+        """Read whether anything blanks the screen.
+
+        Returns:
+            The connector's power state, and the console's blanking timeout in seconds (0 for none).
+        """
+        dpms, console = self._board.run(f"cat {_DPMS} {_CONSOLE_BLANK}", check=True).stdout
+        return dpms, int(console)
+
+    def planes(self, state: str | None = None) -> list[Plane]:
+        """Read the planes the screen shows.
 
         Args:
-            board: the board under test.
-        """
-        super().__init__(board)
-        self._crop: str | None = None
-        self._last_grab: str | None = None
-        self._next_grab_at = 0.0
-
-    def blanking(self) -> tuple[int | None, bool]:
-        """Read the X server's blanking settings.
+            state: the display driver's state as read earlier; if None, it is read now.
 
         Returns:
-            The screen saver's timeout in seconds (None if `xset q` shows none), and whether display power
-            management is enabled.
+            Each plane with a buffer.
         """
-        settings = self._board.run("DISPLAY=:0 xset q", check=True).text
-        timeout = _SCREEN_SAVER_TIMEOUT.search(settings)
-        return (int(timeout[1]) if timeout else None), not any(off in settings for off in _DPMS_OFF)
+        planes = []
+        for match in _PLANE.finditer(self._state() if state is None else state):
+            fields = dict(re.findall(r"^\s+([\w -]+?) ?= ?\[?([^\]\n]+)", match[0], re.MULTILINE))
+            if fields["fb"] != "0":
+                planes.append(Plane(fields["allocated by"], fields["crtc-pos"]))
+        return planes
 
-    def x_server_options(self) -> list[str]:
-        """Read the options the one X server running was started with.
+    def shown_by(self, planes: list[Plane] | None = None) -> list[str]:
+        """Read whose buffers the screen shows.
+
+        Args:
+            planes: planes as read earlier; if None, they are read now.
 
         Returns:
-            Its command line's arguments, the program first.
+            The program that allocated each plane's buffer.
         """
-        pids = self._board.run("pidof Xorg").text.split()
-        assert len(pids) == 1, f"not one X server running: {pids}"
-        return self._board.run(f"tr '\\0' '\\n' < /proc/{pids[0]}/cmdline", check=True).stdout
-
-    def window_layout(self) -> WindowLayout:
-        """Read the outputs X drives and its top-level windows, in one command.
-
-        Returns:
-            The layout, with the read's raw text.
-        """
-        lines = self._board.run(_LAYOUT_READ, check=True).stdout
-        split = lines.index(_LAYOUT_SEPARATOR)
-        return WindowLayout.parse(lines[:split], lines[split + 1 :])
+        return [plane.allocated_by for plane in (self.planes() if planes is None else planes)]
 
     def mode(self) -> tuple[int, int]:
         """Read the display mode the panel is driven at.
 
         Returns:
-            Its width and height, from the one mode `xrandr` marks current.
+            Its width and height; 0 and 0 if it is driven at none.
         """
-        current = [
-            line.strip() for line in self._board.run("DISPLAY=:0 xrandr --current", check=True).stdout if "*" in line
-        ]
-        assert len(current) == 1, f"not one current mode: {current}"
-        mode = _MODE.match(current[0])
-        assert mode, f"the current mode is unreadable: {current[0]!r}"
-        return int(mode[1]), int(mode[2])
+        mode = _MODE.search(self._state())
+        return (int(mode[1]), int(mode[2])) if mode else (0, 0)
 
     def is_changing(self) -> bool:
-        """Grab the panel, and say whether it differs from the grab before.
+        """Read the buffer on the screen for some seconds, and say whether it changed.
 
         Returns:
-            True if both grabs are good and differ.
+            True if it did.
         """
-        before, now = self._grab()
-        return None not in (before, now) and before != now
+        return len(self._buffers()) > 1
 
     def stands_still(self) -> bool:
-        """Grab the panel, and say whether it matches the grab before.
+        """Read the buffer on the screen for some seconds, and say whether there is one that stayed the same.
 
         Returns:
-            True if both grabs are good and match.
+            True if it did.
         """
-        before, now = self._grab()
-        return now is not None and before == now
+        buffers = self._buffers()
+        return len(buffers) == 1 and _NO_BUFFER not in buffers
 
-    def _grab(self) -> tuple[str | None, str | None]:
-        """Grab the panel's middle third, once 5 s have passed since the grab before.
-
-        The first good grab reads the screen's size, and registers the picture's removal for when the test
-        ends.
+    def picture_changes(self) -> bool:
+        """Take two pictures of the panel some seconds apart, and say whether they differ.
 
         Returns:
-            The sha256 of the grab before and of this one, each None for a bad grab or none.
-
-        Raises:
-            ExecutionError: X did not report the screen's size, as while it starts; a wait takes it as a read
-                that does not hold.
+            True if they do.
         """
-        if self._crop is None:
-            xdpyinfo = self._board.run("DISPLAY=:0 xdpyinfo")
-            dimensions = _DIMENSIONS.search(xdpyinfo.text) if xdpyinfo.returncode == 0 else None
-            if dimensions is None:
-                raise ExecutionError("DISPLAY=:0 xdpyinfo", xdpyinfo.stdout, xdpyinfo.stderr)
-            self._board.cleanup.callback(self._board.run, f"rm -f {_GRAB_PATH}")
-            width, height = int(dimensions[1]), int(dimensions[2])
-            self._crop = f"{width}x{height // 3}+0+{height // 3}"
-        time.sleep(max(0.0, self._next_grab_at - time.monotonic()))
-        self._next_grab_at = time.monotonic() + _GRAB_EVERY_SECONDS
-        grab = self._board.run(
-            f"rm -f {_GRAB_PATH}; DISPLAY=:0 import -window root -crop {self._crop} +repage {_GRAB_PATH} && "
-            f"[ $(stat -c %s {_GRAB_PATH}) -ge {_MIN_PNG_BYTES} ] && sha256sum {_GRAB_PATH}"
-        )
-        before, self._last_grab = self._last_grab, grab.text.split()[0] if grab.returncode == 0 else None
-        return before, self._last_grab
+        before = self._picture()
+        time.sleep(_PICTURES_APART_SECONDS)
+        return self._picture() != before
+
+    def _picture(self) -> bytes:
+        """Take a picture of the panel with `just screenshot`; the check is invalid if it took none.
+
+        Returns:
+            The PNG.
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            png = Path(directory) / "panel.png"
+            tool = subprocess.run(
+                ["just", "screenshot", self._board.host.rpartition("@")[2], png],
+                capture_output=True,
+                text=True,
+                timeout=_PICTURE_TIMEOUT_SECONDS,
+            )
+            with invalid_if("the tool took no picture of the panel"):
+                assert png.exists(), tool.stderr
+            return png.read_bytes()
+
+    def _buffers(self) -> set[str]:
+        """Read the buffer on the screen a number of times in a row.
+
+        Returns:
+            The `fb=` lines seen; `fb=0` is none.
+        """
+        reads = " ".join(str(read) for read in range(_READS))
+        lines = self._board.run(
+            f"for _ in {reads}; do grep -m1 fb= {_STATE}; usleep {_READ_EVERY_US}; done", check=True
+        ).stdout
+        return {line.strip() for line in lines}
+
+    def _state(self) -> str:
+        """Read the display driver's state.
+
+        Returns:
+            The text.
+        """
+        return "\n".join(self._board.run(f"cat {_STATE}", check=True).stdout) + "\n"
