@@ -40,7 +40,9 @@ cut clears. No reading of channel 10's occupancy was taken, and when the AP went
 
 ## What changed in the suite
 
-TST008<!-- Sustained network load --> now reads the board's link before it pushes any load. If the link's transmit rate is at or below 11 Mbit/s,
-the top rate of 802.11b, the call stops as invalid and names the rate. It no longer pushes a load the link cannot
-carry and reports a minute later that the load was not applied. Every TST008<!-- Sustained network load --> call records the link's rate and mode,
-so an invalid result shows the link it met.
+TST008<!-- Sustained network load --> reads the board's link before it pushes any load, and stops the call as invalid
+when the link's transmit rate is at or below the top rate of 802.11b; the rule is in
+[`docs/testing.md`](../../testing.md) §"How a target-suite test is written". Every TST008<!-- Sustained network load --> call
+that reaches the load records the link's rate; one stopped at the floor names it in its invalid message. TST008<!-- Sustained network load --> also records the
+board's radio either side of the load: the signal at each edge, failed sends and wlan0's byte counts across the window,
+or why those deltas are left out. A load that is not applied can then be told as the link's or not.
