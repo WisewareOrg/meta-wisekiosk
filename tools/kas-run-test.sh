@@ -13,7 +13,7 @@
 # TO WATCH THIS FAIL -- before trusting a green run, run it against a scratch copy of the script,
 # one seed each, with KAS_RUN_UNDER_TEST=<copy>:
 #   * delete the `flock -n 9 || …` line in the lock block: "builds never overlap"
-#   * read the shell case as `shell` with none of -c, --cmd or --command: "shell <config> --command=bitbake x takes the lock"
+#   * drop `|| [ "$#" -gt 2 ]` from the lock condition: the three "shell <config> ... takes the lock" cases
 #   * make the lock block run for every verb: "interactive shell does not wait"
 #   * move the lock block above the --runtime-args refusal: "refusal does not wait"
 #   * delete `mkdir -p local/keys`: "a keyed call makes local/keys"
@@ -178,8 +178,8 @@ check "a refusal does not wait" refused_at_once
 # 7. the waiter's exit status is kas-container's too
 : > "$log"
 hold
-(cd "$scratch/two" && EXITS=9 TAG=B timeout 30 tools/kas-run.sh build b.yaml > /dev/null 2>&1; echo "$?" > "$scratch/rc8") &
-sleep 1
+(cd "$scratch/two" && EXITS=9 TAG=B timeout 30 tools/kas-run.sh build b.yaml > "$scratch/b8.out" 2>&1; echo "$?" > "$scratch/rc8") &
+for _ in $(seq 1 100); do grep -q "waiting for another kas build" "$scratch/b8.out" 2>/dev/null && break; sleep 0.1; done
 let_go
 check "the waiter's exit status is kas-container's" test "$(cat "$scratch/rc8")" -eq 9
 

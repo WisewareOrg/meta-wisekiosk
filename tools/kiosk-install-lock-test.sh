@@ -120,7 +120,7 @@ refused_by() { # id: refused with exit 1 and a message naming its holder
     [ "$(rcof "$1")" = 1 ] && grep -q "another install holds" "$scratch/out.$1"
 }
 
-# 1. a second call to one board is refused, names the holder, and reached nothing but `ssh -G`
+# a second call to one board is refused, names the holder, and reached nothing but `ssh -G`
 rm -f "$RELEASE" "$STATE/installed"
 install 1 "$one"
 await reached 1 "docker run"
@@ -130,7 +130,7 @@ refused() { refused_by 2 && grep -q "another install holds $one (pid and checkou
 check "a second call is refused and names the holder" refused
 only_g() { ! grep "^$1 " "$LOG" | grep -v ' ssh -G' | grep -q .; }
 check "the refused call reached nothing but ssh -G" only_g 2
-# 3. a call to another board goes on, and a call with another XDG_RUNTIME_DIR to the first board is refused
+# a call to another board goes on, and a call with another XDG_RUNTIME_DIR to the first board is refused
 install 3 "$two"
 await reached 3 "docker run"
 check "another board goes on" reached 3 "docker run"
@@ -138,26 +138,26 @@ mkdir -p "$scratch/xdg"
 refused_call 4 "$one" XDG_RUNTIME_DIR="$scratch/xdg"
 check "other environments meet on one lock" refused_by 4
 check "that call reached nothing but ssh -G" only_g 4
-# 5. two names for one address meet; a name that does not resolve is keyed as typed
+# two names for one address meet; a name that does not resolve is keyed as typed
 refused_call 5 "$alias1"
 check "a name that ssh -G maps to the board's own meets its lock" refused_by 5
 check "that call reached nothing but ssh -G" only_g 5
-refused_call 13 "$third"
-check "a name that only getent maps to the board's address meets its lock" refused_by 13
-check "that call reached nothing but ssh -G" only_g 13
+refused_call 6 "$third"
+check "a name that only getent maps to the board's address meets its lock" refused_by 6
+check "that call reached nothing but ssh -G" only_g 6
 # a name that does not resolve is keyed as typed, user stripped: two users on it meet
-install 11 "root@nores-$tag.invalid"
-await reached 11 "docker run"
-refused_call 12 "admin@nores-$tag.invalid"
-check "a name that does not resolve is keyed with the user stripped" refused_by 12
-check "that call reached nothing but ssh -G" only_g 12
+install 7 "root@nores-$tag.invalid"
+await reached 7 "docker run"
+refused_call 8 "admin@nores-$tag.invalid"
+check "a name that does not resolve is keyed with the user stripped" refused_by 8
+check "that call reached nothing but ssh -G" only_g 8
 touch "$RELEASE"
 await test -e "$scratch/rc.1"
 check "the first call ends normally" test "$(rcof 1)" = 0
 disarmed_once() { [ "$(grep -c '^1 ssh .*echo 0 > /sys/kernel/debug/pstore/record_ftrace' "$LOG")" -eq 1 ]; }
 check "the first call disarmed its recorders once" disarmed_once
 await test -e "$scratch/rc.3"
-await test -e "$scratch/rc.11"
+await test -e "$scratch/rc.7"
 none_alive() {
     local p
     [ -s "$STATE/streams.1" ] || return 1
@@ -167,39 +167,39 @@ none_alive() {
 }
 check "after the script ends none of its streaming ssh is left" none_alive
 
-# 6. free after one killed whole
+# free after one killed whole
 rm -f "$RELEASE" "$STATE/installed"; : > "$LOG"
-install 6 "$one"
-await reached 6 "docker run"
-kill -9 -- "-$(cat "$scratch/pg.6")" 2>/dev/null
-await not kill -0 -- "-$(cat "$scratch/pg.6")"
-install 7 "$one"
-await reached 7 "docker run"
-check "the lock is free after the first ended and after one killed whole" reached 7 "docker run"
-kill -9 -- "-$(cat "$scratch/pg.7")" 2>/dev/null
-await not kill -0 -- "-$(cat "$scratch/pg.7")"
+install 9 "$one"
+await reached 9 "docker run"
+kill -9 -- "-$(cat "$scratch/pg.9")" 2>/dev/null
+await not kill -0 -- "-$(cat "$scratch/pg.9")"
+install 10 "$one"
+await reached 10 "docker run"
+check "the lock is free after the first ended and after one killed whole" reached 10 "docker run"
+kill -9 -- "-$(cat "$scratch/pg.10")" 2>/dev/null
+await not kill -0 -- "-$(cat "$scratch/pg.10")"
 
-# 7. a script killed alone frees the lock at once, though its streaming ssh live on: the next call goes
+# a script killed alone frees the lock at once, though its streaming ssh live on: the next call goes
 : > "$LOG"; rm -f "$RELEASE" "$STATE/installed"
-install 8 "$one"
-await reached 8 "docker run"
-await reached 8 "ssh .*rauc install"
-await reached 8 "ssh .*dmesg -w"
-script=$(pgrep -P "$(cat "$scratch/pg.8")" | head -n 1)
+install 11 "$one"
+await reached 11 "docker run"
+await reached 11 "ssh .*rauc install"
+await reached 11 "ssh .*dmesg -w"
+script=$(pgrep -P "$(cat "$scratch/pg.11")" | head -n 1)
 await test -n "$script"
 kill -9 "$script" 2>/dev/null
 await not kill -0 "$script"
 streams_alive() {
     local p
-    [ -s "$STATE/streams.8" ] || return 1
+    [ -s "$STATE/streams.11" ] || return 1
     while read -r p; do
         kill -0 "$p" 2>/dev/null || return 1
-    done < "$STATE/streams.8"
+    done < "$STATE/streams.11"
 }
 check "the streaming ssh of the killed script are still alive" streams_alive
-install 10 "$one"
-await reached 10 "docker run"
-check "a script killed alone frees the lock though its streaming ssh live on" reached 10 "docker run"
+install 12 "$one"
+await reached 12 "docker run"
+check "a script killed alone frees the lock though its streaming ssh live on" reached 12 "docker run"
 
 echo "kiosk-install lock: $fails case(s) failed"
 [ "$fails" -eq 0 ]
