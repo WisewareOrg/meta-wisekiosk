@@ -8,8 +8,8 @@ at its cap loses with the boot's first seconds. Then the `kiosk-last-reset` line
 the last, read by boot id, must each equal what was read in that boot; the running boot's line carries a time
 within a day of the board's clock. `rsts` is recorded and judged by its watchdog-full-reset bit, which
 separates the cut from the three resets that follow it: clear after the cut, set after the restart, the
-panic and the bite. The power-on bit is asserted after the cut and only recorded after the others, since the
-power-on flag may stay set through the next warm reset. `console` is asserted, and the bite is the only one
+panic and the bite. The power-on bit is asserted after the cut and only recorded after the others, for the
+reason `kiosk-last-reset`'s header gives. `console` is asserted, and the bite is the only one
 among restart, panic and bite whose console read silent.
 
 The bite freezes PID 1's cgroup, so nothing feeds the 14 s hardware watchdog; if it does not bite, a
@@ -27,10 +27,9 @@ from typing import NamedTuple
 import pytest
 from board import Board
 
-# PM_RSTS_HADPOR_SET in the Broadcom header: the chip's power-on-reset flag, bit 12 of its power-management
-# status register.
+# The power-on bit of rsts, as `kiosk-last-reset`'s header defines it.
 POWER_ON = 0x1000
-# PM_RSTS_HADWRF_SET in the Broadcom header: the chip's watchdog-full-reset flag, bit 5 of the same register.
+# The watchdog-full-reset bit of rsts, as `kiosk-last-reset`'s header defines it.
 WATCHDOG_FULL = 0x20
 LINE = re.compile(r"last reset rsts=(?P<rsts>\S+) console=(?P<console>\w+)")
 STAMPED_LINE = re.compile(r"^(?P<unix>\d+\.\d+) .*last reset rsts=", re.MULTILINE)

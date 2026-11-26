@@ -1,5 +1,5 @@
 [Unit]
-Description=Keep the persistent journal at 64 MB
+Description=Keep the persistent journal within its size bound
 RequiresMountsFor=/data
 
 [Service]

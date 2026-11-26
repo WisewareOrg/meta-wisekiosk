@@ -2,11 +2,11 @@
 # Logs why the board last reset: the firmware's reset status and how the previous boot's console ended.
 #
 # Run as ExecStartPost of kiosk-journal-flush.service, so the line is written after the journal has
-# been flushed to /data and the clock restored. Written earlier, a journal near its cap drops it with the
-# rest of the boot's first seconds.
+# been flushed to /data and the clock restored.
 #
-#   rsts     the firmware's reset status, hex; bit 0x20 set is a watchdog reset; 0x1000 set with 0x20
-#            clear is power-on, and 0x1000 can stay set through the next warm reset
+#   rsts     the firmware's reset status, hex; bit 0x20 (PM_RSTS_HADWRF_SET) set is a watchdog reset;
+#            0x1000 (PM_RSTS_HADPOR_SET) set with 0x20 clear is power-on, and 0x1000 can stay set through
+#            the next warm reset
 #   console  how the previous boot's console ended, read from the pstore console record:
 #              panic    "Kernel panic - not syncing", from the panic dump or the console record
 #              restart  systemd-shutdown's restart line; a hang after systemd's last step reads the same

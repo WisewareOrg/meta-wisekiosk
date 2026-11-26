@@ -1,8 +1,8 @@
 #!/bin/sh
-# Keeps the persistent journal at 64 MB by deleting its oldest archived files.
+# Keeps the persistent journal within `limit` by deleting its oldest archived files.
 #
 # Deletes only the rotated files, system@*.journal and system@*.journal~, oldest mtime first, one at a time,
-# while the journal directory is over 65536 KiB. system.journal, the live file, is never deleted.
+# while the journal directory is over `limit` KiB. system.journal, the live file, is never deleted.
 # Prints one line, `kiosk-journal-vacuum: deleted <n> files, <k> KiB, now <u> KiB`, and exits 0 whatever
 # happens; it stops when no rotated file is left or a delete fails.
 
