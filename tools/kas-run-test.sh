@@ -11,15 +11,27 @@
 # Cases are judged by the order of begin and end lines in one log, never by elapsed time. They are:
 # two builds never overlap; a waiter names the holder; a killed holder frees the lock; the exit status
 # is kas-container's; only `shell` with at most one more argument does not take it, and
-# `shell f -c x`, `shell f --command=x` and `shell f -kc x` do; a lock that cannot be opened is an error
-# that names its path; a refused call does not wait; two waiters both name the holder and both run after
-# it; an interrupted waiter never builds; a keyed call makes local/keys as the caller, with the mount still
-# read-only, and an unkeyed call makes nothing; a failed mkdir of local/keys stops before the container
-# and names the path.
+# `shell f -c x`, `shell f --command=x` and `shell f -kc x` do; a lock that cannot be opened stops the
+# call before the container, with the script's own message naming its path; a refused call does not
+# wait; two waiters both name the holder and both run after it; a waiter interrupted while it waits never
+# builds; a keyed call makes local/keys as the caller, with the mount still read-only, and an unkeyed call
+# makes nothing; a failed mkdir of local/keys stops before the container and names the path.
+#
+# On a failure the scratch directory is kept and named, each failed check prints what it ran and the log,
+# and every call's output is printed.
 #
 # TO WATCH THIS FAIL -- before trusting a green run, run it against a scratch copy of the script,
 # one seed each, with KAS_RUN_UNDER_TEST=<copy>:
-#   * delete the `flock -n 9 || …` line in the lock block: "builds never overlap"
+#   * delete the `flock -n 9 || …` line in the lock block: "builds never overlap" and "two waiters both name
+#     the holder and both run after it"
+#   * drop `$(cat "$lock")` from the waiting message: "the waiter names the holder's pid and checkout"
+#   * start `setsid sleep 30 &` after the lock is taken, so a process outside the caller's group keeps the
+#     descriptor: the run stops at "never saw 'begin A'" (case 1's leaked holder outlasts it; case 2 owns the
+#     killed holder)
+#   * replace `exec kas-container …` with the same call followed by `|| true`: "the exit status is
+#     kas-container's" and "the waiter's exit status is kas-container's"
+#   * replace the lock's `|| { echo …; exit 1; }` with `|| true`: "an unopenable lock stops the call …"
+#   * add `trap '' TERM` at the top: "a waiter interrupted while it waits never builds"
 #   * read the shell case as `shell` with none of -c, --cmd or --command: "shell <config> --command=bitbake x takes the lock"
 #   * make the lock block run for every verb: "interactive shell does not wait"
 #   * move the lock block above the --runtime-args refusal: "refusal does not wait"
@@ -28,13 +40,31 @@
 #   * drop `:ro` from the keys mount: "the keys mount stays read-only"
 #   * replace the mkdir's error with `|| true`: "a failed mkdir of local/keys stops before the container"
 #
-# Exit: 0 every case passed; 1 a case failed, or the script or stub never started.
+# Exit: 0 every case passed; 1 a case failed, the script or stub never started, or it was run as root,
+# where the unwritable directories cases 5 and 11 make do not deny a write.
 set -u
+
+if [ "$(id -u)" -eq 0 ]; then
+    echo "kas-run-test: cannot seed an unwritable directory as root (cases 5 and 11); run it as a normal user"
+    exit 1
+fi
 
 root=$(cd "$(dirname "$0")/.." && pwd)
 shipped=${KAS_RUN_UNDER_TEST:-$root/tools/kas-run.sh}
 scratch=$(mktemp -d)
-trap 'jobs -p | xargs -r kill 2>/dev/null; rm -rf "$scratch"' EXIT
+finish() {
+    local rc=$? f
+    jobs -p | xargs -r kill 2>/dev/null
+    if [ "$rc" -eq 0 ]; then
+        rm -rf "$scratch"
+        return
+    fi
+    for f in "$scratch"/*.out; do
+        [ -s "$f" ] && { echo "--- $f"; cat "$f"; }
+    done
+    echo "kas-run-test: scratch kept at $scratch"
+}
+trap finish EXIT
 
 unset PIPELINE_KEYS_DIR KAS_RUN_TMP_DIR KAS_RUN_ENV
 export HOME=$scratch/home
@@ -73,7 +103,14 @@ fails=0
 check() { # name, then the command that must succeed
     local name=$1
     shift
-    if "$@"; then echo "ok    $name"; else echo "FAIL  $name"; fails=$((fails + 1)); fi
+    if "$@"; then
+        echo "ok    $name"
+    else
+        echo "FAIL  $name"
+        echo "      ran: $*"
+        sed 's/^/      log: /' "$log"
+        fails=$((fails + 1))
+    fi
 }
 not() { # the command must fail
     ! "$@"
@@ -102,7 +139,7 @@ await() { # a line in the log, or a failure of the whole test if it never comes
 release="$scratch/release"
 hold() { # start a build in checkout one that holds the lock until $release exists
     rm -f "$release"
-    (cd "$scratch/one" && RELEASE="$release" TAG=A tools/kas-run.sh build a.yaml > /dev/null 2>&1) &
+    (cd "$scratch/one" && RELEASE="$release" TAG=A tools/kas-run.sh build a.yaml > "$scratch/hold.out" 2>&1) &
     await "begin A"
 }
 let_go() { # release the holder and wait for everything started
@@ -126,23 +163,23 @@ check "the waiter names the holder's pid and checkout" \
 # inherited the descriptor holds the lock
 : > "$log"
 rm -f "$release"
-(cd "$scratch/one" && RELEASE="$release" TAG=A exec setsid tools/kas-run.sh build a.yaml > /dev/null 2>&1) &
+(cd "$scratch/one" && RELEASE="$release" TAG=A exec setsid tools/kas-run.sh build a.yaml > "$scratch/2a.out" 2>&1) &
 holder=$!
 await "begin A"
 (sleep 1; kill -9 -- "-$holder" 2>/dev/null || kill -9 "$holder") &
-(cd "$scratch/two" && TAG=B timeout 15 tools/kas-run.sh build b.yaml > /dev/null 2>&1)
+(cd "$scratch/two" && TAG=B timeout 15 tools/kas-run.sh build b.yaml > "$scratch/2b.out" 2>&1)
 check "a killed holder frees the lock" has "end B"
 wait 2>/dev/null
 
 # 3. the exit status is kas-container's
-(cd "$scratch/one" && EXITS=7 tools/kas-run.sh build a.yaml > /dev/null 2>&1)
+(cd "$scratch/one" && EXITS=7 tools/kas-run.sh build a.yaml > "$scratch/3.out" 2>&1)
 status=$?
 check "the exit status is kas-container's" test "$status" -eq 7
 
 # 4. an interactive shell does not take the lock; shell given a command, in any spelling, does
 : > "$log"
 hold
-(cd "$scratch/two" && TAG=S tools/kas-run.sh shell s.yaml > /dev/null 2>&1)
+(cd "$scratch/two" && TAG=S tools/kas-run.sh shell s.yaml > "$scratch/4.out" 2>&1)
 ran_beside_holder() { has "end S" && not has "end A"; }
 check "interactive shell does not wait" ran_beside_holder
 let_go
@@ -162,19 +199,24 @@ for words in "-c|bitbake x" "--command=bitbake x" "-kc|bitbake x"; do
     check "shell <config> ${args[0]} takes the lock" shell_waits "${args[@]}"
 done
 
-# 5. a lock that cannot be opened is an error naming the path
+# 5. a lock that cannot be opened stops the call before the container, with the script's own message
+: > "$log"
 rm -f "$hs/kas-build.lock"
 chmod 555 "$hs"
-out=$(cd "$scratch/one" && tools/kas-run.sh build a.yaml 2>&1)
+(cd "$scratch/one" && TAG=L tools/kas-run.sh build a.yaml > "$scratch/5.out" 2>&1)
 rc=$?
 chmod 755 "$hs"
-names_the_path() { [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q 'kas-build.lock'; }
-check "an unopenable lock is an error that names the path" names_the_path
+stops_naming_the_path() {
+    [ "$rc" -eq 1 ] && grep -qF "tools/kas-run.sh: cannot open the build lock $hs/kas-build.lock" "$scratch/5.out" \
+        && not has "begin L"
+}
+check "an unopenable lock stops the call before the container, and the script's message names the path" \
+    stops_naming_the_path
 
 # 6. a refused call does not wait for a held lock
 : > "$log"
 hold
-(cd "$scratch/two" && tools/kas-run.sh build x.yaml --runtime-args y > /dev/null 2>&1)
+(cd "$scratch/two" && tools/kas-run.sh build x.yaml --runtime-args y > "$scratch/6.out" 2>&1)
 rc=$?
 ! has "end A"
 refused_early=$?
@@ -185,7 +227,7 @@ check "a refusal does not wait" refused_at_once
 # 7. the waiter's exit status is kas-container's too
 : > "$log"
 hold
-(cd "$scratch/two" && EXITS=9 TAG=B timeout 30 tools/kas-run.sh build b.yaml > /dev/null 2>&1; echo "$?" > "$scratch/rc7") &
+(cd "$scratch/two" && EXITS=9 TAG=B timeout 30 tools/kas-run.sh build b.yaml > "$scratch/7.out" 2>&1; echo "$?" > "$scratch/rc7") &
 sleep 1
 let_go
 check "the waiter's exit status is kas-container's" test "$(cat "$scratch/rc7")" -eq 9
@@ -208,12 +250,20 @@ both_wait_and_run() {
 }
 check "two waiters both name the holder and both run after it" both_wait_and_run
 
-# 9. an interrupted waiter never runs kas-container (TERM: a caller without job control ignores INT)
+# 9. a waiter interrupted while it waits never runs kas-container (TERM: a caller without job control
+# ignores INT)
 : > "$log"
 hold
-(cd "$scratch/two" && TAG=B timeout -s TERM 1 tools/kas-run.sh build b.yaml > /dev/null 2>&1)
+(cd "$scratch/two" && TAG=B exec tools/kas-run.sh build b.yaml > "$scratch/9.out" 2>&1) &
+waiter=$!
+for _ in $(seq 1 100); do grep -q "waiting for another kas build" "$scratch/9.out" 2>/dev/null && break; sleep 0.1; done
+grep -q "waiting for another kas build" "$scratch/9.out"
+was_waiting=$?
+kill -TERM "$waiter" 2>/dev/null
+for _ in $(seq 1 50); do kill -0 "$waiter" 2>/dev/null || break; sleep 0.1; done
 let_go
-check "an interrupted waiter never builds" not has "begin B"
+interrupted_never_built() { [ "$was_waiting" -eq 0 ] && not has "begin B"; }
+check "a waiter interrupted while it waits never builds" interrupted_never_built
 
 # 10. a keyed call makes local/keys, as the caller, before the container starts, and the keys mount stays
 # read-only; a call without PIPELINE_KEYS_DIR makes nothing
@@ -223,12 +273,12 @@ for c in four five; do
 done
 mkdir -p "$scratch/keys-src"
 rm -f "$log.local" "$log.args"
-(cd "$scratch/four" && PIPELINE_KEYS_DIR="$scratch/keys-src" tools/kas-run.sh build k.yaml > /dev/null 2>&1)
+(cd "$scratch/four" && PIPELINE_KEYS_DIR="$scratch/keys-src" tools/kas-run.sh build k.yaml > "$scratch/10k.out" 2>&1)
 check "a keyed call makes local/keys as the caller before the container starts" \
     grep -qx "local=yes keys_owner=$(id -u)" "$log.local"
 check "the keys mount stays read-only" grep -q -- "-v $scratch/keys-src:/work/local/keys:ro" "$log.args"
 rm -f "$log.local"
-(cd "$scratch/five" && tools/kas-run.sh build n.yaml > /dev/null 2>&1)
+(cd "$scratch/five" && tools/kas-run.sh build n.yaml > "$scratch/10n.out" 2>&1)
 check "a call without PIPELINE_KEYS_DIR makes no local/" grep -qx "local=no keys_owner=none" "$log.local"
 
 # 11. a failed mkdir of local/keys stops before the container starts, and the error names the path

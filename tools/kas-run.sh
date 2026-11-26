@@ -72,7 +72,7 @@ fi
 
 if [ "${1:-}" != shell ] || [ "$#" -gt 2 ]; then
     lock="$HASHSERV_DIR/kas-build.lock"
-    exec 9>>"$lock"
+    exec 9>>"$lock" || { echo "tools/kas-run.sh: cannot open the build lock $lock" >&2; exit 1; }
     flock -n 9 || { echo "kas-run: waiting for another kas build on this host: $(cat "$lock")" >&2; flock 9; }
     printf '%s %s\n' "$$" "$PWD" > "$lock"
 fi
