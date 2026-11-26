@@ -11,10 +11,10 @@
 # Cases: a second call to one board is refused before any ssh and names the holder; the first ends normally; a
 # call to another board goes on; the lock is free after the first ends or is killed whole; a script killed alone
 # frees the lock at once although its streaming ssh sessions live on (rauc goes on installing, and a later call is
-# refused by rauc only, after its arming; the real ssh closes the descriptor, so the lock cannot outlive the
-# script); no streaming ssh is left after a normal end; callers with different XDG_RUNTIME_DIR meet on one
-# lock; two names for one address meet, another address does not, and a name that does not resolve is keyed
-# as typed (user stripped).
+# refused by rauc only, after its arming; ssh closes every descriptor it inherits, as the stub does, so the lock
+# cannot outlive the script); no streaming ssh is left after a normal end; callers with different XDG_RUNTIME_DIR
+# meet on one lock; two names for one address meet, another address does not, and a name that does not resolve
+# is keyed as typed (user stripped).
 #
 # HOME is a scratch directory. On a failure the scratch directory is kept and named, each failed check prints
 # what it ran and the log, and every call's output and exit status is printed.
@@ -75,7 +75,12 @@ touch "$scratch/bundle.raucb"
 
 cat > "$scratch/bin/ssh" <<'STUB'
 #!/bin/bash
-exec 8>&-
+# closes every descriptor it inherits above 2, as OpenSSH does at start; bash's own copy of this script stays
+self=$(readlink -f "$0")
+for fd in "/proc/$$/fd/"*; do
+    n=${fd##*/}
+    [ "$n" -gt 2 ] && [ "$(readlink "$fd")" != "$self" ] && eval "exec $n>&-"
+done 2>/dev/null
 cmd="${*: -1}"
 echo "$CALL ssh $(printf '%s' "$*" | tr '\n' ' ' | cut -c1-400)" >> "$LOG"
 case "$*" in
