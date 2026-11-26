@@ -14,11 +14,14 @@ for as long as kas-container runs, so one kas build at a time runs on this
 host; a second waits and says which build (the pid and checkout in the lock
 file) holds it. Only an interactive shell (`shell` with at most one more
 argument, as `just shell` makes it) does not take it; a shell given more
-arguments takes the lock for as long as it is open.
+arguments takes the lock for as long as it is open. The lock is held by
+kas-container and its docker client, not by the container they start: with
+both killed, the lock is free while that container may still be building.
 
 Environment:
-  PIPELINE_KEYS_DIR   mounted read-only at /work/local/keys; no whitespace. The checkout's
-                      local/keys is made first, by the caller, so Docker does not make it root's
+  PIPELINE_KEYS_DIR   mounted read-only at /work/local/keys; no whitespace. This script
+                      makes the checkout's local/keys first, as the calling user, so Docker
+                      does not make it root's
   KAS_RUN_TMP_DIR     mounted read-write at the same path inside the container; no
                       whitespace
   KAS_RUN_ENV         space-separated variable NAMES passed through to

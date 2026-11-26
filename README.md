@@ -176,8 +176,10 @@ the build container.
 just build          # kas fetches sources/, applies the patches, builds core-image-base and deploys kiosk-bootprof
 ```
 
-Builds on one host take turns: a second `just build`, or another `tools/kas-run.sh` call but `just shell`,
-waits for the first and says which build holds the host.
+Builds on one host take turns: a second `just build`, or any other `tools/kas-run.sh` call except an
+interactive `just shell`, waits for the first and says which build holds the host. The turn is held
+by `kas-container` and its docker client, not by the build container: killing both frees it while
+that container may still be building.
 
 **The version in that `curl` URL is the kas version the build uses, and it changes nothing on its
 own.** `just build` runs whatever `kas-container` sits in `~/bin`; nothing downloads it but that
