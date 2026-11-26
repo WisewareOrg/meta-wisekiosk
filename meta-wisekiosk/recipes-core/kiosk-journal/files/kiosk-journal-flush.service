@@ -14,6 +14,9 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/bin/journalctl --flush
 ExecStartPost=-/usr/bin/kiosk-last-reset
+# Writes the line to the card now: journald syncs the live file on its own interval, so a hard reset
+# soon after boot would otherwise take it.
+ExecStartPost=-/usr/bin/journalctl --sync
 
 [Install]
 WantedBy=multi-user.target
