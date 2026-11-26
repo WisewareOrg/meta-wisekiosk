@@ -20,6 +20,7 @@
 #   * take no address from getent: "a name that only getent maps to the board's address meets its lock"
 #   * take no HostName from ssh -G: "a name that ssh -G maps to the board's own meets its lock"
 #   * drop `ps -p "$owner" >/dev/null 2>&1 ||` in serve(): "a server whose pid is dead is removed and one whose pid is alive is kept"
+#   * drop `port=${port%%$'\n'*}` in serve(): "the port is the one on a two-line docker port"
 #   * drop `port=${port##*:}` in serve(): "the port is the one on a two-line docker port"
 #   * in a scratch copy of this test, run `bash -c 'sleep 3'` in place of ssh in ssh_closes_fd8: the run stops at "never reached: has_child";
 #     and set real_ssh to a script named ssh holding `#!/bin/bash` and `sleep 3 & wait`, which keeps the descriptor:
@@ -231,7 +232,7 @@ sleep 0 &
 dead_pid=$!
 wait "$dead_pid"
 printf 'livecid %s\ndeadcid %s\n' "$$" "$dead_pid" > "$STATE/ps.list"
-printf '0.0.0.0:5555\n[::]:5555\n' > "$STATE/port.out"
+printf '0.0.0.0:5555\n[::]:5556\n' > "$STATE/port.out"
 install 13 "root@board-six-$tag.invalid"
 await reached 13 "docker run"
 only_dead_removed() {
@@ -255,7 +256,7 @@ ssh_closes_fd8() {
     [ "$(cat "/proc/$p/comm" 2>/dev/null)" = ssh ] || { echo "      the probed process is not ssh: not probed"; kill "$p" 2>/dev/null; return 1; }
     [ -d "/proc/$p/fd" ] || { echo "      no /proc/$p/fd: not probed"; kill "$p" 2>/dev/null; return 1; }
     for fd in "/proc/$p/fd"/*; do
-        if [ "$(readlink "$fd")" = "$scratch/fd8" ]; then
+        if [ "$(readlink -f "$fd")" = "$(readlink -f "$scratch/fd8")" ]; then
             echo "      ssh still holds the inherited file on fd ${fd##*/}"
             kill "$p" 2>/dev/null
             return 1
