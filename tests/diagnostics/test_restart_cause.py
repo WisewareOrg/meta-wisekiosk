@@ -2,9 +2,11 @@
 
 Resets the board four ways, in this order: a power cut, a restart, a kernel panic and a watchdog
 bite. After each it reads the `kiosk-last-reset` line that `kiosk-journal-flush.service` prints in the new
-boot (`last reset rsts=<status> console=<how the previous console ended>`). After the bite it reads the
-lines of the three boots before it, named by their boot ids, and each must equal what was read in that boot;
-the running boot's line carries a time within a day of the board's clock. `rsts` is recorded and judged
+boot (`last reset rsts=<status> console=<how the previous console ended>`). After the bite, the
+kernel messages of all four boots, read by boot id, must contain the kernel's `Linux version` line, which a
+journal at its cap loses with the boot's first seconds. Then the `kiosk-last-reset` lines of the
+three boots before the last, read by boot id, must each equal what was read in that boot; the running boot's line carries
+a time within a day of the board's clock. `rsts` is recorded and judged
 by its watchdog-full-reset bit, which separates the cut from the three resets that follow it: clear after the
 cut, set after the restart, the panic and the bite. The power-on bit is asserted after the cut and only
 recorded after the others, since the power-on flag may stay set through the next warm reset. `console` is
@@ -67,6 +69,25 @@ def _reset_line(board: Board, errors: list[str], boot: str = "0") -> ResetLine |
     return ResetLine(found.group("rsts"), found.group("console")) if found else None
 
 
+def _kernel_log(board: Board, errors: list[str], boot: str) -> str | None:
+    """Read a boot's kernel messages with their monotonic times.
+
+    Args:
+        board: the board under test.
+        errors: collects the error of a read the board did not answer.
+        boot: a boot id, as `journalctl -b` takes it.
+
+    Returns:
+        The kernel messages; None if the read got no answer.
+    """
+    cmd = f"journalctl -b {boot} -k -o short-monotonic --no-pager"
+    try:
+        return board.run(cmd, check=True, timeout=60).text
+    except Board.ERRORS as error:
+        errors.append(f"{type(error).__name__}: {error}")
+        return None
+
+
 def test_restart_cause(board: Board, record_property: Callable[[str, object], None]) -> None:
     """The line of the boot after each reset names how the previous boot's console ended.
 
@@ -93,6 +114,14 @@ def test_restart_cause(board: Board, record_property: Callable[[str, object], No
         record_property(f"{cause}.rsts", seen[cause].rsts)
         record_property(f"{cause}.console", seen[cause].console)
 
+    for cause, boot in boot_ids.items():
+        errors = []
+        kernel = _kernel_log(board, errors, boot)
+        first = kernel.splitlines()[0] if kernel and kernel.strip() else "no entries"
+        assert kernel is not None and "Linux version" in kernel, (
+            f"the {cause}'s boot {boot} does not start with the kernel's version line; its first entry reads: "
+            f"{first} {errors}"
+        )
     for cause in ("kernel panic", "restart", "power cut"):
         errors = []
         kept = _reset_line(board, errors, boot_ids[cause])
