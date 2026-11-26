@@ -27,6 +27,8 @@ signatures, so a build through the cache has the same signature as one without i
 - **`inherit ccache` in the engine recipe.** It is the supported route, but it changes the engine's
   task signatures and forces a multi-hour rebuild of every stored engine build.
 - **`INHERIT += "ccache"` for every recipe.** The same signature change, for every recipe.
+- **No compile cache.** The status quo: every change to the engine's signature recompiles all of it, on
+  every builder.
 
 ## Consequences
 
@@ -36,4 +38,6 @@ signatures, so a build through the cache has the same signature as one without i
   (`CCACHE_BASEDIR`), so the two builds' bytes differ.
 - The design relies on `wpewebkit.inc` putting `ccache-native` in `DEPENDS`; a meta-webkit bump that drops
   it fails every compile at "ccache: not found".
+- An exported `CCACHE_` setting added to the bbappend without its name in the ignore line moves the engine's
+  signature: a full engine rebuild.
 - Reopen if the class stops changing signatures, or a full rebuild becomes acceptable.
