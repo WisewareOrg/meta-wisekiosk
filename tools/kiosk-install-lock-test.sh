@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Self-test for the per-board install lock, from this host, in tools/kiosk-install.sh.
+# Self-test, from this host, for tools/kiosk-install.sh: the per-board install lock, the bundle server's
+# stale-server sweep and port read, and the real ssh's handling of an inherited descriptor.
 #
 #   tools/kiosk-install-lock-test.sh
 #
@@ -238,7 +239,7 @@ only_dead_removed() {
 }
 check "a server whose pid is dead is removed and one whose pid is alive is kept" only_dead_removed
 port_read() { grep -q "serving .* at http://local:5555/bundle.raucb" "$scratch/out.13"; }
-check "the port is the one on a two-line docker port" port_read
+check "the port is the one on a two-line docker port" within port_read
 rm -f "$STATE/ps.list" "$STATE/port.out"
 touch "$RELEASE"
 await test -e "$scratch/rc.13"
