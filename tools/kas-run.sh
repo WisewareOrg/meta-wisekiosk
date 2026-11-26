@@ -16,7 +16,7 @@ file) holds it. Only an interactive shell (`shell` with at most one more
 argument, as `just shell` makes it) does not take it; a shell given more
 arguments takes the lock for as long as it is open.
 
-If kas-container is killed by a signal it cannot pass on (SIGKILL), its container keeps building and the
+If kas-container and its docker client are both killed by SIGKILL, the container keeps building and the
 lock is released, so a second build can start beside it; stop that container first (docker ps, docker stop).
 
 Environment:
