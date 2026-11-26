@@ -206,8 +206,7 @@ partition RAUC never writes — see
 
 The WPE WebKit recipe compiles through `ccache` and keeps its cache under `SSTATE_DIR`
 (`CCACHE_TOP_DIR`), bounded at 5G, so every builder that shares one sstate shares it.
-`CCACHE_DISABLE` and `bitbake -c cleanall` do not reach it
-([ADR 0002 rev 1](docs/decisions/0002-compile-the-engine-through-ccache-without-inheriting-the-class.md)).
+`CCACHE_DISABLE` and `bitbake -c cleanall` do not reach it.
 
 ### Flashing a card
 
