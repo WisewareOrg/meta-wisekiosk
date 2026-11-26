@@ -3,6 +3,7 @@
 import contextlib
 import dataclasses
 import os
+import re
 import subprocess
 import threading
 import time
@@ -21,6 +22,15 @@ _BLOCK_BYTES = 1024 * 1024
 _HANG_GRACE_SECONDS = 60
 # the least average rate that counts as the load applied
 _LOAD_FLOOR_MB_S = 1.0
+# one read of the board's radio: its boot, the station's counters and wlan0's byte counts
+_RADIO_READ = (
+    "echo boot_id: $(cat /proc/sys/kernel/random/boot_id); iw dev wlan0 station dump; "
+    "echo rx_bytes: $(cat /sys/class/net/wlan0/statistics/rx_bytes); "
+    "echo tx_bytes: $(cat /sys/class/net/wlan0/statistics/tx_bytes)"
+)
+_RADIO_READ_TIMEOUT_SECONDS = 10
+# how far the station's connected time may fall short of the host's window before it counts as a reconnect
+_RECONNECT_SLACK_SECONDS = 2
 
 
 @dataclasses.dataclass
@@ -39,6 +49,11 @@ class Load:
     seconds: float = 0.0
     returncode: int | None = None
 
+    @property
+    def mb_s(self) -> float:
+        """The push's average rate, in 10^6 bytes a second; 0 if it never ran."""
+        return self.sent / self.seconds / 1e6 if self.seconds else 0.0
+
     def confirm_applied(self) -> None:
         """Fail the check as invalid unless the board took every byte, at 1 MB/s or more."""
         rate = self.sent / self.seconds / 1e6 if self.seconds else 0.0
@@ -46,6 +61,112 @@ class Load:
             f"the load was not applied: {self.sent} B at {rate:.2f} MB/s, the board counted {self.counted!r}"
         ):
             assert self.returncode == 0 and self.counted == str(self.sent) and rate >= _LOAD_FLOOR_MB_S
+
+
+@dataclasses.dataclass(frozen=True)
+class Radio:
+    """The board's radio at one instant: the station's counters, its signal, and wlan0's byte counts.
+
+    Attributes:
+        at: the host `time.monotonic()` just before the read.
+        done: the host `time.monotonic()` just after it.
+        boot_id: the board's boot.
+        connected_s: how long the station has been associated.
+        signal_dbm: the station's signal.
+        tx_retries: frames the board sent again.
+        tx_failed: frames the board gave up on.
+        rx_bytes: wlan0's received bytes.
+        tx_bytes: wlan0's sent bytes.
+    """
+
+    at: float
+    done: float
+    boot_id: str
+    connected_s: int
+    signal_dbm: int
+    tx_retries: int
+    tx_failed: int
+    rx_bytes: int
+    tx_bytes: int
+
+    _FIELDS = {
+        "boot_id": r"^boot_id:\s*(\S+)",
+        "connected_s": r"^\s*connected time:\s*(\d+)",
+        "signal_dbm": r"^\s*signal:\s*(-?\d+)",
+        "tx_retries": r"^\s*tx retries:\s*(\d+)",
+        "tx_failed": r"^\s*tx failed:\s*(\d+)",
+        "rx_bytes": r"^rx_bytes:\s*(\d+)",
+        "tx_bytes": r"^tx_bytes:\s*(\d+)",
+    }
+
+    @classmethod
+    def parse(cls, lines: list[str], at: float, done: float) -> "Radio":
+        """Read one `_RADIO_READ`'s output; the first station's counters count.
+
+        Args:
+            lines: the read's stdout lines.
+            at: the host `time.monotonic()` just before the read.
+            done: the host `time.monotonic()` just after it.
+
+        Returns:
+            The radio at `at`.
+
+        Raises:
+            ValueError: a field is missing, by its name in the read.
+        """
+        text = "\n".join(lines)
+        values: dict[str, int | str] = {}
+        for name, pattern in cls._FIELDS.items():
+            found = re.search(pattern, text, re.MULTILINE)
+            if not found or not found.group(1):
+                raise ValueError(f"no {name.replace('_', ' ')} in the read")
+            values[name] = found.group(1) if name == "boot_id" else int(found.group(1))
+        return cls(at=at, done=done, **values)
+
+    @staticmethod
+    def properties(before: "Radio | str", after: "Radio | str") -> dict[str, object]:
+        """The record's radio properties for a window between two reads.
+
+        A read that failed is its error text: that edge's numbers and every delta are left out. Deltas are
+        left out too, with the reason as the after-read's error, when the window spans a new boot, a
+        counter that went back, or a reconnect of the station: its connected time grew by less than the
+        window, less `_RECONNECT_SLACK_SECONDS`. The window runs from the end of the before-read to the start
+        of the after-read.
+
+        Args:
+            before: the read before the window, or why it failed.
+            after: the read after the window, or why it failed.
+
+        Returns:
+            The properties, by name.
+        """
+        properties: dict[str, object] = {}
+        for edge, radio in (("before", before), ("after", after)):
+            if isinstance(radio, str):
+                properties[f"radio_read_error_{edge}"] = radio
+            else:
+                properties[f"radio_signal_{edge}_dbm"] = radio.signal_dbm
+        if isinstance(before, str) or isinstance(after, str):
+            return properties
+        deltas = {
+            "radio_tx_retries_delta": after.tx_retries - before.tx_retries,
+            "radio_tx_failed_delta": after.tx_failed - before.tx_failed,
+            "wlan0_rx_bytes_delta": after.rx_bytes - before.rx_bytes,
+            "wlan0_tx_bytes_delta": after.tx_bytes - before.tx_bytes,
+        }
+        window_s = after.at - before.done
+        went_back = [name for name, delta in deltas.items() if delta < 0]
+        if after.boot_id != before.boot_id:
+            properties["radio_read_error_after"] = "boot changed"
+        elif went_back:
+            properties["radio_read_error_after"] = f"counter went back: {went_back[0]}"
+        elif after.connected_s < before.connected_s + window_s - _RECONNECT_SLACK_SECONDS:
+            properties["radio_read_error_after"] = (
+                f"station reconnected: connected {before.connected_s} then {after.connected_s} over {window_s:.0f} s"
+            )
+        else:
+            properties.update(deltas, radio_window_s=round(window_s, 1))
+        return properties
 
 
 class Network(Part):
@@ -99,6 +220,19 @@ class Network(Part):
             assert record.cut is not None and record.restored is not None
             assert record.offline_at((record.cut + record.restored) / 2)
         return read_at - (uptime_s - record.restored)
+
+    def radio(self) -> "Radio | str":
+        """Read the board's radio once; a read that fails is returned as why, never raised.
+
+        Returns:
+            The radio now, or the reason the read failed.
+        """
+        at = time.monotonic()
+        try:
+            lines = self._board.run(_RADIO_READ, check=True, timeout=_RADIO_READ_TIMEOUT_SECONDS).stdout
+            return Radio.parse(lines, at, time.monotonic())
+        except (AssertionError, ValueError, *self._board.ERRORS) as error:
+            return str(error) or type(error).__name__
 
     @contextlib.contextmanager
     def load(self, seconds: float) -> Iterator["Load"]:
