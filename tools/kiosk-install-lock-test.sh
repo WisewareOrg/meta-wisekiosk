@@ -79,8 +79,8 @@ cat > "$scratch/bin/ssh" <<'STUB'
 self=$(readlink -f "$0")
 for fd in "/proc/$$/fd/"*; do
     n=${fd##*/}
-    [ "$n" -gt 2 ] && [ "$(readlink "$fd")" != "$self" ] && eval "exec $n>&-"
-done 2>/dev/null
+    [ "$n" -gt 2 ] && [ "$(readlink "$fd" 2>/dev/null)" != "$self" ] && eval "exec $n>&-"
+done
 cmd="${*: -1}"
 echo "$CALL ssh $(printf '%s' "$*" | tr '\n' ' ' | cut -c1-400)" >> "$LOG"
 case "$*" in
