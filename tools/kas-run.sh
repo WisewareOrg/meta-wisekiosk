@@ -16,6 +16,9 @@ file) holds it. Only an interactive shell (`shell` with at most one more
 argument, as `just shell` makes it) does not take it; a shell given more
 arguments takes the lock for as long as it is open.
 
+If kas-container is killed by a signal it cannot pass on (SIGKILL), its container keeps building and the
+lock is released, so a second build can start beside it; stop that container first (docker ps, docker stop).
+
 Environment:
   PIPELINE_KEYS_DIR   mounted read-only at /work/local/keys; no whitespace. The checkout's
                       local/keys is made first, by the caller, so Docker does not make it root's

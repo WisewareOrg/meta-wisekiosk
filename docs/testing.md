@@ -93,6 +93,8 @@ kiosk-ota` and crashes the board once rauc reports writing the slot, and passes 
 install's own output carries the reset and the board's pstore read back after it. It crashes the
 board on purpose, so it runs only by hand, never in the queue job.
 
+One install runs per board from a host at a time: a second install would clear the first's pstore records and turn its recorders off, and `tools/kiosk-install.sh` refuses it.
+
 `tests/diagnostics -k fallback_probe` is the safe check of the slot fallback before any install meant
 to fail: it installs a good copy of the candidate in the slot not booted, zeroes that slot's boot
 attempts and restarts, and passes only when U-Boot boots the other slot. Both slots stay bootable, so
