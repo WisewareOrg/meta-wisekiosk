@@ -70,6 +70,7 @@ if [ ! -d "$HASHSERV_DIR" ]; then
     exit 1
 fi
 
+# Every call but an interactive shell (`shell` with at most one more argument) takes the lock.
 if [ "${1:-}" != shell ] || [ "$#" -gt 2 ]; then
     lock="$HASHSERV_DIR/kas-build.lock"
     exec 9>>"$lock"

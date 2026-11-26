@@ -137,7 +137,7 @@ for _ in $(seq 1 100); do grep -q waiting "$scratch/b.out" 2>/dev/null && break;
 let_go
 check "builds never overlap" log_is "begin A end A begin B end B "
 check "the waiter names the holder's pid and checkout" \
-    grep -q "waiting for another kas build on this host: [0-9]* $scratch/one" "$scratch/b.out"
+    grep -q "waiting for another kas build on this host: [0-9][0-9]* $scratch/one" "$scratch/b.out"
 
 # 2. a killed holder frees the lock: its own process group, killed whole, as every process that
 # inherited the descriptor holds the lock
@@ -229,7 +229,7 @@ for _ in $(seq 1 100); do
     sleep 0.1
 done
 let_go
-n=$(grep -l "waiting for another kas build on this host: [0-9]* $scratch/one" "$scratch/w2.out" "$scratch/w3.out" | wc -l)
+n=$(grep -l "waiting for another kas build on this host: [0-9][0-9]* $scratch/one" "$scratch/w2.out" "$scratch/w3.out" | wc -l)
 both_wait_and_run() {
     [ "$n" -eq 2 ] && { log_is "begin A end A begin B end B begin C end C " || log_is "begin A end A begin C end C begin B end B "; }
 }
