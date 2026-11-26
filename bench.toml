@@ -1,12 +1,12 @@
 [hooks]
 # Installs what the test helpers import (docs/testing.md).
 precondition = "UV_PROJECT_ENVIRONMENT=build/test-packages uv sync --frozen --only-group tests --python 3.13"
-build        = "just build"
-bundle       = "just kiosk-bundle"
+build        = "tools/engine-compile-reading.sh"
+bundle       = "true"
 
 [tests]
-host_suite   = "tests/host_suite"
-target_suite = "tests/target_suite"
+host_suite   = "tests/compile_cache"
+target_suite = "tests/compile_cache"
 
 [github]
 repo        = "WisewareOrg/meta-wisekiosk"
