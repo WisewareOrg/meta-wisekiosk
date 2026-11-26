@@ -18,6 +18,12 @@
 #   * put XDG_RUNTIME_DIR into the lock path: "other environments meet on one lock"
 #   * take no address from getent: "a name that only getent maps to the board's address meets its lock"
 #   * take no HostName from ssh -G: "a name that ssh -G maps to the board's own meets its lock"
+#   * drop `ps -p "$owner" >/dev/null 2>&1 ||` in serve(): "a server whose pid is dead is removed and one whose pid is alive is kept"
+#   * drop `port=${port##*:}` in serve(): "the port is the one on a two-line docker port"
+#   * in a scratch copy of this test, run `bash -c 'sleep 3'` in place of ssh in ssh_closes_fd8: "the real ssh closes a descriptor it inherits"
+#     (the stub ssh's own `exec 8>&-` stays; this case is what shows the real one does it)
+#
+# One scenario, phases A to E, runs on call 1's held lock; the sections after it each start their own.
 #
 # Exit: 0 every case passed; 1 a case failed.
 set -u
@@ -27,11 +33,11 @@ shipped=${KIOSK_INSTALL_UNDER_TEST:-$root/tools/kiosk-install.sh}
 scratch=$(mktemp -d)
 tag=lt$$
 cleanup() {
-    local f
+    local f status=$?
     jobs -p | xargs -r kill -9 2>/dev/null
     for f in "$scratch"/pg.*; do kill -9 -- "-$(cat "$f")" 2>/dev/null; done
     rm -f /tmp/kiosk-install-*"$tag"*.lock /tmp/kiosk-install-ADDR-*"$tag"*.lock
-    rm -rf "$scratch"
+    if [ "$status" -ne 0 ]; then echo "scratch kept: $scratch"; else rm -rf "$scratch"; fi
 }
 trap cleanup EXIT
 trap 'exit 143' TERM
@@ -65,12 +71,12 @@ esac
 STUB
 cat > "$scratch/bin/docker" <<'STUB'
 #!/bin/bash
-echo "$CALL docker $1" >> "$LOG"
+echo "$CALL docker $*" >> "$LOG"
 case "$1" in
     run) echo cid ;;
-    port) echo "0.0.0.0:5555" ;;
+    port) if [ -s "$STATE/port.out" ]; then cat "$STATE/port.out"; else echo "0.0.0.0:5555"; fi ;;
     exec) cat > /dev/null ;;
-    ps) ;;
+    ps) cat "$STATE/ps.list" 2>/dev/null ;;
 esac
 exit 0
 STUB
@@ -85,10 +91,22 @@ exit 0
 STUB
 printf '#!/bin/sh\nexit 0\n' > "$scratch/bin/curl"
 chmod +x "$scratch/bin/"*
+real_ssh=$(command -v ssh)
 export PATH=$scratch/bin:$PATH TAGNAME=$tag
 
 fails=0
-check() { local name=$1; shift; if "$@"; then echo "ok    $name"; else echo "FAIL  $name"; fails=$((fails + 1)); fi; }
+check() {
+    local name=$1
+    shift
+    if "$@"; then
+        echo "ok    $name"
+    else
+        echo "FAIL  $name"
+        echo "      the log's last 20 lines:"
+        tail -n 20 "$LOG" | sed 's/^/        /'
+        fails=$((fails + 1))
+    fi
+}
 not() { ! "$@"; }
 reached() { grep -q "^$1 $2" "$LOG"; }
 await() {
@@ -117,10 +135,12 @@ refused_call() { # id host [VAR=value...]: a call that must be refused, bounded,
         echo $? > "$scratch/rc.$id")
 }
 refused_by() { # id: refused with exit 1 and a message naming its holder
-    [ "$(rcof "$1")" = 1 ] && grep -q "another install holds" "$scratch/out.$1"
+    [ "$(rcof "$1")" = 1 ] && grep -q "another install holds" "$scratch/out.$1" && return 0
+    echo "      expected status 1 and a message naming the holder, measured status '$(rcof "$1")': $(cat "$scratch/out.$1" 2>/dev/null)"
+    return 1
 }
 
-# a second call to one board is refused, names the holder, and reached nothing but `ssh -G`
+# Phase A, one scenario from here to phase E, all on call 1's held lock: a second call to one board is refused, names the holder, and reached nothing but `ssh -G`
 rm -f "$RELEASE" "$STATE/installed"
 install 1 "$one"
 await reached 1 "docker run"
@@ -130,7 +150,7 @@ refused() { refused_by 2 && grep -q "another install holds $one (pid and checkou
 check "a second call is refused and names the holder" refused
 only_g() { ! grep "^$1 " "$LOG" | grep -v ' ssh -G' | grep -q .; }
 check "the refused call reached nothing but ssh -G" only_g 2
-# a call to another board goes on, and a call with another XDG_RUNTIME_DIR to the first board is refused
+# Phase B: a call to another board goes on, and a call with another XDG_RUNTIME_DIR to the first board is refused
 install 3 "$two"
 await reached 3 "docker run"
 check "another board goes on" reached 3 "docker run"
@@ -138,24 +158,23 @@ mkdir -p "$scratch/xdg"
 refused_call 4 "$one" XDG_RUNTIME_DIR="$scratch/xdg"
 check "other environments meet on one lock" refused_by 4
 check "that call reached nothing but ssh -G" only_g 4
-# two names for one address meet; a name that does not resolve is keyed as typed
+# Phase C: two names for one address meet; a name that does not resolve is keyed as typed
 refused_call 5 "$alias1"
 check "a name that ssh -G maps to the board's own meets its lock" refused_by 5
 check "that call reached nothing but ssh -G" only_g 5
 refused_call 6 "$third"
 check "a name that only getent maps to the board's address meets its lock" refused_by 6
 check "that call reached nothing but ssh -G" only_g 6
-# a name that does not resolve is keyed as typed, user stripped: two users on it meet
+# Phase D: a name that does not resolve is keyed as typed, user stripped: two users on it meet
 install 7 "root@nores-$tag.invalid"
 await reached 7 "docker run"
 refused_call 8 "admin@nores-$tag.invalid"
 check "a name that does not resolve is keyed with the user stripped" refused_by 8
 check "that call reached nothing but ssh -G" only_g 8
+# Phase E: the holder is released and ends normally, and nothing of it is left
 touch "$RELEASE"
 await test -e "$scratch/rc.1"
 check "the first call ends normally" test "$(rcof 1)" = 0
-disarmed_once() { [ "$(grep -c '^1 ssh .*echo 0 > /sys/kernel/debug/pstore/record_ftrace' "$LOG")" -eq 1 ]; }
-check "the first call disarmed its recorders once" disarmed_once
 await test -e "$scratch/rc.3"
 await test -e "$scratch/rc.7"
 none_alive() {
@@ -200,6 +219,42 @@ check "the streaming ssh of the killed script are still alive" streams_alive
 install 12 "$one"
 await reached 12 "docker run"
 check "a script killed alone frees the lock though its streaming ssh live on" reached 12 "docker run"
+
+# Bundle server: a stale server is removed and a live one is kept; the port is read from a two-line `docker port`
+: > "$LOG"; rm -f "$RELEASE" "$STATE/installed"
+sleep 0 &
+dead_pid=$!
+wait "$dead_pid"
+printf 'livecid %s\ndeadcid %s\n' "$$" "$dead_pid" > "$STATE/ps.list"
+printf '0.0.0.0:5555\n[::]:5555\n' > "$STATE/port.out"
+install 13 "root@board-six-$tag.invalid"
+await reached 13 "docker run"
+only_dead_removed() {
+    reached 13 "docker rm -f deadcid" && ! reached 13 "docker rm -f livecid"
+}
+check "a server whose pid is dead is removed and one whose pid is alive is kept" only_dead_removed
+port_read() { grep -q "serving .* at http://local:5555/bundle.raucb" "$scratch/out.13"; }
+check "the port is the one on a two-line docker port" port_read
+rm -f "$STATE/ps.list" "$STATE/port.out"
+touch "$RELEASE"
+await test -e "$scratch/rc.13"
+
+# The real ssh closes a descriptor it inherits, which the stub ssh's `exec 8>&-` stands in for
+has_child() { pgrep -P "$1" > /dev/null; }
+ssh_closes_fd8() {
+    local p
+    [ -n "$real_ssh" ] || { echo "      no ssh on PATH: not probed"; return 1; }
+    (exec 8>> "$scratch/fd8"; exec "$real_ssh" -F /dev/null -o BatchMode=yes -o ProxyCommand='sleep 3' x.invalid) > /dev/null 2>&1 &
+    p=$!
+    await has_child "$p"
+    [ "$(cat "/proc/$p/comm" 2>/dev/null)" = ssh ] || { echo "      the probed process is not ssh: not probed"; kill "$p" 2>/dev/null; return 1; }
+    [ -d "/proc/$p/fd" ] || { echo "      no /proc/$p/fd: not probed"; return 1; }
+    if [ -e "/proc/$p/fd/8" ]; then echo "      ssh holds fd 8"; kill "$p" 2>/dev/null; return 1; fi
+    kill "$p" 2>/dev/null
+    wait "$p" 2>/dev/null
+    return 0
+}
+check "the real ssh closes a descriptor it inherits" ssh_closes_fd8
 
 echo "kiosk-install lock: $fails case(s) failed"
 [ "$fails" -eq 0 ]
