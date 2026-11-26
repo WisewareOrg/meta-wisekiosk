@@ -279,7 +279,10 @@ class Network(Part):
         return read_at - (uptime_s - record.restored)
 
     def link(self) -> "Link | str":
-        """Read the board's link once; a read that fails is returned as why, never raised.
+        """Read the board's link once; `iw` exiting non-zero, or output with no tx bitrate, is returned as why.
+
+        A board that does not answer raises one of `Board.ERRORS`, as any read of it does: that is not a
+        link that could not be read.
 
         Returns:
             The link now, or the reason the read failed.
@@ -287,8 +290,8 @@ class Network(Part):
         try:
             lines = self._board.run(_LINK_READ, check=True, timeout=_LINK_READ_TIMEOUT_SECONDS).stdout
             return parse_link("\n".join(lines))
-        except (AssertionError, ValueError, *self._board.ERRORS) as error:
-            return str(error) or type(error).__name__
+        except (AssertionError, ValueError) as error:
+            return str(error)
 
     @staticmethod
     def confirm_link_carries_load(link: "Link | str") -> None:
