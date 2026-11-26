@@ -13,6 +13,11 @@ RequiresMountsFor=/data
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/bin/journalctl --flush
+ExecStartPost=-/usr/bin/kiosk-last-reset
+# The line is appended to the journal file (journalctl --sync), then written to the card (sync).
+ExecStartPost=-/usr/bin/journalctl --sync
+ExecStartPost=-/bin/sync
+ExecStartPost=-/usr/bin/kiosk-journal-vacuum
 
 [Install]
 WantedBy=multi-user.target

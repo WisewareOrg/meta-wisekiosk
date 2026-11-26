@@ -20,6 +20,7 @@ from board.app.inspector import NoPageError
 from board.console import Console
 from board.mouse import Mouse
 from board.network import Network
+from board.part import invalid_if
 from board.screen import Screen
 from board.system import System
 from board.updates import Updates
@@ -427,6 +428,29 @@ class Board:
             The host `time.monotonic()` taken before the crash was sent.
         """
         return self.restart_with("echo c > /proc/sysrq-trigger")
+
+    def starve_watchdog(self) -> float:
+        """Freeze PID 1 so that nothing feeds the hardware watchdog, and reconnect once the board has reset.
+
+        Freezes the cgroup PID 1 alone is in. A detached shell started first thaws it after 60 s, so a
+        watchdog that does not bite leaves the board working. Nothing is written to disk.
+
+        Returns:
+            The host `time.monotonic()` taken before the reset was awaited.
+        """
+        freeze = "/sys/fs/cgroup/init.scope/cgroup.freeze"
+        events = "/sys/fs/cgroup/init.scope/cgroup.events"
+        with invalid_if("PID 1 is not alone in its cgroup"):
+            assert self.run("cat /sys/fs/cgroup/init.scope/cgroup.procs", check=True).stdout == ["1"]
+        self.run(f"setsid sh -c 'sleep 60; echo 0 > {freeze}' < /dev/null > /dev/null 2>&1 &", check=True)
+        state = self.run(
+            f"echo 1 > {freeze}; "
+            f"for i in 1 2 3 4 5; do grep -q 'frozen 1' {events} && break; sleep 1; done; cat {events}",
+            check=True,
+        ).text
+        with invalid_if("PID 1 did not freeze"):
+            assert "frozen 1" in state
+        return self.restart_with("true", within=120)
 
     def cut_power(self) -> float:
         """Cut the board's power through the bench's switched plug, restore it, and reconnect in a new boot.
