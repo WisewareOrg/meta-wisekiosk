@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from board import Board
+from board.network import Link, Radio
 from board_test import BoardTest, case
 
 # what "back" is read as: the instance on the panel; its page served with the browser running; the
@@ -115,15 +116,21 @@ class TestBackOnThePanel(BoardTest):
     def test_sustained_network_load(self) -> None:
         """TST008: load the network; no time off the panel, through the load and after it, may pass 60 s."""
         self.record(requirement="TST008")
+        link = self.board.network.link()
+        self.record(**Link.properties(link))
+        self.board.network.confirm_link_carries_load(link)
         self.board.app.turn_the_inspector_on()
         self.board.app.wait_until_on_panel()
+        radio_before = self.board.network.radio()
 
         with self.board.network.load(seconds=NETWORK_LOAD_SECONDS) as load:
             longest_off_s = self.board.longest_lapse_s(
                 self.board.app.on_panel, over=NETWORK_LOAD_SECONDS + BACK_WITHIN_SECONDS
             )
 
-        self.record(longest_off_s=longest_off_s)
+        radio_after = self.board.network.radio()
+        self.record(longest_off_s=longest_off_s, load_mb_s=round(load.mb_s, 2))
+        self.record(**Radio.properties(radio_before, radio_after))
         assert longest_off_s <= BACK_WITHIN_SECONDS, (
             f"off the panel for {longest_off_s} s; TST008 allows {BACK_WITHIN_SECONDS} s"
         )

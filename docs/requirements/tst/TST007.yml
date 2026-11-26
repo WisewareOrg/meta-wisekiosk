@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_display_blanking_disabled
   path: tests/target_suite/test_back_on_the_panel.py
-  sha: 737ef1cf171e75059a3fa6178eb2c52db4b6af49aa2cd4306ab569ea9ac0b412
+  sha: faaf3295c7d72248a57a3a1aa4dbe2c3bcdc16963814d12fce7e587f45fd688e
   type: file
-reviewed: BzgeTkFwTNMxDArj_iaKjvjW8LrB3Y0nKUxAkl-DCMs=
+reviewed: gL5r09BZXXgRHuTusc8QfCA5Xs8-g4kk5w7xqa-xL-0=
 status: proposed
 text: |
   Read whether anything blanks the panel. Pass if the panel is powered and nothing is set to blank
