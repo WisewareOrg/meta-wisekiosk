@@ -8,14 +8,7 @@
 # and ends and sleeps. The real build-input writers are replaced by stubs; nothing touches the
 # host's hashserv directory, Docker or a real build.
 #
-# Cases are judged by the order of begin and end lines in one log, never by elapsed time. They are:
-# two builds never overlap; a waiter names the holder; a killed holder frees the lock; the exit status
-# is kas-container's; only `shell` with at most one more argument does not take it, and
-# `shell f -c x`, `shell f --command=x` and `shell f -kc x` do; a lock that cannot be opened is an error
-# that names its path; a refused call does not wait; two waiters both name the holder and both run after
-# it; an interrupted waiter never builds; a keyed call makes local/keys as the caller, with the mount still
-# read-only, and an unkeyed call makes nothing; a failed mkdir of local/keys stops before the container
-# and names the path.
+# Cases are judged by the order of begin and end lines in one log, never by elapsed time.
 #
 # TO WATCH THIS FAIL -- before trusting a green run, run it against a scratch copy of the script,
 # one seed each, with KAS_RUN_UNDER_TEST=<copy>:
