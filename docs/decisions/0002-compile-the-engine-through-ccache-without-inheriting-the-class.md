@@ -32,4 +32,8 @@ signatures, so a build through the cache has the same signature as one without i
 
 - The settings follow the pinned poky's `ccache.bbclass` by hand; a poky bump is a reason to re-read it.
 - `CCACHE_DISABLE` and `bitbake -c cleanall` do not reach this cache.
+- One signature names an engine built with the cache or without it, because ccache rewrites the paths it gives the compiler
+  (`CCACHE_BASEDIR`), so the two builds' bytes differ.
+- The design relies on `wpewebkit.inc` putting `ccache-native` in `DEPENDS`; a meta-webkit bump that drops
+  it fails every compile at "ccache: not found".
 - Reopen if the class stops changing signatures, or a full rebuild becomes acceptable.
