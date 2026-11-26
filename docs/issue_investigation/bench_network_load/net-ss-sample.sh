@@ -1,6 +1,6 @@
 #!/bin/bash
 # Host-side, read only: every 2.5 s for <seconds>, the TCP state (ss -ti) of each established
-# connection from this host to <board> port <port>. Run beside a push (A96 step 2 or 4).
+# connection from this host to <board> port <port>. Run beside a push (rule step 2 or 4).
 # Addresses are masked in the output.
 # usage: tst008-ss-sample.sh <board-host-or-ip> <seconds> [port]
 set -u

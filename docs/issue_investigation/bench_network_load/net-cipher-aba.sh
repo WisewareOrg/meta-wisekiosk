@@ -1,5 +1,5 @@
 #!/bin/bash
-# A103: cipher A/B/A on the bench, then today's soak-log lines. Board reads only; nothing written,
+# rule: cipher A/B/A on the bench, then today's soak-log lines. Board reads only; nothing written,
 # started or left running on the board. Output masks addresses and MACs.
 # usage: tst008-cipher-aba.sh <bench-host-or-ip> <out-file>
 set -u
@@ -46,7 +46,7 @@ arm() {  # arm <name> [ssh cipher option...]
 }
 
 {
-    echo "# A103 cipher A/B/A, $(date '+%F %T %Z')"
+    echo "# rule cipher A/B/A, $(date '+%F %T %Z')"
     ssh "${ssh_opts[@]}" "$board" 'grep meta-wisekiosk /etc/buildinfo; cut -d" " -f1 /proc/uptime; cat /proc/sys/kernel/random/boot_id'
     arm A1
     arm B -c aes128-ctr

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Network read steps 1-3 the moment arm A's run is over and no kas container is up (architect via timekeeper); refuses with a run on the bench.
-O=/tmp/claude-1000/-home-tjwise-meta-wisekiosk/78a61228-d84d-4353-990b-bf04f02f1d7b/scratchpad/orch
+O=${ORCH:?operator scratch directory}
 L=$O/netread-chain.log
 say() { echo "$(date +%T) $*" >> $L; }
 until [ -f $O/kccache-A.done ] && [ -z "$(docker ps -q --filter ancestor=ghcr.io/siemens/kas/kas:5.4)" ]; do sleep 3; done

@@ -1,14 +1,14 @@
 #!/bin/bash
-# TST008 control, slot form (K14b, A95): B = other slot (afcbaa3) TST008 once; back to X (e0b3363) TST008 twice. Board only, no kas.
-S=/tmp/claude-1000/-home-tjwise-meta-wisekiosk/78a61228-d84d-4353-990b-bf04f02f1d7b/scratchpad/orch
-D=/home/tjwise/.claude/deliverables/78a61228-d84d-4353-990b-bf04f02f1d7b
+# TST008 control, slot form (rule, rule): B = other slot (afcbaa3) TST008 once; back to X (e0b3363) TST008 twice. Board only, no kas.
+S=${ORCH:?operator scratch directory}
+D=${OUT:?output directory}
 O=$D/tst008-control-reads.txt
 L=$S/ctl-run.log
 SSH="bash $S/ctl-ssh.sh"
 say() { echo "$(date +%T) $*" | tee -a $L >> $O; }
 stop() { say "STOP: $*"; echo "stopped" > $S/ctl-run.done; exit 1; }
 : > $O; : > $L
-tmp=/tmp/claude-1000/ctl-tmp.txt
+tmp=${ORCH:?operator scratch directory}/ctl-tmp.txt
 slot_state() { # label -> sets BOOTED (0|1) , OTHER, prints read; checks good
   bash $S/ctl-slot-read.sh "$1" > $tmp; cat $tmp >> $O
   BOOTED=$(python3 - <<PY
@@ -44,9 +44,9 @@ wait_up() { # wait for ssh and uptime >= 200 s, max 12 min
 tst008() { # label
   bash $S/ctl-net-read.sh "before $1" >> $O
   cd ~/WiseBenchManager
-  ids=$(python3 -c "import sqlite3;c=sqlite3.connect('file:/home/tjwise/WiseBenchManager/records/queue.db?mode=ro',uri=True);print(len(c.execute('select id from queue').fetchall()))")
+  ids=$(python3 -c "import sqlite3;c=sqlite3.connect('file:${BENCH_MANAGER:?bench runner directory}/records/queue.db?mode=ro',uri=True);print(len(c.execute('select id from queue').fetchall()))")
   [ "$ids" = 0 ] || stop "hand queue not empty before $1 ($ids)"
-  .venv/bin/bench test -C /home/tjwise/meta-wisekiosk e0b3363 --skip-build -- -k test_sustained_network_load 2>&1 | tail -1 | tee -a $L >> $O
+  .venv/bin/bench test -C ${REPO:?this repository checkout} e0b3363 --skip-build -- -k test_sustained_network_load 2>&1 | tail -1 | tee -a $L >> $O
   systemctl --user start --no-block bench-run.service; sleep 5
   while [ "$(systemctl --user is-active bench-run.service)" = activating ] || [ "$(systemctl --user is-active bench-run.service)" = active ]; do sleep 3; done
   R=$(ls -td ~/WiseBenchManager/records/2026* | head -1)
