@@ -16,9 +16,23 @@
 # lock; two names for one address meet, another address does not, and a name that does not resolve is keyed
 # as typed (user stripped).
 #
+# HOME is a scratch directory. On a failure the scratch directory is kept and named, each failed check prints
+# what it ran and the log, and every call's output and exit status is printed.
+#
 # TO WATCH THIS FAIL, with KIOSK_INSTALL_UNDER_TEST=<a copy of the script with one seed>; each prints these
 # lines and ends within the guard's bound (a call that must be refused is bounded at 5 s):
 #   * make the `flock -n 8` condition always false: "a second call is refused and names the holder"
+#   * make the refusal `exit 0`: "a second call is refused and names the holder"
+#   * end main with `exit 3`: "the first call ends normally"
+#   * delete `capturing=0` in stop_capture, so the cleanup disarms again: "the first call disarmed its
+#     recorders once"
+#   * key the lock on one name for every board (/tmp/kiosk-install-shared-$TAGNAME.lock): the run stops at
+#     "never reached: reached 3 docker run"
+#   * keep the user in board_address (`local name=$1`): "a name that does not resolve is keyed with the user
+#     stripped"
+#   * start `setsid sleep 30 &` after the lock is taken, so a process outside the install's group keeps the
+#     descriptor: the run stops at "never reached: reached 6 docker run"
+#   * move the lock block to just before `trap cleanup EXIT`: each "reached nothing but ssh -G"
 #   * delete `exec 8>&-` in stream(): the run stops at "never reached: reached 10 docker run"
 #   * leave out `exec` before the stream's ssh: "after the script ends none of its streaming ssh is left"
 #   * key the lock on "$host" as typed: "a name that ssh -G maps to the board's own meets its lock" and
@@ -35,16 +49,23 @@ shipped=${KIOSK_INSTALL_UNDER_TEST:-$root/tools/kiosk-install.sh}
 scratch=$(mktemp -d)
 tag=lt$$
 cleanup() {
-    local f
+    local rc=$? f
     jobs -p | xargs -r kill -9 2>/dev/null
     for f in "$scratch"/pg.*; do kill -9 -- "-$(cat "$f")" 2>/dev/null; done
     rm -f /tmp/kiosk-install-*"$tag"*.lock /tmp/kiosk-install-ADDR-*"$tag"*.lock
-    rm -rf "$scratch"
+    if [ "$rc" -eq 0 ]; then
+        rm -rf "$scratch"
+        return
+    fi
+    for f in "$scratch"/out.*; do
+        [ -e "$f" ] && { echo "--- ${f##*/}, exit $(cat "$scratch/rc.${f##*.}" 2>/dev/null || echo none)"; cat "$f"; }
+    done
+    echo "kiosk-install lock: scratch kept at $scratch"
 }
 trap cleanup EXIT
 trap 'exit 143' TERM
-mkdir -p "$scratch/co/tools" "$scratch/bin" "$scratch/state"
-export LOG=$scratch/log STATE=$scratch/state RELEASE=$scratch/release
+mkdir -p "$scratch/co/tools" "$scratch/bin" "$scratch/state" "$scratch/home"
+export HOME=$scratch/home LOG=$scratch/log STATE=$scratch/state RELEASE=$scratch/release
 : > "$LOG"
 cp "$shipped" "$scratch/co/tools/kiosk-install.sh"
 printf '#!/bin/sh\nexit 0\n' > "$scratch/co/tools/reproducibility-gate.sh"
@@ -96,13 +117,25 @@ chmod +x "$scratch/bin/"*
 export PATH=$scratch/bin:$PATH TAGNAME=$tag
 
 fails=0
-check() { local name=$1; shift; if "$@"; then echo "ok    $name"; else echo "FAIL  $name"; fails=$((fails + 1)); fi; }
+check() { # name, then the command that must succeed
+    local name=$1
+    shift
+    if "$@"; then
+        echo "ok    $name"
+    else
+        echo "FAIL  $name"
+        echo "      ran: $*"
+        sed 's/^/      log: /' "$LOG"
+        fails=$((fails + 1))
+    fi
+}
 not() { ! "$@"; }
 reached() { grep -q "^$1 $2" "$LOG"; }
 await() {
     local _
     for _ in $(seq 1 150); do "$@" && return 0; sleep 0.1; done
     echo "FAIL  never reached: $*"
+    sed 's/^/      log: /' "$LOG"
     exit 1
 }
 install() { # call-id host: one install in the background, in a session of its own, its output in out.<id>
