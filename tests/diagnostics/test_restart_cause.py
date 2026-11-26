@@ -2,15 +2,15 @@
 
 Resets the board four ways, in this order: a power cut, a restart, a kernel panic and a watchdog
 bite. After each it reads the `kiosk-last-reset` line that `kiosk-journal-flush.service` prints in the new
-boot (`last reset rsts=<status> console=<how the previous console ended>`). After the bite, the
-kernel messages of all four boots, read by boot id, must contain the kernel's `Linux version` line, which a
-journal at its cap loses with the boot's first seconds. Then the `kiosk-last-reset` lines of the
-three boots before the last, read by boot id, must each equal what was read in that boot; the running boot's line carries
-a time within a day of the board's clock. `rsts` is recorded and judged
-by its watchdog-full-reset bit, which separates the cut from the three resets that follow it: clear after the
-cut, set after the restart, the panic and the bite. The power-on bit is asserted after the cut and only
-recorded after the others, since the power-on flag may stay set through the next warm reset. `console` is
-asserted, and the bite is the only one among restart, panic and bite whose console read silent.
+boot (`last reset rsts=<status> console=<how the previous console ended>`). After the bite, the kernel
+messages of all four boots, read by boot id, must contain the kernel's `Linux version` line, which a journal
+at its cap loses with the boot's first seconds. Then the `kiosk-last-reset` lines of the three boots before
+the last, read by boot id, must each equal what was read in that boot; the running boot's line carries a time
+within a day of the board's clock. `rsts` is recorded and judged by its watchdog-full-reset bit, which
+separates the cut from the three resets that follow it: clear after the cut, set after the restart, the
+panic and the bite. The power-on bit is asserted after the cut and only recorded after the others, since the
+power-on flag may stay set through the next warm reset. `console` is asserted, and the bite is the only one
+among restart, panic and bite whose console read silent.
 
 The bite freezes PID 1's cgroup, so nothing feeds the 14 s hardware watchdog; if it does not bite, a
 detached shell thaws the cgroup after 60 s. Nothing is written to disk. Bench only.
