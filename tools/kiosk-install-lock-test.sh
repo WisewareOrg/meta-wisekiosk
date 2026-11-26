@@ -8,16 +8,8 @@
 # `rauc install` until the test releases it, and leaves the streaming commands sleeping. Cases are judged from
 # a log of what each call reached, and from polls that are bounded; nothing is judged by elapsed time.
 #
-# Cases: a second call to one board is refused before any ssh and names the holder; the first ends normally; a
-# call to another board goes on; the lock is free after the first ends or is killed whole; a script killed alone
-# frees the lock at once although its streaming ssh sessions live on (rauc goes on installing, and a later call is
-# refused by rauc only, after its arming; the real ssh closes the descriptor, so the lock cannot outlive the
-# script); no streaming ssh is left after a normal end; callers with different XDG_RUNTIME_DIR meet on one
-# lock; two names for one address meet, another address does not, and a name that does not resolve is keyed
-# as typed (user stripped).
-#
 # TO WATCH THIS FAIL, with KIOSK_INSTALL_UNDER_TEST=<a copy of the script with one seed>; each prints these
-# lines and ends within guard 25's 60 s (a call that must be refused is bounded at 5 s):
+# lines and ends within the timeout tools/ci-guards.sh gives this test (a call that must be refused is bounded at 5 s):
 #   * make the `flock -n 8` condition always false: "a second call is refused and names the holder"
 #   * delete `exec 8>&-` in stream(): the run stops at "never reached: reached 10 docker run"
 #   * leave out `exec` before the stream's ssh: "after the script ends none of its streaming ssh is left"
