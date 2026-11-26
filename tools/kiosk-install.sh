@@ -37,11 +37,9 @@
 # --check-only BEFORE AFTER runs target_activated directly against two
 # fw_printenv/rauc-status blocks, with no ssh and no device.
 #
-# Exit: 0 installed and the target slot activated, or --check-only passed;
-# 1 no bundle at the path, the gate failed, another install holds the board,
-# the bundle server did not start, rauc refused or failed the install, the
-# target slot did not activate, or --check-only failed; 2 no host or no bundle given. An ssh or rauc command
-# that fails outright exits with that command's own status (e.g. 255).
+# Exit: 0 installed and the target slot activated, or --check-only passed; 2 no
+# host or no bundle given; an ssh or rauc command that fails outright, its own
+# status (e.g. 255); 1 any other failure.
 set -euo pipefail
 
 usage() {
