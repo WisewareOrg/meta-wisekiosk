@@ -11,7 +11,7 @@
 # TO WATCH THIS FAIL, with KIOSK_INSTALL_UNDER_TEST=<a copy of the script with one seed>; each prints these
 # lines and ends within the timeout tools/ci-guards.sh gives this test (a call that must be refused is bounded at 5 s):
 #   * make the `flock -n 8` condition always false: "a second call is refused and names the holder"
-#   * delete `exec 8>&-` in stream(): the run stops at "never reached: reached 10 docker run"
+#   * delete `exec 8>&-` in stream(): the run stops at "never reached: reached 12 docker run"
 #   * leave out `exec` before the stream's ssh: "after the script ends none of its streaming ssh is left"
 #   * key the lock on "$host" as typed: "a name that ssh -G maps to the board's own meets its lock" and
 #     "a name that only getent maps to the board's address meets its lock"

@@ -14,6 +14,7 @@
 # one seed each, with KAS_RUN_UNDER_TEST=<copy>:
 #   * delete the `flock -n 9 || …` line in the lock block: "builds never overlap"
 #   * drop `|| [ "$#" -gt 2 ]` from the lock condition: the three "shell <config> ... takes the lock" cases
+#   * run kas-container without `exec` and end with `exit 0`: "the exit status is kas-container's" and "the waiter's exit status is kas-container's"
 #   * make the lock block run for every verb: "interactive shell does not wait"
 #   * move the lock block above the --runtime-args refusal: "refusal does not wait"
 #   * delete `mkdir -p local/keys`: "a keyed call makes local/keys"
@@ -204,7 +205,10 @@ check "two waiters both name the holder and both run after it" both_wait_and_run
 # 9. an interrupted waiter never runs kas-container (TERM: a caller without job control ignores INT)
 : > "$log"
 hold
-(cd "$scratch/two" && TAG=B timeout -s TERM 1 tools/kas-run.sh build b.yaml > /dev/null 2>&1)
+(cd "$scratch/two" && TAG=B exec timeout -s TERM 30 tools/kas-run.sh build b.yaml > "$scratch/b10.out" 2>&1) &
+waiter=$!
+for _ in $(seq 1 100); do grep -q "waiting for another kas build" "$scratch/b10.out" 2>/dev/null && break; sleep 0.1; done
+kill -TERM "$waiter"
 let_go
 check "an interrupted waiter never builds" not has "begin B"
 
