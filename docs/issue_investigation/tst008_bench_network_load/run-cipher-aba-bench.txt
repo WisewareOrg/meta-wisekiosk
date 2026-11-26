@@ -1,0 +1,406 @@
+== overlap (bench-op-2): before: 20:51:02 K-ccache fill: k4q.log: 20:46:09 START Afill; kas containers up: 1; Afill log last task: linux-raspberrypi_6.12.bb:do_compile)
+== overlap (bench-op-2): after:  20:52:13 K-ccache fill: k4q.log: 20:46:09 START Afill; kas containers up: 1; Afill log last task: linux-raspberrypi_6.12.bb:do_compile)
+== script rc 0
+# A103 cipher A/B/A, 2026-11-25 20:51:02 EST
+Warning: Permanently added '<addr>' (ED25519) to the list of known hosts.
+meta-wisekiosk    = HEAD:6a34d6face9bb37d53f2032bb52b606f2af19bfb
+2110.69
+bd6100c0-6c8d-4de7-8696-807c7c87607d
+== 20:51:03.459 arm A1: push 30000000 B into wc -c (default cipher)
+beside: kind_jackson; host load 12.05 7.78 7.07
+-- station before
+Warning: Permanently added '<addr>' (ED25519) to the list of known hosts.
+	rx bytes:	68067628
+	rx packets:	55438
+	tx packets:	34249
+	tx failed:	61
+	signal:  	-56 dBm
+	tx bitrate:	6.5 MBit/s
+	rx bitrate:	13.0 MBit/s
+1.00 1.54 1.34 3/122 1366
+Warning: Permanently added '<addr>' (ED25519) to the list of known hosts.
+-- counted '30000000' (valid only if 30000000)
+-- push wall 17.0 s, 1.769 MB/s (10^6 B)
+-- station after
+Warning: Permanently added '<addr>' (ED25519) to the list of known hosts.
+	rx bytes:	101343971
+	rx packets:	77011
+	tx packets:	36289
+	tx failed:	72
+	signal:  	-57 dBm
+	tx bitrate:	14.4 MBit/s
+	rx bitrate:	39.0 MBit/s
+1.78 1.69 1.39 3/122 1385
+-- board top (all processes)
+Warning: Permanently added '<addr>' (ED25519) to the list of known hosts.
+Mem: 261876K used, 173828K free, 532K shrd, 6720K buff, 150424K cached
+CPU:  17% usr  76% sys   0% nic   0% idle   0% io   0% irq   5% sirq
+Load average: 1.00 1.54 1.34 9/126 1377
+  PID  PPID USER     STAT   VSZ %VSZ %CPU COMMAND
+  227     2 root     IW<      0   0%  29% [kworker/u5:1-br]
+ 1371     1 root     R     7808   2%  24% sshd: root@notty
+  335   273 root     R     271m  64%  12% /usr/libexec/wpe-webkit-2.0/WPEWebProcess 4 17
+ 1376  1375 root     R     2932   1%  12% top -b -n 4 -d 5
+ 1031     2 root     RW       0   0%  12% [kworker/0:3+eve]
+ 1374  1371 root     S     2932   1%   6% wc -c
+    8     2 root     IW       0   0%   6% [kworker/0:1-eve]
+  262     1 kiosk    S     559m 131%   0% /usr/bin/wisekiosk -static-root /srv/kiosk
+-- ss during arm A1
+== 20:51:04.637
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+== 20:51:07.178
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+== 20:51:09.735
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+== 20:51:12.283
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+== 20:51:14.831
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+== 20:51:17.360
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+== 20:51:19.884
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+beside: kind_jackson; host load 10.08 7.63 7.03
+== 20:51:22.637 arm B: push 30000000 B into wc -c -c aes128-ctr
+beside: kind_jackson; host load 10.08 7.63 7.03
+-- station before
+Warning: Permanently added '<addr>' (ED25519) to the list of known hosts.
+	rx bytes:	101349917
+	rx packets:	77033
+	tx packets:	36313
+	tx failed:	72
+	signal:  	-56 dBm
+	tx bitrate:	19.5 MBit/s
+	rx bitrate:	39.0 MBit/s
+1.78 1.69 1.39 1/122 1392
+Warning: Permanently added '<addr>' (ED25519) to the list of known hosts.
+-- counted '30000000' (valid only if 30000000)
+-- push wall 18.0 s, 1.670 MB/s (10^6 B)
+-- station after
+Warning: Permanently added '<addr>' (ED25519) to the list of known hosts.
+	rx bytes:	134667829
+	rx packets:	98702
+	tx packets:	38858
+	tx failed:	82
+	signal:  	-56 dBm
+	tx bitrate:	26.0 MBit/s
+	rx bitrate:	58.5 MBit/s
+2.56 1.87 1.46 1/122 1411
+-- board top (all processes)
+Warning: Permanently added '<addr>' (ED25519) to the list of known hosts.
+Mem: 260944K used, 174760K free, 532K shrd, 6736K buff, 150424K cached
+CPU:  56% usr  31% sys   0% nic   0% idle   0% io   0% irq  12% sirq
+Load average: 1.78 1.69 1.39 4/126 1403
+  PID  PPID USER     STAT   VSZ %VSZ %CPU COMMAND
+ 1397     1 root     R     7684   2%  25% sshd: root@notty
+  227     2 root     RW<      0   0%  25% [kworker/u5:1+br]
+  335   273 root     S     271m  64%  19% /usr/libexec/wpe-webkit-2.0/WPEWebProcess 4 17
+ 1401  1400 root     R     2932   1%   6% top -b -n 4 -d 5
+    8     2 root     RW       0   0%   6% [kworker/0:1-eve]
+  262     1 kiosk    S     559m 131%   0% /usr/bin/wisekiosk -static-root /srv/kiosk
+  273     1 root     S     204m  48%   0% /usr/bin/kiosk-browser http://localhost:8080
+  319   273 root     S     162m  38%   0% /usr/libexec/wpe-webkit-2.0/WPENetworkProcess 1 6
+-- ss during arm B
+== 20:51:23.550
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+== 20:51:26.099
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+== 20:51:28.623
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+== 20:51:31.157
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+== 20:51:33.698
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+== 20:51:36.229
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+== 20:51:38.755
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+== 20:51:41.285
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+beside: kind_jackson; host load 7.80 7.26 6.93
+== 20:51:42.516 arm A2: push 30000000 B into wc -c (default cipher)
+beside: kind_jackson; host load 7.80 7.26 6.93
+-- station before
+Warning: Permanently added '<addr>' (ED25519) to the list of known hosts.
+	rx bytes:	134673681
+	rx packets:	98723
+	tx packets:	38879
+	tx failed:	82
+	signal:  	-60 dBm
+	tx bitrate:	28.8 MBit/s
+	rx bitrate:	58.5 MBit/s
+2.56 1.87 1.46 1/122 1418
+Warning: Permanently added '<addr>' (ED25519) to the list of known hosts.
+-- counted '30000000' (valid only if 30000000)
+-- push wall 12.8 s, 2.339 MB/s (10^6 B)
+-- station after
+Warning: Permanently added '<addr>' (ED25519) to the list of known hosts.
+	rx bytes:	168126595
+	rx packets:	120386
+	tx packets:	40627
+	tx failed:	83
+	signal:  	-56 dBm
+	tx bitrate:	52.0 MBit/s
+	rx bitrate:	39.0 MBit/s
+2.40 1.86 1.46 1/122 1437
+-- board top (all processes)
+Warning: Permanently added '<addr>' (ED25519) to the list of known hosts.
+Mem: 261076K used, 174628K free, 532K shrd, 6752K buff, 150424K cached
+CPU:  35% usr  58% sys   0% nic   5% idle   0% io   0% irq   0% sirq
+Load average: 2.56 1.87 1.46 4/126 1429
+  PID  PPID USER     STAT   VSZ %VSZ %CPU COMMAND
+ 1423     1 root     R     7688   2%  25% sshd: root@notty
+  227     2 root     IW<      0   0%  25% [kworker/u5:1-br]
+ 1427  1423 root     R     2932   1%  15% wc -c
+ 1428  1426 root     R     2932   1%  15% top -b -n 4 -d 5
+  335   273 root     S     271m  64%   5% /usr/libexec/wpe-webkit-2.0/WPEWebProcess 4 17
+  273     1 root     S     204m  48%   5% /usr/bin/kiosk-browser http://localhost:8080
+ 1031     2 root     IW       0   0%   5% [kworker/0:3-eve]
+  262     1 kiosk    S     559m 131%   0% /usr/bin/wisekiosk -static-root /srv/kiosk
+-- ss during arm A2
+== 20:51:43.416
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+== 20:51:45.940
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+== 20:51:48.465
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+== 20:51:50.989
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+== 20:51:53.511
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+== 20:51:56.054
+Error: an inet prefix is expected rather than "root@<addr>".
+Cannot parse dst/src address.
+beside: kind_jackson; host load 6.68 7.04 6.86
+== 20:51:56.930 soak log, lines since 1795582800
+Warning: Permanently added '<addr>' (ED25519) to the list of known hosts.
+ts=1795583057 iso=2026-11-25T00:04:17-0500 boot=69a913be up=4814 load1=0.69 load5=0.75 load15=0.85 temp=40.1 thr=unknown memused=95 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=537 nproc=3 rss_main=37728 rss_total=162824
+ts=1795583358 iso=2026-11-25T00:09:18-0500 boot=69a913be up=5115 load1=0.60 load5=0.67 load15=0.79 temp=41.7 thr=unknown memused=94 memavail=305 ent=256 disk=13 browser=kiosk-browser pid=537 nproc=3 rss_main=37728 rss_total=163176
+ts=1795583659 iso=2026-11-25T00:14:19-0500 boot=69a913be up=5415 load1=0.28 load5=0.55 load15=0.71 temp=40.6 thr=unknown memused=95 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=537 nproc=3 rss_main=37728 rss_total=163112
+ts=1795583960 iso=2026-11-25T00:19:20-0500 boot=69a913be up=5716 load1=0.31 load5=0.36 load15=0.58 temp=41.2 thr=unknown memused=94 memavail=305 ent=256 disk=13 browser=kiosk-browser pid=537 nproc=3 rss_main=37808 rss_total=163192
+ts=1795584261 iso=2026-11-25T00:24:21-0500 boot=69a913be up=6017 load1=1.26 load5=0.52 load15=0.55 temp=40.6 thr=unknown memused=95 memavail=305 ent=256 disk=13 browser=kiosk-browser pid=537 nproc=3 rss_main=37808 rss_total=163192
+ts=1795584561 iso=2026-11-25T00:29:21-0500 boot=69a913be up=6318 load1=0.34 load5=0.50 load15=0.55 temp=41.7 thr=unknown memused=95 memavail=305 ent=256 disk=13 browser=kiosk-browser pid=537 nproc=3 rss_main=37808 rss_total=163292
+ts=1795584862 iso=2026-11-25T00:34:22-0500 boot=69a913be up=6618 load1=0.39 load5=0.43 load15=0.51 temp=41.2 thr=unknown memused=94 memavail=305 ent=256 disk=13 browser=kiosk-browser pid=537 nproc=3 rss_main=37808 rss_total=163416
+ts=1795585163 iso=2026-11-25T00:39:23-0500 boot=69a913be up=6919 load1=0.86 load5=0.45 load15=0.48 temp=33.1 thr=unknown memused=94 memavail=305 ent=256 disk=13 browser=kiosk-browser pid=537 nproc=3 rss_main=37808 rss_total=163416
+ts=1795585464 iso=2026-11-25T00:44:24-0500 boot=69a913be up=7220 load1=1.45 load5=0.61 load15=0.51 temp=32.6 thr=unknown memused=95 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=537 nproc=3 rss_main=37808 rss_total=163668
+ts=1795585765 iso=2026-11-25T00:49:25-0500 boot=69a913be up=7521 load1=0.69 load5=0.45 load15=0.45 temp=32.6 thr=unknown memused=95 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=537 nproc=3 rss_main=37808 rss_total=163668
+ts=1795586066 iso=2026-11-25T00:54:26-0500 boot=69a913be up=7822 load1=0.60 load5=0.52 load15=0.47 temp=31.5 thr=unknown memused=94 memavail=305 ent=256 disk=13 browser=kiosk-browser pid=537 nproc=3 rss_main=37808 rss_total=163668
+ts=1795586366 iso=2026-11-25T00:59:26-0500 boot=69a913be up=8123 load1=0.21 load5=0.37 load15=0.43 temp=31.5 thr=unknown memused=95 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=537 nproc=3 rss_main=37808 rss_total=163668
+ts=1795586667 iso=2026-11-25T01:04:27-0500 boot=69a913be up=8423 load1=1.07 load5=0.49 load15=0.44 temp=36.9 thr=unknown memused=96 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=537 nproc=3 rss_main=37808 rss_total=163692
+ts=1795586968 iso=2026-11-25T01:09:28-0500 boot=69a913be up=8724 load1=1.15 load5=0.57 load15=0.46 temp=38.5 thr=unknown memused=95 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=537 nproc=3 rss_main=37808 rss_total=163692
+ts=1795587270 iso=2026-11-25T01:14:30-0500 boot=69a913be up=9026 load1=0.10 load5=0.30 load15=0.36 temp=40.6 thr=unknown memused=94 memavail=305 ent=256 disk=13 browser=kiosk-browser pid=537 nproc=3 rss_main=37808 rss_total=163692
+ts=1795587570 iso=2026-11-25T01:19:30-0500 boot=69a913be up=9327 load1=0.61 load5=0.41 load15=0.39 temp=40.1 thr=unknown memused=95 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=537 nproc=3 rss_main=37808 rss_total=163892
+ts=1795587871 iso=2026-11-25T01:24:31-0500 boot=69a913be up=9627 load1=0.16 load5=0.22 load15=0.30 temp=40.6 thr=unknown memused=96 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=537 nproc=3 rss_main=37808 rss_total=163892
+ts=1795588865 iso=2026-11-25T01:41:05-0500 boot=385486b9 up=306 load1=4.50 load5=2.15 load15=0.93 temp=46.5 thr=unknown memused=98 memavail=301 ent=256 disk=13 browser=kiosk-browser pid=1514 nproc=3 rss_main=38900 rss_total=161204
+ts=1795589311 iso=2026-11-25T01:48:31-0500 boot=d9c1e15a up=304 load1=1.11 load5=1.28 load15=0.63 temp=43.3 thr=unknown memused=83 memavail=314 ent=256 disk=13 browser=kiosk-browser pid=1085 nproc=3 rss_main=33132 rss_total=124576
+ts=1795589611 iso=2026-11-25T01:53:31-0500 boot=d9c1e15a up=604 load1=2.26 load5=2.00 load15=1.14 temp=48.2 thr=unknown memused=96 memavail=302 ent=256 disk=13 browser=kiosk-browser pid=2767 nproc=3 rss_main=38440 rss_total=165396
+ts=1795589912 iso=2026-11-25T01:58:32-0500 boot=d9c1e15a up=905 load1=2.83 load5=2.50 load15=1.60 temp=48.7 thr=unknown memused=96 memavail=302 ent=256 disk=13 browser=kiosk-browser pid=2767 nproc=3 rss_main=38652 rss_total=165704
+ts=1795590213 iso=2026-11-25T02:03:33-0500 boot=d9c1e15a up=1206 load1=2.87 load5=2.77 load15=1.97 temp=49.2 thr=unknown memused=97 memavail=302 ent=256 disk=13 browser=kiosk-browser pid=2767 nproc=3 rss_main=38652 rss_total=165932
+ts=1795590513 iso=2026-11-25T02:08:33-0500 boot=d9c1e15a up=1506 load1=2.53 load5=2.72 load15=2.19 temp=39.0 thr=unknown memused=97 memavail=301 ent=256 disk=13 browser=kiosk-browser pid=2767 nproc=3 rss_main=38648 rss_total=165912
+ts=1795590814 iso=2026-11-25T02:13:34-0500 boot=d9c1e15a up=1807 load1=2.99 load5=2.64 load15=2.28 temp=38.5 thr=unknown memused=97 memavail=301 ent=256 disk=13 browser=kiosk-browser pid=2767 nproc=3 rss_main=38648 rss_total=166024
+ts=1795591114 iso=2026-11-25T02:18:34-0500 boot=d9c1e15a up=2107 load1=2.39 load5=2.51 load15=2.31 temp=36.9 thr=unknown memused=96 memavail=302 ent=256 disk=13 browser=kiosk-browser pid=2767 nproc=3 rss_main=38652 rss_total=166032
+ts=1795591416 iso=2026-11-25T02:23:36-0500 boot=d9c1e15a up=2409 load1=2.20 load5=2.56 load15=2.42 temp=36.9 thr=unknown memused=98 memavail=301 ent=256 disk=13 browser=kiosk-browser pid=3783 nproc=3 rss_main=38860 rss_total=165952
+ts=1795591901 iso=2026-11-25T02:31:41-0500 boot=5e56c85a up=301 load1=1.85 load5=1.48 load15=0.68 temp=36.3 thr=unknown memused=95 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1493 nproc=3 rss_main=38800 rss_total=162860
+ts=1795594201 iso=2026-11-25T03:10:01-0500 boot=b5a902d7 up=302 load1=2.66 load5=1.80 load15=0.81 temp=45.5 thr=unknown memused=90 memavail=309 ent=256 disk=13 browser=kiosk-browser pid=1571 nproc=3 rss_main=37440 rss_total=158596
+ts=1795594502 iso=2026-11-25T03:15:02-0500 boot=b5a902d7 up=602 load1=1.02 load5=1.04 load15=0.73 temp=42.8 thr=unknown memused=95 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1571 nproc=3 rss_main=37496 rss_total=161932
+ts=1795594804 iso=2026-11-25T03:20:04-0500 boot=b5a902d7 up=904 load1=0.84 load5=0.93 load15=0.76 temp=40.6 thr=unknown memused=95 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1571 nproc=3 rss_main=37708 rss_total=162788
+ts=1795595105 iso=2026-11-25T03:25:06-0500 boot=b5a902d7 up=1206 load1=2.79 load5=1.45 load15=0.98 temp=44.4 thr=unknown memused=100 memavail=299 ent=256 disk=13 browser=kiosk-browser pid=1571 nproc=3 rss_main=37708 rss_total=163120
+ts=1795595419 iso=2026-11-25T03:30:19-0500 boot=ba10b6ee up=301 load1=0.49 load5=0.54 load15=0.28 temp=33.1 thr=unknown memused=89 memavail=310 ent=256 disk=13 browser=kiosk-browser pid=281 nproc=3 rss_main=36784 rss_total=157572
+ts=1795595720 iso=2026-11-25T03:35:20-0500 boot=ba10b6ee up=601 load1=0.45 load5=0.39 load15=0.29 temp=32.6 thr=unknown memused=89 memavail=310 ent=256 disk=13 browser=kiosk-browser pid=281 nproc=3 rss_main=36940 rss_total=157860
+ts=1795596021 iso=2026-11-25T03:40:21-0500 boot=ba10b6ee up=902 load1=0.45 load5=0.33 load15=0.28 temp=32.0 thr=unknown memused=93 memavail=306 ent=256 disk=13 browser=kiosk-browser pid=281 nproc=3 rss_main=36948 rss_total=161128
+ts=1795596884 iso=2026-11-25T03:54:44-0500 boot=6fe4390d up=302 load1=1.15 load5=1.45 load15=0.72 temp=40.1 thr=unknown memused=93 memavail=306 ent=256 disk=13 browser=kiosk-browser pid=1442 nproc=3 rss_main=37520 rss_total=157612
+ts=1795597184 iso=2026-11-25T03:59:44-0500 boot=6fe4390d up=602 load1=0.50 load5=0.88 load15=0.69 temp=40.1 thr=unknown memused=89 memavail=309 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37580 rss_total=159140
+ts=1795597484 iso=2026-11-25T04:04:44-0500 boot=6fe4390d up=902 load1=0.33 load5=0.56 load15=0.61 temp=37.9 thr=unknown memused=90 memavail=308 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37664 rss_total=158860
+ts=1795597784 iso=2026-11-25T04:09:44-0500 boot=6fe4390d up=1203 load1=0.44 load5=0.47 load15=0.54 temp=39.5 thr=unknown memused=89 memavail=309 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37664 rss_total=159456
+ts=1795598086 iso=2026-11-25T04:14:46-0500 boot=6fe4390d up=1504 load1=0.23 load5=0.36 load15=0.47 temp=40.6 thr=unknown memused=93 memavail=305 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37620 rss_total=162344
+ts=1795598387 iso=2026-11-25T04:19:47-0500 boot=6fe4390d up=1805 load1=0.18 load5=0.28 load15=0.41 temp=40.6 thr=unknown memused=93 memavail=305 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37612 rss_total=162476
+ts=1795598687 iso=2026-11-25T04:24:47-0500 boot=6fe4390d up=2105 load1=0.78 load5=0.43 load15=0.42 temp=40.1 thr=unknown memused=94 memavail=305 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37616 rss_total=162484
+ts=1795598988 iso=2026-11-25T04:29:48-0500 boot=6fe4390d up=2406 load1=0.22 load5=0.28 load15=0.35 temp=40.6 thr=unknown memused=93 memavail=305 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37616 rss_total=162640
+ts=1795599289 iso=2026-11-25T04:34:49-0500 boot=6fe4390d up=2707 load1=0.17 load5=0.28 load15=0.34 temp=41.2 thr=unknown memused=93 memavail=305 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37616 rss_total=162728
+ts=1795599589 iso=2026-11-25T04:39:50-0500 boot=6fe4390d up=3008 load1=0.54 load5=0.35 load15=0.34 temp=41.2 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37616 rss_total=162728
+ts=1795599890 iso=2026-11-25T04:44:50-0500 boot=6fe4390d up=3309 load1=0.52 load5=0.57 load15=0.45 temp=41.2 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37616 rss_total=162936
+ts=1795600191 iso=2026-11-25T04:49:51-0500 boot=6fe4390d up=3610 load1=0.27 load5=0.43 load15=0.42 temp=35.8 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37620 rss_total=162940
+ts=1795600492 iso=2026-11-25T04:54:52-0500 boot=6fe4390d up=3910 load1=0.16 load5=0.29 load15=0.36 temp=32.6 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37620 rss_total=162944
+ts=1795600792 iso=2026-11-25T04:59:52-0500 boot=6fe4390d up=4211 load1=0.41 load5=0.37 load15=0.37 temp=32.6 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37620 rss_total=162956
+ts=1795601093 iso=2026-11-25T05:04:53-0500 boot=6fe4390d up=4512 load1=0.38 load5=0.54 load15=0.45 temp=32.0 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37620 rss_total=162988
+ts=1795601394 iso=2026-11-25T05:09:54-0500 boot=6fe4390d up=4813 load1=0.15 load5=0.30 load15=0.37 temp=31.5 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37624 rss_total=162992
+ts=1795601696 iso=2026-11-25T05:14:56-0500 boot=6fe4390d up=5114 load1=0.97 load5=0.55 load15=0.45 temp=30.9 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37624 rss_total=163168
+ts=1795601997 iso=2026-11-25T05:19:57-0500 boot=6fe4390d up=5415 load1=0.38 load5=0.38 load15=0.40 temp=34.7 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37624 rss_total=163168
+ts=1795602297 iso=2026-11-25T05:24:57-0500 boot=6fe4390d up=5715 load1=0.18 load5=0.36 load15=0.40 temp=39.0 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37624 rss_total=163168
+ts=1795602597 iso=2026-11-25T05:29:58-0500 boot=6fe4390d up=6016 load1=0.22 load5=0.24 load15=0.33 temp=39.0 thr=unknown memused=93 memavail=305 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163184
+ts=1795602898 iso=2026-11-25T05:34:58-0500 boot=6fe4390d up=6317 load1=0.82 load5=0.50 load15=0.41 temp=39.5 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163184
+ts=1795603200 iso=2026-11-25T05:40:00-0500 boot=6fe4390d up=6618 load1=0.74 load5=0.69 load15=0.53 temp=40.1 thr=unknown memused=93 memavail=305 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163188
+ts=1795603501 iso=2026-11-25T05:45:01-0500 boot=6fe4390d up=6919 load1=0.48 load5=0.52 load15=0.49 temp=40.1 thr=unknown memused=94 memavail=305 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163124
+ts=1795603801 iso=2026-11-25T05:50:01-0500 boot=6fe4390d up=7220 load1=0.60 load5=0.48 load15=0.47 temp=40.6 thr=unknown memused=93 memavail=305 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163124
+ts=1795604102 iso=2026-11-25T05:55:02-0500 boot=6fe4390d up=7520 load1=0.43 load5=0.43 load15=0.45 temp=40.6 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163224
+ts=1795604402 iso=2026-11-25T06:00:02-0500 boot=6fe4390d up=7821 load1=0.75 load5=0.47 load15=0.44 temp=40.6 thr=unknown memused=93 memavail=305 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163224
+ts=1795604703 iso=2026-11-25T06:05:03-0500 boot=6fe4390d up=8122 load1=0.47 load5=0.39 load15=0.40 temp=41.2 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163224
+ts=1795605005 iso=2026-11-25T06:10:05-0500 boot=6fe4390d up=8423 load1=0.19 load5=0.30 load15=0.35 temp=40.6 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163228
+ts=1795605305 iso=2026-11-25T06:15:06-0500 boot=6fe4390d up=8724 load1=0.44 load5=0.31 load15=0.33 temp=40.6 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163232
+ts=1795605607 iso=2026-11-25T06:20:07-0500 boot=6fe4390d up=9025 load1=0.65 load5=0.41 load15=0.36 temp=41.2 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163348
+ts=1795605907 iso=2026-11-25T06:25:07-0500 boot=6fe4390d up=9325 load1=0.90 load5=0.64 load15=0.47 temp=41.2 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163348
+ts=1795606207 iso=2026-11-25T06:30:07-0500 boot=6fe4390d up=9626 load1=1.10 load5=0.92 load15=0.63 temp=41.2 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163348
+ts=1795606508 iso=2026-11-25T06:35:09-0500 boot=6fe4390d up=9927 load1=0.38 load5=0.66 load15=0.60 temp=41.2 thr=unknown memused=100 memavail=298 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163364
+ts=1795606809 iso=2026-11-25T06:40:09-0500 boot=6fe4390d up=10228 load1=0.52 load5=0.52 load15=0.54 temp=41.2 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163516
+ts=1795607111 iso=2026-11-25T06:45:11-0500 boot=6fe4390d up=10529 load1=0.59 load5=0.51 load15=0.51 temp=41.2 thr=unknown memused=95 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163764
+ts=1795607412 iso=2026-11-25T06:50:12-0500 boot=6fe4390d up=10830 load1=0.29 load5=0.32 load15=0.42 temp=41.2 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163700
+ts=1795607712 iso=2026-11-25T06:55:12-0500 boot=6fe4390d up=11130 load1=0.09 load5=0.32 load15=0.41 temp=41.7 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163688
+ts=1795608013 iso=2026-11-25T07:00:13-0500 boot=6fe4390d up=11431 load1=0.32 load5=0.35 load15=0.38 temp=41.7 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163692
+ts=1795608313 iso=2026-11-25T07:05:13-0500 boot=6fe4390d up=11732 load1=0.18 load5=0.25 load15=0.33 temp=41.2 thr=unknown memused=95 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163788
+ts=1795608614 iso=2026-11-25T07:10:15-0500 boot=6fe4390d up=12033 load1=0.61 load5=0.34 load15=0.33 temp=33.6 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163788
+ts=1795608916 iso=2026-11-25T07:15:16-0500 boot=6fe4390d up=12334 load1=0.15 load5=0.24 load15=0.29 temp=33.1 thr=unknown memused=94 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163804
+ts=1795609216 iso=2026-11-25T07:20:16-0500 boot=6fe4390d up=12635 load1=1.29 load5=0.54 load15=0.37 temp=31.5 thr=unknown memused=95 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163804
+ts=1795609516 iso=2026-11-25T07:25:17-0500 boot=6fe4390d up=12935 load1=1.10 load5=0.74 load15=0.48 temp=31.5 thr=unknown memused=95 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163836
+ts=1795609817 iso=2026-11-25T07:30:17-0500 boot=6fe4390d up=13236 load1=0.52 load5=0.64 load15=0.51 temp=31.5 thr=unknown memused=95 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=163836
+ts=1795610118 iso=2026-11-25T07:35:18-0500 boot=6fe4390d up=13537 load1=0.28 load5=0.46 load15=0.47 temp=31.5 thr=unknown memused=95 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=164152
+ts=1795610419 iso=2026-11-25T07:40:19-0500 boot=6fe4390d up=13838 load1=0.29 load5=0.47 load15=0.48 temp=37.9 thr=unknown memused=95 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=164060
+ts=1795610721 iso=2026-11-25T07:45:21-0500 boot=6fe4390d up=14139 load1=2.75 load5=1.38 load15=0.82 temp=42.8 thr=unknown memused=95 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=164168
+ts=1795611022 iso=2026-11-25T07:50:22-0500 boot=6fe4390d up=14440 load1=2.04 load5=1.80 load15=1.17 temp=44.4 thr=unknown memused=95 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=164388
+ts=1795611322 iso=2026-11-25T07:55:22-0500 boot=6fe4390d up=14740 load1=1.59 load5=1.77 load15=1.35 temp=44.4 thr=unknown memused=95 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=164388
+ts=1795611623 iso=2026-11-25T08:00:23-0500 boot=6fe4390d up=15041 load1=2.12 load5=1.88 load15=1.51 temp=45.5 thr=unknown memused=95 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=164396
+ts=1795611925 iso=2026-11-25T08:05:25-0500 boot=6fe4390d up=15343 load1=1.63 load5=1.90 load15=1.63 temp=45.5 thr=unknown memused=95 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=164516
+ts=1795612225 iso=2026-11-25T08:10:25-0500 boot=6fe4390d up=15643 load1=1.67 load5=1.87 load15=1.71 temp=45.5 thr=unknown memused=95 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=164516
+ts=1795612527 iso=2026-11-25T08:15:27-0500 boot=6fe4390d up=15945 load1=2.44 load5=1.99 load15=1.79 temp=46.5 thr=unknown memused=95 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37640 rss_total=164520
+ts=1795612827 iso=2026-11-25T08:20:27-0500 boot=6fe4390d up=16245 load1=1.35 load5=1.74 load15=1.76 temp=45.5 thr=unknown memused=95 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37644 rss_total=164524
+ts=1795613128 iso=2026-11-25T08:25:28-0500 boot=6fe4390d up=16546 load1=2.17 load5=1.88 load15=1.81 temp=46.0 thr=unknown memused=96 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37644 rss_total=164528
+ts=1795613428 iso=2026-11-25T08:30:28-0500 boot=6fe4390d up=16846 load1=1.93 load5=1.93 load15=1.85 temp=46.0 thr=unknown memused=96 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37644 rss_total=164648
+ts=1795613729 iso=2026-11-25T08:35:29-0500 boot=6fe4390d up=17147 load1=1.50 load5=1.70 load15=1.79 temp=45.5 thr=unknown memused=96 memavail=302 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37616 rss_total=165144
+ts=1795614030 iso=2026-11-25T08:40:30-0500 boot=6fe4390d up=17448 load1=1.77 load5=1.75 load15=1.79 temp=45.5 thr=unknown memused=96 memavail=302 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37616 rss_total=165352
+ts=1795614331 iso=2026-11-25T08:45:31-0500 boot=6fe4390d up=17749 load1=1.44 load5=1.64 load15=1.75 temp=45.5 thr=unknown memused=97 memavail=301 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37616 rss_total=165716
+ts=1795614633 iso=2026-11-25T08:50:33-0500 boot=6fe4390d up=18051 load1=1.71 load5=1.64 load15=1.71 temp=45.5 thr=unknown memused=96 memavail=302 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37612 rss_total=165312
+ts=1795614932 iso=2026-11-25T08:55:32-0500 boot=6fe4390d up=18350 load1=1.60 load5=1.63 load15=1.69 temp=44.4 thr=unknown memused=96 memavail=302 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37612 rss_total=165592
+ts=1795615233 iso=2026-11-25T09:00:33-0500 boot=6fe4390d up=18651 load1=1.78 load5=1.68 load15=1.70 temp=44.4 thr=unknown memused=96 memavail=302 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37612 rss_total=165592
+ts=1795615534 iso=2026-11-25T09:05:34-0500 boot=6fe4390d up=18952 load1=1.77 load5=1.85 load15=1.78 temp=46.0 thr=unknown memused=97 memavail=301 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37612 rss_total=165784
+ts=1795615835 iso=2026-11-25T09:10:35-0500 boot=6fe4390d up=19253 load1=1.57 load5=1.77 load15=1.78 temp=46.5 thr=unknown memused=96 memavail=302 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37612 rss_total=165784
+ts=1795616137 iso=2026-11-25T09:15:37-0500 boot=6fe4390d up=19555 load1=2.59 load5=1.93 load15=1.83 temp=45.5 thr=unknown memused=96 memavail=302 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37612 rss_total=165784
+ts=1795616437 iso=2026-11-25T09:20:37-0500 boot=6fe4390d up=19855 load1=2.32 load5=2.02 load15=1.89 temp=44.4 thr=unknown memused=96 memavail=302 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37612 rss_total=165784
+ts=1795616737 iso=2026-11-25T09:25:37-0500 boot=6fe4390d up=20156 load1=2.20 load5=2.00 load15=1.91 temp=45.5 thr=unknown memused=97 memavail=301 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37608 rss_total=165980
+ts=1795617038 iso=2026-11-25T09:30:38-0500 boot=6fe4390d up=20456 load1=1.94 load5=1.82 load15=1.85 temp=45.5 thr=unknown memused=96 memavail=302 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37608 rss_total=165776
+ts=1795617338 iso=2026-11-25T09:35:39-0500 boot=6fe4390d up=20757 load1=0.48 load5=1.06 load15=1.53 temp=42.8 thr=unknown memused=96 memavail=302 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37608 rss_total=165720
+ts=1795617639 iso=2026-11-25T09:40:39-0500 boot=6fe4390d up=21058 load1=0.26 load5=0.57 load15=1.18 temp=42.8 thr=unknown memused=96 memavail=302 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37608 rss_total=165720
+ts=1795617941 iso=2026-11-25T09:45:41-0500 boot=6fe4390d up=21359 load1=1.76 load5=1.14 load15=1.23 temp=45.5 thr=unknown memused=97 memavail=301 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37608 rss_total=165940
+ts=1795618242 iso=2026-11-25T09:50:42-0500 boot=6fe4390d up=21660 load1=1.78 load5=1.46 load15=1.34 temp=46.5 thr=unknown memused=97 memavail=301 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37612 rss_total=165944
+ts=1795618542 iso=2026-11-25T09:55:42-0500 boot=6fe4390d up=21960 load1=1.24 load5=1.39 load15=1.35 temp=46.5 thr=unknown memused=98 memavail=301 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37616 rss_total=166232
+ts=1795618844 iso=2026-11-25T10:00:44-0500 boot=6fe4390d up=22262 load1=1.45 load5=1.53 load15=1.43 temp=46.5 thr=unknown memused=97 memavail=302 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37624 rss_total=166248
+ts=1795619144 iso=2026-11-25T10:05:44-0500 boot=6fe4390d up=22562 load1=1.53 load5=1.64 load15=1.52 temp=47.1 thr=unknown memused=97 memavail=301 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37632 rss_total=166456
+ts=1795619445 iso=2026-11-25T10:10:45-0500 boot=6fe4390d up=22863 load1=2.06 load5=1.78 load15=1.61 temp=47.1 thr=unknown memused=99 memavail=300 ent=256 disk=13 browser=kiosk-browser pid=1798 nproc=3 rss_main=37644 rss_total=166464
+ts=1795619922 iso=2026-11-25T10:18:42-0500 boot=0ed2e7e6 up=304 load1=3.09 load5=1.34 load15=0.55 temp=47.1 thr=unknown memused=98 memavail=301 ent=256 disk=13 browser=kiosk-browser pid=405 nproc=3 rss_main=38740 rss_total=160740
+ts=1795620537 iso=2026-11-25T10:28:57-0500 boot=146b2b88 up=301 load1=0.22 load5=0.31 load15=0.18 temp=43.3 thr=unknown memused=89 memavail=310 ent=256 disk=13 browser=kiosk-browser pid=328 nproc=3 rss_main=37324 rss_total=157136
+ts=1795620838 iso=2026-11-25T10:33:58-0500 boot=146b2b88 up=602 load1=0.13 load5=0.30 load15=0.21 temp=42.2 thr=unknown memused=89 memavail=310 ent=256 disk=13 browser=kiosk-browser pid=328 nproc=3 rss_main=37412 rss_total=157496
+ts=1795621139 iso=2026-11-25T10:38:59-0500 boot=146b2b88 up=903 load1=3.47 load5=1.94 load15=0.91 temp=47.6 thr=unknown memused=96 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=328 nproc=3 rss_main=37416 rss_total=162208
+ts=1795621441 iso=2026-11-25T10:44:01-0500 boot=146b2b88 up=1204 load1=2.23 load5=2.15 load15=1.30 temp=48.2 thr=unknown memused=95 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=328 nproc=3 rss_main=37416 rss_total=162628
+ts=1795621740 iso=2026-11-25T10:49:00-0500 boot=146b2b88 up=1504 load1=1.76 load5=1.91 load15=1.43 temp=47.1 thr=unknown memused=96 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=328 nproc=3 rss_main=37424 rss_total=162764
+ts=1795622042 iso=2026-11-25T10:54:02-0500 boot=146b2b88 up=1805 load1=1.54 load5=1.61 load15=1.44 temp=47.1 thr=unknown memused=96 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=328 nproc=3 rss_main=37428 rss_total=162628
+ts=1795622342 iso=2026-11-25T10:59:02-0500 boot=146b2b88 up=2106 load1=1.88 load5=1.74 load15=1.53 temp=47.1 thr=unknown memused=96 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=328 nproc=3 rss_main=37432 rss_total=162884
+ts=1795622643 iso=2026-11-25T11:04:03-0500 boot=146b2b88 up=2407 load1=2.21 load5=2.06 load15=1.74 temp=48.7 thr=unknown memused=97 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=328 nproc=3 rss_main=37436 rss_total=162988
+ts=1795622944 iso=2026-11-25T11:09:04-0500 boot=146b2b88 up=2708 load1=1.68 load5=1.93 load15=1.80 temp=48.2 thr=unknown memused=96 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=328 nproc=3 rss_main=37440 rss_total=163116
+ts=1795623245 iso=2026-11-25T11:14:05-0500 boot=146b2b88 up=3009 load1=1.88 load5=1.86 load15=1.80 temp=47.6 thr=unknown memused=96 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=328 nproc=3 rss_main=37452 rss_total=162904
+ts=1795623546 iso=2026-11-25T11:19:06-0500 boot=146b2b88 up=3310 load1=1.86 load5=1.96 load15=1.87 temp=48.2 thr=unknown memused=96 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=328 nproc=3 rss_main=37452 rss_total=163288
+ts=1795623846 iso=2026-11-25T11:24:06-0500 boot=146b2b88 up=3609 load1=1.83 load5=1.86 load15=1.86 temp=47.6 thr=unknown memused=96 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=328 nproc=3 rss_main=37456 rss_total=163244
+ts=1795624147 iso=2026-11-25T11:29:07-0500 boot=146b2b88 up=3910 load1=1.75 load5=1.91 load15=1.90 temp=48.7 thr=unknown memused=96 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=328 nproc=3 rss_main=37468 rss_total=163260
+ts=1795624447 iso=2026-11-25T11:34:07-0500 boot=146b2b88 up=4211 load1=1.52 load5=1.90 load15=1.91 temp=47.6 thr=unknown memused=96 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=328 nproc=3 rss_main=37476 rss_total=163252
+ts=1795624977 iso=2026-11-25T11:42:57-0500 boot=ebd218f8 up=301 load1=0.73 load5=0.51 load15=0.25 temp=43.3 thr=unknown memused=89 memavail=310 ent=256 disk=13 browser=kiosk-browser pid=351 nproc=3 rss_main=37160 rss_total=156640
+ts=1795625353 iso=2026-11-25T11:49:13-0500 boot=0366f933 up=301 load1=0.38 load5=0.37 load15=0.19 temp=43.3 thr=unknown memused=89 memavail=310 ent=256 disk=13 browser=kiosk-browser pid=364 nproc=3 rss_main=36800 rss_total=156016
+ts=1795625829 iso=2026-11-25T11:57:09-0500 boot=f822cbcc up=301 load1=0.46 load5=0.42 load15=0.21 temp=43.3 thr=unknown memused=89 memavail=310 ent=256 disk=13 browser=kiosk-browser pid=373 nproc=3 rss_main=37908 rss_total=158704
+ts=1795626131 iso=2026-11-25T12:02:11-0500 boot=f822cbcc up=603 load1=2.43 load5=1.66 load15=0.80 temp=50.8 thr=unknown memused=97 memavail=302 ent=256 disk=13 browser=kiosk-browser pid=659 nproc=3 rss_main=38592 rss_total=164924
+ts=1795626431 iso=2026-11-25T12:07:11-0500 boot=f822cbcc up=903 load1=0.43 load5=1.42 load15=0.99 temp=45.5 thr=unknown memused=90 memavail=309 ent=256 disk=13 browser=kiosk-browser pid=936 nproc=3 rss_main=38036 rss_total=158736
+ts=1795626734 iso=2026-11-25T12:12:14-0500 boot=f822cbcc up=1205 load1=2.93 load5=2.32 load15=1.50 temp=50.8 thr=unknown memused=96 memavail=303 ent=256 disk=13 browser=kiosk-browser pid=1269 nproc=3 rss_main=38840 rss_total=166424
+ts=1795627033 iso=2026-11-25T12:17:13-0500 boot=f822cbcc up=1505 load1=0.36 load5=1.61 load15=1.47 temp=44.9 thr=unknown memused=90 memavail=309 ent=256 disk=13 browser=kiosk-browser pid=1551 nproc=3 rss_main=37236 rss_total=158780
+ts=1795627334 iso=2026-11-25T12:22:14-0500 boot=f822cbcc up=1806 load1=0.07 load5=0.65 load15=1.09 temp=43.3 thr=unknown memused=89 memavail=310 ent=256 disk=13 browser=kiosk-browser pid=1551 nproc=3 rss_main=37448 rss_total=159116
+ts=1795627639 iso=2026-11-25T12:27:19-0500 boot=f822cbcc up=2111 load1=2.38 load5=1.35 load15=1.23 temp=47.6 thr=unknown memused=97 memavail=302 ent=256 disk=13 browser=kiosk-browser pid=1551 nproc=3 rss_main=37452 rss_total=161304
+ts=1795631743 iso=2026-11-25T13:35:43-0500 boot=985852c9 up=301 load1=0.36 load5=0.41 load15=0.21 temp=43.3 thr=unknown memused=89 memavail=310 ent=256 disk=13 browser=kiosk-browser pid=372 nproc=3 rss_main=37040 rss_total=156648
+ts=1795632044 iso=2026-11-25T13:40:44-0500 boot=985852c9 up=602 load1=0.61 load5=0.43 load15=0.26 temp=43.3 thr=unknown memused=89 memavail=311 ent=256 disk=13 browser=kiosk-browser pid=372 nproc=3 rss_main=37256 rss_total=156976
+ts=1795632349 iso=2026-11-25T13:45:49-0500 boot=985852c9 up=906 load1=4.43 load5=2.20 load15=1.01 temp=50.3 thr=unknown memused=108 memavail=292 ent=256 disk=13 browser=kiosk-browser pid=372 nproc=3 rss_main=37168 rss_total=161564
+ts=1795632697 iso=2026-11-25T13:51:37-0500 boot=0791d714 up=302 load1=2.88 load5=1.77 load15=0.80 temp=49.8 thr=unknown memused=98 memavail=302 ent=256 disk=12 browser=kiosk-browser pid=500 nproc=3 rss_main=37008 rss_total=155724
+ts=1795632998 iso=2026-11-25T13:56:38-0500 boot=0791d714 up=603 load1=2.26 load5=2.11 load15=1.23 temp=49.8 thr=unknown memused=97 memavail=302 ent=256 disk=12 browser=kiosk-browser pid=500 nproc=3 rss_main=37092 rss_total=156268
+ts=1795633298 iso=2026-11-25T14:01:38-0500 boot=0791d714 up=904 load1=2.20 load5=2.21 load15=1.53 temp=49.8 thr=unknown memused=96 memavail=303 ent=256 disk=12 browser=kiosk-browser pid=500 nproc=3 rss_main=37096 rss_total=156336
+ts=1795633598 iso=2026-11-25T14:06:38-0500 boot=0791d714 up=1204 load1=2.57 load5=2.32 load15=1.76 temp=49.8 thr=unknown memused=97 memavail=302 ent=256 disk=12 browser=kiosk-browser pid=500 nproc=3 rss_main=37096 rss_total=156444
+ts=1795633898 iso=2026-11-25T14:11:38-0500 boot=0791d714 up=1504 load1=2.16 load5=2.28 load15=1.91 temp=50.3 thr=unknown memused=96 memavail=303 ent=256 disk=12 browser=kiosk-browser pid=500 nproc=3 rss_main=37096 rss_total=156120
+ts=1795634200 iso=2026-11-25T14:16:40-0500 boot=0791d714 up=1805 load1=2.55 load5=2.38 load15=2.06 temp=50.3 thr=unknown memused=96 memavail=303 ent=256 disk=12 browser=kiosk-browser pid=500 nproc=3 rss_main=37100 rss_total=156472
+ts=1795634500 iso=2026-11-25T14:21:41-0500 boot=0791d714 up=2106 load1=2.06 load5=2.35 load15=2.15 temp=50.8 thr=unknown memused=97 memavail=302 ent=256 disk=12 browser=kiosk-browser pid=1514 nproc=3 rss_main=37500 rss_total=155964
+ts=1795634802 iso=2026-11-25T14:26:42-0500 boot=0791d714 up=2407 load1=2.78 load5=2.54 load15=2.28 temp=50.3 thr=unknown memused=96 memavail=303 ent=256 disk=12 browser=kiosk-browser pid=1918 nproc=3 rss_main=37544 rss_total=155312
+ts=1795635102 iso=2026-11-25T14:31:42-0500 boot=0791d714 up=2708 load1=2.12 load5=2.29 load15=2.24 temp=50.8 thr=unknown memused=96 memavail=303 ent=256 disk=12 browser=kiosk-browser pid=1918 nproc=3 rss_main=37552 rss_total=156368
+ts=1795635403 iso=2026-11-25T14:36:43-0500 boot=0791d714 up=3008 load1=2.47 load5=2.55 load15=2.40 temp=50.3 thr=unknown memused=97 memavail=302 ent=256 disk=12 browser=kiosk-browser pid=2438 nproc=3 rss_main=37412 rss_total=155448
+ts=1795635702 iso=2026-11-25T14:41:42-0500 boot=0791d714 up=3308 load1=0.27 load5=1.59 load15=2.07 temp=44.9 thr=unknown memused=91 memavail=308 ent=256 disk=12 browser=kiosk-browser pid=2699 nproc=3 rss_main=36088 rss_total=149224
+ts=1795636002 iso=2026-11-25T14:46:42-0500 boot=0791d714 up=3608 load1=0.16 load5=0.68 load15=1.53 temp=43.3 thr=unknown memused=89 memavail=310 ent=256 disk=12 browser=kiosk-browser pid=2699 nproc=3 rss_main=36172 rss_total=149320
+ts=1795636307 iso=2026-11-25T14:51:47-0500 boot=0791d714 up=3912 load1=3.78 load5=1.81 load15=1.69 temp=49.8 thr=unknown memused=108 memavail=291 ent=256 disk=12 browser=kiosk-browser pid=2699 nproc=3 rss_main=36176 rss_total=153808
+ts=1795636659 iso=2026-11-25T14:57:39-0500 boot=b10b2153 up=303 load1=3.02 load5=2.17 load15=0.98 temp=49.2 thr=unknown memused=90 memavail=309 ent=256 disk=13 browser=kiosk-browser pid=1533 nproc=3 rss_main=37584 rss_total=148544
+ts=1795637139 iso=2026-11-25T15:05:39-0500 boot=ce5722c6 up=301 load1=0.44 load5=0.43 load15=0.22 temp=44.4 thr=unknown memused=88 memavail=311 ent=256 disk=13 browser=kiosk-browser pid=278 nproc=3 rss_main=36612 rss_total=157048
+ts=1795637440 iso=2026-11-25T15:10:40-0500 boot=ce5722c6 up=602 load1=0.84 load5=0.48 load15=0.29 temp=43.9 thr=unknown memused=90 memavail=309 ent=256 disk=13 browser=kiosk-browser pid=278 nproc=3 rss_main=36704 rss_total=157484
+ts=1795638625 iso=2026-11-25T15:30:25-0500 boot=b16b2b74 up=301 load1=0.28 load5=0.32 load15=0.18 temp=43.9 thr=unknown memused=89 memavail=310 ent=256 disk=13 browser=kiosk-browser pid=299 nproc=3 rss_main=37028 rss_total=156684
+ts=1795638927 iso=2026-11-25T15:35:28-0500 boot=b16b2b74 up=603 load1=2.52 load5=1.08 load15=0.49 temp=48.7 thr=unknown memused=96 memavail=305 ent=256 disk=13 browser=kiosk-browser pid=299 nproc=3 rss_main=13044 rss_total=57760
+ts=1795639943 iso=2026-11-25T15:52:23-0500 boot=b5a9bcf3 up=301 load1=0.34 load5=0.30 load15=0.16 temp=44.4 thr=unknown memused=89 memavail=310 ent=256 disk=13 browser=kiosk-browser pid=275 nproc=3 rss_main=37000 rss_total=156484
+ts=1795640244 iso=2026-11-25T15:57:24-0500 boot=b5a9bcf3 up=602 load1=0.30 load5=0.36 load15=0.23 temp=43.3 thr=unknown memused=89 memavail=311 ent=256 disk=13 browser=kiosk-browser pid=275 nproc=3 rss_main=37088 rss_total=156804
+ts=1795640545 iso=2026-11-25T16:02:25-0500 boot=b5a9bcf3 up=903 load1=0.89 load5=0.69 load15=0.40 temp=44.9 thr=unknown memused=92 memavail=307 ent=256 disk=13 browser=kiosk-browser pid=275 nproc=3 rss_main=37008 rss_total=160744
+ts=1795641813 iso=2026-11-25T16:23:33-0500 boot=a0ec4bdf up=301 load1=1.11 load5=0.62 load15=0.28 temp=41.7 thr=unknown memused=87 memavail=315 ent=256 disk=12 browser=kiosk-browser pid=276 nproc=3 rss_main=36952 rss_total=155472
+ts=1795642113 iso=2026-11-25T16:28:33-0500 boot=a0ec4bdf up=602 load1=0.29 load5=0.35 load15=0.25 temp=41.2 thr=unknown memused=88 memavail=314 ent=256 disk=12 browser=kiosk-browser pid=276 nproc=3 rss_main=37040 rss_total=156212
+ts=1795642414 iso=2026-11-25T16:33:34-0500 boot=a0ec4bdf up=903 load1=1.97 load5=1.33 load15=0.71 temp=45.5 thr=unknown memused=91 memavail=311 ent=256 disk=12 browser=kiosk-browser pid=276 nproc=3 rss_main=37044 rss_total=160352
+ts=1795642715 iso=2026-11-25T16:38:35-0500 boot=a0ec4bdf up=1203 load1=2.10 load5=1.84 load15=1.11 temp=45.5 thr=unknown memused=92 memavail=310 ent=256 disk=12 browser=kiosk-browser pid=276 nproc=3 rss_main=37044 rss_total=160796
+ts=1795643015 iso=2026-11-25T16:43:35-0500 boot=a0ec4bdf up=1504 load1=1.07 load5=1.48 load15=1.17 temp=42.8 thr=unknown memused=92 memavail=310 ent=256 disk=12 browser=kiosk-browser pid=276 nproc=3 rss_main=37044 rss_total=160644
+ts=1795643316 iso=2026-11-25T16:48:36-0500 boot=a0ec4bdf up=1805 load1=1.20 load5=1.28 load15=1.17 temp=43.3 thr=unknown memused=94 memavail=308 ent=256 disk=12 browser=kiosk-browser pid=276 nproc=3 rss_main=37048 rss_total=160752
+ts=1795643914 iso=2026-11-25T16:58:34-0500 boot=28ed3320 up=302 load1=0.27 load5=0.41 load15=0.22 temp=41.7 thr=unknown memused=88 memavail=311 ent=256 disk=13 browser=kiosk-browser pid=279 nproc=3 rss_main=36996 rss_total=155448 rsts=00001000
+ts=1795644215 iso=2026-11-25T17:03:35-0500 boot=28ed3320 up=603 load1=0.11 load5=0.36 load15=0.25 temp=40.1 thr=unknown memused=89 memavail=310 ent=256 disk=13 browser=kiosk-browser pid=279 nproc=3 rss_main=37088 rss_total=156140 rsts=00001000
+ts=1795644517 iso=2026-11-25T17:08:37-0500 boot=28ed3320 up=904 load1=1.00 load5=0.81 load15=0.48 temp=43.3 thr=unknown memused=93 memavail=306 ent=256 disk=13 browser=kiosk-browser pid=279 nproc=3 rss_main=37036 rss_total=160428 rsts=00001000
+ts=1795644818 iso=2026-11-25T17:13:38-0500 boot=28ed3320 up=1205 load1=1.17 load5=1.11 load15=0.71 temp=44.4 thr=unknown memused=93 memavail=306 ent=256 disk=13 browser=kiosk-browser pid=279 nproc=3 rss_main=37036 rss_total=160800 rsts=00001000
+ts=1795645120 iso=2026-11-25T17:18:40-0500 boot=28ed3320 up=1507 load1=2.51 load5=1.61 load15=1.02 temp=45.5 thr=unknown memused=101 memavail=298 ent=256 disk=13 browser=kiosk-browser pid=279 nproc=3 rss_main=37036 rss_total=160804 rsts=00001000
+ts=1795645422 iso=2026-11-25T17:23:42-0500 boot=28ed3320 up=1809 load1=3.86 load5=3.14 load15=1.87 temp=48.2 thr=unknown memused=108 memavail=292 ent=256 disk=13 browser=kiosk-browser pid=279 nproc=3 rss_main=34132 rss_total=152044 rsts=00001000
+ts=1795645935 iso=2026-11-25T17:32:15-0500 boot=4e8de1e1 up=301 load1=0.34 load5=0.55 load15=0.31 temp=44.4 thr=unknown memused=91 memavail=308 ent=256 disk=14 browser=kiosk-browser pid=285 nproc=3 rss_main=36992 rss_total=155964
+ts=1795646236 iso=2026-11-25T17:37:16-0500 boot=4e8de1e1 up=601 load1=0.34 load5=0.45 load15=0.33 temp=44.4 thr=unknown memused=91 memavail=308 ent=256 disk=14 browser=kiosk-browser pid=285 nproc=3 rss_main=37212 rss_total=156788
+ts=1795646543 iso=2026-11-25T17:42:23-0500 boot=4e8de1e1 up=908 load1=5.82 load5=3.14 load15=1.46 temp=51.4 thr=unknown memused=108 memavail=291 ent=256 disk=14 browser=kiosk-browser pid=285 nproc=3 rss_main=37220 rss_total=161328
+ts=1795646841 iso=2026-11-25T17:47:21-0500 boot=4e8de1e1 up=1206 load1=4.49 load5=4.52 load15=2.59 temp=52.5 thr=unknown memused=105 memavail=295 ent=256 disk=14 browser=kiosk-browser pid=285 nproc=3 rss_main=37220 rss_total=161764
+ts=1795647141 iso=2026-11-25T17:52:21-0500 boot=4e8de1e1 up=1507 load1=2.83 load5=3.81 load15=2.88 temp=50.3 thr=unknown memused=109 memavail=289 ent=256 disk=14 browser=kiosk-browser pid=285 nproc=3 rss_main=37220 rss_total=161764
+ts=1795647439 iso=2026-11-25T17:57:19-0500 boot=4e8de1e1 up=1805 load1=0.52 load5=2.47 load15=2.65 temp=42.8 thr=unknown memused=96 memavail=303 ent=256 disk=14 browser=kiosk-browser pid=285 nproc=3 rss_main=37224 rss_total=161768
+ts=1795647740 iso=2026-11-25T18:02:20-0500 boot=4e8de1e1 up=2105 load1=2.26 load5=2.27 load15=2.51 temp=46.0 thr=unknown memused=97 memavail=303 ent=256 disk=14 browser=kiosk-browser pid=285 nproc=3 rss_main=37224 rss_total=162240
+ts=1795648044 iso=2026-11-25T18:07:24-0500 boot=4e8de1e1 up=2409 load1=3.93 load5=2.93 load15=2.68 temp=48.7 thr=unknown memused=110 memavail=289 ent=256 disk=14 browser=kiosk-browser pid=285 nproc=3 rss_main=37128 rss_total=162008
+ts=1795648343 iso=2026-11-25T18:12:23-0500 boot=4e8de1e1 up=2709 load1=2.95 load5=2.97 load15=2.78 temp=49.2 thr=unknown memused=140 memavail=258 ent=256 disk=14 browser=kiosk-browser pid=285 nproc=3 rss_main=16472 rss_total=75012
+ts=1795648927 iso=2026-11-25T18:22:07-0500 boot=030d4a89 up=301 load1=0.80 load5=1.00 load15=0.51 temp=37.9 thr=unknown memused=62 memavail=339 ent=256 disk=12 browser=kiosk-browser pid=804 nproc=1 rss_main=12820 rss_total=12820
+ts=1795649230 iso=2026-11-25T18:27:10-0500 boot=030d4a89 up=604 load1=2.55 load5=1.95 load15=1.04 temp=42.2 thr=unknown memused=95 memavail=306 ent=256 disk=12 browser=kiosk-browser pid=2555 nproc=3 rss_main=38656 rss_total=166208
+ts=1795649769 iso=2026-11-25T18:36:09-0500 boot=c92178f5 up=301 load1=1.62 load5=1.22 load15=0.56 temp=37.9 thr=unknown memused=93 memavail=309 ent=256 disk=12 browser=kiosk-browser pid=1476 nproc=3 rss_main=38780 rss_total=161312
+ts=1795650069 iso=2026-11-25T18:41:09-0500 boot=c92178f5 up=602 load1=1.88 load5=1.31 load15=0.75 temp=40.1 thr=unknown memused=96 memavail=306 ent=256 disk=12 browser=kiosk-browser pid=1476 nproc=3 rss_main=38788 rss_total=165256
+ts=1795650370 iso=2026-11-25T18:46:10-0500 boot=c92178f5 up=903 load1=2.22 load5=1.88 load15=1.16 temp=43.3 thr=unknown memused=96 memavail=306 ent=256 disk=12 browser=kiosk-browser pid=1476 nproc=3 rss_main=38868 rss_total=165808
+ts=1795650670 iso=2026-11-25T18:51:10-0500 boot=c92178f5 up=1203 load1=2.38 load5=2.43 load15=1.62 temp=46.0 thr=unknown memused=97 memavail=306 ent=256 disk=12 browser=kiosk-browser pid=2403 nproc=3 rss_main=37512 rss_total=163656
+ts=1795650970 iso=2026-11-25T18:56:10-0500 boot=c92178f5 up=1503 load1=2.52 load5=2.30 load15=1.78 temp=44.4 thr=unknown memused=95 memavail=307 ent=256 disk=12 browser=kiosk-browser pid=2403 nproc=3 rss_main=37660 rss_total=163968
+ts=1795651272 iso=2026-11-25T19:01:12-0500 boot=c92178f5 up=1805 load1=2.15 load5=2.16 load15=1.86 temp=44.9 thr=unknown memused=98 memavail=304 ent=256 disk=12 browser=kiosk-browser pid=2403 nproc=3 rss_main=37660 rss_total=164408
+ts=1795651571 iso=2026-11-25T19:06:11-0500 boot=c92178f5 up=2104 load1=2.36 load5=2.20 load15=1.97 temp=48.2 thr=unknown memused=98 memavail=304 ent=256 disk=12 browser=kiosk-browser pid=3135 nproc=3 rss_main=38480 rss_total=165776
+ts=1795652182 iso=2026-11-25T19:16:22-0500 boot=b613b16a up=301 load1=0.45 load5=0.42 load15=0.21 temp=40.6 thr=unknown memused=86 memavail=316 ent=256 disk=12 browser=kiosk-browser pid=267 nproc=3 rss_main=36576 rss_total=155864
+ts=1795652483 iso=2026-11-25T19:21:23-0500 boot=b613b16a up=602 load1=0.46 load5=0.48 load15=0.29 temp=40.1 thr=unknown memused=86 memavail=316 ent=256 disk=12 browser=kiosk-browser pid=267 nproc=3 rss_main=36664 rss_total=156076
+ts=1795652913 iso=2026-11-25T19:28:33-0500 boot=1cbccdbc up=302 load1=1.87 load5=0.92 load15=0.40 temp=43.3 thr=unknown memused=91 memavail=308 ent=256 disk=14 browser=kiosk-browser pid=598 nproc=3 rss_main=39020 rss_total=162532
+ts=1795653298 iso=2026-11-25T19:34:58-0500 boot=4e2010a6 up=301 load1=1.80 load5=0.94 load15=0.42 temp=43.3 thr=unknown memused=89 memavail=313 ent=256 disk=12 browser=kiosk-browser pid=569 nproc=3 rss_main=38092 rss_total=161336
+ts=1795653598 iso=2026-11-25T19:39:58-0500 boot=4e2010a6 up=601 load1=2.19 load5=1.81 load15=0.96 temp=44.4 thr=unknown memused=91 memavail=312 ent=256 disk=12 browser=kiosk-browser pid=1024 nproc=3 rss_main=37128 rss_total=159408
+ts=1795653898 iso=2026-11-25T19:44:58-0500 boot=4e2010a6 up=901 load1=0.41 load5=1.20 load15=0.97 temp=41.2 thr=unknown memused=87 memavail=315 ent=256 disk=12 browser=kiosk-browser pid=1342 nproc=3 rss_main=37972 rss_total=158372
+ts=1795654198 iso=2026-11-25T19:49:58-0500 boot=4e2010a6 up=1202 load1=0.54 load5=0.78 load15=0.84 temp=40.1 thr=unknown memused=88 memavail=315 ent=256 disk=12 browser=kiosk-browser pid=1342 nproc=3 rss_main=38056 rss_total=158560
+ts=1795654502 iso=2026-11-25T19:55:02-0500 boot=4e2010a6 up=1505 load1=3.97 load5=2.26 load15=1.41 temp=47.6 thr=unknown memused=112 memavail=289 ent=256 disk=12 browser=kiosk-browser pid=1342 nproc=3 rss_main=38064 rss_total=160672
+ts=1795655001 iso=2026-11-25T20:03:21-0500 boot=b96897d0 up=301 load1=0.30 load5=0.81 load15=0.45 temp=41.2 thr=unknown memused=90 memavail=310 ent=256 disk=13 browser=kiosk-browser pid=713 nproc=3 rss_main=37540 rss_total=159048
+ts=1795655303 iso=2026-11-25T20:08:23-0500 boot=b96897d0 up=603 load1=2.15 load5=1.25 load15=0.70 temp=44.4 thr=unknown memused=95 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=713 nproc=3 rss_main=37752 rss_total=163692
+ts=1795656054 iso=2026-11-25T20:20:54-0500 boot=bd6100c0 up=301 load1=0.67 load5=0.57 load15=0.28 temp=41.2 thr=unknown memused=89 memavail=311 ent=256 disk=13 browser=kiosk-browser pid=273 nproc=3 rss_main=37008 rss_total=155656 rsts=00000020
+ts=1795656355 iso=2026-11-25T20:25:55-0500 boot=bd6100c0 up=602 load1=0.56 load5=0.42 load15=0.29 temp=40.1 thr=unknown memused=89 memavail=310 ent=256 disk=13 browser=kiosk-browser pid=273 nproc=3 rss_main=37096 rss_total=155892 rsts=00000020
+ts=1795656656 iso=2026-11-25T20:30:56-0500 boot=bd6100c0 up=903 load1=1.64 load5=1.13 load15=0.63 temp=43.3 thr=unknown memused=93 memavail=306 ent=256 disk=13 browser=kiosk-browser pid=273 nproc=3 rss_main=37096 rss_total=160444 rsts=00000020
+ts=1795656956 iso=2026-11-25T20:35:56-0500 boot=bd6100c0 up=1203 load1=1.63 load5=1.28 load15=0.83 temp=43.3 thr=unknown memused=93 memavail=306 ent=256 disk=13 browser=kiosk-browser pid=273 nproc=3 rss_main=37100 rss_total=161024 rsts=00000020
+ts=1795657257 iso=2026-11-25T20:40:57-0500 boot=bd6100c0 up=1504 load1=1.59 load5=1.51 load15=1.05 temp=43.3 thr=unknown memused=94 memavail=305 ent=256 disk=13 browser=kiosk-browser pid=273 nproc=3 rss_main=37100 rss_total=161220 rsts=00000020
+ts=1795657558 iso=2026-11-25T20:45:58-0500 boot=bd6100c0 up=1805 load1=1.80 load5=1.74 load15=1.27 temp=43.3 thr=unknown memused=95 memavail=304 ent=256 disk=13 browser=kiosk-browser pid=273 nproc=3 rss_main=37104 rss_total=161228 rsts=00000020
+ts=1795657858 iso=2026-11-25T20:50:58-0500 boot=bd6100c0 up=2105 load1=1.09 load5=1.57 load15=1.35 temp=44.4 thr=unknown memused=93 memavail=306 ent=256 disk=13 browser=kiosk-browser pid=273 nproc=3 rss_main=37104 rss_total=161356 rsts=00000020
+== 20:52:13.952 done
+
+== soak log check (architect) 20:52:14 EST
+20000 /data/kiosk-soak.log
+ts=1795657858 iso=2026-11-25T20:50:58-0500 boot=bd6100c0 up=2105 load1=1.09 load5=1.57 load15=1.35 temp=44.4 thr=unknown memused=93 memavail=306 ent=256 disk=13 browser=kiosk-browser pid=273 nproc=3 rss_main=37104 rss_total=161356 rsts=00000020

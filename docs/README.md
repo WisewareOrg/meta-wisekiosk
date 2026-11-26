@@ -18,6 +18,7 @@
 | [`issue_investigation/wlan0_udev_queue/`](issue_investigation/wlan0_udev_queue/README.md) | What occupies the gap between the WiFi chip appearing on the bus and `wlan0` existing, and what is removing it worth? |
 | [`issue_investigation/first_boot_after_ota/`](issue_investigation/first_boot_after_ota/README.md) | What does the first boot of a freshly written slot cost, and how long is the device unreachable? |
 | [`issue_investigation/wifi_instability/`](issue_investigation/wifi_instability/README.md) | Which WiFi failure hypotheses were tested and dropped, and how was the fault finally captured? |
+| [`issue_investigation/tst008_bench_network_load/`](issue_investigation/tst008_bench_network_load/README.md) | Why could TST008 not apply its network load on the bench board, when it had on the same board that morning? |
 | [`issue_investigation/netcheck_nolan_recovery/`](issue_investigation/netcheck_nolan_recovery/README.md) | Has the no-LAN good-marking withhold been seen to fire, to stay quiet, and to suppress itself? |
 | [`issue_investigation/surf_memory_soak/`](issue_investigation/surf_memory_soak/README.md) | Does a fitted slope over the soak log tell you whether the browser is leaking? |
 | [`issue_investigation/screenshot_capture_fbgrab/`](issue_investigation/screenshot_capture_fbgrab/README.md) | Which framebuffer capture path produces a screenshot that can be trusted as a liveness check? |

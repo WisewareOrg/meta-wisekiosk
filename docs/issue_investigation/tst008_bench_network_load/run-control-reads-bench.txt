@@ -1,0 +1,164 @@
+== slot read before B 19:23:15
+meta-wisekiosk    = HEAD:e0b3363dd7dcd0b7b3fffb6572ca5882e1fbcf31
+{"compatible":"autonomos-raspberrypi0-wifi","variant":"","booted":"B","boot_primary":"rootfs.1","slots":[{"rootfs.1":{"class":"rootfs","device":"/dev/mmcblk0p3","type":"ext4","bootname":"B","state":"booted","parent":null,"mountpoint":"/","boot_status":"good","slot_status":{"bundle":{"compatible":"autonomos-raspberrypi0-wifi","version":"0.1","description":"AutonomOS Update Bundle","build":"20261125230300","hash":"2a8bb597b6e3a5a244fe1daf3e819d76a4c6004c3478f280fb979ad37f159650"},"checksum":{"sha256":"07913409f2ce15fbf2dad96b3211a9e265434d3fa3857c3dc16f7fbb644b1c17","size":310378496},"installed":{"timestamp":"2026-11-25T23:14:27Z","count":414},"activated":{"timestamp":"2026-11-25T23:14:27Z","count":417},"status":"ok"}}},{"rootfs.0":{"class":"rootfs","device":"/dev/mmcblk0p2","type":"ext4","bootname":"A","state":"inactive","parent":null,"mountpoint":null,"boot_status":"good","slot_status":{"bundle":{"compatible":"autonomos-raspberrypi0-wifi","version":"0.1","description":"AutonomOS Update Bundle","build":"20261125221516","hash":"af875e9195e4e5470618de65bbdbef722a1cf1de7c991ace5ed0499a5d37b19d"},"checksum":{"sha256":"778cc340079ab920c0b6804adc69a7f0787990518cbdb728c3c137ec6e74f29d","size":2147483648},"installed":{"timestamp":"2026-11-25T22:26:59Z","count":426},"activated":{"timestamp":"2026-11-25T22:26:59Z","count":428},"status":"ok"}}}],"artifact-repositories":[]}
+BOOT_ORDER=B A
+BOOT_A_LEFT=3
+BOOT_B_LEFT=3
+b613b16a-f5b7-4114-9fbe-5781fc6b217d
+715.90 565.27
+19:23:17 slot read 'before B': booted rootfs.1 order-head B commit e0b3363 slot states [good good] uptime 715s
+19:23:17 X=rootfs.1 (e0b3363), Y=rootfs.0
+== mark-active rootfs.0 19:23:17
+rauc status: marked slot(s) rootfs.0 as active
+BOOT_ORDER=A B
+BOOT_A_LEFT=3
+BOOT_B_LEFT=3
+19:23:19 switch to rootfs.0 read back: order head A counter 3
+19:23:21 systemctl reboot sent (old boot id b613b16a)
+19:27:00 board up on a new boot (1cbccdbc), uptime 209s
+== slot read after B boot 19:27:01
+meta-wisekiosk    = HEAD:afcbaa36693fc70f38a877ee9ceadee9bd322e6d
+{"compatible":"autonomos-raspberrypi0-wifi","variant":"","booted":"A","boot_primary":"rootfs.0","slots":[{"rootfs.1":{"class":"rootfs","device":"/dev/mmcblk0p3","type":"ext4","bootname":"B","state":"inactive","parent":null,"mountpoint":null,"boot_status":"good","slot_status":{"bundle":{"compatible":"autonomos-raspberrypi0-wifi","version":"0.1","description":"AutonomOS Update Bundle","build":"20261125230300","hash":"2a8bb597b6e3a5a244fe1daf3e819d76a4c6004c3478f280fb979ad37f159650"},"checksum":{"sha256":"07913409f2ce15fbf2dad96b3211a9e265434d3fa3857c3dc16f7fbb644b1c17","size":310378496},"installed":{"timestamp":"2026-11-25T23:14:27Z","count":414},"activated":{"timestamp":"2026-11-25T23:14:27Z","count":417},"status":"ok"}}},{"rootfs.0":{"class":"rootfs","device":"/dev/mmcblk0p2","type":"ext4","bootname":"A","state":"booted","parent":null,"mountpoint":"/","boot_status":"good","slot_status":{"bundle":{"compatible":"autonomos-raspberrypi0-wifi","version":"0.1","description":"AutonomOS Update Bundle","build":"20261125221516","hash":"af875e9195e4e5470618de65bbdbef722a1cf1de7c991ace5ed0499a5d37b19d"},"checksum":{"sha256":"778cc340079ab920c0b6804adc69a7f0787990518cbdb728c3c137ec6e74f29d","size":2147483648},"installed":{"timestamp":"2026-11-25T22:26:59Z","count":426},"activated":{"timestamp":"2026-11-26T00:23:19Z","count":429},"status":"ok"}}}],"artifact-repositories":[]}
+BOOT_ORDER=A B
+BOOT_A_LEFT=3
+BOOT_B_LEFT=3
+1cbccdbc-6c72-4023-9d0a-56a99f8009c9
+211.29 145.06
+19:27:02 slot read 'after B boot': booted rootfs.0 order-head A commit afcbaa3 slot states [good good] uptime 211s
+19:27:03 B configs.ko.xz copied: 8040fb2e23a1afeb (50196 B)
+== net read before B (afcbaa3) 19:27:03
+Inter-| sta-|   Quality        |   Discarded packets               | Missed | WE
+ face | tus | link level noise |  nwid  crypt   frag  retry   misc | beacon | 22
+ wlan0: 0000   54.  -56.  -256        0      0      0     24      0        0
+BusyBox v1.36.1 () multi-call binary.
+
+Usage: ip [OPTIONS] address|route|link|tunnel [ARGS]
+head: invalid option -- '1'
+BusyBox v1.36.1 () multi-call binary.
+
+Usage: head [OPTIONS] [FILE]...
+0.52 0.49 0.22 1/125 549
+usage_usec 15753722
+213.80
+meta-wisekiosk    = HEAD:afcbaa36693fc70f38a877ee9ceadee9bd322e6d
+queued 175 e0b3363dd7dcd0b7b3fffb6572ca5882e1fbcf31 place 1
+19:29:35 TST008 B (afcbaa3): record 20261126T002708Z: bench: 2026-11-26T00:29:32+00:00 run failed; failed 133.9 {'boot_id': '1cbccdbc-6c72-4023-9d0a-56a99f8009c9', 'uptime_s': '220.45', 'kernel': '6.12.93', 'requirement': 'TST008', 'longest_off_s': '40.9'}
+19:29:35 TST008 B (afcbaa3) failure text:             AssertionError: a check inside failed; the message says the check is invalid, and why.
+== net read after B (afcbaa3) 19:29:35
+Inter-| sta-|   Quality        |   Discarded packets               | Missed | WE
+ face | tus | link level noise |  nwid  crypt   frag  retry   misc | beacon | 22
+ wlan0: 0000   54.  -56.  -256        0      0      0     25      0        0
+BusyBox v1.36.1 () multi-call binary.
+
+Usage: ip [OPTIONS] address|route|link|tunnel [ARGS]
+head: invalid option -- '1'
+BusyBox v1.36.1 () multi-call binary.
+
+Usage: head [OPTIONS] [FILE]...
+1.61 1.03 0.47 7/124 884
+usage_usec 30886323
+366.60
+meta-wisekiosk    = HEAD:afcbaa36693fc70f38a877ee9ceadee9bd322e6d
+== slot read before return 19:29:37
+meta-wisekiosk    = HEAD:afcbaa36693fc70f38a877ee9ceadee9bd322e6d
+{"compatible":"autonomos-raspberrypi0-wifi","variant":"","booted":"A","boot_primary":"rootfs.0","slots":[{"rootfs.1":{"class":"rootfs","device":"/dev/mmcblk0p3","type":"ext4","bootname":"B","state":"inactive","parent":null,"mountpoint":null,"boot_status":"good","slot_status":{"bundle":{"compatible":"autonomos-raspberrypi0-wifi","version":"0.1","description":"AutonomOS Update Bundle","build":"20261125230300","hash":"2a8bb597b6e3a5a244fe1daf3e819d76a4c6004c3478f280fb979ad37f159650"},"checksum":{"sha256":"07913409f2ce15fbf2dad96b3211a9e265434d3fa3857c3dc16f7fbb644b1c17","size":310378496},"installed":{"timestamp":"2026-11-25T23:14:27Z","count":414},"activated":{"timestamp":"2026-11-25T23:14:27Z","count":417},"status":"ok"}}},{"rootfs.0":{"class":"rootfs","device":"/dev/mmcblk0p2","type":"ext4","bootname":"A","state":"booted","parent":null,"mountpoint":"/","boot_status":"good","slot_status":{"bundle":{"compatible":"autonomos-raspberrypi0-wifi","version":"0.1","description":"AutonomOS Update Bundle","build":"20261125221516","hash":"af875e9195e4e5470618de65bbdbef722a1cf1de7c991ace5ed0499a5d37b19d"},"checksum":{"sha256":"778cc340079ab920c0b6804adc69a7f0787990518cbdb728c3c137ec6e74f29d","size":2147483648},"installed":{"timestamp":"2026-11-25T22:26:59Z","count":426},"activated":{"timestamp":"2026-11-26T00:23:19Z","count":429},"status":"ok"}}}],"artifact-repositories":[]}
+BOOT_ORDER=A B
+BOOT_A_LEFT=3
+BOOT_B_LEFT=3
+1cbccdbc-6c72-4023-9d0a-56a99f8009c9
+369.28 204.04
+19:29:40 slot read 'before return': booted rootfs.0 order-head A commit afcbaa3 slot states [good good] uptime 369s
+== mark-active rootfs.1 19:29:40
+rauc status: marked slot(s) rootfs.1 as active
+BOOT_ORDER=B A
+BOOT_A_LEFT=3
+BOOT_B_LEFT=3
+19:29:43 switch to rootfs.1 read back: order head B counter 3
+19:29:47 systemctl reboot sent (old boot id 1cbccdbc)
+19:33:21 board up on a new boot (4e2010a6), uptime 205s
+== slot read after return 19:33:21
+meta-wisekiosk    = HEAD:e0b3363dd7dcd0b7b3fffb6572ca5882e1fbcf31
+{"compatible":"autonomos-raspberrypi0-wifi","variant":"","booted":"B","boot_primary":"rootfs.1","slots":[{"rootfs.1":{"class":"rootfs","device":"/dev/mmcblk0p3","type":"ext4","bootname":"B","state":"booted","parent":null,"mountpoint":"/","boot_status":"good","slot_status":{"bundle":{"compatible":"autonomos-raspberrypi0-wifi","version":"0.1","description":"AutonomOS Update Bundle","build":"20261125230300","hash":"2a8bb597b6e3a5a244fe1daf3e819d76a4c6004c3478f280fb979ad37f159650"},"checksum":{"sha256":"07913409f2ce15fbf2dad96b3211a9e265434d3fa3857c3dc16f7fbb644b1c17","size":310378496},"installed":{"timestamp":"2026-11-25T23:14:27Z","count":414},"activated":{"timestamp":"2026-11-26T00:29:42Z","count":418},"status":"ok"}}},{"rootfs.0":{"class":"rootfs","device":"/dev/mmcblk0p2","type":"ext4","bootname":"A","state":"inactive","parent":null,"mountpoint":null,"boot_status":"good","slot_status":{"bundle":{"compatible":"autonomos-raspberrypi0-wifi","version":"0.1","description":"AutonomOS Update Bundle","build":"20261125221516","hash":"af875e9195e4e5470618de65bbdbef722a1cf1de7c991ace5ed0499a5d37b19d"},"checksum":{"sha256":"778cc340079ab920c0b6804adc69a7f0787990518cbdb728c3c137ec6e74f29d","size":2147483648},"installed":{"timestamp":"2026-11-25T22:26:59Z","count":426},"activated":{"timestamp":"2026-11-26T00:23:19Z","count":429},"status":"ok"}}}],"artifact-repositories":[]}
+BOOT_ORDER=B A
+BOOT_A_LEFT=3
+BOOT_B_LEFT=3
+4e2010a6-75f8-41ba-b795-efead43ca40b
+207.06 146.64
+19:33:23 slot read 'after return': booted rootfs.1 order-head B commit e0b3363 slot states [good good] uptime 207s
+19:33:23 return valid: e0b3363 on rootfs.1, order head B
+== net read before A return 1 19:33:23
+Inter-| sta-|   Quality        |   Discarded packets               | Missed | WE
+ face | tus | link level noise |  nwid  crypt   frag  retry   misc | beacon | 22
+ wlan0: 0000   55.  -55.  -256        0      0      0      2      0        0
+BusyBox v1.36.1 () multi-call binary.
+
+Usage: ip [OPTIONS] address|route|link|tunnel [ARGS]
+head: invalid option -- '1'
+BusyBox v1.36.1 () multi-call binary.
+
+Usage: head [OPTIONS] [FILE]...
+0.60 0.57 0.26 2/118 520
+usage_usec 12038813
+208.01
+meta-wisekiosk    = HEAD:e0b3363dd7dcd0b7b3fffb6572ca5882e1fbcf31
+queued 176 e0b3363dd7dcd0b7b3fffb6572ca5882e1fbcf31 place 1
+19:35:55 TST008 A return 1: record 20261126T003329Z: bench: 2026-11-26T00:35:54+00:00 run failed; failed 132.9 {'boot_id': '4e2010a6-75f8-41ba-b795-efead43ca40b', 'uptime_s': '218.01', 'kernel': '6.12.93', 'requirement': 'TST008', 'longest_off_s': '48.9'}
+19:35:55 TST008 A return 1 failure text:             AssertionError: a check inside failed; the message says the check is invalid, and why.
+== net read after A return 1 19:35:55
+Inter-| sta-|   Quality        |   Discarded packets               | Missed | WE
+ face | tus | link level noise |  nwid  crypt   frag  retry   misc | beacon | 22
+ wlan0: 0000   56.  -54.  -256        0      0      0     90      0        0
+BusyBox v1.36.1 () multi-call binary.
+
+Usage: ip [OPTIONS] address|route|link|tunnel [ARGS]
+head: invalid option -- '1'
+BusyBox v1.36.1 () multi-call binary.
+
+Usage: head [OPTIONS] [FILE]...
+1.89 1.12 0.52 4/117 837
+usage_usec 25254604
+360.81
+meta-wisekiosk    = HEAD:e0b3363dd7dcd0b7b3fffb6572ca5882e1fbcf31
+== net read before A return 2 19:35:56
+Inter-| sta-|   Quality        |   Discarded packets               | Missed | WE
+ face | tus | link level noise |  nwid  crypt   frag  retry   misc | beacon | 22
+ wlan0: 0000   56.  -54.  -256        0      0      0     90      0        0
+BusyBox v1.36.1 () multi-call binary.
+
+Usage: ip [OPTIONS] address|route|link|tunnel [ARGS]
+head: invalid option -- '1'
+BusyBox v1.36.1 () multi-call binary.
+
+Usage: head [OPTIONS] [FILE]...
+2.22 1.20 0.54 3/117 849
+usage_usec 25681977
+361.89
+meta-wisekiosk    = HEAD:e0b3363dd7dcd0b7b3fffb6572ca5882e1fbcf31
+queued 177 e0b3363dd7dcd0b7b3fffb6572ca5882e1fbcf31 place 1
+19:38:31 TST008 A return 2: record 20261126T003601Z: bench: 2026-11-26T00:38:30+00:00 run failed; failed 136.8 {'boot_id': '4e2010a6-75f8-41ba-b795-efead43ca40b', 'uptime_s': '369.05', 'kernel': '6.12.93', 'requirement': 'TST008', 'longest_off_s': '28.8'}
+19:38:31 TST008 A return 2 failure text:             AssertionError: a check inside failed; the message says the check is invalid, and why.
+== net read after A return 2 19:38:31
+Inter-| sta-|   Quality        |   Discarded packets               | Missed | WE
+ face | tus | link level noise |  nwid  crypt   frag  retry   misc | beacon | 22
+ wlan0: 0000   53.  -57.  -256        0      0      0     90      0        0
+BusyBox v1.36.1 () multi-call binary.
+
+Usage: ip [OPTIONS] address|route|link|tunnel [ARGS]
+head: invalid option -- '1'
+BusyBox v1.36.1 () multi-call binary.
+
+Usage: head [OPTIONS] [FILE]...
+2.25 1.75 0.86 3/104 1054
+usage_usec 42821138
+516.42
+meta-wisekiosk    = HEAD:e0b3363dd7dcd0b7b3fffb6572ca5882e1fbcf31
+== slot read end state 19:38:32
+meta-wisekiosk    = HEAD:e0b3363dd7dcd0b7b3fffb6572ca5882e1fbcf31
+{"compatible":"autonomos-raspberrypi0-wifi","variant":"","booted":"B","boot_primary":"rootfs.1","slots":[{"rootfs.1":{"class":"rootfs","device":"/dev/mmcblk0p3","type":"ext4","bootname":"B","state":"booted","parent":null,"mountpoint":"/","boot_status":"good","slot_status":{"bundle":{"compatible":"autonomos-raspberrypi0-wifi","version":"0.1","description":"AutonomOS Update Bundle","build":"20261125230300","hash":"2a8bb597b6e3a5a244fe1daf3e819d76a4c6004c3478f280fb979ad37f159650"},"checksum":{"sha256":"07913409f2ce15fbf2dad96b3211a9e265434d3fa3857c3dc16f7fbb644b1c17","size":310378496},"installed":{"timestamp":"2026-11-25T23:14:27Z","count":414},"activated":{"timestamp":"2026-11-26T00:29:42Z","count":418},"status":"ok"}}},{"rootfs.0":{"class":"rootfs","device":"/dev/mmcblk0p2","type":"ext4","bootname":"A","state":"inactive","parent":null,"mountpoint":null,"boot_status":"good","slot_status":{"bundle":{"compatible":"autonomos-raspberrypi0-wifi","version":"0.1","description":"AutonomOS Update Bundle","build":"20261125221516","hash":"af875e9195e4e5470618de65bbdbef722a1cf1de7c991ace5ed0499a5d37b19d"},"checksum":{"sha256":"778cc340079ab920c0b6804adc69a7f0787990518cbdb728c3c137ec6e74f29d","size":2147483648},"installed":{"timestamp":"2026-11-25T22:26:59Z","count":426},"activated":{"timestamp":"2026-11-26T00:23:19Z","count":429},"status":"ok"}}}],"artifact-repositories":[]}
+BOOT_ORDER=B A
+BOOT_A_LEFT=3
+BOOT_B_LEFT=3
+4e2010a6-75f8-41ba-b795-efead43ca40b
+518.05 240.34
+19:38:34 slot read 'end state': booted rootfs.1 order-head B commit e0b3363 slot states [good good] uptime 518s
+19:38:34 control ended
