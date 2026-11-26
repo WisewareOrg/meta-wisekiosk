@@ -11,7 +11,7 @@
 # TO WATCH THIS FAIL, with KIOSK_INSTALL_UNDER_TEST=<a copy of the script with one seed>; each prints these
 # lines and ends within the timeout tools/ci-guards.sh gives this test (a call that must be refused is bounded at 5 s):
 #   * make the `flock -n 8` condition always false: "a second call is refused and names the holder"
-#   * delete `exec 8>&-` in stream(): the run stops at "never reached: reached 12 docker run"
+#   * delete `exec 8>&-` in stream(): "a script killed alone frees the lock though its streaming ssh live on"
 #   * leave out `exec` before the stream's ssh: "after the script ends none of its streaming ssh is left"
 #   * key the lock on "$host" as typed: "a name that ssh -G maps to the board's own meets its lock" and
 #     "a name that only getent maps to the board's address meets its lock"
@@ -20,11 +20,9 @@
 #   * take no HostName from ssh -G: "a name that ssh -G maps to the board's own meets its lock"
 #   * drop `ps -p "$owner" >/dev/null 2>&1 ||` in serve(): "a server whose pid is dead is removed and one whose pid is alive is kept"
 #   * drop `port=${port##*:}` in serve(): "the port is the one on a two-line docker port"
-#   * in a scratch copy of this test, run `bash -c 'sleep 3'` in place of ssh in ssh_closes_fd8: the run stops at "never reached: has_child"
-#     (not probed); and set real_ssh to a script named ssh holding `#!/bin/bash` and `sleep 3 & wait`, which keeps the descriptor:
+#   * in a scratch copy of this test, run `bash -c 'sleep 3'` in place of ssh in ssh_closes_fd8: the run stops at "never reached: has_child";
+#     and set real_ssh to a script named ssh holding `#!/bin/bash` and `sleep 3 & wait`, which keeps the descriptor:
 #     "the real ssh closes a descriptor it inherits", with the file's fd named. The stub ssh's own `exec 8>&-` stays.
-#
-# One scenario, phases A to E, runs on call 1's held lock; the sections after it each start their own.
 #
 # Exit: 0 every case passed; 1 a case failed.
 set -u
@@ -37,7 +35,7 @@ cleanup() {
     local f status=$?
     jobs -p | xargs -r kill -9 2>/dev/null
     for f in "$scratch"/pg.*; do kill -9 -- "-$(cat "$f")" 2>/dev/null; done
-    rm -f /tmp/kiosk-install-*"$tag"*.lock /tmp/kiosk-install-ADDR-*"$tag"*.lock
+    rm -f /tmp/kiosk-install-*"$tag"*.lock
     if [ "$status" -ne 0 ]; then echo "scratch kept: $scratch"; else rm -rf "$scratch"; fi
 }
 trap cleanup EXIT
@@ -149,7 +147,7 @@ refused_by() { # id: refused with exit 1 and a message naming its holder
     return 1
 }
 
-# Phase A, one scenario from here to phase E, all on call 1's held lock: a second call to one board is refused, names the holder, and reached nothing but `ssh -G`
+# Phase A. Phases A to E are one scenario on call 1's held lock; the sections after it each start their own. A second call to one board is refused, names the holder, and reached nothing but `ssh -G`
 rm -f "$RELEASE" "$STATE/installed"
 install 1 "$one"
 await reached 1 "docker run"

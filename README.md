@@ -176,7 +176,7 @@ the build container.
 just build          # kas fetches sources/, applies the patches, builds core-image-base and deploys kiosk-bootprof
 ```
 
-Builds on one host take turns: a second `just build`, or another `tools/kas-run.sh` call but `just shell`,
+Builds on one host take turns: a second `just build`, or any other `tools/kas-run.sh` call except an interactive `just shell`,
 waits for the first and says which build holds the host.
 
 **The version in that `curl` URL is the kas version the build uses, and it changes nothing on its
