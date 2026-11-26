@@ -117,11 +117,10 @@ class Load:
 
     def confirm_applied(self) -> None:
         """Fail the check as invalid unless the board took every byte, at 1 MB/s or more."""
-        rate = self.sent / self.seconds / 1e6 if self.seconds else 0.0
         with invalid_if(
-            f"the load was not applied: {self.sent} B at {rate:.2f} MB/s, the board counted {self.counted!r}"
+            f"the load was not applied: {self.sent} B at {self.mb_s:.2f} MB/s, the board counted {self.counted!r}"
         ):
-            assert self.returncode == 0 and self.counted == str(self.sent) and rate >= _LOAD_FLOOR_MB_S
+            assert self.returncode == 0 and self.counted == str(self.sent) and self.mb_s >= _LOAD_FLOOR_MB_S
 
 
 @dataclasses.dataclass(frozen=True)
@@ -176,7 +175,7 @@ class Radio:
         values: dict[str, int | str] = {}
         for name, pattern in cls._FIELDS.items():
             found = re.search(pattern, text, re.MULTILINE)
-            if not found or not found.group(1):
+            if not found:
                 raise ValueError(f"no {name.replace('_', ' ')} in the read")
             values[name] = found.group(1) if name == "boot_id" else int(found.group(1))
         return cls(at=at, done=done, **values)

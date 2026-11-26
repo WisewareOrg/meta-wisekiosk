@@ -147,10 +147,10 @@ def judge_resets(seen: dict[str, ResetLine]) -> None:
     cut = seen["power cut"]
     assert int(cut.rsts, 16) & POWER_ON, (
         f"after the power cut rsts {cut.rsts} lacks the power-on bit: the bit is not where the header says, "
-        "or the plug did not cut; the keeper cannot be judged"
+        "or the plug did not cut; the watchdog-full-reset bit cannot be judged"
     )
     assert not int(cut.rsts, 16) & WATCHDOG_FULL, (
-        f"after the power cut rsts {cut.rsts} has the watchdog-full-reset bit: the keeper separates nothing"
+        f"after the power cut rsts {cut.rsts} has the watchdog-full-reset bit: the bit separates nothing"
     )
     assert cut.console in ("silent", "none"), f"after a power cut the console read {cut.console}"
     expected = {"restart": "restart", "kernel panic": "panic", "watchdog bite": "silent"}
@@ -158,6 +158,6 @@ def judge_resets(seen: dict[str, ResetLine]) -> None:
         read = seen[cause]
         assert int(read.rsts, 16) & WATCHDOG_FULL, (
             f"after the {cause} rsts {read.rsts} lacks the watchdog-full-reset bit: the bit is not where the "
-            "header says, or the keeper separates nothing"
+            "header says, or the bit separates nothing"
         )
         assert read.console == console, f"after a {cause} the console read {read.console}, not {console}"
