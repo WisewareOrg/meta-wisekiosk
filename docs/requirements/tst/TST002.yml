@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_back_after_a_fault
   path: tests/target_suite/test_back_on_the_panel.py
-  sha: 216d86f9611f3c7a040e4153a1db9fd4681bd9c0237484ec7136556ec7034a9b
+  sha: 05beb893eac235d6266be426f1a1a7b5fc6aa16bf0217435a2641dc0f03b5219
   type: file
-reviewed: 5B0UnYAQXpUrunPfBnfBfEW1txJYTaeRQFkp907AVmg=
+reviewed: O7T9OgUaoo9hAw4iWyF-n6HdWHzFTQYsG2X6Ih224lU=
 status: proposed
 text: |
   With the appliance serving the WiseKiosk instance's page and the browser running, cut its power

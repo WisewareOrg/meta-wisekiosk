@@ -114,7 +114,16 @@ class TestBackOnThePanel(BoardTest):
         assert picture_changes, f"{back_s} s after the freeze the panel's buffers changed, but its picture did not"
 
     def test_sustained_network_load(self) -> None:
-        """TST008: load the network; no time off the panel, through the load and after it, may pass 60 s."""
+        """TST008: load the network; no time off the panel, through the load and after it, may pass 60 s.
+
+        The board's link is read first, and the call stops as invalid before any load if the link cannot be
+        read or the board sends at or below `LINK_FLOOR_MBIT`, 802.11b's top rate. A link that slow cannot
+        carry the load: the bench board, sending at an 802.11b rate, took the load at under its floor, and
+        sending at HT rates took it in full. Read first, such a link ends the call at once and is named in
+        its record, instead of a minute's push ending in a load not applied. The board's own send rate is a
+        sign of the link, not the rate the load travels at, so a link above the floor is not taken to carry
+        the load; `Load.confirm_applied` judges that.
+        """
         self.record(requirement="TST008")
         link = self.board.network.link()
         self.record(**Link.properties(link))

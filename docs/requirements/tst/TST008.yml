@@ -14,14 +14,19 @@ ref: ''
 references:
 - keyword: def test_sustained_network_load
   path: tests/target_suite/test_back_on_the_panel.py
-  sha: 216d86f9611f3c7a040e4153a1db9fd4681bd9c0237484ec7136556ec7034a9b
+  sha: 05beb893eac235d6266be426f1a1a7b5fc6aa16bf0217435a2641dc0f03b5219
   type: file
-reviewed: SyTWFmKsFa3dyu3lf5MNxFqlELD1w_b5i7NXOKVdunc=
+reviewed: dHT3dbzU8tuxCYoGDM2vknsoFlqSq-PnjoHDZ8Z0KWo=
 status: proposed
 text: |
   With the WiseKiosk instance on the panel, hold the appliance's network under sustained load from
   one host for 60 s. Pass if the panel shows the live instance throughout, or is back within 60 s of
-  any time it stops.
+  any time it stops. The check is invalid, rather than failed, if before the load the appliance's
+  link cannot be read or sends at or below 11 Mbit/s, 802.11b's top rate: a link that slow cannot
+  carry the load, so the appliance would not be held under it. It is invalid too if the load is not
+  applied, at under 1.0 MB/s on average or with not every byte sent counted by the appliance: the
+  appliance was then not held under the load this check names. Either way the check shows nothing
+  about the appliance.
 verification-justification: |
   Test. It injects the fault and observes the result from outside the appliance; the pass condition
   needs no judgement.
