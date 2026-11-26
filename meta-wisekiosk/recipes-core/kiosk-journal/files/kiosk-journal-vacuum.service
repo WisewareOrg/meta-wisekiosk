@@ -1,0 +1,7 @@
+[Unit]
+Description=Keep the persistent journal at 64 MB
+RequiresMountsFor=/data
+
+[Service]
+Type=oneshot
+ExecStart=-/usr/bin/kiosk-journal-vacuum
