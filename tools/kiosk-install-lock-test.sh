@@ -20,8 +20,9 @@
 #   * take no HostName from ssh -G: "a name that ssh -G maps to the board's own meets its lock"
 #   * drop `ps -p "$owner" >/dev/null 2>&1 ||` in serve(): "a server whose pid is dead is removed and one whose pid is alive is kept"
 #   * drop `port=${port##*:}` in serve(): "the port is the one on a two-line docker port"
-#   * in a scratch copy of this test, run `bash -c 'sleep 3'` in place of ssh in ssh_closes_fd8: "the real ssh closes a descriptor it inherits"
-#     (the stub ssh's own `exec 8>&-` stays; this case is what shows the real one does it)
+#   * in a scratch copy of this test, run `bash -c 'sleep 3'` in place of ssh in ssh_closes_fd8: the run stops at "never reached: has_child"
+#     (not probed); and set real_ssh to a script named ssh holding `#!/bin/bash` and `sleep 3 & wait`, which keeps the descriptor:
+#     "the real ssh closes a descriptor it inherits", with the file's fd named. The stub ssh's own `exec 8>&-` stays.
 #
 # One scenario, phases A to E, runs on call 1's held lock; the sections after it each start their own.
 #
@@ -41,7 +42,8 @@ cleanup() {
 }
 trap cleanup EXIT
 trap 'exit 143' TERM
-mkdir -p "$scratch/co/tools" "$scratch/bin" "$scratch/state"
+mkdir -p "$scratch/co/tools" "$scratch/bin" "$scratch/state" "$scratch/home"
+export HOME=$scratch/home
 export LOG=$scratch/log STATE=$scratch/state RELEASE=$scratch/release
 : > "$LOG"
 cp "$shipped" "$scratch/co/tools/kiosk-install.sh"
@@ -95,11 +97,13 @@ real_ssh=$(command -v ssh)
 export PATH=$scratch/bin:$PATH TAGNAME=$tag
 
 fails=0
+passes=0
 check() {
     local name=$1
     shift
     if "$@"; then
         echo "ok    $name"
+        passes=$((passes + 1))
     else
         echo "FAIL  $name"
         echo "      the log's last 20 lines:"
@@ -111,9 +115,14 @@ not() { ! "$@"; }
 reached() { grep -q "^$1 $2" "$LOG"; }
 await() {
     local _
-    for _ in $(seq 1 150); do "$@" && return 0; sleep 0.1; done
+    for _ in $(seq 1 150); do "$@" 2>/dev/null && return 0; sleep 0.1; done
     echo "FAIL  never reached: $*"
     exit 1
+}
+within() { # a bounded wait that is itself the verdict: fails rather than ends the run
+    local _
+    for _ in $(seq 1 150); do "$@" 2>/dev/null && return 0; sleep 0.1; done
+    return 1
 }
 install() { # call-id host: one install in the background, in a session of its own, its output in out.<id>
     local id=$1 host=$2
@@ -152,8 +161,7 @@ only_g() { ! grep "^$1 " "$LOG" | grep -v ' ssh -G' | grep -q .; }
 check "the refused call reached nothing but ssh -G" only_g 2
 # Phase B: a call to another board goes on, and a call with another XDG_RUNTIME_DIR to the first board is refused
 install 3 "$two"
-await reached 3 "docker run"
-check "another board goes on" reached 3 "docker run"
+check "another board goes on" within reached 3 "docker run"
 mkdir -p "$scratch/xdg"
 refused_call 4 "$one" XDG_RUNTIME_DIR="$scratch/xdg"
 check "other environments meet on one lock" refused_by 4
@@ -193,8 +201,7 @@ await reached 9 "docker run"
 kill -9 -- "-$(cat "$scratch/pg.9")" 2>/dev/null
 await not kill -0 -- "-$(cat "$scratch/pg.9")"
 install 10 "$one"
-await reached 10 "docker run"
-check "the lock is free after the first ended and after one killed whole" reached 10 "docker run"
+check "the lock is free after the first ended and after one killed whole" within reached 10 "docker run"
 kill -9 -- "-$(cat "$scratch/pg.10")" 2>/dev/null
 await not kill -0 -- "-$(cat "$scratch/pg.10")"
 
@@ -217,8 +224,7 @@ streams_alive() {
 }
 check "the streaming ssh of the killed script are still alive" streams_alive
 install 12 "$one"
-await reached 12 "docker run"
-check "a script killed alone frees the lock though its streaming ssh live on" reached 12 "docker run"
+check "a script killed alone frees the lock though its streaming ssh live on" within reached 12 "docker run"
 
 # Bundle server: a stale server is removed and a live one is kept; the port is read from a two-line `docker port`
 : > "$LOG"; rm -f "$RELEASE" "$STATE/installed"
@@ -242,19 +248,25 @@ await test -e "$scratch/rc.13"
 # The real ssh closes a descriptor it inherits, which the stub ssh's `exec 8>&-` stands in for
 has_child() { pgrep -P "$1" > /dev/null; }
 ssh_closes_fd8() {
-    local p
+    local p fd
     [ -n "$real_ssh" ] || { echo "      no ssh on PATH: not probed"; return 1; }
     (exec 8>> "$scratch/fd8"; exec "$real_ssh" -F /dev/null -o BatchMode=yes -o ProxyCommand='sleep 3' x.invalid) > /dev/null 2>&1 &
     p=$!
     await has_child "$p"
     [ "$(cat "/proc/$p/comm" 2>/dev/null)" = ssh ] || { echo "      the probed process is not ssh: not probed"; kill "$p" 2>/dev/null; return 1; }
-    [ -d "/proc/$p/fd" ] || { echo "      no /proc/$p/fd: not probed"; return 1; }
-    if [ -e "/proc/$p/fd/8" ]; then echo "      ssh holds fd 8"; kill "$p" 2>/dev/null; return 1; fi
+    [ -d "/proc/$p/fd" ] || { echo "      no /proc/$p/fd: not probed"; kill "$p" 2>/dev/null; return 1; }
+    for fd in /proc/$p/fd/*; do
+        if [ "$(readlink "$fd")" = "$scratch/fd8" ]; then
+            echo "      ssh still holds the inherited file on fd ${fd##*/}"
+            kill "$p" 2>/dev/null
+            return 1
+        fi
+    done
     kill "$p" 2>/dev/null
     wait "$p" 2>/dev/null
     return 0
 }
 check "the real ssh closes a descriptor it inherits" ssh_closes_fd8
 
-echo "kiosk-install lock: $fails case(s) failed"
+echo "kiosk-install lock: $passes case(s) passed, $fails failed"
 [ "$fails" -eq 0 ]

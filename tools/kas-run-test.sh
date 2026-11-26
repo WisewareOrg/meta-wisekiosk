@@ -25,6 +25,8 @@
 #   * drop `:ro` from the keys mount: "the keys mount stays read-only"
 #   * replace the mkdir's error with `|| true`: "a failed mkdir of local/keys stops before the container"
 #
+# Run as a user other than root: the unwritable-directory cases (chmod 555) fail as root.
+#
 # Exit: 0 every case passed; 1 a case failed, or the script or stub never started.
 set -u
 
@@ -67,11 +69,13 @@ for c in one two; do
 done
 
 fails=0
+passes=0
 check() { # name, then the command that must succeed
     local name=$1
     shift
     if "$@"; then
         echo "ok    $name"
+        passes=$((passes + 1))
     else
         echo "FAIL  $name"
         echo "      the log's last 20 lines:"
@@ -160,10 +164,10 @@ shell_waits() { # the shell call with these arguments waits for the holder
     (cd "$scratch/two" && TAG=C timeout 30 tools/kas-run.sh shell s.yaml "$@" > "$scratch/c.out" 2>&1) &
     local _
     for _ in $(seq 1 100); do grep -q "waiting for another kas build" "$scratch/c.out" 2>/dev/null && break; sleep 0.1; done
-    ! has "begin C"
-    held=$?
+    began_early=no
+    has "begin C" && began_early=yes
     let_go
-    [ "$held" -eq 0 ] && before "end A" "begin C"
+    [ "$began_early" = no ] && before "end A" "begin C"
 }
 for words in "-c|bitbake x" "--command=bitbake x" "-kc|bitbake x"; do
     IFS='|' read -r -a args <<< "$words"
@@ -237,7 +241,7 @@ let_go
 waiter_never_built() { waited "$scratch/b10.out" && ! has "begin B"; }
 check "an interrupted waiter never builds" waiter_never_built
 
-# 10. a keyed call makes local/keys, as the caller, before the container starts, and the keys mount stays
+# 10. a keyed call makes local/keys before the container starts, and the keys mount stays
 # read-only; a call without PIPELINE_KEYS_DIR makes nothing
 for c in four five; do
     mkdir -p "$scratch/$c/tools"
@@ -246,7 +250,7 @@ done
 mkdir -p "$scratch/keys-src"
 rm -f "$log.local" "$log.args"
 (cd "$scratch/four" && PIPELINE_KEYS_DIR="$scratch/keys-src" tools/kas-run.sh build k.yaml > /dev/null 2>&1)
-check "a keyed call makes local/keys as the caller before the container starts" \
+check "a keyed call makes local/keys before the container starts" \
     grep -qx "local=yes keys_owner=$(id -u)" "$log.local"
 check "the keys mount stays read-only" grep -q -- "-v $scratch/keys-src:/work/local/keys:ro" "$log.args"
 rm -f "$log.local"
@@ -264,5 +268,5 @@ chmod 755 "$scratch/six/local"
 stopped_early() { [ "$rc" -ne 0 ] && [ ! -e "$log.local" ] && printf '%s' "$out" | grep -q "$scratch/six/local/keys"; }
 check "a failed mkdir of local/keys stops before the container and names the path" stopped_early
 
-echo "kas-run: $fails case(s) failed"
+echo "kas-run: $passes case(s) passed, $fails failed"
 [ "$fails" -eq 0 ]
