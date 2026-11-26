@@ -46,7 +46,7 @@ repos:
 
   poky:
     url: "https://git.yoctoproject.org/git/poky"
-    commit: 6b7c1066f778db5a6b3e35400617b10342988fa8
+    commit: 1397cd85032d1582fa4f2512a3f378d71ca39291
     path: "sources/poky"
     layers:
       meta:
@@ -69,7 +69,7 @@ repos:
   meta-webkit:
     url: "https://github.com/Igalia/meta-webkit.git"
     branch: scarthgap-latest
-    commit: d64d4bae6e7116ac8102081fdee5ed193e8d0061
+    commit: 7a89fb5e1ed0b71ac44b7750b1db5dd6b9307821
     path: "sources/meta-webkit"
 
   meta-arm:
