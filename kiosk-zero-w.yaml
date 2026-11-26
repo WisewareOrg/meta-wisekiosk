@@ -43,6 +43,11 @@ local_conf_header:
   # arms the hardware watchdog at 5.2s, and kernel.panic via sysctl applies at
   # ~11.7s. The kernel command line is the only mechanism that covers it, and
   # without it this failure costs a person standing at the device.
+  # Its value differs from kernel.panic in 60-kiosk-panic.conf, which applies once
+  # userspace is up, and stays: cmdline.txt is on the shared FAT partition RAUC
+  # never writes (README.md §"Quick start"), so a new value would reach only a
+  # freshly flashed card, and the tree would state a value the boards in the field
+  # do not run.
   panic-reboot: |
     CMDLINE:append = " panic=10"
 
