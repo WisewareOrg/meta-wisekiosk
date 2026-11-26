@@ -185,11 +185,11 @@ class Radio:
     def properties(before: "Radio | str", after: "Radio | str") -> dict[str, object]:
         """The record's radio properties for a window between two reads.
 
-        A read that failed is its error text: that edge's numbers and every delta are left out. Deltas are
-        left out too, with the reason as the after-read's error, when the window spans a new boot, a
-        counter that went back, or a reconnect of the station: its connected time grew by less than the
-        window, less `_RECONNECT_SLACK_SECONDS`. The window runs from the end of the before-read to the start
-        of the after-read.
+        A read that failed is its error text, under `radio_read_error_<edge>`: that edge's numbers and every
+        delta are left out. Deltas are left out too, with the reason under `radio_window_void`, when the
+        window spans a new boot, a counter that went back, or a reconnect of the station: its connected time
+        grew by less than the window, less `_RECONNECT_SLACK_SECONDS`. The window runs from the end of the
+        before-read to the start of the after-read.
 
         Args:
             before: the read before the window, or why it failed.
@@ -214,11 +214,11 @@ class Radio:
         window_s = after.at - before.done
         went_back = [name for name, delta in deltas.items() if delta < 0]
         if after.boot_id != before.boot_id:
-            properties["radio_read_error_after"] = "boot changed"
+            properties["radio_window_void"] = "boot changed"
         elif went_back:
-            properties["radio_read_error_after"] = f"counter went back: {went_back[0]}"
+            properties["radio_window_void"] = f"counter went back: {went_back[0]}"
         elif after.connected_s < before.connected_s + window_s - _RECONNECT_SLACK_SECONDS:
-            properties["radio_read_error_after"] = (
+            properties["radio_window_void"] = (
                 f"station reconnected: connected {before.connected_s} then {after.connected_s} over {window_s:.0f} s"
             )
         else:

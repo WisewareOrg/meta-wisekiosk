@@ -98,6 +98,11 @@ to fail: it installs a good copy of the candidate in the slot not booted, zeroes
 attempts and restarts, and passes only when U-Boot boots the other slot. Both slots stay bootable, so
 it strands nothing.
 
+`tests/diagnostics -k radio_under_load` reads the board's radio before and after the network load
+TST008<!-- Sustained network load --> applies, and records the load's rate, the signal at each edge
+and the counters' deltas across the load; it judges nothing. It changes nothing on the board, so it
+runs with `--skip-build` against a running board.
+
 `tests/applications/screenshot` is the suite of the screenshot application, which runs on the board.
 It is separate from the image suite and the diagnostics, and the queue job does not run it.
 `test_decoder.py`, on constructed buffers and no board, runs in `just guards` and CI. `bench test
