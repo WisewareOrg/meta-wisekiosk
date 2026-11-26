@@ -117,8 +117,9 @@ not a run here.
   outbound ssh, so Docker's published ports are not on its path.
 - `iw station dump`'s rx bitrate is the rate of the last frame received. On an idle link that can be a
   broadcast or management frame at a basic rate, so an idle read says little about the link; a read taken
-  while a push runs is dominated by the push's frames. The failed and retried transmission counters
-  integrate over any window.
+  while a push runs is dominated by the push's frames. The failed-transmission counter
+  integrates over any window. This board's station dump prints no retried-transmission counter
+  (`run-station-dump-bench.txt`: the bench at `6a34d6f`, read whole at 22:12:18 on 25 Nov 2026).
 
 ## Metrics
 
@@ -222,11 +223,11 @@ INVALID could not be read as the air from its own record.
 
 **Code change, in this PR:** TST008<!-- Sustained network load -->'s record carries the radio across
 its call. `Network.radio()` (`tests/board/network/__init__.py`) reads, in one `board.run`, the boot id,
-the station dump's connected time, signal, retried and failed transmissions, and wlan0's byte counts;
+the station dump's connected time, signal and failed transmissions, and wlan0's byte counts;
 a read that fails is returned as its reason, never raised. `test_sustained_network_load` reads it after
 the panel is up and before the load starts, and again once the load and the watch have ended, both
 outside the timed window, and records, before any assert: `radio_signal_before_dbm`,
-`radio_signal_after_dbm`, `radio_tx_retries_delta`, `radio_tx_failed_delta`, `wlan0_rx_bytes_delta`,
+`radio_signal_after_dbm`, `radio_tx_failed_delta`, `wlan0_rx_bytes_delta`,
 `wlan0_tx_bytes_delta`, `radio_window_s` and, on every run, `load_mb_s`. A failed read records
 `radio_read_error_before` or `_after` and leaves that edge's numbers and every delta out; so do a new
 boot, a counter that went back, or a station whose connected time grew by less than the window less

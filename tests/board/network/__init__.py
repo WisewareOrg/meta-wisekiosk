@@ -73,7 +73,6 @@ class Radio:
         boot_id: the board's boot.
         connected_s: how long the station has been associated.
         signal_dbm: the station's signal.
-        tx_retries: frames the board sent again.
         tx_failed: frames the board gave up on.
         rx_bytes: wlan0's received bytes.
         tx_bytes: wlan0's sent bytes.
@@ -84,7 +83,6 @@ class Radio:
     boot_id: str
     connected_s: int
     signal_dbm: int
-    tx_retries: int
     tx_failed: int
     rx_bytes: int
     tx_bytes: int
@@ -93,7 +91,6 @@ class Radio:
         "boot_id": r"^boot_id:\s*(\S+)",
         "connected_s": r"^\s*connected time:\s*(\d+)",
         "signal_dbm": r"^\s*signal:\s*(-?\d+)",
-        "tx_retries": r"^\s*tx retries:\s*(\d+)",
         "tx_failed": r"^\s*tx failed:\s*(\d+)",
         "rx_bytes": r"^rx_bytes:\s*(\d+)",
         "tx_bytes": r"^tx_bytes:\s*(\d+)",
@@ -149,7 +146,6 @@ class Radio:
         if isinstance(before, str) or isinstance(after, str):
             return properties
         deltas = {
-            "radio_tx_retries_delta": after.tx_retries - before.tx_retries,
             "radio_tx_failed_delta": after.tx_failed - before.tx_failed,
             "wlan0_rx_bytes_delta": after.rx_bytes - before.rx_bytes,
             "wlan0_tx_bytes_delta": after.tx_bytes - before.tx_bytes,

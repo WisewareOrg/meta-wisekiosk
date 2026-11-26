@@ -1,0 +1,22 @@
+commit 6a34d6face9bb37d53f2032bb52b606f2af19bfb uptime 1496.69
+# read 2026-11-25 22:12:18 EST, one read-only ssh, outside any test call; image build (img414) on the host beside it
+Station <mac> (on wlan0)
+	inactive time:	0 ms
+	rx bytes:	27250093
+	rx packets:	19175
+	tx bytes:	1052176
+	tx packets:	10336
+	tx failed:	76
+	signal:  	-59 dBm
+	tx bitrate:	5.5 MBit/s
+	rx bitrate:	5.5 MBit/s
+	authorized:	yes
+	authenticated:	yes
+	associated:	yes
+	WMM/WME:	yes
+	TDLS peer:	no
+	DTIM period:	2
+	beacon interval:200
+	short slot time:yes
+	connected time:	1475 seconds
+	current time:	1795662738237 ms
