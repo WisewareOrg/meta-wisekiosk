@@ -953,7 +953,8 @@ fi
 # (meta-wisekiosk/recipes-core/bundles/README.md). The match is the literal
 # words: a command built from a list or a variable is not seen, and a trailing
 # comment naming them is. Lines that start with `#` are skipped; this file
-# names the command in its own messages.
+# names the command in its own messages. tools/kiosk-install-lock-test.sh is
+# excluded: its stub ssh answers a `rauc install` command and installs nothing.
 hits20=$(git grep -n -E 'rauc[[:space:]]+install' -- tools justfiles Justfile tests \
     ':!tools/kiosk-install.sh' ':!tools/ci-guards.sh' ':!tools/kiosk-install-lock-test.sh' \
     | grep -v -E '^[^:]+:[0-9]+:[[:space:]]*#' || true)

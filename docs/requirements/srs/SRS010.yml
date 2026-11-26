@@ -4,7 +4,7 @@ header: |
   Configuration changed over the air
 level: 2.3
 links:
-- SYS002: we4-sQcWch5HDwJ-oXfvp9Sv6m3b5_G4qYVQ1_9S9QY=
+- SYS002: i3d4SHG3aY_ANSTfx8AMKVFDymJY1DyAzlPVqi-lQNk=
 normative: true
 rationale: |
   Settles that the configuration the appliance holds is unchanged across an image update, a restart

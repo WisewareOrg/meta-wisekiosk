@@ -5,8 +5,9 @@
 #   tools/kiosk-install.sh root@<host> <bundle>
 #   tools/kiosk-install.sh --check-only <before> <after>
 #
-# One install per board at a time, by the address its host name resolves to (a second is refused, naming the
-# holder's pid and checkout).
+# One install per board at a time from this host, by the address its host name resolves to (a second is
+# refused, naming the holder's pid and checkout). A script killed alone frees the lock at once while rauc goes
+# on installing; a later call is then refused by rauc only, after its arming.
 #
 # Every install goes through this script: just kiosk-ota, tools/rauc-rotate.sh
 # and the target suite's update tests. The board streams BUNDLE: for the length
@@ -262,11 +263,9 @@ main() {
     gate="$root/tools/reproducibility-gate.sh"
     cd "$root"
 
-    # One install per board: a second would clear the first's pstore records and turn its recorders off. The
-    # lock is the board's address, at a fixed path, opened for append; the holder writes its pid and checkout into
-    # it. The streaming sessions run in a subshell that closes the descriptor, so their stamp processes do not hold
-    # it. A script killed alone frees the lock at once while rauc goes on installing; a later call is then refused
-    # by rauc only, after its arming.
+    # One install per board from this host: a second would clear the first's pstore records and turn its
+    # recorders off. The lock is the board's address, at a fixed path; the holder writes its pid and checkout
+    # into it.
     local lock holder
     lock="/tmp/kiosk-install-$(board_address "$host" | tr -c 'A-Za-z0-9._:\n-' _).lock"
     exec 8>>"$lock"
