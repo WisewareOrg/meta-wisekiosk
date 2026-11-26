@@ -343,7 +343,7 @@ local_conf_header:
   # The engine's compile cache (README.md §"Quick start").
   ccache: |
     CCACHE_TOP_DIR = "${SSTATE_DIR}/ccache"
-    # The cache's settings; with them out, a build through the cache counts as the same build as one without it.
+    # The class exports these settings and bitbake.conf ignores only some of them; with them out, changing a cache setting rebuilds no engine.
     BB_BASEHASH_IGNORE_VARS:append = " CCACHE_BASEDIR CCACHE_COMPILERCHECK CCACHE_CONFIGPATH CCACHE_TEMPDIR CCACHE_MAXSIZE"
 
   diskmonitoring: |
