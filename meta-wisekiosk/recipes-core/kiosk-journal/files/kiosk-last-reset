@@ -8,10 +8,12 @@
 #   rsts     the firmware's reset status, hex; bit 0x20 set is a watchdog reset; 0x1000 set with 0x20
 #            clear is power-on, and 0x1000 can stay set through the next warm reset
 #   console  how the previous boot's console ended, read from the pstore console record:
-#              panic    "Kernel panic - not syncing"
+#              panic    "Kernel panic - not syncing", from the panic dump or the console record
 #              restart  systemd-shutdown's restart line; a hang after systemd's last step reads the same
 #              silent   neither: a watchdog bite, a hang or a reset line alike
 #              none     no console record
+#            /data/kiosk-last-reset.seen keeps an old dump from naming later boots; if /data is
+#            unwritable, a dump is named again.
 #
 # It prints nothing else and exits 0 whatever is missing.
 
@@ -30,6 +32,21 @@ if [ -e /sys/fs/pstore/console-ramoops-0 ]; then
         console=silent
     fi
 fi
+seen=/data/kiosk-last-reset.seen
+hashes=
+dump_panic=
+for dump in /sys/fs/pstore/dmesg-ramoops-*; do
+    [ -e "$dump" ] || continue
+    hash=$(md5sum "$dump" 2>/dev/null | cut -d' ' -f1)
+    [ -n "$hash" ] || continue
+    hashes="$hashes$hash
+"
+    if ! grep -q -x -F "$hash" "$seen" 2>/dev/null && grep -q -F 'Kernel panic - not syncing' "$dump" 2>/dev/null; then
+        dump_panic=1
+    fi
+done
+[ -z "$dump_panic" ] || console=panic
+{ printf '%s' "$hashes" > "$seen.tmp" && mv -f "$seen.tmp" "$seen"; } 2>/dev/null
 [ -z "$mounted" ] || umount /sys/fs/pstore 2>/dev/null
 echo "kiosk-last-reset: last reset rsts=${rsts:-unknown} console=$console"
 
