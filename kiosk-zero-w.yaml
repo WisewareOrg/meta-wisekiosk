@@ -340,6 +340,12 @@ local_conf_header:
     DEBUG_FLAGS:remove:pn-wpewebkit = "-g -g1"
     BB_PRESSURE_MAX_MEMORY = "20000"
 
+  # The engine's compile cache (README.md §"Quick start").
+  ccache: |
+    CCACHE_TOP_DIR = "${SSTATE_DIR}/ccache"
+    # The cache's settings; with them out, a build through the cache counts as the same build as one without it.
+    BB_BASEHASH_IGNORE_VARS:append = " CCACHE_BASEDIR CCACHE_COMPILERCHECK CCACHE_CONFIGPATH CCACHE_TEMPDIR CCACHE_MAXSIZE"
+
   diskmonitoring: |
     BB_DISKMON_DIRS ??= "\
     STOPTASKS,${TMPDIR},1G,100K \
