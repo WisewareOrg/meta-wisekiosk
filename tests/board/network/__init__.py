@@ -9,7 +9,7 @@ import threading
 import time
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 from board.network.outage import Outage
 from board.part import Part, invalid_if
@@ -22,6 +22,10 @@ _BLOCK_BYTES = 1024 * 1024
 _HANG_GRACE_SECONDS = 60
 # the least average rate that counts as the load applied
 _LOAD_FLOOR_MB_S = 1.0
+# the tx bitrate at or below which the link cannot carry the load: 802.11b's top rate
+LINK_FLOOR_MBIT = 11.0
+_LINK_READ = "iw dev wlan0 link"
+_LINK_READ_TIMEOUT_SECONDS = 10
 # one read of the board's radio: its boot, the station's counters and wlan0's byte counts
 _RADIO_READ = (
     "echo boot_id: $(cat /proc/sys/kernel/random/boot_id); iw dev wlan0 station dump; "
@@ -31,6 +35,63 @@ _RADIO_READ = (
 _RADIO_READ_TIMEOUT_SECONDS = 10
 # how far the station's connected time may fall short of the host's window before it counts as a reconnect
 _RECONNECT_SLACK_SECONDS = 2
+
+
+class Link(NamedTuple):
+    """The board's Wi-Fi link, as `iw dev wlan0 link` reports its transmit side.
+
+    Attributes:
+        tx_mbit: the tx bitrate, in Mbit/s.
+        mode: the `MCS n` or `VHT-MCS n` text when present, else `legacy`.
+    """
+
+    tx_mbit: float
+    mode: str
+
+    @staticmethod
+    def properties(link: "Link | str") -> dict[str, object]:
+        """The record's properties for a read of the link.
+
+        Args:
+            link: the link, or why its read failed.
+
+        Returns:
+            The properties, by name: the read's error alone when it failed.
+        """
+        if isinstance(link, str):
+            return {"link_read_error": link}
+        return {"link_tx_bitrate_mbit": link.tx_mbit, "link_tx_mode": link.mode}
+
+
+def parse_link(text: str) -> Link:
+    """Read the tx bitrate and its mode from `iw dev wlan0 link` output.
+
+    Args:
+        text: the command's stdout.
+
+    Returns:
+        The link.
+
+    Raises:
+        ValueError: the output has no tx bitrate line.
+    """
+    found = re.search(r"^\s*tx bitrate:\s*([\d.]+)\s*MBit/s(.*)$", text, re.MULTILINE)
+    if not found:
+        raise ValueError(f"no tx bitrate line in {text.strip()!r}")
+    mode = re.search(r"\b(?:VHT-)?MCS \d+", found.group(2))
+    return Link(float(found.group(1)), mode.group(0) if mode else "legacy")
+
+
+def check_link_fit(link: Link) -> None:
+    """Assert the link's tx bitrate is above `LINK_FLOOR_MBIT`.
+
+    Args:
+        link: the link read.
+    """
+    assert link.tx_mbit > LINK_FLOOR_MBIT, (
+        f"tx {link.tx_mbit:g} MBit/s, {link.mode}"
+        f"{': 802.11b' if link.mode == 'legacy' else ''}, at or below the {LINK_FLOOR_MBIT:g} MBit/s floor"
+    )
 
 
 @dataclasses.dataclass
@@ -216,6 +277,31 @@ class Network(Part):
             assert record.cut is not None and record.restored is not None
             assert record.offline_at((record.cut + record.restored) / 2)
         return read_at - (uptime_s - record.restored)
+
+    def link(self) -> "Link | str":
+        """Read the board's link once; a read that fails is returned as why, never raised.
+
+        Returns:
+            The link now, or the reason the read failed.
+        """
+        try:
+            lines = self._board.run(_LINK_READ, check=True, timeout=_LINK_READ_TIMEOUT_SECONDS).stdout
+            return parse_link("\n".join(lines))
+        except (AssertionError, ValueError, *self._board.ERRORS) as error:
+            return str(error) or type(error).__name__
+
+    @staticmethod
+    def confirm_link_carries_load(link: "Link | str") -> None:
+        """Fail the check as invalid unless the link was read and is above the floor, before any load.
+
+        Args:
+            link: the link, or why its read failed.
+        """
+        if isinstance(link, str):
+            with invalid_if(f"the link could not be read ({link})"):
+                raise AssertionError
+        with invalid_if("the link was not fit for the load"):
+            check_link_fit(link)
 
     def radio(self) -> "Radio | str":
         """Read the board's radio once; a read that fails is returned as why, never raised.
