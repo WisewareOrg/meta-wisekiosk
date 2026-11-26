@@ -40,7 +40,7 @@ cut clears. No reading of channel 10's occupancy was taken, and when the AP went
 
 ## What changed in the suite
 
-TST008 now reads the board's link before it pushes any load. If the link's transmit rate is at or below 11 Mbit/s,
+TST008<!-- Sustained network load --> now reads the board's link before it pushes any load. If the link's transmit rate is at or below 11 Mbit/s,
 the top rate of 802.11b, the call stops as invalid and names the rate. It no longer pushes a load the link cannot
-carry and reports a minute later that the load was not applied. Every TST008 call records the link's rate and mode,
+carry and reports a minute later that the load was not applied. Every TST008<!-- Sustained network load --> call records the link's rate and mode,
 so an invalid result shows the link it met.
