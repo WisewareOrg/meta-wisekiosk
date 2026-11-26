@@ -208,7 +208,7 @@ partition RAUC never writes — see
 [gpu compositing](docs/issue_investigation/gpu_compositing/README.md) §"Delivery and board".
 
 Every target recipe compiles through poky's `ccache` class and keeps its cache under `SSTATE_DIR`
-(`CCACHE_TOP_DIR`), bounded at 5G, so every builder that shares one sstate shares it.
+(`CCACHE_TOP_DIR`), bounded at 5G per recipe, so every builder that shares one sstate shares it.
 `CCACHE_DISABLE = "1"` for a recipe turns its cache off. `bitbake -c clean` leaves the store;
 `bitbake -c cleanall` (`do_cleanccache`) empties a recipe's store for every builder, and its next
 build is then a full compile.
