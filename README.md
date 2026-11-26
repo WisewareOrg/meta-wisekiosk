@@ -207,6 +207,10 @@ Cheap to rebuild is not the same as reaching a board: the `config.txt` knobs are
 partition RAUC never writes — see
 [gpu compositing](docs/issue_investigation/gpu_compositing/README.md) §"Delivery and board".
 
+The WPE WebKit recipe compiles through `ccache` and keeps its cache under `SSTATE_DIR`
+(`CCACHE_TOP_DIR`), bounded at 5G, so every builder that shares one sstate shares it.
+`CCACHE_DISABLE` and `bitbake -c cleanall` do not reach it.
+
 ### Flashing a card
 
 ```sh

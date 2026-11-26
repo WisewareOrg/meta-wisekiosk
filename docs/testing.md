@@ -176,7 +176,7 @@ is read, and so is one whose invalid condition can itself cause the breach, as a
 frame stalls. A breach the stimulus itself reveals fails the test from inside it, as an assertion that
 is not marked invalid: `Board.restart_with` fails a board that does not come back in a new boot,
 which is TST004<!-- Kernel crash -->'s restart by itself, and `Network.cut_off` fails a board that
-restarted during the outage.
+restarted during the outage. A starting state that makes the stimulus impossible to apply is confirmed before it instead: TST008<!-- Sustained network load -->'s link, read by `Network.confirm_link_carries_load`, stops the call as invalid before any load when the board's own send rate is at or below 802.11b's 11 Mbit/s, a sign of the link, not the rate the load travels at.
 
 **A test holds what it measured before the stimulus,** in a name that says so, and compares the
 after against it.
