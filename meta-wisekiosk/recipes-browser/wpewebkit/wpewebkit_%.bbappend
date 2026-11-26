@@ -1,7 +1,5 @@
-# The class is not inherited: it appends ccache-native to DEPENDS again (wpewebkit.inc already has it), and that moves the engine's signature.
+# Compiles through ccache with the class's settings set here, not by inheriting the class: ADR 0002 rev 1.
 # CCACHE and every exported setting below are left out of signatures (bitbake.conf and the ccache block in kiosk-zero-w.yaml).
-# The settings below follow meta/classes/ccache.bbclass of the poky commit pinned in includes/base.yaml (6b7c1066f778).
-# CCACHE_DISABLE and `bitbake -c cleanall` do not reach this cache, because the class is not inherited.
 CCACHE = "ccache "
 export CCACHE_DIR = "${CCACHE_TOP_DIR}/${MULTIMACH_TARGET_SYS}/${PN}"
 export CCACHE_BASEDIR = "${TMPDIR}"

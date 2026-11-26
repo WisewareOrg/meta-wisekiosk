@@ -34,6 +34,7 @@ amended, so a number in git history need not mean what it means here.
 | # | Rev | Decided | Decision |
 |---|---|---|---|
 | [0001](0001-wpe-webkit-on-drm-with-our-own-launcher.md) | 2 | 2026-11-24 | Show the page with WPE WebKit on the kernel's DRM display, from a launcher of our own |
+| [0002](0002-compile-the-engine-through-ccache-without-inheriting-the-class.md) | 1 | 2026-11-25 | Compile the engine through ccache by its variables, without inheriting the class |
 
 ## Revisions
 

@@ -172,9 +172,6 @@ The server listens on `~/.local/share/bitbake-hashserv/hashserv.sock`;
 `tools/kas-run.sh` mounts `~/.local/share/bitbake-hashserv` read-only at `/hashserv` inside
 the build container.
 
-The WPE WebKit recipe compiles through `ccache` and keeps its cache under `SSTATE_DIR`
-(`CCACHE_TOP_DIR`), so every builder that shares one sstate shares it.
-
 ```sh
 just build          # kas fetches sources/, applies the patches, builds core-image-base and deploys kiosk-bootprof
 ```
@@ -206,6 +203,11 @@ and so is the kernel's `PREFERRED_VERSION` — the kernel is outside webkit's de
 Cheap to rebuild is not the same as reaching a board: the `config.txt` knobs are on the shared FAT
 partition RAUC never writes — see
 [gpu compositing](docs/issue_investigation/gpu_compositing/README.md) §"Delivery and board".
+
+The WPE WebKit recipe compiles through `ccache` and keeps its cache under `SSTATE_DIR`
+(`CCACHE_TOP_DIR`), bounded at 5G, so every builder that shares one sstate shares it.
+`CCACHE_DISABLE` and `bitbake -c cleanall` do not reach it
+([ADR 0002 rev 1](docs/decisions/0002-compile-the-engine-through-ccache-without-inheriting-the-class.md)).
 
 ### Flashing a card
 
