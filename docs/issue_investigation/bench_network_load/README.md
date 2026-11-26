@@ -3,261 +3,104 @@
 | | |
 |---|---|
 | **Issue** | #408 TST008<!-- Sustained network load --> cannot apply its network load on the bench board |
-| **Status** | open: cause narrowed to the bench's radio link; the change below makes the next failure carry its own evidence |
+| **Status** | open |
 | **Opened / concluded** | 2026-11-25 / — |
 
 TST008<!-- Sustained network load --> pushes random 1 MiB blocks from the bench host into `ssh <board>
 wc -c` for 60 s and is valid only if the board takes at least 1.0 MB/s. It passed on the bench at 01:39
-EST on 25 Nov 2026 and was INVALID six times from 18:17 that day at 0.29-0.67 MB/s, on two kernels. The
-kernel, the image, the test code, the runner, the host's sending path, the ssh cipher, the board's CPU
-clock and its configuration on `/data` are each ruled out, and so is the board's CPU as the limit. The
-push rate follows the bench's Wi-Fi rate while the push runs: 2.1 MB/s while the AP sends to it at
-19.5-58.5 MBit/s, and 0.49 MB/s while it sends at 5.5 MBit/s with the board's CPU half idle; one such
-episode lasted over a minute. Prod, on the same AP and channel with 24 dB more signal, logged no failed
-transmissions over the same minutes. Still open: whether the bench's own link fails or channel events hit
-both boards and only the bench falls, and whether an episode sits inside every INVALID call. This change
-records the board's radio counters across every TST008<!-- Sustained network load --> call, so the next
-INVALID carries the board's side of the link with it (failed transmissions count the uplink only).
+EST on 25 Nov 2026 and was INVALID on every bench run from 18:17 that day, on two kernels, at 0.29-0.67
+MB/s; prod passed at 19:46 over the same host. The kernel change under review is not the cause (runs
+4-6). <!-- pending: LINK_ABSTRACT -->
 
-All times EST. Records named `<UTC timestamp>Z` are bench-runner records (`bench test` output), kept on
-the bench host, not in this repository.
+Every finding here rests on a record of the bench driver (`bench test`, docs/testing.md §"Running it").
+Records named `<UTC timestamp>Z` are its records, kept on the bench host, not in this repository. All
+times EST, 25 Nov 2026.
 
 ## Test runs
 
-| Run | Board (role) | Image commit | Harness / scripts | Result (1 line) |
+| Run | Board (role) | Image commit | Test | Record and result |
 |---|---|---|---|---|
-| 1 | bench · Pi Zero W | `a47f215` | TST008<!-- Sustained network load -->, `tests/target_suite/test_back_on_the_panel.py` — durable | record 20261125T062415Z: passed, 4.5 s off |
-| 2 | bench · Pi Zero W | `e0b3363` | TST008<!-- Sustained network load --> — durable | 20261125T225710Z: INVALID, 0.67 MB/s, 32.0 s off, 41.5 s after a power cut |
-| 3 | bench · Pi Zero W | `e0b3363` | TST008<!-- Sustained network load --> — durable | 20261126T000054Z: INVALID, 0.29 MB/s, 32.8 s off |
-| 4 | bench · Pi Zero W | `afcbaa3` | TST008<!-- Sustained network load --> + `ctl-*.sh` — one-off | 20261126T002708Z: INVALID, 0.40 MB/s, 40.9 s off (main's kernel) |
-| 5 | bench · Pi Zero W | `e0b3363` | TST008<!-- Sustained network load --> + `ctl-*.sh` — one-off | 20261126T003329Z: INVALID, 0.35 MB/s, 48.9 s off |
-| 6 | bench · Pi Zero W | `e0b3363` | TST008<!-- Sustained network load --> + `ctl-*.sh` — one-off | 20261126T003601Z: INVALID, 0.51 MB/s, 28.8 s off |
-| 7 | prod · Pi Zero W | `a47f215` | TST008<!-- Sustained network load --> — durable | prod 20261126T004619Z: passed, 3.8 s off |
-| 8 | bench · Pi Zero W | `6a34d6f` | `netread.sh` and its drivers, `net-ss-sample.sh` — one-off | bare pushes: 0.40 MB/s (default cipher), 1.46 (aes128-ctr), 0.30 board to host |
-| 9 | bench · Pi Zero W | `6a34d6f` | `net-cipher-aba.sh`, `a103.sh`, `a103-soakcheck.sh` — one-off | default 1.77, aes128-ctr 1.67, default 2.34 MB/s |
-| 10 | bench · Pi Zero W | `6a34d6f` | `net-rate-track.sh`, `ratetrack.sh` — one-off | 2.16, 2.08, 0.77, 0.49 MB/s; rate follows the radio rate |
-| 11 | bench · Pi Zero W | `6a34d6f` | TST008<!-- Sustained network load --> + `station-read.sh` — one-off | 20261126T015444Z: VOID (a login inside the call) |
-| 12 | bench · Pi Zero W | `6a34d6f` | TST008<!-- Sustained network load --> + `station-read.sh`, `net-rerun2.sh` — one-off | 20261126T020536Z: INVALID, 0.57 MB/s, 29.5 s off |
-| 13 | prod · Pi Zero W | `a47f215` | `radio-watch.sh` — one-off | 102 samples, tx failed flat at 4 |
-| 14 | bench · Pi Zero W | `6a34d6f` | `radio-watch.sh` — one-off | 60 samples: tx failed flat at 76; idle rx bitrate 5.5 or 2.0 MBit/s throughout |
-| 15 | prod · Pi Zero W | `a47f215` | `radio-watch.sh` — one-off | 60 samples: tx failed flat at 4; idle rx bitrate 1.0-58.5 MBit/s, 6.5 in 30 |
+| 1 | bench · Pi Zero W | `a47f215` | TST008<!-- Sustained network load --> in the suite | 20261125T062415Z: passed, 4.5 s off the panel |
+| 2 | bench · Pi Zero W | `e0b3363` | TST008<!-- Sustained network load --> in a `-k` run | 20261125T225710Z: INVALID, 0.67 MB/s, 32.0 s off, 41.5 s after a power cut |
+| 3 | bench · Pi Zero W | `e0b3363` | TST008<!-- Sustained network load -->, skip-build | 20261126T000054Z: INVALID, 0.29 MB/s, 32.8 s off |
+| 4 | bench · Pi Zero W | `afcbaa3` | TST008<!-- Sustained network load -->, skip-build | 20261126T002708Z: INVALID, 0.40 MB/s, 40.9 s off (main's kernel) |
+| 5 | bench · Pi Zero W | `e0b3363` | TST008<!-- Sustained network load -->, skip-build | 20261126T003329Z: INVALID, 0.35 MB/s, 48.9 s off |
+| 6 | bench · Pi Zero W | `e0b3363` | TST008<!-- Sustained network load -->, skip-build | 20261126T003601Z: INVALID, 0.51 MB/s, 28.8 s off |
+| 7 | prod · Pi Zero W | `a47f215` | TST008<!-- Sustained network load -->, skip-build | prod 20261126T004619Z: passed, 3.8 s off |
+| 8 | bench · Pi Zero W | `6a34d6f` | TST008<!-- Sustained network load --> with its radio record, skip-build of `d554898` | 20261126T031531Z: INVALID, 0.39 MB/s, 42.4 s off; radio properties below |
 
-### Runs 1-7 — TST008<!-- Sustained network load --> as the suite runs it
+<!-- pending: LINK_RUN_ROWS, from the link diagnostic's records -->
 
-- **Boards:** bench and prod, Pi Zero W. **Image commits** from each record's `board_commit` and the
-  slot reads in `run-control-reads-bench.txt`.
-- **Procedure:** `bench test <commit> --skip-build -- -k test_sustained_network_load` (runs 3-7), or
-  the suite (runs 1-2). Runs 4-6 are a slot switch on the bench: the other slot (`afcbaa3`, main's
-  kernel) booted with `rauc status mark-active` and one reboot, the test once, back to `e0b3363`, the
-  test twice; reads before and after each call, none inside it (`ctl-run.sh`).
-- **Raw capture:** the records; `run-control-reads-bench.txt` for runs 4-6.
+### Runs 1-8 — TST008<!-- Sustained network load -->
 
-### Run 8 — bare pushes, with the sender's TCP state
+- **Procedure:** `bench test <commit> [--skip-build] -- tests/target_suite -k test_sustained_network_load`
+  (runs 2-8), or the target suite (run 1). Runs 4-6 are one control: the bench's other slot (`afcbaa3`,
+  main's kernel) booted, the test once, back to `e0b3363`, the test twice. Run 8 is the test with the
+  radio record this PR adds.
+- **Image commits:** each record's `board_commit`.
 
-- **Procedure** (`netread.sh 1 2 3`, then `4 5`, its arguments naming the parts below; the pull again by
-  `netread3b.sh`). *Baseline:* board reads (wireless, `iw dev wlan0 link`, cpufreq, under-voltage alarm,
-  temperature, `top`, journal size, `/data/config` hashes) and 20 host pings. *Push:* 30,000,000 B of
-  random data from the host into `ssh <board> wc -c`, beside a board `top` (4 x 5 s), 60 host pings and
-  `net-ss-sample.sh` (host `ss -tin` every 2.5 s). *Pull:* the reverse direction (`dd if=/dev/zero
-  bs=1000000 count=30` on the board). *AES push:* the push with `-c aes128-ctr`. *Baseline again.* The
-  host was quiet for the baseline and the push; the pull and the AES push ran beside a kernel compile.
-  The pull's first form used `head -c`, which this image's busybox lacks: it sent nothing and is void;
-  `netread.sh` holds only the rerun's form.
-- **Raw capture:** `run-netread-bench.txt`.
-
-### Run 9 — cipher A/B/A
-
-- **Procedure:** `net-cipher-aba.sh` (wrapped by `a103.sh`): three 30,000,000 B pushes back to back,
-  default cipher, `aes128-ctr`, default; `iw station dump` and loadavg before and after each, board
-  `top` beside. Beside a kernel compile (printed). Its `ss` sections are empty: the sampler was handed
-  `root@<board>` and could not parse it (fixed before run 10).
-- **Raw capture:** `run-cipher-aba-bench.txt`.
-
-### Run 10 — push rate against the radio rate
-
-- **Procedure:** `net-rate-track.sh` (wrapped by `ratetrack.sh`): four 30,000,000 B pushes, default
-  cipher; beside each, one board ssh samples `iw dev wlan0 station dump` (rx and tx bitrate, tx failed)
-  and `top`'s CPU line every 2 s, starting 2 s before the push: a known board load, equal in all four.
-  Beside a host build (printed).
-- **Raw capture:** `run-rate-track-bench.txt`.
-
-### Runs 11-12 — TST008<!-- Sustained network load --> with the radio read outside the call
-
-- **Procedure:** `station-read.sh` before and after the call, `net-rerun2.sh` for run 12. Run 11's
-  "before" read landed 5 s inside the call, so run 11 is void and is not used. Run 12's before read
-  ended about 5 min before the call; a before read should end within 60 s of the call's start.
-- **Raw capture:** `run-station-reads-bench.txt` and the records.
-
-### Runs 13-15 — the radio with no load
-
-- **Procedure:** `radio-watch.sh <board> <role> <out> <samples>`: one ssh, every 10 s, uptime, rx and tx
-  bitrate, tx failed, signal, frequency and loadavg. Run 13 alone on prod (102 samples, 21:03:54-21:21:09);
-  runs 14 and 15 on bench and prod at once (60 samples each, both started at 21:54:00, beside a host
-  build). The AP prod is associated with was compared with the bench's in shell variables only and
-  reported as the same.
-- **Raw capture:** `run-radio-watch-prod-2103.txt`, `run-radio-watch-bench-2154.txt`,
-  `run-radio-watch-prod-2154.txt`.
-
-Run 13 used `radio-watch.sh` before its output was made line-buffered (`sed -u`), and run 8 used
-`net-ss-sample.sh` before it learned to strip a `user@` prefix; the reads are the same. A bench watch
-started beside run 13 was killed by its process group and lost all its output to that buffering; it is
-not a run here.
+<!-- pending: LINK_RUNS_SECTION, from the link diagnostic's records -->
 
 ## Configuration under test
 
-- The load and its floor: `tests/board/network/__init__.py` (`_LOAD_FLOOR_MB_S = 1.0`,
+- The load, its floor and the push: `tests/board/network/__init__.py` (`_LOAD_FLOOR_MB_S`,
   `Network.load`, `Load.confirm_applied`); the call: `tests/target_suite/test_back_on_the_panel.py`
   (`test_sustained_network_load`).
-- The host ssh client offers `chacha20-poly1305@openssh.com` first (`ssh -G`, OpenSSH 10.2p1); no host
-  ssh package change appears in the host's `/var/log/dpkg.log`, and its ssh configuration files predate
-  17 Nov 2026.
-- The board's CPU is capped at 900 MHz:
-  [`kiosk-cpufreq-cap.service`](../../../meta-wisekiosk/recipes-core/kiosk-cpufreq/files/kiosk-cpufreq-cap.service).
-- The host reaches the LAN through WSL2 in NAT mode over wired gigabit Ethernet; the push is an
-  outbound ssh, so Docker's published ports are not on its path.
-- `iw station dump`'s rx bitrate is the rate of the last frame received. On an idle link that can be a
-  broadcast or management frame at a basic rate, so an idle read says little about the link; a read taken
-  while a push runs is dominated by the push's frames. The failed-transmission counter
-  integrates over any window. This board's station dump prints no retried-transmission counter
-  (`run-station-dump-bench.txt`: the bench at `6a34d6f`, read whole at 22:12:18 on 25 Nov 2026).
+- The diagnostic: `tests/diagnostics/test_link_under_load.py` (`test_link_under_load`), which loads the
+  board with the same `Network.load` and samples the board's radio from a loop on the board itself.
+- Run 4's image (`afcbaa3`) is run 1's (`a47f215`) plus commits to tests, tools and docs and a
+  full-size rootfs, and `git diff a47f215 e0b3363 -- tests/` is empty.
 
 ## Metrics
 
-Runs 1-7 have one number each; the runs table above carries them.
+### Run 8 (one call)
 
-### Run 8
-
-| Part | Direction, cipher | MB/s | Board CPU idle | Host ping under load | Sender TCP (`ss`) |
-|---|---|---|---|---|---|
-| baseline | idle | — | 14 % (WPE 57 %, kiosk-browser 14 %) | avg 9.6 ms | — |
-| push | host to board, default | 0.396 | 0-24 % | avg 165 ms, max 1,125 ms, 0 % loss | 1.4-2.0 MB unacked, rtt 2.8-5.4 s, receive window 2.36 MB, never receive-window limited, no retransmits |
-| pull | board to host, default | 0.298 | 0-38 % | — | — |
-| AES push | host to board, aes128-ctr | 1.459 | 0 % | avg 29.6 ms, 1 of 60 lost | — |
-
-The baseline also read: 900 MHz cap, `ondemand`; under-voltage alarm 0; 42.8 C; signal -56 dBm at 2457
-MHz; rx/tx bitrate 5.5 MBit/s on the idle link; `/data/config` hashes equal to prod's.
-
-### Run 9
-
-| Arm | Cipher | MB/s | rx bitrate before -> after (MBit/s) |
-|---|---|---|---|
-| A1 | default | 1.769 | 13.0 -> 39.0 |
-| B | aes128-ctr | 1.670 | 39.0 -> 58.5 |
-| A2 | default | 2.339 | 58.5 -> 39.0 |
-
-### Run 10
-
-Read by hand from `run-rate-track-bench.txt`; each push's first sample is taken before it starts.
-
-| Push | MB/s | rx bitrate during the push (MBit/s) | Board CPU idle during the push | tx failed |
-|---|---|---|---|---|
-| 1 | 2.155 | 26.0, 19.5 and 58.5 | 16-18 % at its start, then 0 % | 289 -> 303 |
-| 2 | 2.082 | 6.5-52 | 0-44 % | 304 -> 323 |
-| 3 | 0.768 | 13-52 for about 12 s, then 5.5 to its end | 0 % while fast; 36-72 % at 5.5 | 323 -> 564 |
-| 4 | 0.494 | 5.5 in all samples but two: 2.0 once, and 39.0 in the last, about 3 s before its end | 0-72 %, mostly 40-60 % | 564 |
-
-### Run 12
-
-| | Time | rx / tx bitrate (MBit/s), idle | tx failed |
-|---|---|---|---|
-| before | 21:00:34 | 13.0 / 19.5 | 573 |
-| call | 21:05:40-21:07:53 | not read | — |
-| after | 21:08:00 | 19.5 / 21.6 | 602 |
-
-Load applied 0.57 MB/s; 29.5 s off the panel.
-
-### Run 13 (`analyze.py watch`)
-
-| rx bitrate (MBit/s) | samples |
+| Property | Value |
 |---|---|
-| 72.2 | 88 |
-| 39.0 | 5 |
-| 26.0 | 1 |
-| 19.5 | 5 |
-| 6.5 | 3 (21:07:47, 21:17:36, 21:19:38) |
+| `load_mb_s` | 0.39 |
+| `radio_signal_before_dbm` / `_after_dbm` | -59 / -57 |
+| `radio_tx_failed_delta` | 0 |
+| `wlan0_rx_bytes_delta` | 27,480,594 |
+| `wlan0_tx_bytes_delta` | 854,655 |
+| `radio_window_s` | 120.7 |
 
-tx failed 4 in all 102; 2457 MHz in all 102; signal -32 to -36 dBm (read by hand).
-
-### Runs 14 and 15 (`analyze.py watch`, each run alone)
-
-| | bench (run 14) | prod (run 15) |
-|---|---|---|
-| samples | 60 | 60 |
-| rx bitrate (MBit/s): samples | 5.5: 56; 2.0: 4 | 58.5: 2; 52.0: 1; 39.0: 2; 26.0: 3; 19.5: 11; 13.0: 10; 6.5: 30; 1.0: 1 |
-| tx failed | 76 in all 60 | 4 in all 60 |
-| signal (dBm, read by hand) | -55 to -58 | -32 to -33 |
-
-All these bitrates are idle reads: no load ran on either board.
-
-### Runs 14 and 15 side by side (`analyze.py pair`)
-
-Each bench sample paired with the nearest prod sample within 5 s: 60 pairs, the largest gap 4 s, none unpaired; at or below 6.5 MBit/s: bench 60, prod 31, both 31.
-
-Neither board logged a failed transmission in the ten minutes. The idle bitrates sit low on both, the
-bench's at 5.5 or 2.0 MBit/s in every sample and prod's at or below 6.5 MBit/s in about half; that is
-the last frame's rate on links carrying almost nothing, so the pairing of lows shows no event, shared or
-otherwise. With no load, the watch did not stress either link.
+<!-- pending: LINK_METRICS, from the link diagnostic's records -->
 
 ## Findings
 
 | Hypothesis | Disposition | Decided by |
 |---|---|---|
-| The kernel change on the branch | dropped | run 4: main's kernel INVALID like runs 5-6 |
-| The image's userland, the test code or the runner | dropped | run 4's image is run 1's plus commits to tests, tools and docs and a full-size rootfs; `git diff a47f215 e0b3363 -- tests/` is empty; the runner's version string is the same in runs 1 and 6 |
-| The host's sending path | dropped | run 7 passed over it at 19:46; run 8's AES push and runs 9-10 carried 1.46-2.34 MB/s over it |
-| The ssh cipher | dropped | run 9: default 1.77 and 2.34 MB/s around aes128-ctr 1.67 |
-| The board's CPU clock, throttling or heat | dropped | run 8's baseline |
-| The board's `/data` configuration | dropped | run 8's baseline: `config.json` and `kiosk.conf` hash-equal to prod's |
-| The board's CPU, under the page and the push together, as the limit | dropped | run 10: at 5.5 MBit/s the CPU is 40-60 % idle and the push is slow; at full rate the CPU is saturated, the page still running, and the push reaches 2.1 MB/s |
-| The bench's radio link | **confirmed as a cause of slow pushes; open as the cause of every INVALID** | run 10: the rate follows the AP-to-bench rate inside one push; run 12 is the counter-case: slow, with only 29 failed transmissions across the call (its edge reads are idle reads) |
-| The AP or the channel as a whole | **open** | run 13: prod, on the same AP and channel, logged no failed transmission through the bench's slow call (run 12) and the bench's ssh stall at 21:17, though two of its three 6.5 MBit/s idle reads fall within 15 s of those bench events; runs 14-15: neither board failed a transmission over ten idle minutes, so they decide nothing. A load on both boards at once, with the counters read across it, is what would decide it. |
+| The kernel change on the branch | dropped | run 4: main's kernel INVALID between runs 5 and 6 on the branch's |
+| The image's userland or the test code | dropped | run 4: the image of run 1's pass, with the same test code, INVALID |
+| The host's sending path | dropped | run 7: prod passed over the same host and its WSL2 path |
 
-The sender's state in run 8 places the queue: the push was never receive-window limited and 1.4-2.0 MB
-sat unacknowledged at 3-5 s round trips, so the data waited before the board's TCP stack, on the link,
-not in the board's socket.
+<!-- pending: LINK_FINDINGS, from the link diagnostic's records -->
 
-The records of runs 1-7 and 11-12 do not hold the radio's counters or the negotiated cipher, so an
-INVALID could not be read as the air from its own record. The counters added below have a limit of
-their own: `tx failed` counts only the board's transmissions, while the push runs host to board, so a
-downlink held at a low rate shows no failures. Run 10's push 4 (0.49 MB/s at 5.5 MBit/s, tx failed
-flat) and the proof run below (INVALID with a zero delta) both read so. A zero `radio_tx_failed_delta`
-does not clear the link.
+Hand-run reads of the bench and prod were also made during the investigation (pushes, ssh cipher, CPU
+clock, `/data` configuration, idle radio watches). They were not run through the bench driver, are
+withdrawn as evidence, and decide nothing here.
+
+Run 8 shows a limit of the radio record: `tx failed` counts only the board's own transmissions, while
+the push runs host to board, so a link held at a low downlink rate shows no failures. A zero
+`radio_tx_failed_delta` does not clear the link.
 
 ## Changes configured as a result
 
-**Code change, in this PR:** TST008<!-- Sustained network load -->'s record carries the radio across
-its call. `Network.radio()` (`tests/board/network/__init__.py`) reads, in one `board.run`, the boot id,
-the station dump's connected time, signal and failed transmissions, and wlan0's byte counts;
-a read that fails is returned as its reason, never raised. `test_sustained_network_load` reads it after
-the panel is up and before the load starts, and again once the load and the watch have ended, both
-outside the timed window, and records, before any assert: `radio_signal_before_dbm`,
-`radio_signal_after_dbm`, `radio_tx_failed_delta`, `wlan0_rx_bytes_delta`,
-`wlan0_tx_bytes_delta`, `radio_window_s` and, on every run, `load_mb_s`. A failed read records
-`radio_read_error_before` or `_after` and leaves that edge's numbers and every delta out; so do a new
-boot, a counter that went back, or a station whose connected time grew by less than the window less
-2 s (a reconnect, which restarts the counters). Nothing is judged from them: the floor, the bound, the
-load and `confirm_applied` are unchanged. The bitrate is not recorded, since at an idle edge it is the
-last frame's rate. The parse and the window rule were seeded on the host (a valid window, a missing field,
-a new boot, a counter that went back, and the reconnect bound from both sides); on the board, record
-20261126T031531Z (head `d554898` on the bench at `6a34d6f`, 25 Nov 2026 22:15, beside an image build)
-carries every property with no read error: `load_mb_s` 0.39 (the call INVALID, 42.4 s off),
-`radio_signal_before_dbm` -59, `radio_signal_after_dbm` -57, `radio_tx_failed_delta` 0,
-`wlan0_rx_bytes_delta` 27,480,594, `wlan0_tx_bytes_delta` 854,655, `radio_window_s` 120.7. An earlier
-head required a retried-transmission line this board does not print, and its board run (record
-20261126T030827Z) recorded only the read errors.
+**Code change, in this PR:**
 
-No change to the bench, the AP or the floor: the fix for the link itself differs between the bench's
-placement, antenna or local interference and the AP's channel, and the runs above do not tell them
-apart.
+- TST008<!-- Sustained network load -->'s record carries the radio across its call. `Network.radio()`
+  (`tests/board/network/__init__.py`) reads, in one `board.run`, the boot id, the station dump's
+  connected time, signal and failed transmissions, and wlan0's byte counts; a read that fails is
+  returned as its reason, never raised. `test_sustained_network_load` reads it after the panel is up and
+  before the load, and again after the load and the watch, both outside the timed window, and records,
+  before any assert: `radio_signal_before_dbm`, `radio_signal_after_dbm`, `radio_tx_failed_delta`,
+  `wlan0_rx_bytes_delta`, `wlan0_tx_bytes_delta`, `radio_window_s` and, on every run, `load_mb_s`. A
+  failed read records `radio_read_error_before` or `_after` and leaves that edge's numbers and every
+  delta out; so do a new boot, a counter that went back, or a station whose connected time grew by less
+  than the window less 2 s. Nothing is judged from them: the floor, the bound, the load and
+  `confirm_applied` are unchanged. The bitrate is not recorded, since at an idle edge it is the last
+  frame's rate. Run 8 is its board run.
+- `tests/diagnostics/test_link_under_load.py`: the diagnostic behind runs 9-11, named in
+  docs/testing.md beside the other diagnostics.
 
-`analyze.py` computes the run 13-15 counts and the pairing; the other tables are read by hand from the
-captures named. The captures were masked after the runs, before commit, by replacing MAC and IPv4
-addresses, the board's hostname and the network's name; no masking step is committed, since it would
-have to carry the values it removes.
-
-Every one-off script named above is committed in this directory as it ran, with these substitutions:
-the bench's address by `${BENCH}`, the board's hostname by `<hostname>`, the operators' host paths by
-`${ORCH}` (their scratch directory), `${OUT}` (the output directory), `${BENCH_MANAGER}` (the bench
-runner) and `${REPO}` (this repository's checkout), and the labels of local scheduling rules in comments
-and log lines by `rule`. The four scripts named `net-*.sh` ran under names carrying the test's id, and
-the scripts that call them still use those names. Nothing else in them changed.
+<!-- pending: LINK_OUTCOME, from the link diagnostic's records -->
