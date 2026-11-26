@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | **Issue** | #408 TST008<!-- Sustained network load --> cannot apply its network load on the bench board |
-| **Status** | open |
-| **Opened / concluded** | 2026-11-25 / — |
+| **Status** | concluded → code change |
+| **Opened / concluded** | 2026-11-25 / 2026-11-26 |
 
 
 ## What happened

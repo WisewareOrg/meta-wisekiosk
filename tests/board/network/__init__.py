@@ -24,6 +24,8 @@ _HANG_GRACE_SECONDS = 60
 _LOAD_FLOOR_MB_S = 1.0
 # the tx bitrate at or below which the link cannot carry the load: 802.11b's top rate
 LINK_FLOOR_MBIT = 11.0
+# the rates 802.11b defines, in Mbit/s
+_RATES_80211B = (1.0, 2.0, 5.5, 11.0)
 _LINK_READ = "iw dev wlan0 link"
 _LINK_READ_TIMEOUT_SECONDS = 10
 # one read of the board's radio: its boot, the station's counters and wlan0's byte counts
@@ -42,7 +44,7 @@ class Link(NamedTuple):
 
     Attributes:
         tx_mbit: the tx bitrate, in Mbit/s.
-        mode: the `MCS n` or `VHT-MCS n` text when present, else `legacy`.
+        mode: the `MCS n` or `VHT-MCS n` text when present, else `unreported`.
     """
 
     tx_mbit: float
@@ -79,7 +81,7 @@ def parse_link(text: str) -> Link:
     if not found:
         raise ValueError(f"no tx bitrate line in {text.strip()!r}")
     mode = re.search(r"\b(?:VHT-)?MCS \d+", found.group(2))
-    return Link(float(found.group(1)), mode.group(0) if mode else "legacy")
+    return Link(float(found.group(1)), mode.group(0) if mode else "unreported")
 
 
 def check_link_fit(link: Link) -> None:
@@ -88,10 +90,8 @@ def check_link_fit(link: Link) -> None:
     Args:
         link: the link read.
     """
-    assert link.tx_mbit > LINK_FLOOR_MBIT, (
-        f"tx {link.tx_mbit:g} MBit/s, {link.mode}"
-        f"{': 802.11b' if link.mode == 'legacy' else ''}, at or below the {LINK_FLOOR_MBIT:g} MBit/s floor"
-    )
+    rate = f"tx {link.tx_mbit:g} MBit/s" + (": an 802.11b rate" if link.tx_mbit in _RATES_80211B else "")
+    assert link.tx_mbit > LINK_FLOOR_MBIT, f"{rate}, at or below the {LINK_FLOOR_MBIT:g} MBit/s floor"
 
 
 @dataclasses.dataclass
@@ -296,6 +296,10 @@ class Network(Part):
 
         Args:
             link: the link, or why its read failed.
+
+        Raises:
+            AssertionError: the link could not be read, or its tx bitrate is at or below the floor; the
+                message says the check is invalid.
         """
         if isinstance(link, str):
             with invalid_if("the link could not be read"):
