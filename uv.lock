@@ -376,12 +376,12 @@ wheels = [
 [[package]]
 name = "check-adrs"
 version = "0"
-source = { git = "https://github.com/WisewareOrg/wise-ci?subdirectory=check-adrs&rev=b27c5858566679b604bfcbf56f07ff93aeb5c81f#b27c5858566679b604bfcbf56f07ff93aeb5c81f" }
+source = { git = "https://github.com/WisewareOrg/wise-ci?subdirectory=check-adrs&rev=375abaa8c7a9e1a98a95317ac955f3767efd8656#375abaa8c7a9e1a98a95317ac955f3767efd8656" }
 
 [[package]]
 name = "check-reqs"
 version = "0"
-source = { git = "https://github.com/WisewareOrg/wise-ci?subdirectory=check-reqs&rev=b27c5858566679b604bfcbf56f07ff93aeb5c81f#b27c5858566679b604bfcbf56f07ff93aeb5c81f" }
+source = { git = "https://github.com/WisewareOrg/wise-ci?subdirectory=check-reqs&rev=375abaa8c7a9e1a98a95317ac955f3767efd8656#375abaa8c7a9e1a98a95317ac955f3767efd8656" }
 dependencies = [
     { name = "doorstop" },
     { name = "pyyaml" },
@@ -664,8 +664,8 @@ requires-dist = [{ name = "pyyaml" }]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "check-adrs", git = "https://github.com/WisewareOrg/wise-ci?subdirectory=check-adrs&rev=b27c5858566679b604bfcbf56f07ff93aeb5c81f" },
-    { name = "check-reqs", git = "https://github.com/WisewareOrg/wise-ci?subdirectory=check-reqs&rev=b27c5858566679b604bfcbf56f07ff93aeb5c81f" },
+    { name = "check-adrs", git = "https://github.com/WisewareOrg/wise-ci?subdirectory=check-adrs&rev=375abaa8c7a9e1a98a95317ac955f3767efd8656" },
+    { name = "check-reqs", git = "https://github.com/WisewareOrg/wise-ci?subdirectory=check-reqs&rev=375abaa8c7a9e1a98a95317ac955f3767efd8656" },
     { name = "interrogate", specifier = ">=1.7.0" },
     { name = "pydoclint", specifier = ">=0.12.0" },
     { name = "python-kasa", git = "https://github.com/python-kasa/python-kasa?rev=a1a6c3854ace705b21357b357354d4ae8b6307b4" },

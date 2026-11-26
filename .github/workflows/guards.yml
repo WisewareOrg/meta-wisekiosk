@@ -42,13 +42,13 @@ jobs:
         run: tools/ci-guards.sh
 
       # !cancelled(): runs even when the guards step failed.
-      - uses: WisewareOrg/wise-ci/check-reqs@b27c5858566679b604bfcbf56f07ff93aeb5c81f
+      - uses: WisewareOrg/wise-ci/check-reqs@375abaa8c7a9e1a98a95317ac955f3767efd8656
         if: ${{ !cancelled() }}
         with:
           root: docs/requirements
 
       # !cancelled(): runs even when an earlier step failed.
-      - uses: WisewareOrg/wise-ci/check-adrs@b27c5858566679b604bfcbf56f07ff93aeb5c81f
+      - uses: WisewareOrg/wise-ci/check-adrs@375abaa8c7a9e1a98a95317ac955f3767efd8656
         if: ${{ !cancelled() }}
 
       # Pure stdlib, no install step. tools/doc-image.py is deliberately NOT
