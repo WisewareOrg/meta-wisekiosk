@@ -17,7 +17,8 @@ Group=kiosk
 ExecStart=/usr/bin/wisekiosk -static-root /srv/kiosk
 Restart=always
 RestartSec=1
-# Backs off 1, 1.8, 3.2, 5.6 s, then 10 s; the counter clears on a manual start, stop or reset-failed.
+# Backs off from RestartSec to RestartMaxDelaySec over RestartSteps; the counter clears on a manual
+# start, stop or reset-failed.
 RestartSteps=4
 RestartMaxDelaySec=10
 

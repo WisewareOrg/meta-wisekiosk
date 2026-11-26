@@ -3,7 +3,7 @@
 #
 #   tools/kas-run-test.sh
 #
-# Runs the SHIPPED script (or the one named by KAS_RUN_UNDER_TEST) from two scratch checkouts, with
+# Runs the SHIPPED script (or the one named by KAS_RUN_UNDER_TEST) from scratch checkouts, with
 # HOME in a scratch directory and a stub `kas-container` first on PATH that records when it begins
 # and ends and sleeps. The real build-input writers are replaced by stubs; nothing touches the
 # host's hashserv directory, Docker or a real build.
@@ -185,10 +185,10 @@ check "a refusal does not wait" refused_at_once
 # 7. the waiter's exit status is kas-container's too
 : > "$log"
 hold
-(cd "$scratch/two" && EXITS=9 TAG=B timeout 30 tools/kas-run.sh build b.yaml > /dev/null 2>&1; echo "$?" > "$scratch/rc8") &
+(cd "$scratch/two" && EXITS=9 TAG=B timeout 30 tools/kas-run.sh build b.yaml > /dev/null 2>&1; echo "$?" > "$scratch/rc7") &
 sleep 1
 let_go
-check "the waiter's exit status is kas-container's" test "$(cat "$scratch/rc8")" -eq 9
+check "the waiter's exit status is kas-container's" test "$(cat "$scratch/rc7")" -eq 9
 
 # 8. two waiters both name the holder, and both run after it
 : > "$log"

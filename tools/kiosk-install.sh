@@ -180,8 +180,9 @@ serve() {
     # shellcheck disable=SC2016 # the board's shell expands SSH_CLIENT
     addr=$("${ssh[@]}" "$host" 'echo "${SSH_CLIENT%% *}"')
     [ -n "$addr" ] || { echo "the board did not report its ssh client address"; return 1; }
-    # one listing, so a failed read removes nothing; a server whose install is dead was left by one
-    # that was killed before its cleanup ran
+    # one listing, so a failed read removes nothing; a server whose owner pid ps cannot see is removed: one
+    # left by an install killed before its cleanup ran, or a live install's whose pid this shell cannot see
+    # (another pid namespace)
     while read -r existing owner; do
         ps -p "$owner" >/dev/null 2>&1 || docker rm -f "$existing" >/dev/null 2>&1 || true
     done < <(docker ps -a --filter "label=kiosk-install.pid" --format '{{.ID}} {{.Label "kiosk-install.pid"}}')

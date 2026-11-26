@@ -17,7 +17,7 @@
 # as typed (user stripped).
 #
 # TO WATCH THIS FAIL, with KIOSK_INSTALL_UNDER_TEST=<a copy of the script with one seed>; each prints these
-# lines and ends within guard 25's 60 s (a call that must be refused is bounded at 5 s):
+# lines and ends within the guard's bound (a call that must be refused is bounded at 5 s):
 #   * make the `flock -n 8` condition always false: "a second call is refused and names the holder"
 #   * delete `exec 8>&-` in stream(): the run stops at "never reached: reached 10 docker run"
 #   * leave out `exec` before the stream's ssh: "after the script ends none of its streaming ssh is left"
