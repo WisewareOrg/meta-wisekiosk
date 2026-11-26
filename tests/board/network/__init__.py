@@ -9,7 +9,7 @@ import threading
 import time
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING
 
 from board.network.outage import Outage
 from board.part import Part, invalid_if
@@ -37,61 +37,6 @@ _RADIO_READ = (
 _RADIO_READ_TIMEOUT_SECONDS = 10
 # how far the station's connected time may fall short of the host's window before it counts as a reconnect
 _RECONNECT_SLACK_SECONDS = 2
-
-
-class Link(NamedTuple):
-    """The board's Wi-Fi link, as `iw dev wlan0 link` reports its transmit side.
-
-    Attributes:
-        tx_mbit: the tx bitrate, in Mbit/s.
-        mode: the `MCS n` or `VHT-MCS n` text when present, else `unreported`.
-    """
-
-    tx_mbit: float
-    mode: str
-
-    @staticmethod
-    def properties(link: "Link | str") -> dict[str, object]:
-        """The record's properties for a read of the link.
-
-        Args:
-            link: the link, or why its read failed.
-
-        Returns:
-            The properties, by name: the read's error alone when it failed.
-        """
-        if isinstance(link, str):
-            return {"link_read_error": link}
-        return {"link_tx_bitrate_mbit": link.tx_mbit, "link_tx_mode": link.mode}
-
-
-def parse_link(text: str) -> Link:
-    """Read the tx bitrate and its mode from `iw dev wlan0 link` output.
-
-    Args:
-        text: the command's stdout.
-
-    Returns:
-        The link.
-
-    Raises:
-        ValueError: the output has no tx bitrate line.
-    """
-    found = re.search(r"^\s*tx bitrate:\s*([\d.]+)\s*MBit/s(.*)$", text, re.MULTILINE)
-    if not found:
-        raise ValueError(f"no tx bitrate line in {text.strip()!r}")
-    mode = re.search(r"\b(?:VHT-)?MCS \d+", found.group(2))
-    return Link(float(found.group(1)), mode.group(0) if mode else "unreported")
-
-
-def check_link_fit(link: Link) -> None:
-    """Assert the link's tx bitrate is above `LINK_FLOOR_MBIT`.
-
-    Args:
-        link: the link read.
-    """
-    rate = f"tx {link.tx_mbit:g} MBit/s" + (": an 802.11b rate" if link.tx_mbit in _RATES_80211B else "")
-    assert link.tx_mbit > LINK_FLOOR_MBIT, f"{rate}, at or below the {LINK_FLOOR_MBIT:g} MBit/s floor"
 
 
 @dataclasses.dataclass
@@ -185,7 +130,7 @@ class Radio:
         """The record's radio properties for a window between two reads.
 
         A read that failed is its error text: that edge's numbers and every delta are left out. Deltas are
-        left out too, with the reason as the after-read's error, when the window spans a new boot, a
+        left out too, with the reason as `radio_deltas_left_out`, when the window spans a new boot, a
         counter that went back, or a reconnect of the station: its connected time grew by less than the
         window, less `_RECONNECT_SLACK_SECONDS`. The window runs from the end of the before-read to the start
         of the after-read.
@@ -213,11 +158,11 @@ class Radio:
         window_s = after.at - before.done
         went_back = [name for name, delta in deltas.items() if delta < 0]
         if after.boot_id != before.boot_id:
-            properties["radio_read_error_after"] = "boot changed"
+            properties["radio_deltas_left_out"] = "boot changed"
         elif went_back:
-            properties["radio_read_error_after"] = f"counter went back: {went_back[0]}"
+            properties["radio_deltas_left_out"] = f"counter went back: {went_back[0]}"
         elif after.connected_s < before.connected_s + window_s - _RECONNECT_SLACK_SECONDS:
-            properties["radio_read_error_after"] = (
+            properties["radio_deltas_left_out"] = (
                 f"station reconnected: connected {before.connected_s} then {after.connected_s} over {window_s:.0f} s"
             )
         else:
@@ -277,34 +222,29 @@ class Network(Part):
             assert record.offline_at((record.cut + record.restored) / 2)
         return read_at - (uptime_s - record.restored)
 
-    def link(self) -> "Link | str":
-        """Read the board's link once; a read that fails is returned as why, never raised.
+    def confirm_link_carries_load(self) -> float:
+        """Read the board's link, and fail the check as invalid unless its tx bitrate is above the floor.
 
         Returns:
-            The link now, or the reason the read failed.
-        """
-        try:
-            lines = self._board.run(_LINK_READ, check=True, timeout=_LINK_READ_TIMEOUT_SECONDS).stdout
-            return parse_link("\n".join(lines))
-        except (AssertionError, ValueError, *self._board.ERRORS) as error:
-            return str(error) or type(error).__name__
-
-    @staticmethod
-    def confirm_link_carries_load(link: "Link | str") -> None:
-        """Fail the check as invalid unless the link was read and is above the floor, before any load.
-
-        Args:
-            link: the link, or why its read failed.
+            The link's tx bitrate, in Mbit/s.
 
         Raises:
-            AssertionError: the link could not be read, or its tx bitrate is at or below the floor; the
-                message says the check is invalid.
+            AssertionError: the link could not be read, or its tx bitrate is at or below
+                `LINK_FLOOR_MBIT`; the message says the check is invalid.
         """
-        if isinstance(link, str):
-            with invalid_if("the link could not be read"):
-                raise AssertionError(link)
+        with invalid_if("the link could not be read"):
+            try:
+                lines = self._board.run(_LINK_READ, check=True, timeout=_LINK_READ_TIMEOUT_SECONDS).stdout
+            except self._board.ERRORS as error:
+                raise AssertionError(str(error) or type(error).__name__) from error
+            text = "\n".join(lines)
+            found = re.search(r"^\s*tx bitrate:\s*([\d.]+)\s*MBit/s", text, re.MULTILINE)
+            assert found, f"no tx bitrate line in {text.strip()!r}"
+        rate = float(found.group(1))
         with invalid_if("the link was not fit for the load"):
-            check_link_fit(link)
+            note = ": an 802.11b rate" if rate in _RATES_80211B else ""
+            assert rate > LINK_FLOOR_MBIT, f"tx {rate:g} MBit/s{note}, at or below the {LINK_FLOOR_MBIT:g} MBit/s floor"
+        return rate
 
     def radio(self) -> "Radio | str":
         """Read the board's radio once; a read that fails is returned as why, never raised.

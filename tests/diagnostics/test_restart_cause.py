@@ -48,43 +48,64 @@ class ResetLine(NamedTuple):
     console: str
 
 
-def _reset_line(board: Board, errors: list[str], boot: str = "0") -> ResetLine | None:
+def _reset_line(board: Board, boot: str = "0") -> ResetLine | None:
     """Read the `rsts` and `console` of a boot's `kiosk-last-reset` line.
 
     Args:
         board: the board under test.
-        errors: collects the error of a read the board did not answer.
         boot: `journalctl -b`'s argument: 0 for the running boot, or a boot id.
 
     Returns:
-        The line's fields; None if the boot has not logged the line yet, or the read got no answer.
+        The line's fields; None if the boot has not logged the line.
     """
     cmd = f"journalctl -b {boot} -u kiosk-journal-flush.service -o cat --no-pager"
-    try:
-        found = LINE.search(board.run(cmd, check=True, timeout=60).text)
-    except Board.ERRORS as error:
-        errors.append(f"{type(error).__name__}: {error}")
-        return None
+    found = LINE.search(board.run(cmd, check=True, timeout=60).text)
     return ResetLine(found.group("rsts"), found.group("console")) if found else None
 
 
-def _kernel_log(board: Board, errors: list[str], boot: str) -> str | None:
+def _kernel_log(board: Board, boot: str) -> str:
     """Read a boot's kernel messages with their monotonic times.
 
     Args:
         board: the board under test.
-        errors: collects the error of a read the board did not answer.
         boot: a boot id, as `journalctl -b` takes it.
 
     Returns:
-        The kernel messages; None if the read got no answer.
+        The kernel messages.
     """
     cmd = f"journalctl -b {boot} -k -o short-monotonic --no-pager"
-    try:
-        return board.run(cmd, check=True, timeout=60).text
-    except Board.ERRORS as error:
-        errors.append(f"{type(error).__name__}: {error}")
-        return None
+    return board.run(cmd, check=True, timeout=60).text
+
+
+class _RunningBootLine:
+    """The running boot's line, read until it is logged, keeping the last error of a read the board did not answer.
+
+    Attributes:
+        last_error: the last such error, empty if none.
+    """
+
+    last_error: str
+
+    def __init__(self, board: Board) -> None:
+        """Bind to the board.
+
+        Args:
+            board: the board under test.
+        """
+        self._board = board
+        self.last_error = ""
+
+    def read(self) -> ResetLine | None:
+        """Read the line once.
+
+        Returns:
+            The line; None if it is not logged yet or the read got no answer.
+        """
+        try:
+            return _reset_line(self._board)
+        except Board.ERRORS as error:
+            self.last_error = f"{type(error).__name__}: {error}"
+            return None
 
 
 def test_restart_cause(board: Board, record_property: Callable[[str, object], None]) -> None:
@@ -100,43 +121,43 @@ def test_restart_cause(board: Board, record_property: Callable[[str, object], No
         "kernel panic": board.crash_kernel,
         "watchdog bite": board.starve_watchdog,
     }
+    running = _RunningBootLine(board)
     seen = {}
     boot_ids = {}
     for cause, stimulus in stimuli.items():
         stimulus()
-        errors: list[str] = []
         try:
-            seen[cause] = board.wait_for(lambda errors=errors: _reset_line(board, errors))
+            seen[cause] = board.wait_for(running.read)
         except AssertionError as gave_up:
-            pytest.fail(f"{gave_up}; the last read error: {errors[-1] if errors else 'none'}", pytrace=False)
+            pytest.fail(f"{gave_up}; the last read error: {running.last_error or 'none'}", pytrace=False)
         boot_ids[cause] = board.boot_id().strip().replace("-", "")
         record_property(f"{cause}.rsts", seen[cause].rsts)
         record_property(f"{cause}.console", seen[cause].console)
-
-    for cause, boot in boot_ids.items():
-        errors = []
-        kernel = _kernel_log(board, errors, boot)
-        first = kernel.splitlines()[0] if kernel and kernel.strip() else "no entries"
-        assert kernel is not None and "Linux version" in kernel, (
-            f"the {cause}'s boot {boot} does not start with the kernel's version line; its first entry reads: "
-            f"{first} {errors}"
-        )
-    for cause in ("kernel panic", "restart", "power cut"):
-        errors = []
-        kept = _reset_line(board, errors, boot_ids[cause])
-        assert kept == seen[cause], f"the {cause}'s boot read {seen[cause]}; the journal now gives {kept} {errors}"
+    kernel_logs = {cause: _kernel_log(board, boot) for cause, boot in boot_ids.items()}
+    kept = {cause: _reset_line(board, boot_ids[cause]) for cause in ("kernel panic", "restart", "power cut")}
     stamped = STAMPED_LINE.search(
         board.run("journalctl -b 0 -u kiosk-journal-flush.service -o short-unix --no-pager", check=True).text
     )
-    assert stamped, "the running boot's line has no time in the journal"
-    skew = abs(float(stamped.group("unix")) - float(board.run("date +%s", check=True).text.strip()))
+    skew = (
+        abs(float(stamped.group("unix")) - float(board.run("date +%s", check=True).text.strip())) if stamped else None
+    )
+
+    assert_resets(seen)
+    for cause, kernel in kernel_logs.items():
+        first = kernel.splitlines()[0] if kernel.strip() else "no entries"
+        assert "Linux version" in kernel, (
+            f"the {cause}'s boot {boot_ids[cause]} does not start with the kernel's version line; "
+            f"its first entry reads: {first}"
+        )
+    for cause, line in kept.items():
+        assert line == seen[cause], f"the {cause}'s boot read {seen[cause]}; the journal now gives {line}"
+    assert skew is not None, "the running boot's line has no time in the journal"
     assert skew < CLOCK_TOLERANCE_SECONDS, (
         f"the line's time is {skew:.0f} s from the board's clock: written before the clock was restored"
     )
-    judge_resets(seen)
 
 
-def judge_resets(seen: dict[str, ResetLine]) -> None:
+def assert_resets(seen: dict[str, ResetLine]) -> None:
     """Assert what the four causes' lines must say.
 
     Args:
