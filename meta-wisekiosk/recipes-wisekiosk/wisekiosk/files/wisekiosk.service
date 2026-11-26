@@ -6,8 +6,7 @@ After=network.target data.mount
 # Wants, not Requires: an unmounted /data leaves the server serving, config.json
 # 404s and the page renders its own absent state.
 Wants=data.mount
-# A crash loop must not stop the restarts: the default limit of 5 starts in 10 s would leave the panel with
-# no server.
+# No start limit: the restarts below never end in a failed state.
 StartLimitIntervalSec=0
 
 [Service]

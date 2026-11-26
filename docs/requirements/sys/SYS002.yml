@@ -11,9 +11,10 @@ rationale: |
   operator can open a remote shell or, as a last resort, use a keyboard attached to it, that its
   logs survive an image update, that it rejoins the site network after an outage, and that it falls
   back from an image update that cuts the operator off. Falling back from a configuration change has
-  no bound set. Unproven: any way of losing the operator's access that its checks do not induce.
+  no bound set. Keeping its logs through a repeating fault has no bound set. Unproven: any way of
+  losing the operator's access that its checks do not induce.
 ref: ''
-reviewed: we4-sQcWch5HDwJ-oXfvp9Sv6m3b5_G4qYVQ1_9S9QY=
+reviewed: i3d4SHG3aY_ANSTfx8AMKVFDymJY1DyAzlPVqi-lQNk=
 status: proposed
 text: |
   Once provisioned, the appliance shall be configured and maintained by its operator, primarily over
