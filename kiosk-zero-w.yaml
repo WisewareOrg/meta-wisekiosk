@@ -343,6 +343,8 @@ local_conf_header:
   # Shared by every checkout that shares SSTATE_DIR; bitbake leaves it out of signatures.
   ccache: |
     CCACHE_TOP_DIR = "${SSTATE_DIR}/ccache"
+    # Where the cache lives and how big it is change no object, so they stay out of signatures.
+    BB_BASEHASH_IGNORE_VARS:append = " CCACHE_BASEDIR CCACHE_COMPILERCHECK CCACHE_CONFIGPATH CCACHE_TEMPDIR CCACHE_MAXSIZE"
 
   diskmonitoring: |
     BB_DISKMON_DIRS ??= "\
