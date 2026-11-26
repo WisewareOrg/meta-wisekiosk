@@ -298,8 +298,8 @@ class Network(Part):
             link: the link, or why its read failed.
         """
         if isinstance(link, str):
-            with invalid_if(f"the link could not be read ({link})"):
-                raise AssertionError
+            with invalid_if("the link could not be read"):
+                raise AssertionError(link)
         with invalid_if("the link was not fit for the load"):
             check_link_fit(link)
 
