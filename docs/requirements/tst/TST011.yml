@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_back_after_a_fault
   path: tests/target_suite/test_back_on_the_panel.py
-  sha: 05beb893eac235d6266be426f1a1a7b5fc6aa16bf0217435a2641dc0f03b5219
+  sha: 273410f50a3fe77582ba96cf364491a8e328004e6376f3741a35e285294b5f12
   type: file
-reviewed: IzLbBYx24DoxENtYEFy4PLrfS37XhELeNmRMLbC97gE=
+reviewed: 1IenhbfB1OyMekNMi3YeKvAeboDf4Kku9_TjOV8CytQ=
 status: proposed
 text: |
   Restart the appliance over the network, with nobody at the panel. Pass if, within 60 s of the

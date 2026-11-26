@@ -118,11 +118,12 @@ class TestBackOnThePanel(BoardTest):
 
         The board's link is read first, and the call stops as invalid before any load if the link cannot be
         read or the board sends at or below `LINK_FLOOR_MBIT`, 802.11b's top rate. A link that slow cannot
-        carry the load: the bench board, sending at an 802.11b rate, took the load at under its floor, and
-        sending at HT rates took it in full. Read first, such a link ends the call at once and is named in
-        its record, instead of a minute's push ending in a load not applied. The board's own send rate is a
-        sign of the link, not the rate the load travels at, so a link above the floor is not taken to carry
-        the load; `Load.confirm_applied` judges that.
+        carry the load: PR 415 (#408 TST008 cannot apply its network load on the bench board) traced loads
+        not applied to a board sending at an 802.11b rate, and the same image at HT rates took the load in
+        full. Read first, such a link ends the call at once and is named in its record, instead of a minute's
+        push ending in a load not applied. The board's own send rate is a sign of the link, not the rate the
+        load travels at, so a link above the floor is not taken to carry the load; `Load.confirm_applied`
+        judges that.
         """
         self.record(requirement="TST008")
         link = self.board.network.link()
