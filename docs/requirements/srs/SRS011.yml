@@ -4,7 +4,7 @@ header: |
   Remote shell for service
 level: 2.4
 links:
-- SYS002: we4-sQcWch5HDwJ-oXfvp9Sv6m3b5_G4qYVQ1_9S9QY=
+- SYS002: i3d4SHG3aY_ANSTfx8AMKVFDymJY1DyAzlPVqi-lQNk=
 normative: true
 rationale: |
   Image updates and configuration changes may later arrive by another path, such as an image update

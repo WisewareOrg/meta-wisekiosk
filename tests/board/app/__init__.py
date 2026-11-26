@@ -240,12 +240,15 @@ class App(Part):
         """Kill the backend outright, and start the browser again while the backend is down.
 
         The backend's own restart is held back, until the test ends, so the browser's load fails; the check
-        is invalid if it did not. Then the backend is restarted: a start would wait out the hold.
+        is invalid if it did not. The hold drops the unit's backoff (`RestartSteps` and `RestartMaxDelaySec`),
+        which would otherwise cut it short. Then the backend is restarted: a start would wait out the hold.
 
         Returns:
             An instant before the backend first answered again, from `_answers_after_a_failed_load`.
         """
-        self.backend.drop_in(f"[Service]\\nRestartSec={_BACKEND_HOLD_SECONDS}\\n")
+        self.backend.drop_in(
+            f"[Service]\\nRestartSec={_BACKEND_HOLD_SECONDS}\\nRestartSteps=0\\nRestartMaxDelaySec=infinity\\n"
+        )
         self.backend.kill()
         self.kiosk.restart()
         return self._answers_after_a_failed_load(self.backend.restart)

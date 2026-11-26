@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_back_after_a_fault
   path: tests/target_suite/test_back_on_the_panel.py
-  sha: 737ef1cf171e75059a3fa6178eb2c52db4b6af49aa2cd4306ab569ea9ac0b412
+  sha: 493feace8d10710e782cb29ec7d3d3809036a3fee3b370dd7b67b8fdd7963c1c
   type: file
-reviewed: pHJzOHc2M55_W3Kf416cgH3vPojQSJUyr6BoDlzzb-w=
+reviewed: f8slQIUopY2cSTikmT2JaYb30VUPyZL-mZfOLRVICqc=
 status: proposed
 text: |
   With nobody at the panel, restart the appliance with the WiseKiosk backend held back from starting

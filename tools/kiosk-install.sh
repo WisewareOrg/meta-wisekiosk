@@ -5,11 +5,15 @@
 #   tools/kiosk-install.sh root@<host> <bundle>
 #   tools/kiosk-install.sh --check-only <before> <after>
 #
+# One install per board at a time from this host, by the address its host name resolves to (a second is
+# refused, naming the holder's pid and checkout). A script killed alone frees the lock at once while rauc goes
+# on installing; a later call is then refused by rauc only, after its arming.
+#
 # Every install goes through this script: just kiosk-ota, tools/rauc-rotate.sh
 # and the target suite's update tests. The board streams BUNDLE: for the length
-# of the install, a pinned nginx container on this host's port 80 serves it,
-# with only BUNDLE mounted, and the board runs `rauc install` on its URL at the
-# address its own ssh session comes from (SSH_CLIENT). rauc checks the
+# of the install, a pinned nginx container on a port docker chooses serves it,
+# holding only BUNDLE, in memory, and the board runs `rauc install` on its URL
+# at the address its own ssh session comes from (SSH_CLIENT). rauc checks the
 # signature against the board's keyring before it writes anything.
 #
 # Checks, in order: the reproducibility gate against the tree containing this
@@ -33,11 +37,9 @@
 # --check-only BEFORE AFTER runs target_activated directly against two
 # fw_printenv/rauc-status blocks, with no ssh and no device.
 #
-# Exit: 0 installed and the target slot activated, or --check-only passed;
-# 1 no bundle at the path, the gate failed, the bundle server did not start,
-# rauc refused or failed the install, the target slot did not activate, or
-# --check-only failed; 2 no host or no bundle given. An ssh or rauc command
-# that fails outright exits with that command's own status (e.g. 255).
+# Exit: 0 installed and the target slot activated, or --check-only passed; 2 no
+# host or no bundle given; an ssh or rauc command that fails outright, its own
+# status (e.g. 255); 1 any other failure.
 set -euo pipefail
 
 usage() {
@@ -60,7 +62,7 @@ target_activated() {
 }
 
 nginx_image="nginx:1.30.8-alpine@sha256:6437a63b5c529f0e06162b3f593c0154cff6fa2ea0f94fd7c27928cb399e022d"
-server=kiosk-bundle-server
+server=
 
 ssh=(ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
 host=
@@ -112,9 +114,24 @@ stamp() {
     line_ts "[$tag] session ended" >&2
 }
 
+# board_address HOST -- the address HOST names (user@ stripped, ssh's HostName, then its first IPv4), or the
+# stripped name when nothing resolves, so two names for one board meet on one install lock.
+board_address() {
+    local name=${1#*@} resolved addr
+    resolved=$(ssh -G "$name" 2>/dev/null | awk '$1 == "hostname" { print $2 }' | head -n 1) || resolved=
+    resolved=${resolved:-$name}
+    addr=$(getent ahostsv4 "$resolved" 2>/dev/null | awk 'NR == 1 { print $1 }') || addr=
+    echo "${addr:-$resolved}"
+}
+
 # stream TAG CMD -- runs CMD on the board in the background, stamped as TAG.
 stream() {
-    "${ssh[@]}" -o ServerAliveInterval=2 -o ServerAliveCountMax=3 "$host" "$2" > >(stamp "$1") 2>&1 &
+    # In a subshell that closes the install lock's descriptor first, so neither the ssh nor its stamp process holds
+    # the lock; the subshell becomes the ssh, so $! is the ssh.
+    (
+        exec 8>&-
+        exec "${ssh[@]}" -o ServerAliveInterval=2 -o ServerAliveCountMax=3 "$host" "$2" > >(stamp "$1") 2>&1
+    ) &
     capture_pids+=("$!")
 }
 
@@ -154,35 +171,38 @@ stop_capture() {
     capture_pids=()
 }
 
-# serve BUNDLE -- serves BUNDLE on this host's port 80 and sets url to it at the
+# serve BUNDLE -- serves BUNDLE on a port docker chooses and sets url to it at the
 # address the board's ssh session comes from.
 serve() {
-    local bundle=$1 addr t0 existing owner
+    local bundle=$1 addr t0 existing owner name port
     # shellcheck disable=SC2016 # the board's shell expands SSH_CLIENT
     addr=$("${ssh[@]}" "$host" 'echo "${SSH_CLIENT%% *}"')
     [ -n "$addr" ] || { echo "the board did not report its ssh client address"; return 1; }
-    existing=$(docker ps -aq --filter "name=^${server}\$")
-    if [ -n "$existing" ]; then
-        owner=$(docker inspect -f '{{index .Config.Labels "kiosk-install.pid"}}' "$existing" 2>/dev/null) || owner=
-        if [ -n "$owner" ] && ps -p "$owner" >/dev/null 2>&1; then
-            echo "another install on this host (pid $owner) is serving a bundle"
-            return 1
-        fi
-        # left by an install that was killed before its cleanup ran
-        docker rm -f "$existing" >/dev/null 2>&1 || true
-    fi
+    # one listing, so a failed read removes nothing; a server whose owner pid ps cannot see is removed: one
+    # left by an install killed before its cleanup ran, or a live install's whose pid this shell cannot see
+    # (another pid namespace)
+    while read -r existing owner; do
+        ps -p "$owner" >/dev/null 2>&1 || docker rm -f "$existing" >/dev/null 2>&1 || true
+    done < <(docker ps -a --filter "label=kiosk-install.pid" --format '{{.ID}} {{.Label "kiosk-install.pid"}}')
     docker image inspect "$nginx_image" >/dev/null 2>&1 || docker pull -q "$nginx_image" >/dev/null \
         || { echo "could not pull $nginx_image"; return 1; }
-    docker run -d --rm --name "$server" --label "kiosk-install.pid=$$" -p 80:80 \
-        -v "$bundle:/usr/share/nginx/html/$(basename "$bundle"):ro" "$nginx_image" >/dev/null \
-        || { echo "could not start the bundle server on port 80"; return 1; }
+    server=$(docker run -d --rm --label "kiosk-install.pid=$$" -p 80 \
+        --tmpfs /usr/share/nginx/html "$nginx_image") \
+        || { echo "could not start the bundle server"; return 1; }
     served=1
+    port=$(docker port "$server" 80/tcp)
+    port=${port%%$'\n'*}
+    port=${port##*:}
+    [ -n "$port" ] || { echo "docker did not report the bundle server's port"; return 1; }
+    name=$(basename "$bundle")
+    docker exec -i "$server" sh -c 'cat > "/usr/share/nginx/html/$1"' sh "$name" < "$bundle" \
+        || { echo "could not copy the bundle into the server"; return 1; }
     t0=$SECONDS
-    until curl -sf -o /dev/null -r 0-0 "http://127.0.0.1/$(basename "$bundle")"; do
+    until curl -sf -o /dev/null -r 0-0 "http://127.0.0.1:$port/$name"; do
         (( SECONDS - t0 < 30 )) || { echo "the bundle server did not answer within 30s"; return 1; }
         sleep 1
     done
-    url="http://$addr/$(basename "$bundle")"
+    url="http://$addr:$port/$name"
     echo "== serving $bundle at $url"
 }
 
@@ -241,6 +261,19 @@ main() {
     root=$(cd "$(dirname "$0")/.." && pwd)
     gate="$root/tools/reproducibility-gate.sh"
     cd "$root"
+
+    # One install per board from this host (meta-wisekiosk/recipes-core/bundles/README.md §"Consequences"
+    # says why). The lock is the board's address, at a fixed path; the holder writes its pid and checkout
+    # into it.
+    local lock holder
+    lock="/tmp/kiosk-install-$(board_address "$host" | tr -c 'A-Za-z0-9._:\n-' _).lock"
+    exec 8>>"$lock"
+    if ! flock -n 8; then
+        read -r holder < "$lock" || holder="unknown holder"
+        echo "another install holds $host (pid and checkout: $holder)"
+        exit 1
+    fi
+    printf '%s %s\n' "$$" "$PWD" > "$lock"
 
     # Directly invocable, so it cannot rely on kiosk-preflight having run.
     # --tree: what installs is already on the device.

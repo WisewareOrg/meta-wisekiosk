@@ -2,7 +2,7 @@
 # HEADER #
 ##########
 # Kiosk image for the Raspberry Pi Zero W: WPE WebKit straight to DRM, no
-# display server (ADR 0001 rev 1). This is the only kas config in the repo; it
+# display server (ADR 0001 rev 2). This is the only kas config in the repo; it
 # pulls in the repo pins (includes/base.yaml, which fetches meta-autonomos and
 # patches it) and the machine, then adds everything specific to this image below.
 header:
@@ -43,6 +43,11 @@ local_conf_header:
   # arms the hardware watchdog at 5.2s, and kernel.panic via sysctl applies at
   # ~11.7s. The kernel command line is the only mechanism that covers it, and
   # without it this failure costs a person standing at the device.
+  # Its value differs from kernel.panic in 60-kiosk-panic.conf, which applies once
+  # userspace is up, and stays: cmdline.txt is on the shared FAT partition RAUC
+  # never writes (README.md §"Quick start"), so a new value would reach only a
+  # freshly flashed card, and the tree would state a value the boards in the field
+  # do not run.
   panic-reboot: |
     CMDLINE:append = " panic=10"
 
@@ -339,6 +344,15 @@ local_conf_header:
     # Strips -g and -g1 from wpewebkit's DEBUG_FLAGS; DEBUG_PREFIX_MAP stays.
     DEBUG_FLAGS:remove:pn-wpewebkit = "-g -g1"
     BB_PRESSURE_MAX_MEMORY = "20000"
+
+  # The image's compile cache (README.md §"Quick start").
+  ccache: |
+    CCACHE_TOP_DIR = "${SSTATE_DIR}/ccache"
+    INHERIT += "ccache"
+    # Per recipe, and safe only because CCACHE_MAXSIZE is in the ignore line below.
+    export CCACHE_MAXSIZE = "5G"
+    # The class exports these settings and bitbake.conf ignores only some of them; with them out, changing a cache setting rebuilds nothing.
+    BB_BASEHASH_IGNORE_VARS:append = " CCACHE_BASEDIR CCACHE_COMPILERCHECK CCACHE_CONFIGPATH CCACHE_TEMPDIR CCACHE_MAXSIZE"
 
   diskmonitoring: |
     BB_DISKMON_DIRS ??= "\

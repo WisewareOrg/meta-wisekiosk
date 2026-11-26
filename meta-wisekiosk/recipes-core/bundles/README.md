@@ -28,11 +28,17 @@ answer to an ext4 image smaller than its slot.
   first install was slower than a plain one (PR 335 image update behaviour, "Install times");
   RAUC documents adaptive mode as a streaming optimisation.
 - **An `ssh -R` tunnel to a server on the host's loopback** — not RAUC's documented setup; the board
-  reaches the host directly where the host publishes port 80 on the LAN.
+  reaches the host directly where the host publishes the server's port on the LAN.
 - **A small Python server pinned in `uv.lock`** — a prebuilt, digest-pinned image needs no code of
   the layer's own.
 - **casync bundles** — need a converted bundle and a separate chunk store; RAUC documents streaming
   with adaptive updates as their successor.
+- **A bind mount of the bundle into the server** — Docker Desktop keeps the mount of a file that is
+  later deleted, so bundles stayed held after their installs.
+- **`docker cp` of the bundle into the server** — it puts operator-signed test bundles on Docker's
+  disk, and [`docs/testing.md`](../../../docs/testing.md) keeps them in memory only.
+- **Host port 80 and a fixed container name** — two installs on one host could not each have a server;
+  Docker chooses the host port and the container is stopped by its id.
 - **One install serving several tests in sequence** — would couple the update tests to each other.
 - **A headroom figure of the layer's own** — Yocto's default factor plus `resize=true` is the
   documented combination.
@@ -46,7 +52,12 @@ answer to an ext4 image smaller than its slot.
 - `resize=true` is read from the running system's `system.conf`, so an install made from an image
   whose `system.conf` lacks it leaves that slot's filesystem at its content size until the slot is
   next written.
-- The host that installs needs Docker and a port 80 the board can reach at the address its ssh
+- The server holds the bundle in memory (a `tmpfs` copy) for the length of one install, so the host
+  needs the bundle's size free in memory.
+- One install per board at a time from one host: a second install's arming deletes the first's
+  pstore records, and its disarming turns the first's recorders off, so the script refuses it and
+  names the holder.
+- The host that installs needs Docker and a published port the board can reach at the address its ssh
   session comes from; [`docs/testing.md`](../../../docs/testing.md) §"Running it" states this for the
   bench.
 

@@ -47,40 +47,7 @@ if [ -d /etc/udev/rules.d ]; then
     done
 fi
 
-# --- 3. re-enable Bluetooth ------------------------------------------------
-# Bluetooth is the third pass of the combined kiosk-blacklist.conf, not a
-# separate file. Comment only the six install/blacklist lines for
-# hci_uart/btbcm/bluetooth; pass 1 (camera/codec) and pass 2 (vc_sm_cma) must
-# survive, so match those three tokens exactly. Never delete the file.
-BL=/etc/modprobe.d/kiosk-blacklist.conf
-if [ -f "$BL" ]; then
-    hits=$(awk '
-        /^[[:space:]]*#/ { next }
-        /^[[:space:]]*(install|blacklist)[[:space:]]+(hci_uart|btbcm|bluetooth)([[:space:]]|$)/ { print }
-    ' "$BL")
-    if [ -n "$hits" ]; then
-        if [ "$DRY" -eq 1 ]; then
-            echo "  would comment out these Bluetooth lines in $BL:"
-            printf '%s\n' "$hits" | sed 's/^/      /'
-        else
-            # cat over the original path (not mv) preserves its mode and owner.
-            awk '
-                /^[[:space:]]*#/ { print; next }
-                /^[[:space:]]*(install|blacklist)[[:space:]]+(hci_uart|btbcm|bluetooth)([[:space:]]|$)/ {
-                    print "# kiosk-recover disabled: " $0; next
-                }
-                { print }
-            ' "$BL" > "$BL.kiosk-recover.tmp" \
-                && cat "$BL.kiosk-recover.tmp" > "$BL" \
-                && rm -f "$BL.kiosk-recover.tmp"
-            log "re-enabled Bluetooth (commented 6 lines in $BL)"
-        fi
-    else
-        log "Bluetooth already re-enabled in $BL"
-    fi
-fi
-
-# --- 4. restore the resolv.conf symlink -----------------------------------
+# --- 3. restore the resolv.conf symlink -----------------------------------
 # Its tmpfiles entry uses 'L', not 'L+', so it will not recreate the symlink once
 # /etc/resolv.conf exists -- what this writes is what stays.
 WANT=/data/config/resolv.conf
@@ -93,7 +60,7 @@ else
     log "resolv.conf -> $WANT"
 fi
 
-# --- 5. reboot ------------------------------------------------------------
+# --- 4. reboot ------------------------------------------------------------
 if [ "$DRY" -eq 1 ]; then
     log "dry-run: no changes made, not rebooting"
     exit 0

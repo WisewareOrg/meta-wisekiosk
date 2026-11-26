@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from board import Board
+from board.network import SUSTAINED_LOAD_SECONDS, Link
 from board_test import BoardTest, case
 
 # what "back" is read as: the instance on the panel; its page served with the browser running; the
@@ -15,8 +16,7 @@ UP = operator.attrgetter("app.is_up")
 LOADED = operator.attrgetter("app.loaded_the_instance")
 CLOCK_WITH_SECONDS = Path(__file__).resolve().parent / "clock-seconds.json"
 SENDS_UPDATE = [pytest.mark.sends_update]
-# TST008's load, and how long after any stop the panel has to be back
-NETWORK_LOAD_SECONDS = 60
+# how long after any stop the panel has to be back, in TST008
 BACK_WITHIN_SECONDS = 60
 
 
@@ -113,17 +113,30 @@ class TestBackOnThePanel(BoardTest):
         assert picture_changes, f"{back_s} s after the freeze the panel's buffers changed, but its picture did not"
 
     def test_sustained_network_load(self) -> None:
-        """TST008: load the network; no time off the panel, through the load and after it, may pass 60 s."""
+        """TST008: load the network; no time off the panel, through the load and after it, may pass 60 s.
+
+        The board's link is read first, and the call stops as invalid before any load if the link cannot be
+        read or the board sends at or below `LINK_FLOOR_MBIT`, 802.11b's top rate. A link that slow cannot
+        carry the load: PR 415 (#408 TST008 cannot apply its network load on the bench board) traced loads
+        not applied to a board sending at an 802.11b rate, and the same image at HT rates took the load in
+        full. Read first, such a link ends the call at once and is named in its record, instead of a minute's
+        push ending in a load not applied. The board's own send rate is a sign of the link, not the rate the
+        load travels at, so a link above the floor is not taken to carry the load; `Load.confirm_applied`
+        judges that.
+        """
         self.record(requirement="TST008")
+        link = self.board.network.link()
+        self.record(**Link.properties(link))
+        self.board.network.confirm_link_carries_load(link)
         self.board.app.turn_the_inspector_on()
         self.board.app.wait_until_on_panel()
 
-        with self.board.network.load(seconds=NETWORK_LOAD_SECONDS) as load:
+        with self.board.network.load(seconds=SUSTAINED_LOAD_SECONDS) as load:
             longest_off_s = self.board.longest_lapse_s(
-                self.board.app.on_panel, over=NETWORK_LOAD_SECONDS + BACK_WITHIN_SECONDS
+                self.board.app.on_panel, over=SUSTAINED_LOAD_SECONDS + BACK_WITHIN_SECONDS
             )
 
-        self.record(longest_off_s=longest_off_s)
+        self.record(longest_off_s=longest_off_s, load_mb_s=round(load.mb_s, 2))
         assert longest_off_s <= BACK_WITHIN_SECONDS, (
             f"off the panel for {longest_off_s} s; TST008 allows {BACK_WITHIN_SECONDS} s"
         )

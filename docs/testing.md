@@ -14,8 +14,9 @@ What proves a change is good enough to ship, at each tier.
 [WiseBenchManager](https://github.com/WisewareOrg/WiseBenchManager) is a separate, generic
 hardware-in-the-loop runner, cloned and built outside this tree per its own README. Pointed at this
 checkout, it reads the tracked `bench.toml` here — which never names a machine or a board — runs its
-`build` and `bundle` hooks, a host suite before anything is installed, then a target suite against the
-booted board. The runner never touches the board itself:
+`build` and `bundle` hooks, a host suite before anything is installed, then a target suite against
+the booted board. Builds on one host take turns ([`../README.md`](../README.md) §"Quick start"). The
+runner never touches the board itself:
 
 ```sh
 bench test <ref>               # by hand: build, run both suites; the target suite installs on the board LG_ENV names
@@ -57,15 +58,16 @@ kas container through `tools/kas-run.sh`, so the bench needs the checkout's own 
 signing keys the bench host's environment file names. The refused-update tests' bundles and
 evemu-tools are built under `build/`. The image-update tests' bundles are built in the host's `/tmp`, which
 `tools/kas-run.sh` mounts through `KAS_RUN_TMP_DIR`: they are signed by the operator key and carry
-the fleet's `compatible`, so they are kept only in the host's tmpfs, never in the build tree's
-deploy output (#252 image update behaviour). Before installing one, `Updates.allow_test_bundle`
-confirms the board refuses it without the run's nonce.
+the fleet's `compatible`, so they are kept only in memory (the host's `/tmp`, and the bundle
+server's memory for the length of an install), never in the build tree's deploy output (#252 image
+update behaviour). Before installing one, `Updates.allow_test_bundle` confirms the board refuses it
+without the run's nonce.
 
 Every install the target suite makes goes through [`tools/kiosk-install.sh`](../tools/kiosk-install.sh),
-so the bench host needs Docker, a free port 80, and a board that reaches the host's port 80 at the
-address the host's ssh session comes from. A plain LAN meets that, and so does WSL2 with Docker
-Desktop, which publishes the port on the Windows side; NAT or an ssh jump between the board and the
-host does not, and the install then fails to fetch the bundle.
+so the bench host needs Docker and a board that reaches the port Docker publishes for the install's
+server (one it chooses, per install) at the address the host's ssh session comes from. A plain LAN
+meets that, and so does WSL2 with Docker Desktop, which publishes the port on the Windows side; NAT or
+an ssh jump between the board and the host does not, and the install then fails to fetch the bundle.
 
 `bench run` also reads `[github]` — the GitHub App that posts the `bench-pipeline` check run, and the
 path to its private key on the bench host — and `[run]`, naming the systemd unit it disables on the
@@ -95,6 +97,11 @@ board on purpose, so it runs only by hand, never in the queue job.
 to fail: it installs a good copy of the candidate in the slot not booted, zeroes that slot's boot
 attempts and restarts, and passes only when U-Boot boots the other slot. Both slots stay bootable, so
 it strands nothing.
+
+`tests/diagnostics -k radio_under_load` reads the board's radio before and after the network load
+TST008<!-- Sustained network load --> applies, and records the load's rate, the signal at each edge
+and the counters' deltas across the load; it judges nothing. It changes nothing on the board, so it
+runs with `--skip-build` against a running board.
 
 `tests/applications/screenshot` is the suite of the screenshot application, which runs on the board.
 It is separate from the image suite and the diagnostics, and the queue job does not run it.
@@ -172,7 +179,11 @@ is read, and so is one whose invalid condition can itself cause the breach, as a
 frame stalls. A breach the stimulus itself reveals fails the test from inside it, as an assertion that
 is not marked invalid: `Board.restart_with` fails a board that does not come back in a new boot,
 which is TST004<!-- Kernel crash -->'s restart by itself, and `Network.cut_off` fails a board that
-restarted during the outage.
+restarted during the outage. A starting state that makes the stimulus impossible to apply is
+confirmed before it instead: TST008<!-- Sustained network load -->'s link, read by
+`Network.confirm_link_carries_load`, stops the call as invalid before any load when the board's own
+send rate is at or below the floor TST008<!-- Sustained network load --> states (`LINK_FLOOR_MBIT`),
+a sign of the link, not the rate the load travels at.
 
 **A test holds what it measured before the stimulus,** in a name that says so, and compares the
 after against it.

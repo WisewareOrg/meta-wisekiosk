@@ -953,9 +953,10 @@ fi
 # (meta-wisekiosk/recipes-core/bundles/README.md). The match is the literal
 # words: a command built from a list or a variable is not seen, and a trailing
 # comment naming them is. Lines that start with `#` are skipped; this file
-# names the command in its own messages.
+# names the command in its own messages. tools/kiosk-install-lock-test.sh is
+# excluded: its stub ssh answers a `rauc install` command and installs nothing.
 hits20=$(git grep -n -E 'rauc[[:space:]]+install' -- tools justfiles Justfile tests \
-    ':!tools/kiosk-install.sh' ':!tools/ci-guards.sh' \
+    ':!tools/kiosk-install.sh' ':!tools/ci-guards.sh' ':!tools/kiosk-install-lock-test.sh' \
     | grep -v -E '^[^:]+:[0-9]+:[[:space:]]*#' || true)
 if [ -n "$hits20" ]; then
     bad "guard 20: an install outside tools/kiosk-install.sh -- every install goes through it:"
@@ -1022,6 +1023,30 @@ elif out23=$("$PY" -B "$shottest23" 2>&1); then
 else
     bad "the screenshot tool's decoder FAILS its tests:"
     printf '%s\n' "$out23" | sed 's/^/        /'
+fi
+
+# --- 24. tools/kas-run.sh passes its self-test (the build lock and the keys directory) ---
+# What it proves and how is the header of tools/kas-run-test.sh.
+kastest24="tools/kas-run-test.sh"
+if [ ! -f "$kastest24" ]; then
+    bad "guard 24: $kastest24 missing -- tools/kas-run.sh goes untested"
+elif out24=$(timeout 120 bash "$kastest24" 2>&1); then
+    ok "tools/kas-run.sh passes its self-test ($(printf '%s\n' "$out24" | tail -n1))"
+else
+    bad "tools/kas-run.sh FAILS its self-test:"
+    printf '%s\n' "$out24" | sed 's/^/        /'
+fi
+
+# --- 25. the per-board install lock in tools/kiosk-install.sh passes its self-test ---
+# What it proves and how is the header of tools/kiosk-install-lock-test.sh.
+locktest25="tools/kiosk-install-lock-test.sh"
+if [ ! -f "$locktest25" ]; then
+    bad "guard 25: $locktest25 missing -- the install lock goes untested"
+elif out25=$(timeout 60 bash "$locktest25" 2>&1); then
+    ok "the install lock passes its self-test ($(printf '%s\n' "$out25" | tail -n1))"
+else
+    bad "the install lock FAILS its self-test:"
+    printf '%s\n' "$out25" | sed 's/^/        /'
 fi
 
 if [ "$fail" -ne 0 ]; then

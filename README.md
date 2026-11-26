@@ -176,6 +176,11 @@ the build container.
 just build          # kas fetches sources/, applies the patches, builds core-image-base and deploys kiosk-bootprof
 ```
 
+Builds on one host take turns: a second `just build`, or any other `tools/kas-run.sh` call except an
+interactive `just shell`, waits for the first and says which build holds the host. The turn is held
+by `kas-container` and its docker client, not by the build container: killing both frees it while
+that container may still be building.
+
 **The version in that `curl` URL is the kas version the build uses, and it changes nothing on its
 own.** `just build` runs whatever `kas-container` sits in `~/bin`; nothing downloads it but that
 `curl`. Renovate opens a pull request when kas releases and automerges it through the merge queue,
@@ -203,6 +208,12 @@ and so is the kernel's `PREFERRED_VERSION` — the kernel is outside webkit's de
 Cheap to rebuild is not the same as reaching a board: the `config.txt` knobs are on the shared FAT
 partition RAUC never writes — see
 [gpu compositing](docs/issue_investigation/gpu_compositing/README.md) §"Delivery and board".
+
+Every target recipe compiles through poky's `ccache` class and keeps its cache under `SSTATE_DIR`
+(`CCACHE_TOP_DIR`), bounded per recipe by `CCACHE_MAXSIZE` in [`kiosk-zero-w.yaml`](kiosk-zero-w.yaml),
+so every builder that shares one sstate shares it. `CCACHE_DISABLE = "1"` for a recipe turns its
+cache off. `bitbake -c clean` leaves the store; `bitbake -c cleanall` (`do_cleanccache`) empties a
+recipe's store for every builder, and its next build is then a full compile.
 
 ### Flashing a card
 
@@ -272,8 +283,8 @@ multi-GB image to put back.
 ## Recovery
 
 `kiosk-recover` reverses `kiosk-hardware`'s boot trims for a debugging session: it unmasks the DNS
-resolver, login/session and userdb units, deletes the masked udev rule symlinks, re-enables
-Bluetooth, restores the `/etc/resolv.conf` symlink into `/data`, and reboots.
+resolver, login/session and userdb units, deletes the masked udev rule symlinks, restores the
+`/etc/resolv.conf` symlink into `/data`, and reboots.
 
 It is **not a boot un-bricker**: it runs on a slot that already gives a shell; a slot that does not is
 an A/B rollback (`just kiosk-rollback`). It is idempotent, touches neither `/boot`, `sshd`, networkd
@@ -319,7 +330,7 @@ Two more fixes belong upstream but did not need a patch, because a downstream la
 | | |
 |---|---|
 | Engine | WPE WebKit, the version the meta-webkit pin in `includes/base.yaml` carries; `ENABLE_JIT=OFF`, `USE_WOFF2=ON`, `MinSizeRel` |
-| Browser | `kiosk-browser`, a small C launcher on WPE's platform API with a systemd watchdog ([ADR 0001 rev 1](docs/decisions/0001-wpe-webkit-on-drm-with-our-own-launcher.md)) |
+| Browser | `kiosk-browser`, a small C launcher on WPE's platform API with a systemd watchdog ([ADR 0001 rev 2](docs/decisions/0001-wpe-webkit-on-drm-with-our-own-launcher.md)) |
 | Display | WPE's DRM platform on vc4 firmware KMS, in the mode `video=` in the kernel's `panel-mode.cfg` sets, mesa for EGL, no display server |
 | Update | RAUC A/B over U-Boot — both slots visible |
 

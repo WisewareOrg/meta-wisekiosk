@@ -4,7 +4,7 @@ header: |
   Timezone set by the operator
 level: 2.7
 links:
-- SYS002: we4-sQcWch5HDwJ-oXfvp9Sv6m3b5_G4qYVQ1_9S9QY=
+- SYS002: i3d4SHG3aY_ANSTfx8AMKVFDymJY1DyAzlPVqi-lQNk=
 normative: true
 rationale: |
   The WiseKiosk application shows time in the appliance's timezone, so the panel shows local time

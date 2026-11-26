@@ -9,8 +9,19 @@ Usage: tools/kas-run.sh [--help] <kas-container args...>
 Mounts $HOME/.local/share/bitbake-hashserv read-only at /hashserv; refuses to
 run if that directory is missing.
 
+Takes an exclusive lock on $HOME/.local/share/bitbake-hashserv/kas-build.lock
+for as long as kas-container runs, so one kas build at a time runs on this
+host; a second waits and says which build (the pid and checkout in the lock
+file) holds it. Only an interactive shell (`shell` with at most one more
+argument, as `just shell` makes it) does not take it; a shell given more
+arguments takes the lock for as long as it is open. The lock is held by
+kas-container and its docker client, not by the container they start: with
+both killed, the lock is free while that container may still be building.
+
 Environment:
-  PIPELINE_KEYS_DIR   mounted read-only at /work/local/keys; no whitespace
+  PIPELINE_KEYS_DIR   mounted read-only at /work/local/keys; no whitespace. This script
+                      makes the checkout's local/keys first, as the calling user, so Docker
+                      does not make it root's
   KAS_RUN_TMP_DIR     mounted read-write at the same path inside the container; no
                       whitespace
   KAS_RUN_ENV         space-separated variable NAMES passed through to
@@ -19,7 +30,8 @@ Environment:
 Refuses --runtime-args and --docker-args in <kas-container args...>.
 
 Exits with kas-container's status, a failing writer's status, 1 if the
-bitbake-hashserv data directory is missing, or 2 on bad usage.
+bitbake-hashserv data directory is missing, the lock cannot be opened or
+local/keys cannot be made, or 2 on bad usage.
 EOF
 }
 
@@ -58,6 +70,13 @@ if [ ! -d "$HASHSERV_DIR" ]; then
     exit 1
 fi
 
+if [ "${1:-}" != shell ] || [ "$#" -gt 2 ]; then
+    lock="$HASHSERV_DIR/kas-build.lock"
+    exec 9>>"$lock" || { echo "tools/kas-run.sh: cannot open the build lock $lock" >&2; exit 1; }
+    flock -n 9 || { echo "kas-run: waiting for another kas build on this host: $(cat "$lock")" >&2; flock 9; }
+    printf '%s %s\n' "$$" "$PWD" > "$lock"
+fi
+
 py="${py:-python3}"
 tools/write-build-rev.sh
 "$py" tools/go-mods.py
@@ -65,6 +84,7 @@ tools/write-build-rev.sh
 
 runtime="-v $HASHSERV_DIR:/hashserv:ro"
 if [ -n "${PIPELINE_KEYS_DIR:-}" ]; then
+    mkdir -p local/keys || { echo "tools/kas-run.sh: cannot make $PWD/local/keys" >&2; exit 1; }
     runtime="$runtime -v $PIPELINE_KEYS_DIR:/work/local/keys:ro"
 fi
 if [ -n "${KAS_RUN_TMP_DIR:-}" ]; then

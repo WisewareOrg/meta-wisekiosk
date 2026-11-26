@@ -3,12 +3,13 @@
 import contextlib
 import dataclasses
 import os
+import re
 import subprocess
 import threading
 import time
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 from board.network.outage import Outage
 from board.part import Part, invalid_if
@@ -17,10 +18,82 @@ if TYPE_CHECKING:
     from board import Board
 
 _BLOCK_BYTES = 1024 * 1024
+# how long TST008's load lasts
+SUSTAINED_LOAD_SECONDS = 60
 # how long past the load the push may run before it is killed as hung
 _HANG_GRACE_SECONDS = 60
 # the least average rate that counts as the load applied
 _LOAD_FLOOR_MB_S = 1.0
+# the tx bitrate at or below which the link cannot carry the load: 802.11b's top rate
+LINK_FLOOR_MBIT = 11.0
+# the rates 802.11b defines, in Mbit/s
+_RATES_80211B = (1.0, 2.0, 5.5, 11.0)
+_LINK_READ = "iw dev wlan0 link"
+_LINK_READ_TIMEOUT_SECONDS = 10
+# one read of the board's radio: its boot, the station's counters and wlan0's byte counts
+_RADIO_READ = (
+    "echo boot_id: $(cat /proc/sys/kernel/random/boot_id); iw dev wlan0 station dump; "
+    "echo rx_bytes: $(cat /sys/class/net/wlan0/statistics/rx_bytes); "
+    "echo tx_bytes: $(cat /sys/class/net/wlan0/statistics/tx_bytes)"
+)
+_RADIO_READ_TIMEOUT_SECONDS = 10
+# how far the station's connected time may fall short of the host's window before it counts as a reconnect
+_RECONNECT_SLACK_SECONDS = 2
+
+
+class Link(NamedTuple):
+    """The board's Wi-Fi link, as `iw dev wlan0 link` reports its transmit side.
+
+    Attributes:
+        tx_mbit: the tx bitrate, in Mbit/s.
+        mode: the `MCS n` or `VHT-MCS n` text when present, else `unreported`.
+    """
+
+    tx_mbit: float
+    mode: str
+
+    @staticmethod
+    def properties(link: "Link | str") -> dict[str, object]:
+        """The record's properties for a read of the link.
+
+        Args:
+            link: the link, or why its read failed.
+
+        Returns:
+            The properties, by name: the read's error alone when it failed.
+        """
+        if isinstance(link, str):
+            return {"link_read_error": link}
+        return {"link_tx_bitrate_mbit": link.tx_mbit, "link_tx_mode": link.mode}
+
+
+def parse_link(text: str) -> Link:
+    """Read the tx bitrate and its mode from `iw dev wlan0 link` output.
+
+    Args:
+        text: the command's stdout.
+
+    Returns:
+        The link.
+
+    Raises:
+        ValueError: the output has no tx bitrate line.
+    """
+    found = re.search(r"^\s*tx bitrate:\s*([\d.]+)\s*MBit/s(.*)$", text, re.MULTILINE)
+    if not found:
+        raise ValueError(f"no tx bitrate line in {text.strip()!r}")
+    mode = re.search(r"\b(?:VHT-)?MCS \d+", found.group(2))
+    return Link(float(found.group(1)), mode.group(0) if mode else "unreported")
+
+
+def check_link_fit(link: Link) -> None:
+    """Assert the link's tx bitrate is above `LINK_FLOOR_MBIT`.
+
+    Args:
+        link: the link read.
+    """
+    rate = f"tx {link.tx_mbit:g} MBit/s" + (": an 802.11b rate" if link.tx_mbit in _RATES_80211B else "")
+    assert link.tx_mbit > LINK_FLOOR_MBIT, f"{rate}, at or below the {LINK_FLOOR_MBIT:g} MBit/s floor"
 
 
 @dataclasses.dataclass
@@ -39,13 +112,119 @@ class Load:
     seconds: float = 0.0
     returncode: int | None = None
 
+    @property
+    def mb_s(self) -> float:
+        """The push's average rate, in 10^6 bytes a second; 0 if it never ran."""
+        return self.sent / self.seconds / 1e6 if self.seconds else 0.0
+
     def confirm_applied(self) -> None:
         """Fail the check as invalid unless the board took every byte, at 1 MB/s or more."""
-        rate = self.sent / self.seconds / 1e6 if self.seconds else 0.0
         with invalid_if(
-            f"the load was not applied: {self.sent} B at {rate:.2f} MB/s, the board counted {self.counted!r}"
+            f"the load was not applied: {self.sent} B at {self.mb_s:.2f} MB/s, the board counted {self.counted!r}"
         ):
-            assert self.returncode == 0 and self.counted == str(self.sent) and rate >= _LOAD_FLOOR_MB_S
+            assert self.returncode == 0 and self.counted == str(self.sent) and self.mb_s >= _LOAD_FLOOR_MB_S
+
+
+@dataclasses.dataclass(frozen=True)
+class Radio:
+    """The board's radio at one instant: the station's counters, its signal, and wlan0's byte counts.
+
+    Attributes:
+        at: the host `time.monotonic()` just before the read.
+        done: the host `time.monotonic()` just after it.
+        boot_id: the board's boot.
+        connected_s: how long the station has been associated.
+        signal_dbm: the station's signal.
+        tx_failed: frames the board gave up on.
+        rx_bytes: wlan0's received bytes.
+        tx_bytes: wlan0's sent bytes.
+    """
+
+    at: float
+    done: float
+    boot_id: str
+    connected_s: int
+    signal_dbm: int
+    tx_failed: int
+    rx_bytes: int
+    tx_bytes: int
+
+    _FIELDS = {
+        "boot_id": r"^boot_id:\s*(\S+)",
+        "connected_s": r"^\s*connected time:\s*(\d+)",
+        "signal_dbm": r"^\s*signal:\s*(-?\d+)",
+        "tx_failed": r"^\s*tx failed:\s*(\d+)",
+        "rx_bytes": r"^rx_bytes:\s*(\d+)",
+        "tx_bytes": r"^tx_bytes:\s*(\d+)",
+    }
+
+    @classmethod
+    def parse(cls, lines: list[str], at: float, done: float) -> "Radio":
+        """Read one `_RADIO_READ`'s output; the first station's counters count.
+
+        Args:
+            lines: the read's stdout lines.
+            at: the host `time.monotonic()` just before the read.
+            done: the host `time.monotonic()` just after it.
+
+        Returns:
+            The radio at `at`.
+
+        Raises:
+            ValueError: a field is missing, by its name in the read.
+        """
+        text = "\n".join(lines)
+        values: dict[str, int | str] = {}
+        for name, pattern in cls._FIELDS.items():
+            found = re.search(pattern, text, re.MULTILINE)
+            if not found or not found.group(1):
+                raise ValueError(f"no {name.replace('_', ' ')} in the read")
+            values[name] = found.group(1) if name == "boot_id" else int(found.group(1))
+        return cls(at=at, done=done, **values)
+
+    @staticmethod
+    def properties(before: "Radio | str", after: "Radio | str") -> dict[str, object]:
+        """The record's radio properties for a window between two reads.
+
+        A read that failed is its error text, under `radio_read_error_<edge>`: that edge's numbers and every
+        delta are left out. Deltas are left out too, with the reason under `radio_window_void`, when the
+        window spans a new boot, a counter that went back, or a reconnect of the station: its connected time
+        grew by less than the window, less `_RECONNECT_SLACK_SECONDS`. The window runs from the end of the
+        before-read to the start of the after-read.
+
+        Args:
+            before: the read before the window, or why it failed.
+            after: the read after the window, or why it failed.
+
+        Returns:
+            The properties, by name.
+        """
+        properties: dict[str, object] = {}
+        for edge, radio in (("before", before), ("after", after)):
+            if isinstance(radio, str):
+                properties[f"radio_read_error_{edge}"] = radio
+            else:
+                properties[f"radio_signal_{edge}_dbm"] = radio.signal_dbm
+        if isinstance(before, str) or isinstance(after, str):
+            return properties
+        deltas = {
+            "radio_tx_failed_delta": after.tx_failed - before.tx_failed,
+            "wlan0_rx_bytes_delta": after.rx_bytes - before.rx_bytes,
+            "wlan0_tx_bytes_delta": after.tx_bytes - before.tx_bytes,
+        }
+        window_s = after.at - before.done
+        went_back = [name for name, delta in deltas.items() if delta < 0]
+        if after.boot_id != before.boot_id:
+            properties["radio_window_void"] = "boot changed"
+        elif went_back:
+            properties["radio_window_void"] = f"counter went back: {went_back[0]}"
+        elif after.connected_s < before.connected_s + window_s - _RECONNECT_SLACK_SECONDS:
+            properties["radio_window_void"] = (
+                f"station reconnected: connected {before.connected_s} then {after.connected_s} over {window_s:.0f} s"
+            )
+        else:
+            properties.update(deltas, radio_window_s=round(window_s, 1))
+        return properties
 
 
 class Network(Part):
@@ -99,6 +278,51 @@ class Network(Part):
             assert record.cut is not None and record.restored is not None
             assert record.offline_at((record.cut + record.restored) / 2)
         return read_at - (uptime_s - record.restored)
+
+    def link(self) -> "Link | str":
+        """Read the board's link once; `iw` exiting non-zero, or output with no tx bitrate, is returned as why.
+
+        A board that does not answer raises one of `Board.ERRORS`, as any read of it does: that is not a
+        link that could not be read.
+
+        Returns:
+            The link now, or the reason the read failed.
+        """
+        try:
+            lines = self._board.run(_LINK_READ, check=True, timeout=_LINK_READ_TIMEOUT_SECONDS).stdout
+            return parse_link("\n".join(lines))
+        except (AssertionError, ValueError) as error:
+            return str(error)
+
+    @staticmethod
+    def confirm_link_carries_load(link: "Link | str") -> None:
+        """Fail the check as invalid unless the link was read and is above the floor, before any load.
+
+        Args:
+            link: the link, or why its read failed.
+
+        Raises:
+            AssertionError: the link could not be read, or its tx bitrate is at or below the floor; the
+                message says the check is invalid.
+        """
+        if isinstance(link, str):
+            with invalid_if("the link could not be read"):
+                raise AssertionError(link)
+        with invalid_if("the link was not fit for the load"):
+            check_link_fit(link)
+
+    def radio(self) -> "Radio | str":
+        """Read the board's radio once; a read that fails is returned as why, never raised.
+
+        Returns:
+            The radio now, or the reason the read failed.
+        """
+        at = time.monotonic()
+        try:
+            lines = self._board.run(_RADIO_READ, check=True, timeout=_RADIO_READ_TIMEOUT_SECONDS).stdout
+            return Radio.parse(lines, at, time.monotonic())
+        except (AssertionError, ValueError, *self._board.ERRORS) as error:
+            return str(error) or type(error).__name__
 
     @contextlib.contextmanager
     def load(self, seconds: float) -> Iterator["Load"]:

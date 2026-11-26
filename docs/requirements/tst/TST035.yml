@@ -1,0 +1,21 @@
+active: false
+derived: false
+header: |
+  Pending: Logs through a backend crash loop
+level: 2.11.1
+links:
+- SRS019: tAHIHdxTib7fN-vTVOYLESK9z26f9ChA3trHT4y0t98=
+normative: true
+rationale: |
+  Waits on its test and its bound.
+ref: ''
+references: []
+reviewed: f-gibacU7a5euYmQaUnp65ImYd4H5G3ys6vff_1Rg-k=
+status: proposed
+text: |
+  With nobody at the panel, log a marker, then make the WiseKiosk backend fail at every start for a
+  time not yet set. Pass if the marker is still readable by the operator afterwards.
+verification-justification: |
+  Test. It injects the fault and observes the result from outside the appliance; the pass condition
+  needs no judgement.
+verification-method: test
