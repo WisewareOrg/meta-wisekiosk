@@ -54,6 +54,9 @@ answer to an ext4 image smaller than its slot.
   next written.
 - The server holds the bundle in memory (a `tmpfs` copy) for the length of one install, so the host
   needs the bundle's size free in memory.
+- One install per board at a time from one host: a second install's arming deletes the first's
+  pstore records, and its disarming turns the first's recorders off, so the script refuses it and
+  names the holder.
 - The host that installs needs Docker and a published port the board can reach at the address its ssh
   session comes from; [`docs/testing.md`](../../../docs/testing.md) §"Running it" states this for the
   bench.

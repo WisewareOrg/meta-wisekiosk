@@ -263,8 +263,8 @@ main() {
     gate="$root/tools/reproducibility-gate.sh"
     cd "$root"
 
-    # One install per board from this host: a second would clear the first's pstore records and turn its
-    # recorders off. The lock is the board's address, at a fixed path; the holder writes its pid and checkout
+    # One install per board from this host (meta-wisekiosk/recipes-core/bundles/README.md §"Consequences"
+    # says why). The lock is the board's address, at a fixed path; the holder writes its pid and checkout
     # into it.
     local lock holder
     lock="/tmp/kiosk-install-$(board_address "$host" | tr -c 'A-Za-z0-9._:\n-' _).lock"
