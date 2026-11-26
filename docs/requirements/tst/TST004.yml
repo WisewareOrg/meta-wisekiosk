@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_back_after_a_fault
   path: tests/target_suite/test_back_on_the_panel.py
-  sha: 737ef1cf171e75059a3fa6178eb2c52db4b6af49aa2cd4306ab569ea9ac0b412
+  sha: 5e1f7d5b1e5465909a23b1d5157139f91079c8b9e8ff3b0822bac44c39072d83
   type: file
-reviewed: Ki1gAfn5kjCZG5uqpNOQJtN3JNNie-inMHUTD46ifh0=
+reviewed: GqxgPrQijg3BOniCnqXfiq0z2T5hTkRnLmUH0zXX0Uw=
 status: proposed
 text: |
   With nobody at the panel, crash the kernel over the network so that nothing on the appliance runs.
