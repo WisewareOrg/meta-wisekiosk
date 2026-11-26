@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from board import Board
-from board.network import Link
+from board.network import SUSTAINED_LOAD_SECONDS, Link
 from board_test import BoardTest, case
 
 # what "back" is read as: the instance on the panel; its page served with the browser running; the
@@ -16,8 +16,7 @@ UP = operator.attrgetter("app.is_up")
 LOADED = operator.attrgetter("app.loaded_the_instance")
 CLOCK_WITH_SECONDS = Path(__file__).resolve().parent / "clock-seconds.json"
 SENDS_UPDATE = [pytest.mark.sends_update]
-# TST008's load, and how long after any stop the panel has to be back
-NETWORK_LOAD_SECONDS = 60
+# how long after any stop the panel has to be back, in TST008
 BACK_WITHIN_SECONDS = 60
 
 
@@ -132,9 +131,9 @@ class TestBackOnThePanel(BoardTest):
         self.board.app.turn_the_inspector_on()
         self.board.app.wait_until_on_panel()
 
-        with self.board.network.load(seconds=NETWORK_LOAD_SECONDS) as load:
+        with self.board.network.load(seconds=SUSTAINED_LOAD_SECONDS) as load:
             longest_off_s = self.board.longest_lapse_s(
-                self.board.app.on_panel, over=NETWORK_LOAD_SECONDS + BACK_WITHIN_SECONDS
+                self.board.app.on_panel, over=SUSTAINED_LOAD_SECONDS + BACK_WITHIN_SECONDS
             )
 
         self.record(longest_off_s=longest_off_s, load_mb_s=round(load.mb_s, 2))

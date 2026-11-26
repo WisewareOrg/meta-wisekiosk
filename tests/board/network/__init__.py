@@ -18,6 +18,8 @@ if TYPE_CHECKING:
     from board import Board
 
 _BLOCK_BYTES = 1024 * 1024
+# how long TST008's load lasts
+SUSTAINED_LOAD_SECONDS = 60
 # how long past the load the push may run before it is killed as hung
 _HANG_GRACE_SECONDS = 60
 # the least average rate that counts as the load applied

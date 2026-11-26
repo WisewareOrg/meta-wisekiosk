@@ -13,10 +13,7 @@ it runs by hand on a running board, through the bench driver:
 from collections.abc import Callable
 
 from board import Board
-from board.network import Radio
-
-# the length of TST008's load
-LOAD_SECONDS = 60
+from board.network import SUSTAINED_LOAD_SECONDS, Radio
 
 
 def test_radio_under_load(board: Board, record_property: Callable[[str, object], None]) -> None:
@@ -27,7 +24,7 @@ def test_radio_under_load(board: Board, record_property: Callable[[str, object],
         record_property: records the load's rate and the radio's properties.
     """
     before = board.network.radio()
-    with board.network.load(seconds=LOAD_SECONDS) as load:
+    with board.network.load(seconds=SUSTAINED_LOAD_SECONDS) as load:
         pass
     after = board.network.radio()
 
