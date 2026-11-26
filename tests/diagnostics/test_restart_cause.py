@@ -4,9 +4,11 @@ Resets the board four ways, in this order: a power cut, a restart, a kernel pani
 bite. After each it reads the `kiosk-last-reset` line that `kiosk-journal-flush.service` prints in the new
 boot (`last reset rsts=<status> console=<how the previous console ended>`). After the bite it reads the
 lines of the three boots before it, named by their boot ids, and each must equal what was read in that boot;
-the running boot's line carries a time within a day of the board's clock. `rsts` is recorded
-and its power-on bit asserted: set after the cut, clear after each of the others. `console` is asserted,
-and the bite is the only one among restart, panic and bite whose console read silent.
+the running boot's line carries a time within a day of the board's clock. `rsts` is recorded and judged
+by its watchdog-full-reset bit, which separates the cut from the three resets that follow it: clear after the
+cut, set after the restart, the panic and the bite. The power-on bit is asserted after the cut and only
+recorded after the others, since the power-on flag may stay set through the next warm reset. `console` is
+asserted, and the bite is the only one among restart, panic and bite whose console read silent.
 
 The bite freezes PID 1's cgroup, so nothing feeds the 14 s hardware watchdog; if it does not bite, a
 detached shell thaws the cgroup after 60 s. Nothing is written to disk. Bench only.
@@ -26,6 +28,8 @@ from board import Board
 # PM_RSTS_HADPOR_SET in the Broadcom header: the chip's power-on-reset flag, bit 12 of its power-management
 # status register.
 POWER_ON = 0x1000
+# PM_RSTS_HADWRF_SET in the Broadcom header: the chip's watchdog-full-reset flag, bit 5 of the same register.
+WATCHDOG_FULL = 0x20
 LINE = re.compile(r"last reset rsts=(?P<rsts>\S+) console=(?P<console>\w+)")
 STAMPED_LINE = re.compile(r"^(?P<unix>\d+\.\d+) .*last reset rsts=", re.MULTILINE)
 CLOCK_TOLERANCE_SECONDS = 86400
@@ -101,6 +105,15 @@ def test_restart_cause(board: Board, record_property: Callable[[str, object], No
     assert skew < CLOCK_TOLERANCE_SECONDS, (
         f"the line's time is {skew:.0f} s from the board's clock: written before the clock was restored"
     )
+    judge_resets(seen)
+
+
+def judge_resets(seen: dict[str, ResetLine]) -> None:
+    """Assert what the four causes' lines must say.
+
+    Args:
+        seen: each cause's line, keyed by "power cut", "restart", "kernel panic" and "watchdog bite".
+    """
     for cause, read in seen.items():
         assert re.fullmatch(r"[0-9a-f]+", read.rsts), f"after the {cause} rsts read {read.rsts}, not hex"
     cut = seen["power cut"]
@@ -108,12 +121,15 @@ def test_restart_cause(board: Board, record_property: Callable[[str, object], No
         f"after the power cut rsts {cut.rsts} lacks the power-on bit: the bit is not where the header says, "
         "or the plug did not cut; the keeper cannot be judged"
     )
+    assert not int(cut.rsts, 16) & WATCHDOG_FULL, (
+        f"after the power cut rsts {cut.rsts} has the watchdog-full-reset bit: the keeper separates nothing"
+    )
     assert cut.console in ("silent", "none"), f"after a power cut the console read {cut.console}"
     expected = {"restart": "restart", "kernel panic": "panic", "watchdog bite": "silent"}
     for cause, console in expected.items():
         read = seen[cause]
-        assert not int(read.rsts, 16) & POWER_ON, (
-            f"after the {cause} rsts {read.rsts} still has the power-on bit: the register accumulates "
-            "across resets and the keeper separates nothing"
+        assert int(read.rsts, 16) & WATCHDOG_FULL, (
+            f"after the {cause} rsts {read.rsts} lacks the watchdog-full-reset bit: the bit is not where the "
+            "header says, or the keeper separates nothing"
         )
         assert read.console == console, f"after a {cause} the console read {read.console}, not {console}"

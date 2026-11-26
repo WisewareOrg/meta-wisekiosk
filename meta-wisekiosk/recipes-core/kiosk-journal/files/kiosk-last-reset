@@ -5,7 +5,8 @@
 # been flushed to /data and the clock restored. Written earlier, a journal near its cap drops it with the
 # rest of the boot's first seconds.
 #
-#   rsts     the firmware's reset status, hex; bit 0x1000 is power-on, so it is set after a power cut
+#   rsts     the firmware's reset status, hex; bit 0x20 set is a watchdog reset; 0x1000 set with 0x20
+#            clear is power-on, and 0x1000 can stay set through the next warm reset
 #   console  how the previous boot's console ended, read from the pstore console record:
 #              panic    "Kernel panic - not syncing"
 #              restart  systemd-shutdown's restart line; a hang after systemd's last step reads the same
