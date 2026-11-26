@@ -33,7 +33,12 @@ set -u
 root=$(cd "$(dirname "$0")/.." && pwd)
 shipped=${KAS_RUN_UNDER_TEST:-$root/tools/kas-run.sh}
 scratch=$(mktemp -d)
-trap 'jobs -p | xargs -r kill 2>/dev/null; if [ "${fails:-0}" -gt 0 ]; then echo "scratch kept: $scratch"; else rm -rf "$scratch"; fi' EXIT
+cleanup() {
+    local status=$?
+    jobs -p | xargs -r kill 2>/dev/null
+    if [ "$status" -ne 0 ]; then echo "scratch kept: $scratch"; else rm -rf "$scratch"; fi
+}
+trap cleanup EXIT
 
 unset PIPELINE_KEYS_DIR KAS_RUN_TMP_DIR KAS_RUN_ENV
 export HOME=$scratch/home
