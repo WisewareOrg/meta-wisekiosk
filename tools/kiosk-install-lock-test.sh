@@ -254,7 +254,7 @@ ssh_closes_fd8() {
     await has_child "$p"
     [ "$(cat "/proc/$p/comm" 2>/dev/null)" = ssh ] || { echo "      the probed process is not ssh: not probed"; kill "$p" 2>/dev/null; return 1; }
     [ -d "/proc/$p/fd" ] || { echo "      no /proc/$p/fd: not probed"; kill "$p" 2>/dev/null; return 1; }
-    for fd in /proc/$p/fd/*; do
+    for fd in "/proc/$p/fd"/*; do
         if [ "$(readlink "$fd")" = "$scratch/fd8" ]; then
             echo "      ssh still holds the inherited file on fd ${fd##*/}"
             kill "$p" 2>/dev/null
