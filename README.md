@@ -207,11 +207,11 @@ Cheap to rebuild is not the same as reaching a board: the `config.txt` knobs are
 partition RAUC never writes — see
 [gpu compositing](docs/issue_investigation/gpu_compositing/README.md) §"Delivery and board".
 
-The WPE WebKit recipe compiles through poky's `ccache` class and keeps its cache under `SSTATE_DIR`
+Every target recipe compiles through poky's `ccache` class and keeps its cache under `SSTATE_DIR`
 (`CCACHE_TOP_DIR`), bounded at 5G, so every builder that shares one sstate shares it.
-`CCACHE_DISABLE = "1"` for wpewebkit turns the cache off. `bitbake -c clean` leaves the store;
-`bitbake -c cleanall` (`do_cleanccache`) empties it for every builder, and the next engine build is
-then a full compile.
+`CCACHE_DISABLE = "1"` for a recipe turns its cache off. `bitbake -c clean` leaves the store;
+`bitbake -c cleanall` (`do_cleanccache`) empties a recipe's store for every builder, and its next
+build is then a full compile.
 
 ### Flashing a card
 

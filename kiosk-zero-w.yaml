@@ -343,6 +343,9 @@ local_conf_header:
   # The engine's compile cache (README.md §"Quick start").
   ccache: |
     CCACHE_TOP_DIR = "${SSTATE_DIR}/ccache"
+    INHERIT += "ccache"
+    # Per recipe, and safe only because CCACHE_MAXSIZE is in the ignore line below.
+    export CCACHE_MAXSIZE = "5G"
     # The class exports these settings and bitbake.conf ignores only some of them; with them out, changing a cache setting rebuilds no engine.
     BB_BASEHASH_IGNORE_VARS:append = " CCACHE_BASEDIR CCACHE_COMPILERCHECK CCACHE_CONFIGPATH CCACHE_TEMPDIR CCACHE_MAXSIZE"
 
