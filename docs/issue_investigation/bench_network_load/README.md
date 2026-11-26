@@ -17,7 +17,7 @@ episode lasted over a minute. Prod, on the same AP and channel with 24 dB more s
 transmissions over the same minutes. Still open: whether the bench's own link fails or channel events hit
 both boards and only the bench falls, and whether an episode sits inside every INVALID call. This change
 records the board's radio counters across every TST008<!-- Sustained network load --> call, so the next
-INVALID says which.
+INVALID carries the board's side of the link with it (failed transmissions count the uplink only).
 
 All times EST. Records named `<UTC timestamp>Z` are bench-runner records (`bench test` output), kept on
 the bench host, not in this repository.
@@ -217,7 +217,11 @@ sat unacknowledged at 3-5 s round trips, so the data waited before the board's T
 not in the board's socket.
 
 The records of runs 1-7 and 11-12 do not hold the radio's counters or the negotiated cipher, so an
-INVALID could not be read as the air from its own record.
+INVALID could not be read as the air from its own record. The counters added below have a limit of
+their own: `tx failed` counts only the board's transmissions, while the push runs host to board, so a
+downlink held at a low rate shows no failures. Run 10's push 4 (0.49 MB/s at 5.5 MBit/s, tx failed
+flat) and the proof run below (INVALID with a zero delta) both read so. A zero `radio_tx_failed_delta`
+does not clear the link.
 
 ## Changes configured as a result
 
@@ -234,11 +238,16 @@ boot, a counter that went back, or a station whose connected time grew by less t
 2 s (a reconnect, which restarts the counters). Nothing is judged from them: the floor, the bound, the
 load and `confirm_applied` are unchanged. The bitrate is not recorded, since at an idle edge it is the
 last frame's rate. The parse and the window rule were seeded on the host (a valid window, a missing field,
-a new boot, a counter that went back, and the reconnect bound from both sides); the board run that shows
-the properties in a record is to come and is named here once it has run.
+a new boot, a counter that went back, and the reconnect bound from both sides); on the board, record
+20261126T031531Z (head `d554898` on the bench at `6a34d6f`, 25 Nov 2026 22:15, beside an image build)
+carries every property with no read error: `load_mb_s` 0.39 (the call INVALID, 42.4 s off),
+`radio_signal_before_dbm` -59, `radio_signal_after_dbm` -57, `radio_tx_failed_delta` 0,
+`wlan0_rx_bytes_delta` 27,480,594, `wlan0_tx_bytes_delta` 854,655, `radio_window_s` 120.7. An earlier
+head required a retried-transmission line this board does not print, and its board run (record
+20261126T030827Z) recorded only the read errors.
 
 No change to the bench, the AP or the floor: the fix for the link itself differs between the bench's
-placement, antenna or local interference and the AP's channel, and the runs above do not yet tell them
+placement, antenna or local interference and the AP's channel, and the runs above do not tell them
 apart.
 
 `analyze.py` computes the run 13-15 counts and the pairing; the other tables are read by hand from the
