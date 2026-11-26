@@ -12,8 +12,8 @@
 #              restart  systemd-shutdown's restart line; a hang after systemd's last step reads the same
 #              silent   neither: a watchdog bite, a hang or a reset line alike
 #              none     no console record
-#            /data/kiosk-last-reset.seen keeps an old dump from naming later boots; if /data is
-#            unwritable, a dump is named again.
+#            /data/kiosk-last-reset.seen keeps an old dump from naming later boots; the dumps count
+#            only once the seen file exists, and the first run primes it.
 #
 # It prints nothing else and exits 0 whatever is missing.
 
@@ -41,7 +41,7 @@ for dump in /sys/fs/pstore/dmesg-ramoops-*; do
     [ -n "$hash" ] || continue
     hashes="$hashes$hash
 "
-    if ! grep -q -x -F "$hash" "$seen" 2>/dev/null && grep -q -F 'Kernel panic - not syncing' "$dump" 2>/dev/null; then
+    if [ -e "$seen" ] && ! grep -q -x -F "$hash" "$seen" 2>/dev/null && grep -q -F 'Kernel panic - not syncing' "$dump" 2>/dev/null; then
         dump_panic=1
     fi
 done
