@@ -172,8 +172,8 @@ The server listens on `~/.local/share/bitbake-hashserv/hashserv.sock`;
 `tools/kas-run.sh` mounts `~/.local/share/bitbake-hashserv` read-only at `/hashserv` inside
 the build container.
 
-The WPE WebKit recipe inherits `ccache` and keeps its cache under `SSTATE_DIR` (`CCACHE_TOP_DIR`),
-so every builder that shares one sstate shares it.
+The WPE WebKit recipe compiles through `ccache` and keeps its cache under `SSTATE_DIR`
+(`CCACHE_TOP_DIR`), so every builder that shares one sstate shares it.
 
 ```sh
 just build          # kas fetches sources/, applies the patches, builds core-image-base and deploys kiosk-bootprof
