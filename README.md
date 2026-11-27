@@ -26,8 +26,7 @@ default. Another origin — a Docker host, say — stays supported for debugging
 provisioned with a remote value is moved to the local app by editing `/data/config/kiosk.conf`
 directly (#96 provisioned boards keep their old `KIOSK_URL`).
 
-How to work in this repository — the gates, the conventions and the review checklist — is
-[CONTRIBUTING.md](CONTRIBUTING.md); the rules an AI agent works under are [CLAUDE.md](CLAUDE.md).
+Every document in the repository is listed in [Documentation](#documentation) below.
 
 > ## Attribution
 >
@@ -63,6 +62,66 @@ to serve that.
 - **Isolated.** Each appliance is its own deployment, unrelated to and unconnected with every other.
 - **Easy to keep.** The operator configures, deploys and maintains it, primarily without a visit to the panel.
 
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph host["Build host"]
+    kas["kas + BitBake<br/>kiosk-zero-w.yaml"] --> wic["card image .wic"]
+    kas --> raucb["update bundle .raucb"]
+    raucb --> install["tools/kiosk-install.sh<br/>nginx container"]
+  end
+  subgraph card["SD card on the board"]
+    boot["boot: FAT, shared<br/>U-Boot, kernel cmdline, config.txt"]
+    a["rootfs A"]
+    b["rootfs B"]
+    data["/data: site config,<br/>app config, RAUC index"]
+  end
+  wic -- "just flash" --> card
+  install -- "RAUC streams the bundle<br/>into the slot not booted" --> b
+  boot -- "U-Boot picks a slot" --> a
+  subgraph slot["The running slot"]
+    browser["kiosk-browser<br/>WPE WebKit on DRM"] -- "http://localhost:8080" --> backend["wisekiosk backend<br/>serves the frontend and API"]
+    wpa["wpa_supplicant"]
+    netcheck["kiosk-netcheck"] --> good["rauc-mark-good"]
+  end
+  a --- slot
+  data -. "read at runtime" .-> backend
+  data -. "read at runtime" .-> wpa
+  browser --> panel["the panel"]
+```
+
+The image is built on a host from pinned upstream layers plus this repository's one layer,
+`meta-wisekiosk/`. A card is flashed once; afterwards each update is a signed RAUC bundle the board
+streams into the slot it is not running, and U-Boot boots that slot next. Everything site-specific
+lives on `/data`, which both slots share. On the running slot, `kiosk-browser` shows the WiseKiosk
+page that the board's own backend serves, and the slot is marked good only once the board has
+reached its network.
+
+## Documentation
+
+This is the only index of the repository's documents.
+
+| Document | What it answers |
+|---|---|
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to change the repository: the checks, the conventions, and how a change merges |
+| [`CLAUDE.md`](CLAUDE.md) | The rules an AI agent works under here |
+| [`docs/layers-and-kas.md`](docs/layers-and-kas.md) | How a tree of YAML and recipes becomes an image, and which commit an image is from |
+| [`docs/rauc-key-rotation.md`](docs/rauc-key-rotation.md) | How the RAUC signing key the devices trust is replaced, and why in a fixed order |
+| [`docs/cve-and-sbom.md`](docs/cve-and-sbom.md) | What the image is made of, and which of its packages carry published vulnerabilities |
+| [`docs/layer-currency.md`](docs/layer-currency.md) | Whether the pins have fallen behind, and what a bump would close |
+| [`docs/testing.md`](docs/testing.md) | What each testing tier proves, and how the bench runner runs it |
+| [`tests/replay/README.md`](tests/replay/README.md) | What a replay set holds, and how one is re-recorded |
+| [`docs/decisions/README.md`](docs/decisions/README.md) | Which choices took a trade study, what was rejected, and why |
+| [`docs/requirements/README.md`](docs/requirements/README.md) | What the appliance owes its viewer and operator, and which check verifies each |
+| [`meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md`](meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md) | How the WiseKiosk application is built from source, and how its pin is bumped |
+| [`meta-wisekiosk/recipes-core/bundles/README.md`](meta-wisekiosk/recipes-core/bundles/README.md) | How an update reaches a slot |
+| [`meta-wisekiosk/recipes-core/kiosk-hardware/README.md`](meta-wisekiosk/recipes-core/kiosk-hardware/README.md) | How the image handles memory exhaustion |
+| [`meta-wisekiosk/recipes-core/kiosk-bootprof/README.md`](meta-wisekiosk/recipes-core/kiosk-bootprof/README.md) | How a boot profile is taken and read |
+| [`.claude/skills/kiosk-debug/SKILL.md`](.claude/skills/kiosk-debug/SKILL.md) | Which instrument diagnoses a running kiosk |
+| [`.claude/skills/measure-first/SKILL.md`](.claude/skills/measure-first/SKILL.md) | How a performance question on the board is measured |
+| [`.claude/skills/webkit-inspector/SKILL.md`](.claude/skills/webkit-inspector/SKILL.md) | How the engine's remote inspector is driven |
+
 ## Layout: scaffolding vs. layer
 
 The repository is a project, not a layer. Exactly one directory in it is a BitBake layer.
@@ -70,7 +129,7 @@ The repository is a project, not a layer. Exactly one directory in it is a BitBa
 ```
 meta-wisekiosk/                    <- the repository (project scaffolding)
 ├── README.md, CONTRIBUTING.md     what this is; how to change it and get it merged
-├── CLAUDE.md                      working rules for an AI agent, and who owns which fact
+├── CLAUDE.md                      working rules for an AI agent
 ├── .claude/                       session settings and hooks: the commit self-review, the
 │                                  device guard and its self-test, the compaction snapshot
 ├── kiosk-zero-w.yaml              kas config: the one entry point
@@ -90,18 +149,14 @@ meta-wisekiosk/                    <- the repository (project scaffolding)
 ├── tools/                         provisioning, bundle delivery, device debugging, doc gate,
 │                                  CI guards, the identity scan, the build-commit writer and
 │                                  reproducibility gate
-├── docs/                          README.md (the index), layers-and-kas.md, testing.md,
-│                                  rauc-key-rotation.md, cve-and-sbom.md, layer-currency.md,
-│                                  requirements/, issue_investigation/
+├── docs/                          subsystem documents, decisions/, requirements/
+├── tests/                         the bench runner's suites
 └── sources/                       gitignored; everything kas fetches lands here
 ```
 
 Nothing outside `meta-wisekiosk/` is read by BitBake. Nothing inside it is read by anything else.
 If you are new to Yocto, read **[docs/layers-and-kas.md](docs/layers-and-kas.md)** — it explains what
 a layer is, what kas does with these files, and why meta-autonomos's patch cannot be a bbappend.
-
-Every change that was acted on is documented at the recipe carrying it; the per-issue investigations
-behind those changes are indexed in **[docs/README.md](docs/README.md)**.
 
 ## Quick start
 

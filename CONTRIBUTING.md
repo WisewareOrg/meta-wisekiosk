@@ -2,8 +2,7 @@
 
 The human contributor entry point: how to run the checks, what the conventions are, and how a change
 gets merged. **What this repository is** and how to build, flash and update is the
-[README](README.md); **which document holds which kind of fact** is the index at
-[`docs/README.md`](docs/README.md). Working rules for an AI agent are in [`CLAUDE.md`](CLAUDE.md).
+[README](README.md), which also holds the only index of the repository's documents. Working rules for an AI agent are in [`CLAUDE.md`](CLAUDE.md).
 
 **This repository is public.** No device address, hostname, SSID, PSK hash, MAC, serial or machine-id
 belongs in a tracked file — not in a doc, not in a test fixture, not in a comment. None of it is
@@ -85,8 +84,8 @@ that do, what each one actually proves, and how to run `bench` behind the device
 
 **Colocation, and one owner per fact.** Documentation lives beside the code it explains — a recipe's
 README is as much documentation as anything under `docs/`. State a fact in the document that owns it
-and cite it from everywhere else; [`docs/README.md`](docs/README.md) and [`CLAUDE.md`](CLAUDE.md)'s
-"Where the facts live" table decide which one that is. A second independent statement goes stale in
+and cite it from everywhere else; the index in [`README.md`](README.md) §"Documentation" says which
+document answers which question. A second independent statement goes stale in
 one copy while the other stays right, with nothing comparing them.
 
 **Code is the living proof of what is built now; history belongs to the investigation.** A recipe, a
@@ -112,7 +111,7 @@ role and the image commit it ran; **R2** every script put on a board is either s
 committed beside the investigation, never left only in `local/`; **R3** runs are never blended — one
 board × one build × one test, and numbers from different runs never share a table.
 
-**Links are hub-and-spoke.** New documents are reachable from [`docs/README.md`](docs/README.md);
+**Links are hub-and-spoke.** A new document gets a row in [`README.md`](README.md) §"Documentation";
 relative links resolve from the citing file's own directory, and a leading `/` fails. Never anchor a
 *directory* link — anchor its `README.md`.
 
@@ -213,7 +212,7 @@ silently to whatever occupies it after a renumber.
     no address?
 17. **Investigation shape.** Does a new investigation copy
     [`docs/issue_investigation/TEMPLATE.md`](docs/issue_investigation/TEMPLATE.md), fill every field,
-    and satisfy R1-R3 — and is it listed in [`docs/README.md`](docs/README.md)?
+    and satisfy R1-R3 — and is it listed in [`README.md`](README.md) §"Documentation"?
 18. **One home.** Is each fact stated in the document that owns it, and cited rather than restated
     everywhere else? Strip the citation out of the sentence: if what remains still asserts what the
     cited document asserts, it restates rather than cites.

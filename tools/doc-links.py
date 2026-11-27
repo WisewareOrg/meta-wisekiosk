@@ -8,7 +8,7 @@ Exits non-zero if any reference does not resolve. Four classes are checked:
   [text](path)          -> the file exists
   [text](path#anchor)   -> the file exists AND has a heading slugging to that anchor
   file.md §"Heading"    -> the file exists AND carries that exact heading text
-  # See docs/README.md  -> the cited path exists, from ANY tracked text file
+  # See README.md       -> the cited path exists, from ANY tracked text file
 
 The third is what makes the "reference by name, never by number" convention
 enforceable. Ordinal references ("open item 3") are reported separately as

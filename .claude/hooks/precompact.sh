@@ -53,10 +53,9 @@ builds=$(timeout 5 docker ps --format '{{.Names}} {{.Status}} {{.Image}}' 2>/dev
 
 add ""
 add "Where the state lives, in reading order:"
-add "    README.md                       what this repository is, and the build/flash/OTA paths"
-add "    CLAUDE.md                       the working rules, and which document owns which fact"
+add "    README.md                       what this repository is, and the index of every document"
+add "    CLAUDE.md                       the agent working rules"
 add "    CONTRIBUTING.md                 the gates, the conventions, and the review checklist"
-add "    docs/README.md                  the index: every document and the question it answers"
 add "    docs/issue_investigation/       one directory per investigation, TEMPLATE.md + R1-R3"
 add "    local/                          gitignored operator notes, keys, raw captures"
 add ""

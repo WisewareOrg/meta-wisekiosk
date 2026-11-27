@@ -1,35 +1,13 @@
 # Agent working rules — meta-wisekiosk
 
 Working conventions for an AI agent in this repository. **Project facts are not here** — the
-[README](README.md) says what this is and how to build, flash and update it, and the index at
-[`docs/README.md`](docs/README.md) is authoritative on which document holds what. The gates and the
-review checklist are [`CONTRIBUTING.md`](CONTRIBUTING.md), injected at session start by
+[README](README.md) says what this is and holds the only index of the repository's documents. The
+gates and the review checklist are [`CONTRIBUTING.md`](CONTRIBUTING.md), injected at session start by
 [`.claude/settings.json`](.claude/settings.json). This file holds only the rules layered on top,
 which is why it is short: a rule stated in another document does not belong here as well.
 
 The global rules in `~/.claude/CLAUDE.md` still apply — shell behaviour, delegation, the GitHub
 conventions. Nothing here overrides them.
-
-## Where the facts live
-
-One owner per fact. Read the owner; do not restate it here or anywhere else.
-
-| Subject | Owner |
-|---|---|
-| What this repository is; build, flash, OTA and recovery paths | [`README.md`](README.md) |
-| How YAML and recipes become an image, and which commit an image is from | [`docs/layers-and-kas.md`](docs/layers-and-kas.md) |
-| Which commit a *running* image was built from | `/etc/buildinfo` on the device |
-| Replacing the RAUC signing key, and the order it must happen in | [`docs/rauc-key-rotation.md`](docs/rauc-key-rotation.md) |
-| Scanning the image for CVEs, reading the SBOM, and what `CVE_STATUS` means | [`docs/cve-and-sbom.md`](docs/cve-and-sbom.md) |
-| Whether the pins, or the recipes inside them, have fallen behind, and what a bump would close | [`docs/layer-currency.md`](docs/layer-currency.md) |
-| An issue traced to its cause, and how it was resolved | [`docs/issue_investigation/`](docs/issue_investigation/TEMPLATE.md) |
-| A design choice: what was chosen, the alternatives it rejected and why | [`docs/decisions/`](docs/decisions/README.md) |
-| The shape every investigation takes, and R1-R3 | [`docs/issue_investigation/TEMPLATE.md`](docs/issue_investigation/TEMPLATE.md) |
-| Site configuration — SSID, PSK hash, URL, hostname, machine-id | out-of-tree `~/.config/wisekiosk/secrets.yaml` |
-| Which board is prod, which is bench, and their real addresses | gitignored `local/device-identity.md` |
-| The RAUC key the fleet trusts | gitignored `local/keys/` |
-| The gates, the conventions, and the review checklist | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
-| Every document and the question it answers | [`docs/README.md`](docs/README.md) |
 
 ## What will bite you here
 
