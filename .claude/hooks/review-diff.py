@@ -413,7 +413,7 @@ def select_groups(changed):
         # repository sits beside the code it explains, so a recipe's README is
         # as much in scope as anything under docs/.
         if norm.startswith("docs/") or norm.endswith(".md"):
-            needed.add("Docs & investigations")
+            needed.add("Docs")
 
     # A changed path that matches nothing must not read as "no review needed".
     # main() treats an empty set as exactly that and lets the commit through with

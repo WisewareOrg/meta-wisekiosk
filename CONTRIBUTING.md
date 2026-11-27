@@ -88,11 +88,12 @@ and cite it from everywhere else; the index in [`README.md`](README.md) §"Docum
 document answers which question. A second independent statement goes stale in
 one copy while the other stays right, with nothing comparing them.
 
-**Code is the living proof of what is built now; history belongs to the investigation.** A recipe, a
-class or a justfile says what the tree does today. Tracing an issue to its cause and resolution goes
-in `docs/issue_investigation/`; a design choice, with the alternatives it rejected and why, goes in
-its ADR ([`docs/decisions/`](docs/decisions/README.md)). Neither goes in a comment or a "no longer"
-clause. State the timeless fact — no *now*, *no longer*, *as of*.
+**The tree describes the system; issues and pull requests are the record of the work.** A recipe, a
+class or a justfile says what the tree does today, and a document says how the system is built and
+why. How a problem was traced to its cause and fixed stays on its issue and pull request; a design
+choice, with the alternatives it rejected and why, goes in its ADR
+([`docs/decisions/`](docs/decisions/README.md)). Neither goes in a comment or a "no longer" clause.
+State the timeless fact — no *now*, *no longer*, *as of*.
 
 **Cite a section by name, never by line number.** A section reference is a Markdown link to the
 file, then `§`, then the heading in double quotes — as [`README.md`](README.md) §"Quick start" is
@@ -104,13 +105,6 @@ renumberable — write `issue #46 build stamp`, number *and* name, because a ren
 and leaves prose untouched. Ordinal references in prose ("step 3") are reported as warnings for exactly
 this reason.
 
-**An investigation is a directory whose `README.md` is the record of record**, copied from
-[`docs/issue_investigation/TEMPLATE.md`](docs/issue_investigation/TEMPLATE.md) with every field
-filled, and it carries three rules the template states in full: **R1** every test run names its board
-role and the image commit it ran; **R2** every script put on a board is either shipped in a recipe or
-committed beside the investigation, never left only in `local/`; **R3** runs are never blended — one
-board × one build × one test, and numbers from different runs never share a table.
-
 **Links are hub-and-spoke.** A new document gets a row in [`README.md`](README.md) §"Documentation";
 relative links resolve from the citing file's own directory, and a leading `/` fails. Never anchor a
 *directory* link — anchor its `README.md`.
@@ -118,9 +112,8 @@ relative links resolve from the citing file's own directory, and a leading `/` f
 ## Tickets, branches and pull requests
 
 Work on a branch and land through a pull request; nothing goes directly to `main`. A pull request
-**closes its issue or stands as a self-complete deliverable** — an investigation lands its write-up
-and its fix together, and a change that does neither is not ready to open, let alone to call
-merge-ready.
+**closes its issue or stands as a self-complete deliverable**, and a change that does neither is not
+ready to open, let alone to call merge-ready.
 
 Issues block each other through GitHub's native dependency edges, never through a label. Write both
 the number and the name of anything renumberable, in the title and in the body.
@@ -148,7 +141,7 @@ either place would silently select nothing. [`tools/ci-guards.sh`](tools/ci-guar
 the two sides equal — a name on one side only, or a group carrying no numbered question, fails the
 guards.
 
-**Cite a question by number *and* name** — `question 9, *One-way lock*`. A bare number resolves
+**Cite a question by number *and* name** — `question 8, *One-way lock*`. A bare number resolves
 silently to whatever occupies it after a renumber.
 
 **Layer & recipes**
@@ -157,64 +150,59 @@ silently to whatever occupies it after a renumber.
    recipe, class or bbappend holding it, rather than in a document that has to be found?
 2. **Device-verified.** Has this run on real hardware, on the **bench** board, and does the report
    name the board role and the image commit it ran? A recipe that parses is not a recipe that works.
-3. **Numbers under R1-R3.** Does every measurement quoted here name its board and image commit, and
-   does no table mix runs from different boards or different builds?
 
 **Build config & pins**
 
-4. **WebKit cost.** Does this touch webkit's `PACKAGECONFIG` or a WebKit recipe (invalidates
+3. **WebKit cost.** Does this touch webkit's `PACKAGECONFIG` or a WebKit recipe (invalidates
    WebKit alone)? Or `DISTRO_FEATURES`, `MACHINE_FEATURES`, or a poky/meta-openembedded pin bump
    (invalidates more than WebKit)? Either is a multi-hour rebuild — see [`README.md`](README.md)
    §"Quick start" — so it is a decision to take before starting, not one to discover afterwards.
-5. **kas block collision.** Is every `local_conf_header` block name unique across the include chain?
+4. **kas block collision.** Is every `local_conf_header` block name unique across the include chain?
    kas merges by block name and the top-level file wins, so a duplicate is discarded with no warning,
    no error, and variables that never reach bitbake.
-6. **Pin reachable.** Is every commit a pin names pushed and fetchable by someone who is not you? An
+5. **Pin reachable.** Is every commit a pin names pushed and fetchable by someone who is not you? An
    unpushed pin builds here and nowhere else.
 
 **Upstream patches**
 
-7. **Why not a bbappend.** Does the patch header record what makes this inexpressible from a
+6. **Why not a bbappend.** Does the patch header record what makes this inexpressible from a
    downstream layer, and whether it is suitable to send upstream?
-8. **Still applies.** Does the patch still apply to the pinned upstream checkout, against upstream's
+7. **Still applies.** Does the patch still apply to the pinned upstream checkout, against upstream's
    files as upstream writes them?
 
 **RAUC / signing / secrets**
 
-9. **One-way lock.** Is the keyring and `compatible` consequence understood? A deployed board refuses
+8. **One-way lock.** Is the keyring and `compatible` consequence understood? A deployed board refuses
    a bundle signed by a key it does not trust and refuses a compatible that is not its own — a wrong
    change strands every unit in the field, and there is no remote undo. The rotation order is in
    [`docs/rauc-key-rotation.md`](docs/rauc-key-rotation.md) and it is not optional.
-10. **No secret as a build input.** Does any site value — SSID, PSK hash, URL, hostname, machine-id,
+9. **No secret as a build input.** Does any site value — SSID, PSK hash, URL, hostname, machine-id,
     nameserver — become something bitbake reads? One image per site, and that site's wireless
     credentials inside every update bundle.
-11. **No identity in the tree.** Does any tracked file gain an address, hostname, SSID, MAC, serial
+10. **No identity in the tree.** Does any tracked file gain an address, hostname, SSID, MAC, serial
     or machine-id? This repository is public and none of it is credential-shaped. Fixtures included:
     a test that needs an address uses a documentation address, not a real one.
 
 **Tooling, guards & CI**
 
-12. **Proved it can fail.** Was the new or edited check watched failing — the defect seeded, the seed
+11. **Proved it can fail.** Was the new or edited check watched failing — the defect seeded, the seed
     confirmed to have landed, and the spelled-differently-but-valid variant confirmed to still pass?
     A guard keyed on the same literal as the thing it guards cannot see that thing fail.
-13. **The finding's own repro.** Was the reproduction that surfaced the defect re-run against the
+12. **The finding's own repro.** Was the reproduction that surfaced the defect re-run against the
     fix, rather than a test written afterwards that resembles it?
-14. **Every case, again.** Where a step was added to a sequence, was the whole sequence re-run
+13. **Every case, again.** Where a step was added to a sequence, was the whole sequence re-run
     against the cases it already passed — first where those steps share mutable state?
-15. **Orphaned names.** Where a recipe, check or workflow step was removed, does any operator-facing
+14. **Orphaned names.** Where a recipe, check or workflow step was removed, does any operator-facing
     reference to its name survive that no gate reaches — a justfile `[doc()]`, a workflow step
     `name:`, a `--help` string?
 
-**Docs & investigations**
+**Docs**
 
-16. **Cross-references resolve.** Does `just links` pass — relative links from the citing file's own
+15. **Cross-references resolve.** Does `just links` pass — relative links from the citing file's own
     directory, GFM anchors on real headings, section references by name, no anchored directory link,
     no address?
-17. **Investigation shape.** Does a new investigation copy
-    [`docs/issue_investigation/TEMPLATE.md`](docs/issue_investigation/TEMPLATE.md), fill every field,
-    and satisfy R1-R3 — and is it listed in [`README.md`](README.md) §"Documentation"?
-18. **One home.** Is each fact stated in the document that owns it, and cited rather than restated
+16. **One home.** Is each fact stated in the document that owns it, and cited rather than restated
     everywhere else? Strip the citation out of the sentence: if what remains still asserts what the
     cited document asserts, it restates rather than cites.
-19. **Timeless, and current.** Does the prose describe what the tree does now, with the history it
-    replaced moved into the investigation rather than left as a "no longer" clause?
+17. **Timeless, and current.** Does the prose describe what the tree does now, with the history it
+    replaced left to the issue and pull request rather than kept as a "no longer" clause?

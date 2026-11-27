@@ -253,16 +253,8 @@ every repo declared across the kas include chain — `includes/base.yaml`, `incl
 `includes/platforms/raspberrypi.yaml` — into `sources/`: several GB and a long while before any
 compiling starts.
 
-A change to webkit's `PACKAGECONFIG`, to a WebKit recipe, or **a bump of the meta-webkit pin**
-invalidates WebKit alone. A change to `DISTRO_FEATURES`, to `MACHINE_FEATURES`, or **a bump of the
-poky or meta-openembedded pin** invalidates more than WebKit. Either is a multi-hour rebuild — see
-[cold build time](docs/issue_investigation/cold_build_time/README.md) for the measured costs, which
-are of the WebKitGTK image, and the host they were measured on. Make those decisions before
-starting, not after. `config.txt`-only knobs (`GPU_MEM`, HDMI, overscan, UART) are free to change,
-and so is the kernel's `PREFERRED_VERSION` — the kernel is outside webkit's dependency closure.
-Cheap to rebuild is not the same as reaching a board: the `config.txt` knobs are on the shared FAT
-partition RAUC never writes — see
-[gpu compositing](docs/issue_investigation/gpu_compositing/README.md) §"Delivery and board".
+What a change costs to rebuild, and whether a rebuilt image can reach a board by update, is
+[`docs/image.md`](docs/image.md) §"What a rebuild costs".
 
 Every target recipe compiles through poky's `ccache` class and keeps its cache under `SSTATE_DIR`
 (`CCACHE_TOP_DIR`), bounded per recipe by `CCACHE_MAXSIZE` in [`kiosk-zero-w.yaml`](kiosk-zero-w.yaml),
@@ -385,7 +377,7 @@ Two more fixes belong upstream but did not need a patch, because a downstream la
 | | |
 |---|---|
 | Engine | WPE WebKit, the version the meta-webkit pin in `includes/base.yaml` carries; `ENABLE_JIT=OFF`, `USE_WOFF2=ON`, `MinSizeRel` |
-| Browser | `kiosk-browser`, a small C launcher on WPE's platform API with a systemd watchdog ([ADR 0001 rev 2](docs/decisions/0001-wpe-webkit-on-drm-with-our-own-launcher.md)) |
+| Browser | `kiosk-browser`, a small C launcher on WPE's platform API with a systemd watchdog ([ADR 0001 rev 3](docs/decisions/0001-wpe-webkit-on-drm-with-our-own-launcher.md)) |
 | Display | WPE's DRM platform on vc4 firmware KMS, in the mode `video=` in the kernel's `panel-mode.cfg` sets, mesa for EGL, no display server |
 | Update | RAUC A/B over U-Boot — both slots visible |
 

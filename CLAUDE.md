@@ -35,9 +35,8 @@ conventions. Nothing here overrides them.
 - **This repository is PUBLIC.** No secret value becomes a build input, and no address, hostname,
   SSID, MAC, serial or machine-id reaches a tracked file — fixtures included.
   `tools/scrub-identity.py --check` is the gate; `tools/ci-guards.sh` catches the RFC1918 half.
-- **Every `.md` change passes `just verify`**, and an investigation follows
-  [`docs/issue_investigation/TEMPLATE.md`](docs/issue_investigation/TEMPLATE.md) with R1-R3. Cite a
-  section by name, never by line number: the named form is gated, a line number is not.
+- **Every `.md` change passes `just verify`.** Cite a section by name, never by line number: the
+  named form is gated, a line number is not.
 
 ## Halt and ask
 

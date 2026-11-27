@@ -8,10 +8,6 @@
 themselves. This checks them against the image, which is the failure nothing
 else here catches.
 
-The failure it exists for, concretely: a doc prescribed running `fbgrab` on a
-device whose image no longer carried it, and nothing compared the two. The case
-is at docs/issue_investigation/screenshot_capture_fbgrab/README.md.
-
 Two claim kinds are checked, chosen because both are unambiguous in plain GFM
 and need no annotation, frontmatter or generator dialect in the source files:
 

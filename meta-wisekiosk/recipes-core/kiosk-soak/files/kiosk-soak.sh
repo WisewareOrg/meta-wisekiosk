@@ -31,9 +31,6 @@
 #   3. the shape of rss_total across the window, before any slope. This port
 #      prints no hourly mean, so that read is manual against the log
 #   4. the slope, last
-#
-# Why the order is that way, and why the endpoint delta is labelled NOT a rate:
-# docs/issue_investigation/surf_memory_soak/README.md.
 set -u
 LOG=${KIOSK_SOAK_LOG:-/data/kiosk-soak.log}
 MAXLINES=${KIOSK_SOAK_MAXLINES:-20000}

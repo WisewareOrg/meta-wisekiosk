@@ -5,7 +5,6 @@ Description=Stage the persistent timesync clock dir on /data
 # start (incl. watchdog restarts), so it is NOT RemainAfterExit.
 # No Requires=: a failed /data must not cancel NTP; a missing source degrades
 # to a non-persistent boot, not a failure.
-# Full rationale: docs/issue_investigation/clock_timesync/README.md.
 DefaultDependencies=no
 After=data.mount
 Before=systemd-timesyncd.service

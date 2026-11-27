@@ -1,2 +1,0 @@
-pn-buildlist line count: 454
-removed recipes still in pn-buildlist: none

@@ -27,7 +27,7 @@ The operational form of [`SKILL.md`](SKILL.md), which holds the reasoning behind
     unmeasured, not unchanged.
 10. **Clean the board**: the board's cleanup turns the inspector off when the diagnostic ends. Confirm
     the page renders.
-11. **Record under R1-R3**: board role, image commit, bundle hash, one board × one build × one
+11. **Keep each run's numbers apart**: the bench record names board and commit; one board × one build × one
     test per table.
 
 ## Before you trust a number

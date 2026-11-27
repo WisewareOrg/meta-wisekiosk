@@ -5,7 +5,6 @@
  * instrument that large changes the thing it measures: rewriting the shell
  * sampler from /proc/diskstats to /sys/block/<dev>/stat moved the headline
  * "scheduling headroom" figure by 45%.
- * See docs/issue_investigation/boot_cpu_saturation/README.md.
  *
  * The cost here is three lseek+read pairs per sample against already-open fds,
  * into a preallocated buffer, with one write at the end. No forks, no execs,

@@ -95,6 +95,6 @@ count and byte-sum per class; a diff of two censuses names what accumulates.
   with the page's own rAF probes.
 - **The client is on the workstation.** The board has no node, python, curl or socat — only wget and a
   minimal busybox nc. Do discovery and protocol work through the tunnel from here.
-- **Record under R1–R3** like any other run ([`../../../CONTRIBUTING.md`](../../../CONTRIBUTING.md)
-  §"Documentation conventions"): name the board role and image commit, and commit the client beside the
-  investigation if a number depends on it.
+- **Measure through the bench driver** like any other run
+  ([`../../../docs/testing.md`](../../../docs/testing.md) §"Running it"): a number taken by hand is
+  not evidence.

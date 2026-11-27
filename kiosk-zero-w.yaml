@@ -2,7 +2,7 @@
 # HEADER #
 ##########
 # Kiosk image for the Raspberry Pi Zero W: WPE WebKit straight to DRM, no
-# display server (ADR 0001 rev 2). This is the only kas config in the repo; it
+# display server (ADR 0001 rev 3). This is the only kas config in the repo; it
 # pulls in the repo pins (includes/base.yaml, which fetches meta-autonomos and
 # patches it) and the machine, then adds everything specific to this image below.
 header:
@@ -78,15 +78,12 @@ local_conf_header:
   # partition, and RAUC_BUNDLE_SLOTS = "rootfs" means RAUC never writes it. The
   # two PREFERRED_VERSION lines DO ride the bundle. So an OTA alone lands a mesa
   # userland on whatever overlay the card was flashed with -- the delivery that
-  # covers both halves is in
-  # docs/issue_investigation/gpu_compositing/README.md under "Delivery and board".
+  # covers both halves is a card reflash.
   #
   # Firmware KMS, not full KMS. Full KMS presents a content-black scanout on
   # this panel, measured across forced 1080p and 720p, `disable_fw_kms_setup=1`,
   # an xrandr kick, and compositing both on and off -- it is not a performance
-  # lever on this display, it is a blank one. See
-  # docs/issue_investigation/gpu_compositing/README.md under "Engine levers,
-  # measured". A hard set rather than a default taken:
+  # lever on this display, it is a blank one. A hard set rather than a default taken:
   # rpi-config_git.bb spells VC4DTBO `?=`, raspberrypi0-wifi.conf overrides
   # nothing, and sibling machine configs (raspberrypi3, raspberrypi-armv8) do
   # override it.

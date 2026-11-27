@@ -13,9 +13,7 @@ description: >-
 # Measure first, and measure what the eye sees
 
 [`kiosk-debug`](../kiosk-debug/SKILL.md) decides which instrument to reach for. This decides what
-counts as an answer once one is in hand, and how to get the next one faster. Every discipline below
-is carried, with the run that paid for it, by
-[`../../../docs/issue_investigation/gpu_compositing/README.md`](../../../docs/issue_investigation/gpu_compositing/README.md) §"Findings".
+counts as an answer once one is in hand, and how to get the next one faster.
 
 ## What makes a number an answer
 
@@ -28,7 +26,7 @@ is carried, with the run that paid for it, by
 | A plain before/after pair | Interleave — `W,A,B,A,B,A`. The board drifts within a single run at flat load (Runs 10 and 11). | A drift-sized effect, in whichever direction the drift went. |
 | A clean null | Prove the change landed, **in band**, on the computed value, inside the window that produced the number. | A manipulation the page silently dropped is indistinguishable from one with no effect — the CSP drops a `<style>` element and permits only a style *attribute*. |
 | A payload that parsed | Assert it is non-empty. An empty read fails loudly or it reads as a null. | An arm that captured nothing scores as an arm that changed nothing. |
-| A parser trusted on its first real payload | Prove it reports **both** outcomes on synthetic payloads first — landed and not-landed. See [`parse_motion_test.py`](../../../docs/issue_investigation/gpu_compositing/parse_motion_test.py). | A discriminator that cannot come out both ways discriminates nothing. |
+| A parser trusted on its first real payload | Prove it reports **both** outcomes on synthetic payloads first — landed and not-landed. | A discriminator that cannot come out both ways discriminates nothing. |
 | A probe that reads computed style per element per frame | Use a minimal rAF counter for absolute fps, and do identical work in every arm. | The probe's own cost scales with N and lands on the arm with more elements — the exact quantity under test. |
 | The first block after a restart | Discard it. Page load is not steady state. | A warm-up window averaged into the arm it happened to start. |
 
@@ -58,8 +56,7 @@ build.
 - A solid-fill swap answers "is the cost the content?" — it was not, which killed a bitmap
   refactor before anyone built it.
 - A `scrollLeft`-vs-`transform` A/B answers "is the cost the mechanism?" — it was: 14 → 42 fps,
-  the whole fix, found with no rebuild at all. See
-  [`p18_scroll.js`](../../../docs/issue_investigation/gpu_compositing/p18_scroll.js).
+  the whole fix, found with no rebuild at all.
 - The injection must survive the page's CSP: `el.style.setProperty(prop, val, 'important')` is the
   form that applies. A `<style>` element or a constructed stylesheet is dropped without error.
 
@@ -113,15 +110,12 @@ The ordered loop and the pre-trust list are [`CHECKLIST.md`](CHECKLIST.md).
 
 - **The page console does not reach the journal on this image.** Exfiltrate through
   `document.title` and read it back through the inspector (the steps are in
-  [`CHECKLIST.md`](CHECKLIST.md)), as
-  [`run-phase-motion.sh`](../../../docs/issue_investigation/gpu_compositing/run-phase-motion.sh)
-  did on the surf image.
+  [`CHECKLIST.md`](CHECKLIST.md)).
 - **`2>/dev/null` on an ssh to a board is blocked** by `.claude/hooks/guard.sh`. A suppressed probe
   cannot distinguish a broken check from a broken device. Let stderr through, or capture it and
   print it on failure.
 - **Leave the board as you found it**: what a diagnostic changes, the board's cleanup undoes when it
   ends. Confirm the page renders.
-- **Record under R1-R3** —
-  [`../../../CONTRIBUTING.md`](../../../CONTRIBUTING.md) §"Documentation conventions". Every run names its
-  board role, its image commit and its frontend bundle hash; every probe is committed beside the
-  investigation; numbers from different runs never share a table.
+- **Measure through the bench driver** ([`../../../docs/testing.md`](../../../docs/testing.md)
+  §"Running it"): the run's record names the board and the commit it ran, and numbers from different
+  runs never share a table.

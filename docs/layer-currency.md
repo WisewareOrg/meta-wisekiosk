@@ -154,9 +154,7 @@ include and says nothing about this image. The report cannot tell the difference
 names the file rather than ranking the finding.
 
 The kernel is this check's worked case — a weak `??=` inside a meta-raspberrypi pin that `check`
-correctly reports `current`. `kiosk-zero-w.yaml` carries the override that settled it; what the
-finding was worth, what it cost, and how it was validated on hardware is
-[`issue_investigation/kernel_cve_triage/`](issue_investigation/kernel_cve_triage/README.md).
+correctly reports `current`. `kiosk-zero-w.yaml` carries the override that settled it.
 
 Whether to take a newer recipe is an owner's call, and for a kernel a large one — a series bump
 changes the ABI and the device trees, and wants validating on hardware before it reaches a board.
@@ -196,8 +194,7 @@ id the commit subjects and bodies name, and intersects that with the **unpatched
 newest CVE manifest. Against the poky pin as it stood before the 2026-08-28 bump that was 69 commits
 naming 56 CVEs, of which **16 unpatched findings across 5 packages** — `curl`, `expat`, `glib-2.0`,
 `gnutls`, `nghttp2` — would plausibly close. The bump then closed exactly those 16, which is the one
-time this prediction has been checked against a rebuild
-([`issue_investigation/kernel_cve_triage/`](issue_investigation/kernel_cve_triage/README.md)). Where
+time this prediction has been checked against a rebuild (#80 Triage the layer-currency findings). Where
 a pin sits on its branch head the range is empty, which is the second case below. Counts move with
 every fetch and every audit build; run the command for today's. It takes about a second and builds
 nothing.

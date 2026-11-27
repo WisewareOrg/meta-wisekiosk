@@ -2,10 +2,11 @@
 
 **Status:** accepted
 **Decided:** 2026-11-24 (the cutover plan on #185 Evaluate WPE WebKit)
-**Rev:** 2
+**Rev:** 3
 
 ## Revisions
 
+- **rev 3** — 2026-11-27 — citations point at the subsystem documents and the issue that recorded the evidence, in place of a retired investigation directory (#422 Documentation map). The decision is unchanged.
 - **rev 2** — 2026-11-25 — a frozen page's recovery is stated as the restart delay and the browser's start, not a fixed 10 s (#383 The page and the service come back sooner after a crash).
 - **rev 1** — 2026-11-25 — first written (#185 Evaluate WPE WebKit).
 
@@ -22,10 +23,10 @@ window manager, reloading a page that stops answering, and retrying a load that 
 
 - A Raspberry Pi Zero W: one ARMv6 core and 512 MB. Neither WebKit port has a JIT on ARMv6.
 - The panel is driven through firmware KMS. Full KMS gives this panel a black picture
-  ([`gpu_compositing`](../issue_investigation/gpu_compositing/README.md) §"Engine levers, measured"),
-  so a stack has to run on `vc4-fkms-v3d` with the pinned mesa.
+  ([`../display.md`](../display.md) §"Firmware KMS"), so a stack has to run on `vc4-fkms-v3d` with
+  the pinned mesa.
 - The engine is the dominant build cost under any option. A change to its configuration or source is
-  a multi-hour rebuild ([`../../README.md`](../../README.md) §"Quick start"), so a stack that needs
+  a multi-hour rebuild ([`../image.md`](../image.md) §"What a rebuild costs"), so a stack that needs
   its engine patched pays that at every attempt and at every bump.
 
 **What counts as evidence between the options.** A bench record: one built run of one commit on one
@@ -204,9 +205,7 @@ server and patches to another project's browser, for a page that needs none of t
   reader of 87 lines of C, and the tree gains `kiosk-screenshot.py`, 158 lines, that drives it, both
   counts at this decision.
 - **The page is composited on the GPU.** The `surf` image ran with accelerated compositing off, for
-  reasons in
-  [`gpu_compositing`](../issue_investigation/gpu_compositing/README.md) §"Engine levers, measured";
-  none of them was read on this stack.
+  reasons recorded on #100 GPU-accelerated compositing; none of them was read on this stack.
 - **Behaviour that changes from the `surf` image:**
   - Restarting the kiosk's service does not bring the page's console forward; `chvt 1` does.
   - A frozen page's recovery shows the console for the restart delay and the browser's start.
@@ -228,7 +227,7 @@ server and patches to another project's browser, for a page that needs none of t
   [`../cve-and-sbom.md`](../cve-and-sbom.md) §"What `coverage` bounds" says of any such recipe.
 - **The motion and memory bounds were set on `surf` and stand as they are**, per the cutover plan.
 - **One more pin to track.** `meta-webkit` joins the pins, and its bump rebuilds the engine, as
-  poky's does ([`../../README.md`](../../README.md) §"Quick start").
+  poky's does ([`../image.md`](../image.md) §"What a rebuild costs").
 - **Not proven.** By test: a display that cannot be opened stopping the browser with its reason, a
   load retried in place and not by a restart, a first failure logged, the page returning with its
   console, and a clean exit when stopped. By comparison: that a region stays stale with damage
