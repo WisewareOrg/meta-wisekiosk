@@ -88,11 +88,17 @@ holds a choice that took a trade study, with the alternatives it rejected. No do
 board runs, which slot it is on, or what may be done to it.
 
 **The tree describes the system; issues and pull requests are the record of the work.** A recipe, a
-class or a justfile says what the tree does today, and a document says how the system is built and
+class or a justfile says what the tree does, and a document says how the system is built and
 why. How a problem was traced to its cause and fixed stays on its issue and pull request; a design
 choice, with the alternatives it rejected and why, goes in its ADR
 ([`docs/decisions/`](docs/decisions/README.md)). Neither goes in a comment or a "no longer" clause.
 State the timeless fact — no *now*, *no longer*, *as of*.
+
+**A comment states what or how, in one or two present-tense lines, only where the code does not show
+it.** No why, no history, no issue numbers, no attributions. The deletion test decides: delete the
+comment, and if the reader loses no mechanism fact the code does not show, it stays deleted. A
+current fact that explains a module belongs in that module's README. A tool's usage or `--help` text
+and a docstring that gives usage, knobs and the exit contract are documentation, not comments.
 
 **Cite a section by name, never by line number.** A section reference is a Markdown link to the
 file, then `§`, then the heading in double quotes — as [`docs/image.md`](docs/image.md) §"Building" is
@@ -203,5 +209,5 @@ silently to whatever occupies it after a renumber.
 16. **One home.** Is each fact stated in the document that owns it, and cited rather than restated
     everywhere else? Strip the citation out of the sentence: if what remains still asserts what the
     cited document asserts, it restates rather than cites.
-17. **Timeless, and current.** Does the prose describe what the tree does now, with the history it
+17. **Timeless, and current.** Does the prose describe what the tree does, with the history it
     replaced left to the issue and pull request rather than kept as a "no longer" clause?

@@ -28,7 +28,7 @@ Config fragments:
   depends on them), and sets no symbol that something else selects, since such a line has no effect.
 - Changing a fragment rebuilds the kernel and its modules.
 
-Part of [the image](../../../docs/image.md).
+Part of [the device](../../../docs/device.md).
 
 ## Knobs
 

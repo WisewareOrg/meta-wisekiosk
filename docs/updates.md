@@ -55,7 +55,8 @@ just kiosk-rollback # if the new slot comes up wrong
 ```
 
 `just build` builds the image only; `just kiosk-bundle`, which `kiosk-ota` runs first, builds the
-signed RAUC bundle around it. `kiosk-preflight` then refuses a delivery that cannot work — a bundle
+signed RAUC bundle around it, from its own `kconfig` argument rather than an exported `KAS_CONFIG`,
+so a config exported for another image never builds into this bundle's name. `kiosk-preflight` then refuses a delivery that cannot work — a bundle
 whose image does not fit the slot, a stale bundle, a tree the reproducibility gate refuses
 ([`image.md`](image.md) §"The reproducibility gate"). Every install, by hand, by the key rotation or
 by a test, goes through [`tools/kiosk-install.sh`](../tools/kiosk-install.sh), whose header says
@@ -70,11 +71,10 @@ and `resize=true` in RAUC's `system.conf` grows the slot's filesystem to its par
 write, so an install moves and writes the image's content, not an empty filesystem the size of the
 slot. The image builds no casync bundle.
 
-What follows from that design:
+What follows from that design (and from `resize=true`, as
+[`recipes-core/rauc`](../meta-wisekiosk/recipes-core/rauc/README.md) says):
 
 - A slot's first adaptive install hashes the slot to build its index, so it is the slowest.
-- `resize=true` is read from the running system's `system.conf`, so an install made from an image
-  without it leaves that slot at its content size until the slot is next written.
 - The installing host needs Docker, a port the board can reach at the address the host's ssh
   session comes from, and memory for one copy of the bundle; NAT or an ssh jump between the two
   breaks the install.
@@ -139,7 +139,8 @@ renaming them changes the compatible and strands every board in the field.
 `update-bundle.bb` signs the bundle and meta-autonomos-core's `rauc-conf.bbappend` bakes the
 keyring, and both read the same `AUTONOMOS_RAUC_*` variables, set in `kiosk-zero-w.yaml`, so the
 signer and the trusted keyring cannot drift apart. They name the project's key in
-`local/keys/kiosk-2026/`: gitignored, so it is never committed and no clone contains it.
+`local/keys/<name>/`, where `<name>` is the key the `Justfile`'s `fleet-key` names: gitignored, so it
+is never committed and no clone contains it.
 `kas-container` mounts the repository root, which is how the build reads it.
 
 Not committing the key is the whole protection, and the cost is that git cannot give it back:
@@ -148,7 +149,7 @@ every copy ends updates for every board, leaving a card flash as the only way ba
 
 A clone without the key cannot build: recipe parsing stops on the missing `signing.cert.pem` rather
 than falling back to another key and producing an image the boards reject. Before a first build the
-key is restored from the backup, or, for a new fleet, made with `just rotate-keygen kiosk-2026`.
+key is restored from the backup, or, for a new fleet, made with `just rotate-keygen <name>`.
 A fresh key buys no access to boards that trust another; that takes a rotation, below. The bench
 host's checkout holds no key of its own: its environment file names `PIPELINE_KEYS_DIR`, which
 [`tools/kas-run.sh`](../tools/kas-run.sh) mounts read-only over `local/keys`.

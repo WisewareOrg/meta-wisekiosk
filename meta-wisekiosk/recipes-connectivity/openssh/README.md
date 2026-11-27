@@ -9,7 +9,7 @@ instead of the three `sshd_check_keys` creates for the default list.
 - The append runs after the upstream recipe's own, so `sshd_config_readonly` is unchanged.
 - `ssh-server-openssh` comes from `EXTRA_IMAGE_FEATURES` in `kiosk-zero-w.yaml`.
 
-Part of [the image](../../../docs/image.md).
+Part of [the device](../../../docs/device.md).
 
 ## Knobs
 

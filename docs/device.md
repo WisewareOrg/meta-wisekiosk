@@ -55,7 +55,9 @@ U-Boot boots with no delay ([`recipes-bsp/u-boot`](../meta-wisekiosk/recipes-bsp
 loads the kernel from the slot it picked, and systemd brings up the rest. The core is saturated from
 the kernel's start to the page, so the image carries as little as it can ahead of the network:
 [`kiosk-hardware`](../meta-wisekiosk/recipes-core/kiosk-hardware/README.md) masks the units and udev
-rules a kiosk with no login session, no resolver daemon and no add-on hardware does not need, and
+rules a kiosk with no login session, no resolver daemon and no add-on hardware does not need,
+[`recipes-core/udev`](../meta-wisekiosk/recipes-core/udev/README.md) removes the add-on-hardware rule
+file, and
 [`classes`](../meta-wisekiosk/classes/README.md) replaces the resolver daemon with a static
 `/etc/resolv.conf` pointing into `/data/config`. `kiosk-zero-w.yaml` removes from the image what
 this board has no use for — Bluetooth, audio, touchscreen, the serial console, the syslog daemons
@@ -102,7 +104,8 @@ A board whose memory runs out thrashes rather than kills: code pages refault fro
 compressed pages fill zram, so the kernel's OOM killer never runs, PID 1 starves and the watchdog
 resets the board with no message. Ending that needs something inside the kernel, because whatever
 starves PID 1 starves a userspace watcher too; something that sees file-page thrash, not only low
-free memory; something that acts inside the 14 s watchdog window; and something an update can
+free memory; something that acts inside the hardware watchdog's window
+([`kiosk-hardware`](../meta-wisekiosk/recipes-core/kiosk-hardware/README.md)); and something an update can
 deliver, without a WebKit rebuild or a write to the shared `/boot`.
 
 `kiosk-hardware` writes `1000` to MGLRU's `min_ttl_ms`, the value the kernel's documentation names.
@@ -116,25 +119,30 @@ repeatedly instead of the board resetting. Swap is a compressed RAM device of ha
 memory ([`recipes-extended/zram`](../meta-wisekiosk/recipes-extended/zram/README.md)).
 
 [`kiosk-soak`](../meta-wisekiosk/recipes-core/kiosk-soak/README.md) samples the browser's and the
-system's memory, load and temperature every five minutes into `/data`, and its README says how to read a long run.
+system's memory, load and temperature into `/data` on a timer, and its README says how to read a
+long run.
 
 ## CPU frequency
 
-[`kiosk-cpufreq`](../meta-wisekiosk/recipes-core/kiosk-cpufreq/README.md) caps the core's
-frequency below its top operating point; its README says why, and what the cap costs.
+At its top operating point (1000 MHz) under sustained WiFi and network load, this board corrupts
+memory: the oopses land in the network receive path and pstore keeps them. Every lower operating
+point holds, so [`kiosk-cpufreq`](../meta-wisekiosk/recipes-core/kiosk-cpufreq/README.md) caps the
+core below it, at a tenth of peak CPU. The cap is a unit in the rootfs rather than the firmware's
+`over_voltage`, which lives in `config.txt` on the shared `/boot` and so travels in no update.
 
 ## Getting in
 
-Root logs in over ssh with no password: the image carries `debug-tweaks`, because a board nobody can
+Root logs in over ssh with no password, against the one host key the image's sshd generates
+([`recipes-connectivity/openssh`](../meta-wisekiosk/recipes-connectivity/openssh/README.md)): the
+image carries `debug-tweaks`, because a board nobody can
 log into is recovered only by pulling its card. That is a known gap, tracked as #7 debug-tweaks
 empty root password.
 
 With the network gone, a USB keyboard reaches a login on `tty2` ([`display.md`](display.md)
 §"Consoles").
 
-`kiosk-recover` reverses `kiosk-hardware`'s boot trims for a debugging session — it unmasks the
-resolver, login and userdb units, removes the masked udev rules and restores the resolver link, then
-reboots ([`kiosk-recover`](../meta-wisekiosk/recipes-core/kiosk-recover/README.md)). It lives on
+For a debugging session, [`kiosk-recover`](../meta-wisekiosk/recipes-core/kiosk-recover/README.md)
+undoes `kiosk-hardware`'s boot trims and reboots. It lives on
 `/data` as `/data/RECOVER.sh`, placed by provisioning, so it survives updates; a card flash
 recreates `/data` empty, and provisioning places it again:
 
@@ -143,5 +151,4 @@ recreates `/data` empty, and provisioning places it again:
 /data/RECOVER.sh             # apply and reboot
 ```
 
-It is not a boot un-bricker: it runs on a slot that already gives a shell. A slot that does not is
-an A/B fallback ([`updates.md`](updates.md) §"Falling back").
+A slot that gives no shell is an A/B fallback ([`updates.md`](updates.md) §"Falling back").

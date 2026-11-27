@@ -54,6 +54,7 @@ local_conf_header:
     # meta-raspberrypi's list, and its stock console-size is 0. Both lines are on /boot: card flash only.
     RPI_KERNEL_DEVICETREE_OVERLAYS:append = " overlays/ramoops.dtbo"
     RPI_EXTRA_CONFIG:append = "\ndtoverlay=ramoops,total-size=0x40000,record-size=0x8000,console-size=0x20000\n"
+    # tzdata-americas does not pull tzdata-core, so both are named.
     IMAGE_INSTALL:append = " kiosk-session kiosk-soak kiosk-journal kiosk-timesync-persist kiosk-hardware kiosk-drmgrab kiosk-netcheck zram wpa-supplicant-service ttf-roboto tzdata-core tzdata-americas"
 
     IMAGE_INSTALL:append = " kiosk-provision"
@@ -119,7 +120,6 @@ local_conf_header:
     # udev-hwdb is a recommendation of systemd; dropping it here leaves systemd's hash alone.
     BAD_RECOMMENDATIONS += "udev-hwdb"
 
-    # tzdata-americas does not pull tzdata-core, so IMAGE_INSTALL names both.
     IMAGE_LINGUAS = "en-us"
 
   # BB_PRESSURE_MAX_MEMORY: bitbake starts no new task while memory stall exceeds this many

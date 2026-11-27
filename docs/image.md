@@ -120,8 +120,10 @@ debugfs -R "cat /etc/systemd/system/wpa_supplicant.service" \
 ## The WiseKiosk application
 
 The image builds the application from source, both halves at one pinned commit
-([`recipes-wisekiosk/wisekiosk`](../meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md)). The
-build stays offline and reproducible from that pin:
+([`recipes-wisekiosk/wisekiosk`](../meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md)), with
+the Node.js the frontend build runs on supplied by
+[`recipes-devtools/nodejs`](../meta-wisekiosk/recipes-devtools/nodejs/README.md). The build stays
+offline and reproducible from that pin:
 
 - The backend builds with `GOPROXY=off` and enforces its own `go.sum`. The one Go tool the build
   runs, `oapi-codegen`, arrives with its module closure as checksummed `SRC_URI` entries in

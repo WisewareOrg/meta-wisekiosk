@@ -12,7 +12,7 @@
   `PACKAGECONFIG`, so the `SRC_URI` and `PACKAGECONFIG` lines go together.
 - WebKit build-depends on ICU, so a change here rebuilds WebKit.
 
-Part of [the image](../../../docs/image.md).
+Part of [the display](../../../docs/display.md).
 
 ## Knobs
 

@@ -13,7 +13,7 @@ the output up when the display is off or slow to answer at boot.
 - `config.txt` lives on the shared FAT `/boot` partition, which a RAUC update never writes; a change
   here reaches a board only by reflash.
 
-Part of [the device](../../../docs/device.md).
+Part of [the display](../../../docs/display.md).
 
 ## Knobs
 

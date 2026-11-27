@@ -6,11 +6,7 @@ resulting cap to `/dev/kmsg`. The governor keeps scaling below the cap.
 
 ## How it fits
 
-- At the top operating point (1000 MHz) under sustained SDIO and network load this board corrupts
-  memory: oopses in the network receive path, captured through pstore. Every lower operating point
-  holds. The cap costs about a tenth of peak CPU.
-- It is a unit in the image because the alternative knob, `over_voltage`, lives in `config.txt` on
-  the shared FAT `/boot`, which an update never writes.
+- Why the board needs the cap is [`docs/device.md`](../../../docs/device.md) §"CPU frequency".
 - `kiosk-zero-w.yaml` adds the package through `IMAGE_INSTALL`.
 
 Part of [the device](../../../docs/device.md).

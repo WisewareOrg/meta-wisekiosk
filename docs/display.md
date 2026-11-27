@@ -35,7 +35,7 @@ script, and exits when another console is brought forward. WebKit's paint-damage
 so every frame repaints whole.
 
 `kiosk.service` runs it after the network is online and `/data` is mounted, restarts it whatever its
-exit, and stops it when the watchdog goes unanswered for 30 seconds, so a page that hangs is
+exit, and stops it when its watchdog goes unanswered (`WatchdogSec`, in the module's knobs), so a page that hangs is
 restarted like one that crashed. The page is `KIOSK_URL`, by default the local app on
 `http://localhost:8080`, which `wisekiosk.service` serves from the board itself, so the panel depends
 on no remote origin. A site that sets `KIOSK_URL` in `/data/config/kiosk.conf` points the browser
@@ -76,7 +76,8 @@ covered.
 ## Seeing the panel from the workstation
 
 The correct picture of a healthy kiosk is often a page nobody is watching, and the board has no
-display server to ask. `kiosk-drmgrab` on the board reads the buffer the panel is scanning out, and
+display server to ask. [`kiosk-drmgrab`](../meta-wisekiosk/recipes-core/kiosk-drmgrab/README.md) on
+the board reads the buffer the panel is scanning out, and
 [`tools/kiosk-screenshot.py`](../tools/kiosk-screenshot.py) (`just screenshot`) runs it over ssh and
 writes an image on the workstation. The engine's remote inspector, when switched on, answers on the
 board's loopback and is reached through an ssh tunnel

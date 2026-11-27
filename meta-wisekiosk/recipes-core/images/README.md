@@ -13,7 +13,7 @@
 - The distro's `IMAGE_ROOTFS_MAXSIZE` still applies.
 - Which packages the image carries is `IMAGE_INSTALL` in `kiosk-zero-w.yaml`.
 
-Part of [the image](../../../docs/image.md).
+Part of [the updates path](../../../docs/updates.md).
 
 ## Knobs
 
