@@ -219,12 +219,16 @@ newer pin fails too. Merge `origin/main` into such a branch before building it.
 ## What a rebuild costs
 
 BitBake rebuilds every task whose signature a change reaches, and WPE WebKit is by far the largest
-of them. So what a change costs is decided by whether it reaches WebKit:
+of them. So what a change costs is decided by whether it reaches WebKit's dependency closure —
+WebKit itself or anything it builds against. The common cases:
 
 - **WebKit alone**: a change to webkit's `PACKAGECONFIG`, to a WebKit recipe, or a bump of the
   `meta-webkit` pin.
-- **More than WebKit**: a change to `DISTRO_FEATURES` or `MACHINE_FEATURES`, or a bump of the `poky`
-  pin, which carries WebKit's toolchain, C library and build dependencies.
+- **WebKit and what it builds against**: a change to `DISTRO_FEATURES` or `MACHINE_FEATURES`; a
+  bump of the `poky` pin, which carries WebKit's toolchain, C library and build dependencies; a
+  change to systemd, which WebKit links for its journald logging (so a `systemd_%.bbappend` is never
+  cheap); and a change to ICU's data
+  ([`recipes-support/icu`](../meta-wisekiosk/recipes-support/icu/README.md)).
   [`renovate.json`](../renovate.json) groups the `poky` and `meta-webkit` bumps into one pull request
   so the two ride one rebuild; `meta-openembedded` reaches WebKit through one leaf, `brotli`, and
   moves on its own.

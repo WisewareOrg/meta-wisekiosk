@@ -3,9 +3,8 @@
 #
 # Device identity is read only from gitignored `local/device-identity.md`.
 #
-# Fail-open: no jq, no payload, no identity file or an unparseable input lets the call through, and
-# a missing identity map is reported on stderr. The exception is the prod grant: a missing, expired,
-# malformed or symlinked grant counts as no grant.
+# Fail-open: no jq, no payload, no identity file or an unparseable input lets the call through. The
+# exception is the prod grant: a missing, expired, malformed or symlinked grant counts as no grant.
 #
 # Self-test: bash .claude/hooks/guard-test.sh  (wired into `just guards` and CI)
 set -uo pipefail

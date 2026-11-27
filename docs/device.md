@@ -135,7 +135,8 @@ With the network gone, a USB keyboard reaches a login on `tty2` ([`display.md`](
 `kiosk-recover` reverses `kiosk-hardware`'s boot trims for a debugging session — it unmasks the
 resolver, login and userdb units, removes the masked udev rules and restores the resolver link, then
 reboots ([`kiosk-recover`](../meta-wisekiosk/recipes-core/kiosk-recover/README.md)). It lives on
-`/data` as `/data/RECOVER.sh`, placed by provisioning, so it survives updates and a reflash:
+`/data` as `/data/RECOVER.sh`, placed by provisioning, so it survives updates; a card flash
+recreates `/data` empty, and provisioning places it again:
 
 ```sh
 /data/RECOVER.sh --dry-run   # list exactly what would change; touch nothing

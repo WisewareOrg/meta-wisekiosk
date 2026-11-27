@@ -74,10 +74,10 @@ def reminder(path: str):
                 "the `compatible` string are a ONE-WAY lock: a deployed board refuses a bundle "
                 "signed by a key it does not trust and refuses a compatible that is not its own, "
                 "and there is no remote undo — a wrong change strands every unit in the field. "
-                "Before proceeding: is this the decided rotation order (docs/updates.md), "
-                "and does any secret VALUE become a build input? If either answer is unclear, STOP "
-                "and bubble it up to the owner. (CONTRIBUTING.md § Review checklist, "
-                "CLAUDE.md.)"
+                "Before proceeding: is this the decided rotation order "
+                "(docs/updates.md §\"Rotating the signing key\"), and does any secret VALUE become "
+                "a build input? If either answer is unclear, STOP and bubble it up to the owner. "
+                "(CONTRIBUTING.md §\"Review checklist\", CLAUDE.md.)"
             )
     for pat in DESIGN:
         if re.search(pat, path):
@@ -85,13 +85,12 @@ def reminder(path: str):
                 f"SELF-CHECK — {path} is a DESIGN/DECISION surface (the kas entry point, a repo "
                 "pin, a machine config, or a patch to upstream). Before proceeding, answer "
                 "honestly: does this edit match a DECIDED design intent and THIS ticket's scope? "
-                "Touching webkit's PACKAGECONFIG invalidates WebKit; touching DISTRO_FEATURES or "
-                "MACHINE_FEATURES invalidates more than WebKit -- either is a multi-hour rebuild "
-                "(docs/image.md §\"What a rebuild costs\"), a decision, not a tweak; kas merges "
+                "A change that reaches WebKit's build is a rebuild of hours, decided before starting "
+                "(docs/image.md §\"What a rebuild costs\"); kas merges "
                 "local_conf_header by BLOCK NAME and the top-level file wins, so a duplicated name "
                 "is discarded in silence. If this invents a choice nobody made, or folds something "
                 "in to make a gate pass, STOP and bubble it up to the owner. "
-                "(CONTRIBUTING.md § Review checklist, CLAUDE.md.)"
+                "(CONTRIBUTING.md §\"Review checklist\".)"
             )
     return None
 

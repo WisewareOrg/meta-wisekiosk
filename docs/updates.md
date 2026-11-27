@@ -23,7 +23,7 @@ flowchart LR
 | 1, FAT, `/boot` | U-Boot, its environment, `config.txt`, `cmdline.txt` | the card flash only |
 | 2, slot A | a complete rootfs | the card flash, then updates |
 | 3, slot B | a complete rootfs, empty until the first update | updates |
-| 4, `/data` | site configuration, the app's configuration, RAUC's status and indexes, the journal, the saved clock | provisioning and the running system |
+| 4, `/data` | site configuration, the app's configuration, RAUC's status and indexes, the journal, the saved clock | the card flash (empty), then provisioning and the running system |
 
 RAUC's slot table, compatible string and keyring path are in
 [`recipes-core/rauc`](../meta-wisekiosk/recipes-core/rauc/README.md); the rootfs is sized to its
