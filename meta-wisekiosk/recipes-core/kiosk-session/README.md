@@ -29,4 +29,6 @@ Part of [the display](../../../docs/display.md).
 - `KIOSK_URL`: `http://localhost:8080` in the unit, overridden by `/data/config/kiosk.conf`
   (an optional `EnvironmentFile`).
 - `WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:2999` in `kiosk.conf` turns the remote inspector on.
+- `WatchdogSec` in `files/kiosk.service`: how long the page may go unanswered before systemd stops
+  and restarts the browser.
 - `PERIOD` (5 s) in `kiosk-browser.c`: the load retry and watchdog-poll interval.

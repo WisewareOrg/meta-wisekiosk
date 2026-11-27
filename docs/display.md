@@ -35,8 +35,8 @@ script, and exits when another console is brought forward. WebKit's paint-damage
 so every frame repaints whole.
 
 `kiosk.service` runs it after the network is online and `/data` is mounted, restarts it whatever its
-exit, and stops it when its watchdog goes unanswered (`WatchdogSec`, in the module's knobs), so a page that hangs is
-restarted like one that crashed. The page is `KIOSK_URL`, by default the local app on
+exit, and stops it when its watchdog goes unanswered (`WatchdogSec`, among the module's knobs), so a
+page that hangs is restarted like one that crashed. The page is `KIOSK_URL`, by default the local app on
 `http://localhost:8080`, which `wisekiosk.service` serves from the board itself, so the panel depends
 on no remote origin. A site that sets `KIOSK_URL` in `/data/config/kiosk.conf` points the browser
 elsewhere; the same file turns the remote inspector on.

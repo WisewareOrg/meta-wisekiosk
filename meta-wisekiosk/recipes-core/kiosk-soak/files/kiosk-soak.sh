@@ -19,13 +19,6 @@
 #   thr        vcgencmd get_throttled. Anything but 0x0 means it throttled at
 #              some point SINCE BOOT, not that it is throttling now
 #   ent        entropy pool. Low is expected; the image has no rngd
-#
-# Read a --summary in this order, weakest evidence last:
-#   1. reboots and browser restarts: non-zero means the memory series is really two series
-#   2. samples w/o browser: the kiosk was down at those samples
-#   3. the shape of rss_total across the window, read manually against the log
-#   4. the slope, last. The endpoint delta is not a rate, and one line fitted through a step
-#      reports the step as a rate; compare samples at matched page states far apart.
 set -u
 LOG=${KIOSK_SOAK_LOG:-/data/kiosk-soak.log}
 MAXLINES=${KIOSK_SOAK_MAXLINES:-20000}
