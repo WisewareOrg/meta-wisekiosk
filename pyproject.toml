@@ -23,8 +23,8 @@ tests = [
 ]
 
 [tool.uv.sources]
-check-adrs = { git = "https://github.com/WisewareOrg/wise-ci", subdirectory = "check-adrs", rev = "5a7cd6159273348954552363d6b1a00d3e732512" }
-check-reqs = { git = "https://github.com/WisewareOrg/wise-ci", subdirectory = "check-reqs", rev = "5a7cd6159273348954552363d6b1a00d3e732512" }
+check-adrs = { git = "https://github.com/WisewareOrg/wise-ci", subdirectory = "check-adrs", rev = "375abaa8c7a9e1a98a95317ac955f3767efd8656" }
+check-reqs = { git = "https://github.com/WisewareOrg/wise-ci", subdirectory = "check-reqs", rev = "375abaa8c7a9e1a98a95317ac955f3767efd8656" }
 python-kasa = { git = "https://github.com/python-kasa/python-kasa", rev = "a1a6c3854ace705b21357b357354d4ae8b6307b4" }
 
 [tool.pytest.ini_options]
