@@ -100,6 +100,36 @@ This is the only index of the repository's documents.
 | [`.claude/skills/measure-first/SKILL.md`](.claude/skills/measure-first/SKILL.md) | How a question about the board is measured and tested |
 | [`.claude/skills/webkit-inspector/SKILL.md`](.claude/skills/webkit-inspector/SKILL.md) | How the engine's remote inspector is driven |
 
+Each module of the layer has a README: what it puts on the image, how it fits, and its knobs.
+
+| Module | What it is |
+|---|---|
+| [`classes`](meta-wisekiosk/classes/README.md) | The build stamp's cache-safety class and the static `/etc/resolv.conf` |
+| [`recipes-bsp/bootfiles`](meta-wisekiosk/recipes-bsp/bootfiles/README.md) | Firmware HDMI settings in `config.txt` |
+| [`recipes-bsp/u-boot`](meta-wisekiosk/recipes-bsp/u-boot/README.md) | U-Boot with no boot delay |
+| [`recipes-connectivity/openssh`](meta-wisekiosk/recipes-connectivity/openssh/README.md) | One ssh host key instead of three |
+| [`recipes-connectivity/wpa-supplicant`](meta-wisekiosk/recipes-connectivity/wpa-supplicant/README.md) | The WiFi unit, reading its credentials from `/data` |
+| [`recipes-core/bundles`](meta-wisekiosk/recipes-core/bundles/README.md) | The adaptive update bundle and its post-install hook |
+| [`recipes-core/images`](meta-wisekiosk/recipes-core/images/README.md) | The rootfs image, sized to its content |
+| [`recipes-core/kiosk-bootprof`](meta-wisekiosk/recipes-core/kiosk-bootprof/README.md) | The boot profiler, and how a profile is taken and read |
+| [`recipes-core/kiosk-cpufreq`](meta-wisekiosk/recipes-core/kiosk-cpufreq/README.md) | The CPU frequency cap |
+| [`recipes-core/kiosk-drmgrab`](meta-wisekiosk/recipes-core/kiosk-drmgrab/README.md) | The screen reader behind screenshots |
+| [`recipes-core/kiosk-hardware`](meta-wisekiosk/recipes-core/kiosk-hardware/README.md) | Boot trims, the watchdog, panic and out-of-memory settings |
+| [`recipes-core/kiosk-journal`](meta-wisekiosk/recipes-core/kiosk-journal/README.md) | The persistent journal on `/data` |
+| [`recipes-core/kiosk-netcheck`](meta-wisekiosk/recipes-core/kiosk-netcheck/README.md) | The network check that gates marking a slot good |
+| [`recipes-core/kiosk-provision`](meta-wisekiosk/recipes-core/kiosk-provision/README.md) | Applying the site configuration at boot |
+| [`recipes-core/kiosk-recover`](meta-wisekiosk/recipes-core/kiosk-recover/README.md) | The script that reverses the boot trims for debugging |
+| [`recipes-core/kiosk-session`](meta-wisekiosk/recipes-core/kiosk-session/README.md) | The browser launcher and its unit |
+| [`recipes-core/kiosk-soak`](meta-wisekiosk/recipes-core/kiosk-soak/README.md) | The memory and load sampler, and how to read it |
+| [`recipes-core/kiosk-timesync-persist`](meta-wisekiosk/recipes-core/kiosk-timesync-persist/README.md) | The saved clock on `/data` |
+| [`recipes-core/rauc`](meta-wisekiosk/recipes-core/rauc/README.md) | RAUC's slot table, compatible and keyring path |
+| [`recipes-core/udev`](meta-wisekiosk/recipes-core/udev/README.md) | The add-on-hardware udev rules removed |
+| [`recipes-devtools/nodejs`](meta-wisekiosk/recipes-devtools/nodejs/README.md) | The Node.js the app's frontend builds with |
+| [`recipes-extended/zram`](meta-wisekiosk/recipes-extended/zram/README.md) | Compressed swap in RAM |
+| [`recipes-kernel/linux`](meta-wisekiosk/recipes-kernel/linux/README.md) | The kernel's patches and configuration |
+| [`recipes-support/icu`](meta-wisekiosk/recipes-support/icu/README.md) | The trimmed ICU locale data |
+| [`recipes-wisekiosk/wisekiosk`](meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md) | The WiseKiosk application, built from source |
+
 ## Layout: scaffolding vs. layer
 
 The repository is a project, not a layer. Exactly one directory in it is a BitBake layer.

@@ -1,68 +1,35 @@
-# How an update reaches a slot
+# bundles
 
-Every install — `just kiosk-ota`, [`tools/rauc-rotate.sh`](../../../tools/rauc-rotate.sh) and the
-target suite's update tests — goes through [`tools/kiosk-install.sh`](../../../tools/kiosk-install.sh),
-whose header says how. The board streams the bundle over HTTP from a pinned `nginx` container on the
-host for the length of one install. The bundle is adaptive
-(`RAUC_SLOT_rootfs[adaptive] = "block-hash-index"` in [`update-bundle.bbappend`](update-bundle.bbappend)),
-so RAUC fetches and writes only the blocks neither slot already holds, and keeps each slot's index in
-`/data/rauc`. The rootfs image is sized to its content
-([`core-image-base.bbappend`](../images/core-image-base.bbappend)), and `resize=true` in RAUC's
-`system.conf` grows the slot's filesystem to its partition after each write.
+`update-bundle.bbappend` configures the RAUC bundle built from the image. It marks the rootfs slot
+adaptive (`RAUC_SLOT_rootfs[adaptive] = "block-hash-index"`), so RAUC fetches and writes only the blocks
+neither slot already holds and keeps each slot's index in `/data/rauc`. It also attaches
+`files/kiosk-slot-hook.sh` as the bundle's hook file, run as the rootfs slot's `post-install` hook, and
+sets `LICENSE = "CLOSED"`: `insane.bbclass` fails `do_populate_lic` for a recipe that fetches files
+without `LIC_FILES_CHKSUM` unless it is `CLOSED`.
 
-## Why
+The hook runs on the running system with the freshly written slot mounted at `$RAUC_SLOT_MOUNT_POINT`.
+It copies the device's machine-id from `/data/etc/machine-id` into the new slot's `/etc/machine-id`,
+seeding `/data/etc/machine-id` from the running system's on the first run. A value that is not 32
+lowercase hex characters is left out, and every path exits 0 because a non-zero exit aborts the install.
 
-The distro sets `IMAGE_ROOTFS_SIZE` to the slot size, so an image built that way fills its slot, most
-of it empty filesystem, and every install writes all of it.
+## How it fits
 
-RAUC's documentation names adaptive updates as an optimisation for HTTP streaming: the
-`block-hash-index` method hashes both slots and fetches only blocks neither holds. Yocto's default
-sizing is the content times `IMAGE_OVERHEAD_FACTOR` (1.3), and RAUC's `resize=true` is its documented
-answer to an ext4 image smaller than its slot.
+- journald reads `/etc/machine-id` early in boot, before `/data` is mounted, so the value has to be in
+  the slot's rootfs; this hook is the point where the new slot is writable and the old system still knows
+  the identity. A new identity per update would give each slot its own journal namespace, and
+  `SystemMaxUse` is enforced per machine-id.
+- Every install goes through [`tools/kiosk-install.sh`](../../../tools/kiosk-install.sh), which serves
+  the bundle to the board over HTTP; why it is streamed and adaptive is
+  [ADR 0002 rev 1](../../../docs/decisions/0002-stream-adaptive-bundles.md).
+- The rootfs is sized to its content by [`core-image-base.bbappend`](../images/README.md); `resize=true`
+  in RAUC's [`system.conf`](../rauc/README.md) grows the slot's filesystem after each write.
+- `RAUC_SLOT_rootfs` names the image and is set in `kiosk-zero-w.yaml`; the signing key is covered in
+  [`docs/updates.md`](../../../docs/updates.md).
 
-## Alternatives set aside
+Part of [the updates path](../../../docs/updates.md).
 
-- **Copy the bundle with `scp`, then install from `/data`** — moved the whole bundle every time, and
-  the tests needed a second install path beside it.
-- **Adaptive bundles without streaming** — still copies the whole bundle, and on the bench a slot's
-  first install was slower than a plain one (PR 335 image update behaviour, "Install times");
-  RAUC documents adaptive mode as a streaming optimisation.
-- **An `ssh -R` tunnel to a server on the host's loopback** — not RAUC's documented setup; the board
-  reaches the host directly where the host publishes the server's port on the LAN.
-- **A small Python server pinned in `uv.lock`** — a prebuilt, digest-pinned image needs no code of
-  the layer's own.
-- **casync bundles** — need a converted bundle and a separate chunk store; RAUC documents streaming
-  with adaptive updates as their successor.
-- **A bind mount of the bundle into the server** — Docker Desktop keeps the mount of a file that is
-  later deleted, so bundles stayed held after their installs.
-- **`docker cp` of the bundle into the server** — it puts operator-signed test bundles on Docker's
-  disk, and [`docs/testing.md`](../../../docs/testing.md) keeps them in memory only.
-- **Host port 80 and a fixed container name** — two installs on one host could not each have a server;
-  Docker chooses the host port and the container is stopped by its id.
-- **One install serving several tests in sequence** — would couple the update tests to each other.
-- **A headroom figure of the layer's own** — Yocto's default factor plus `resize=true` is the
-  documented combination.
+## Knobs
 
-## Consequences
-
-- A slot's first adaptive install hashes the slot to build its index, so it is the slowest.
-- The rootfs is formatted with 4 KiB blocks (`-b 4096`): `mke2fs` picks 1 KiB for an image this
-  small, and `resize2fs` keeps the block size when it grows the filesystem.
-- `rauc-conf` pulls in `e2fsprogs-resize2fs`, which `resize=true` runs on the board.
-- `resize=true` is read from the running system's `system.conf`, so an install made from an image
-  whose `system.conf` lacks it leaves that slot's filesystem at its content size until the slot is
-  next written.
-- The server holds the bundle in memory (a `tmpfs` copy) for the length of one install, so the host
-  needs the bundle's size free in memory.
-- One install per board at a time from one host: a second install's arming deletes the first's
-  pstore records, and its disarming turns the first's recorders off, so the script refuses it and
-  names the holder.
-- The host that installs needs Docker and a published port the board can reach at the address its ssh
-  session comes from; [`docs/testing.md`](../../../docs/testing.md) §"Running it" states this for the
-  bench.
-
-## Reopen if
-
-- An install is needed where the board cannot reach the installing host over HTTP.
-- RAUC skips writing blocks already present in the target slot outside adaptive mode, which would
-  remove the reason for streaming on a LAN.
+- `RAUC_SLOT_rootfs[adaptive]`: `update-bundle.bbappend`; removing it makes a plain bundle that carries
+  and writes the whole image.
+- `RAUC_SLOT_rootfs[hooks]` and `RAUC_BUNDLE_HOOKS[file]`: which hook runs and where.

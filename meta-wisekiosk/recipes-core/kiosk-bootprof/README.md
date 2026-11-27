@@ -1,49 +1,47 @@
-# Using the boot profiler
+# kiosk-bootprof
 
-`kiosk-bootprof` samples `/proc/stat`, `/sys/block/mmcblk0/stat`, `/proc/loadavg` and
-`/proc/modules` from early boot and writes `/data/boot-cpu-io.<boot_id>.txt` once at the end;
-`analyze-boot-cpu-io.py` turns that into per-window CPU and I/O figures. Why the sampler is written
-the way it is belongs in `files/kiosk-bootprof.c`'s header, and why it is not in the image belongs in
-`kiosk-bootprof_1.0.bb`. This file is about *taking* a profile and *reading* one — the parts the
-code cannot state about itself.
+A boot profiler: a small C sampler (`files/kiosk-bootprof.c`, built by `kiosk-bootprof_1.0.bb`) and
+an analyzer (`files/analyze-boot-cpu-io.py`). From early boot the sampler reads `/proc/stat`,
+`/sys/block/mmcblk0/stat`, `/proc/loadavg` and `/proc/modules` on an absolute `CLOCK_MONOTONIC`
+grid and writes `/data/boot-cpu-io.<boot_id>.txt` once at the end. The analyzer turns that file
+into per-window CPU and I/O figures. The recipe deploys the binary beside the image and never
+installs it into the rootfs.
 
-## Capturing a boot
+## How it fits
 
-`just bootprofile` (`justfiles/device.just`) runs the whole cycle, through
-`tests/diagnostics/test_boot_profile.py` on the board `LG_ENV` names: copy the binary and the
-unit onto the board, enable, reboot, wait out the observer window below, pull the samples and
-the matching journal, run the analyzer. Neither the binary nor the unit is image content --
-both are copied in for the one boot they measure, and the unit's own `ExecStopPost=` removes
-them again when it stops.
+- `just bootprofile` (`justfiles/device.just`) runs the whole cycle through
+  `tests/diagnostics/test_boot_profile.py` on the board `LG_ENV` names: copy the binary and the
+  unit onto the board, enable, reboot, wait out the observer window, pull the samples and the
+  matching journal, run the analyzer. The unit's `ExecStopPost=` removes the binary and the unit
+  when it stops.
+- The analyzer reads the journal (`-o short-monotonic`) for phase edges: wlan0 expected, local
+  filesystems, basic system, wlan0 found, network online, kiosk browser started.
+- The output header carries the sampler's own CPU cost (`self_cpu_us`) and the count of samples
+  that missed their grid slot (`late`). `#M` lines list each kernel module with the time it first
+  appeared in `/proc/modules`.
 
-## Your own SSH session is an instrument, and it costs ~3.34s
+Part of [the measurement tools](../../../docs/testing.md).
 
-An `sshd` per-connection daemon burns **3 340 ms of CPU**, measured from its own `CPUUsageNSec` on
-the device. A connection opened at 32.2s during a profiling run landed inside browser startup and
-inflated browser start on that boot. **One connection per boot, opened no earlier than 90s after the
-reboot** — not a session left attached across the window.
+## Knobs
 
-Which figures a contaminated run still supports is worth stating exactly, because it decides what
-can be salvaged: this board has no network at all before ~30s, so nothing done from a workstation
-can reach `mmc1`, `brcmfmac`, `wlan0` or `Reached target Network is Online`. Those survive on any
-boot. Everything from `Started Kiosk browser` onward does not.
+- Sampler arguments: `kiosk-bootprof [duration_s [interval_ms [out_path [dev]]]]`, defaults 150 s,
+  1000 ms, `/data/boot-cpu-io`, `mmcblk0`.
+- `analyze-boot-cpu-io.py <sample-file>...` reads `<name>.journal.txt` beside each sample file.
 
-90s clears the latest browser start ever observed here (40.24s, measured on surf, on a
-deliberately misconfigured arm) with ~35s of margin. The wait is latency,
-not a measurement parameter: it changes when the journal is read, never what the journal says, so
-shortening it does not invalidate comparison against arms measured earlier.
+## Reading a profile
 
-## Limits of the data
-
-- **It does not cover the first ~8.6s.** systemd cannot run a unit before it starts, so the kernel
-  and early-systemd window is outside the samples entirely.
-- **It counts itself.** The sampler is a runnable process, so `nr_running` includes it — every run
-  queue figure from this tool is `nr_running - 1`.
-- **`io_ticks` is not populated by this kernel's mmc driver** — 0 at 3 minutes of uptime, 4050 at
-  4.8h. It is recorded but unusable over boot-length windows; `iowait %` and `rd_ms`/`wr_ms` are the
-  I/O figures to read.
-- **No PSI, no `systemd-analyze`.** `/proc/pressure/` does not exist (`CONFIG_PSI` is off) and
-  `systemd-analyze` is not on the image, so neither pressure stalls nor `blame`/`critical-chain` is
-  available as a cross-check.
-- **An instrumented boot runs ~1s longer in wall-clock than an uninstrumented one.** Compare
-  profiled boots against profiled boots.
+- A long window means the single core is busy (work), waiting (`iowait %`, `rd_ms`/`wr_ms`) or
+  queued behind unrelated work (run queue above one). The three have different fixes; overlapping
+  phases helps only where the core idles during one of them.
+- The sampler counts itself: `nr_running` includes it, so the analyzer reports run queue as
+  `nr_running - 1`.
+- `io_ticks` is not populated by this kernel's mmc driver; read `iowait %` and `rd_ms`/`wr_ms`.
+- The samples start when the sampler's unit starts, so the kernel and early-systemd window is not
+  covered.
+- `/proc/pressure` does not exist (`CONFIG_PSI` is off) and `systemd-analyze` is not on the image.
+- An instrumented boot runs longer in wall-clock than an uninstrumented one; compare profiled boots
+  with profiled boots.
+- One SSH connection costs the board's single core several seconds of CPU. Open one connection per
+  boot, after the observer window, never a session left attached across it. Before about 30 s the
+  board has no network, so `mmc1`, `brcmfmac`, `wlan0` and `Reached target Network is Online` are
+  read from the journal later and are unaffected by a late connection; the browser start is not.

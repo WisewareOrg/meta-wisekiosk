@@ -2,10 +2,10 @@
 # wisekiosk-backend are two halves of one repository and both require this file,
 # so they build from the same SRCREV.
 
-HOMEPAGE = "https://github.com/tjwise99/WiseKiosk"
+HOMEPAGE = "https://github.com/WisewareOrg/WiseKiosk"
 LICENSE = "MIT"
 
-SRC_URI = "git://github.com/tjwise99/WiseKiosk.git;protocol=https;branch=main"
+SRC_URI = "git://github.com/WisewareOrg/WiseKiosk.git;protocol=https;branch=main"
 SRCREV = "c21efa0743bdfee7749c63ec512bff87c9ffb1f5"
 
 # The app carries no release version; `+git` is poky's spelling for that, SRCPV

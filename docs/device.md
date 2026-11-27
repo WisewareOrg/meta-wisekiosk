@@ -110,9 +110,8 @@ system's memory, load and temperature every five minutes into `/data`, and its R
 
 ## CPU frequency
 
-[`kiosk-cpufreq`](../meta-wisekiosk/recipes-core/kiosk-cpufreq/README.md) caps the core below its
-top operating point, at which this board corrupts memory under sustained WiFi load. It is a unit in
-the rootfs rather than a firmware setting, so an update carries it.
+[`kiosk-cpufreq`](../meta-wisekiosk/recipes-core/kiosk-cpufreq/README.md) caps the core's
+frequency below its top operating point; its README says why, and what the cap costs.
 
 ## Getting in
 
