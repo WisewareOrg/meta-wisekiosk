@@ -9,8 +9,9 @@ kernel CNA's own vulns database.
 
 Refuses rather than reports when the filter had nothing to filter on: an SPDX
 document written without SPDX_INCLUDE_COMPILED_SOURCES yields zero compiled
-files, and the filter then runs to completion, exits clean and returns every
-finding unchanged. See docs/security.md.
+files, and the filter then returns every finding unchanged. Exit 0 with
+findings; nonzero only for a report that cannot be trusted. See
+docs/security.md.
 """
 import json
 import os
@@ -20,33 +21,26 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-# poky's own script. Pinned with the rest of the tree, so its behaviour moves
-# only when the poky pin does.
+# poky's own script, pinned with the poky pin.
 FILTER = "sources/poky/scripts/contrib/improve_kernel_cve_report.py"
 
-# cve-check's JSON summary. The text manifest beside the image carries the same
-# findings, but the filter reads and rewrites this form.
+# cve-check's JSON summary, which the filter reads and rewrites.
 SUMMARY_GLOB = "build/tmp-*/log/cve/cve-summary.json"
 
-# The kernel recipe's SPDX document, under the SAME tmp tree as the summary: a
-# host that has built for two machines has two, and crossing them would filter
-# one board's findings by another board's compiled sources.
+# The kernel recipe's SPDX document, under the same tmp tree as the summary.
 SPDX_GLOB = "deploy/spdx/*/*/recipes/recipe-{pn}.spdx.json"
 
-# Local-only, like the Grype database and the CVE history beside it. 485 MB and
-# ~15k CVE records, none of it a build input.
+# Local-only, like the Grype database and the CVE history beside it.
 DATADIR = Path.home() / ".cache/wisekiosk/linux-vulns"
 OUTPUT = Path.home() / ".cache/wisekiosk/kernel-cve-summary.json"
 
 KERNEL_PRODUCT = "linux_kernel"
 NOT_COMPILED = "not-applicable-config"
 
-# The filter's own count of what it read, which is the number that decides
-# whether it filtered anything. Absent means it did not get that far.
+# The filter's own count of what it read; absent means it did not get that far.
 COMPILED_LOG = re.compile(r"Total compiled files (\d+)")
 
-# PV as cve-check writes it -- EXTENDPE + PV, e.g. `1_6.6.63+git`. The filter
-# parses this with packaging.Version, which rejects both affixes outright.
+# PV as cve-check writes it (EXTENDPE + PV, e.g. `1_6.6.63+git`); packaging.Version rejects both affixes.
 PV = re.compile(r"^(?:\d+_)?(\d+(?:\.\d+)*)")
 
 
@@ -64,10 +58,8 @@ def refuse(message: str) -> int:
 def compiled_sources(spdx: dict) -> set:
     """The source files an SPDX document says were compiled.
 
-    Mirrors the filter's own read_spdx2/read_spdx3 selection, so the count this
-    refuses on is the count the filter will act on. The leading path component
-    is the package directory and is dropped, because the CNA names files
-    relative to the kernel tree root."""
+    Mirrors the filter's own read_spdx2/read_spdx3 selection. The leading path
+    component is the package directory and is dropped."""
     if spdx.get("spdxVersion") == "SPDX-2.2":
         return {f["fileName"][f["fileName"].find("/") + 1:]
                 for f in spdx.get("files", ())
@@ -122,8 +114,7 @@ def check(argv=()) -> int:
 
     summary = newest(top.glob(SUMMARY_GLOB))
     if summary is None:
-        # cve-check is opt-in, so no summary is the expected state of a tree
-        # that has not run an audit build, not a fault.
+        # No summary means no audit build has run: skipped.
         print(f"SKIPPED: no CVE summary under {SUMMARY_GLOB} "
               "-- `just cve-build` writes it")
         return 0
@@ -160,9 +151,7 @@ def check(argv=()) -> int:
     except (json.JSONDecodeError, OSError, KeyError) as exc:
         return refuse(f"{spdx_path.name}: {exc}")
 
-    # The whole point of the gate. Without compiled sources the filter returns
-    # every finding unchanged and exits 0, which reads exactly like a filter
-    # that found nothing to remove.
+    # Without compiled sources the filter returns every finding unchanged and exits 0.
     if not files:
         return refuse(
             f"{spdx_path.name} lists no compiled sources, so the filter would "
@@ -171,9 +160,7 @@ def check(argv=()) -> int:
             "includes/cve-audit.yaml) and a build that predates the flag "
             "cannot supply it from sstate")
 
-    # The filter parses the version with packaging.Version, which rejects
-    # cve-check's `1_6.6.63+git` outright. It reads the version from the report,
-    # so the normalisation has to happen in a copy of the report.
+    # The filter reads the version from the report; the normalisation is applied to a copy.
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     normalised = OUTPUT.with_name("kernel-cve-input.json")
     kernel_in = dict(kernel, version=version)
@@ -193,10 +180,7 @@ def check(argv=()) -> int:
         return refuse(f"{Path(FILTER).name} exited {run.returncode}: "
                       + (detail[-1] if detail else "no output"))
 
-    # The filter's own measurement of what it read, cross-checked against this
-    # reader's. Two readers of one document agreeing is what makes the count
-    # trustworthy; a disagreement means they select different files and the
-    # refusal above is guarding the wrong number.
+    # The filter's count of what it read is cross-checked against this reader's.
     logged = COMPILED_LOG.search(run.stderr or "")
     if logged is None:
         return refuse(f"{Path(FILTER).name} did not report how many compiled "
@@ -224,17 +208,13 @@ def check(argv=()) -> int:
     print(f"after:    {tally(now)}")
     print(f"filtered: {dropped} findings the config does not compile")
 
-    # The filter re-judges every kernel CVE against the CNA record, so the
-    # change in Unpatched is not the compiled-sources yield alone. `filtered`
-    # above is that yield; this line is the whole effect.
+    # The filter re-judges every kernel CVE, so the change in Unpatched is wider than the `filtered` yield above.
     print(f"net:      {was.get('Unpatched', 0)} -> {now.get('Unpatched', 0)} "
           "Unpatched, from the compiled-sources filter AND the CNA re-judgement")
     print(f"report:   {OUTPUT}")
     print(f"summary:  {summary.relative_to(top)}")
     print(f"spdx:     {spdx_path.relative_to(top)}")
 
-    # Reports, never gates: exit 0 with findings, like the rest of the audit
-    # group. A nonzero exit is reserved for a report that cannot be trusted.
     return 0
 
 

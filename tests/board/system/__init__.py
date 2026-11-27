@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 # the clock timesyncd restores at boot
 _CLOCK_FILE = "/data/systemd-timesync/clock"
-# how far back TST015 sets the clock, and how near that timesyncd's first entry must show it
+# how far back TST015 Clock set wrong sets the clock, and how near that timesyncd's first entry must show it
 _CLOCK_WRONG_BY_SECONDS = 3 * 24 * 3600
 _STILL_WRONG_WITHIN_SECONDS = 24 * 3600
 # the clock agrees with the network's time this close to the host's

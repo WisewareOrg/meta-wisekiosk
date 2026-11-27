@@ -5,37 +5,24 @@
     scrub-identity.py --apply [root]    rewrite tracked files, print what changed
 
 `--check --allow-partial` downgrades a missing map from a failure to a reported
-degradation. It is for the one caller that structurally cannot have the map --
-CI, which clones without gitignored `local/`. Everywhere else the absence is a
-finding: see "Two halves" below.
+degradation, for the one caller that cannot have the map: CI, which clones
+without gitignored `local/`.
 
-This repository is public and none of what it must not publish is
-credential-shaped -- an SSID, a LAN address, a hostname, a MAC, a machine-id and
-a PSK hash all pass gitleaks untouched while together fingerprinting one
-network. `tools/ci-guards.sh` guard 6 catches the RFC1918 half; this catches the
-rest.
-
-Two halves, because they fail differently:
+Two halves:
 
   PATTERN    shapes that are never legitimate here, recognised with no
              configuration: a MAC, a private IPv4, a filled-in site value, a
              board serial. Runs everywhere, including CI and a fresh clone.
 
   KNOWN      the literal strings in gitignored `local/device-identity.md`,
-             substring-matched. Only this half can catch a hostname or an SSID,
-             because neither has a recognisable shape -- and it can only run
-             where that file exists. Being gitignored, it exists in the PRIMARY
-             worktree only, so it is resolved through the shared git directory
-             rather than under the tree being scanned.
+             substring-matched; catches a hostname or an SSID. The map is
+             resolved through the shared git directory, so a linked worktree
+             reads the primary worktree's copy.
 
 When the map is absent the run reports PARTIAL, names the half that did not run,
-and FAILS: a check that cannot see the map must not claim the tree is scrubbed,
-and an exit code of 0 claims exactly that to every caller that only reads the
-code. `--allow-partial` is how a caller that cannot ever have the map says so out
-loud, in its own file, where a reader sees the limit.
+and exits nonzero unless `--allow-partial` is given.
 
-Scope is `git ls-files` -- the tracked set is exactly what publishing publishes,
-and it excludes `build/`, `sources/` and `local/` for free.
+Scope is `git ls-files`.
 """
 import re
 import subprocess
@@ -44,41 +31,27 @@ from pathlib import Path
 
 MAP_REL = 'local/device-identity.md'
 
-# Keys under this namespace are recorded in the map but deliberately NOT scanned:
-# `raspberrypi0-wifi` is the Yocto MACHINE name and appears in hundreds of
-# tracked paths, so scanning for it would fail every file in the tree.
+# Keys under this namespace are recorded in the map but not scanned.
 PUBLIC_NS = 'public.'
 
-# A `key = value` line inside the map's ```identity fence. Parsing is scoped to
-# that fence so the surrounding prose -- which necessarily discusses the format --
-# cannot register a pattern of its own.
+# A `key = value` line inside the map's ```identity fence; only the fence is parsed.
 FENCE_OPEN = re.compile(r'^```identity\s*$')
 FENCE_CLOSE = re.compile(r'^```\s*$')
 MAP_ROW = re.compile(r'^\s*([A-Za-z0-9_.]+)\s*=\s*(\S.*?)\s*$')
 
 # --- the pattern half ------------------------------------------------------
-# Each entry is (label, compiled regex, remedy). A hit is a failure; there are
-# no exemptions, because every legitimate use of these values is out of tree
-# (the environment, `just find`, ~/.config/wisekiosk/secrets.yaml, local/).
+# Each entry is (label, compiled regex, remedy). A hit is a failure; there are no exemptions.
 PATTERNS = [
     (
         'MAC address',
-        # The all-ff broadcast and all-zero null addresses are excluded: they
-        # name no board, and `tools/kiosk-find.sh` filters the broadcast entry
-        # out of a neighbour table by literal. The narrowing is not reachable by
-        # the defect -- a board MAC is neither of those two constants.
+        # The all-ff broadcast and all-zero null addresses are excluded.
         re.compile(r'(?<![0-9A-Fa-f:])(?!(?:ff:){5}ff|(?:00:){5}00)'
                    r'(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}(?![0-9A-Fa-f:])', re.I),
         'a MAC identifies one board and its vendor OUI; keep it in local/',
     ),
     (
         'IPv6 link-local',
-        # fe80::/10 with a modified-EUI-64 interface id embeds the interface MAC:
-        # the OUI, then the literal ff:fe, then the NIC bytes. Requiring that
-        # ff:fe marker is what makes this the MAC-leaking form specifically -- a
-        # manually assigned fe80::1 embeds no board and does not match, the way
-        # the MAC pattern excludes the broadcast and null constants. A boot_id or
-        # UUID writes fe80 with a hyphen, not a colon, so it does not match here.
+        # fe80::/10 with a modified-EUI-64 interface id: the literal ff:fe marker makes it the MAC-embedding form.
         re.compile(r'(?<![0-9A-Fa-f:])fe80:[0-9A-Fa-f:]*ff:fe[0-9A-Fa-f:]+(?![0-9A-Fa-f:])', re.I),
         'a link-local IPv6 embeds the interface MAC; keep it in local/',
     ),
@@ -91,9 +64,7 @@ PATTERNS = [
     ),
     (
         'filled-in site value',
-        # The template keeps every value empty, so an empty pair never matches.
-        # A `${VAR}` reference is a build-input question, not a leak -- that is
-        # ci-guards guard 1b's subject -- so it is excluded here.
+        # An empty pair and a `${VAR}` reference do not match.
         re.compile(r'\b(?:WIFI_SSID|WIFI_PSK_HASH|KIOSK_URL|KIOSK_HOSTNAME|KIOSK_MACHINE_ID'
                    r'|KIOSK_NAMESERVER|MIRROR_HOST)\s*\??=\s*"(?!\s*\$\{)[^"\s][^"]*"'),
         'site configuration belongs in ~/.config/wisekiosk/secrets.yaml, never in the tree',
@@ -105,27 +76,14 @@ PATTERNS = [
     ),
     (
         'machine-id',
-        # A machine-id is 32 hex with no delimiters, so a bare shape matches the
-        # MIT LIC_FILES_CHKSUM md5 in nine recipe files. What distinguishes one
-        # is its CONTEXT: it names the journal directory, or it sits beside the
-        # words machine-id / KIOSK_MACHINE_ID. Without this the value was
-        # reachable only through the KNOWN half -- which needs gitignored
-        # local/device-identity.md and therefore never runs in CI, and a real
-        # machine-id in a journal path published on that route. The anchor word
-        # is matched case-insensitively, so an unquoted `KIOSK_MACHINE_ID=<hex>`
-        # counts; the hex run is {16,32}, not {32}, so a truncated machine-id (a
-        # half-id short label or an `sd_id128 --app-specific` derivation) still
-        # leaks the unit, while the 16-char floor stays clear of the 8- and
-        # 12-char git-sha abbreviations that sit beside the word "machine-id" in
-        # the docs.
+        # 32 hex only beside the journal path or the word machine-id / KIOSK_MACHINE_ID, case-insensitively; {16,32} hex catches a truncated id.
         re.compile(r'(?:/var/log/journal/|(?i:machine[-_ ]?id)[^\n]{0,60}?)'
                    r'(?<![0-9A-Za-z])[0-9a-f]{16,32}(?![0-9A-Za-z])'),
         'a machine-id identifies one installed unit; keep it in local/ and cite it as <KIOSK_MACHINE_ID>',
     ),
 ]
 
-# This file necessarily contains every pattern it searches for, as source. A
-# scanner that fails on its own source is a scanner nobody can commit.
+# This file contains every pattern it searches for, so it is excluded from its own scan.
 SELF = 'tools/scrub-identity.py'
 
 
@@ -148,22 +106,11 @@ def repo_root(argv_root):
 
 
 def map_path(root):
-    """Where `root`'s identity map lives, resolved through the SHARED git dir.
+    """Where `root`'s identity map lives, resolved through the shared git dir.
 
-    `local/` is gitignored, so it exists in the PRIMARY worktree and nowhere
-    else. Looking only under the tree being scanned therefore found nothing from
-    a linked worktree: the strict routes refused to run at all there, and the
-    `--allow-partial` route quietly dropped to a pattern-only scan -- losing the
-    one half that can see a hostname, an SSID or a PSK hash, in a tree that is
-    about to be pushed.
-
-    `git rev-parse --git-common-dir` names the shared git directory (the primary
-    tree's `.git`, whichever worktree asks), so its parent is the primary
-    worktree root. The answer is relative to `root` from the primary tree itself
-    and absolute from a linked one, so both spellings are handled. The map under
-    `root` still wins when it is there, which keeps an explicitly passed root
-    authoritative over its own tree.
-    """
+    The map under `root` wins when present; otherwise the parent of
+    `git rev-parse --git-common-dir` (relative to `root` from the primary tree,
+    absolute from a linked one) is the primary worktree root."""
     direct = root / MAP_REL
     if direct.exists():
         return direct
@@ -234,10 +181,7 @@ def main():
 
     rows = load_map(root)
 
-    # Degraded, but never silently. The stdout PARTIAL line below reaches the
-    # caller who reads the report; this reaches the one who only reads the exit
-    # code, which `--allow-partial` makes 0. Same sentence the device guard says
-    # when its own copy of this map is out of reach.
+    # Reaches stderr for a caller reading only the exit code, which `--allow-partial` makes 0.
     if rows is None:
         print(f'{SELF}: no {MAP_REL} reachable from {root} -- the KNOWN half '
               '(hostname, SSID, PSK hash) is INERT for this run.', file=sys.stderr)
@@ -280,9 +224,7 @@ def main():
             print(f'  {f}')
         return 1
 
-    # A partial scan is not a clean scan. The half that can see a hostname, an
-    # SSID or a PSK hash is precisely the half that did not run, so exiting 0
-    # here reports "nothing found" for a search that was never performed.
+    # A partial scan is not a clean scan.
     if rows is None:
         print(f'  PARTIAL -- no {MAP_REL}, so the KNOWN half did not run. '
               'Pattern scan found nothing; a hostname or SSID leak would not be visible here.')

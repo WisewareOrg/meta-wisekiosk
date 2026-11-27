@@ -1,7 +1,4 @@
-# Shared device command recipes (SSH-based)
-#
-# These recipes interact with running devices over SSH.
-# All commands assume root@<host> SSH access is configured.
+# Device recipes over SSH; each assumes root@<host> access.
 
 # Show RAUC status on a running device
 [group('device')]
@@ -17,10 +14,7 @@ reboot host:
 [group('device')]
 [script('bash')]
 status host:
-    # A connection-level failure -- host unreachable, or its key not in
-    # known_hosts -- must not read as a healthy device with empty sections. Probe
-    # once, hard and non-interactive (BatchMode refuses an untrusted key rather
-    # than prompting), before the tolerant per-command reads below.
+    # One non-interactive probe (BatchMode) before the tolerant per-command reads.
     ssh -o BatchMode=yes -o ConnectTimeout=10 root@{{host}} true || { echo "cannot reach root@{{host}}: unreachable, or host key not in known_hosts" >&2; exit 1; }
     echo "=== RAUC Status ==="
     ssh root@{{host}} "rauc status" || true
@@ -33,21 +27,8 @@ status host:
 
 # === Diagnostics ===
 #
-# Thin wrappers over tools/kiosk-*, except bootprofile, which runs through the
-# bench runner. The reasoning behind each check lives in the script it wraps (or,
-# for bootprofile, tests/diagnostics/test_boot_profile.py);
-# .claude/skills/kiosk-debug/SKILL.md decides which one a given symptom calls for.
+# Thin wrappers over tools/kiosk-*, except bootprofile, which runs through the bench runner.
 
-# Takes a CIDR rather than a host: this is the recipe for when the address is
-# what you are missing. The script picks its own L2 view -- Windows interop
-# under WSL, a local interface otherwise -- and prints which one it used,
-# because a miss means something different in each.
-#
-# Exit 3 stays non-zero: it means "no L2 view, nothing could be identified", and
-# a caller that read that as "the subnet is empty" is the exact mistake this
-# recipe exists to prevent. But a rc=3 run can still have printed useful
-# addresses above, and just's bare "error: recipe find failed" describes none of
-# that, so the line below names what 3 means before just says its piece.
 [group('device')]
 [script('bash')]
 [doc("Sweep a /24 and report Raspberry Pi OUIs from the best neighbour table available")]
@@ -60,8 +41,7 @@ find cidr:
     fi
     exit $rc
 
-# Run from the host serving the page -- a socket table only holds that host's
-# own sockets, so the address to pass is the KIOSK's, not this host's.
+# Run from the host serving the page; kiosk-addr is the kiosk's address.
 [group('device')]
 [doc("Infer browser state from TCP connections to the served page")]
 tcp-state kiosk-addr port="8080":
@@ -72,41 +52,19 @@ tcp-state kiosk-addr port="8080":
 screenshot host out="":
     tools/kiosk-screenshot.py root@{{host}} {{out}}
 
-# n is a SAMPLE COUNT, not hours: the sampler writes one line every 5 minutes,
-# so 12 is the last hour and 288 the last day. Omitting it reads the whole log.
+# n is a sample count, one sample per 5 minutes.
 [group('device')]
 [doc("Read the soak log summary from the device")]
 soak-summary host n="24":
     tools/kiosk-ssh.sh root@{{host}} 'kiosk-soak.sh --summary {{n}}'
 
-# Costs a reboot of the device and about three minutes. Samples land in local/,
-# this repository's gitignored home for a journal dump that carries hostname,
-# addresses and the SSID; just runs recipes with cwd at the repository root,
-# which is public.
+# Reboots the device; samples land in the gitignored local/.
 [group('device')]
 [doc("Profile one boot end to end on the board LG_ENV names; leaves the checkout on a detached HEAD")]
 bootprofile:
     bench test HEAD --skip-build -- tests/diagnostics -k boot_profile -rP
 
-# Pull-only, and deliberately so: /data is the one thing on this device that a
-# reflash does not reproduce, and a backup recipe that can also write is a
-# restore path nobody has rehearsed. Restoring is `just provision-device` plus
-# whatever this archive holds, applied by hand.
-#
-# One plain stream, no chunking -- the plain-transfer shape verified against the
-# capped board with #29. gzip -t below is what says whether the transfer arrived
-# whole.
-#
-# The pull itself needs a reachable device. What runs without one: mkdir, the
-# overwrite guard, and gzip -t catching a truncated (here, empty) stream.
-#
-# The tarball lands in local/: it holds /data/config/wpa_supplicant.conf and the
-# persistent journal, and local/ is this repository's gitignored home for
-# exactly that. just runs recipes with cwd at the repository root, which is
-# public.
-#
-# host is an ssh target, `root@<addr>`, not a bare address: it defaults to
-# kiosk-host, which every other host-defaulting recipe shares.
+# Pull-only, one plain stream; the tarball lands in the gitignored local/. host is an ssh target.
 [group('device')]
 [script('bash')]
 [doc("Pull a dated tarball of the device's /data to this host")]
@@ -119,6 +77,6 @@ kiosk-backup host=kiosk-host:
         exit 1
     fi
     $SSH {{host}} 'tar -czf - -C / data' > "$OUT"
-    # A truncated stream still leaves a file, and gzip is where that shows up.
+    # gzip -t detects a truncated stream.
     gzip -t "$OUT" || { echo "$OUT does not decompress -- the transfer was cut short"; rm -f "$OUT"; exit 1; }
     echo "wrote $OUT ($(du -h "$OUT" | cut -f1))"

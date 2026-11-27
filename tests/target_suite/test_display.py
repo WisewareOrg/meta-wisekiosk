@@ -3,7 +3,7 @@
 from board.screen import Plane
 from board_test import BoardTest
 
-# TST031's floor
+# the floor of TST031 Display at the minimum resolution
 MIN_WIDTH, MIN_HEIGHT = 1280, 720
 
 

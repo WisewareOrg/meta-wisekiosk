@@ -1,12 +1,9 @@
 #!/bin/sh
-# Seed /data/config/config.json from the image's shipped default the first
-# time a device (or a fresh /data) has none. Called by kiosk-provision, after
-# the machine-id seed.
+# Seed /data/config/config.json from the image's shipped default when none exists. Called by
+# kiosk-provision.
 #
-# ROOT lets the whole path set be relocated for testing; a real boot leaves it
-# empty and the paths below are the real device ones. It never fails: an
-# operator's own config.json, however it got there -- including an empty file
-# -- must survive unchanged, and a missing image default is not an error.
+# ROOT relocates every path, for tests; a real boot leaves it empty. It never fails: an existing
+# config.json, even an empty one, is left unchanged, and a missing image default is not an error.
 
 set -u
 ROOT="${ROOT:-}"
@@ -18,8 +15,7 @@ mkdir -p "$CFG"
 
 if [ ! -e "$CFG/config.json" ]; then
     if [ -s "$SRC" ]; then
-        # cp + chmod, not install: the image's busybox carries no install
-        # applet.
+        # The image's busybox has no install applet.
         tmp="$CFG/config.json.tmp"
         if ! cp "$SRC" "$tmp"; then
             rm -f "$tmp"

@@ -1,19 +1,9 @@
 [extend]
 useDefault = true
 
-# One known finding is allowlisted so CI gates NEW leaks; a check red on every
-# run gates nothing. Not a false positive: development.key.pem is a genuine RSA
-# private key in a PUBLIC repository -- upstream AutonomOS material, vendored
-# here by c2d73ed3 (2026-01-04), not written for the Zero W port. Its reach is
-# nil: fleet and build both use the WiseKiosk 2026 key (kiosk-zero-w.yaml,
-# AUTONOMOS_RAUC_KEY_DIR), so a dev-key-signed bundle installs nowhere.
-#
-# The path is the VENDORED one, deliberately. `gitleaks detect` scans git
-# HISTORY, not the worktree, and that is where the blob still is; the worktree
-# copy went when meta-autonomos became kas-fetched, and the fetched copy under
-# sources/ is gitignored, never scanned. So the entry goes only on a history
-# rewrite -- not worth doing, since it does not unpublish a public key.
-# See docs/updates.md.
+# Allowlists development.key.pem, an upstream RAUC development private key vendored in this repo's
+# git history; no fleet or build key is signed by it. The path is the vendored one because
+# `gitleaks detect` scans history, not the worktree. See docs/updates.md.
 [allowlist]
 description = "Retired upstream RAUC development signing key, still in this repo's git history"
 paths = ['''meta-autonomos-core/files/rauc-example-keys/development\.key\.pem''']

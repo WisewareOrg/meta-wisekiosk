@@ -1,16 +1,12 @@
 #!/bin/sh
-# Kiosk soak sampler, ported from the Raspbian-era kiosk's sampler for the
-# Yocto image.
+# Kiosk soak sampler.
 #
 #   kiosk-soak.sh              take one sample
 #   kiosk-soak.sh --summary [N]   report over the last N samples (default: all)
 #
-# Differences from the Raspbian original, all forced by the target:
-#   * LOG lives on /data, which survives an A/B update. The Raspbian log sat on
-#     the rootfs; here that would be destroyed by the first OTA.
-#   * busybox has no `ps -eo`, no `df --output`, and its `free -m` reports KB
-#     regardless of the flag. Memory is divided to MB explicitly so the line
-#     format stays byte-comparable with the old log.
+# Env: KIOSK_SOAK_LOG (default /data/kiosk-soak.log), KIOSK_SOAK_MAXLINES (default 20000).
+# busybox has no `ps -eo` or `df --output`, and its `free -m` reports KB, so memory is divided to
+# MB here.
 #
 # The fields that are not self-evident from the printf below:
 #   boot       first 8 of boot_id. A change means the device rebooted, and the
@@ -25,12 +21,11 @@
 #   ent        entropy pool. Low is expected; the image has no rngd
 #
 # Read a --summary in this order, weakest evidence last:
-#   1. reboots and browser restarts. Non-zero means the memory series is really
-#      two series, and no rate fitted across it means anything
-#   2. samples w/o browser. Non-zero means the kiosk was down at those samples
-#   3. the shape of rss_total across the window, before any slope. This port
-#      prints no hourly mean, so that read is manual against the log
-#   4. the slope, last
+#   1. reboots and browser restarts: non-zero means the memory series is really two series
+#   2. samples w/o browser: the kiosk was down at those samples
+#   3. the shape of rss_total across the window, read manually against the log
+#   4. the slope, last. The endpoint delta is not a rate, and one line fitted through a step
+#      reports the step as a rate; compare samples at matched page states far apart.
 set -u
 LOG=${KIOSK_SOAK_LOG:-/data/kiosk-soak.log}
 MAXLINES=${KIOSK_SOAK_MAXLINES:-20000}
@@ -43,9 +38,7 @@ if [ "${1:-}" = "--summary" ]; then
       n++
       if (first == "") { first = v["ts"]; frss = v["rss_total"]; fboot = v["boot"] }
       last = v["ts"]; lrss = v["rss_total"]
-      # timer cadence is 300s (OnUnitActiveSec=5min); with ~1s execution/
-      # AccuracySec jitter a healthy delta is ~301s. 450 = 1.5x cadence
-      # catches a single missed run (~600s) with margin, never jitter
+      # A gap is a delta above 450 s, 1.5x the 300 s timer cadence.
       if (prevts != "" && v["ts"] - prevts > 450) { gaps++; if (v["ts"] - prevts > maxgap) maxgap = v["ts"] - prevts }
       prevts = v["ts"]
       if (v["boot"] != fboot && !seen[v["boot"]]++) reboots++
@@ -85,9 +78,7 @@ COMM=kiosk-browser
 # pidof, not pgrep -x: busybox's pgrep -x matches the full path the launcher runs as.
 PID=$(pidof "$COMM")
 
-# Renderers are separate processes and hold most of the memory. Count the whole
-# family, or a leak in the renderer looks like a flat launcher. busybox has no
-# `ps -eo`, so walk /proc directly.
+# The browser family is kiosk-browser plus its WPE* children, found by walking /proc.
 NPROC=0; RSS_TOTAL=0
 for d in /proc/[0-9]*; do
   c=$(cat "$d/comm" 2>/dev/null) || continue
@@ -116,8 +107,7 @@ printf 'ts=%s iso=%s boot=%s up=%s load1=%s load5=%s load15=%s temp=%s thr=%s me
   "$MU" "$MA" "$ENT" "$DISK" "$COMM" "${PID:-none}" "$NPROC" "$RSS_MAIN" "$RSS_TOTAL" \
   >> "$LOG"
 
-# Cap the log so a sampler left running for a year cannot fill the partition.
-# temp + mv so a reader never sees a truncated file.
+# Trim the log to MAXLINES through a temp file and mv, so a reader never sees a truncated file.
 lines=$(wc -l < "$LOG")
 if [ "$lines" -gt "$MAXLINES" ]; then
   tail -n "$MAXLINES" "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"

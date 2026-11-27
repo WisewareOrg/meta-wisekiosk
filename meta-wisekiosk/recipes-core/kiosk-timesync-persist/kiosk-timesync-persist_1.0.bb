@@ -1,7 +1,5 @@
 SUMMARY = "Persist the timesyncd clock on /data, across A/B updates"
-DESCRIPTION = "Redirects systemd-timesyncd's saved clock onto /data so a freshly \
-installed RAUC slot boots with a real clock instead of the epoch. Closes the \
-cold-boot 'certificate is not yet valid' install failure (issue #31)."
+DESCRIPTION = "Binds systemd-timesyncd's saved clock onto /data, so a slot an update has written boots with a recent time."
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
@@ -11,7 +9,7 @@ S = "${WORKDIR}"
 
 inherit systemd
 
-# The oneshot that stages the /data bind source, ordered before timesyncd.
+# The oneshot that stages the /data bind source.
 SYSTEMD_SERVICE:${PN} = "kiosk-timesync-dir.service"
 SYSTEMD_AUTO_ENABLE = "enable"
 

@@ -8,37 +8,16 @@
 #   EOF
 #   tools/kiosk-ssh.sh root@<host> --close             # drop the master early
 #
-# The key exchange is not free here: it runs on the same saturated 1GHz ARM11
-# core the browser renders on, so per-command handshake cost is kiosk load, not
-# just operator latency. Multiplexing pays that once. Nothing is installed on
-# the device -- the master lives on this host -- so it cannot touch the lifeline.
+# Multiplexes over one ssh control master that lives on this host and persists 30 minutes; nothing
+# is installed on the device. A device reboot orphans the master: ServerAliveInterval/CountMax
+# bound it at about 60s, and --close drops it.
 #
-# Batch anyway: one `bash -s` heredoc beats ten calls even over a warm master.
+# The control path is "$HOME/.ssh/kiosk-%C" and caps at about 108 characters; a longer one fails
+# every call with `too long for Unix domain socket`. %C is a fixed-length hash.
 #
-# Three things bite:
+# Keeps ssh stderr unfiltered (no LogLevel=ERROR) so connection errors show.
 #
-#   * The control socket path caps at ~108 characters, and a path over the cap
-#     fails with `too long for Unix domain socket` on EVERY call including the
-#     first, which reads as a connection failure rather than a path problem.
-#     %C is a hash of (local host, remote host, port, user), so that half is
-#     fixed-length no matter what the target is called. The whole path is
-#     "$HOME/.ssh/kiosk-%C", so $HOME is the one variable component and the
-#     only way back over the cap -- fine on any ordinary home directory, and
-#     the thing to look at first if the cap is ever hit.
-#
-#   * Do not add LogLevel=ERROR to silence the post-quantum banner on cold
-#     connect. The banner is expected noise from this EOL sshd; suppressing it
-#     suppresses genuine connection errors with it -- the same mistake as
-#     2>/dev/null on a probe, which turns a broken check into something
-#     indistinguishable from a broken kiosk.
-#
-#   * A master orphaned by a device reboot is the expected stale case.
-#     ServerAliveInterval/CountMax bound it at ~60s instead of hanging forever.
-#     This path is reasoned, not measured. If commands stop answering after a
-#     reboot, run --close before diagnosing anything else.
-#
-# A backgrounded SSH command often exits 1 even when the work succeeded, so
-# verify by querying state afterwards, never by the exit code.
+# A backgrounded SSH command often exits 1 even when the work succeeded; query state afterwards.
 set -uo pipefail
 
 HOST=${1:?usage: kiosk-ssh.sh <ssh-target> <command> | <ssh-target> --close}
@@ -59,8 +38,7 @@ ssh_opts=(
 )
 
 if [ "${1:-}" = "--close" ]; then
-    # -O exit against no master is not an error worth failing on: the desired
-    # state is "no master", and that is already true.
+    # No master running is not an error.
     ssh "${ssh_opts[@]}" -O exit "$HOST" 2>&1 | grep -v 'No such file or directory' || true
     exit 0
 fi

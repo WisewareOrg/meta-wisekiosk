@@ -9,11 +9,9 @@ exits 2 with the matching questions on stderr. Claude Code blocks the commit and
 feeds that text to the model, which answers the questions and re-runs the commit.
 No prompt reaches the human. Fires the same way inside subagents.
 
-The group names here and the `**Group**` headings in CONTRIBUTING.md are one
-taxonomy authored in two files: a rename in either place would silently select no
-questions, which reads as a clean commit. `tools/ci-guards.sh` guard 13 holds the
-two sides equal, so a one-word rename fails the guards instead of disarming a
-question group.
+The group names here and the `**Group**` headings in CONTRIBUTING.md must match;
+the `tools/ci-guards.sh` check that the hook's group names equal the headings
+enforces it.
 
 A marker keyed on the staged content (`git write-tree`, plus the unstaged tracked
 diff under `-a`) is the loop guard: the first attempt at a given content-state
@@ -105,10 +103,9 @@ GIT_OPTS_WITH_VALUE = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "-
 def tokenize(line):
     """Shell-tokenise one line, with `;` `&&` `||` `|` `&` as their own tokens.
 
-    `punctuation_chars` makes the operators separate tokens rather than gluing
-    them to an adjacent word (`status;git` would otherwise tokenise as one word);
-    newlines are split by the caller, since shlex treats a newline as ordinary
-    whitespace and would fold two commands into one.
+    `punctuation_chars` makes the operators separate tokens even when adjacent
+    to a word (`status;git`); the caller splits newlines, which shlex treats as
+    whitespace.
     """
     lex = shlex.shlex(line, posix=True, punctuation_chars=True)
     lex.whitespace_split = True
@@ -122,10 +119,8 @@ def command_lines(command):
     """Yield each line, skipping the body of a heredoc.
 
     A `<<DELIM` redirection makes the following lines data until a line equal to
-    DELIM, so the per-line pass must not read them as commands — otherwise a
-    `cat <<EOF` whose body contains `git commit …` reads as a commit. Over-skipping
-    (a `<<` inside a quoted argument) at worst misses a commit, which is the
-    fail-open direction.
+    DELIM. A `<<` inside a quoted argument over-skips, which misses a commit
+    rather than inventing one.
     """
     lines = command.splitlines()
     i = 0
@@ -143,12 +138,9 @@ def command_lines(command):
 def commit_segments(command):
     """Yield the git-commit simple-commands in `command`.
 
-    Parses the whole command first — so a message whose quoting spans a newline
-    (the multi-line `-m`/trailer form) stays a single token — then each line, so
-    an *unquoted* newline separating two commands is still a boundary. shlex folds
-    an unquoted newline into whitespace, which is why the per-line pass is needed;
-    a line whose quote spans the break simply fails to parse there and was already
-    covered by the whole-command pass.
+    Parses the whole command first, keeping a quoted multi-line `-m` message one
+    token, then each line, so an unquoted newline between two commands is a
+    boundary. A line whose quote spans the break fails to parse and is skipped.
     """
     for text in (command, *command_lines(command)):
         try:
@@ -163,8 +155,8 @@ def commit_segments(command):
 def commits(command):
     """True when a simple-command in `command` is a git commit that writes one.
 
-    `commit` inside a quoted argument of another command — an echo, a `-m`
-    message — is never mistaken for the git subcommand.
+    `commit` inside a quoted argument of another command is not the git
+    subcommand.
     """
     for _ in commit_segments(command):
         return True
@@ -236,9 +228,7 @@ def claim(key):
 
 
 def prune_markers():
-    """Drop markers older than a day so the guard directory does not grow without
-    bound; a block and its retry happen within seconds, so this never removes a
-    marker that is still guarding a live retry."""
+    """Drop markers older than a day."""
     cutoff = time.time() - 86400
     try:
         for name in os.listdir(GUARD_DIR):
@@ -277,7 +267,7 @@ def stages_all(command):
     """True when the git-commit simple-command carries -a / --all.
 
     Scoped to the commit segment: an earlier command's flag (`ls -la && git
-    commit`) is a different segment and does not count.
+    commit`) does not count.
     """
     return any(segment_stages_all(segment) for segment in commit_segments(command))
 
@@ -343,21 +333,10 @@ def parse_checklist(contributing_path):
     return groups
 
 
-# Paths that carry a signing, keyring or site-secret decision, wherever they sit
-# in the tree. Matched on the whole path, not a prefix: the RAUC bundle recipe,
-# the rotation tooling and the rotation write-up live in three different
-# directories and every one of them is the same review question.
-#
-# `sign` is word-bounded like `keys?` beside it. Unbounded it matched the `sign`
-# inside `design`, `assign` and `signal`, so every docs/design/* and *design*
-# tooling path drew the keyring and site-secret questions — and a reader trained
-# to wave three irrelevant questions through is how a real question 9 gets waved
-# through.
-#
-# `provision` is here for the same reason: tools/provision.sh is the file that
-# writes a site's SSID and PSK hash onto a card, so it is the exact subject of
-# question 10 (no secret as a build input) and question 11 (no identity in the
-# tree) -- and it drew neither, because its name carries no signing word.
+# Paths carrying a signing, keyring or site-secret decision, matched anywhere in
+# the whole path. `sign` and `keys?` are word-bounded so `design` and `assign`
+# do not match; `provision` matches tools/provision.sh, which writes a site's
+# SSID and PSK hash onto a card.
 SECRET_PATH = re.compile(
     r"(rauc|\bsign(ing|ed|er|s)?\b|secrets?|keyring|gitleaks|\bkeys?\b|\bprovision(ing)?\b)", re.I
 )
@@ -366,11 +345,10 @@ SECRET_PATH = re.compile(
 def select_groups(changed):
     """Map changed paths to CONTRIBUTING.md Review checklist **Group** names (union).
 
-    The six names below are authored twice, here and as `**Group**` headings in
-    CONTRIBUTING.md's "## Review checklist". They must match character for
-    character; a name that matches nothing selects no questions and the commit
-    goes through looking reviewed. `tools/ci-guards.sh` guard 13 compares the two
-    sets and fails on any name present on one side only.
+    The six names below must match the `**Group**` headings in CONTRIBUTING.md's
+    "## Review checklist" character for character; a name that matches nothing
+    selects no questions. The `tools/ci-guards.sh` group-name check fails on any
+    name present on one side only.
     """
     needed = set()
     for path in changed:
@@ -380,47 +358,35 @@ def select_groups(changed):
         if norm.startswith("meta-wisekiosk/"):
             needed.add("Layer & recipes")
 
-        # The kas entry point and everything it pulls in — pins, machine config,
-        # DISTRO_FEATURES, PACKAGECONFIG.
+        # The kas entry point and the includes it pulls in.
         if norm == "kiosk-zero-w.yaml" or norm.startswith("includes/"):
             needed.add("Build config & pins")
 
-        # Patches kas applies to the upstream checkout before bitbake parses it
-        # -- and the ones a recipe applies through SRC_URI, which live beside
-        # that recipe under meta-wisekiosk/. Questions 7 and 8 (why not a
-        # bbappend, does it still apply) are the same questions wherever the
-        # patch sits, and keying on the `patches/` prefix alone asked neither of
-        # them about the in-layer half.
+        # Patches kas applies to the upstream checkout, and patches a recipe applies
+        # through SRC_URI beside it (questions 6 *Why not a bbappend* and 7 *Still
+        # applies*).
         if norm.startswith("patches/") or norm.endswith(".patch"):
             needed.add("Upstream patches")
 
         if SECRET_PATH.search(norm):
             needed.add("RAUC / signing / secrets")
 
-        # Anything that gates, builds or drives — the recipes, the hooks, the
-        # guard's own self-test, the workflows.
+        # Gates, builds, hooks, workflows and their self-tests.
         if norm == "Justfile" or norm.startswith(
             ("tools/", "justfiles/", ".github/", ".claude/", ".githooks/")
         ):
             needed.add("Tooling, guards & CI")
 
-        # `.gitignore` is what keeps local/ — the identity map, the keys, the raw
-        # captures — out of a PUBLIC tree. Removing one line publishes all of it.
+        # `.gitignore` keeps local/ (identity map, keys, captures) out of the tree.
         if norm == ".gitignore":
             needed.add("RAUC / signing / secrets")
 
-        # Every tracked Markdown file, wherever it lives: documentation in this
-        # repository sits beside the code it explains, so a recipe's README is
-        # as much in scope as anything under docs/.
+        # Every tracked Markdown file, wherever it lives.
         if norm.startswith("docs/") or norm.endswith(".md"):
             needed.add("Docs")
 
-    # A changed path that matches nothing must not read as "no review needed".
-    # main() treats an empty set as exactly that and lets the commit through with
-    # no question and no marker claimed, so a path this function has not learned
-    # about yet is silently exempt — the one outcome no branch above intends.
-    # Everything in this repository that is not layer, build config, patch,
-    # secret-adjacent or prose is machinery, so that is where the fallback lands.
+    # A path matching no rule falls back to the tooling group; main() lets an
+    # empty set through with no question.
     if changed and not needed:
         needed.add("Tooling, guards & CI")
 

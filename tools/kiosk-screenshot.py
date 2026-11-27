@@ -6,8 +6,7 @@
 Exits 0 with a PNG; 1 with a PNG and BLANK if every pixel is the same; any other failure is 1 with the
 reason on stderr.
 
-The default output goes under local/: a capture is a picture of the site's live kiosk page, and local/
-is gitignored.
+The default output goes under local/, which is gitignored.
 
 Reading it:
 

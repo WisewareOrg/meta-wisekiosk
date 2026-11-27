@@ -1,26 +1,14 @@
-##########
-# HEADER #
-##########
-# Kiosk image for the Raspberry Pi Zero W: WPE WebKit straight to DRM, no
-# display server (ADR 0001 rev 2). This is the only kas config in the repo; it
-# pulls in the repo pins (includes/base.yaml, which fetches meta-autonomos and
-# patches it) and the machine, then adds everything specific to this image below.
+# The kas entry point: includes the pins (includes/base.yaml) and the machine, and configures this image.
 header:
   version: 20
   includes:
     - includes/base.yaml
     - includes/platforms/raspberrypi-zero-w.yaml
 
-##########
-# TARGET #
-##########
 build_system: oe
 distro: autonomos
 target: [core-image-base, kiosk-bootprof]
 
-#######################
-# BUILD CONFIGURATION #
-#######################
 local_conf_header:
   standard: |
     PATCHRESOLVE = "noop"
@@ -28,312 +16,113 @@ local_conf_header:
     USER_CLASSES ?= "buildstats"
     TMPDIR = "${TOPDIR}/tmp-${MACHINE}"
 
-  # debug-tweaks gives an empty root password and permits root SSH login. That
-  # is the lifeline: booting this card means a physical trip to the kiosk, and
-  # an image you cannot log into is recovered only by pulling the card back out.
-  # ssh-server-openssh is NOT implied by core-image-base -- its only IMAGE_FEATURE
-  # is splash, which is dropped here because plymouth measured 2.6s of boot on
-  # this hardware for a screen nobody watches.
+  # debug-tweaks: empty root password and root SSH login. core-image-base implies no ssh server.
   extras: |
     EXTRA_IMAGE_FEATURES ?= "debug-tweaks ssh-server-openssh"
     IMAGE_FEATURES:remove = "splash"
 
-  # A kernel panic at 4.0s inside mmc_rescan was observed 2026-08-12 and hung the
-  # board indefinitely. Nothing in userspace can reach a panic that early: systemd
-  # arms the hardware watchdog at 5.2s, and kernel.panic via sysctl applies at
-  # ~11.7s. The kernel command line is the only mechanism that covers it, and
-  # without it this failure costs a person standing at the device.
-  # Its value differs from kernel.panic in 60-kiosk-panic.conf, which applies once
-  # userspace is up, and stays: cmdline.txt is on the shared FAT partition RAUC
-  # never writes (docs/updates.md §"The shared /boot"), so a new value would reach only a
-  # freshly flashed card, and the tree would state a value the boards in the field
-  # do not run.
+  # Reboot after a panic that comes before userspace; kiosk-hardware's kernel.panic applies once it is
+  # up. cmdline.txt is on the shared /boot (docs/updates.md §"The shared /boot").
   panic-reboot: |
     CMDLINE:append = " panic=10"
 
-  # rpi-6.6.y is frozen at 6.6.78 (last commit 2025-03-26); rpi-6.12.y is the only
-  # RPi branch still merging linux-stable. A hard set: upstream's default is ??=.
+  # A hard set: meta-raspberrypi's default is ??=.
   kernel: |
     PREFERRED_VERSION_linux-raspberrypi = "6.12.%"
 
   display: |
-    # console=tty1 ONLY. The kiosk panel is the console (owner, 2026-08-12) --
-    # this unit IS a display, so kernel output always has a screen, and there is
-    # no serial adapter and will not be one. The 4.0s mmc_rescan panic was read
-    # off that panel.
-    #
-    # Carrying console=serial0 as well cost 2.43s of wall clock for 0.43s of CPU,
-    # measured n=3: every printk is written SYNCHRONOUSLY to a 115200 UART, so
-    # the core stalls on it rather than computing. 261 kernel lines is ~19.6KB,
-    # ~1.7s at that baud, and the measured cost is higher because early-boot
-    # messages predate journald. "Expecting device wlan0" moved 7.7s -> 6.1s.
-    #
-    # ENABLE_UART is left alone deliberately: only the cmdline argument was
-    # measured, and changing the firmware setting in config.txt is a different,
-    # untested change.
+    # The panel is the only console; a serial console writes every printk synchronously to the UART.
     CMDLINE_SERIAL = "console=tty1"
 
-  # VC4DTBO CANNOT TRAVEL BY OTA. It reaches a board only as the `dtoverlay=`
-  # line rpi-config_git.bb writes into config.txt, which is on the shared FAT
-  # partition, and RAUC_BUNDLE_SLOTS = "rootfs" means RAUC never writes it. The
-  # two PREFERRED_VERSION lines DO ride the bundle. So an OTA alone lands a mesa
-  # userland on whatever overlay the card was flashed with -- the delivery that
-  # covers both halves is a card reflash.
-  #
-  # Firmware KMS, not full KMS. Full KMS presents a content-black scanout on
-  # this panel, measured across forced 1080p and 720p, `disable_fw_kms_setup=1`,
-  # an xrandr kick, and compositing both on and off -- it is not a performance
-  # lever on this display, it is a blank one. A hard set rather than a default taken:
-  # rpi-config_git.bb spells VC4DTBO `?=`, raspberrypi0-wifi.conf overrides
-  # nothing, and sibling machine configs (raspberrypi3, raspberrypi-armv8) do
-  # override it.
-  #
-  # mesa is pinned to poky's 24.0.7. meta-raspberrypi ships mesa 25.1.6, which
-  # inherits the rust class -- a rust toolchain build on armv6 nothing else in
-  # this image needs -- and ships no mesa-gl at that version, so the two halves
-  # of one source tree would build at different versions. meta-raspberrypi's
-  # PACKAGECONFIG bbappends are `_%` and still apply at 24.0.7, so the vc4/v3d
-  # gallium drivers come with the older recipe. `just preferred-version`
-  # reports this pin as behind by design; this comment is the reason it is not
-  # a bump to take. See docs/security.md.
+  # Firmware KMS, a config.txt line (docs/display.md §"Firmware KMS"). mesa is held at poky's
+  # version, which `just preferred-version` reports behind (docs/display.md §"The panel").
   graphics: |
     VC4DTBO = "vc4-fkms-v3d"
     PREFERRED_VERSION_mesa = "24.0.7"
     PREFERRED_VERSION_mesa-gl = "24.0.7"
 
   kiosk: |
-    # Only what the page uses; everything else in the recipe's default list is
-    # left out, GStreamer with it. woff2 decodes the app's bundled fonts;
-    # remote-inspector is how the page is debugged.
+    # Only what the page uses (docs/display.md §"The engine").
     PACKAGECONFIG:pn-wpewebkit = "gbm journald reduce-size remote-inspector unified-builds woff2 wpe-platform wpe-platform-drm"
     EXTRA_OECMAKE:append:pn-wpewebkit = " -DUSE_GSTREAMER=OFF -DENABLE_WEBGL=OFF"
     BAD_RECOMMENDATIONS += "ttf-dejavu-sans ttf-dejavu-sans-mono ttf-dejavu-serif"
 
-    # kiosk-cpufreq: caps scaling_max_freq below this board's unstable top OPP.
-    # THE fix for the crash diagnosed 2026-08-13 -- 1000 MHz corrupts memory
-    # under sustained SDIO + network load (2/2 deaths pinned there; 8/8
-    # survivals at every OPP below, with the governor still switching). It ships
-    # in the image specifically so it arrives by OTA: the config.txt
-    # over_voltage route that upstream reports use lives on the shared FAT
-    # partition and can never be delivered to a wall-mounted unit remotely.
     IMAGE_INSTALL:append = " kiosk-cpufreq"
 
-    # ramoops: persistent RAM store, so a kernel panic survives the reset. This
-    # is what finally captured the root cause. A userspace witness cannot see a
-    # panic by construction -- after one, no userspace is ever scheduled again --
-    # so no amount of fsync could ever have caught it.
-    #
-    # Both halves are needed and neither is a default: the overlay is absent
-    # from meta-raspberrypi's 70-entry whitelist, and the stock overlay ships
-    # console-size=0, which disables the one zone that carries the log tail.
-    #
-    # NOTE: this reaches the device only on a CARD REFLASH. config.txt and the
-    # overlays live on the shared FAT partition, which RAUC never touches
-    # (RAUC_BUNDLE_SLOTS = "rootfs"). The running unit already has both, hand
-    # installed 2026-08-13; this exists so a rebuilt card is not silently worse
-    # than the unit in the field.
+    # ramoops keeps the kernel's console tail across a reset. The overlay is not in
+    # meta-raspberrypi's list, and its stock console-size is 0. Both lines are on /boot: card flash only.
     RPI_KERNEL_DEVICETREE_OVERLAYS:append = " overlays/ramoops.dtbo"
     RPI_EXTRA_CONFIG:append = "\ndtoverlay=ramoops,total-size=0x40000,record-size=0x8000,console-size=0x20000\n"
     IMAGE_INSTALL:append = " kiosk-session kiosk-soak kiosk-journal kiosk-timesync-persist kiosk-hardware kiosk-drmgrab kiosk-netcheck zram wpa-supplicant-service ttf-roboto tzdata-core tzdata-americas"
 
-    # kiosk-provision: applies /data/config over the image defaults at boot --
-    # sets the hostname into the kernel (nothing reads a hostname file) and
-    # seeds /data/etc/machine-id when /data lacks one. Without it a device keeps
-    # the image-default hostname and /data/config/hostname is written but never
-    # read. It is a sysinit oneshot ordered before wpa_supplicant / timesyncd /
-    # network-pre; boot-profiled on hardware one run each side: BOOT-to-60s
-    # unchanged and every marker within ~1s of the baseline (mixed sign).
     IMAGE_INSTALL:append = " kiosk-provision"
 
-    # Both halves of the app, from the commit pinned in
-    # meta-wisekiosk/recipes-wisekiosk/wisekiosk/wisekiosk-src.inc. The backend
-    # serves the frontend's bundle out of /srv/kiosk on :8080.
     IMAGE_INSTALL:append = " wisekiosk-backend wisekiosk-frontend"
 
-    # serial-getty is a login prompt on a port with nothing attached, started at
-    # 25.4s -- before the wlan0 gate.
-    #
-    # SERIAL_CONSOLES = "", not PACKAGE_EXCLUDE: packagegroup-core-boot RDEPENDS
-    # on systemd-serialgetty, so excluding the package fails do_rootfs with
-    # "conflicting requests". systemd-serialgetty.bb wraps its whole do_install
-    # in `if [ ! -z "${SERIAL_CONSOLES}" ]` and sets ALLOW_EMPTY, so an empty
-    # value yields a present-but-empty package: the dependency is satisfied and
-    # no units are installed.
-    #
-    # It is also cheap. systemd-serialgetty is its OWN recipe, not part of
-    # systemd, and is PACKAGE_ARCH = MACHINE_ARCH -- so this re-hashes one small
-    # recipe rather than dragging wpewebkit into a rebuild.
+    # Empty, not PACKAGE_EXCLUDE: packagegroup-core-boot RDEPENDS on systemd-serialgetty, which an
+    # empty value builds as an empty package.
     SERIAL_CONSOLES = ""
 
-    # core-image-base ships no tzdata at all, so the first boot ran in UTC and
-    # the kiosk clock was four hours out. A runtime fix does not survive an OTA
-    # update -- A/B replaces the whole rootfs slot -- so it belongs here.
     DEFAULT_TIMEZONE = "America/New_York"
 
-    # Journal persistence is the kiosk-journal recipe, not VOLATILE_LOG_DIR; its
-    # recipe says why.
-    # hostname is NOT baked. It is site configuration; kiosk-provision sets it
-    # from /data/config/hostname at boot.
-
-    # machine-id is NOT baked -- a fixed id in the image gives every unit the
-    # same identity, and systemd derives the networkd DUID from it. It is
-    # per-device: written into each new slot by the RAUC post-install hook, and
-    # into a fresh card by provisioning. journald reads it at ~8.2s, before
-    # /data is mounted, which is why it must be in the rootfs rather than read
-    # from /data at boot.
-
-    # systemd-resolved answered zero queries and cost ~729ms before the gate, to
-    # write one file. Masked in kiosk-hardware; this writes the static
-    # /etc/resolv.conf that replaces it. Measured -1.03s at basic.target, n=3,
-    # ranges not overlapping, with DNS still resolving. The nameserver itself is
-    # NOT baked -- /etc/resolv.conf is a symlink into /data/config, written by
-    # provisioning.
+    # No hostname, machine-id or nameserver is set here: each is per device, on /data.
     INHERIT += "kiosk-static-resolv"
 
-    # /etc/buildinfo: the commit each slot was built from (#46). Records only --
-    # tools/reproducibility-gate.sh is what refuses. Global INHERIT so every
-    # route to bitbake carries it. See docs/image.md.
+    # /etc/buildinfo (docs/image.md §"What commit an image was built from").
     INHERIT += "image-buildinfo"
 
-    # Keeps /etc/buildinfo from going stale (#46). IMAGE_CLASSES, not INHERIT:
-    # the deferred inherit orders this after image.bbclass's vardeps append.
-    # See meta-wisekiosk/classes/kiosk-buildinfo-cachesafe.bbclass.
+    # IMAGE_CLASSES, not INHERIT: the deferred inherit lands after image.bbclass's vardeps append.
     IMAGE_CLASSES += "kiosk-buildinfo-cachesafe"
 
-    # Named here, not left to poky.conf's transitive inherit, so an upstream
-    # bump cannot drop the SBOM (#69). See docs/security.md.
+    # Named here as well as inherited through the distro (docs/security.md §"The two artifacts").
     INHERIT += "create-spdx"
 
-  # update-bundle.bb packages whichever image RAUC_SLOT_rootfs names, and its
-  # default is autonomos-devel -- a different image, with no browser and no kiosk
-  # unit. Installing that bundle would replace the slot and report success.
-  # The :pn- form is required, not stylistic: update-bundle.bb assigns both of
-  # these with a plain "=", which beats a bare local.conf value, so the override
-  # is applied after the recipe parses or it is silently discarded.
+  # update-bundle.bb defaults to another image and assigns both with a plain "=", which a bare
+  # local.conf value does not override; the :pn- override applies after the recipe parses.
   rauc: |
     RAUC_SLOT_rootfs:pn-update-bundle = "core-image-base"
 
-    # Tier 1 (meta-wisekiosk/recipes-core/bundles/README.md) is the fallback every later
-    # delivery tier rests on, so it is what the first bundle has to be. casync
-    # buys bandwidth that a LAN against a local mirror does not need, and adds a
-    # convert step that can fail after the image itself is already built.
+    # No casync bundle (ADR 0002).
     RAUC_CASYNC_BUNDLE:pn-update-bundle = "0"
 
-    # The fleet signs with, and bakes the keyring of, the one WiseKiosk 2026
-    # key. Unset AUTONOMOS_RAUC_KEY_DIR falls back to upstream's development
-    # key, whose private half is committed in a public repository and which no
-    # device trusts. The key lives in the gitignored local/ -- INSIDE the
-    # working tree, because kas-container mounts the repo root and the build
-    # has to read the key; gitignored is what keeps it uncommitted. Reached
-    # through TOPDIR for that same mount.
-    #
-    # BOTH update-bundle.bb (signs the bundle) and meta-autonomos-core's
-    # rauc-conf.bbappend (bakes /etc/rauc/keyring.pem into the rootfs) read
-    # these, so signer and trusted keyring cannot drift apart.
-    #
-    # The key NAME is spelled out here because bitbake cannot read a just
-    # variable; it is one of the two sites a rotation must edit by hand, listed
-    # in docs/updates.md under "Rotating the signing key".
-    #
-    # A rotation build overrides these: kas emits local_conf_header blocks
-    # sorted by key, and rauc-rotate-build.sh names its fragment
-    # zz-rauc-rotation so it sorts last whatever this block is called.
+    # The signing key and the baked keyring (docs/updates.md §"The signing key"). The key name is one
+    # of the two sites a rotation edits by hand; a rotation build overrides these from a fragment named
+    # zz-rauc-rotation, which kas emits last.
     AUTONOMOS_RAUC_KEY_DIR = "${TOPDIR}/../local/keys/kiosk-2026"
     AUTONOMOS_RAUC_KEY_FILE = "signing.key.pem"
     AUTONOMOS_RAUC_CERT_FILE = "signing.cert.pem"
     AUTONOMOS_RAUC_KEYRING_FILE = "signing.cert.pem"
 
-  # VC4 has no Vulkan, ptest builds test suites for a board that will never run
-  # them, and bluetooth is dropped below.
   trim: |
-    # bluetooth is removed from DISTRO_FEATURES as well as MACHINE_FEATURES
-    # because packagegroup-base.bb pulls packagegroup-base-bluetooth on
-    # DISTRO_FEATURES alone (line 28), not just COMBINED_FEATURES. Removing it
-    # from MACHINE_FEATURES only was measured and did NOT drop bluez5,
-    # pi-bluetooth or the BT firmware from the image.
-    #
-    # alsa and touchscreen are deliberately NOT removed from DISTRO_FEATURES:
-    # both are keyed on MACHINE_FEATURES/COMBINED_FEATURES, so the machine-side
-    # removal is sufficient, and touching DISTRO_FEATURES re-hashes much of the
-    # build for no extra benefit.
-    #
-    # 3g, nfc, nfs and zeroconf are services no kiosk runs. Without zeroconf
-    # systemd builds resolved's own mDNS responder; kiosk-hardware masks resolved.
+    # bluetooth leaves DISTRO_FEATURES too: packagegroup-base pulls the Bluetooth group on it alone.
     DISTRO_FEATURES:remove = " vulkan ptest bluetooth 3g nfc nfs zeroconf"
 
-    # Introspection data is for language bindings, and is built by running each
-    # GLib library under QEMU. libsoup's vala is the same kind of binding.
+    # No language-binding data (introspection, libsoup's vala).
     DISTRO_FEATURES_BACKFILL_CONSIDERED:append = " gobject-introspection-data"
     DEPENDS:remove:pn-libsoup = "vala"
 
-    # WebKit draws with Skia and nothing in the image uses cairo; harfbuzz's
-    # cairo option is what would build it.
+    # WebKit draws with Skia; harfbuzz's cairo option would build cairo for nothing.
     PACKAGECONFIG:remove:pn-harfbuzz = "cairo"
     PACKAGECONFIG:remove:pn-harfbuzz-native = "cairo"
 
-    # Nothing on this kiosk pairs, scans or streams; the only link is WiFi
-    # (owner, 2026-08-12). rpi-base.inc adds bluetooth to MACHINE_FEATURES, which
-    # pulls packagegroup-base-bluetooth -> bluez5, pi-bluetooth and the BT
-    # firmware, and pi-bluetooth ships 90-pi-bluetooth.rules -- the udev rule
-    # that instantiates bthelper@hci0 on every boot at 34.5s.
-    #
-    # Measured on the device: bluetooth + hciuart + bthelper is 2.43s of boot CPU
-    # and 4.2MB of RSS. It moves wlan0 by 0.00s because it runs after the gate,
-    # so this buys headroom and image bytes rather than time.
-    #
-    # The BCM43430 is a combo part: this removes the BT firmware patch
-    # (BCM43430A1.hcd), NOT the WiFi firmware (brcmfmac43430-sdio), which comes
-    # from the wifi feature. Verify brcmfmac firmware survives before flashing --
-    # it is the lifeline.
-    # Nothing pairs, nothing plays audio, there is no touchscreen behind the
-    # glass, and there is no serial adapter. rpi-base.inc:125 adds all of these
-    # unconditionally, so they are stripped here rather than at the platform
-    # include (which only controls this project's own append).
-    #
-    # keyboard and usbhost are deliberately KEPT: a USB keyboard on tty2 is the
-    # only way into this device if the network is gone, and the panel is the
-    # console.
+    # The BCM43430 is a combo part: this drops its Bluetooth firmware, never brcmfmac43430-sdio, the
+    # WiFi firmware. keyboard and usbhost stay for the recovery console on tty2.
     MACHINE_FEATURES:remove = "bluetooth alsa touchscreen serial"
 
-    # busybox syslogd + klogd duplicate journald onto the SD card, and klogd
-    # re-injects the entire kernel ring buffer into the journal a second time --
-    # visible as a burst of kernel[NNN] lines replaying earlier timestamps.
-    # 181ms of boot CPU between them, before the gate, for records journald
-    # already holds. journald stays: it is the only evidence channel this
-    # device has, and the network hang destroys its own logs.
+    # No busybox syslogd or klogd: journald holds the records.
     VIRTUAL-RUNTIME_base-utils-syslog = ""
 
-    # raspberrypi0-wifi.conf:11 pulls the BT firmware blob through
-    # MACHINE_EXTRA_RRECOMMENDS, independently of MACHINE_FEATURES, so removing
-    # the feature drops bluez5 and pi-bluetooth but leaves BCM43430A1.hcd behind.
-    # Inert once hciuart and bluez are gone, but it is bytes for nothing.
+    # The machine config recommends the Bluetooth firmware independently of MACHINE_FEATURES.
     MACHINE_EXTRA_RRECOMMENDS:remove = "bluez-firmware-rpidistro-bcm43430a1-hcd"
 
-    # A hardware database for matching peripherals, on a board with no sound card
-    # (/sys/class/sound empty) and no video4linux. hwdb.bin alone is 10.9MB of a
-    # 20MB /usr/lib/udev, measured on the device.
-    #
-    # Bytes only -- do NOT expect boot time. An earlier draft put udevd's cost at
-    # 7.88s of "walking the module set"; measured cold, a hwdb query is ~30ms
-    # above the process floor, because it is an mmap'd trie and a lookup touches
-    # a few pages. udevd's real cost is rule processing over device events.
-    #
-    # It arrives as an RRECOMMENDS of systemd, so BAD_RECOMMENDATIONS is the
-    # lever -- no bbappend, and therefore no systemd re-hash.
+    # udev-hwdb is a recommendation of systemd; dropping it here leaves systemd's hash alone.
     BAD_RECOMMENDATIONS += "udev-hwdb"
 
-    # tzdata is a metapackage RDEPENDing on every region; tzdata-americas does
-    # NOT pull tzdata-core, so both are named above. /usr/share/zoneinfo is 7.4MB
-    # on the device for one fixed site that reads only America/New_York.
-    #
-    # This kiosk renders one language. 22 locale packages ship, including
-    # en-gb, for 2.9MB of /usr/lib/locale.
+    # tzdata-americas does not pull tzdata-core, so IMAGE_INSTALL names both.
     IMAGE_LINGUAS = "en-us"
 
-  # WebKit's link step wants several GB per linker process; the fixed caps are a
-  # floor. BB_PRESSURE_MAX_MEMORY is the part that adapts -- bitbake stops
-  # launching new tasks when the kernel reports memory stall above the threshold
-  # (microseconds of stall per second; 1000000 would never trigger).
+  # BB_PRESSURE_MAX_MEMORY: bitbake starts no new task while memory stall exceeds this many
+  # microseconds per second.
   parallel: |
     BB_NUMBER_THREADS = "6"
     PARALLEL_MAKE = "-j6"
@@ -346,9 +135,9 @@ local_conf_header:
   ccache: |
     CCACHE_TOP_DIR = "${SSTATE_DIR}/ccache"
     INHERIT += "ccache"
-    # Per recipe, and safe only because CCACHE_MAXSIZE is in the ignore line below.
+    # Per recipe; CCACHE_MAXSIZE must stay in the ignore line below.
     export CCACHE_MAXSIZE = "5G"
-    # The class exports these settings and bitbake.conf ignores only some of them; with them out, changing a cache setting rebuilds nothing.
+    # Exported by the ccache class; excluded from task hashes here.
     BB_BASEHASH_IGNORE_VARS:append = " CCACHE_BASEDIR CCACHE_COMPILERCHECK CCACHE_CONFIGPATH CCACHE_TEMPDIR CCACHE_MAXSIZE"
 
   diskmonitoring: |

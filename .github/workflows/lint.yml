@@ -1,8 +1,6 @@
 name: lint
 
-# Static analysis for the surfaces CodeQL cannot see: the shell scripts (which
-# are most of this repo -- provisioning, OTA, flashing, the guards themselves)
-# and the workflow files. Neither needs a Yocto build, so both can gate a PR.
+# Static analysis of the shell scripts and the workflow files.
 on:
   pull_request:
   merge_group:
@@ -22,10 +20,8 @@ jobs:
         run: |
           set -euo pipefail
           shellcheck --version   # preinstalled on ubuntu-latest runners
-          # Every tracked shell script: *.sh/*.bash by extension, plus any file
-          # whose shebang invokes sh/bash (e.g. .githooks/pre-commit, which has
-          # no extension). Justfile [script('bash')] bodies are embedded in
-          # .just files and are not lintable here -- a known blind spot.
+          # Every tracked *.sh/*.bash file plus any file whose shebang invokes
+          # sh/bash. Justfile [script('bash')] bodies are not linted here.
           shebang() {
             local f line
             git ls-files | while IFS= read -r f; do
@@ -57,7 +53,5 @@ jobs:
           actionlint -version
 
       - name: Run actionlint
-        # actionlint also runs shellcheck over each workflow's run: blocks
-        # (shellcheck is preinstalled), so the inline shell in every workflow is
-        # linted too, not just the standalone scripts above.
+        # actionlint runs shellcheck over each workflow's run: blocks.
         run: actionlint -color

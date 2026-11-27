@@ -1,24 +1,20 @@
 #!/usr/bin/env python3
-"""Turn boot-cpu-io-sample.sh output into per-window CPU and disk-I/O figures.
+"""Turn kiosk-bootprof output into per-window CPU and disk-I/O figures.
 
-The question it exists to answer: in each phase of boot, is this single core
-busy, idle, or blocked on I/O. Overlapping two phases only helps when the core
-is idle during one of them, so that number decides whether parallelising is a
-speedup or a queue.
+Reports, for each boot phase, whether the single core is busy, idle, or blocked on I/O.
 
 Usage: analyze-boot-cpu-io.py <sample-file> [<sample-file> ...]
 """
 import sys
 from pathlib import Path
 
-HZ = 100  # confirmed: /proc/stat idle matches /proc/uptime field 2 at HZ=100
+HZ = 100  # /proc/stat ticks per second
 
 FIELDS = ("up user nice sys idle iowait irq softirq "
           "rd_ios rd_ms wr_ios wr_ms inflight io_ticks nrun nproc").split()
 
-# Boot phase edges, keyed on journal milestones. Wall-clock stamps are unusable
-# on this image (fake-hwclock jumps mid-boot), so the journal must be read with
-# `-o short-monotonic` and the [    7.628196] prefix is the anchor.
+# Boot phase edges, keyed on journal milestones read with `-o short-monotonic`;
+# the [    7.628196] prefix is the anchor.
 MILESTONES = [
     ("t_expect", r"Expecting device /sys/subsystem/net/devices/wlan0"),
     ("t_fs", r"Reached target Local File Systems\."),
@@ -170,17 +166,14 @@ def report(path, rows):
           f"{s['idle_pct']:>8.2f}{s['iowait_pct']:>9.2f}{s['idle_s']:>8.2f}"
           f"{s['rd_ios']:>8}{s['rd_ms']:>8}{s['wr_ios']:>8}")
 
-    # On one core, reordering work can only reclaim time the core was NOT
-    # executing. Idle + iowait over the boot is therefore a hard ceiling on
-    # everything scheduling changes can buy -- overlapping two runnable tasks
-    # on a single core conserves total CPU time and reclaims nothing.
+    # Headroom is idle plus iowait time: the most that reordering work on one core can reclaim.
     headroom = s["idle_s"] + s["iowait_pct"] / 100.0 * s["wall"]
     cpu_work = s["busy_pct"] / 100.0 * s["wall"]
     print(f"\nCPU work in boot: {cpu_work:.1f}s of {s['wall']:.1f}s wall")
     print(f"scheduling headroom (idle + iowait): {headroom:.2f}s "
           f"<- ceiling on any parallelise/reorder change")
 
-    # Run-queue depth. nrun counts the sampler itself, so "others" = nrun - 1.
+    # nrun counts the sampler itself, so "others" = nrun - 1.
     boot_rows = [r for r in rows if r["up"] <= 60.0]
     others = [max(0, r["nrun"] - 1) for r in boot_rows]
     deep = sum(1 for o in others if o >= 2)

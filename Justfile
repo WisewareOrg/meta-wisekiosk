@@ -11,48 +11,30 @@
 
 set dotenv-load := true
 
-# The interpreter every python recipe runs. A repo .venv holds PyYAML; nothing
-# puts it on PATH, because neither `just` nor a git hook sources a startup file,
-# so a bare `python3` resolves to a host one without it and the YAML guard
-# fails on a tree that parses fine. Preferred, not required -- CI has no .venv
-# and installs PyYAML into its own python3, which is the fallback.
+# Interpreter for every python recipe: the repo .venv python3 when present, else PATH python3.
 export py := if path_exists(justfile_directory() / ".venv/bin/python3") == "true" { justfile_directory() / ".venv/bin/python3" } else { "python3" }
 
-# Default machine target
 machine := env('MACHINE', 'raspberrypi0-wifi')
 
-# Kas configuration
 config := env('KAS_CONFIG', 'kiosk-zero-w.yaml')
 
-# Image name for flash recipe
 image-name := "core-image-base"
 
-# The device every host-defaulting recipe talks to, in ssh target form. The
-# address is site-specific and this repo is PUBLIC, so it is never committed:
-# there is no in-tree default. Set it in the environment
-# (`export KIOSK_HOST=root@<addr>`) or a local .env, and `just find <cidr>`
-# learns the address of a board you just swapped in. A recipe run without it
-# fails on an empty host rather than targeting a stale one.
+# The device every host-defaulting recipe talks to, in ssh target form (`root@<addr>`); read from
+# KIOSK_HOST or a local .env, empty when unset.
 kiosk-host := env('KIOSK_HOST', '')
 
 # === RAUC Configuration ===
 
-# Directory for RAUC bundles
 rauc-bundle-dir := "build/bundles"
 
-# The key the fleet trusts. Single source for the just side (the `flash` keyring
-# guard, the rotation recipes' old-key default). kiosk-zero-w.yaml repeats the
-# name because bitbake cannot read a just variable -- the ONE site this cannot
-# cover; docs/updates.md lists both under "Rotating the signing key".
+# Name of the key the fleet trusts: the `flash` keyring guard and the rotation recipes' old-key
+# default. kiosk-zero-w.yaml repeats it; bitbake cannot read a just variable.
 fleet-key := "kiosk-2026"
 
-# Consumed ONLY by `rauc-to-casync` in ota.just, which is disabled
-# (RAUC_CASYNC_BUNDLE = "0"; chunker removed with #29). NOT the fleet signing
-# path -- that is kiosk-zero-w.yaml's AUTONOMOS_RAUC_*, pointed at the fleet-key
-# dir under local/keys. These name upstream's retired example keys, which no
-# device trusts, and exist only after `kas-container checkout` populates
-# sources/. Reviving casync means repointing RAUC_CERT/RAUC_KEY/RAUC_KEYRING at
-# the fleet key: a dev-key-signed bundle installs nowhere.
+# Read only by `rauc-to-casync` in ota.just. The defaults are upstream development keys that no
+# device trusts, present once `kas-container checkout` populates sources/; reviving casync means
+# repointing RAUC_CERT/RAUC_KEY/RAUC_KEYRING at the fleet key.
 rauc-cert := env('RAUC_CERT', 'sources/meta-autonomos/meta-autonomos-core/files/rauc-example-keys/development.cert.pem')
 rauc-key := env('RAUC_KEY', 'sources/meta-autonomos/meta-autonomos-core/files/rauc-example-keys/development.key.pem')
 rauc-keyring := env('RAUC_KEYRING', 'sources/meta-autonomos/meta-autonomos-core/files/rauc-example-keys/development.cert.pem')
@@ -96,10 +78,6 @@ spotless: clean
 
 # === Repository guards ===
 
-# Run the same checks CI runs. Fast, needs no build.
-#
-# Both run even when the first fails, matching `verify` and the pre-commit hook:
-# two independent findings are worth more than the first one twice.
 [group('guards')]
 [script('bash')]
 [doc("Run repository guards: the invariants in tools/ci-guards.sh, self-tests included, and the device-identity scan")]
@@ -110,8 +88,6 @@ guards:
     if [ $rc -ne 0 ]; then echo; echo "guards FAILED"; fi
     exit $rc
 
-# Point git at .githooks so pre-commit runs the guards. Hooks are not carried by
-# a clone, so this is per-checkout and has to be run once by hand.
 [group('guards')]
 [doc("Install the pre-commit hook for this checkout")]
 install-hooks:
@@ -120,8 +96,6 @@ install-hooks:
 
 # === Documentation checks ===
 
-# Both checks run even when the first fails: two independent findings are worth
-# more than the first one twice.
 [group('check')]
 [script('bash')]
 [doc("Run every documentation check")]
@@ -132,8 +106,6 @@ verify:
     if [ $rc -ne 0 ]; then echo; echo "verify FAILED"; fi
     exit $rc
 
-# Cross-references in every tracked Markdown file: [text](path), #anchors, and
-# section-name refs must resolve.
 [group('check')]
 [doc("Check that every tracked Markdown cross-reference resolves")]
 links:
@@ -149,9 +121,6 @@ reqs:
 adrs:
     uv run --locked check-adrs
 
-# What the prose says the image ships, against what it ships. Needs a populated
-# build/ rootfs and is therefore local-only -- CI never builds, so wiring it
-# into a required check would mean a permanently skipping gate.
 [group('check')]
 [doc("Check docs against what the built image ships (skips if unbuilt)")]
 image:
@@ -205,14 +174,11 @@ cve-build:
     tools/kas-run.sh build {{config}}:includes/cve-audit.yaml
     {{py}} tools/cve-delta.py snapshot
 
-# Write per-site config to a device's /data. The image carries none of it.
 [group('provision')]
 [doc("Provision a reachable device's /data from secrets.yaml")]
 provision-device host=kiosk-host:
     tools/provision.sh device {{host}}
 
-# Before first boot: the wifi credentials are what let you reach the device, so
-# the first write cannot come over the network.
 [group('provision')]
 [doc("Provision a mounted /data partition on a fresh card")]
 provision-card mountpoint:

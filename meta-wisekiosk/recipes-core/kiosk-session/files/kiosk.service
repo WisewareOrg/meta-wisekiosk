@@ -3,24 +3,23 @@ Description=Kiosk browser: WPE WebKit on DRM, no display server
 After=network-online.target data.mount
 Wants=network-online.target
 Requires=data.mount
-# No start limit: the restarts below never end in a failed state.
+# No start limit, so Restart= never ends in a failed state.
 StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-# The default target is the local app, served by wisekiosk.service. A provisioned kiosk.conf
-# overrides these, as EnvironmentFile settings override Environment=; the leading dash makes the
-# file optional. WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:2999 in it turns the remote inspector on.
+# kiosk.conf overrides these, as EnvironmentFile settings override Environment=; the leading dash
+# makes it optional. WEBKIT_INSPECTOR_HTTP_SERVER=127.0.0.1:2999 in it turns the remote inspector on.
 Environment=KIOSK_URL=http://localhost:8080
-# A display that cannot be opened aborts the browser with the reason, rather than leaving it without a view.
+# An unopenable display aborts the browser with the reason.
 Environment=WPE_PLATFORM=drm
 EnvironmentFile=-/data/config/kiosk.conf
 ExecStart=/usr/bin/kiosk-browser $KIOSK_URL
-# The launcher exits 0 when the panel is switched to another console; only always brings the page back.
+# The launcher exits 0 when another console is brought forward; Restart=always still restarts it.
 Restart=always
 RestartSec=1
-# Backs off from RestartSec to RestartMaxDelaySec over RestartSteps; the counter clears on a manual
-# start, stop or reset-failed.
+# Restart delay grows from RestartSec to RestartMaxDelaySec over RestartSteps; a manual start, stop
+# or reset-failed clears it.
 RestartSteps=4
 RestartMaxDelaySec=10
 # kiosk-browser.c pets it.

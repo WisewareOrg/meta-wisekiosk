@@ -3,8 +3,7 @@ LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
 SRC_URI = "file://kiosk.service file://kiosk-browser.c"
-# scarthgap unpacks file:// SRC_URI straight into WORKDIR; the
-# UNPACKDIR/sources layout is a later-release convention.
+# scarthgap unpacks file:// SRC_URI straight into WORKDIR.
 S = "${WORKDIR}"
 
 DEPENDS = "wpewebkit systemd"

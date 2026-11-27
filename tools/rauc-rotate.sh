@@ -1,24 +1,13 @@
 #!/bin/bash
-# Rotate the RAUC signing key on ONE device, over SSH, with no window in which the
-# device can no longer verify an update.
-#
-# The device verifies a bundle against the keyring in its running slot, so the new
-# keyring has to arrive in a bundle the running (old-key) slot still accepts:
+# Rotate the RAUC signing key on ONE device, over SSH, in two phases:
 #
 #   phase 1  install the TRANSITION bundle (new keyring, OLD-signed) to the
-#            inactive slot and boot it. The device now trusts the new key. The
-#            other slot still trusts the old key and stays bootable, so if the
-#            new slot fails to boot, rauc-mark-good never runs and U-Boot rolls
-#            back on its own -- a failed rotation cannot brick the device.
+#            inactive slot and boot it.
 #   phase 2  install the END-STATE bundle (new keyring, NEW-signed) to the other
-#            slot. Both slots now trust the new key, and installing a new-signed
-#            bundle against the now-new keyring is itself proof the new key
-#            verifies.
+#            slot.
 #
-# Each phase requires the reboot to land on the OTHER slot with the new keyring,
-# or it aborts: a U-Boot rollback (which lands back on the pre-phase slot) is
-# never mistaken for success. Always passes the host explicitly to the kiosk-*
-# recipes so nothing falls back to the prod default.
+# Each phase aborts unless the reboot lands on the OTHER slot with the new keyring. The host is
+# passed explicitly to every kiosk-* recipe.
 #
 # Usage: rauc-rotate.sh <host> <new-keydir> [--one-slot]
 #   --one-slot  stop after phase 1 (the fallback slot keeps trusting the old key)
@@ -28,8 +17,7 @@ HOST=${1:?usage: rauc-rotate.sh <host> <new-keydir> [--one-slot]}
 NEW_KEYDIR=${2:?need <new-keydir>}
 ONE_SLOT=${3:-}
 
-# Guard the flags-without-name trap: `just rotate-run <host> --one-slot` binds
-# the flag to `name`, so the keydir basename would be the flag itself.
+# `just rotate-run <host> --one-slot` binds the flag to `name`; refuse a flag as the key name.
 case "$(basename "$NEW_KEYDIR")" in
     --*) echo "name the key explicitly before any flag: rotate-run <host> <name> --one-slot" >&2; exit 2;;
 esac
@@ -47,9 +35,7 @@ dev_fp()    { $SSH "$HOST" 'openssl x509 -in /etc/rauc/keyring.pem -noout -finge
 # Canonical booted-slot name (A/B), the same source the OTA recipes read.
 dev_slot()  { $SSH "$HOST" 'rauc status --output-format=shell' | sed -n "s/^RAUC_SYSTEM_BOOTED_BOOTNAME='\(.*\)'/\1/p"; }
 dev_certs() { $SSH "$HOST" 'grep -c "BEGIN CERTIFICATE" /etc/rauc/keyring.pem'; }
-# RTC-less boards boot in the past; pin the clock so a new cert's notBefore is
-# never the reason an install refuses. kiosk-install also does this above ~1h
-# skew; pinning here covers the sub-hour case for the new-signed phase too.
+# Set the device clock from the host.
 pin_clock() { $SSH "$HOST" "date -u -s '$(date -u '+%Y-%m-%d %H:%M:%S')'" >/dev/null; }
 
 NEW_FP=$(fp "$NEW_KEYDIR/signing.cert.pem")

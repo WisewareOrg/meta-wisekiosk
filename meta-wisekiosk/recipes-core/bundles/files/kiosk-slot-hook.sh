@@ -1,28 +1,12 @@
 #!/bin/sh
-# RAUC slot hooks. Runs on the RUNNING system with the freshly written slot
-# mounted at $RAUC_SLOT_MOUNT_POINT, before that slot has ever booted.
+# RAUC slot hook. Runs on the running system with the freshly written slot mounted at
+# $RAUC_SLOT_MOUNT_POINT, before that slot has booted.
 #
-# Purpose: carry this device's machine-id into the new slot.
+# Copies this device's machine-id from /data/etc/machine-id into the new slot's /etc/machine-id;
+# journald reads it at boot before /data is mounted. The first run seeds /data/etc/machine-id
+# from the running system's.
 #
-# Why it cannot be done any other way. journald reads /etc/machine-id at ~8.2s,
-# long before /data is mounted and far before sysinit.target, so a bind mount or
-# a boot-time copy is too late -- the journal directory for that boot is already
-# chosen. The value therefore has to be present IN the rootfs of the slot. This
-# hook is the only point where the new slot's filesystem is writable and the old
-# system still knows the device's identity.
-#
-# Without it, every OTA mints a new identity, journald orphans the previous
-# namespace, and SystemMaxUse -- which is enforced per machine-id -- never bounds
-# the total. Four namespaces reached 136.6MB on a 479MB /data that also stages
-# the bundle.
-#
-# It is self-seeding: the first update to carry this hook captures the running
-# machine-id into /data, so no flash-time provisioning step is needed for a
-# device already in the field. /data survives both an A/B update and a slot
-# reflash.
-#
-# DEFENSIVE BY CONSTRUCTION: a non-zero exit from a hook ABORTS the install.
-# Nothing here is worth failing an update over, so every path exits 0.
+# Every path exits 0: a non-zero exit from a hook aborts the install.
 
 set -u
 
@@ -42,8 +26,7 @@ case "$1" in
 
         if [ -s /data/etc/machine-id ]; then
             id=$(tr -d '[:space:]' < /data/etc/machine-id)
-            # 32 lowercase hex characters, or systemd rejects it and generates a
-            # fresh one at boot -- which is exactly the failure being fixed.
+            # systemd accepts only 32 lowercase hex characters.
             if [ "${#id}" -eq 32 ] && [ -z "$(printf '%s' "$id" | tr -d '0-9a-f')" ]; then
                 printf '%s\n' "$id" > "$RAUC_SLOT_MOUNT_POINT/etc/machine-id"
                 chmod 0644 "$RAUC_SLOT_MOUNT_POINT/etc/machine-id"

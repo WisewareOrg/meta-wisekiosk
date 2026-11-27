@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
 # Refuse to put an image on a board unless the software on it can be rebuilt
-# from what is published (#46).
+# from what is published.
 #
 #   tools/reproducibility-gate.sh --tree                 -- clean + pushed
 #   tools/reproducibility-gate.sh --image <rootfs.ext4>  -- ... and the image names HEAD
 #
-# No override flag, by design -- see docs/image.md.
-#
-# Wiring is checked by tools/ci-guards.sh guard 10; this checks the tree and
-# the artifact.
+# There is no override flag; see docs/image.md.
 
 set -uo pipefail
 
@@ -18,8 +15,7 @@ usage() {
 
 mode=""
 image=""
-# One mode, never two: last-wins would let `--image X --tree` run the weaker
-# check while still reading as --image to tools/ci-guards.sh guard 10.
+# Exactly one mode flag is accepted.
 set_mode() {
     [ -z "$mode" ] || {
         printf 'two mode flags given: --%s and %s\n\n' "$mode" "$1" >&2
@@ -38,9 +34,7 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-# The mode is REQUIRED and never inferred. A caller whose image variable came
-# out empty must land here, not silently downgrade to the weaker tree-only
-# check -- that failure would look identical to a passing gate.
+# The mode is required and never inferred; an empty --image path is refused.
 case "$mode" in
     tree) ;;
     image)
@@ -67,8 +61,7 @@ refuse() { printf 'REFUSING: %s\n' "$*" >&2; refused=1; }
 pass()   { printf 'ok    %s\n' "$*"; }
 
 # --- (a) the working tree is clean ----------------------------------------
-# --porcelain: untracked counts, and scope is the whole repo -- includes/ and
-# patches/ are build inputs too.
+# --porcelain counts untracked files; the scope is the whole repo.
 dirty=$(git status --porcelain 2>/dev/null)
 if [ -n "$dirty" ]; then
     refuse "the working tree is not clean -- this build is not reproducible from any commit:"
@@ -79,14 +72,10 @@ else
 fi
 
 # --- (b) HEAD is published on origin --------------------------------------
-# Reachability from ANY origin ref, not just origin/main: a PR branch is
-# fetchable, which is all "someone else can check this out" requires.
-#
-# Never fetches: the answer must not depend on when this last ran.
+# HEAD counts as published when reachable from any origin ref. Never fetches.
 remote=$(git ls-remote origin 2>/dev/null)
 lsrc=$?
 if [ $lsrc -ne 0 ] || [ -z "$remote" ]; then
-    # Fail closed: offline is indistinguishable from never-pushed.
     refuse "cannot reach origin -- cannot prove $HEAD is published, so refusing"
     printf '        this gate never assumes; get online, or push, and retry.\n' >&2
 else
@@ -95,7 +84,7 @@ else
     while IFS= read -r sha; do
         [ -n "$sha" ] || continue
         if [ "$sha" = "$HEAD" ]; then published=1; break; fi
-        # An ancestor test needs the remote commit in THIS object store.
+        # The ancestor test needs the remote commit in the local object store.
         git cat-file -e "${sha}^{commit}" 2>/dev/null || continue
         if git merge-base --is-ancestor "$HEAD" "$sha" 2>/dev/null; then published=1; break; fi
     done <<< "$shas"
@@ -109,19 +98,15 @@ else
 fi
 
 # --- (c) the image names HEAD ---------------------------------------------
-# Only where a rootfs is in hand: a .raucb is unreadable here and binds to no
-# rootfs (#48), so the bundle-shipping recipes run --tree.
+# Runs only with --image, where a rootfs is in hand.
 if [ "$mode" = "image" ]; then
     if [ ! -f "$image" ]; then
         refuse "no image artifact at $image -- nothing to attribute; build first"
     elif ! command -v debugfs > /dev/null 2>&1; then
-        # Refuse, never skip: unreadable is not the same as absent.
         refuse "debugfs missing -- cannot read $image; install e2fsprogs"
     else
         info=$(debugfs -R "cat /etc/buildinfo" "$image" 2>/dev/null | tr -d '\r')
-        # image-buildinfo writes "%-17s = %s:%s%s" per BBLAYERS entry, so the
-        # layer's own line is `meta-wisekiosk = <branch>:<sha>[ -- modified]`.
-        # ` -- modified` ignored; check (a) is authoritative.
+        # The layer's line is `meta-wisekiosk = <branch>:<sha>[ -- modified]`; ` -- modified` is ignored.
         rev=$(awk '$1 == "meta-wisekiosk" && $2 == "=" { print $3; exit }' <<< "$info")
         commit=${rev##*:}
         if [ -z "$info" ]; then
@@ -130,7 +115,6 @@ if [ "$mode" = "image" ]; then
         elif [ -z "$rev" ]; then
             refuse "/etc/buildinfo in $image has no meta-wisekiosk layer line -- the layer was renamed or is not in BBLAYERS"
         elif ! [[ "$commit" =~ ^[0-9a-f]{40}$ ]]; then
-            # image-buildinfo writes the literal <unknown> and does not fail.
             refuse "the image records '$commit', not a 40-character sha -- the build could not read its own git tree, so nothing in $image is attributable"
         elif [ "$commit" != "$HEAD" ]; then
             refuse "the image was not built from HEAD:"

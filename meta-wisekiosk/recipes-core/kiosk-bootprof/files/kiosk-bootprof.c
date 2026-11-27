@@ -1,22 +1,15 @@
 /* Boot CPU and disk-I/O sampler for the Pi Zero W kiosk.
  *
- * Replaces the shell version, which cost 2.3s of CPU across one boot -- ~5% of
- * the boot's total CPU work, on a core that is 0% idle through startup. An
- * instrument that large changes the thing it measures: rewriting the shell
- * sampler from /proc/diskstats to /sys/block/<dev>/stat moved the headline
- * "scheduling headroom" figure by 45%.
+ * Usage: kiosk-bootprof [duration_s [interval_ms [out_path [dev]]]]
  *
- * The cost here is three lseek+read pairs per sample against already-open fds,
- * into a preallocated buffer, with one write at the end. No forks, no execs,
- * no allocation, no I/O during the measurement window.
+ * Each sample is three lseek+read pairs against already-open fds into a
+ * preallocated buffer; one write at the end. No forks, execs, allocation or
+ * I/O during the measurement window.
  *
- * Three properties the shell version did not have:
- *   - no cadence drift: samples land on an absolute CLOCK_MONOTONIC grid, so a
- *     saturated core delays a sample rather than shifting every later one
- *   - it reports its own cost, from getrusage, in the output header -- so the
- *     overhead never has to be inferred again
- *   - it validates every source at startup and refuses to run if one will not
- *     parse, instead of emitting zero-filled columns that read as real data
+ *   - Samples land on an absolute CLOCK_MONOTONIC grid, so a saturated core
+ *     delays a sample rather than shifting every later one.
+ *   - The output header carries the sampler's own CPU cost, from getrusage.
+ *   - Every source is parsed once at startup; the sampler exits 1 if one fails.
  *
  * cross-compile:
  *   $CC --sysroot=$SYSROOT -O2 -Wall -Wextra -static \
@@ -35,10 +28,7 @@
 
 #define MAX_SAMPLES 8192
 #define RAWBUF      2048
-/* First-seen time per kernel module. The question this answers: what is udev
- * loading, and in what order, in the 23s between the SDIO bus enumerating and
- * brcmfmac binding to the WiFi chip. Module loads mostly do not log, so the
- * journal cannot say. */
+/* First-seen time per kernel module, from /proc/modules. */
 #define MAX_MODS    512
 #define MODNAME     32
 
@@ -263,7 +253,6 @@ flush_output(void)
 		struct sample *s = &samples[i];
 
 		j = (unsigned int)snprintf(line, sizeof line, "%.2f", s->up_ns / 1e9);
-		/* order matches the shell sampler so the analyzer is unchanged */
 		j += (unsigned int)snprintf(line + j, sizeof line - j,
 		    " %llu %llu %llu %llu %llu %llu %llu",
 		    s->cpu[0], s->cpu[1], s->cpu[2], s->cpu[3],
@@ -324,8 +313,7 @@ main(int argc, char **argv)
 		return 1;
 	}
 
-	/* Refuse to run rather than emit zero-filled columns: a sampler whose
-	 * broken state looks like a working one is worse than no sampler. */
+	/* Every source must parse before sampling starts. */
 	{
 		unsigned long long c[NCPU], d[NDISK];
 		unsigned int a, b;
@@ -365,9 +353,7 @@ main(int argc, char **argv)
 			break;
 		n_samples++;
 
-		/* /proc/modules is a seq_file over every loaded module, so it
-		 * costs more than the three counters above. Cap it at 1 Hz
-		 * regardless of the sample interval. */
+		/* /proc/modules is scanned at most once a second. */
 		if (s->up_ns >= next_modscan) {
 			scan_modules(s->up_ns);
 			next_modscan = s->up_ns + 1000000000ULL;
@@ -378,8 +364,7 @@ main(int argc, char **argv)
 
 		grid += (unsigned long long)interval_ms * 1000000ULL;
 		if (grid <= now_ns()) {
-			/* The core was too busy to keep the grid. Record it and
-			 * resync rather than spinning to catch up. */
+			/* A missed grid slot is counted and the grid resyncs. */
 			n_late++;
 			grid = now_ns() +
 			    (unsigned long long)interval_ms * 1000000ULL;

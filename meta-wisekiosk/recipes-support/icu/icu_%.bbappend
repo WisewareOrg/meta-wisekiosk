@@ -1,18 +1,6 @@
-# libicudata is 30 786 792 bytes on the device -- the second-largest file in the
-# image, and ICU ships locale data for every language on earth for a kiosk that
-# renders one.
-#
-# This uses ICU's own supported filter mechanism rather than deleting anything:
-# icu_74-2.bb already carries PACKAGECONFIG[make-icudata] and a do_make_icudata
-# task that rebuilds the data archive with ICU_DATA_FILTER_FILE=${WORKDIR}/filter.json.
-# The task is a no-op unless make-icudata is in PACKAGECONFIG, so both halves are
-# needed.
-#
-# The filter restricts LOCALES only, and keeps every feature category -- break
-# iteration, collation, charset mappings. Dropping feature categories is where
-# text rendering breaks, and text is the entire product here.
-#
-# WebKit build-depends on ICU, so this rebuilds WebKit.
+# Rebuilds libicudata with ICU_DATA_FILTER_FILE=${WORKDIR}/filter.json, which keeps locale "en"
+# and every feature category. do_make_icudata is a no-op unless make-icudata is in PACKAGECONFIG,
+# so both lines below are needed. WebKit build-depends on ICU, so this rebuilds WebKit.
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 

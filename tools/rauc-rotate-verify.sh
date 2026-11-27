@@ -2,11 +2,8 @@
 # Verify a device's trusted RAUC keyring, and optionally prove it empirically by
 # feeding it signed bundles.
 #
-# The cheap check is deductive: the keyring is a single self-signed cert, and RAUC
-# trusts exactly the certs in it, so "keyring == new cert" already means old-signed
-# bundles are rejected. --empirical additionally exercises the real code path: an
-# old-signed bundle must be REJECTED and a new-signed bundle ACCEPTED. It costs two
-# bundle transfers, so it is meant for the HITL board, not every prod rotation.
+# Without --empirical it compares the keyring fingerprint with the new cert. --empirical also
+# transfers two bundles: the old-signed one must be REJECTED and the new-signed one ACCEPTED.
 #
 # Usage: rauc-rotate-verify.sh <host> <new-cert> [--empirical <old-signed.raucb> <new-signed.raucb>]
 set -euo pipefail
@@ -37,8 +34,7 @@ if [ "${1:-}" = "--empirical" ]; then
     test -f "$OLD_B" || { echo "no bundle at $OLD_B" >&2; exit 2; }
     test -f "$NEW_B" || { echo "no bundle at $NEW_B" >&2; exit 2; }
 
-    # RTC-less board: pin the clock from the host so cert validity is never the
-    # reason a signature check passes or fails.
+    # Set the device clock from the host.
     $SSH "$HOST" "date -u -s '$(date -u '+%Y-%m-%d %H:%M:%S')'" >/dev/null
 
     echo "== empirical negative: an OLD-signed bundle must be REJECTED"

@@ -1,19 +1,5 @@
-SUMMARY = "Apply per-site configuration from /data over the image defaults"
-DESCRIPTION = "Every site value -- SSID, PSK hash, kiosk URL, hostname, nameserver -- is \
-substituted into the rootfs at build time, so one image serves exactly one site. That blocks \
-a shared fleet artifact and puts the site's wireless credentials inside every bundle. \
-\
-This applies /data/config over those values at boot. It is deliberately non-breaking: a value \
-is overridden only if /data/config supplies it, so a device with no /data/config behaves \
-exactly as before. Removing the baked values is a separate step and must not happen until \
-provisioning is proven on hardware. \
-\
-machine-id is NOT handled here and cannot be: journald reads it at ~8.2s, before /data is \
-mounted. It needs a RAUC post-install hook writing into the freshly-written slot. \
-\
-kiosk-seed-config, called from here, seeds /data/config/config.json from the image's shipped \
-example the first time a device has none -- the app's own config is read straight from /data, \
-not substituted at build time, so it needs a starting point rather than an override."
+SUMMARY = "Apply the site configuration on /data at boot"
+DESCRIPTION = "A boot-time oneshot that sets the hostname from /data/config, keeps the machine-id on /data and seeds the app's config.json. The image carries no site configuration."
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 

@@ -3,17 +3,11 @@
 
     go-mods-test.py             -- every case
 
-`render_inc(cache_dir, srcrev)` is the importable seam: it walks a GOMODCACHE
-laid out exactly as `go mod download` leaves one (`cache/download/<escaped
-module path>/@v/<version>.{zip,mod,...}`) and renders the recipe include. Every
-fixture here IS such a cache, fabricated small enough to read -- never a real
-`go list`/clone, which needs network the guard must not depend on.
-
-The escaped path segments below reuse Go's own on-disk escaping (an uppercase
-letter becomes `!` + its lower-case form): the walk reads directory names
-as-is off disk, so a fixture with a literal `!x` segment is what an uppercase
-module path actually looks like in GOMODCACHE, not a re-implementation of the
-escaping rule.
+`render_inc(cache_dir, srcrev)` walks a GOMODCACHE laid out as `go mod download`
+leaves one (`cache/download/<escaped module path>/@v/<version>.{zip,mod,...}`)
+and renders the recipe include. Every fixture is such a cache; no case runs a
+real `go list` or clone. Fixtures use Go's on-disk escaping directly (an
+uppercase letter becomes `!` + its lower-case form).
 """
 import contextlib
 import hashlib
@@ -81,9 +75,7 @@ def entry_lines(escaped, version, ext, sha256hex):
 
 
 def src_uri_lines(rendered):
-    """Only the SRC_URI body lines, in order -- independent of whatever
-    blank-line or comment layout the generator puts around them, which the
-    plan does not specify."""
+    """Only the SRC_URI body lines, in order."""
     return [ln for ln in rendered.splitlines() if ln.startswith("SRC_URI")]
 
 
@@ -138,11 +130,9 @@ def mod_only_cases():
 
 
 def escaping_and_sort_cases():
-    """Four modules seeded out of order, one with an uppercase-escaped
-    segment and one with two versions -- render_inc must sort by escaped
-    path then version, and preserve the escaped segment verbatim (it is
-    already how Go's own cache spells an uppercase path, not something
-    render_inc re-derives)."""
+    """Four modules seeded out of order, one with an uppercase-escaped segment and
+    one with two versions; render_inc sorts by escaped path then version and
+    keeps the escaped segment verbatim."""
     files = {
         ("example.com/b", "v1.0.0", "zip"): b"b-zip",
         ("example.com/b", "v1.0.0", "mod"): b"b-mod",
@@ -152,9 +142,7 @@ def escaping_and_sort_cases():
         ("example.com/a", "v1.0.0", "zip"): b"a-v1-zip",
         ("example.com/a", "v1.0.0", "mod"): b"a-v1-mod",
     }
-    # Seeded in an order that is neither sorted-by-path nor sorted-by-version,
-    # so a generator that merely preserves filesystem walk order would not
-    # accidentally pass this.
+    # Seeded in an order that is neither path-sorted nor version-sorted.
     order = [
         ("example.com/b", "v1.0.0", "zip"),
         ("example.com/a", "v2.0.0", "mod"),
@@ -191,28 +179,23 @@ def escaping_and_sort_cases():
 
 # --- toolchain selection: the app's go.mod picks the `go` that runs go list --
 #
-# `fetch_cache` asks Go itself which toolchain backend/go.mod calls for
-# (`go env GOROOT` under GOTOOLCHAIN=auto, downloading it when the host's is
-# older) and runs `go list` with that binary. `fetch_cache` also clones, so
-# exercising it end-to-end monkeypatches `subprocess.run` -- there is no
-# wrapper function to stub instead, the way layer-currency.py's `git()` gives
-# cve-tools-test.py one.
+# `fetch_cache` asks Go which toolchain backend/go.mod calls for (`go env
+# GOROOT` under GOTOOLCHAIN=auto) and runs `go list` with that binary. The cases
+# monkeypatch `subprocess.run`.
 
 GO_MOD = "module example.com/fixture\n\ngo 1.27\n"
 FAKE_GOROOT = "/fake/gomodcache/golang.org/toolchain@v0.0.1-go1.27.0.linux-amd64"
 
 
 class FakeToolchain:
-    """Stands in for the four subprocess.run calls fetch_cache makes -- `git
-    clone`, `git checkout`, `go env GOROOT` and `go list`. Any other call is
-    an AssertionError, so a host `go version` gate creeping back fails here.
+    """Stands in for the four subprocess.run calls fetch_cache makes: `git clone`,
+    `git checkout`, `go env GOROOT` and `go list`. Any other call is an
+    AssertionError.
 
     `go list`'s fake stdout defaults to naming DEFAULT_MODULE alone, and the
-    default seed puts that module's .zip in the fake GOMODCACHE -- a real
-    `go list -deps` run always includes the codegen tool's own module, and
-    fetch_cache refuses outright if it doesn't, so this is the toolchain's
-    "trusted, complete" baseline. Tests exercising the codegen-tool-presence
-    or completeness checks themselves pass go_list_stdout/seed_gomodcache."""
+    default seed puts that module's .zip in the fake GOMODCACHE. Tests of the
+    codegen-tool-presence or completeness checks pass go_list_stdout or
+    seed_gomodcache."""
 
     DEFAULT_MODULE = ("github.com/oapi-codegen/oapi-codegen/v2", "v2.4.1")
 
@@ -254,10 +237,7 @@ class FakeToolchain:
             self.go_list_called = True
             self.go_list_binary = argv[0]
             self.go_list_env = kwargs.get("env")
-            # fetch_cache has already created workdir/gomodcache for real by
-            # this point (subprocess.run is the only thing faked) -- seeding
-            # it here, just before "go list" returns, is what lets a test
-            # feed fetch_cache's real completeness check a real cache.
+            # Seeds the cache fetch_cache created, just before `go list` returns.
             if self.seed_gomodcache is not None:
                 self.seed_gomodcache(self.workdir / "gomodcache")
             return SimpleNamespace(stdout=self.go_list_stdout, returncode=0)
@@ -265,9 +245,8 @@ class FakeToolchain:
 
 
 def run_fetch_cache(go_list_stdout=None, seed_gomodcache=None):
-    """fetch_cache(), every subprocess call faked: returns (the SystemExit
-    code fetch_cache raised, or None; its stderr; the FakeToolchain, to check
-    what `go env GOROOT` and `go list` were run with)."""
+    """fetch_cache(), every subprocess call faked: returns (the SystemExit code
+    fetch_cache raised, or None; its stderr; the FakeToolchain)."""
     toolchain = FakeToolchain(go_list_stdout, seed_gomodcache)
     was_run = subprocess.run
     subprocess.run = toolchain
@@ -304,8 +283,7 @@ def toolchain_selection_cases():
          and Path(tc.goroot_cwd) == tc.workdir / "repo" / "backend", True)
     case("fetch_cache: the resolve may switch toolchains (GOTOOLCHAIN=auto)",
          (tc.goroot_env or {}).get("GOTOOLCHAIN"), "auto")
-    # The switch downloads into GOMODCACHE, and render_inc renders every zip
-    # in the scratch one -- a toolchain there would become a SRC_URI entry.
+    # The switch downloads into GOMODCACHE, whose zips render_inc turns into SRC_URI entries.
     case("fetch_cache: the toolchain download lands in the host GOMODCACHE, "
          "not the scratch one", (tc.goroot_env or {}).get("GOMODCACHE"),
          host_gomodcache)
@@ -317,12 +295,8 @@ def toolchain_selection_cases():
 
 # --- GOCACHE isolation -------------------------------------------------------
 #
-# GOMODCACHE already gets a fresh scratch dir per run; GOCACHE did not, so
-# `go list -deps` ran against the host's shared, possibly-warm build cache.
-# With a build already cached there, `go list` can report a module's package
-# without ever extracting that module's .zip into GOMODCACHE -- silently
-# dropping it from the rendered .inc. GOCACHE needs the same fresh-per-run
-# treatment GOMODCACHE already has.
+# GOCACHE is a fresh scratch dir per run, like GOMODCACHE; a warm shared build
+# cache lets `go list` skip extracting a module's .zip.
 
 def gocache_isolation_cases():
     host_gocache = "/nonexistent/host/shared/go-build"
@@ -339,8 +313,7 @@ def gocache_isolation_cases():
     gocache = (tc.go_list_env or {}).get("GOCACHE")
     case("fetch_cache: GOCACHE differs from the inherited host GOCACHE",
          gocache != host_gocache and gocache is not None, True)
-    # Under the run's OWN temp root, alongside GOMODCACHE -- not some other
-    # fixed, reused path, or a second run could warm it just the same way.
+    # Under the run's own temp root, alongside GOMODCACHE.
     case("fetch_cache: GOCACHE lies under the run's own temp root",
          gocache is not None and tc.workdir is not None
          and Path(gocache).resolve().is_relative_to(tc.workdir.resolve()),
@@ -349,11 +322,8 @@ def gocache_isolation_cases():
 
 # --- _deps_modules: the package stream reduced to (path, version) pairs ----
 #
-# `go list -json=Dir,Module -deps` emits one JSON object per PACKAGE, not per
-# module, pretty-printed and concatenated (not a JSON array) -- several
-# packages can share a module, a standard-library package carries no Module
-# field at all, and the module being built is its own dependency, marked
-# Main. _deps_modules reduces that stream to one (path, version) per
+# `go list -json=Dir,Module -deps` emits one concatenated, pretty-printed JSON
+# object per package. _deps_modules yields one (path, version) per
 # package-providing, non-main module, in first-seen order.
 
 def deps_modules_cases():
@@ -367,9 +337,7 @@ def deps_modules_cases():
     a = {"Path": "example.com/a", "Version": "v1.0.0"}
     b = {"Path": "example.com/b", "Version": "v2.0.0"}
 
-    # Objects joined by newlines, as go list's own pretty-printed,
-    # concatenated (not comma-separated) objects are -- exercising the
-    # inter-object whitespace skip along with every other property below.
+    # Objects joined by newlines, as go list emits them.
     stream = "\n".join([obj(main_mod), obj(None), obj(a), obj(a), obj(b)])
     modules = go_mods._deps_modules(stream)
 
@@ -385,16 +353,12 @@ def deps_modules_cases():
 
 # --- check_complete: every package-providing module needs its .zip ---------
 #
-# `go list -deps` reporting a module as providing a package means its
-# source, not just its go.mod, was needed to build -- a cache holding only
-# that module's .mod is incomplete. A module that provides no package never
-# appears in `modules` at all, so a mod-only cache entry for it stays legal
-# and is never asked about.
+# A module named in `modules` provides a package, so its .zip must be cached; a
+# module absent from `modules` may keep a mod-only entry.
 
 def check_complete_cases():
     with tempfile.TemporaryDirectory() as tmp:
-        # THE case: a package-providing module (named in `modules`) whose
-        # cache entry has only a .mod. Must be reported missing.
+        # A package-providing module whose cache entry has only a .mod is reported missing.
         seed(tmp, "example.com/nozip", "v1.0.0", "mod",
              b"module example.com/nozip\n")
         missing = go_mods.check_complete(
@@ -404,7 +368,7 @@ def check_complete_cases():
              missing, [("example.com/nozip", "v1.0.0")])
 
     with tempfile.TemporaryDirectory() as tmp:
-        # The must-not-fire half: the same module, its .zip now present too.
+        # The same module with its .zip present.
         seed(tmp, "example.com/haszip", "v1.0.0", "mod",
              b"module example.com/haszip\n")
         seed(tmp, "example.com/haszip", "v1.0.0", "zip",
@@ -415,9 +379,7 @@ def check_complete_cases():
              "present is complete", missing, [])
 
     with tempfile.TemporaryDirectory() as tmp:
-        # A mod-only module: present in the cache with only a .mod, but
-        # never named in `modules` -- it provides no package, so this is not
-        # a completeness failure.
+        # A mod-only module never named in `modules` is not a failure.
         seed(tmp, "example.com/modonly", "v0.1.0", "mod",
              b"module example.com/modonly\n")
         missing = go_mods.check_complete([], Path(tmp))
@@ -425,11 +387,7 @@ def check_complete_cases():
              "not reported", missing, [])
 
     with tempfile.TemporaryDirectory() as tmp:
-        # `go list -json`'s Module.Path is unescaped ("example.com/Foo"), but
-        # the cache directory name is Go's on-disk escaping
-        # ("example.com/!foo"). check_complete must convert before looking
-        # up, or every module with an uppercase path segment would read as
-        # missing regardless of whether its .zip is actually there.
+        # Module.Path is unescaped ("example.com/Foo"); the cache directory is escaped ("example.com/!foo").
         seed(tmp, "example.com/!foo", "v1.0.0", "zip", b"a fixture zip payload")
         missing = go_mods.check_complete(
             [("example.com/Foo", "v1.0.0")], Path(tmp))
@@ -440,23 +398,19 @@ def check_complete_cases():
 
 # --- check_complete is wired into fetch_cache's own refusal -----------------
 #
-# check_complete being correct in isolation does not prove fetch_cache acts
-# on it -- these drive the completeness check through fetch_cache itself,
-# with a real `go list -deps` stream and a real (fixture) GOMODCACHE.
+# These cases drive check_complete through fetch_cache with a real `go list
+# -deps` stream and a fixture GOMODCACHE.
 
 def completeness_wiring_cases():
     codegen_path, codegen_version = FakeToolchain.DEFAULT_MODULE
-    # Two packages: the codegen tool's own module (fetch_cache refuses
-    # outright without it, unrelated to completeness) and a second module
-    # this case actually exercises.
+    # Two packages: the codegen tool's own module and a second module under test.
     deps_stream = "\n".join(json.dumps(o) for o in (
         {"Dir": "/x", "Module": {"Path": codegen_path,
                                  "Version": codegen_version}},
         {"Dir": "/y", "Module": {"Path": "example.com/needed",
                                  "Version": "v1.0.0"}}))
 
-    # THE case: overriding seed_gomodcache to seed only the codegen module
-    # isolates exactly one missing module -- "example.com/needed".
+    # Seeding only the codegen module leaves "example.com/needed" missing.
     def seed_codegen_only(gomodcache):
         seed(gomodcache, codegen_path, codegen_version, "zip",
              b"fixture zip payload")
@@ -469,9 +423,7 @@ def completeness_wiring_cases():
     case("fetch_cache: the refusal does not also name a module that has "
          "its .zip", f"{codegen_path}@{codegen_version}" in err, False)
 
-    # The must-not-fire half: both modules' .zip reach the cache --
-    # overriding seed_gomodcache replaces the default entirely, so the
-    # codegen module needs seeding here too, not just the one under test.
+    # Both modules' .zip reach the cache; overriding seed_gomodcache replaces the default, so the codegen module is seeded too.
     def seed_both(gomodcache):
         seed(gomodcache, codegen_path, codegen_version, "zip",
              b"fixture zip payload")
@@ -486,25 +438,18 @@ def completeness_wiring_cases():
 
 # --- fetch_cache refuses when go list never names its own target -----------
 #
-# check_complete([]) reports an empty closure as trivially complete, so an
-# empty, truncated or garbled `go list -deps` capture would otherwise render
-# an empty .inc and report success. The codegen tool's own module always
-# appears in a real result -- its absence means the capture cannot be
-# trusted, checked before completeness rather than after.
+# The codegen tool's own module appears in every real `go list -deps` result;
+# its absence is refused before completeness is checked.
 
 def codegen_tool_presence_cases():
-    # THE case: no output at all -- explicit override, or the toolchain's
-    # own "trusted, complete" default would mask exactly this.
+    # No output at all, set explicitly to override the default.
     code, err, tc = run_fetch_cache(go_list_stdout="")
     case("fetch_cache: empty go list output refuses rather than reporting "
          "an empty closure complete", code, 2)
     case("fetch_cache: the refusal names the codegen tool's import path",
          go_mods.CODEGEN_TOOL in err, True)
 
-    # Non-empty, but the codegen tool's own module never appears -- the
-    # same refusal, not merely an empty-stream special case. Its own .zip
-    # IS seeded, so completeness alone would not also refuse: only this
-    # check can be responsible for what happens here.
+    # Non-empty without the codegen tool's module, whose .zip is seeded.
     unrelated = json.dumps({"Dir": "/x",
                             "Module": {"Path": "gopkg.in/yaml.v3",
                                       "Version": "v3.0.1"}})
@@ -520,11 +465,7 @@ def codegen_tool_presence_cases():
     case("fetch_cache: that refusal names the codegen tool, not a "
          "completeness complaint", go_mods.CODEGEN_TOOL in err, True)
 
-    # A module path that is a raw STRING prefix of CODEGEN_TOOL but not a
-    # package-path-boundary ancestor of it -- CODEGEN_TOOL continues
-    # "-codegen/v2/..." right after this path, not "/...". Its own .zip is
-    # seeded, so only a boundary check (not a bare startswith) can tell this
-    # apart from the codegen tool's real module.
+    # A module path that is a raw string prefix of CODEGEN_TOOL but not a package-path-boundary ancestor; its .zip is seeded.
     near_miss_path = "github.com/oapi-codegen/oapi"
     near_miss_version = "v1.0.0"
     near_miss = json.dumps({"Dir": "/x",

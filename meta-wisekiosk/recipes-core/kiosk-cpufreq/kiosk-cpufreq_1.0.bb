@@ -1,10 +1,5 @@
 SUMMARY = "Cap CPU frequency below the Pi Zero W's unstable top OPP"
-DESCRIPTION = "This board corrupts memory under sustained SDIO + network load at \
-1000 MHz. Measured 2026-08-13: 2/2 deaths pinned at 1000 MHz and ~8 with the \
-stock uncapped ondemand governor, against 8/8 survivals at every OPP below it. \
-Capping scaling_max_freq at 900 MHz costs 10% of peak CPU and makes the kiosk \
-stable. Shipped as a unit rather than as config.txt over_voltage because \
-config.txt lives on the shared FAT partition and can never be delivered by OTA."
+DESCRIPTION = "A oneshot unit that caps scaling_max_freq at 900 MHz, below the board's top operating point."
 LICENSE = "CLOSED"
 
 SRC_URI = "file://kiosk-cpufreq-cap.service"

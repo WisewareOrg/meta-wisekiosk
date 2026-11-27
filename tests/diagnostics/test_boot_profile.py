@@ -125,16 +125,14 @@ def test_boot_profile(request: pytest.FixtureRequest, board: Board) -> None:
     # 1. Record the boot id.
     boot_before = _boot_id(board)
 
-    # 2. Arm: copy the binary and the unit, then enable. scp (what board.put() shells out
-    # to) does not create destination directories, so make it first.
+    # 2. Arm: copy the binary and the unit, then enable. scp does not create destination directories.
     board.run(f"mkdir -p {_BOARD_BIN_DIR}", timeout=None, check=True)
     board.put(str(DEPLOYED_BINARY), BOARD_BINARY_PATH)
     board.run(f"chmod 0755 {BOARD_BINARY_PATH}", timeout=None, check=True)
     board.put(str(UNIT_SOURCE), "/etc/systemd/system/")
     board.run(f"systemctl daemon-reload && systemctl enable {_UNIT_NAME}", timeout=None, check=True)
 
-    # 3. Reboot, then disconnect for the whole observer window -- a connection during it is
-    # itself an instrument; see the bootprof README for the measured cost.
+    # 3. Reboot, then disconnect for the whole observer window.
     with contextlib.suppress(ExecutionError, subprocess.TimeoutExpired):
         board.run("systemctl reboot", timeout=10)
     board.disconnect()

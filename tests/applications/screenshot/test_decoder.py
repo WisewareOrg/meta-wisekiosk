@@ -1,6 +1,6 @@
 """Screenshot suite: the tool turns a constructed buffer into the picture it holds, or refuses it.
 
-Host only, on the standard library, so that `just guards` and CI run it as a script. Each test runs the
+Host only, on the standard library; `just guards` and CI run it as a script. Each test runs the
 tool itself, with a stand-in `ssh` that runs the capture command on this host and a stand-in
 `kiosk-drmgrab` that writes the buffer. The buffers and their pixels are worked out here, without the
 tool's decoder.
@@ -54,7 +54,7 @@ def _t_tiled(across: int, down: int) -> bytes:
 
 
 # captures as kiosk-drmgrab sends them: a header line, whose last field is the layout, then the buffer
-# 50x50 of 96x64, so that the buffer is a tile wider than the picture and the picture spans an even and an odd row
+# 50x50 of 96x64: the buffer is a tile wider than the picture, which spans an even and an odd row
 _TILED = b"50 50 384 XR24 504403158265495553\n" + _t_tiled(3, 2)
 # 3x2 with 2 bytes past the end of each row: red, green, blue; white, black, 1 in each channel
 _RG16 = b"3 2 8 RG16 0\n" + struct.pack("<8H", 0xF800, 0x07E0, 0x001F, 0xEEEE, 0xFFFF, 0x0000, 0x0821, 0xEEEE)

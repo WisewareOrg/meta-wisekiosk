@@ -1,5 +1,4 @@
-# Raspberry Pi common configuration for AutonomOS
-# Include this for all Raspberry Pi platforms, then include the machine-specific file.
+# Raspberry Pi configuration shared by every Raspberry Pi machine; a machine file includes it.
 header:
   version: 20
 
@@ -24,9 +23,7 @@ repos:
     layers:
       meta-rauc-raspberrypi:
 
-  # Add the Raspberry Pi platform layer. kas merges repo dictionaries across
-  # include files, so this enables a second layer inside the meta-autonomos repo
-  # that includes/base.yaml declares and pins.
+  # A second layer of the meta-autonomos repository includes/base.yaml pins; kas merges the entries.
   meta-autonomos:
     layers:
       meta-autonomos-raspberrypi:
@@ -35,9 +32,7 @@ local_conf_header:
   raspberrypi: |
     RPI_USE_U_BOOT = "1"
     ENABLE_UART = "1"
-    # No serial (no adapter, and the kiosk panel is the console) and no
-    # bluetooth (nothing pairs). Upstream rpi-base.inc re-adds both, plus
-    # alsa and touchscreen, so the kiosk config also carries a :remove.
+    # rpi-base.inc adds serial, bluetooth, alsa and touchscreen back; kiosk-zero-w.yaml removes them.
     MACHINE_FEATURES:append = " wifi"
     IMAGE_INSTALL:append = " kernel-image kernel-devicetree packagegroup-autonomos-raspberrypi"
     IMAGE_FSTYPES:remove = " rpi-sdimg"

@@ -4,31 +4,19 @@
     doc-image.py check                      -- every git-tracked *.md vs the build tree
     doc-image.py snapshot <rootfs> <out>    -- write a snapshot by hand, to inspect
 
-`doc-links.py` proves cross-references resolve; that checks the docs against
-themselves. This checks them against the image, which is the failure nothing
-else here catches.
-
-Two claim kinds are checked, chosen because both are unambiguous in plain GFM
-and need no annotation, frontmatter or generator dialect in the source files:
+Checks the docs against the built image's rootfs. Two claim kinds are checked:
 
   1. Commands inside `ssh root@... '...'` invocations, and the same shape
      through the kiosk-ssh.sh wrapper. The image logs in as root, so that
      prefix scopes the check to the running device for free.
   2. Backticked absolute paths under /usr/bin, /usr/sbin, /bin and /sbin.
 
-Deliberately NOT checked: bare commands in fenced blocks (ambiguous -- many run
-on the workstation), and paths under /data and /var (created at runtime, absent
-from the image by design). Adding those needs a scope marker the source files do
-not carry, and guessing produces noise that gets the whole check ignored.
-
-There is no waiver list. A path the image does not carry is either wrong in the
-doc or missing from the image, and both are worth fixing; an allowlist only
-records that neither was done.
+Not checked: bare commands in fenced blocks, and paths under /data and /var.
+There is no waiver list.
 
 The snapshot is regenerated from the build tree on every run and written under
-build/, which is gitignored. A committed snapshot drifts from the image it
-claims to describe and nothing notices. With no build tree the check cannot run
-at all, and says so loudly rather than passing by default.
+build/. With no build tree the check prints that it did not run and exits 0.
+Exits 1 when any claim is unresolved.
 """
 import json
 import re
@@ -38,19 +26,15 @@ from datetime import datetime
 from pathlib import Path
 
 BIN_DIRS = ("usr/bin", "usr/sbin", "bin", "sbin")
-# Kept small on purpose: enough to answer questions the docs actually ask,
-# small enough that the snapshot stays reviewable in a diff. /usr/lib/modules
-# is excluded -- 1750 .ko files would bury every real change.
+# Directories the snapshot records; /usr/lib/modules is excluded.
 PATH_DIRS = ("etc", "usr/lib/systemd/system", "usr/lib/udev/rules.d", "boot")
 
 BIN_PREFIXES = ("/usr/bin/", "/usr/sbin/", "/bin/", "/sbin/")
 
-# Where the regenerated snapshot lands. Under build/, which .gitignore covers,
-# so it cannot be committed and cannot drift.
+# Where the regenerated snapshot lands.
 SNAPSHOT_SCRATCH = Path("build/.doc-image-snapshot.json")
 
-# The rootfs bitbake leaves behind for the image this repository builds. Newest
-# mtime wins: a machine that has built more than one target has more than one.
+# The rootfs bitbake leaves for the image; the newest mtime wins.
 ROOTFS_GLOB = "build/tmp-*/work/*/core-image-base/*/rootfs"
 
 # Shell builtins and control words that appear inside ssh '...' but are not
@@ -79,10 +63,8 @@ def tracked_markdown(top: Path):
 def build_time(rootfs: Path) -> float:
     """When the rootfs was actually built.
 
-    Not its own mtime: reproducible builds clamp every timestamp inside the
-    rootfs to SOURCE_DATE_EPOCH, so the directory reads as 2018 on a build from
-    this morning. The recipe workdir above it is not clamped. Take the later of
-    the two, so this stays right if a future build stops clamping."""
+    The later of the rootfs mtime and its parent's; reproducible builds clamp
+    timestamps inside the rootfs to SOURCE_DATE_EPOCH."""
     return max(rootfs.stat().st_mtime, rootfs.parent.stat().st_mtime)
 
 
@@ -132,11 +114,7 @@ def snapshot(rootfs: Path, out: Path) -> int:
     return 0
 
 
-# `ssh root@host '<script>'` and the two forms the docs actually use for it: the
-# kiosk-ssh.sh wrapper, which is how this repo tells you to reach the device, and
-# a double-quoted script. Matching only bare ssh with single quotes made the
-# whole check inert -- every device command in the tracked docs was in one of the
-# forms it could not see.
+# `ssh root@host '<script>'`, the kiosk-ssh.sh wrapper form, and a double-quoted script.
 SSH_INVOCATION = re.compile(
     r"""(?:(?:[\w./-]*/)?kiosk-ssh\.sh|ssh)\s+(?:-\S+\s+)*root@\S+\s+"""
     r"""(?:'([^']*)'|"([^"]*)")""", re.S)
@@ -174,10 +152,7 @@ def check() -> int:
     top = repo_top()
     rootfs = find_rootfs(top)
     if rootfs is None:
-        # Loud, on stdout, and exit 0. A Yocto build is hours and cannot gate a
-        # commit, so the absence of one must not fail anything -- but silence
-        # here would be indistinguishable from a clean run, which is the exact
-        # failure this whole script exists to prevent.
+        # No build tree: print loudly on stdout and exit 0.
         print("SKIPPED: no build rootfs under "
               f"{ROOTFS_GLOB} -- doc-image check did not run")
         return 0
@@ -208,9 +183,7 @@ def check() -> int:
             findings.append((f"{rel}:{line}", f"ssh root@ runs `{name}`", "not in image"))
         for p, line in binary_paths(text):
             examined += 1
-            # By basename, against the bin scan. binary_paths yields only
-            # BIN_PREFIXES paths and PATH_DIRS holds no bin directory, so
-            # `paths` can never carry one of these.
+            # By basename, against the bin scan.
             if p.rsplit("/", 1)[-1] in binaries:
                 continue
             findings.append((f"{rel}:{line}", f"names `{p}`", "not in image"))
@@ -223,20 +196,12 @@ def check() -> int:
 
     for loc, what, why in unique:
         print(f"{loc}  {what} -- {why}")
-    # `examined` is reported because a silent extraction failure and a clean
-    # pass are otherwise the same output: both print zero findings.
-    # The build time is printed because a months-old rootfs compares clean
-    # against today's prose, and that drift is what the check exists to catch.
+    # `examined` and the build time are printed so an empty or stale run is visible.
     built = datetime.fromtimestamp(build_time(rootfs)).strftime("%Y-%m-%d %H:%M")
     print(f"\n{len(unique)} unresolved, {examined} claims examined "
           f"against {len(binaries)} binaries in {rootfs} (built {built})")
     if not examined:
-        # Two causes, indistinguishable from here: the docs genuinely name no
-        # device binary, or the extraction regexes stopped matching. The first
-        # is the expected state of a tree whose facts live in code comments,
-        # which this script does not scan -- failing on it would make the gate
-        # permanently red and get it deleted. So report inertness in the one
-        # place a reader is already looking, and do not claim a pass.
+        # Zero claims is reported as inert, not as a pass, and does not fail.
         print(f"NO CLAIMS: {len(docs)} files carry no `ssh root@` or `kiosk-ssh.sh "
               "root@` command and no backticked /usr/bin path -- this check is "
               "inert, verify the extraction before trusting it")

@@ -13,14 +13,13 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-# Globbed, not assumed: the directory name IS the SPDX version.
+# Globbed: the directory name is the SPDX version.
 SPDX_ROOT_GLOB = "build/tmp-*/deploy/spdx/*"
 
 # One document per built package, per architecture directory.
 PACKAGE_GLOB = "*/packages/*.spdx.json"
 
-# Both exist twice -- timestamped and symlinked -- so both are resolved and
-# de-duplicated.
+# Both exist timestamped and symlinked; both are resolved and de-duplicated.
 ARCHIVE_GLOB = "build/tmp-*/deploy/images/*/*.spdx.tar.zst"
 IMAGE_MANIFEST_GLOB = "build/tmp-*/deploy/images/*/*.manifest"
 
@@ -34,10 +33,8 @@ def repo_top() -> Path:
 def newest(top: Path, pattern: str):
     """The most recently written match for a glob, or None.
 
-    By mtime, resolved and de-duplicated. deploy/ is not clamped to
-    SOURCE_DATE_EPOCH the way the rootfs is, so a file's own timestamp is the
-    build that wrote it. A resolved path that does not exist is a pruned
-    symlink target, and is skipped rather than stat'ed."""
+    By mtime, resolved and de-duplicated; a resolved path that does not exist
+    is skipped."""
     unique = {p.resolve() for p in top.glob(pattern)}
     found = sorted((p for p in unique if p.exists()),
                    key=lambda p: p.stat().st_mtime, reverse=True)
@@ -64,9 +61,7 @@ def check() -> int:
     for arch, n in sorted(per_arch.items()):
         print(f"{n:6d}  {arch}")
 
-    # Timestamp from a file, not the version directory: a directory's mtime moves
-    # only when an entry is added or removed, so an incremental rebuild into the
-    # same arch directories would leave it reading weeks old.
+    # Timestamp from a file, not the version directory, whose mtime moves only when an entry is added or removed.
     archive = newest(top, ARCHIVE_GLOB)
     stamp = archive or max(documents, key=lambda p: p.stat().st_mtime)
     built = datetime.fromtimestamp(stamp.stat().st_mtime).strftime("%Y-%m-%d %H:%M")
@@ -74,7 +69,7 @@ def check() -> int:
           f"SPDX {root.name}, in {root.relative_to(top)} (built {built})")
 
     if archive is None:
-        # Not a failure: the per-package documents above are the SBOM.
+        # The per-package documents above are the SBOM.
         print(f"no rolled-up archive under {ARCHIVE_GLOB}")
     else:
         mb = archive.stat().st_size / (1024 * 1024)

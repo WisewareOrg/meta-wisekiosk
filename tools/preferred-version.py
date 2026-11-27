@@ -5,12 +5,11 @@
                                     the layer beside it already ships
 
 A pinned layer can carry several versions of one recipe, and a PREFERRED_VERSION
-decides which is built. That decision is often a weak `??=` default written
-upstream, not by anyone here, and nothing in the tree says when it has gone
-stale: the layer pin reads `current` while the image builds a recipe two series
-behind the one sitting next to it.
+decides which is built; a weak `??=` default written upstream can select an
+older recipe than the layer ships.
 
-Pure filesystem scan of sources/. No build, no network, no bitbake. See
+Pure filesystem scan of sources/. No build, no network, no bitbake. Exit 0 with
+findings; nonzero only for a report that cannot be trusted. See
 docs/security.md.
 """
 import re
@@ -18,41 +17,31 @@ import subprocess
 import sys
 from pathlib import Path
 
-# Where kas checks the layers out. Without it there is nothing to compare.
+# Where kas checks the layers out.
 SOURCES = "sources"
 
-# Layer directories hold recipes under recipes-<category>/. Anchoring on that
-# keeps the walk off sources/*/conf, scripts and the git objects.
+# Layer directories hold recipes under recipes-<category>/; anchoring on that keeps the walk off conf, scripts and git objects.
 RECIPE_GLOB = "recipes-*/**/*.bb"
 
-# Where a PREFERRED_VERSION is set. kas configs are read as text because a
-# local_conf_header block is raw bitbake inside YAML.
+# Where a PREFERRED_VERSION is set; kas configs are read as text.
 CONF_GLOBS = ("*.conf", "*.inc", "*.yaml", "*.yml")
 CONF_ROOTS = (SOURCES, "includes", "meta-wisekiosk", ".")
 
-# `PREFERRED_VERSION_<pn>[:override] <op> "<value>"`. The pn may itself carry a
-# ${...}, which is why it is captured loosely and filtered below.
+# `PREFERRED_VERSION_<pn>[:override] <op> "<value>"`; the pn is captured loosely and filtered below.
 ASSIGN = re.compile(
     r"^\s*PREFERRED_VERSION_([A-Za-z0-9${}._+-]+?)"
     r"(?::[A-Za-z0-9_${}-]+)?\s*(\?\?=|\?=|:=|=)\s*\"([^\"]*)\"")
 
-# Strongest first. bitbake resolves a weak default only when nothing stronger
-# sets the variable, so this orders the assignments found for one recipe.
+# Strongest first; orders the assignments found for one recipe.
 STRENGTH = {"=": 0, ":=": 0, "?=": 1, "??=": 2}
 
-# A recipe file is <pn>_<pv>.bb. Versions are compared as the recipe FILENAME
-# spells them: the real PV is often `${LINUX_VERSION}+git`, which needs bitbake
-# to expand, and a series choice is made on the filename anyway.
+# A recipe file is <pn>_<pv>.bb; versions are compared as the filename spells them.
 RECIPE_NAME = re.compile(r"^(.+?)_(.+)\.bb$")
 
-# bitbake's wildcard. `6.6.%` selects linux-raspberrypi_6.6.bb, so the trailing
-# separator is dropped with it rather than requiring something after the dot.
+# bitbake's wildcard: `6.6.%` selects linux-raspberrypi_6.6.bb, so the trailing separator is dropped with it.
 WILDCARD = "%"
 
-# An assignment whose value or recipe name expands a variable cannot be resolved
-# without bitbake. Counted and named rather than dropped: a check that silently
-# skips what it cannot read reports the same clean line as one that found
-# nothing wrong.
+# An assignment whose value or recipe name expands a variable cannot be resolved without bitbake; counted and named.
 UNRESOLVED = "expands a variable"
 AMBIGUOUS = "set more than one way at the same strength"
 
@@ -69,10 +58,7 @@ def refuse(message: str) -> int:
 
 
 def version_key(version: str):
-    """A version as a comparable tuple, numeric runs compared as numbers.
-
-    `6.12` sorts above `6.6`, which a string compare gets backwards, and that
-    is the whole case this exists for."""
+    """A version as a comparable tuple, numeric runs compared as numbers."""
     return tuple((0, int(part)) if part.isdigit() else (1, part)
                  for part in re.split(r"[._-]", version) if part)
 
@@ -84,10 +70,7 @@ def selects(pattern: str, version: str) -> bool:
 
 
 def recipes(top: Path):
-    """Every recipe under sources/, as {pn: {version: layer}}.
-
-    One walk, because a per-recipe glob over a nine-layer checkout is the whole
-    cost of this check."""
+    """Every recipe under sources/, as {pn: {version: layer}}, from one walk."""
     found = {}
     for layer in sorted((top / SOURCES).iterdir()):
         if not layer.is_dir():
@@ -180,9 +163,7 @@ def check() -> int:
     print(f"\n{len(behind)} of {len(set_by)} PREFERRED_VERSION settings select "
           f"an older recipe than the layer beside them already ships")
 
-    # Grouped, because one upstream include holds forty of them and a
-    # line-per-setting buries the three findings above. Counted and named all
-    # the same: what could not be read is part of the answer.
+    # Grouped; counted and named.
     for why in sorted({w for _, w, _ in skipped}):
         names = sorted(pn for pn, w, _ in skipped if w == why)
         where = sorted({f for _, w, f in skipped if w == why})
@@ -201,8 +182,6 @@ def check() -> int:
           "bump can change a kernel ABI, a device tree or a rebuild cost. This "
           "reports the choice, it does not make it. See docs/security.md.")
 
-    # Reports, never gates: exit 0 with findings. A nonzero exit is reserved for
-    # a report that cannot be trusted. See docs/security.md.
     return 0
 
 
