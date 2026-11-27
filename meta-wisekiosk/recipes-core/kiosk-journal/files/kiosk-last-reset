@@ -1,0 +1,64 @@
+#!/bin/sh
+# Logs why the board last reset: the firmware's reset status and how the previous boot's console ended.
+#
+# Run as ExecStartPost of kiosk-journal-flush.service, so the line is written after the journal has
+# been flushed to /data and the clock restored. Written earlier, a journal near its cap drops it with the
+# rest of the boot's first seconds.
+#
+#   rsts     the firmware's reset status, hex; bit 0x20 set is a watchdog reset; 0x1000 set with 0x20
+#            clear is power-on, and 0x1000 can stay set through the next warm reset
+#   console  how the previous boot's console ended, read from the pstore console record:
+#              panic    "Kernel panic - not syncing", from the panic dump or the console record
+#              restart  systemd-shutdown's restart line; a hang after systemd's last step reads the same
+#              silent   neither: a watchdog bite, a hang or a reset line alike
+#              none     no console record
+#            /data/kiosk-last-reset.seen keeps an old dump from naming later boots; the dumps count
+#            only once the seen file exists, and the first run primes it. It is rewritten from a complete
+#            read: pstore mounted and every dump hashed.
+#
+# It prints nothing else and exits 0 whatever is missing.
+
+rsts=$(hexdump -v -e '1/1 "%02x"' /proc/device-tree/chosen/bootloader/rsts 2>/dev/null)
+mounted=
+readable=
+if grep -q ' /sys/fs/pstore ' /proc/mounts 2>/dev/null; then
+    readable=1
+elif mount -t pstore pstore /sys/fs/pstore 2>/dev/null; then
+    mounted=1
+    readable=1
+fi
+console=none
+if [ -e /sys/fs/pstore/console-ramoops-0 ]; then
+    if grep -q -F 'Kernel panic - not syncing' /sys/fs/pstore/console-ramoops-0 2>/dev/null; then
+        console=panic
+    elif grep -q -F -e 'systemd-shutdown[1]: Rebooting' -e 'Restarting system' /sys/fs/pstore/console-ramoops-0 2>/dev/null; then
+        console=restart
+    else
+        console=silent
+    fi
+fi
+seen=/data/kiosk-last-reset.seen
+hashes=
+dump_panic=
+complete=1
+for dump in /sys/fs/pstore/dmesg-ramoops-*; do
+    [ -e "$dump" ] || continue
+    hash=$(md5sum "$dump" 2>/dev/null | cut -d' ' -f1)
+    if [ -z "$hash" ]; then
+        complete=
+        continue
+    fi
+    hashes="$hashes$hash
+"
+    if [ -e "$seen" ] && ! grep -q -x -F "$hash" "$seen" 2>/dev/null && grep -q -F 'Kernel panic - not syncing' "$dump" 2>/dev/null; then
+        dump_panic=1
+    fi
+done
+[ -z "$dump_panic" ] || console=panic
+if [ -n "$readable" ] && [ -n "$complete" ]; then
+    { printf '%s' "$hashes" > "$seen.tmp" && mv -f "$seen.tmp" "$seen"; } 2>/dev/null
+fi
+[ -z "$mounted" ] || umount /sys/fs/pstore 2>/dev/null
+echo "kiosk-last-reset: last reset rsts=${rsts:-unknown} console=$console"
+
+exit 0
