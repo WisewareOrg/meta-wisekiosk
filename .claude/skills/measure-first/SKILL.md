@@ -32,7 +32,7 @@ is not evidence. The test reaches the board through `tests/board/`: `board.app.t
 and `board.app.inspector.evaluate` run script in the page, and every change a part makes is undone
 by the board's cleanup when the test ends. A diagnostic records what it measured and judges
 nothing unless a bound already exists; a check against a requirement's bound belongs in the target
-suite under that requirement ([`../../../CONTRIBUTING.md`](../../../CONTRIBUTING.md) §"Writing a
+suite under that requirement ([`docs/testing.md`](../../../docs/testing.md) §"Writing a
 target-suite test").
 
 ## What makes a number an answer

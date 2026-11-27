@@ -212,6 +212,10 @@ bounded per recipe by `CCACHE_MAXSIZE` in `kiosk-zero-w.yaml`, so builders that 
 share it. `CCACHE_DISABLE = "1"` turns it off for a recipe; `bitbake -c cleanall` empties a recipe's
 store for every builder.
 
+`kiosk-zero-w.yaml` inherits `buildhistory`, so a branch whose `poky` pin is behind the host's last
+build fails on a package version going backwards, and leaves buildhistory so the next build on the
+newer pin fails too. Merge `origin/main` into such a branch before building it.
+
 ## What a rebuild costs
 
 BitBake rebuilds every task whose signature a change reaches, and WPE WebKit is by far the largest

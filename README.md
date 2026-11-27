@@ -85,14 +85,14 @@ This is the only index of the repository's documents.
 
 | Document | What it answers |
 |---|---|
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to change the repository: the checks, the conventions, writing a test, and how a change merges |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to change the repository: the checks, the conventions, and how a change merges |
 | [`CLAUDE.md`](CLAUDE.md) | The rules an AI agent works under here |
 | [`docs/image.md`](docs/image.md) | How the image is built: kas, layers and pins, the build host, the build stamp and the reproducibility gate |
 | [`docs/display.md`](docs/display.md) | How the page reaches the panel: WPE WebKit on DRM, the launcher, the consoles |
 | [`docs/updates.md`](docs/updates.md) | How a board is updated and falls back: RAUC A/B, bundles, the shared `/boot`, the signing key and its rotation |
 | [`docs/device.md`](docs/device.md) | The board: provisioning and `/data`, boot, network, time, logs, memory, getting in |
 | [`docs/security.md`](docs/security.md) | What the image is made of, which packages carry published vulnerabilities, and how far the pins have fallen behind |
-| [`docs/testing.md`](docs/testing.md) | What each testing tier proves, and how the bench runner runs it |
+| [`docs/testing.md`](docs/testing.md) | What each testing tier proves, how the bench runner runs it, and how a test is written |
 | [`docs/requirements/README.md`](docs/requirements/README.md) | What the appliance owes its viewer and operator, and which check verifies each |
 | [`docs/decisions/README.md`](docs/decisions/README.md) | Which choices took a trade study, what was rejected, and why |
 | [`tests/replay/README.md`](tests/replay/README.md) | What a replay set holds, and how one is re-recorded |

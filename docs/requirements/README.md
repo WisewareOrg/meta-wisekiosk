@@ -59,3 +59,8 @@ what it waits on: its test, its bound, or hardware the project lacks. The change
 test activates it, re-reads it in full and stamps its review. An active `SRS` whose `TST` children
 are all pending is unverified: Doorstop counts an inactive child's link as coverage, so the gate
 does not flag it, and the `Pending:` headers beneath it are what say so.
+
+`doorstop review` and `doorstop clear` stage every file they write, and stamping a pending item
+means making it active first, so the index can keep `active: true` after it is set back. Before
+committing, confirm `git diff --cached` adds no `active: true` line: an active `TST` with no test
+behind it claims a verification that does not exist.
