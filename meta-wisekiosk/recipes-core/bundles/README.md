@@ -20,7 +20,7 @@ lowercase hex characters is left out, and every path exits 0 because a non-zero 
   `SystemMaxUse` is enforced per machine-id.
 - Every install goes through [`tools/kiosk-install.sh`](../../../tools/kiosk-install.sh), which serves
   the bundle to the board over HTTP; why it is streamed and adaptive is
-  [ADR 0002 rev 1](../../../docs/decisions/0002-stream-adaptive-bundles.md).
+  [`docs/updates.md`](../../../docs/updates.md) §"Delivering an update".
 - The rootfs is sized to its content by [`core-image-base.bbappend`](../images/README.md); `resize=true`
   in RAUC's [`system.conf`](../rauc/README.md) grows the slot's filesystem after each write.
 - `RAUC_SLOT_rootfs` names the image and is set in `kiosk-zero-w.yaml`; the signing key is covered in

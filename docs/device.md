@@ -100,10 +100,20 @@ watchdog, which resets a board whose PID 1 stops answering.
 
 A board whose memory runs out thrashes rather than kills: code pages refault from the card and
 compressed pages fill zram, so the kernel's OOM killer never runs, PID 1 starves and the watchdog
-resets the board with no message. `kiosk-hardware` sets MGLRU's `min_ttl_ms`, which turns that
-thrash into a logged kernel OOM kill, and the browser and the backend restart on any exit
-([ADR 0003 rev 1](decisions/0003-oom-kill-through-mglru-min-ttl.md)). Swap is a compressed RAM device
-of half the board's memory ([`recipes-extended/zram`](../meta-wisekiosk/recipes-extended/zram/README.md)).
+resets the board with no message. Ending that needs something inside the kernel, because whatever
+starves PID 1 starves a userspace watcher too; something that sees file-page thrash, not only low
+free memory; something that acts inside the 14 s watchdog window; and something an update can
+deliver, without a WebKit rebuild or a write to the shared `/boot`.
+
+`kiosk-hardware` writes `1000` to MGLRU's `min_ttl_ms`, the value the kernel's documentation names.
+`kswapd`, a kernel thread starvation cannot stop, compares the age of the oldest file-page
+generation with it; a younger generation means the working set is evicted faster than the limit
+allows, and the kernel calls the OOM killer (`Documentation/admin-guide/mm/multigen_lru.rst`,
+"Thrashing prevention"). The thrash then ends in a kill the kernel logs, which reaches the journal
+and, across a reset, pstore. The browser and the backend restart on any exit, so the panel comes
+back as it does after the browser is killed; a process holding memory it cannot give back is killed
+repeatedly instead of the board resetting. Swap is a compressed RAM device of half the board's
+memory ([`recipes-extended/zram`](../meta-wisekiosk/recipes-extended/zram/README.md)).
 
 [`kiosk-soak`](../meta-wisekiosk/recipes-core/kiosk-soak/README.md) samples the browser's and the
 system's memory, load and temperature every five minutes into `/data`, and its README says how to read a long run.

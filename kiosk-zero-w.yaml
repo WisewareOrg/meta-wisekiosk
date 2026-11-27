@@ -1,4 +1,5 @@
-# The kas entry point: includes the pins (includes/base.yaml) and the machine, and configures this image.
+# The kas entry point: includes the pins (includes/base.yaml) and the machine, and configures this
+# image: WPE WebKit straight to DRM (ADR 0001 rev 2).
 header:
   version: 20
   includes:
@@ -82,7 +83,7 @@ local_conf_header:
   rauc: |
     RAUC_SLOT_rootfs:pn-update-bundle = "core-image-base"
 
-    # No casync bundle (ADR 0002 rev 1).
+    # No casync bundle (docs/updates.md §"Delivering an update").
     RAUC_CASYNC_BUNDLE:pn-update-bundle = "0"
 
     # The signing key and the baked keyring (docs/updates.md §"The signing key"). The key name is one

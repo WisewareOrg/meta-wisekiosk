@@ -62,11 +62,24 @@ by a test, goes through [`tools/kiosk-install.sh`](../tools/kiosk-install.sh), w
 what it does and what it records while the slot is written.
 
 The board streams the bundle over HTTP from a short-lived server on the installing host, and the
-bundle is adaptive, so RAUC fetches and writes only the blocks neither slot already holds. Why that
-transport is [ADR 0002 rev 1](decisions/0002-stream-adaptive-bundles.md). It follows that the
-installing host needs Docker and a port the board can reach at the address the host's ssh session
-comes from, and memory for one copy of the bundle; and that one host installs on one board at a
-time.
+bundle is adaptive (`block-hash-index`): RAUC hashes both slots and fetches and writes only the
+blocks neither already holds, keeping each slot's index in `/data/rauc`. RAUC documents adaptive
+updates as an optimisation for HTTP streaming, and streaming is what lets it fetch by range instead
+of copying the whole bundle first. The rootfs image is sized to its content rather than to its slot,
+and `resize=true` in RAUC's `system.conf` grows the slot's filesystem to its partition after each
+write, so an install moves and writes the image's content, not an empty filesystem the size of the
+slot. The image builds no casync bundle.
+
+What follows from that design:
+
+- A slot's first adaptive install hashes the slot to build its index, so it is the slowest.
+- `resize=true` is read from the running system's `system.conf`, so an install made from an image
+  without it leaves that slot at its content size until the slot is next written.
+- The installing host needs Docker, a port the board can reach at the address the host's ssh
+  session comes from, and memory for one copy of the bundle; NAT or an ssh jump between the two
+  breaks the install.
+- One host installs on one board at a time: a second install's set-up would clear the first's crash
+  records, so `tools/kiosk-install.sh` refuses it and names the holder.
 
 Every recipe that talks to a board takes its default from the `kiosk-host` variable in the
 [`Justfile`](../Justfile), so `export KIOSK_HOST=root@<addr>` points all of them at one board, and

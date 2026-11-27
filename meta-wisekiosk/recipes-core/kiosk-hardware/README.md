@@ -11,7 +11,7 @@ Drop-in configuration only: no binaries and no services. `kiosk-hardware_1.0.bb`
 - `60-kiosk-panic.conf` in `sysctl.d`: `kernel.panic = 1` and `kernel.panic_on_oops = 1`.
 - `60-kiosk-mglru.conf` in `tmpfiles.d`: writes `1000` to `/sys/kernel/mm/lru_gen/min_ttl_ms`, so
   memory thrash ends in a logged kernel OOM kill instead of a watchdog reset
-  ([ADR 0003 rev 1](../../../docs/decisions/0003-oom-kill-through-mglru-min-ttl.md)).
+  ([`docs/device.md`](../../../docs/device.md) §"Memory").
 - Masks (symlinks to `/dev/null`) for `zram.service` (the SysV script from the zram package, which
   is masked, not deleted), `systemd-resolved`, `systemd-logind`, `systemd-userdbd` (service and
   socket) and `getty@tty1`.
