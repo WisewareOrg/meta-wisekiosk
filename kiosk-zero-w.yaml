@@ -82,7 +82,7 @@ local_conf_header:
   rauc: |
     RAUC_SLOT_rootfs:pn-update-bundle = "core-image-base"
 
-    # No casync bundle (ADR 0002).
+    # No casync bundle (ADR 0002 rev 1).
     RAUC_CASYNC_BUNDLE:pn-update-bundle = "0"
 
     # The signing key and the baked keyring (docs/updates.md §"The signing key"). The key name is one
