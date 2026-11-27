@@ -77,7 +77,7 @@ def reminder(path: str):
                 "Before proceeding: is this the decided rotation order (docs/updates.md), "
                 "and does any secret VALUE become a build input? If either answer is unclear, STOP "
                 "and bubble it up to the owner. (CONTRIBUTING.md § Review checklist, "
-                "CLAUDE.md § Halt and ask.)"
+                "CLAUDE.md.)"
             )
     for pat in DESIGN:
         if re.search(pat, path):
@@ -91,7 +91,7 @@ def reminder(path: str):
                 "local_conf_header by BLOCK NAME and the top-level file wins, so a duplicated name "
                 "is discarded in silence. If this invents a choice nobody made, or folds something "
                 "in to make a gate pass, STOP and bubble it up to the owner. "
-                "(CONTRIBUTING.md § Review checklist, CLAUDE.md § Halt and ask.)"
+                "(CONTRIBUTING.md § Review checklist, CLAUDE.md.)"
             )
     return None
 

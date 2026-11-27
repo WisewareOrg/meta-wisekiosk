@@ -5,28 +5,26 @@ description: >-
   page cannot report about itself — which garbage collections fire and when (full vs eden), and what
   classes of object are on the heap or accumulating. Invoke when a stall or slowdown looks like a
   garbage-collection pause, when you need to name what a tick allocates, when performance.memory /
-  FinalizationRegistry / JSC_* logging have come back empty on this board, or when a past session
-  reports "the inspector doesn't work here." Not for frame timing — the inspector perturbs it; use
+  FinalizationRegistry / JSC_* logging have come back empty on this board. Not for frame timing — the inspector perturbs it; use
   the measure-first in-page probes for fps and stall rate.
 ---
 
 # The WebKit remote inspector, actually connected
 
-This board runs WPE WebKit. The engine facts below were observed on WebKitGTK 605 and have not been
+The image runs WPE WebKit. The engine facts below were observed on WebKitGTK 605 and have not been
 re-read on WPE, except where a line says so. That JavaScriptCore gave the page **no** self-instrumentation
 that survives a saturated core: `performance.memory` is absent, `FinalizationRegistry` callbacks never
 fire (no idle turn to deliver them), and `JSC_logGC` / other `JSC_*` options are compiled out. The one
-instrument that reports the collector and the heap from the engine is the **remote inspector** — and
-several sessions failed to connect to it. The reason is one environment variable, below.
+instrument that reports the collector and the heap from the engine is the **remote inspector**, and
+connecting to it turns on one environment variable, below.
 
-## The one thing that sank every prior attempt
+## Two server variables
 
 There are two server env vars and they are not interchangeable:
 
 - **`WEBKIT_INSPECTOR_SERVER`** — the `inspector://` variant. A **WebSocket-only** server: a plain
   `GET /` connects at the TCP layer and then **hangs with zero bytes**, forever. Only another WebKit
-  browser opening `inspector://host:port` can use it. It is what every HTTP-based client (including
-  this repo's own earlier `inspect*.mjs`) waits on until it times out.
+  browser opening `inspector://host:port` can use it; an HTTP client waits on it until it times out.
 - **`WEBKIT_INSPECTOR_HTTP_SERVER`** — serves the **HTML target-list page** at `GET /`, which carries
   the WebSocket path. This is the one a script can drive.
 
