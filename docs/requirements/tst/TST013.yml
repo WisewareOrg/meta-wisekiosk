@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_no_pointer_on_the_panel
   path: tests/target_suite/test_display.py
-  sha: f636dec4455e342950dcaaf9c0931a2d4e6d7997ca656740250eb93f4588ef08
+  sha: 25517e7c62f6fbb76b64cbe26e6a75408e6399d0c5ee816b99feadb12a82b6c3
   type: file
-reviewed: MKv-SOFsxm5N7RfjIrOTsDxNB1a5_YJfABSTxwLO9wc=
+reviewed: cF3kkTDpnyhw3HiRe1V4F4fWBgGDNkGVkjDLaqf9I_w=
 status: proposed
 text: |
   With the WiseKiosk instance on the panel, attach a mouse at the appliance's input layer and move

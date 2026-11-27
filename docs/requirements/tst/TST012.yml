@@ -13,9 +13,9 @@ ref: ''
 references:
 - keyword: def test_back_after_a_fault
   path: tests/target_suite/test_back_on_the_panel.py
-  sha: 493feace8d10710e782cb29ec7d3d3809036a3fee3b370dd7b67b8fdd7963c1c
+  sha: 1492041915f18bfa0d302a580f86397ddae5630f4a7fbf0374dbc2ed320707c2
   type: file
-reviewed: MDMlFOFbxzxNg3ap08ZeMGMfcGfPcVr6oLQzHgn-nSY=
+reviewed: j1_yPic9L7_Te5EV_7m4WHsUAlLcuB1FdQwgPH8wAbs=
 status: proposed
 text: |
   With the appliance powered off and nobody at the panel, apply power. Pass if, within 110 s of
