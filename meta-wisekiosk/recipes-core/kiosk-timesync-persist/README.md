@@ -11,10 +11,10 @@
 - timesyncd restores the saved clock within seconds of starting, long before NTP sync, so a slot an
   update has just written boots with a real clock; why that matters is
   [`docs/updates.md`](../../../docs/updates.md) §"What a new slot carries".
-- The drop-in uses `BindPaths`, not a symlink: timesyncd runs `ProtectSystem=strict`, so a write
-  through a symlink outside its sandbox fails read-only. The leading `-` skips the bind when the
-  source is missing, so a `/data` failure degrades to a non-persistent boot.
-- The stager is a `Wants=` of timesyncd, not `Requires=`, so a failed stage does not cancel NTP; it
-  re-runs at each timesyncd start, so it is not `RemainAfterExit`.
+- timesyncd runs under `ProtectSystem=strict`, so the directory is bound with `BindPaths=`; a write
+  through a symlink to `/data` fails read-only. The leading `-` skips the bind when the source is
+  missing, so a `/data` failure degrades to a non-persistent boot.
+- timesyncd pulls the stager in with `Wants=`, so a failed stage leaves NTP running. The stager has
+  no `RemainAfterExit=`, so it runs again at every timesyncd start.
 
 Part of [the device](../../../docs/device.md).

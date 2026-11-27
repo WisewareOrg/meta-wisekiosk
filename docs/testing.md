@@ -82,14 +82,14 @@ not this layer's.
 Every dedicated test on a board is a pytest case under `tests/`, run through the bench driver as
 `bench test <ref> -- <suite> -k <name>` — never an ad hoc script, loop or ssh one-liner. A test
 driven outside the driver carries none of its provenance, and its result is not evidence for a
-review, an investigation or a PR. By hand, a board is for inspection only: reading its state and
-running read-only diagnostics.
+review, an investigation or a PR. Outside the bench driver, a board is only inspected: its state is
+read, and nothing on it changes.
 
 `tests/diagnostics` also holds the check that a reset mid-install is caught: `bench test <ref> --
 tests/diagnostics -k install_reset_capture -rP` installs the candidate, then runs a second `just
 kiosk-ota` and crashes the board once rauc reports writing the slot, and passes only when that
 install's own output carries the reset and the board's pstore read back after it. It crashes the
-board on purpose, so it runs only by hand, never in the queue job.
+board on purpose, so it is run on its own through the driver, never in the queue job.
 
 `tests/diagnostics -k fallback_probe` is the safe check of the slot fallback before any install meant
 to fail: it installs a good copy of the candidate in the slot not booted, zeroes that slot's boot

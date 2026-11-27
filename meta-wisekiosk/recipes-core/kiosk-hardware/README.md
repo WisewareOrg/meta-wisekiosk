@@ -4,7 +4,7 @@ Drop-in configuration only: no binaries and no services. `kiosk-hardware_1.0.bb`
 
 - `kiosk-blacklist.conf` in `/etc/modprobe.d`: `raspberrypi_gpiomem`, `uio` and `uio_pdrv_genirq`
   are blacklisted and their `install` lines point at `/bin/true`. The blacklist keeps modules with
-  no consumer here out of memory; it saves no boot time. `drm`, `backlight` and
+  no consumer here out of memory. `drm`, `backlight` and
   `drm_panel_orientation_quirks` must never be blacklisted: DRM is the display path.
 - `watchdog.conf` in `system.conf.d`: `RuntimeWatchdogSec=14` arms `/dev/watchdog0` (the BCM2835
   hardware caps near 15 s); `RebootWatchdogSec` and `ShutdownWatchdogSec` are 30 s.
@@ -20,7 +20,8 @@ Drop-in configuration only: no binaries and no services. `kiosk-hardware_1.0.bb`
 
 ## How it fits
 
-- The recipe is separate from a `systemd_%.bbappend` because changing systemd rebuilds WebKit.
+- Nothing here goes in a `systemd_%.bbappend`: a change to systemd rebuilds WebKit
+  ([`docs/image.md`](../../../docs/image.md) §"What a rebuild costs").
 - `kiosk-static-resolv.bbclass` points `/etc/resolv.conf` at `/data/config` once `systemd-resolved`
   is masked.
 - `kiosk-recover` reverses the unit and udev masks and the resolver link on a running board.

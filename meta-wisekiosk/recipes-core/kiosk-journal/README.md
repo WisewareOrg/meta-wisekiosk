@@ -13,10 +13,10 @@ behind. It installs:
 
 ## How it fits
 
-- The recipe does not set `VOLATILE_LOG_DIR`: that variable is read by systemd's `do_install`, so
-  setting it rebuilds systemd and everything depending on it, WebKit included.
-- The flush is its own unit; an `After=systemd-tmpfiles-setup.service` drop-in on
-  `systemd-journal-flush` makes an ordering cycle that deletes the tmpfiles job.
+- `VOLATILE_LOG_DIR` stays unset: systemd's `do_install` reads it, so setting it rebuilds systemd
+  and WebKit with it ([`docs/image.md`](../../../docs/image.md) §"What a rebuild costs").
+- The flush is a unit of its own: an `After=systemd-tmpfiles-setup.service` drop-in on
+  `systemd-journal-flush` forms an ordering cycle, which systemd breaks by deleting the tmpfiles job.
 - The `L` line in the tmpfiles file takes four dashes before the target; a fifth is read as the Age
   field and breaks the link.
 

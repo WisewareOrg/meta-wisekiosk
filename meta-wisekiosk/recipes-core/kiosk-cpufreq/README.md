@@ -7,6 +7,8 @@ resulting cap to `/dev/kmsg`. The governor keeps scaling below the cap.
 ## How it fits
 
 - Why the board needs the cap is [`docs/device.md`](../../../docs/device.md) §"CPU frequency".
+- It is a unit in the rootfs, so an update carries it and a failed slot falls back
+  ([`docs/updates.md`](../../../docs/updates.md) §"The shared /boot").
 - `kiosk-zero-w.yaml` adds the package through `IMAGE_INSTALL`.
 
 Part of [the device](../../../docs/device.md).

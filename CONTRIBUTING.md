@@ -84,8 +84,10 @@ other stays right, with nothing comparing them.
 it plugs into the rest, and the knobs that matter, in plain language — Yocto is hard to read. A
 subsystem document under `docs/` says how the modules fit together and why the system is built that
 way, and links down to the module READMEs. A decision record in [`docs/decisions/`](docs/decisions/README.md)
-holds a choice that took a trade study, with the alternatives it rejected. No document states what a
-board runs, which slot it is on, or what may be done to it.
+holds a choice that took a trade study, with the alternatives it rejected. No tracked document
+describes a particular board: what it runs, which slot it is on, its role, or what may be done to it.
+That setup lives only in the gitignored `local/`. A rule that holds for every board, such as how a
+test reaches one, is not such a description.
 
 **The tree describes the system; issues and pull requests are the record of the work.** A recipe, a
 class or a justfile says what the tree does, and a document says how the system is built and

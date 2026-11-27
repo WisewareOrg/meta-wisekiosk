@@ -127,8 +127,7 @@ long run.
 At its top operating point (1000 MHz) under sustained WiFi and network load, this board corrupts
 memory: the oopses land in the network receive path and pstore keeps them. Every lower operating
 point holds, so [`kiosk-cpufreq`](../meta-wisekiosk/recipes-core/kiosk-cpufreq/README.md) caps the
-core below it, at a tenth of peak CPU. The cap is a unit in the rootfs rather than the firmware's
-`over_voltage`, which lives in `config.txt` on the shared `/boot` and so travels in no update.
+core below it, at a tenth of peak CPU.
 
 ## Getting in
 
