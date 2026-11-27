@@ -9,7 +9,7 @@
 #
 # Read as a plain assignment by
 # meta-wisekiosk/classes/kiosk-buildinfo-cachesafe.bbclass.
-# See docs/layers-and-kas.md.
+# See docs/image.md.
 
 set -uo pipefail
 

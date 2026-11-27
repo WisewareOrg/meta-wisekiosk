@@ -32,7 +32,7 @@ counts as an answer once one is in hand, and how to get the next one faster.
 
 Reach for the cheapest experiment that can *fail*. An injection costs minutes; a mirror rebuild
 costs a deploy cycle; a WebKit-invalidating rebuild costs multiple hours, per
-[`../../../README.md`](../../../README.md) §"Quick start".
+[`../../../docs/image.md`](../../../docs/image.md) §"What a rebuild costs".
 
 ## Choosing the metric
 

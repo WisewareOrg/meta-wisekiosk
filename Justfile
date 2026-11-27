@@ -43,7 +43,7 @@ rauc-bundle-dir := "build/bundles"
 # The key the fleet trusts. Single source for the just side (the `flash` keyring
 # guard, the rotation recipes' old-key default). kiosk-zero-w.yaml repeats the
 # name because bitbake cannot read a just variable -- the ONE site this cannot
-# cover; docs/rauc-key-rotation.md lists both under "Rotating to a new key".
+# cover; docs/updates.md lists both under "Rotating the signing key".
 fleet-key := "kiosk-2026"
 
 # Consumed ONLY by `rauc-to-casync` in ota.just, which is disabled

@@ -48,7 +48,7 @@ ssh -L 2999:127.0.0.1:2999 -N root@<board>        # resolve <board> from local/d
 ```
 
 Remove the drop-in, reload systemd and restart when done —
-the inspector is a listening server and a perturbation, not a thing to leave running on prod.
+the inspector is a listening server and a perturbation, not a thing to leave running.
 
 ## The client
 

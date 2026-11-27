@@ -6,7 +6,7 @@ and four copies of this drifted into three different behaviours on the same
 malformed input -- one refusing loudly, one truncating silently, one yielding a
 phantom record. Underscored so it can be imported; the tools stay hyphenated.
 
-See docs/cve-and-sbom.md.
+See docs/security.md.
 """
 import re
 

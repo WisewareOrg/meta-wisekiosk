@@ -13,7 +13,7 @@ useDefault = true
 # copy went when meta-autonomos became kas-fetched, and the fetched copy under
 # sources/ is gitignored, never scanned. So the entry goes only on a history
 # rewrite -- not worth doing, since it does not unpublish a public key.
-# See docs/rauc-key-rotation.md.
+# See docs/updates.md.
 [allowlist]
 description = "Retired upstream RAUC development signing key, still in this repo's git history"
 paths = ['''meta-autonomos-core/files/rauc-example-keys/development\.key\.pem''']

@@ -6,7 +6,7 @@
 create-spdx runs on every build, so this needs no audit build. The SPDX and
 manifest counts describe different sets -- every package built, against what the
 image installed -- and are printed side by side, not reconciled. See
-docs/cve-and-sbom.md.
+docs/security.md.
 """
 import subprocess
 import sys

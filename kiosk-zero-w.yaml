@@ -45,7 +45,7 @@ local_conf_header:
   # without it this failure costs a person standing at the device.
   # Its value differs from kernel.panic in 60-kiosk-panic.conf, which applies once
   # userspace is up, and stays: cmdline.txt is on the shared FAT partition RAUC
-  # never writes (README.md §"Quick start"), so a new value would reach only a
+  # never writes (docs/updates.md §"The shared /boot"), so a new value would reach only a
   # freshly flashed card, and the tree would state a value the boards in the field
   # do not run.
   panic-reboot: |
@@ -95,7 +95,7 @@ local_conf_header:
   # PACKAGECONFIG bbappends are `_%` and still apply at 24.0.7, so the vc4/v3d
   # gallium drivers come with the older recipe. `just preferred-version`
   # reports this pin as behind by design; this comment is the reason it is not
-  # a bump to take. See docs/layer-currency.md.
+  # a bump to take. See docs/security.md.
   graphics: |
     VC4DTBO = "vc4-fkms-v3d"
     PREFERRED_VERSION_mesa = "24.0.7"
@@ -192,7 +192,7 @@ local_conf_header:
 
     # /etc/buildinfo: the commit each slot was built from (#46). Records only --
     # tools/reproducibility-gate.sh is what refuses. Global INHERIT so every
-    # route to bitbake carries it. See docs/layers-and-kas.md.
+    # route to bitbake carries it. See docs/image.md.
     INHERIT += "image-buildinfo"
 
     # Keeps /etc/buildinfo from going stale (#46). IMAGE_CLASSES, not INHERIT:
@@ -201,7 +201,7 @@ local_conf_header:
     IMAGE_CLASSES += "kiosk-buildinfo-cachesafe"
 
     # Named here, not left to poky.conf's transitive inherit, so an upstream
-    # bump cannot drop the SBOM (#69). See docs/cve-and-sbom.md.
+    # bump cannot drop the SBOM (#69). See docs/security.md.
     INHERIT += "create-spdx"
 
   # update-bundle.bb packages whichever image RAUC_SLOT_rootfs names, and its
@@ -233,7 +233,7 @@ local_conf_header:
     #
     # The key NAME is spelled out here because bitbake cannot read a just
     # variable; it is one of the two sites a rotation must edit by hand, listed
-    # in docs/rauc-key-rotation.md under "Rotating to a new key".
+    # in docs/updates.md under "Rotating the signing key".
     #
     # A rotation build overrides these: kas emits local_conf_header blocks
     # sorted by key, and rauc-rotate-build.sh names its fragment
@@ -342,7 +342,7 @@ local_conf_header:
     DEBUG_FLAGS:remove:pn-wpewebkit = "-g -g1"
     BB_PRESSURE_MAX_MEMORY = "20000"
 
-  # The image's compile cache (README.md §"Quick start").
+  # The image's compile cache (docs/image.md §"Building").
   ccache: |
     CCACHE_TOP_DIR = "${SSTATE_DIR}/ccache"
     INHERIT += "ccache"

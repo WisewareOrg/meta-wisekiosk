@@ -1,7 +1,7 @@
 # Puts the host-resolved sha in do_image[vardeps] so image-buildinfo's
 # /etc/buildinfo re-stamps when HEAD moves (#46): the class reads git in
 # do_image but hashes nothing, so bitbake would replay a stale stamp.
-# Rationale and rejected alternatives: docs/layers-and-kas.md, "What commit an
+# Rationale and rejected alternatives: docs/image.md, "What commit an
 # image was built from".
 
 include conf/build-rev.inc

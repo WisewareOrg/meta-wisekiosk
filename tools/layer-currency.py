@@ -10,7 +10,7 @@
 no checkout, network only. Where sources/ happens to hold a clone it says how far
 behind as well, and never requires one. `gap` reads that clone and the newest CVE
 manifest, offline; `--fetch` is the only thing here that writes to sources/.
-See docs/layer-currency.md.
+See docs/security.md.
 """
 import os
 import re
@@ -414,10 +414,10 @@ def check() -> int:
     report_hijacks(hijacks)
     print("`behind` says the head has moved off the pin, not that the pin is "
           "unsafe; what those commits carry is a separate read. "
-          "See docs/layer-currency.md.")
+          "See docs/security.md.")
 
     # Reports, never gates: exit 0 with findings. A nonzero exit is reserved for
-    # a report that cannot be trusted. See docs/layer-currency.md.
+    # a report that cannot be trusted. See docs/security.md.
     return 0
 
 
@@ -516,10 +516,10 @@ def gap(name: str, fetch: bool) -> int:
     report_hijacks(hijacks)
     print("`would plausibly close` is what a commit message NAMES, not what a "
           "rebuild proves. The authoritative answer is bumping the pin and "
-          "re-running `just cve-build`. See docs/layer-currency.md.")
+          "re-running `just cve-build`. See docs/security.md.")
 
     # Reports, never gates: exit 0 with findings. A nonzero exit is reserved for
-    # a report that cannot be trusted. See docs/layer-currency.md.
+    # a report that cannot be trusted. See docs/security.md.
     return 0
 
 

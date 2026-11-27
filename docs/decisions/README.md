@@ -34,6 +34,8 @@ amended, so a number in git history need not mean what it means here.
 | # | Rev | Decided | Decision |
 |---|---|---|---|
 | [0001](0001-wpe-webkit-on-drm-with-our-own-launcher.md) | 2 | 2026-11-24 | Show the page with WPE WebKit on the kernel's DRM display, from a launcher of our own |
+| [0002](0002-stream-adaptive-bundles.md) | 1 | 2026-11-22 | Install updates by streaming adaptive RAUC bundles over HTTP from the installing host |
+| [0003](0003-oom-kill-through-mglru-min-ttl.md) | 1 | 2026-11-21 | End memory-exhaustion thrash with a kernel OOM kill via MGLRU `min_ttl_ms` |
 
 ## Revisions
 

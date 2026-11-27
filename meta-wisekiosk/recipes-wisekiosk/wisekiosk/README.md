@@ -21,7 +21,7 @@ the host's `go` is older.
 
 `SRCREV` follows the app's `main` (owner, 2026-09-29): Renovate keeps one pull request moving it to
 `main`'s head, rolled forward while unmerged, automerging the same way the kas layer pins do — see
-[`../../../docs/layer-currency.md`](../../../docs/layer-currency.md).
+[`../../../docs/security.md`](../../../docs/security.md).
 
 A pin bump that changes the LICENSE file's contents, or removes `deploy/config.example.json`, breaks
 `LIC_FILES_CHKSUM` or `wisekiosk-frontend_git.bb`'s `do_install` respectively — both fail loudly at

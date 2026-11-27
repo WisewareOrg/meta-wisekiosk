@@ -16,8 +16,7 @@ conventions. Nothing here overrides them.
   and the reproducibility gate refuses the image at flash time.
 - **A webkit `PACKAGECONFIG` change or a WebKit recipe edit invalidates WebKit.**
   `DISTRO_FEATURES`, `MACHINE_FEATURES`, or a poky/meta-openembedded pin bump invalidate more than
-  WebKit. Either is a multi-hour rebuild — see [`README.md`](README.md) §"Quick start" for the
-  measured costs — so decide before starting.
+  WebKit. Either is a multi-hour rebuild — see [`docs/image.md`](docs/image.md) §"What a rebuild costs" — so decide before starting.
 - **Every dedicated test on a board runs through the bench driver** — the rule and the form are
   [`docs/testing.md`](docs/testing.md) §"Running it".
 - **Never destructively test the prod board.** It is wall-mounted and carries the live soak run;
@@ -28,7 +27,7 @@ conventions. Nothing here overrides them.
   [`CONTRIBUTING.md`](CONTRIBUTING.md) §"Before you change anything".
 - **The RAUC keyring and `compatible` are a one-way lock.** A deployed board refuses a bundle it
   cannot verify and a compatible that is not its own. There is no remote undo; the order in
-  [`docs/rauc-key-rotation.md`](docs/rauc-key-rotation.md) is the whole mechanism.
+  [`docs/updates.md`](docs/updates.md) is the whole mechanism.
 - **`/boot` has no A/B protection.** Kernel and rootfs fall back per slot; `cmdline.txt`,
   `config.txt` and `uboot.env` are shared, so a bad write breaks both slots and needs the card
   pulled. Boot changes ship by OTA.

@@ -5,19 +5,19 @@
 #
 #   just rotate-keygen [name]                # new key, gitignored, never committed
 #   just rotate-build [name]                 # transition + end-state bundles
-#   just rotate-provision-ssh root@<hitl>    # once, if key auth is not set up
-#   just rotate-run root@<hitl> [name]       # PROVE it on the HITL board first
-#   just rotate-verify root@<hitl> [name] --empirical build/rotation/transition.raucb build/rotation/new-signed.raucb
-#   just rotate-run root@<prod> [name]       # only then the prod board
+#   just rotate-provision-ssh root@<host>    # once, if key auth is not set up
+#   just rotate-run root@<bench> [name]      # PROVE it on the bench board first
+#   just rotate-verify root@<bench> [name] --empirical build/rotation/transition.raucb build/rotation/new-signed.raucb
+#   just rotate-run root@<host> [name]       # only then every other board
 #
-# Why the order matters is written up in docs/rauc-key-rotation.md.
+# Why the order matters is written up in docs/updates.md.
 #
 # `name` selects a dir under the gitignored local/keys.
 # justfile_directory() keeps the path absolute, so the recipes work from any cwd.
 #
 # The key NAME defaults from `fleet-key` in the root Justfile. Completing a
-# rotation means updating that and kiosk-zero-w.yaml -- see "Rotating to a new
-# key" in docs/rauc-key-rotation.md.
+# rotation means updating that and kiosk-zero-w.yaml -- see "Rotating the signing
+# key" in docs/updates.md.
 
 keys-root := justfile_directory() / "local/keys"
 

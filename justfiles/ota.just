@@ -123,7 +123,7 @@ casync-stats store:
     echo "Size: $SIZE"
 
 # === Tier 1 delivery: the board streams the bundle from this host ===
-# tools/kiosk-install.sh serves it and installs it; README.md §"Updating a running device".
+# tools/kiosk-install.sh serves it and installs it; docs/updates.md §"Delivering an update".
 
 kiosk-image-file := "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/core-image-base-raspberrypi0-wifi.rootfs.ext4"
 kiosk-bundle-file := "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/update-bundle-raspberrypi0-wifi.raucb"

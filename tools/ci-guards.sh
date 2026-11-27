@@ -2,7 +2,7 @@
 # Repository invariants. CI and the pre-commit hook run this same script, so the
 # guard set cannot diverge. A guard may still fail closed locally where the host
 # lacks a prerequisite CI installs -- guard 4 needs PyYAML, guard 22 the .venv's
-# lint tools (see the README prerequisites) -- a missing prerequisite, not a
+# lint tools (see docs/image.md) -- a missing prerequisite, not a
 # divergent verdict on the tree.
 #
 # These are deliberately dependency-light: no bitbake, no network. A Yocto build
@@ -139,13 +139,13 @@ done < <(git ls-files -- '*.sh' "${scan3[@]}" ':!:docs/issue_investigation/**')
 # rather than exit 0 on a search it could not perform, as the identity scan
 # fails closed for a missing map. CI installs PyYAML before this runs, so a
 # green CI means the files were parsed; a local route without it fails here,
-# pointing at the README prerequisite. The message names the missing tool, so
+# pointing at docs/image.md. The message names the missing tool, so
 # it reads as "cannot check", not the older false positive of "every kas file
 # is invalid YAML".
 if ! command -v "$PY" > /dev/null; then
     bad "guard 4 cannot check YAML: $PY not available"
 elif ! "$PY" -c 'import yaml' 2>/dev/null; then
-    bad "guard 4 cannot check YAML: $PY has no yaml module -- run uv sync to install PyYAML into the repo .venv/bin/python3; see the README prerequisites. CI installs it automatically."
+    bad "guard 4 cannot check YAML: $PY has no yaml module -- run uv sync to install PyYAML into the repo .venv/bin/python3; see docs/image.md. CI installs it automatically."
 else
     badyaml=0
     while IFS= read -r f; do
@@ -428,7 +428,7 @@ else
     fi
 
     # Cache safety: every part asserted, any one alone is inert.
-    # See docs/layers-and-kas.md, "What commit an image was built from".
+    # See docs/image.md, "What commit an image was built from".
     cache10="meta-wisekiosk/classes/kiosk-buildinfo-cachesafe.bbclass"
     # IMAGE_CLASSES, not INHERIT -- ordering, see the doc section above.
     cinh10=$(grep -vE '^[[:space:]]*#' "$conf10" \

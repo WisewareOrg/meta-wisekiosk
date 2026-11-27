@@ -10,7 +10,7 @@ kernel CNA's own vulns database.
 Refuses rather than reports when the filter had nothing to filter on: an SPDX
 document written without SPDX_INCLUDE_COMPILED_SOURCES yields zero compiled
 files, and the filter then runs to completion, exits clean and returns every
-finding unchanged. See docs/cve-and-sbom.md.
+finding unchanged. See docs/security.md.
 """
 import json
 import os

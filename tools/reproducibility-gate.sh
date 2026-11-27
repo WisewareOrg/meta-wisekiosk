@@ -5,7 +5,7 @@
 #   tools/reproducibility-gate.sh --tree                 -- clean + pushed
 #   tools/reproducibility-gate.sh --image <rootfs.ext4>  -- ... and the image names HEAD
 #
-# No override flag, by design -- see docs/layers-and-kas.md.
+# No override flag, by design -- see docs/image.md.
 #
 # Wiring is checked by tools/ci-guards.sh guard 10; this checks the tree and
 # the artifact.

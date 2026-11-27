@@ -20,7 +20,7 @@ defaults:
 # difference unattributable -- a rebuild would mix "what we changed" with "what
 # upstream pushed since". Bumping a pin is an edit here, reviewed like any
 # other; `just currency` reports which have fallen behind and
-# docs/layers-and-kas.md holds the procedure.
+# docs/image.md holds the procedure.
 repos:
   # No url: kas resolves this to the repository containing this config file.
   # meta-wisekiosk LAYERDEPENDS on the Raspberry Pi layers, so this file is not
@@ -101,6 +101,6 @@ repos:
 local_conf_header:
   # The hash-equivalence server every build on this host shares -- one database,
   # not one per build dir. tools/kas-run.sh mounts it at /hashserv; README.md
-  # §"Quick start" has the one-time host setup.
+  # §"Setting up a build host" has the one-time host setup.
   bitbake-hashserv: |
     BB_HASHSERVE = "unix:///hashserv/hashserv.sock"

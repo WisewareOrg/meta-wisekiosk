@@ -223,7 +223,7 @@ server and patches to another project's browser, for a page that needs none of t
 - **The vulnerability scan does not see the engine.** The pinned `wpewebkit` recipe sets no
   `CVE_PRODUCT`, so the scan looks for it under the recipe's name, and the build's NVD
   snapshot files WPE's CVEs under `wpe_webkit`. No CVEs for it is then not a finding of none, as
-  [`../cve-and-sbom.md`](../cve-and-sbom.md) §"What `coverage` bounds" says of any such recipe.
+  [`../security.md`](../security.md) §"Reading the CVE report" says of any such recipe.
 - **The motion and memory bounds were set on `surf` and stand as they are**, per the cutover plan.
 - **One more pin to track.** `meta-webkit` joins the pins, and its bump rebuilds the engine, as
   poky's does ([`../image.md`](../image.md) §"What a rebuild costs").

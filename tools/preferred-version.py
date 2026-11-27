@@ -11,7 +11,7 @@ stale: the layer pin reads `current` while the image builds a recipe two series
 behind the one sitting next to it.
 
 Pure filesystem scan of sources/. No build, no network, no bitbake. See
-docs/layer-currency.md.
+docs/security.md.
 """
 import re
 import subprocess
@@ -199,10 +199,10 @@ def check() -> int:
           "file named beside a finding before acting on it.")
     print("A newer recipe being present is not a reason to take it: a series "
           "bump can change a kernel ABI, a device tree or a rebuild cost. This "
-          "reports the choice, it does not make it. See docs/layer-currency.md.")
+          "reports the choice, it does not make it. See docs/security.md.")
 
     # Reports, never gates: exit 0 with findings. A nonzero exit is reserved for
-    # a report that cannot be trusted. See docs/layer-currency.md.
+    # a report that cannot be trusted. See docs/security.md.
     return 0
 
 
