@@ -161,7 +161,6 @@ meta-wisekiosk/                    <- the repository (project scaffolding)
 └── sources/                       gitignored; everything kas fetches lands here
 ```
 
-Nothing outside `meta-wisekiosk/` is read by BitBake. Nothing inside it is read by anything else.
 New to Yocto: [`docs/image.md`](docs/image.md) explains what a layer is and what kas does with
 these files.
 
@@ -176,6 +175,7 @@ put the site's values in `~/.config/wisekiosk/secrets.yaml`, copied from
 just build                          # the image (docs/image.md)
 just flash /dev/sdX                 # a new card (docs/device.md)
 just provision-fresh-card /dev/sdX  # its site configuration, before first boot
+export KIOSK_HOST=root@<addr>       # the board the next recipes reach (docs/device.md)
 just kiosk-ota                      # an update to a running board (docs/updates.md)
 just kiosk-reboot
 ```

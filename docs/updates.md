@@ -81,10 +81,7 @@ What follows from that design (and from `resize=true`, as
 - One host installs on one board at a time: a second install's set-up would clear the first's crash
   records, so `tools/kiosk-install.sh` refuses it and names the holder.
 
-Every recipe that talks to a board takes its default from the `kiosk-host` variable in the
-[`Justfile`](../Justfile), so `export KIOSK_HOST=root@<addr>` points all of them at one board, and
-an explicit `host` argument wins over it. There is no default in the tree, because an address is
-site-specific; `just find <cidr>` learns a board's address on the LAN.
+Which board these recipes reach is [`device.md`](device.md) §"Reaching a board".
 
 ## What a new slot carries
 
@@ -159,8 +156,8 @@ differs, or one whose image and rootfs come from different builds: a card writte
 keyring is repaired only by another flash.
 
 The development key upstream ships, `development.key.pem`, is public, and no board here trusts it.
-`.gitleaks.toml` allowlists the path a copy of it once had in this repository's history, which is
-where `gitleaks detect` looks; the entry goes only if that history is rewritten.
+`.gitleaks.toml` allowlists the path of the copy in this repository's git history, which is where
+`gitleaks detect` looks; the entry goes only if that history is rewritten.
 
 ## Rotating the signing key
 

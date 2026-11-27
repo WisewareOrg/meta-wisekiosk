@@ -11,11 +11,11 @@ description: >-
 
 # The WebKit remote inspector, actually connected
 
-The image runs WPE WebKit. The engine facts below were observed on WebKitGTK 605 and have not been
-re-read on WPE, except where a line says so. That JavaScriptCore gave the page **no** self-instrumentation
-that survives a saturated core: `performance.memory` is absent, `FinalizationRegistry` callbacks never
-fire (no idle turn to deliver them), and `JSC_logGC` / other `JSC_*` options are compiled out. The one
-instrument that reports the collector and the heap from the engine is the **remote inspector**, and
+The image runs WPE WebKit. A fact marked *unverified on this image* comes from WebKitGTK and is not
+confirmed on WPE. JavaScriptCore gives the page no self-instrumentation that survives a saturated
+core: `performance.memory` is absent, `FinalizationRegistry` callbacks never fire (no idle turn to
+deliver them), and `JSC_logGC` and the other `JSC_*` options are compiled out — each *unverified on
+this image*. The one instrument that reports the collector and the heap from the engine is the **remote inspector**, and
 connecting to it turns on one environment variable, below.
 
 ## Two server variables
@@ -65,14 +65,15 @@ the tunnel above and Node ≥ 20 (global `fetch` + `WebSocket`). It handles the 
 Three facts, each load-bearing and each a departure from the Chrome DevTools Protocol:
 
 - The target list is **HTML at `/`**, not JSON at `/json/list`. The WebSocket path is embedded in the
-  Inspect button as `ws=' + window.location.host + '<path>'` — on this board `/socket/1/1/WebPage`.
+  Inspect button as `ws=' + window.location.host + '<path>'`, `/socket/1/1/WebPage` (*unverified on
+  this image*).
 - Every call is wrapped in **`Target.sendMessageToTarget`** and every reply/event comes back inside a
   **`Target.dispatchMessageFromTarget`** event. Match response ids and read event methods on the
   **inner** message, not the outer envelope. `Target.targetCreated` announces the `targetId` you must
   quote in every wrapper.
 - `Heap.garbageCollected` events only flow **between `Heap.startTracking` and `Heap.stopTracking`** —
-  `Heap.enable` alone emits nothing. On this build the event's `startTime`/`endTime` read **0**, so the
-  client times collections by **arrival wall-clock**, not the engine's stamp.
+  `Heap.enable` alone emits nothing. The event's `startTime`/`endTime` read **0** (*unverified on this
+  image*), so the client times collections by **arrival wall-clock**, not the engine's stamp.
 
 Heap snapshots are WebKit **HeapSnapshot v2**: `nodes` is a flat array of 4-int records
 `[id, size, classNameIndex, flags]`; the class name is `nodeClassNames[classNameIndex]`. Census is a
@@ -80,7 +81,7 @@ count and byte-sum per class; a diff of two censuses names what accumulates.
 
 ## Gotchas that cost real time
 
-- **Never connect before a page is listed: it crashes the browser.** `webkit-inspect.mjs` throws `no socket
+- **Never connect before a page is listed: it crashes the browser** (*unverified on this image*). `webkit-inspect.mjs` throws `no socket
   path in target list` when no page is listed, and `no targetId announced by the inspector` when the
   page never announces itself, so it already keeps this rule; a client of your own must too.
 - **One connection at a time.** A hung or half-open connection (an earlier client that timed out, a

@@ -119,21 +119,12 @@ debugfs -R "cat /etc/systemd/system/wpa_supplicant.service" \
 
 ## The WiseKiosk application
 
-The image builds the application from source, both halves at one pinned commit
-([`recipes-wisekiosk/wisekiosk`](../meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md)), with
-the Node.js the frontend build runs on supplied by
-[`recipes-devtools/nodejs`](../meta-wisekiosk/recipes-devtools/nodejs/README.md). The build stays
-offline and reproducible from that pin:
-
-- The backend builds with `GOPROXY=off` and enforces its own `go.sum`. The one Go tool the build
-  runs, `oapi-codegen`, arrives with its module closure as checksummed `SRC_URI` entries in
-  proxy-zip layout, the layout Yocto's `gomod://` fetcher uses in later releases.
-- The frontend's npm closure arrives from the app's own shrinkwrap through the `npmsw` fetcher.
-- The API client, types and config types are generated from the pinned commit's own OpenAPI
-  document and schemas on every build, so nothing generated can go stale against the pin.
-- The Go module list and the shrinkwrap are derived from the pin, so they are not committed:
-  `tools/go-mods.py` and `tools/app-lockfile.py` write them at every build entry, gitignored, and the
-  recipes refuse to parse when either is missing or written for another commit.
+The image builds the application from source, both halves at one pinned commit, offline and with
+nothing generated committed: the API client and types are generated from the pinned commit on every
+build, and the Go module list and npm shrinkwrap are derived from the pin at build entry. How is
+[`recipes-wisekiosk/wisekiosk`](../meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md); the
+Node.js the frontend build runs on is
+[`recipes-devtools/nodejs`](../meta-wisekiosk/recipes-devtools/nodejs/README.md).
 
 ## Setting up a build host
 

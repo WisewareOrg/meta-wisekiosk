@@ -24,14 +24,9 @@ is [`docs/image.md`](docs/image.md) §"What a rebuild costs".
 [`docs/testing.md`](docs/testing.md) §"Running it".
 
 **Nothing autogenerable is committed.** A file this tree can regenerate from what is already pinned
-is gitignored and written at build entry instead of checked in: `meta-wisekiosk/conf/build-rev.inc`,
-`wisekiosk-backend-go-mods.inc` and `wisekiosk-frontend/npm-shrinkwrap.json`, by
-`tools/write-build-rev.sh`, `tools/go-mods.py` and `tools/app-lockfile.py`. Bumping the WiseKiosk
-app pin is therefore a one-line `SRCREV` edit
-([`meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md`](meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md)).
-A pin on the repository's own tooling is the opposite case: `pyproject.toml` and `uv.lock` fix the
-versions of what `tools/*.py` and the tests import, as `includes/base.yaml` fixes a layer commit, and
-a pin is never autogenerable, so it belongs in the tree.
+is gitignored and written at build entry instead of checked in; which files those are is
+[`docs/image.md`](docs/image.md) §"Building". A pin is never autogenerable, so a pin — a layer
+commit, `pyproject.toml` and `uv.lock` — is committed.
 
 ## Running the checks
 
@@ -163,9 +158,8 @@ silently to whatever occupies it after a renumber.
 3. **WebKit cost.** Does this reach WebKit's build, alone or with more
    ([`docs/image.md`](docs/image.md) §"What a rebuild costs")? Then it is a decision taken before
    starting, not one discovered afterwards.
-4. **kas block collision.** Is every `local_conf_header` block name unique across the include chain?
-   kas merges by block name and the top-level file wins, so a duplicate is discarded with no warning,
-   no error, and variables that never reach bitbake.
+4. **kas block collision.** Is every `local_conf_header` block name unique across the include chain
+   ([`docs/image.md`](docs/image.md) §"What kas does")?
 5. **Pin reachable.** Is every commit a pin names pushed and fetchable by someone who is not you? An
    unpushed pin builds here and nowhere else.
 
@@ -178,11 +172,9 @@ silently to whatever occupies it after a renumber.
 
 **RAUC / signing / secrets**
 
-8. **One-way lock.** Is the keyring and `compatible` consequence understood? A deployed board refuses
-   a bundle signed by a key it does not trust and refuses a compatible that is not its own — a wrong
-   change strands every unit in the field, and there is no remote undo
-   ([`docs/updates.md`](docs/updates.md) §"The one-way lock"). The rotation order in
-   [`docs/updates.md`](docs/updates.md) §"Rotating the signing key" is not optional.
+8. **One-way lock.** Is the keyring and `compatible` consequence understood
+   ([`docs/updates.md`](docs/updates.md) §"The one-way lock"), and does a key change follow the
+   order in [`docs/updates.md`](docs/updates.md) §"Rotating the signing key"?
 9. **No secret as a build input.** Does any value `secrets.yaml` holds
    ([`docs/device.md`](docs/device.md) §"Provisioning") become something bitbake reads? That makes one
    image per site, with that site's wireless credentials inside every update bundle.

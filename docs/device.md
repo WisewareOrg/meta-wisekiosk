@@ -91,10 +91,12 @@ that failed survive the fallback that replaces it. A reset or a panic leaves its
 pstore, a region of RAM that survives a reset: the kernel's console tail through the `ramoops`
 overlay, and its soft-lockup detector and ftrace records through the kernel's config fragments
 ([`recipes-kernel/linux`](../meta-wisekiosk/recipes-kernel/linux/README.md)). The overlay is a
-`config.txt` line, so a board gains it only when its card is flashed.
+`config.txt` line, so a board gains it only when its card is flashed ([`updates.md`](updates.md)
+§"The shared /boot").
 
 A panic restarts the board. Before userspace is up only the kernel command line can arrange that,
-so `panic=10` is there (on `/boot`, so set when the card is flashed); once userspace is up,
+so `panic=10` is there (on `/boot`, so set when the card is flashed: [`updates.md`](updates.md)
+§"The shared /boot"); once userspace is up,
 `kiosk-hardware`'s sysctls panic on any oops and reboot a second later, and systemd pets the hardware
 watchdog, which resets a board whose PID 1 stops answering.
 
@@ -128,6 +130,13 @@ At its top operating point (1000 MHz) under sustained WiFi and network load, thi
 memory: the oopses land in the network receive path and pstore keeps them. Every lower operating
 point holds, so [`kiosk-cpufreq`](../meta-wisekiosk/recipes-core/kiosk-cpufreq/README.md) caps the
 core below it, at a tenth of peak CPU.
+
+## Reaching a board
+
+Every recipe that talks to a board takes its default from the `kiosk-host` variable in the
+[`Justfile`](../Justfile), so `export KIOSK_HOST=root@<addr>` points all of them at one board, and
+an explicit `host` argument wins over it. There is no default in the tree, because an address is
+site-specific; `just find <cidr>` learns a board's address on the LAN.
 
 ## Getting in
 
