@@ -17,7 +17,7 @@ dev = [
     "python-kasa",
     "ruff>=0.17.6",
 ]
-# what the test helpers import and the runner's environment lacks (docs/testing.md)
+# Imported by the test helpers; installed by bench.toml's precondition hook.
 tests = [
     "websocket-client>=1.9.2",
 ]
@@ -28,7 +28,7 @@ check-reqs = { git = "https://github.com/WisewareOrg/wise-ci", subdirectory = "c
 python-kasa = { git = "https://github.com/python-kasa/python-kasa", rev = "a1a6c3854ace705b21357b357354d4ae8b6307b4" }
 
 [tool.pytest.ini_options]
-# where bench.toml's precondition hook installs the tests group
+# Where bench.toml's precondition hook installs the tests group.
 pythonpath = ["build/test-packages/lib/python3.13/site-packages"]
 
 [tool.ruff]

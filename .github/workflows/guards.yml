@@ -1,8 +1,6 @@
 name: guards
 
-# A Yocto build is hours and cannot gate a commit. What CAN gate a commit is
-# whether this public repository is about to publish something it should not,
-# and whether the files a build reads still parse.
+# Repository guards, requirements and ADR checks, Markdown cross-references and the identity scan.
 on:
   pull_request:
   merge_group:
@@ -18,8 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          # gitleaks detect scans history, not the worktree. A shallow clone
-          # would scan almost nothing and pass for the wrong reason.
+          # gitleaks detect scans history; a shallow clone scans almost nothing.
           fetch-depth: 0
 
       - name: Install gitleaks
@@ -51,30 +48,16 @@ jobs:
       - uses: WisewareOrg/wise-ci/check-adrs@5a7cd6159273348954552363d6b1a00d3e732512
         if: ${{ !cancelled() }}
 
-      # Pure stdlib, no install step. tools/doc-image.py is deliberately NOT
-      # here: it compares prose against a built rootfs, CI never builds one, and
-      # a required check that skips on every run is noise, not a gate.
+      # Pure stdlib, no install step. tools/doc-image.py is not run: it needs a built rootfs.
       #
-      # !cancelled(): this runs even when the guards step failed, matching the
-      # hook and `just verify` -- two independent findings are worth more than
-      # the first one twice. The job still fails if either step does, and unlike
-      # always() a cancelled run stays cancelled.
+      # !cancelled(): runs even when an earlier step failed; a cancelled run stays cancelled.
       - name: Check Markdown cross-references
         if: ${{ !cancelled() }}
         run: python3 tools/doc-links.py
 
-      # The half gitleaks and the guards' IP check structurally cannot see: a
-      # hostname, an SSID, a MAC, a board serial, a machine-id. Its own step so
-      # a failure names the identity scan rather than "guards", and so it runs
-      # even when an earlier step failed. ci-guards guard 11 asserts this step
-      # still exists.
-      #
-      # --allow-partial is a DECLARED limit, not a convenience: the known-value
-      # half reads gitignored local/device-identity.md, which a clone cannot
-      # have, so this step is the pattern half only and a hostname or an SSID is
-      # invisible to it. Everywhere the map does exist the scan fails rather
-      # than exit 0 on a search it could not perform. Closing the gap needs the
-      # map in the runner, not a looser scanner.
+      # Pattern half of the identity scan: the known-value half reads gitignored
+      # local/device-identity.md, which a clone lacks, so --allow-partial.
+      # ci-guards.sh guard 11 (the identity scan wired into every route) asserts this step exists.
       - name: Scan for device identity
         if: ${{ !cancelled() }}
         run: tools/scrub-identity.py --check --allow-partial

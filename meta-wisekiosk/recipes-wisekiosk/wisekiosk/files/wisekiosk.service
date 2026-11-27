@@ -1,10 +1,8 @@
 [Unit]
 Description=WiseKiosk backend: serves the frontend bundle and the API on :8080
-# network.target, not network-online.target: the server binds 0.0.0.0 and needs
-# no address.
+# The server binds 0.0.0.0, so network.target suffices.
 After=network.target data.mount
-# Wants, not Requires: an unmounted /data leaves the server serving, config.json
-# 404s and the page renders its own absent state.
+# Wants, not Requires: with /data unmounted the server still serves and config.json returns 404.
 Wants=data.mount
 # No start limit: the restarts below never end in a failed state.
 StartLimitIntervalSec=0

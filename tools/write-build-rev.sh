@@ -1,15 +1,8 @@
 #!/usr/bin/env bash
-# Resolve the meta-wisekiosk HEAD sha on the HOST and write it where bitbake
-# will read it as a plain variable (#46).
+# Writes the meta-wisekiosk HEAD sha to the gitignored meta-wisekiosk/conf/build-rev.inc, read by
+# meta-wisekiosk/classes/kiosk-buildinfo-cachesafe.bbclass. See docs/image.md.
 #
 #   tools/write-build-rev.sh
-#
-# Every route to bitbake that can produce a flashable image runs this first. The
-# generated fragment is gitignored: it is build input, not source.
-#
-# Read as a plain assignment by
-# meta-wisekiosk/classes/kiosk-buildinfo-cachesafe.bbclass.
-# See docs/layers-and-kas.md.
 
 set -uo pipefail
 
@@ -20,8 +13,6 @@ DEST=meta-wisekiosk/conf/build-rev.inc
 
 rev=$(git rev-parse HEAD 2>/dev/null)
 if ! [[ "$rev" =~ ^[0-9a-f]{40}$ ]]; then
-    # No placeholder: <unknown> is a stable vardep, so re-stamping would stop
-    # silently.
     printf 'write-build-rev: cannot resolve HEAD to a 40-character sha (got %s)\n' "${rev:-<nothing>}" >&2
     exit 1
 fi
@@ -29,8 +20,7 @@ fi
 [ -d "$(dirname "$DEST")" ] \
     || { printf 'write-build-rev: %s does not exist -- was the layer renamed?\n' "$(dirname "$DEST")" >&2; exit 1; }
 
-# Rewritten only when the value changes: an unconditional write would touch the
-# mtime on every invocation, and bitbake watches conf files for changes.
+# Rewritten only when the value changes, leaving the mtime alone.
 new="KIOSK_BUILDINFO_REV = \"$rev\""
 if [ -f "$DEST" ] && [ "$(tail -n 1 "$DEST")" = "$new" ]; then
     printf 'build rev unchanged: %s\n' "$rev"

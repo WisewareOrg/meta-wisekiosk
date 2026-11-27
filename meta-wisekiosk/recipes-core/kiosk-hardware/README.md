@@ -1,37 +1,39 @@
-# Out-of-memory behaviour in `kiosk-hardware`
+# kiosk-hardware
 
-`60-kiosk-mglru.conf` writes `1000` to `/sys/kernel/mm/lru_gen/min_ttl_ms` at boot through
-`tmpfiles.d`. What ships in the image belongs in `kiosk-hardware_1.0.bb`; this file is why that one
-setting exists and what was set aside for it.
+Drop-in configuration only: no binaries and no services. `kiosk-hardware_1.0.bb` installs:
 
-## What it does
+- `kiosk-blacklist.conf` in `/etc/modprobe.d`: `raspberrypi_gpiomem`, `uio` and `uio_pdrv_genirq`
+  are blacklisted and their `install` lines point at `/bin/true`. The blacklist keeps modules with
+  no consumer here out of memory. `drm`, `backlight` and
+  `drm_panel_orientation_quirks` must never be blacklisted: DRM is the display path.
+- `watchdog.conf` in `system.conf.d`: `RuntimeWatchdogSec=14` arms `/dev/watchdog0` (the BCM2835
+  hardware caps near 15 s); `RebootWatchdogSec` and `ShutdownWatchdogSec` are 30 s.
+- `60-kiosk-panic.conf` in `sysctl.d`: `kernel.panic = 1` and `kernel.panic_on_oops = 1`.
+- `60-kiosk-mglru.conf` in `tmpfiles.d`: writes `1000` to `/sys/kernel/mm/lru_gen/min_ttl_ms`, so
+  memory thrash ends in a logged kernel OOM kill instead of a watchdog reset
+  ([`docs/device.md`](../../../docs/device.md) §"Memory").
+- Masks (symlinks to `/dev/null`) for `zram.service` (the SysV script from the zram package, which
+  is masked, not deleted), `systemd-resolved`, `systemd-logind`, `systemd-userdbd` (service and
+  socket) and `getty@tty1`.
+- A `getty@tty2` enable link, since with logind masked nothing starts a login on a console switch.
+- Masks in `/etc/udev/rules.d` for each rule file named in `KIOSK_UDEV_RULES_MASKED`.
 
-With multi-generation LRU, `kswapd` — a kernel thread userspace starvation cannot stop — compares
-the age of the oldest file-page generation with `min_ttl_ms`. A generation younger than that means
-the working set is being evicted faster than the limit allows, and the kernel calls
-`out_of_memory()` (`mm/vmscan.c`, `lru_gen_age_node()`; `Documentation/admin-guide/mm/multigen_lru.rst`,
-"Thrashing prevention").
+## How it fits
 
-Without it, memory exhaustion on this board is a thrash, not a kill: code pages refault from the SD
-card and anonymous pages compress into zram, and both count as reclaim progress, so the ordinary OOM
-killer never runs. PID 1 is starved, misses the 14 s hardware watchdog ping, and the SoC resets with
-no kernel message. With it, the thrash ends in a kill the kernel logs at `pr_err`, which reaches the
-journal and, across a reset, pstore's console record. The browser and backend both carry
-`Restart=always`, so the panel comes back by the browser-killed path.
+- Nothing here goes in a `systemd_%.bbappend`: a change to systemd rebuilds WebKit
+  ([`docs/image.md`](../../../docs/image.md) §"What a rebuild costs").
+- `kiosk-static-resolv.bbclass` points `/etc/resolv.conf` at `/data/config` once `systemd-resolved`
+  is masked.
+- `kiosk-recover` reverses the unit and udev masks and the resolver link on a running board.
+- The kernel-command-line panic setting is in `kiosk-zero-w.yaml`; the sysctl here applies once
+  userspace is up.
 
-## Why 1000
+Part of [the device](../../../docs/device.md).
 
-The value is the one the kernel document names. Seeds on the board (#257 performance baseline) show that an anonymous
-hog is killed and logged with no reset, and that an unkillable tmpfs hog produces a kill loop — about
-one kill every 16 s, no reset — until the files are removed.
+## Knobs
 
-## What was set aside
-
-- **`vm.panic_on_oom=1` with pstore, alone:** without `min_ttl_ms` it acts only once the OOM killer
-  is invoked, and under thrash the hang comes first.
-- **earlyoom:** userspace, so the same starvation reaches it, and it keys on available memory and
-  swap, which cannot see file-page thrash.
-- **systemd-oomd:** needs systemd's `PACKAGECONFIG` changed, which rebuilds WebKit, and PSI enabled
-  on the shared `/boot` command line, which an OTA cannot reach.
-- **zram or swap sizing:** moves when the thrash starts, but does not stop it.
-- **Hung-task or soft-lockup tuning:** neither fires inside the 14 s watchdog window.
+- `KIOSK_UDEV_RULES_MASKED` in the recipe: the udev rule files masked. `71-seat`, `73-seat-late`,
+  `70-uaccess`, `60-drm`, `60-persistent-storage`, the net rules and the input rules
+  (`60-input-id`, `60-evdev`, libinput) stay unmasked.
+- `1000` in `60-kiosk-mglru.conf`: the `min_ttl_ms` threshold.
+- `RuntimeWatchdogSec` in `watchdog.conf`: systemd pings at half this interval.

@@ -3,44 +3,27 @@
 #
 #   tools/kiosk-find.sh 192.0.2.0/24
 #
-# What identifies a Pi is its MAC, and a MAC is visible only to a host on the
-# same broadcast domain. So the script first decides which L2 view it has, then
-# says which one it used -- the three differ in what a miss means:
+# Matches Raspberry Pi OUIs in the neighbour table. The script picks an L2 view and reports it:
 #
-#   windows   this host is WSL and the Windows host is on the target LAN. Sweep
-#             and read the neighbour table from the Windows side. WSL2 sits
-#             behind NAT, so its own table never holds a LAN peer no matter how
-#             many packets cross it; only Windows sees the ARP replies.
-#   local     an interface on this host is inside the CIDR. Sweep, then read
-#             `ip neigh` (`arp -a` where iproute2 is absent).
-#   none      no L2 view of that subnet. The sweep still runs, but it can only
-#             report which addresses answer -- it cannot say what they are.
+#   windows   this host is WSL and the Windows host is on the target LAN; the sweep and the
+#             neighbour table run from the Windows side.
+#   local     an interface on this host is inside the CIDR; reads `ip neigh` (`arp -an` without
+#             iproute2).
+#   none      no L2 view of the subnet; the sweep reports only which addresses answer.
 #
-# Interop that answers the opening probe and then dies mid-run is demoted to
-# `none` as well (exit 3), because that is what it is. Reporting the empty
-# result of calls that never ran as "nothing answered ARP" is a claim about the
-# LAN, and it was observed false with the board sitting on it.
+# Windows interop that stops answering mid-run is demoted to `none`. The sweep pings every address
+# to provoke ARP, discards the replies, and reads the neighbour entries. A miss prints the whole
+# neighbour table.
 #
-# The sweep pings every address to provoke the ARP exchange. Ping replies are
-# not the answer and are discarded: the answer is the neighbour entry each
-# exchange leaves behind, which appears even for a host that drops ICMP.
-#
-# A miss is not absence. A device missing from the router's client list may
-# simply hold a static or long-lived lease, a board may carry an OUI newer than
-# the list below, and a host asleep during the sweep leaves no entry. The whole
-# neighbour table is printed on a miss for exactly that reason.
+# Exit: 0 a Pi OUI found; 1 none found; 2 bad usage; 3 no L2 view.
 set -uo pipefail
 
 CIDR=${1:?usage: kiosk-find.sh <cidr>, e.g. 192.0.2.0/24}
 
-# Raspberry Pi Trading / Raspberry Pi Foundation OUIs. Ordered oldest first;
-# a board absent from this list is not necessarily not a Pi, so a miss means
-# "look at the whole neighbour table", not "it is not there".
+# Raspberry Pi Trading / Raspberry Pi Foundation OUIs, oldest first.
 OUIS="b8:27:eb dc:a6:32 e4:5f:01 28:cd:c1 2c:cf:67"
 
-# Where the Windows system directory is mounted. WSL's mount point is
-# configurable, and pointing this somewhere that does not exist is also how the
-# no-interop path gets exercised on a machine that has interop.
+# Windows system directory mount point; WINDIR_MNT overrides it.
 WINDIR=${WINDIR_MNT:-/mnt/c/Windows}
 PS_EXE="$WINDIR/System32/WindowsPowerShell/v1.0/powershell.exe"
 ARP_EXE="$WINDIR/System32/ARP.EXE"
@@ -53,28 +36,21 @@ PREFIX=${CIDR%.*/24}
 
 # --- probes ---------------------------------------------------------------
 
-# Run a PowerShell script read from stdin. -EncodedCommand takes UTF-16LE
-# base64, which is the one form that survives the trip through two shells and a
-# Windows command line without any quoting rule applying to it.
+# Run a PowerShell script read from stdin as a UTF-16LE base64 -EncodedCommand.
 win_ps() {
     local enc
     enc=$(iconv -f UTF-8 -t UTF-16LE | base64 -w0) || return 1
     timeout 90 "$PS_EXE" -NoProfile -NonInteractive -EncodedCommand "$enc" 2>/dev/null | tr -d '\r'
 }
 
-# Connect and drop. bash opens /dev/tcp itself, so this needs nothing installed;
-# `timeout` is what bounds a filtered port, which otherwise hangs for the
-# kernel's full SYN retry.
+# Connect and drop via bash /dev/tcp; `timeout` bounds a filtered port.
 tcp_open() {
-    # The \$ are escaped, not expanded: $1/$2 are the CHILD bash's positionals,
-    # passed as arguments, so no value is ever interpolated into the script text.
+    # \$1/\$2 are the child bash's positionals, passed as arguments.
     timeout 4 bash -c "exec 3<>/dev/tcp/\$1/\$2" _ "$1" "$2" 2>/dev/null
 }
 
-# The banner is whatever the server volunteers before we say anything. Reading
-# it is not a login attempt and leaves no session behind.
+# Read the banner the server volunteers.
 tcp_banner() {
-    # Escaped \$ as in tcp_open: every $ below belongs to the child bash.
     timeout 5 bash -c "
         exec 3<>/dev/tcp/\$1/\$2 || exit 1
         IFS= read -r -t 3 line <&3
@@ -82,7 +58,7 @@ tcp_banner() {
     " _ "$1" "$2" 2>/dev/null | tr -d '\r'
 }
 
-# Same probe from the Windows side, for a port WSL's NAT cannot reach.
+# The same probe from the Windows side.
 win_tcp_open() {
     local r
     r=$(win_ps <<PSEOF
@@ -98,12 +74,7 @@ PSEOF
 
 view=none
 if [ -x "$PS_EXE" ] && [ -x "$ARP_EXE" ]; then
-    # Interop can be installed and still not answer -- the WSL vsock relay drops
-    # out and every .exe then fails identically to one not being there.
-    # Presence of the file proves nothing; a table coming back does. The outage
-    # is usually seconds, and demoting a run to reachability-only over one
-    # dropped call throws away the only view that can name a board, so it is
-    # retried before being believed.
+    # A returned table (an `Interface:` line) proves interop answers; retried 3 times.
     for attempt in 1 2 3; do
         probe=$(timeout 30 "$ARP_EXE" -a 2>/dev/null | tr -d '\r')
         if printf '%s' "$probe" | grep -q 'Interface:'; then
@@ -123,9 +94,7 @@ if [ "$view" = none ]; then
     fi
 fi
 
-# Both start "yes" and only the windows path can clear them: the up-front probe
-# proves interop answered once, not that it will answer for the two calls that
-# carry the result.
+# Cleared only by the windows path when the sweep or the table read returns nothing.
 sweep_answered=yes
 table_answered=yes
 
@@ -134,8 +103,7 @@ echo "sweeping $PREFIX.1-254 (L2 view: $view) ..."
 # --- sweep ----------------------------------------------------------------
 
 if [ "$view" = windows ]; then
-    # One asynchronous ping per address, all in flight at once: a serial sweep
-    # of 254 addresses at a one-second timeout is four minutes, and this is two.
+    # One asynchronous ping per address, all in flight at once.
     replies=$(win_ps <<PSEOF
 \$t = foreach (\$i in 1..254) {
     (New-Object System.Net.NetworkInformation.Ping).SendPingAsync('$PREFIX.' + \$i, 1000)
@@ -151,9 +119,7 @@ PSEOF
         *) echo "  $replies of 254 answered" ;;
     esac
 else
-    # Every ping in flight at once, and each one that answers appends its own
-    # address: 254 sequential probes at a one-second timeout is four minutes,
-    # which is long enough that the sweep reads as a hang.
+    # Every ping in flight at once; each reply appends its address.
     RESPONDERS=$(mktemp)
     trap 'rm -f "$RESPONDERS"' EXIT
     for i in $(seq 1 254); do
@@ -165,15 +131,10 @@ fi
 
 # --- read the neighbour table --------------------------------------------
 
-# Normalised to "<ip> <mac>", MACs lower-case and colon-separated whatever the
-# source spelled them. Matching an OUI against the whole line instead would let
-# an interface header or a hostname satisfy the pattern.
+# Normalised to "<ip> <mac>", MACs lower-case and colon-separated.
 case "$view" in
     windows)
-        # A table that arrived carries the interface header, whether or not it
-        # holds a single entry. Nothing at all means the call failed, and an
-        # empty table and a failed call are the same string once awk has run --
-        # so the distinction is made here, on the raw output, while it exists.
+        # An arrived table carries an `Interface:` header; no output means the call failed.
         raw=$(timeout 30 "$ARP_EXE" -a 2>/dev/null | tr -d '\r')
         case "$raw" in *Interface:*) ;; *) table_answered=no ;; esac
         table=$(printf '%s\n' "$raw" \
@@ -206,14 +167,8 @@ table=$(printf '%s\n' "$table" | tr 'A-F' 'a-f' | tr '-' ':' \
 
 # --- report ---------------------------------------------------------------
 
-# Interop can pass the up-front probe and then die during the run, and the two
-# calls that carry the whole result are the sweep and the table read. When the
-# table read returned nothing, or the sweep reported no count AND not one
-# in-range neighbour came back, "nothing answered ARP" would be an affirmative
-# claim about the LAN drawn from calls that never ran. A dead relay explains
-# that shape far better than an empty subnet, and it is the shape a live run
-# produced with the board sitting on the LAN the whole time. So it degrades to
-# the same "no L2 view" verdict as having no interop at all.
+# A windows run whose table read returned nothing, or whose sweep reported no count and found no
+# in-range neighbour, reports "no L2 view" (exit 3).
 if [ "$view" = windows ] && { [ "$table_answered" = no ] || \
     { [ "$sweep_answered" = no ] && [ -z "$table" ]; }; }; then
     if [ "$table_answered" = no ]; then
@@ -284,8 +239,7 @@ printf '%s\n' "$hits" | while read -r ip mac; do
     if tcp_open "$ip" 22; then
         printf '  tcp/22 open  %s' "$(tcp_banner "$ip" 22)"
     elif [ "$view" = windows ] && win_tcp_open "$ip" 22; then
-        # Reachable from Windows but not from here: WSL's NAT is in the way, not
-        # the device. Saying "closed" would blame the wrong host.
+        # Reachable from Windows but not from WSL.
         printf '  tcp/22 open from Windows, not routable from WSL'
     else
         printf '  tcp/22 no answer'

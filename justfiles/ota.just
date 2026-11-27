@@ -1,12 +1,12 @@
-# Shared OTA recipes for RAUC + casync delta updates
+# OTA recipes. The casync recipes work on a casync bundle the image does not build.
 #
-# Required variables (set by importing Justfile):
+# Variables set by the importing Justfile:
 #   rauc-bundle-dir  - Directory for output bundles
 #   rauc-cert        - Path to RAUC signing certificate
 #   rauc-key         - Path to RAUC signing key
 #   rauc-keyring     - Path to RAUC keyring
 
-# Convert RAUC bundle to casync format for delta updates
+# Convert a RAUC bundle to casync format (casync; the image builds no casync bundle)
 [group('ota')]
 [script('bash')]
 rauc-to-casync bundle:
@@ -19,7 +19,7 @@ rauc-to-casync bundle:
         {{rauc-bundle-dir}}/$(basename {{bundle}} .raucb).caibx
     echo "Created casync bundle at {{rauc-bundle-dir}}/$(basename {{bundle}} .raucb).caibx"
 
-# List new chunks between two casync stores (for delta upload)
+# List new chunks between two casync stores (casync; the image builds no casync bundle)
 [group('ota')]
 [script('bash')]
 casync-diff old-store new-store:
@@ -28,7 +28,6 @@ casync-diff old-store new-store:
         <(find {{old-store}} -name '*.cacnk' -printf '%f\n' 2>/dev/null | sort))
     echo "$NEW_CHUNKS"
     COUNT=$(echo "$NEW_CHUNKS" | grep -c . || true)
-    # Calculate size of new chunks
     SIZE=0
     for chunk in $NEW_CHUNKS; do
         prefix="${chunk:0:4}"
@@ -37,24 +36,20 @@ casync-diff old-store new-store:
         fi
     done
     SIZE_MB=$((SIZE / 1024 / 1024))
-    # Output stats to stderr so they don't break pipelines
     echo "" >&2
     echo "Delta: $COUNT chunks, ${SIZE_MB}MB" >&2
 
-# Package delta update: new chunks + bundle manifest into a tarball
-# Extract on device with: tar -xf update.tar.gz -C /data
+# Package new chunks and the bundle into a tarball (casync; the image builds no casync bundle)
 [group('ota')]
 [script('bash')]
 casync-package-delta old-store new-store bundle output="update.tar.gz":
     STAGING=$(mktemp -d)
     trap "rm -rf $STAGING" EXIT
 
-    # Find new chunks
     NEW_CHUNKS=$(comm -23 \
         <(find {{new-store}} -name '*.cacnk' -printf '%f\n' 2>/dev/null | sort) \
         <(find {{old-store}} -name '*.cacnk' -printf '%f\n' 2>/dev/null | sort))
 
-    # Stage chunks in updates.castr/
     mkdir -p "$STAGING/updates.castr"
     COUNT=0
     SIZE=0
@@ -66,11 +61,9 @@ casync-package-delta old-store new-store bundle output="update.tar.gz":
         COUNT=$((COUNT + 1))
     done
 
-    # Stage bundle manifest in rauc/
     mkdir -p "$STAGING/rauc"
     cp "{{bundle}}" "$STAGING/rauc/"
 
-    # Create tarball
     tar -czf "{{output}}" -C "$STAGING" updates.castr rauc
 
     SIZE_MB=$((SIZE / 1024 / 1024))
@@ -79,16 +72,13 @@ casync-package-delta old-store new-store bundle output="update.tar.gz":
     echo "Created {{output}} ($TARBALL_SIZE)"
     echo "Deploy with: tar -xf {{output}} -C /data"
 
-# Package full update: all chunks + bundle manifest into a tarball
-# Use for initial loading or development when no base version exists
-# Extract on device with: tar -xf update.tar.gz -C /data
+# Package all chunks and the bundle into a tarball (casync; the image builds no casync bundle)
 [group('ota')]
 [script('bash')]
 casync-package store bundle output="update.tar.gz":
     STAGING=$(mktemp -d)
     trap "rm -rf $STAGING" EXIT
 
-    # Stage all chunks in updates.castr/
     mkdir -p "$STAGING/updates.castr"
     COUNT=0
     SIZE=0
@@ -100,11 +90,9 @@ casync-package store bundle output="update.tar.gz":
         COUNT=$((COUNT + 1))
     done
 
-    # Stage bundle manifest in rauc/
     mkdir -p "$STAGING/rauc"
     cp "{{bundle}}" "$STAGING/rauc/"
 
-    # Create tarball
     tar -czf "{{output}}" -C "$STAGING" updates.castr rauc
 
     SIZE_MB=$((SIZE / 1024 / 1024))
@@ -113,7 +101,7 @@ casync-package store bundle output="update.tar.gz":
     echo "Created {{output}} ($TARBALL_SIZE)"
     echo "Deploy with: tar -xf {{output}} -C /data"
 
-# Show casync chunk store statistics
+# Show casync chunk store statistics (casync; the image builds no casync bundle)
 [group('ota')]
 [script('bash')]
 casync-stats store:
@@ -123,19 +111,12 @@ casync-stats store:
     echo "Size: $SIZE"
 
 # === Tier 1 delivery: the board streams the bundle from this host ===
-# tools/kiosk-install.sh serves it and installs it; README.md §"Updating a running device".
+# tools/kiosk-install.sh serves it and installs it; docs/updates.md §"Delivering an update".
 
 kiosk-image-file := "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/core-image-base-raspberrypi0-wifi.rootfs.ext4"
 kiosk-bundle-file := "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/update-bundle-raspberrypi0-wifi.raucb"
 
-# NOT covered by `just build`, which makes the kas `target:` images
-# (core-image-base, kiosk-bootprof) only -- shipping a stale .raucb silently
-# reinstalls the previous image.
-#
-# kconfig is its own parameter rather than the root Justfile's `config` so that
-# a KAS_CONFIG pointing at some other product cannot silently build the wrong
-# image into a bundle named like this one. Both default to kiosk-zero-w.yaml.
-# Comments must sit ABOVE the attributes -- just rejects one between them.
+# `just build` makes only the kas `target:` images, not the bundle.
 [group('ota')]
 [doc("Build the RAUC update bundle")]
 kiosk-bundle kconfig="kiosk-zero-w.yaml":
@@ -152,14 +133,10 @@ kiosk-preflight image=kiosk-image-file bundle=kiosk-bundle-file host=kiosk-host:
     test -f "{{bundle}}" || { echo "no bundle at {{bundle}}"; exit 1; }
     IMAGE_B=$(stat -Lc %s "{{image}}")
 
-    # Checks the rootfs, not the bundle -- nothing binds the two (#48).
+    # The gate checks the rootfs image, not the bundle.
     tools/reproducibility-gate.sh --image "{{image}}" || exit 1
 
-    # Nothing ties the image inside the bundle to the slot that receives it. The
-    # image is sized to its content and capped at AUTONOMOS_ROOTFS_SIZE, the
-    # size the flashed layout gives each slot; a device flashed with a smaller
-    # layout would fail on the DEVICE mid-install rather than in the build that
-    # produced the image. Sector count is 512-byte units.
+    # Slot sizes from the device's block devices (sector count in 512-byte units).
     A_BYTES=$(( $($SSH {{host}} 'cat /sys/class/block/mmcblk0p2/size') * 512 ))
     B_BYTES=$(( $($SSH {{host}} 'cat /sys/class/block/mmcblk0p3/size') * 512 ))
     echo "rootfs image  : $IMAGE_B"
@@ -194,20 +171,12 @@ kiosk-reboot host=kiosk-host timeout="300":
     echo "back after $(( $(date +%s) - T0 ))s, boot_id $NOW"
     $SSH {{host}} 'rauc status 2>&1 | grep -E "Booted|boot status"; systemctl is-active kiosk; fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT'
 
-# Full Tier 1 OTA. Builds the bundle FIRST so a stale .raucb cannot be shipped.
+# Build the bundle, preflight, and install it on the device
 [group('ota')]
 kiosk-ota host=kiosk-host kconfig="kiosk-zero-w.yaml": (kiosk-bundle kconfig) (kiosk-preflight kiosk-image-file kiosk-bundle-file host) (kiosk-install host kiosk-bundle-file)
     @echo "Delivered and installed. Verify, then: just kiosk-reboot {{host}}"
 
-# The [doc] attribute rather than a trailing comment: just takes the LAST
-# comment line before a recipe as its --list text, so a comment that grows
-# silently renames the recipe.
-#
-# What this fixes is a bad ROOTFS. Both slots mount the same /data, so a wrong
-# site config, a missing machine-id or a corrupt file there is identical on
-# either side of a rollback -- the boot counter simply drains to zero. If the
-# fault followed the update, roll back; if it followed a provisioning step,
-# re-provision.
+# Both slots mount the same /data, so a rollback leaves /data unchanged.
 [group('ota')]
 [script('bash')]
 [doc("Roll back to the other slot")]

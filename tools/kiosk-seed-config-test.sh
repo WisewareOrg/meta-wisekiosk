@@ -2,15 +2,11 @@
 # Self-test for meta-wisekiosk/recipes-core/kiosk-provision/files/kiosk-seed-config.
 # Run by `just guards` and by CI.
 #
-# The script seeds /data/config/config.json from the image's shipped default
-# ONLY the first time -- a device that already has one (however it got there,
-# including an empty file) must come back byte-for-byte unchanged, or an
-# operator's edit is silently clobbered on the next boot.
+# The script seeds /data/config/config.json from the image's shipped default only when none
+# exists; an existing file, including an empty one, stays byte-for-byte unchanged.
 #
-# Every case runs against a fabricated ROOT, never /data or /usr on this host:
-# the script honours ROOT on its paths so this can run as a normal user and in
-# CI, with no root and no real device. Fixtures carry no site value -- this
-# repository is PUBLIC.
+# Every case runs against a fabricated ROOT, which the script honours on its paths; no root or
+# device is needed.
 set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -24,13 +20,8 @@ ok()   { printf 'ok    %s\n' "$1"; pass=$((pass+1)); }
 bad()  { printf 'FAIL  %s\n' "$1"; [ $# -gt 1 ] && printf '        %s\n' "$2"; fail=$((fail+1)); }
 skip() { printf 'SKIP  %s -- %s\n' "$1" "$2"; skip=$((skip+1)); }
 
-# A PATH holding only `busybox --list`'s applets on bench (BusyBox v1.36.1),
-# verbatim -- not every command on the target (a separate setuid busybox.suid
-# provides more, e.g. ping, none of it needed by this script), and not the
-# dev host's own coreutils. Neither `install` nor `timeout` is on this list;
-# the seed cases above run with the host's own unrestricted PATH, where
-# `install` exists. The fix must work with only what this list provides,
-# plus bash/sh to run the script itself.
+# A PATH holding only the target busybox's `--list` applets, verbatim; neither `install` nor
+# `timeout` is on it. The seed cases above run with the host's own PATH.
 BUSYBOX_APPLETS='[ [[ addgroup adduser ascii ash awk base32 basename blkid bunzip2 bzcat bzip2 cat
 chattr chgrp chmod chown chroot chvt clear cmp cp cpio crc32 cut date dc dd deallocvt delgroup
 deluser depmod df diff dirname dmesg dnsdomainname du dumpkmap dumpleases echo egrep env expr false
@@ -183,13 +174,9 @@ case "$out" in
 esac
 
 # --- write failure: /data/config exists but is not writable ---------------
-# `mkdir -p` on an already-existing directory never needs write permission
-# on it, so this reaches the actual copy/move -- which does, and fails. The
-# honest outcome: no config.json, no leftover .tmp, no false "seeded" claim,
-# a stated failure, still exit 0.
-#
-# Not root-safe: root ignores a directory's write bit, so this only proves
-# anything as a normal user.
+# `mkdir -p` on an existing directory needs no write permission, so this reaches the copy/move,
+# which fails: no config.json, no leftover .tmp, no "seeded" claim, exit 0. Not root-safe: root
+# ignores a directory's write bit.
 if [ "$(id -u)" -eq 0 ]; then
     skip "write failure" "running as root, permissions do not bind"
 else
@@ -230,8 +217,7 @@ else
 fi
 
 # --- busybox PATH, absent: install is not a busybox applet on the target --
-# The same "absent" scenario as the very first case above, run with only the
-# device's busybox applet set on PATH -- install and timeout are not in it.
+# The "absent" scenario run with only the busybox applet set on PATH.
 G="$TOP/g"
 mkdir -p "$G/usr/share/wisekiosk"
 printf '{"fixture":"a default config, not a real site value"}' \

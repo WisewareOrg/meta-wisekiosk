@@ -2,27 +2,16 @@
 # Apply the per-device configuration that cannot be read from /data in place,
 # and report provisioning state.
 #
-# The image carries NO site configuration. wpa_supplicant reads
-# /data/config/wpa_supplicant.conf directly, kiosk.service reads
-# /data/config/kiosk.conf directly, and /etc/resolv.conf is a symlink into
-# /data/config. Those need nothing from this script.
+# wpa_supplicant, kiosk.service and /etc/resolv.conf read /data/config directly. This script
+# handles what they cannot:
+#   hostname   -- set into the kernel from /data/config/hostname
+#   machine-id -- journald reads it before /data is mounted, so the RAUC slot-post-install hook
+#                 writes it into the rootfs; this script only seeds /data/etc/machine-id from
+#                 the rootfs on a device that has none.
+#   config.json -- kiosk-seed-config seeds /data/config/config.json from the image default, only
+#                 when none exists.
 #
-# Two things cannot work that way and are handled here or by the RAUC hook:
-#   hostname   -- must be set into the kernel, it is not a file anyone reads
-#   machine-id -- journald reads it at ~8.2s, before /data is mounted, so it has
-#                 to be in the rootfs; the RAUC slot-post-install hook puts it
-#                 there. This script only seeds /data on a device that has one
-#                 and has never been provisioned.
-#
-# /srv/kiosk/config.json is also a symlink into /data/config, served straight
-# off disk by wisekiosk-backend, but a device that has never had one written
-# needs SOMETHING there rather than a 404 forever -- kiosk-seed-config seeds
-# it from the image's own default, and only when nothing is there yet; an
-# operator's file is never touched.
-#
-# It never fails the boot. An unprovisioned device has no network and needs a
-# USB keyboard on tty2 -- which the image keeps `keyboard` and `usbhost` for --
-# so the useful thing this can do is say so, loudly, in the journal.
+# It never fails the boot; an unprovisioned device is reported in the journal.
 
 set -u
 CFG=/data/config

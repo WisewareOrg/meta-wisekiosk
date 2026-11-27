@@ -1,37 +1,20 @@
-##########
-# HEADER #
-##########
 header:
   version: 20
   includes:
     - includes/rauc.yaml
 
-############
-# DEFAULTS #
-############
 defaults:
   repos:
     branch: scarthgap
 
-##################
-# REPOS & LAYERS #
-##################
-# Every repo is pinned by commit. Floating on branch heads makes any manifest
-# difference unattributable -- a rebuild would mix "what we changed" with "what
-# upstream pushed since". Bumping a pin is an edit here, reviewed like any
-# other; `just currency` reports which have fallen behind and
-# docs/layers-and-kas.md holds the procedure.
+# Every repository is pinned by commit (docs/image.md §"The pinned repositories").
 repos:
   # No url: kas resolves this to the repository containing this config file.
-  # meta-wisekiosk LAYERDEPENDS on the Raspberry Pi layers, so this file is not
-  # usable alone -- it expects a platform include from includes/platforms/.
+  # meta-wisekiosk LAYERDEPENDS on the Raspberry Pi layers that a platform include adds.
   meta-wisekiosk:
     layers:
       meta-wisekiosk:
 
-  # Upstream, consumed as a dependency instead of forked. Pinned at its tip
-  # (dormant since 2026-01-20). patches/ carries the change that cannot
-  # be expressed from a downstream layer -- see patches/meta-autonomos/.
   meta-autonomos:
     url: "https://github.com/jsmith212/meta-autonomos.git"
     branch: main
@@ -53,8 +36,7 @@ repos:
       meta-poky:
       meta-yocto-bsp:
 
-  # https, not git://: git.openembedded.org and git.yoctoproject.org sit behind
-  # Cloudflare, which refuses port 9418.
+  # https, not git://: these hosts refuse the git port.
   meta-openembedded:
     url: "https://git.openembedded.org/meta-openembedded"
     commit: 96c2c78e13ff1b954715ff3c6d26bddd50a02509
@@ -85,22 +67,16 @@ repos:
     commit: e0b994c8457be2b32acf7b904fcc5408156de57a
     path: "sources/meta-virtualization"
 
-  # A newer Go for the backend than poky scarthgap's 1.22.12; its conf/layer.conf
-  # sets GOVERSION.
-  # A second checkout of meta-lts-mixins, which carries one topic per branch --
-  # includes/platforms/raspberrypi.yaml pins scarthgap/u-boot off the same url.
+  # The Go the backend builds with; its conf/layer.conf sets GOVERSION. meta-lts-mixins carries one
+  # topic per branch, so includes/platforms/raspberrypi.yaml checks it out a second time for U-Boot.
   meta-lts-mixins-go:
     url: "https://git.yoctoproject.org/meta-lts-mixins"
     branch: scarthgap/go
     commit: 9d6bbf30ae47275db2adc427d08bb3bd6cd14fe5
     path: "sources/meta-lts-mixins-go"
 
-#######################
-# BUILD CONFIGURATION #
-#######################
 local_conf_header:
-  # The hash-equivalence server every build on this host shares -- one database,
-  # not one per build dir. tools/kas-run.sh mounts it at /hashserv; README.md
-  # §"Quick start" has the one-time host setup.
+  # The host's shared hash-equivalence server, mounted at /hashserv by tools/kas-run.sh
+  # (docs/image.md §"Setting up a build host").
   bitbake-hashserv: |
     BB_HASHSERVE = "unix:///hashserv/hashserv.sock"

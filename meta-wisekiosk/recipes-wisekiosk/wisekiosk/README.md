@@ -1,58 +1,45 @@
-# Building WiseKiosk from source
+# wisekiosk
 
-`wisekiosk-frontend` and `wisekiosk-backend` are two halves of one application
-([`tjwise99/WiseKiosk`](https://github.com/tjwise99/WiseKiosk)), built from source rather than
-consumed as a release artifact. The frontend is a Svelte bundle vite emits into `/srv/kiosk`; the
-backend is a Go binary that serves it and the API on `:8080`. Both require `wisekiosk-src.inc`, which
-holds the one `SRCREV` both build from — there is no way to build one half at a commit the other
-does not also build at.
+`wisekiosk-frontend_git.bb` and `wisekiosk-backend_git.bb` build the two halves of the application
+[`WisewareOrg/WiseKiosk`](https://github.com/WisewareOrg/WiseKiosk) from source. The frontend is a Svelte
+bundle that vite emits into `/srv/kiosk`, with `config.json` there a symlink to `/data/config/config.json`
+and `config.example.json` under `/usr/share/wisekiosk`. The backend is a Go binary, `/usr/bin/wisekiosk`,
+run by `files/wisekiosk.service` as the `kiosk` user (uid and gid 10001); it serves the bundle and the API
+on `:8080`. Both recipes require `wisekiosk-src.inc`, which holds the one `SRCREV` they build from.
 
-## Bumping the app pin
+## How it fits
 
-Move `SRCREV` in `wisekiosk-src.inc` to the new commit — that is the whole bump. Neither
-`wisekiosk-frontend/npm-shrinkwrap.json` nor `wisekiosk-backend-go-mods.inc` is committed (owner,
-2026-09-27: nothing autogenerable is); `just build` and every other entry point that runs `kas`
-regenerates both from the new pin, via `tools/app-lockfile.py` and `tools/go-mods.py` respectively,
-before bitbake ever sees them. Both need network the first time a new pin is built; each output
-records the commit it was generated for — a variable inside the `.inc`, a gitignored `.srcrev` stamp
-beside the shrinkwrap — so every later build against the same pin skips the fetch entirely.
-`go-mods.py` runs whichever Go toolchain the app's `go.mod` calls for, which Go downloads itself when
-the host's `go` is older.
+- The service orders after `network.target` and `data.mount`, wants `data.mount` (with `/data` unmounted
+  it still serves and `config.json` returns 404), and restarts forever with back-off from 1 to 10 seconds.
+- Site configuration lives in `/data/config`, never in the image; `kiosk-seed-config` seeds `config.json`
+  from the installed example when `/data` holds none. The backend serves `/srv/kiosk` per request, so a
+  file written to `/data` needs no restart.
+- The frontend's generated code is not committed. `do_compile` runs `orval` and `json2ts` against the
+  app's OpenAPI document and JSON schema before vite; the backend's `do_compile` runs
+  `go tool oapi-codegen` against the same document before `go_do_compile`.
+- Both builds run offline. The backend sets `GOPROXY=off`; `oapi-codegen` and its modules arrive as
+  checksummed `SRC_URI` entries in `wisekiosk-backend-go-mods.inc`, unpacked into a `goproxy` tree. The
+  frontend's npm closure arrives from `npm-shrinkwrap.json` through the `npmsw` fetcher.
+- Neither `wisekiosk-backend-go-mods.inc` nor `wisekiosk-frontend/npm-shrinkwrap.json` is committed.
+  `tools/go-mods.py` and `tools/app-lockfile.py` write them from the pinned commit at every `just build`
+  entry, and each records the commit it was made for (a variable in the `.inc`, a gitignored `.srcrev`
+  beside the shrinkwrap). Each recipe fails the parse when its file is missing or stale for `SRCREV`.
+- `nodejs-binary-native` supplies node at build time ([`recipes-devtools/nodejs`](../../recipes-devtools/nodejs/README.md)).
+- `SRCREV` follows the app's `main` through Renovate; see
+  [`docs/security.md`](../../../docs/security.md).
 
-`SRCREV` follows the app's `main` (owner, 2026-09-29): Renovate keeps one pull request moving it to
-`main`'s head, rolled forward while unmerged, automerging the same way the kas layer pins do — see
-[`../../../docs/layer-currency.md`](../../../docs/layer-currency.md).
+Part of [the image](../../../docs/image.md).
 
-A pin bump that changes the LICENSE file's contents, or removes `deploy/config.example.json`, breaks
-`LIC_FILES_CHKSUM` or `wisekiosk-frontend_git.bb`'s `do_install` respectively — both fail loudly at
-build time rather than silently shipping something stale.
+## Knobs
 
-## Codegen runs at build; nothing generated is committed here
-
-Upstream [PR #340 generate boundary and config-type code at build instead of
-committing](https://github.com/tjwise99/WiseKiosk/pull/340) removed generated code from the app's
-own git history, so a bare pin bump breaks both halves' builds: `wisekiosk-frontend_git.bb`'s
-`do_compile` runs `orval` and `json2ts` against the app's own OpenAPI document and JSON schema before
-vite builds, and `wisekiosk-backend_git.bb`'s `do_compile` runs `go tool oapi-codegen` against the
-same OpenAPI document before `go_do_compile`. Both regenerate from the pinned commit's own source on
-every build, so this layer never carries a generated file that could go stale against the pin.
-
-The backend's `go tool oapi-codegen` needs its own module graph to run, and `go build` in this recipe
-stays `GOPROXY=off` — see `wisekiosk-backend-go-mods.inc`'s header and `tools/go-mods.py` for how that
-closure arrives as checksummed `SRC_URI` entries instead of `go-vendor`. The owner ruled (2026-09-27)
-for this shape as the most idiomatic, industry-standard approach: it is the checksummed per-module
-proxy-zip layout Yocto's own `gomod://` fetcher (from styhead) and `go-mod-update-modules` (from
-whinlatter) use, not available on scarthgap here, so it is written as plain
-`https://proxy.golang.org/...` entries that convert mechanically once the layer moves. `go-vendor` is
-what scarthgap's own tooling emits, but it is the shape Yocto replaced: for this app it would mean
-vendoring every module every `go.mod` tool needs, not just oapi-codegen's own graph, and `go.sum` is
-not enforced under `-mod=vendor`. Committing the generated code instead of regenerating it was rejected
-outright. Those modules also carry no `LICENSE.inc` of their own, unlike upstream's own
-`go-mod-update-modules`, which also generates a licences `.inc` covering every module: they build the
-generator only and ship nothing in the package, so there is nothing here for a package `LICENSE` field
-to account for.
-
-## Node is held to the app's declared major
-
-`nodejs-binary-native`'s version tracks the major the app's `package.json` `engines.node` field
-declares. A pin bump that moves that major needs `nodejs-binary-native` bumped alongside it.
+- **Bumping the pin:** move `SRCREV` in `wisekiosk-src.inc`; nothing else is edited. The first build at a
+  new pin needs network to regenerate the go-mods `.inc` and the shrinkwrap; later builds at that pin
+  skip it. `go-mods.py` runs the Go toolchain the app's `go.mod` calls for, which Go downloads when the
+  host's is older.
+- **What a bump can break:** a changed `LICENSE` fails `LIC_FILES_CHKSUM` in both recipes, and a removed
+  `deploy/config.example.json` fails the frontend's `do_install`; both fail at build time.
+- **Node major:** `nodejs-binary-native`'s version tracks the app's `package.json` `engines.node`. A pin
+  bump that moves that major needs the recipe bumped with it.
+- **Service flags and restart policy:** `files/wisekiosk.service`.
+- **Account ids:** `GROUPADD_PARAM` and `USERADD_PARAM` in the backend recipe; the numeric ids are what
+  persist on `/data` across slots.

@@ -1,9 +1,7 @@
 #!/bin/sh
-# kiosk-recover -- reverse kiosk-hardware's boot trims for a debugging session,
-# then reboot. Not a boot un-bricker: it runs on a slot that already gives a
-# shell; a dead slot is an A/B rollback. Idempotent. Touches neither /boot, sshd,
-# networkd nor wpa_supplicant. No timer/deadman/auto-revert -- runs only by hand.
-# Lives on /data (tools/provision.sh), so it survives an A/B flip and a reflash.
+# kiosk-recover -- reverse kiosk-hardware's boot trims for a debugging session, then reboot.
+# Idempotent. Touches neither /boot, sshd, networkd nor wpa_supplicant. Runs only by hand.
+# tools/provision.sh places it on /data as RECOVER.sh.
 #
 # Usage: kiosk-recover [--dry-run]   # --dry-run prints changes, touches nothing
 
@@ -20,10 +18,7 @@ log()  { echo "kiosk-recover: $*"; }
 act()  { if [ "$DRY" -eq 1 ]; then echo "  would: $*"; else "$@"; fi; }
 
 # --- 1. unmask the boot-trim units ----------------------------------------
-# Remove only a mask (a symlink -> /dev/null), never a real unit. zram.service is
-# excluded on purpose: its mask is a defect workaround (issue #17), not a boot
-# trim -- unmasking restores a unit that fails every boot and sizes swap at 90%
-# of RAM. Do not add it here.
+# Remove only a mask (a symlink -> /dev/null), never a real unit. zram.service stays masked.
 for u in systemd-resolved.service systemd-logind.service \
          systemd-userdbd.service systemd-userdbd.socket; do
     p="/etc/systemd/system/$u"
@@ -36,9 +31,7 @@ for u in systemd-resolved.service systemd-logind.service \
 done
 
 # --- 2. delete the udev rule masks ----------------------------------------
-# Symlinks to /dev/null only. -type l is load-bearing: /etc/udev/rules.d is
-# FILES:${PN}, so a real *.rules file there is a shipped file -- never widen to a
-# *.rules glob. The -> /dev/null check spares any non-mask symlink placed here.
+# Symlinks to /dev/null only; a real *.rules file in /etc/udev/rules.d is a shipped file.
 if [ -d /etc/udev/rules.d ]; then
     find /etc/udev/rules.d -maxdepth 1 -type l | while IFS= read -r l; do
         [ "$(readlink "$l")" = /dev/null ] || continue
@@ -48,8 +41,7 @@ if [ -d /etc/udev/rules.d ]; then
 fi
 
 # --- 3. restore the resolv.conf symlink -----------------------------------
-# Its tmpfiles entry uses 'L', not 'L+', so it will not recreate the symlink once
-# /etc/resolv.conf exists -- what this writes is what stays.
+# The tmpfiles entry is 'L', not 'L+': it does not recreate the link once /etc/resolv.conf exists.
 WANT=/data/config/resolv.conf
 CUR=$(readlink /etc/resolv.conf 2>/dev/null || true)
 if [ "$CUR" = "$WANT" ]; then

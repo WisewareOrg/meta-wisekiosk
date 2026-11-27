@@ -1,15 +1,7 @@
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 
-# 52e8726d6782 (mainline v6.14) adds the `if (!sgl)` bounds check that turns
-# running off the end of the brcmfmac SDIO scatterlist into -ENOMEM instead of a
-# NULL deref. It was never backported to 6.6.y or 6.12.y, so no kernel bump
-# delivers it -- that is why it is carried as a patch. Applies with zero fuzz and
-# zero offset against 6.12.93.
-#
-# Hygiene for a real unguarded defect, explicitly NOT the fix for the crash
-# diagnosed 2026-08-13 -- that was CPU instability at the top OPP, addressed by
-# the kiosk-cpufreq recipe. Different fault class: this one faults near address 0
-# with a resolvable PC.
+# brcmfmac SDIO: mainline 52e8726d6782 (v6.14) adds an `if (!sgl)` check, so running off the end
+# of the scatterlist returns -ENOMEM instead of dereferencing NULL.
 SRC_URI += " file://brcmfmac-52e8726d6782.patch"
 
 # Soft-lockup detector, panicking into pstore; tools/kiosk-install.sh lowers
@@ -21,8 +13,7 @@ SRC_URI += " file://lockup-detect.cfg"
 SRC_URI += " file://pstore-ftrace.cfg"
 SRC_URI += " file://0001-pstore-ram-default-ftrace-zone.patch"
 
-# The panel's mode, with 2.25x fewer pixels than its own 1080p. WPE shows its page
-# at whatever mode it finds set.
+# The HDMI mode, set with video= on the kernel command line; WPE shows its page at the mode it finds set.
 SRC_URI += " file://panel-mode.cfg"
 
 # Subsystems this board has no device or user for, and fewer devices at coldplug.

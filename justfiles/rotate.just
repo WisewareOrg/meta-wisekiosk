@@ -1,63 +1,42 @@
 # RAUC signing-key rotation.
 #
-# Replaces the key the devices trust with a fresh per-project key, without a
-# window in which a device can no longer verify an update. The full flow:
+# Replaces the key the devices trust with a fresh per-project key. The full flow, on the bench
+# board first, then on every other board:
 #
 #   just rotate-keygen [name]                # new key, gitignored, never committed
 #   just rotate-build [name]                 # transition + end-state bundles
-#   just rotate-provision-ssh root@<hitl>    # once, if key auth is not set up
-#   just rotate-run root@<hitl> [name]       # PROVE it on the HITL board first
-#   just rotate-verify root@<hitl> [name] --empirical build/rotation/transition.raucb build/rotation/new-signed.raucb
-#   just rotate-run root@<prod> [name]       # only then the prod board
+#   just rotate-provision-ssh root@<host>    # once, if key auth is not set up
+#   just rotate-run root@<bench> [name]      # the bench board first
+#   just rotate-verify root@<bench> [name] --empirical build/rotation/transition.raucb build/rotation/new-signed.raucb
+#   just rotate-run root@<host> [name]       # then every other board
 #
-# Why the order matters is written up in docs/rauc-key-rotation.md.
-#
-# `name` selects a dir under the gitignored local/keys.
-# justfile_directory() keeps the path absolute, so the recipes work from any cwd.
-#
-# The key NAME defaults from `fleet-key` in the root Justfile. Completing a
-# rotation means updating that and kiosk-zero-w.yaml -- see "Rotating to a new
-# key" in docs/rauc-key-rotation.md.
+# `name` selects a dir under the gitignored local/keys; the default is `fleet-key` in the root
+# Justfile. docs/updates.md §"Rotating the signing key" covers the order.
 
 keys-root := justfile_directory() / "local/keys"
 
-# Generate a fresh signing key + self-signed cert. Never overwrites an existing
-# pair -- rotation always makes a NEW one. The CN is derived by rauc-keygen.sh
-# from the directory name; passing one from here was a second copy of the format.
 [group('rotate')]
 [doc("Generate a new RAUC signing key (gitignored, never committed)")]
 rotate-keygen name=fleet-key:
     tools/rauc-keygen.sh "{{keys-root}}/{{name}}"
 
-# Install this host's SSH pubkey on a device so the OTA recipes' key auth works
-# without relying on the debug-tweaks empty-root-password path.
 [group('rotate')]
 [doc("Install this host's SSH pubkey on a device")]
 rotate-provision-ssh host=kiosk-host:
     tools/rauc-provision-ssh.sh "{{host}}"
 
-# Build the transition (old-signed) and end-state (new-signed) bundles from the
-# named key. Incremental on a warm build tree.
-#
-# `name` is the NEW key and must be given: the default is the key the fleet
-# already trusts, and rotating a key to itself is refused rather than producing
-# two identically-signed bundles and a meaningless "transition". OLD_KEYDIR comes
-# from fleet-key, so the old signer is not a second literal free to drift.
+# `name` is the new key; OLD_KEYDIR is the `fleet-key` directory.
 [group('rotate')]
 [doc("Build the transition and end-state bundles for a rotation")]
 rotate-build name=fleet-key:
     OLD_KEYDIR="{{keys-root}}/{{fleet-key}}" tools/rauc-rotate-build.sh "{{keys-root}}/{{name}}" {{config}}
 
-# Rotate the signing key on ONE device over SSH. Pass --one-slot to stop after
-# the first slot. Always name the host explicitly -- there is no safe default.
 [group('rotate')]
 [doc("Rotate the signing key on one device (transition then end-state)")]
 rotate-run host name=fleet-key *flags:
     # Gated via kiosk-preflight inside rauc-rotate.sh; held by ci-guards guard 10.
     tools/rauc-rotate.sh "{{host}}" "{{keys-root}}/{{name}}" {{flags}}
 
-# Check a device trusts the new key. Add: --empirical <old.raucb> <new.raucb>
-# to also prove old-signed bundles are rejected and new-signed accepted.
 [group('rotate')]
 [doc("Verify a device trusts the new key (--empirical for the bundle test)")]
 rotate-verify host name=fleet-key *flags:

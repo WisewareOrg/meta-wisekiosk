@@ -66,7 +66,7 @@ cd "$(dirname "$0")/.."
 
 HASHSERV_DIR="$HOME/.local/share/bitbake-hashserv"
 if [ ! -d "$HASHSERV_DIR" ]; then
-    echo 'tools/kas-run.sh: bitbake-hashserv data directory missing: see README.md §"Quick start"' >&2
+    echo 'tools/kas-run.sh: bitbake-hashserv data directory missing: see docs/image.md §"Setting up a build host"' >&2
     exit 1
 fi
 

@@ -1,19 +1,17 @@
 #!/bin/sh
 # Withhold RAUC good-marking when a boot comes up without a usable LAN.
 #
-# Ordered Before=boot-complete.target, which rauc-mark-good.service Requires. A
-# non-zero exit here leaves boot-complete.target unreached, so mark-good never
-# runs, the U-Boot boot counter is not reset, and three such boots drop this
-# slot from BOOT_ORDER. That converts "boots fine, unreachable" -- the one
-# failure class the A/B slots do not cover -- into the fallback that does work.
+# Ordered Before=boot-complete.target, which rauc-mark-good.service Requires. A non-zero exit
+# leaves that target unreached, so the U-Boot boot counter is not reset and three such boots drop
+# the slot from BOOT_ORDER.
 #
-# It never marks a slot bad: withholding is recoverable from the other slot,
-# marking bad is not. It restarts the boot only for a slot whose current image has
-# never reached the network, and only toward a fallback slot whose current image
-# has. A slot's proof is /data/kiosk-netcheck/reached.<bootname>, holding the
-# slot's RAUC bundle hash, so it lapses when the slot is rewritten; a slot written by
-# the card flash has no bundle hash, so it is never proven. It marks good anyway when
-# no good fallback slot is known.
+# It never marks a slot bad. It restarts the boot only for a slot whose current image has never
+# reached the network, and only toward a good fallback slot whose current image has. A slot's proof
+# is /data/kiosk-netcheck/reached.<bootname>, holding the slot's RAUC bundle hash; a slot written by
+# the card flash has no bundle hash and is never proven. With no good fallback slot known it exits 0.
+#
+# Overrides: /data/kiosk-netcheck.conf may set DEADLINE (s), IFACE and TARGET (host to ping instead
+# of the gateway); see kiosk-netcheck.conf.example.
 
 set -u
 
@@ -21,13 +19,9 @@ DEADLINE=120
 IFACE=wlan0
 TARGET=
 
-# Test and site overrides. /data survives both an OTA and a slot reflash. The
-# .example beside this script documents that file's format, and is what the
-# linter follows below to see DEADLINE/IFACE/TARGET assigned from a source.
+# Site and test overrides; the .example beside this script is the source the linter follows.
 CONF=/data/kiosk-netcheck.conf
 if [ -r "$CONF" ]; then
-    # SCRIPTDIR, so the name resolves from any working directory, not just the
-    # repository root.
     # shellcheck source-path=SCRIPTDIR
     # shellcheck source=kiosk-netcheck.conf.example
     . "$CONF"
@@ -36,7 +30,7 @@ fi
 PROOF_DIR=/data/kiosk-netcheck
 
 log() { echo "kiosk-netcheck: $*"; }
-now() { cut -d. -f1 /proc/uptime; }   # monotonic: the wall clock jumps mid-boot
+now() { cut -d. -f1 /proc/uptime; }   # uptime, not the wall clock
 
 # Read RAUC's slot status into the shell. Returns non-zero, with the variables
 # untouched, when the read fails.
@@ -55,8 +49,7 @@ proven() {
 find_slots() {
     booted_name='' booted_hash='' fallback='' fallback_hash=''
     for i in $RAUC_SLOTS; do
-        # Cleared per slot: each eval below re-assigns, and an empty value can never
-        # match "booted"/"good", so a slot missing a field cannot inherit the last.
+        # Cleared per slot so a slot missing a field cannot inherit the last one's.
         state='' status='' bootname='' hash=''
         eval "state=\${RAUC_SLOT_STATE_$i:-}"
         eval "status=\${RAUC_SLOT_BOOT_STATUS_$i:-}"
@@ -106,9 +99,7 @@ done
 log "NO LAN after ${DEADLINE}s (gateway='${gw:-none}', iface=$IFACE)"
 log "$(fw_printenv BOOT_ORDER BOOT_A_LEFT BOOT_B_LEFT | tr '\n' ' ')"
 
-# Never strand the board. Withhold only when there is a good slot to fall back
-# to; a kiosk nobody can reach still beats a card with no bootable slot, which
-# is the one failure that costs a person standing at the device.
+# Withhold only when a good slot exists to fall back to.
 if ! read_rauc; then
     log "WITHHOLDING SUPPRESSED: could not read the RAUC slot status, so no good fallback is known;" \
         "marking good anyway"

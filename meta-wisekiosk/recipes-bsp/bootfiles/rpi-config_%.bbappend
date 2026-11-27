@@ -1,16 +1,6 @@
-# HDMI settings carried over from the Raspbian kiosk. hdmi_force_hotplug brings
-# the display up when the panel is off or slow to respond at boot -- the normal
-# case for a kiosk behind glass whose TV is switched on after the Pi.
-# hdmi_group=1 hdmi_mode=16 is CEA 1080p60, the panel's mode.
-#
-# These are FIRMWARE settings and are inert under full KMS, which takes the mode
-# off the firmware. This image builds firmware KMS -- kiosk-zero-w.yaml's
-# `graphics` block sets VC4DTBO = "vc4-fkms-v3d" -- so they are the live
-# mechanism for the firmware's own mode. The kiosk's mode is set on top of
-# this by video= in the kernel's panel-mode.cfg
-# (meta-wisekiosk/recipes-kernel/linux/files/panel-mode.cfg). Removing these
-# keys reaches no deployed board in any case: config.txt lives on the shared
-# FAT partition, which RAUC never touches.
+# Appends firmware HDMI settings to config.txt: forced hotplug, CEA 1080p60 (group 1, mode 16).
+# Firmware settings are inert under full KMS; this image builds firmware KMS (VC4DTBO =
+# "vc4-fkms-v3d"), and panel-mode.cfg's video= sets the kiosk's mode on top.
 do_deploy:append() {
     CONFIG=${DEPLOYDIR}/${BOOTFILES_DIR_NAME}/config.txt
     cat >> $CONFIG <<'RPICFG'

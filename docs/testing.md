@@ -15,7 +15,7 @@ What proves a change is good enough to ship, at each tier.
 hardware-in-the-loop runner, cloned and built outside this tree per its own README. Pointed at this
 checkout, it reads the tracked `bench.toml` here — which never names a machine or a board — runs its
 `build` and `bundle` hooks, a host suite before anything is installed, then a target suite against
-the booted board. Builds on one host take turns ([`../README.md`](../README.md) §"Quick start"). The
+the booted board. Builds on one host take turns ([`image.md`](image.md) §"Building"). The
 runner never touches the board itself:
 
 ```sh
@@ -64,10 +64,8 @@ update behaviour). Before installing one, `Updates.allow_test_bundle` confirms t
 without the run's nonce.
 
 Every install the target suite makes goes through [`tools/kiosk-install.sh`](../tools/kiosk-install.sh),
-so the bench host needs Docker and a board that reaches the port Docker publishes for the install's
-server (one it chooses, per install) at the address the host's ssh session comes from. A plain LAN
-meets that, and so does WSL2 with Docker Desktop, which publishes the port on the Windows side; NAT or
-an ssh jump between the board and the host does not, and the install then fails to fetch the bundle.
+so the bench host needs what any installing host needs ([`updates.md`](updates.md) §"Delivering an
+update"); an install that cannot reach the host's server fails to fetch the bundle.
 
 `bench run` also reads `[github]` — the GitHub App that posts the `bench-pipeline` check run, and the
 path to its private key on the bench host — and `[run]`, naming the systemd unit it disables on the
@@ -84,14 +82,14 @@ not this layer's.
 Every dedicated test on a board is a pytest case under `tests/`, run through the bench driver as
 `bench test <ref> -- <suite> -k <name>` — never an ad hoc script, loop or ssh one-liner. A test
 driven outside the driver carries none of its provenance, and its result is not evidence for a
-review, an investigation or a PR. By hand, a board is for inspection only: reading its state and
-running read-only diagnostics.
+review, an investigation or a PR. Outside the bench driver, a board is only inspected: its state is
+read, and nothing on it changes.
 
 `tests/diagnostics` also holds the check that a reset mid-install is caught: `bench test <ref> --
 tests/diagnostics -k install_reset_capture -rP` installs the candidate, then runs a second `just
 kiosk-ota` and crashes the board once rauc reports writing the slot, and passes only when that
 install's own output carries the reset and the board's pstore read back after it. It crashes the
-board on purpose, so it runs only by hand, never in the queue job.
+board on purpose, so it is run on its own through the driver, never in the queue job.
 
 `tests/diagnostics -k fallback_probe` is the safe check of the slot fallback before any install meant
 to fail: it installs a good copy of the candidate in the slot not booted, zeroes that slot's boot
@@ -133,7 +131,17 @@ the bench's failure rather than the candidate's, as
 [WiseBenchManager's job](https://github.com/WisewareOrg/WiseBenchManager#the-job) tells the two
 apart.
 
-## How a target-suite test is written
+## What no test does
+
+**Nothing is added to the image for testing.** A test works from the host over ssh with what the
+image ships; a helper the image lacks is built outside it and copied to the board's `/tmp` at run
+time, as the evemu tools are.
+
+**A host-side suite never touches the real home directory.** Where its code can write to `~/.ssh`,
+`~/.config` or `~/.gitconfig`, an autouse fixture points `HOME` and `XDG_*` at a temporary directory
+from its first commit: a seeded failure runs mutated code, and can overwrite the real files.
+
+## Writing a target-suite test
 
 **A test's contract is its item's text.** Each target-suite test checks one `TST` item in
 [`docs/requirements/tst/`](requirements/tst/): the stimulus it states, its bound, and its pass, fail
@@ -218,6 +226,6 @@ goes.
 without the mark fails it. A case marked
 `@pytest.mark.soak` is deselected unless the run passes `--soak`.
 
-**The lint gate.** [`tools/ci-guards.sh`](../tools/ci-guards.sh) guard 22 runs the repo `.venv`'s
+**The lint gate.** [`tools/ci-guards.sh`](../tools/ci-guards.sh) runs the repo `.venv`'s
 pinned `ruff check` (the select in `pyproject.toml`), `ruff format --check`, `interrogate --fail-under
 100` and `pydoclint` over every tracked `tests/*.py`; a missing tool fails the guard.

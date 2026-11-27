@@ -4,40 +4,28 @@ sources/
 .kas_shell_history
 secrets.yaml
 
-# Operator notes -- serials, MACs, addresses, readings -- which together
-# fingerprint one network, and local/keys, the RAUC key the fleet trusts. Both
-# must live in the tree, so NOT COMMITTING them is the whole protection.
-# Investigation working notes belong here too, beside the operator notes they
-# quote, and reach docs/issue_investigation/ only once they are written up.
+# Operator notes and local/keys, the RAUC key the fleet trusts.
 local/
 
-# Agent scratch space: drafts, seeded-defect fixtures, tool output. Untracked by
-# nature, and this repository is PUBLIC, so a stray `git add -A` publishes it.
+# Agent scratch space: drafts, seeded-defect fixtures, tool output.
 scratchpad/
 
-# Written by the WiseBenchManager runner: pytest-reportlog's report.jsonl and run.json
-# per run. Build output, not source.
+# Written by the WiseBenchManager runner: report.jsonl and run.json per run.
 records/
 
-# Written by tools/write-build-rev.sh before every build (#46). Build input, not
-# source. Must be ignored, not merely untracked -- see ci-guards.sh guard 10.
+# Written by tools/write-build-rev.sh before every build.
 meta-wisekiosk/conf/build-rev.inc
 
-# Written by tools/go-mods.py before every build, same as build-rev.inc above:
-# an autogenerable file is build input, never committed (owner, 2026-09-27).
+# Written by tools/go-mods.py before every build.
 meta-wisekiosk/recipes-wisekiosk/wisekiosk/wisekiosk-backend-go-mods.inc
 
-# Written by tools/app-lockfile.py before every build, same reason. The
-# .srcrev stamp beside it is what lets app-lockfile.py skip a fetch when the
-# shrinkwrap is already current for the pinned commit.
+# Written by tools/app-lockfile.py before every build; the .srcrev stamp records the pinned commit it matches.
 meta-wisekiosk/recipes-wisekiosk/wisekiosk/wisekiosk-frontend/npm-shrinkwrap.json
 meta-wisekiosk/recipes-wisekiosk/wisekiosk/wisekiosk-frontend/npm-shrinkwrap.json.srcrev
 
-# The skills under .claude/ are tracked; these two are per-checkout machine
-# state, and settings.local.json in particular carries local filesystem paths.
+# Per-checkout state under .claude/.
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 
-# CPython's own build artifact. tools/cve-tools-test.py imports the CVE tools by
-# path, and .claude/hooks/ is on a hook's import path; neither is source.
+# CPython bytecode caches.
 __pycache__/

@@ -3,17 +3,12 @@ LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
 SRC_URI = "file://99-kiosk-journal.conf file://persistent.conf file://kiosk-journal-flush.service"
-# scarthgap unpacks file:// SRC_URI straight into WORKDIR; the
-# UNPACKDIR/sources layout is a later-release convention.
+# scarthgap unpacks file:// SRC_URI straight into WORKDIR.
 S = "${WORKDIR}"
 
 inherit systemd
 
-# Deliberately does NOT set VOLATILE_LOG_DIR. That variable is read by systemd's
-# do_install, so changing it re-hashes systemd and then everything that depends
-# on it, wpewebkit included (through udev) -- a multi-hour WebKit rebuild for a
-# symlink. It also puts the journal on the rootfs slot, which an A/B update
-# replaces, destroying the logs of the boot that failed.
+# VOLATILE_LOG_DIR is left unset: systemd's do_install reads it.
 SYSTEMD_SERVICE:${PN} = "kiosk-journal-flush.service"
 SYSTEMD_AUTO_ENABLE = "enable"
 

@@ -9,12 +9,8 @@
 // Port defaults to 2999; override with WEBKIT_INSPECT_PORT. Point it at a LOCAL forwarded port:
 //   ssh -L 2999:127.0.0.1:2999 -N root@<board>
 //
-// This is the instrument in-page JS cannot be on this board: performance.memory is absent,
-// FinalizationRegistry callbacks never fire under a saturated core, and JSC_* logging is compiled
-// out. The inspector reports GC type/timing and the heap census straight from the engine. It DOES
-// perturb frame timing, so use the in-page probes (measure-first) for fps/stall rate and this only
-// for GC and heap ground truth. See SKILL.md for enabling the server (the HTTP-vs-WS gotcha) and the
-// protocol. Requires Node >= 20 (global fetch + WebSocket).
+// Reports GC type/timing and the heap census from the engine. See SKILL.md for enabling the server
+// and the protocol. Requires Node >= 20 (global fetch + WebSocket).
 const PORT = Number(process.env.WEBKIT_INSPECT_PORT || 2999);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 

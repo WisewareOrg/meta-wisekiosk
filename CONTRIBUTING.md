@@ -1,53 +1,39 @@
 # Contributing to meta-wisekiosk
 
-The human contributor entry point: how to run the checks, what the conventions are, and how a change
-gets merged. **What this repository is** and how to build, flash and update is the
-[README](README.md); **which document holds which kind of fact** is the index at
-[`docs/README.md`](docs/README.md). Working rules for an AI agent are in [`CLAUDE.md`](CLAUDE.md).
+How to run the checks, what the conventions are, and how a change gets merged. What this repository
+is, and the index of its documents, is the [README](README.md); the rules an AI agent works under are
+[`CLAUDE.md`](CLAUDE.md). The organisation's own process — branch names, ticket types, milestones,
+pull-request titles, each with the gate that enforces it — is WisewareOrg's
+[`PROCESS.md`](https://github.com/WisewareOrg/.github/blob/main/PROCESS.md), and applies here in full.
 
 **This repository is public.** No device address, hostname, SSID, PSK hash, MAC, serial or machine-id
 belongs in a tracked file — not in a doc, not in a test fixture, not in a comment. None of it is
 credential-shaped, so no secret scanner stops it, and together it fingerprints one network. The real
 values live in gitignored `local/device-identity.md` and in `~/.config/wisekiosk/secrets.yaml`; the
-tree refers to them by role (`prod`, `bench`) and discovers an address at use time with
-`just find <cidr>`.
+tree names no board by address, and finds one at use time with `just find <cidr>`.
 
 ## Before you change anything
 
-**Build with `just build`, never `kas-container` directly.** `just build` writes
-`meta-wisekiosk/conf/build-rev.inc` first; calling kas straight skips that, and on a tree that has
-built before you build against the *previous* run's commit — an image the reproducibility gate then
-refuses at flash. See [`README.md`](README.md) §"Quick start".
+**Build with `just build`, never `kas-container` directly** — the build inputs it writes first are
+[`docs/image.md`](docs/image.md) §"Building".
 
-**Touching webkit's `PACKAGECONFIG` invalidates WebKit alone; touching `DISTRO_FEATURES`,
-`MACHINE_FEATURES`, or bumping the poky or meta-openembedded pin, invalidates more than WebKit.**
-Either is a multi-hour rebuild — see [`README.md`](README.md) §"Quick start" for the measured
-costs — so it is a decision made before starting, not a tweak. `config.txt`-only knobs are free.
+**Decide a WebKit rebuild before starting it.** Which changes rebuild WebKit, and which rebuild more,
+is [`docs/image.md`](docs/image.md) §"What a rebuild costs".
 
-**Two boards, two roles.** `prod` is wall-mounted and carries the live soak run; `bench` is the
-board to OTA, reboot and abuse. Nothing destructive goes near prod, except under a time-boxed
-`tools/prod-authorize.sh` grant, which widens only OTA, install, reboot, rollback and reprovision —
-flash, `tools/rauc-rotate` and any power-off verb stay blocked regardless.
-`.claude/hooks/guard.sh` enforces both halves, but only as a backstop — and only as far as
-`local/device-identity.md` is current, so update that file when a board is swapped.
+**Test on the bench board.** Every test on a board runs through the bench runner,
+[`docs/testing.md`](docs/testing.md) §"Running it".
 
-**Nothing autogenerable is committed (owner, 2026-09-27).** A file this tree can regenerate from what
-is already pinned is gitignored and written at build entry instead of checked in —
-`meta-wisekiosk/conf/build-rev.inc` was the first of these; `wisekiosk-backend-go-mods.inc` and
-`wisekiosk-frontend/npm-shrinkwrap.json` are written the same way, by `tools/go-mods.py` and
-`tools/app-lockfile.py`. Bumping the WiseKiosk app pin is therefore a one-line `SRCREV` edit — see
-[`meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md`](meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md).
-A pin on the repository's *own* tooling is the opposite case: `pyproject.toml`/`uv.lock` fix the
-versions of PyYAML and anything else `tools/*.py` imports, the same way `includes/base.yaml`
-fixes a layer commit, and a pin — unlike a build-derived file — is never autogenerable, so it belongs
-in the tree (#167 restore pinned Python tooling).
+**Nothing autogenerable is committed.** A file this tree can regenerate from what is already pinned
+is gitignored and written at build entry instead of checked in; which files those are is
+[`docs/image.md`](docs/image.md) §"Building". A pin is never autogenerable, so a pin — a layer
+commit, `pyproject.toml` and `uv.lock` — is committed.
 
 ## Running the checks
 
 ```sh
 just                # the recipe roster, each beside what it does
 just verify         # every documentation check: cross-references + docs-vs-image
-just links          # cross-references only (this is the one CI requires)
+just links          # cross-references only
 just guards         # repository invariants: secrets, identity, syntax, wiring;
                     # runs the self-tests of the device guard, the CVE tools and the host-side tools too
 just reqs           # the requirements tree, through wise-ci's check-reqs
@@ -56,15 +42,15 @@ just install-hooks  # once per clone: point core.hooksPath at .githooks
 bash .claude/hooks/guard-test.sh   # the device guard's self-test on its own
 ```
 
-CI runs [`tools/ci-guards.sh`](tools/ci-guards.sh),
-[`tools/scrub-identity.py`](tools/scrub-identity.py) `--check` and
-[`tools/doc-links.py`](tools/doc-links.py). The pre-commit hook runs the same three, so a commit
-cannot pass locally and fail there on them. CI also runs two wise-ci checks the hook does not:
-`check-reqs` over the requirements tree, which
-[`docs/requirements/README.md`](docs/requirements/README.md) covers with its gate, and `check-adrs`
-over [`docs/decisions/`](docs/decisions/README.md) and every ADR citation. `just image` and
-`just verify`'s second half need a populated `build/` and are local-only: CI never builds, and a
-required check that skips on every run is noise rather than a gate.
+The pre-commit hook runs [`tools/ci-guards.sh`](tools/ci-guards.sh),
+[`tools/doc-links.py`](tools/doc-links.py) and [`tools/scrub-identity.py`](tools/scrub-identity.py)
+`--check`. CI runs the same three in its `guards` workflow, so a commit cannot pass locally and fail
+there on them, plus wise-ci's `check-reqs` over the requirements tree
+([`docs/requirements/README.md`](docs/requirements/README.md)) and `check-adrs` over
+[`docs/decisions/`](docs/decisions/README.md) and every ADR citation. The `lint` workflow runs
+shellcheck over every tracked shell script and actionlint over the workflows, and `codeql` analyses
+the tooling. `just image` and `just verify`'s second half need a populated `build/` and are
+local-only: CI never builds.
 
 `tools/scrub-identity.py --check` has two halves and says which ran. The pattern half needs no
 configuration and runs everywhere. The known-value half reads `local/device-identity.md`, which is
@@ -79,24 +65,40 @@ hook and `just guards` therefore fail where CI passes: create `local/device-iden
 `--allow-partial` yourself and know that a hostname or an SSID went unlooked-for.
 
 None of the above builds or boots anything — [`docs/testing.md`](docs/testing.md) covers the tiers
-that do, what each one actually proves, and how to run `bench` behind the device tier.
+that do, what each one proves, and how the bench runner runs them.
 
 ## Documentation conventions
 
 **Colocation, and one owner per fact.** Documentation lives beside the code it explains — a recipe's
 README is as much documentation as anything under `docs/`. State a fact in the document that owns it
-and cite it from everywhere else; [`docs/README.md`](docs/README.md) and [`CLAUDE.md`](CLAUDE.md)'s
-"Where the facts live" table decide which one that is. A second independent statement goes stale in
-one copy while the other stays right, with nothing comparing them.
+and cite it from everywhere else; the index in [`README.md`](README.md) §"Documentation" says which
+document answers which question. A second independent statement goes stale in one copy while the
+other stays right, with nothing comparing them.
 
-**Code is the living proof of what is built now; history belongs to the investigation.** A recipe, a
-class or a justfile says what the tree does today. Tracing an issue to its cause and resolution goes
-in `docs/issue_investigation/`; a design choice, with the alternatives it rejected and why, goes in
-its ADR ([`docs/decisions/`](docs/decisions/README.md)). Neither goes in a comment or a "no longer"
-clause. State the timeless fact — no *now*, *no longer*, *as of*.
+**Three layers of document.** Each module of the layer has a README: what it puts on the image, how
+it plugs into the rest, and the knobs that matter, in plain language — Yocto is hard to read. A
+subsystem document under `docs/` says how the modules fit together and why the system is built that
+way, and links down to the module READMEs. A decision record in [`docs/decisions/`](docs/decisions/README.md)
+holds a choice that took a trade study, with the alternatives it rejected. No tracked document
+describes a particular board: what it runs, which slot it is on, its role, or what may be done to it.
+That setup lives only in the gitignored `local/`. A rule that holds for every board, such as how a
+test reaches one, is not such a description.
+
+**The tree describes the system; issues and pull requests are the record of the work.** A recipe, a
+class or a justfile says what the tree does, and a document says how the system is built and
+why. How a problem was traced to its cause and fixed stays on its issue and pull request; a design
+choice, with the alternatives it rejected and why, goes in its ADR
+([`docs/decisions/`](docs/decisions/README.md)). Neither goes in a comment or a "no longer" clause.
+State the timeless fact — no *now*, *no longer*, *as of*.
+
+**A comment states what or how, in one or two present-tense lines, only where the code does not show
+it.** No why, no history, no issue numbers, no attributions. The deletion test decides: delete the
+comment, and if the reader loses no mechanism fact the code does not show, it stays deleted. A
+current fact that explains a module belongs in that module's README. A tool's usage or `--help` text
+and a docstring that gives usage, knobs and the exit contract are documentation, not comments.
 
 **Cite a section by name, never by line number.** A section reference is a Markdown link to the
-file, then `§`, then the heading in double quotes — as [`README.md`](README.md) §"Quick start" is
+file, then `§`, then the heading in double quotes — as [`docs/image.md`](docs/image.md) §"Building" is
 cited above. [`tools/doc-links.py`](tools/doc-links.py) gates that form against the real headings,
 and it cannot see a line number rot. Show the form by citing a real section, as here: the checker
 reads Markdown link syntax anywhere on a line, backticks included, so an invented filename written
@@ -105,23 +107,15 @@ renumberable — write `issue #46 build stamp`, number *and* name, because a ren
 and leaves prose untouched. Ordinal references in prose ("step 3") are reported as warnings for exactly
 this reason.
 
-**An investigation is a directory whose `README.md` is the record of record**, copied from
-[`docs/issue_investigation/TEMPLATE.md`](docs/issue_investigation/TEMPLATE.md) with every field
-filled, and it carries three rules the template states in full: **R1** every test run names its board
-role and the image commit it ran; **R2** every script put on a board is either shipped in a recipe or
-committed beside the investigation, never left only in `local/`; **R3** runs are never blended — one
-board × one build × one test, and numbers from different runs never share a table.
-
-**Links are hub-and-spoke.** New documents are reachable from [`docs/README.md`](docs/README.md);
+**Links are hub-and-spoke.** A new document gets a row in [`README.md`](README.md) §"Documentation";
 relative links resolve from the citing file's own directory, and a leading `/` fails. Never anchor a
 *directory* link — anchor its `README.md`.
 
 ## Tickets, branches and pull requests
 
 Work on a branch and land through a pull request; nothing goes directly to `main`. A pull request
-**closes its issue or stands as a self-complete deliverable** — an investigation lands its write-up
-and its fix together, and a change that does neither is not ready to open, let alone to call
-merge-ready.
+**closes its issue or stands as a self-complete deliverable**, and a change that does neither is not
+ready to open, let alone to call merge-ready.
 
 Issues block each other through GitHub's native dependency edges, never through a label. Write both
 the number and the name of anything renumberable, in the title and in the body.
@@ -145,77 +139,69 @@ Each question is an obligation on the author that leaves no artifact, so no chec
 reviewer is the mechanism. `.claude/hooks/review-diff.py` selects the groups below from the paths a
 commit records and puts those questions in front of the model before the commit lands; the group
 names there and the `**Group**` headings here are one taxonomy authored in two files, and a rename in
-either place would silently select nothing. [`tools/ci-guards.sh`](tools/ci-guards.sh) guard 13 holds
+either place would silently select nothing. [`tools/ci-guards.sh`](tools/ci-guards.sh) holds
 the two sides equal — a name on one side only, or a group carrying no numbered question, fails the
 guards.
 
-**Cite a question by number *and* name** — `question 9, *One-way lock*`. A bare number resolves
+**Cite a question by number *and* name** — `question 8, *One-way lock*`. A bare number resolves
 silently to whatever occupies it after a renumber.
 
 **Layer & recipes**
 
-1. **Documented at the recipe.** Does the change that was acted on carry its explanation at the
-   recipe, class or bbappend holding it, rather than in a document that has to be found?
-2. **Device-verified.** Has this run on real hardware, on the **bench** board, and does the report
-   name the board role and the image commit it ran? A recipe that parses is not a recipe that works.
-3. **Numbers under R1-R3.** Does every measurement quoted here name its board and image commit, and
-   does no table mix runs from different boards or different builds?
+1. **Documented at the module.** Does the change update the README of each module it touches, and
+   the subsystem document where it changes how the modules fit together?
+2. **Device-verified.** Has this run on the **bench** board through the bench runner, whose record
+   names the board and the commit it ran? A recipe that parses is not a recipe that works.
 
 **Build config & pins**
 
-4. **WebKit cost.** Does this touch webkit's `PACKAGECONFIG` or a WebKit recipe (invalidates
-   WebKit alone)? Or `DISTRO_FEATURES`, `MACHINE_FEATURES`, or a poky/meta-openembedded pin bump
-   (invalidates more than WebKit)? Either is a multi-hour rebuild — see [`README.md`](README.md)
-   §"Quick start" — so it is a decision to take before starting, not one to discover afterwards.
-5. **kas block collision.** Is every `local_conf_header` block name unique across the include chain?
-   kas merges by block name and the top-level file wins, so a duplicate is discarded with no warning,
-   no error, and variables that never reach bitbake.
-6. **Pin reachable.** Is every commit a pin names pushed and fetchable by someone who is not you? An
+3. **WebKit cost.** Does this reach WebKit's build, alone or with more
+   ([`docs/image.md`](docs/image.md) §"What a rebuild costs")? Then it is a decision taken before
+   starting, not one discovered afterwards.
+4. **kas block collision.** Is every `local_conf_header` block name unique across the include chain
+   ([`docs/image.md`](docs/image.md) §"What kas does")?
+5. **Pin reachable.** Is every commit a pin names pushed and fetchable by someone who is not you? An
    unpushed pin builds here and nowhere else.
 
 **Upstream patches**
 
-7. **Why not a bbappend.** Does the patch header record what makes this inexpressible from a
+6. **Why not a bbappend.** Does the patch header record what makes this inexpressible from a
    downstream layer, and whether it is suitable to send upstream?
-8. **Still applies.** Does the patch still apply to the pinned upstream checkout, against upstream's
+7. **Still applies.** Does the patch still apply to the pinned upstream checkout, against upstream's
    files as upstream writes them?
 
 **RAUC / signing / secrets**
 
-9. **One-way lock.** Is the keyring and `compatible` consequence understood? A deployed board refuses
-   a bundle signed by a key it does not trust and refuses a compatible that is not its own — a wrong
-   change strands every unit in the field, and there is no remote undo. The rotation order is in
-   [`docs/rauc-key-rotation.md`](docs/rauc-key-rotation.md) and it is not optional.
-10. **No secret as a build input.** Does any site value — SSID, PSK hash, URL, hostname, machine-id,
-    nameserver — become something bitbake reads? One image per site, and that site's wireless
-    credentials inside every update bundle.
-11. **No identity in the tree.** Does any tracked file gain an address, hostname, SSID, MAC, serial
-    or machine-id? This repository is public and none of it is credential-shaped. Fixtures included:
-    a test that needs an address uses a documentation address, not a real one.
+8. **One-way lock.** Is the keyring and `compatible` consequence understood
+   ([`docs/updates.md`](docs/updates.md) §"The one-way lock"), and does a key change follow the
+   order in [`docs/updates.md`](docs/updates.md) §"Rotating the signing key"?
+9. **No secret as a build input.** Does any value `secrets.yaml` holds
+   ([`docs/device.md`](docs/device.md) §"Provisioning") become something bitbake reads? That makes one
+   image per site, with that site's wireless credentials inside every update bundle.
+10. **No identity in the tree.** Does any tracked file gain a value the public-repository rule at the
+    top of this file names? Fixtures included: a test that needs an address uses a documentation
+    address, not a real one.
 
 **Tooling, guards & CI**
 
-12. **Proved it can fail.** Was the new or edited check watched failing — the defect seeded, the seed
+11. **Proved it can fail.** Was the new or edited check watched failing — the defect seeded, the seed
     confirmed to have landed, and the spelled-differently-but-valid variant confirmed to still pass?
     A guard keyed on the same literal as the thing it guards cannot see that thing fail.
-13. **The finding's own repro.** Was the reproduction that surfaced the defect re-run against the
+12. **The finding's own repro.** Was the reproduction that surfaced the defect re-run against the
     fix, rather than a test written afterwards that resembles it?
-14. **Every case, again.** Where a step was added to a sequence, was the whole sequence re-run
+13. **Every case, again.** Where a step was added to a sequence, was the whole sequence re-run
     against the cases it already passed — first where those steps share mutable state?
-15. **Orphaned names.** Where a recipe, check or workflow step was removed, does any operator-facing
+14. **Orphaned names.** Where a recipe, check or workflow step was removed, does any operator-facing
     reference to its name survive that no gate reaches — a justfile `[doc()]`, a workflow step
     `name:`, a `--help` string?
 
-**Docs & investigations**
+**Docs**
 
-16. **Cross-references resolve.** Does `just links` pass — relative links from the citing file's own
+15. **Cross-references resolve.** Does `just links` pass — relative links from the citing file's own
     directory, GFM anchors on real headings, section references by name, no anchored directory link,
     no address?
-17. **Investigation shape.** Does a new investigation copy
-    [`docs/issue_investigation/TEMPLATE.md`](docs/issue_investigation/TEMPLATE.md), fill every field,
-    and satisfy R1-R3 — and is it listed in [`docs/README.md`](docs/README.md)?
-18. **One home.** Is each fact stated in the document that owns it, and cited rather than restated
+16. **One home.** Is each fact stated in the document that owns it, and cited rather than restated
     everywhere else? Strip the citation out of the sentence: if what remains still asserts what the
     cited document asserts, it restates rather than cites.
-19. **Timeless, and current.** Does the prose describe what the tree does now, with the history it
-    replaced moved into the investigation rather than left as a "no longer" clause?
+17. **Timeless, and current.** Does the prose describe what the tree does, with the history it
+    replaced left to the issue and pull request rather than kept as a "no longer" clause?

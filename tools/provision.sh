@@ -5,30 +5,15 @@
 #   tools/provision.sh card   /mnt/data       -- a mounted /data partition
 #   tools/provision.sh stage  <outdir>        -- the output alone, no card or ssh
 #
-# Values come from secrets.yaml, which is gitignored. Nothing here is echoed:
-# the SSID and PSK hash are not credential-shaped and would pass every scanner,
-# which is exactly why they must not reach a transcript or a public repo.
-#
-# The chicken-and-egg is real and unavoidable: wifi credentials are what let you
-# REACH the device, so the first write cannot come over the network. Use the
-# `card` mode before first boot. `device` mode is for a unit you can already
-# reach -- re-provisioning, or seeding one that still has a baked config.
+# Values come from secrets.yaml and are never echoed. Use `card` mode before first boot and
+# `device` mode for a unit that is already reachable.
 set -euo pipefail
 
 MODE=${1:?usage: provision.sh device <ssh-target> | card <mounted-/data> | stage <outdir>}
 DEST=${2:?usage: provision.sh device <ssh-target> | card <mounted-/data> | stage <outdir>}
-# The secrets live OUTSIDE the repository, deliberately. Nothing site-specific
-# reaches the image any more, so the build must not be able to read them even by
-# accident: with no secrets.yaml in the tree and no kas include for it, a
-# leftover ${WIFI_SSID} expands to empty and breaks loudly instead of silently
-# baking a real credential into a bundle.
 SEC=${KIOSK_SECRETS:-$HOME/.config/wisekiosk/secrets.yaml}
 
-# The recovery script (issue #28) is placed on /data, not the rootfs, so it
-# survives an A/B flip and a reflash. Its single source of truth is the
-# kiosk-recover recipe's files/ dir; provisioning is the /data placement path,
-# so it is copied to /data/RECOVER.sh here. ci-guards.sh guard 8 fails if this
-# wiring is broken (script missing, or provision.sh no longer references it).
+# The kiosk-recover recipe's files/ copy is installed as /data/RECOVER.sh.
 REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 RECOVER_SRC="$REPO/meta-wisekiosk/recipes-core/kiosk-recover/files/kiosk-recover"
 [ -r "$RECOVER_SRC" ] || { echo "recovery script missing at $RECOVER_SRC"; exit 1; }
@@ -49,9 +34,7 @@ for pair in SSID:WIFI_SSID PSK:WIFI_PSK_HASH HOST:KIOSK_HOSTNAME NS:KIOSK_NAMESE
     [ -n "${!n}" ] || { echo "secrets.yaml is missing $real"; exit 1; }
 done
 
-# machine-id: 32 lowercase hex. Generated per device if secrets.yaml has none --
-# systemd rejects any other form and silently generates a fresh one at boot,
-# which is the journal-orphaning bug this exists to prevent.
+# machine-id: 32 lowercase hex, generated per device when secrets.yaml has none.
 if [ -z "$MID" ]; then
     MID=$(od -An -tx1 -N16 /dev/urandom | tr -d ' \n')
     echo "generated a machine-id (not stored in secrets.yaml -- add it to keep it stable)"
@@ -76,12 +59,11 @@ network={
 }
 EOF
 umask 022
-# Unset: no KIOSK_URL line at all, so kiosk.service's own localhost default
-# applies -- the same as a board that was never provisioned with one.
+# Unset KIOSK_URL writes a comment-only kiosk.conf, so kiosk.service uses its own default.
 if [ -n "$URL" ]; then
     printf 'KIOSK_URL=%s\n' "$URL" > "$STAGE/config/kiosk.conf"
 else
-    # a comment, not an empty file: kiosk-provision tests -s and logs UNPROVISIONED for an empty one
+    # a comment, not an empty file: kiosk-provision logs UNPROVISIONED for an empty one
     printf '# no KIOSK_URL: kiosk.service uses its own default\n' > "$STAGE/config/kiosk.conf"
 fi
 printf '%s\n' "$HOST" > "$STAGE/config/hostname"
@@ -102,25 +84,9 @@ case "$MODE" in
     chmod 0600 "$DEST/config/wpa_supplicant.conf"
     chmod 0755 "$DEST/RECOVER.sh"
 
-    # Verify here, not in a procedure someone is told to follow. The failure
-    # this catches is discovered on the device otherwise, and a card that comes
-    # up unprovisioned has no network, so recovering it means physical access
-    # and a second flash.
-    #
-    # Both checks are of things the WRITE can get wrong, never of a value this
-    # script just wrote from input it already validated: re-counting the ssid=
-    # lines of a heredoc, or re-measuring the length of a machine-id the
-    # 32-hex check above already rejected, is arithmetic on a known quantity and
-    # looks identical whether or not it fails.
-    #
-    #   mode        world-readable wifi credentials on a card that leaves the
-    #               room, and wpa_supplicant will not say a word about it. Fires
-    #               when $DEST is the vfat boot partition rather than ext4
-    #               /data: vfat accepts a chmod and ignores it
-    #   ownership   the chown above is downgraded to a note on failure, so this
-    #               is the check that makes it loud -- files owned by the
-    #               invoking user land the wifi credentials on the device owned
-    #               by uid 1000, the same failure the device branch calls out
+    #   mode        wpa_supplicant.conf must be 0600; fires when $DEST is the vfat boot partition,
+    #               which accepts a chmod and ignores it
+    #   ownership   files must be owned 0:0; the chown above only notes a failure
     bad=0
     say() { printf 'VERIFY FAIL  %s\n' "$*" >&2; bad=1; }
 
@@ -132,11 +98,7 @@ case "$MODE" in
         [ "$own" = "0:0" ] || say "$f is owned by $own, must be 0:0 -- re-run as root"
     done
 
-    # RECOVER.sh delivery is a thing the write can get wrong (a full or ro card);
-    # the device branch reads it back, so verify it here too. Checked on its own,
-    # not folded into the loop above: a missing file gives a clean VERIFY FAIL
-    # rather than a stat crash, and the loop keeps its loud failure on any other
-    # missing literal path (machine-id).
+    # Checked apart from the loop above so a missing RECOVER.sh reports VERIFY FAIL instead of a stat error.
     if [ -f "$DEST/RECOVER.sh" ]; then
         own=$(stat -c %u:%g "$DEST/RECOVER.sh")
         [ "$own" = "0:0" ] || say "$DEST/RECOVER.sh is owned by $own, must be 0:0 -- re-run as root"
@@ -153,9 +115,7 @@ case "$MODE" in
     echo "provisioned $DEST"
     ;;
   stage)
-    # No card, no ssh, no root: this mode exists to produce the exact
-    # provisioning output for a diff before writing it for real, so it skips the
-    # card branch's device-only chown/mode enforcement.
+    # Needs no card, ssh or root; skips the card branch's chown/mode enforcement.
     mkdir -p "$DEST/config" "$DEST/etc"
     cp "$STAGE/config/"* "$DEST/config/"
     cp "$STAGE/etc/machine-id" "$DEST/etc/machine-id"
@@ -164,20 +124,8 @@ case "$MODE" in
     ;;
   device)
     ssh_opts=(-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
-    # tar over stdin: one stream, and a few kilobytes of it. Small enough that
-    # transfer shape is not a consideration either way.
-    # --owner/--group: tar otherwise preserves THIS host's uid/gid, landing the
-    # wifi credentials owned by uid 1000 on the device.
-    #
-    # The archive names STAGE's children (config, etc, RECOVER.sh), never `.`
-    # itself: `tar -C "$STAGE" -cf - .` archives a `./` entry carrying
-    # mktemp -d's own mode (0700), and `tar -C /data -xf -` applies THAT to
-    # /data itself, not just its contents.
-    #
-    # rc is captured rather than left to errexit: a bare ssh diagnostic and a
-    # silent exit 255 say nothing about which of this script's two remote steps
-    # ran, and the difference matters -- a write that failed leaves /data as it
-    # was, a read-back that failed does not say whether the write landed.
+    # --owner/--group stop tar preserving this host's uid/gid. The archive names STAGE's children,
+    # not `.`, so /data keeps its own mode. rc is captured per remote step to name the failing one.
     rc=0
     tar -C "$STAGE" --owner=root --group=root --numeric-owner -cf - config etc RECOVER.sh | ssh "${ssh_opts[@]}" "$DEST" \
         'mkdir -p /data/config /data/etc && tar -C /data -xf - && chown -R 0:0 /data/config /data/etc && chmod 0600 /data/config/wpa_supplicant.conf && sync' || rc=$?

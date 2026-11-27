@@ -1,13 +1,5 @@
 SUMMARY = "Withhold RAUC good-marking when a boot comes up with no usable LAN"
-DESCRIPTION = "Covers the one failure class the A/B slots do not: a boot that completes \
-normally and comes up unreachable. The watchdog stays quiet because nothing is wedged, and \
-rauc-mark-good resets the boot counter regardless, so U-Boot never falls back and recovery \
-needs a person with a USB keyboard. \
-\
-Ordered Before=boot-complete.target, which rauc-mark-good.service Requires. A non-zero exit \
-leaves that target unreached, mark-good does not run, the boot counter is not reset, and \
-three such boots drop the slot from BOOT_ORDER. When it withholds, restarts or suppresses \
-itself is stated in the script's header."
+DESCRIPTION = "A oneshot ordered before boot-complete.target that withholds marking the booted slot good until the LAN answers."
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
@@ -20,9 +12,8 @@ inherit systemd
 SYSTEMD_SERVICE:${PN} = "kiosk-netcheck.service"
 SYSTEMD_AUTO_ENABLE = "enable"
 
-# ip and ping are busybox applets here (/sbin/ip and /usr/bin/ping both symlink
-# to it). fw_printenv is in libubootenv-bin, not libubootenv: the recipe inherits
-# lib_package, which splits the binaries out of the library package.
+# ip and ping are busybox applets; fw_printenv is in libubootenv-bin, which lib_package splits
+# out of libubootenv.
 RDEPENDS:${PN} = "busybox libubootenv-bin rauc"
 
 do_install() {

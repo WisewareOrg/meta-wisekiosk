@@ -6,7 +6,7 @@ import pytest
 from board_test import BoardTest, replaying
 from replay import CARDS4_LIVE
 
-# TST014's bound on memory in use, as a share of usable memory
+# the bound of TST014 Memory over a long run on memory in use, as a share of usable memory
 USE_LIMIT = 0.80
 
 

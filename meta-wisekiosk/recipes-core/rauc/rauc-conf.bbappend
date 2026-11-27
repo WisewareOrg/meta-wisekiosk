@@ -1,5 +1,4 @@
-# meta-autonomos-raspberrypi's rauc-conf.bbappend prepends only its own
-# files/${MACHINE} directory; raspberrypi0-wifi exists only in this layer.
+# Supplies this layer's files/${MACHINE}/system.conf; the autonomos bbappend prepends only its own directory.
 FILESEXTRAPATHS:prepend := "${THISDIR}/files/${MACHINE}:"
 
 # system.conf's resize=true grows each slot's filesystem with resize2fs after the write.

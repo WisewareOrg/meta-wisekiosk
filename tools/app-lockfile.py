@@ -4,16 +4,12 @@
     app-lockfile.py -- write wisekiosk-frontend/npm-shrinkwrap.json
                         (gitignored, build input)
 
-The shrinkwrap has to be byte-for-byte what the app's own CI locked, not
-`npm`-regenerated here, so this fetches frontend/package-lock.json straight
-from the pinned commit rather than running npm at all. A gitignored
-`<shrinkwrap>.srcrev` stamp beside it records which commit it is for, so a
-build entry point that runs this on every invocation skips the fetch once
-it is already current.
+The shrinkwrap is the app's own lockfile, fetched from the pinned commit; npm
+is not run. A gitignored `<shrinkwrap>.srcrev` stamp beside it records which
+commit it is for, and the fetch is skipped once it is current.
 
 `fetch_lockfile(url, srcrev) -> bytes` is the only network-touching
-function; it and `is_current`/`write_shrinkwrap` are the importable seams
-for tests.
+function; it and `is_current`/`write_shrinkwrap` are the seams the tests drive.
 """
 import json
 import os
@@ -26,12 +22,10 @@ from pathlib import Path
 TOOLS = Path(__file__).resolve().parent
 ROOT = TOOLS.parent
 
-# Where the pin and the git URL come from -- one file, shared with
-# tools/go-mods.py's own parse of it.
+# The pin and the git URL: one file, shared with tools/go-mods.py's parse of it.
 SRC_INC = ROOT / "meta-wisekiosk/recipes-wisekiosk/wisekiosk/wisekiosk-src.inc"
 
-# Written at build entry, never committed -- npmsw:// in
-# wisekiosk-frontend_git.bb fetches this path.
+# Written at build entry; npmsw:// in wisekiosk-frontend_git.bb fetches this path.
 SHRINKWRAP_PATH = (ROOT / "meta-wisekiosk/recipes-wisekiosk/wisekiosk/"
                    "wisekiosk-frontend/npm-shrinkwrap.json")
 
@@ -44,10 +38,8 @@ def refuse(message: str) -> int:
 
 
 def _src_inc_fields(src_inc: Path = SRC_INC):
-    """(url, srcrev) as bitbake reads them from wisekiosk-src.inc -- the same
-    parse tools/go-mods.py does, kept separate rather than shared so neither
-    tool depends on the other. `src_inc` is the importable seam for tests, a
-    fixture file in place of the real one."""
+    """(url, srcrev) as bitbake reads them from wisekiosk-src.inc, parsed
+    separately from tools/go-mods.py."""
     text = src_inc.read_text()
     srcrev = re.search(r'^SRCREV\s*=\s*"([0-9a-f]{40})"', text, re.M).group(1)
     src_uri = re.search(r'^SRC_URI\s*=\s*"([^"]+)"', text, re.M).group(1)
@@ -85,22 +77,17 @@ def stamp_path_for(path: Path) -> Path:
 
 
 def is_current(srcrev: str, path: Path = SHRINKWRAP_PATH) -> bool:
-    """True when `path` already holds this srcrev's content, per its stamp --
-    both the file and its stamp must exist, and the stamp must match. The
-    importable seam for "skip when current" tests."""
+    """True when `path` already holds this srcrev's content: both the file and
+    its stamp must exist, and the stamp must match."""
     stamp = stamp_path_for(path)
     return (path.exists() and stamp.exists()
             and stamp.read_text().strip() == srcrev)
 
 
 def write_shrinkwrap(content: bytes, srcrev: str, path: Path = SHRINKWRAP_PATH) -> int:
-    """Validate `content` is JSON and write it verbatim to `path`
-    (atomically), refusing (no write, no stamp) on invalid JSON. The old
-    stamp is removed before the replace, not just rewritten after: an
-    interrupt between a successful replace and the stamp write must never
-    leave a stamp claiming content it did not write, so the safe failure
-    mode is no stamp at all (is_current() then reads as stale, not
-    current). The importable seam for tests, alongside fetch_lockfile."""
+    """Validate `content` is JSON and write it verbatim to `path` (atomically),
+    refusing (no write, no stamp) on invalid JSON. The old stamp is removed
+    before the replace; an interruption leaves no stamp, which reads as stale."""
     try:
         json.loads(content)
     except json.JSONDecodeError as exc:

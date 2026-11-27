@@ -1,5 +1,5 @@
 [hooks]
-# Installs what the test helpers import (docs/testing.md).
+# Installs the `tests` dependency group.
 precondition = "UV_PROJECT_ENVIRONMENT=build/test-packages uv sync --frozen --only-group tests --python 3.13"
 build        = "just build"
 bundle       = "just kiosk-bundle"

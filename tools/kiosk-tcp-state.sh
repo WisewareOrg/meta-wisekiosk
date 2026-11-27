@@ -3,14 +3,8 @@
 #
 #   tools/kiosk-tcp-state.sh <kiosk-address> [port]
 #
-# Run this ON THE MACHINE SERVING THE PAGE. A socket table only holds sockets
-# local to the host it is read on, so pointing this at the kiosk from a third
-# machine reports nothing and reads exactly like a kiosk that is not connecting.
-#
-# This is the read of last resort: the kiosk's correct display is a black
-# background, so "working", "browser crashed", "JavaScript threw" and "the browser
-# could not open the display" are indistinguishable from the room. Socket state
-# is definite.
+# Run on the machine serving the page: a socket table holds only that host's own sockets, so
+# from a third machine it reports no connections.
 #
 #   no connections                        browser not running, or not attempting
 #   1, ending FIN_WAIT_2 / TIME_WAIT      fetched the HTML only -- scripts never
@@ -22,23 +16,15 @@
 #   1 ESTABLISHED, sustained              rendering, one multiplexed socket.
 #                                         The healthy state
 #
-# "1" appears twice with opposite meanings: a single connection that CLOSES is
-# failure, one that STAYS established is success. State and persistence
-# discriminate, not the count -- and when the count is what you are reading, ask
-# what the right count is. A row reading "many established, sustained" as a
-# health signal once hid the largest bring-up cost on this device for a whole
-# session; it was one connection per module against a six-per-origin limit.
+# "1" appears twice with opposite meanings: a single connection that closes is failure, one that
+# stays established is success.
 set -uo pipefail
 
 ADDR=${1:?usage: kiosk-tcp-state.sh <kiosk-address> [port]}
 PORT=${2:-8080}
 
-# ss is iproute2 and present wherever `ip` is; netstat is net-tools, which many
-# images no longer ship at all. Their state names differ -- ss says ESTAB and
-# FIN-WAIT-2, netstat says ESTABLISHED and FIN_WAIT2 -- so whichever ran, the
-# names are canonicalised below to the spelling the table above uses, which is
-# neither engine's. A table whose rows can never match the output is worse than
-# no table.
+# ss and netstat spell states differently (ESTAB / ESTABLISHED, FIN-WAIT-2 / FIN_WAIT2); both are
+# canonicalised below to the spelling in the table above.
 if command -v ss > /dev/null; then
     engine="ss"
     rows=$(ss -tan 2>/dev/null)
@@ -52,15 +38,8 @@ else
     exit 2
 fi
 
-# The kiosk is the CLIENT here: this host listens on PORT and the kiosk dials in
-# from an ephemeral port. So the rows that belong to it are the ones whose local
-# port is PORT and whose peer address is the kiosk -- both columns, not either.
-# Matching the address anywhere in the row also catches this host's own outbound
-# connections to the kiosk and the listening socket, which answers a different
-# question and produces a count that never matches the table above.
-#
-# Column 4 is the local address and column 5 the peer in both engines; only the
-# state moves, which is what statecol carries.
+# Rows count when the local port is PORT and the peer address is the kiosk. Column 4 is the local
+# address and column 5 the peer in both engines; statecol carries the state column.
 out=$(printf '%s\n' "$rows" | awk -v sc="$statecol" -v addr="$ADDR" -v port="$PORT" '
     $1 == "State" { next }
     NF >= 5 {
@@ -81,6 +60,4 @@ else
     printf '%s\n' "$out" | sed 's/^/  /'
 fi
 
-# Deliberately no exit-code verdict: every line above is evidence for a human,
-# and a script that decided "healthy" from one sample would be asserting
-# persistence it never observed. Run it twice, seconds apart.
+# Exits 0 with no verdict; one sample shows no persistence, so run it twice, seconds apart.

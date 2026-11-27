@@ -9,20 +9,14 @@
 # refused, naming the holder's pid and checkout). A script killed alone frees the lock at once while rauc goes
 # on installing; a later call is then refused by rauc only, after its arming.
 #
-# Every install goes through this script: just kiosk-ota, tools/rauc-rotate.sh
-# and the target suite's update tests. The board streams BUNDLE: for the length
-# of the install, a pinned nginx container on a port docker chooses serves it,
-# holding only BUNDLE, in memory, and the board runs `rauc install` on its URL
-# at the address its own ssh session comes from (SSH_CLIENT). rauc checks the
-# signature against the board's keyring before it writes anything.
+# The board streams BUNDLE: for the length of the install, a pinned nginx container on a port
+# docker chooses serves it, holding only BUNDLE, in memory, and the board runs `rauc install` on
+# its URL at the address its own ssh session comes from (SSH_CLIENT).
 #
-# Checks, in order: the reproducibility gate against the tree containing this
-# script, regardless of the caller's working directory (--tree: what installs
-# is already on the device); the device clock's skew from the host (reported,
-# never set -- a cold clock after a fresh slot's first boot is the documented
-# cause of a "certificate is not yet valid" refusal below, see #31); and, after
-# `rauc install`, that BOOT_ORDER now leads with the slot that was NOT booted
-# before, with that slot's *_LEFT counter reset above 0 (target_activated).
+# Checks, in order: the reproducibility gate (--tree) against the tree containing this script; the
+# device clock's skew from the host (reported, never set); and, after `rauc install`, that
+# BOOT_ORDER leads with the slot that was NOT booted before and that slot's *_LEFT counter is
+# above 0 (target_activated).
 #
 # During `rauc install` it streams the board's kernel log, journal and
 # once-a-second memory/load/SD/undervoltage stats to the console, timestamped
@@ -212,7 +206,7 @@ stop_server() {
     docker stop "$server" >/dev/null 2>&1 || true
 }
 
-# On any exit: the server first, so a failing capture stop cannot leave it up.
+# On any exit: stops the server, then the capture.
 cleanup() {
     stop_server
     stop_capture || true
@@ -262,9 +256,7 @@ main() {
     gate="$root/tools/reproducibility-gate.sh"
     cd "$root"
 
-    # One install per board from this host (meta-wisekiosk/recipes-core/bundles/README.md §"Consequences"
-    # says why). The lock is the board's address, at a fixed path; the holder writes its pid and checkout
-    # into it.
+    # The lock is the board's address, at a fixed path; the holder writes its pid and checkout into it.
     local lock holder
     lock="/tmp/kiosk-install-$(board_address "$host" | tr -c 'A-Za-z0-9._:\n-' _).lock"
     exec 8>>"$lock"
@@ -275,8 +267,6 @@ main() {
     fi
     printf '%s %s\n' "$$" "$PWD" > "$lock"
 
-    # Directly invocable, so it cannot rely on kiosk-preflight having run.
-    # --tree: what installs is already on the device.
     "$gate" --tree || exit 1
     echo "== before"
     local before

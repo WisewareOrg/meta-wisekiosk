@@ -1,28 +1,19 @@
 #!/usr/bin/env bash
-# Grant this session time-boxed authorization to run a fixed set of
-# destructive operations against the PROD board. .claude/hooks/guard.sh RULE 1
-# is the only consumer of the file this writes: under a valid grant it allows
-# an OTA, install, reboot, rollback or reprovision of prod; everything else
-# (flash, rauc-rotate, poweroff/halt/shutdown/kexec) stays blocked regardless.
-# Revoke when the work the grant was for is done.
+# Write a time-boxed grant file. .claude/hooks/guard.sh RULE 1 is its only consumer: under a valid
+# grant it allows an OTA, install, reboot, rollback or reprovision of prod; flash, rauc-rotate and
+# poweroff/halt/shutdown/kexec stay blocked.
 #
 #   tools/prod-authorize.sh [--hours H]   -- grant H hours (integer 1-12, default 12)
 #   tools/prod-authorize.sh --show        -- print the grant file's raw contents, if any
 #   tools/prod-authorize.sh --revoke      -- remove the grant
 #
-# --show gives no verdict: .claude/hooks/guard.sh alone decides whether a
-# grant is valid.
-#
-# This does not gate itself -- nothing stops a session from running this on
-# its own authority. The gate is the human who approved the session running
-# it; the grant only bounds its SCOPE and its EXPIRY once that trust is given.
+# --show gives no verdict; .claude/hooks/guard.sh decides whether a grant is valid. The grant
+# bounds scope and expiry and does not authenticate the caller.
 set -euo pipefail
 
 REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
-# Resolved exactly as guard.sh resolves KIOSK_IDENTITY_FILE: local/ is
-# gitignored, so it exists in the PRIMARY worktree only, and a linked worktree
-# must still land (and look for) the grant there, not beside itself.
+# Resolved as guard.sh resolves KIOSK_IDENTITY_FILE: a linked worktree uses the primary worktree's local/.
 PAFILE=${KIOSK_PROD_AUTH_FILE:-}
 if [ -z "$PAFILE" ]; then
     PAFILE=$REPO/local/prod-auth
@@ -49,15 +40,7 @@ done
 
 case "$ACTION" in
 show)
-    # Owner (2026-09-28): validity logic lives only in the enforcer
-    # (guard.sh's grant_valid()), the way orchestrator-gate.sh alone validates
-    # what orchestrator-toggle.sh writes. Tightened by content-reviewer/
-    # test-reviewer's N3 finding: an "expired" check here was itself a shape
-    # verdict, and malformed content (a non-integer, a missing key) made its
-    # `[ -le ]` error to stderr and fall through to a false "rc=0, granted"
-    # report -- worse than giving no verdict at all. This prints the path and
-    # the file's raw content, nothing interpreted, and exits 0 whenever the
-    # path could be read.
+    # Prints the path and the raw content, uninterpreted.
     if [ ! -e "$PAFILE" ]; then
         echo "no grant file at $PAFILE"
         exit 1
@@ -78,16 +61,12 @@ grant)
         ''|*[!0-9]*)
             echo "--hours must be an integer from 1 to 12" >&2; exit 2 ;;
     esac
-    # Base 10, explicitly: bash's arithmetic context reads a leading 0 as
-    # octal, so `--hours 012` would grant 10h and `--hours 08` would crash
-    # ("value too great for base") despite passing the digits-only check above.
+    # Base 10: bash arithmetic reads a leading 0 as octal.
     HOURS=$((10#$HOURS))
     if [ "$HOURS" -lt 1 ] || [ "$HOURS" -gt 12 ]; then
         echo "--hours must be an integer from 1 to 12" >&2; exit 2
     fi
-    # guard.sh's grant_valid() never trusts a symlinked grant; writing through
-    # one anyway would report success here while the guard still blocks, and
-    # would clobber whatever the link actually points at.
+    # guard.sh's grant_valid() rejects a symlinked grant.
     if [ -L "$PAFILE" ]; then
         echo "refusing to write through a symlink at $PAFILE" >&2
         exit 1

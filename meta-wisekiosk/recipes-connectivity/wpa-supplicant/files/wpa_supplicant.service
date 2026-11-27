@@ -1,8 +1,6 @@
 [Unit]
 Description=Bring up wlan0 in client mode using wpa_supplicant
-# The credentials live on /data, not in the image: a rootfs carrying one site's
-# SSID and PSK hash is one image per site, and puts those credentials inside
-# every update bundle.
+# Credentials live on /data, not in the image.
 After=data.mount
 Requires=data.mount
 ConditionPathIsMountPoint=/data

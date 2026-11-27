@@ -1,23 +1,15 @@
 SUMMARY = "WiseKiosk backend: serves the frontend bundle and the API on :8080"
-DESCRIPTION = "One origin for the page, its configuration and the API. The bundle is served from \
-disk at request time rather than embedded, which is what lets /srv/kiosk/config.json be a symlink \
-into /data and be picked up without a rebuild. The port and the two flags are the app's, not this \
-layer's."
+DESCRIPTION = "The Go server that serves the frontend bundle from /srv/kiosk at request time, its configuration, and the API on :8080."
 
 require wisekiosk-src.inc
 require wisekiosk-backend-go-mods.inc
 
-# PV embeds the app commit hash, which need not sort forward; the image ships
-# whole by RAUC.
+# PV carries the app commit hash, which need not sort forward.
 ERROR_QA:remove = "version-going-backwards"
 WARN_QA:append = " version-going-backwards"
 
-# wisekiosk-backend-go-mods.inc is gitignored and written by tools/go-mods.py
-# at build entry (owner, 2026-09-27: nothing autogenerable is committed), so a
-# tree that never ran it, or one still holding a previous pin's .inc, parses
-# here with no warning otherwise -- same shape as
-# meta-wisekiosk/classes/kiosk-buildinfo-cachesafe.bbclass's check on
-# KIOSK_BUILDINFO_REV.
+# Fatal when the gitignored wisekiosk-backend-go-mods.inc, written by tools/go-mods.py, is
+# missing or stale for this SRCREV.
 python () {
     if d.getVar('WISEKIOSK_GOMODS_SRCREV') != d.getVar('SRCREV'):
         bb.fatal("wisekiosk-backend-go-mods.inc is missing or stale for this "
@@ -25,21 +17,18 @@ python () {
                  "runs tools/go-mods.py, before bitbake.")
 }
 
-# scarthgap unpacks file:// SRC_URI straight into WORKDIR; go.bbclass redirects
-# only the git entry, so this lands beside the checkout.
+# scarthgap unpacks file:// SRC_URI into WORKDIR; go.bbclass redirects only the git entry.
 SRC_URI += "file://wisekiosk.service"
 
-# The proxy tree wisekiosk-backend-go-mods.inc's SRC_URI entries unpack into,
-# holding only the modules this unpack's own entries name -- a stale module
-# from a previous SRCREV never lingers to be read by mistake.
+# The proxy tree wisekiosk-backend-go-mods.inc's SRC_URI entries unpack into; cleaned on each
+# unpack so it holds only this SRCREV's modules.
 do_unpack[cleandirs] += "${WORKDIR}/goproxy"
 
 GO_IMPORT = "github.com/WisewareOrg/WiseKiosk"
 
 LIC_FILES_CHKSUM = "file://src/${GO_IMPORT}/LICENSE;md5=ff8f37ef1b2dd140232b20d67501377f"
 
-# The go module is the backend/ subtree, one level below the import path the
-# checkout lands at.
+# The go module is the backend/ subtree of the checkout.
 GO_WORKDIR = "${GO_IMPORT}/backend"
 GO_INSTALL = "${GO_IMPORT}/backend/cmd"
 
@@ -48,22 +37,9 @@ inherit go-mod
 # Any fetch at compile time fails the task.
 export GOPROXY = "off"
 
-# oapi-codegen generates internal/boundary/boundary.gen.go from the app's
-# shared OpenAPI document and never reaches the binary go_do_compile produces
-# below -- it is a build-time-only dependency, but its own module graph still
-# has to resolve under GOPROXY=off above, so it runs against the goproxy tree
-# unpacked from wisekiosk-backend-go-mods.inc's SRC_URI entries rather than
-# DL_DIR directly. Paths are the app's own go:generate directive in
-# internal/boundary/doc.go, run from backend/internal/boundary/.
-#
-# ${GO} is go-cross's wrapper, and the wrapper is not a passthrough: it
-# unconditionally `export`s the TARGET GOOS/GOARCH inside itself (go-cross.inc
-# make_wrapper), overriding whatever the caller set. oapi-codegen is a
-# host-native tool, not the cross-compiled target the rest of this recipe
-# builds, so this calls the unwrapped go binary the wrapper itself execs
-# instead -- ${STAGING_LIBDIR_NATIVE}/${TARGET_SYS}/go/bin/go, staged there
-# because go-cross is a DEPENDS (go.bbclass's own GOTOOLDIR uses the same
-# base) -- where the GOOS/GOARCH set on the command line take effect.
+# Generates internal/boundary/boundary.gen.go with oapi-codegen (the app's go:generate directive)
+# before go_do_compile. It runs against the goproxy tree under GOPROXY=off. ${GO} is go-cross's
+# wrapper, which forces the target GOOS/GOARCH, so this calls the unwrapped host go it execs.
 do_compile() {
     ( cd ${S}/src/${GO_WORKDIR}/internal/boundary && GOOS=${BUILD_GOOS} GOARCH=${BUILD_GOARCH} \
         GOFLAGS=-modcacherw GOPROXY=file://${WORKDIR}/goproxy GOSUMDB=off \
@@ -76,10 +52,8 @@ do_compile() {
 
 CGO_ENABLED = "0"
 
-# poky's arm defaults assume cgo, and Go refuses both without it: goarch.bbclass
-# sets GO_DYNLINK:arm ?= "1" (shared Go runtime) and go.bbclass appends
-# -buildmode=pie. The :arm suffix is required -- an override-suffixed value wins
-# over the bare name.
+# Without cgo Go refuses both poky arm defaults: GO_DYNLINK:arm ?= "1" and go.bbclass's
+# -buildmode=pie. The :arm suffix is required; an override-suffixed value wins over the bare name.
 GO_DYNLINK:arm = ""
 GOBUILDFLAGS:remove = "-buildmode=pie"
 
@@ -101,9 +75,8 @@ FILES:${PN} += "${systemd_system_unitdir}/wisekiosk.service"
 # TLS anchors for the app's upstream calls.
 RDEPENDS:${PN} += "ca-certificates"
 
-# The account the service runs as, uid and gid both pinned at 10001: /data is
-# slot-shared, so the numeric ids are what survive an A/B update. The group is
-# created explicitly because useradd otherwise assigns a gid of its own.
+# The service account, uid and gid pinned at 10001 because /data is shared by both slots.
+# The group is created explicitly; useradd otherwise assigns its own gid.
 inherit useradd
 
 USERADD_PACKAGES = "${PN}"

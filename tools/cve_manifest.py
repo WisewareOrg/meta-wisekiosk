@@ -1,12 +1,10 @@
 """The CVE manifest parser, shared by every tool that reads one.
 
 A module, not a command: `cve-report.py`, `cve-delta.py`, `cve-scan.py` and
-`layer-currency.py` all read the `.cve` manifest an audit build leaves behind,
-and four copies of this drifted into three different behaviours on the same
-malformed input -- one refusing loudly, one truncating silently, one yielding a
-phantom record. Underscored so it can be imported; the tools stay hyphenated.
+`layer-currency.py` all read the `.cve` manifest an audit build leaves behind.
+Underscored so it can be imported; the tools stay hyphenated.
 
-See docs/cve-and-sbom.md.
+See docs/security.md.
 """
 import re
 
@@ -19,8 +17,7 @@ VERSION = "PACKAGE VERSION"
 CVE = "CVE"
 STATUS = "CVE STATUS"
 
-# Why a finding was called Patched or Ignored -- cpe-incorrect, disputed,
-# upstream-wontfix and the rest.
+# Why a finding was called Patched or Ignored: cpe-incorrect, disputed, upstream-wontfix and the rest.
 DETAIL = "CVE DETAIL"
 
 UNPATCHED = "Unpatched"
@@ -28,19 +25,10 @@ UNPATCHED = "Unpatched"
 # `KEY: value`; the value may hold colons (MORE INFORMATION is a URL).
 FIELD = re.compile(r"^([A-Z][A-Za-z0-9 ]*):[ ]?(.*)$")
 
-# The keys the regex cannot tell from free NVD prose: a kernel stable-commit
-# trailer inside CVE SUMMARY spells `CVE: CVE-...` and reads as one.
-# cve-check.bbclass writes all six once and BEFORE the only free-prose fields
-# (CVE DESCRIPTION, CVE SUMMARY), so prose can only ever be a later occurrence
-# and the first write is provably the record's own value.
-#
-# DETAIL is reserved with the five identity keys because it is load-bearing:
-# cve-delta reads it to tell a ruling we shipped from the feed moving, and
-# cve-report prints the judgement histogram from it.
+# The keys the regex cannot tell from free NVD prose (a kernel stable-commit trailer inside CVE SUMMARY spells `CVE: CVE-...`). cve-check.bbclass writes all six once, before the free-prose fields, so the first write is the record's own value. DETAIL is reserved because cve-delta and cve-report read it.
 RESERVED = (LAYER, PACKAGE, VERSION, CVE, STATUS, DETAIL)
 
-# The keys every record must carry. DETAIL is reserved but optional -- only a
-# Patched or Ignored finding has a reason.
+# The keys every record must carry; DETAIL is reserved but optional.
 REQUIRED = (LAYER, PACKAGE, VERSION, CVE, STATUS)
 
 
@@ -51,9 +39,8 @@ class ManifestError(Exception):
 def complete(rec):
     """One record, checked for the keys that identify it.
 
-    A prose line starting `LAYER:` splits a record in two rather than
-    overwriting a key, so the repeat check cannot see it; the halves it leaves
-    are short of the other required keys, which this can."""
+    A prose line starting `LAYER:` splits a record in two; the halves are short
+    of the other required keys, which this checks."""
     missing = [k for k in REQUIRED if k not in rec]
     if missing:
         raise ManifestError(
@@ -66,11 +53,9 @@ def complete(rec):
 def records(text, hijacks=None):
     """The manifest's `KEY: value` blocks, as dicts.
 
-    Split on the LAYER key, not on blank lines: CVE SUMMARY and CVE DESCRIPTION
-    are free NVD prose and may carry one. A reserved key repeated inside a
-    record keeps its first value and appends a description of the repair to
-    `hijacks`; a record short of a required key cannot be repaired and raises
-    ManifestError."""
+    Split on the LAYER key, not on blank lines. A reserved key repeated inside
+    a record keeps its first value and appends a description of the repair to
+    `hijacks`; a record short of a required key raises ManifestError."""
     rec = None
     for line in text.splitlines():
         m = FIELD.match(line)
@@ -94,7 +79,6 @@ def records(text, hijacks=None):
 
 
 def report_hijacks(hijacks, prefix="parsed:"):
-    """Print each repair the parse made. Every tool reading a manifest calls
-    this: a repair only one of them mentions is a silent one everywhere else."""
+    """Print each repair the parse made; every tool reading a manifest calls this."""
     for note in hijacks:
         print(f"{prefix}   {note}")

@@ -74,7 +74,7 @@
     },
     {
       "customType": "regex",
-      "managerFilePatterns": ["/^README\\.md$/"],
+      "managerFilePatterns": ["/^docs/image\\.md$/"],
       "matchStrings": ["raw\\.githubusercontent\\.com/(?<depName>siemens/kas)/(?<currentValue>[0-9.]+)/kas-container"],
       "datasourceTemplate": "github-tags"
     },

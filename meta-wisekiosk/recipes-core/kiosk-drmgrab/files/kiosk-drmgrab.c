@@ -74,7 +74,7 @@ int main(void)
 	if (map == MAP_FAILED || !copy)
 		die("map the buffer");
 
-	/* Copied before it is written out, which takes seconds over the network. */
+	/* Copied first, so a slow reader does not hold the buffer. */
 	if (ioctl(buffer, DMA_BUF_IOCTL_SYNC, &sync))
 		die("wait for the buffer");
 	memcpy(copy, (char *)map + fb->offsets[0], size);

@@ -1,7 +1,4 @@
-# Raspberry Pi Zero W configuration for AutonomOS
-#
-# BCM2835 / ARMv6 (arm1176jzfshf), single core, 512MB. This is NOT the Zero 2 W --
-# that board is aarch64 and uses raspberrypi0-2w-64.
+# Raspberry Pi Zero W: BCM2835, ARMv6 (arm1176jzfshf). The Zero 2 W is raspberrypi0-2w-64.
 header:
   version: 20
   includes:

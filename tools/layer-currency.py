@@ -10,7 +10,8 @@
 no checkout, network only. Where sources/ happens to hold a clone it says how far
 behind as well, and never requires one. `gap` reads that clone and the newest CVE
 manifest, offline; `--fetch` is the only thing here that writes to sources/.
-See docs/layer-currency.md.
+Exit 0 with findings; nonzero only for a report that cannot be trusted.
+See docs/security.md.
 """
 import os
 import re
@@ -28,48 +29,37 @@ try:
 except ImportError:
     yaml = None
 
-# Where the pins live. Scanned rather than listed, so a pin added to a new
-# include file is covered the day it lands.
+# Pins are scanned in includes/, not listed.
 INCLUDES = "includes"
 PIN_GLOBS = ("*.yaml", "*.yml")
 
-# What a repo entry is asked about. Two files setting one of these differently
-# is decided by kas on include-chain order, which is not visible from here.
+# The keys asked of a repo entry.
 PIN_KEYS = ("url", "commit", "branch")
 
-# A full object name. A short or symbolic pin is not comparable against what
-# ls-remote returns, and comparing it would report `behind` on spelling alone.
+# A full object name; a short or symbolic pin is not compared.
 SHA = re.compile(r"^[0-9a-f]{40}$")
 
-# Long enough for a slow remote, short enough that a stalled one is reported
-# rather than waited on.
+# Seconds allowed to `git ls-remote`.
 LS_REMOTE_TIMEOUT = 30
 
 BEHIND = "behind"
 CURRENT = "current"
 
-# Where kas checks the pins out. Everything that reads it is opportunistic: the
-# no-checkout guarantee is the point of `check`, so an absent sources/ costs
-# detail and never an answer.
+# Where kas checks the pins out; read opportunistically.
 SOURCES = "sources"
 ORIGIN = "origin"
 
-# The CVE manifest an audit build leaves behind, read to say what a pin is
-# WORTH. Without one every repo reports `unknown` rather than nothing. The
-# parser is shared with cve-report, cve-delta and cve-scan.
+# The CVE manifest an audit build leaves behind; its parser is shared with cve-report, cve-delta and cve-scan.
 MANIFEST_GLOB = "build/tmp-*/deploy/images/*/*.cve"
 
-# A CVE named in a commit subject or body. Evidence of intent, never proof a
-# finding flips -- see `gap`'s closing note.
+# A CVE named in a commit subject or body.
 CVE_ID = re.compile(r"CVE-\d{4}-\d{4,7}")
 
-# A repo declaring no `layers:` block contributes its own directory as one layer
-# named after the repo, which is what kas does and what bblayers.conf shows.
+# A repo declaring no `layers:` block contributes its own directory as one layer named after the repo.
 DEPENDENCY_ONLY = "contributes 0 (dependency only)"
 UNKNOWN = "contribution unknown (no audit build)"
 
-# Long enough for a real fetch of a large layer, short enough that a stalled
-# remote is reported rather than waited on.
+# Seconds allowed to a fetch.
 FETCH_TIMEOUT = 300
 
 
@@ -99,13 +89,11 @@ def nested(doc, *keys):
 def load_pins(top: Path):
     """Every repo entry under includes/, or a refusal message.
 
-    Returns the entries merged by name -- a later file adding layers to a repo
-    an earlier one pinned is one entry, not two -- with the branch an entry
-    declaring none inherits, and the files read. Two files setting one repo's
-    url, commit or branch to different values refuse; setting it in one file
-    and not the other, or to the same value, merges. An entry that is not a
-    mapping is carried through unmerged, for check() to refuse rather than
-    normalise."""
+    Returns the entries merged by name, with the branch an entry declaring none
+    inherits, and the files read. Two files setting one repo's url, commit or
+    branch to different values refuse; setting it in one file only, or to the
+    same value, merges. An entry that is not a mapping is carried through
+    unmerged."""
     root = top / INCLUDES
     files = sorted({p for g in PIN_GLOBS for p in root.rglob(g)}) \
         if root.is_dir() else []
@@ -131,8 +119,7 @@ def load_pins(top: Path):
         pin_files.append(rel)
         for repo, entry in entries.items():
             entry = {} if entry is None else entry
-            # Keyed on the value's repr, so an unhashable one still compares
-            # and two files spelling it identically stay one value.
+            # Keyed on the value's repr, so an unhashable value compares.
             for key in PIN_KEYS if isinstance(entry, dict) else ():
                 if key in entry:
                     pinned.setdefault((repo, key), {})[repr(entry[key])] = rel
@@ -151,8 +138,7 @@ def load_pins(top: Path):
                           + "), and which one kas would use is decided by an "
                           "include chain this does not read")
 
-    # Picking one of two chain defaults would resolve in silence a question
-    # this cannot answer.
+    # Two chain defaults for one key are not resolved here.
     if len(set(defaults.values())) > 1:
         return None, ("more than one chain default branch is set ("
                       + ", ".join(f"{f} -> {b}"
@@ -171,20 +157,15 @@ def newest_manifest(top: Path):
 
 
 def manifest_records(manifest: Path, hijacks=None):
-    """The manifest's records, as dicts.
-
-    A prose line the field regex reads as a record key would otherwise put a
-    phantom record in the layer counts, which is a wrong CONTRIBUTION number
-    with nothing to show it went wrong."""
+    """The manifest's records, as dicts."""
     return list(records(manifest.read_text(errors="replace"), hijacks))
 
 
 def layers_of(name: str, entry: dict):
     """The layer names one repo entry contributes.
 
-    kas adds the repo's own directory as a layer where the entry declares no
-    `layers:` block, which is how meta-raspberrypi and meta-lts-mixins reach
-    bblayers.conf, so the repo name is the fallback rather than an empty set."""
+    A repo declaring no `layers:` block contributes its own directory, so the
+    repo name is the fallback."""
     declared = entry.get("layers")
     return tuple(declared) if isinstance(declared, dict) and declared else (name,)
 
@@ -192,14 +173,8 @@ def layers_of(name: str, entry: dict):
 def contribution(by_layer, layers):
     """What a repo's layers put in the image, as (phrase, ranking weight).
 
-    The phrase counts RECIPES CARRYING CVE RECORDS -- a layer can contribute a
-    .bbappend or a class that changes the image without owning a record, so
-    zero is `dependency only` on the CVE-attribution axis, not `unused`.
-
-    The WEIGHT is unpatched findings, which is a different number and the one
-    the ranking needs. meta-raspberrypi contributes a single recipe and owns
-    3723 of this image's 3941 unpatched findings; poky contributes 88 recipes
-    and owns 95. Ranking on the recipe count puts the pin worth bumping last."""
+    The phrase counts recipes carrying CVE records; zero is `dependency only`.
+    The weight is unpatched findings, which the ranking uses."""
     if by_layer is None:
         return UNKNOWN, -1
     recipes = set().union(*(by_layer[n][0] for n in layers if n in by_layer)) \
@@ -212,13 +187,7 @@ def contribution(by_layer, layers):
             f"{unpatched} unpatched"), unpatched
 
 
-# git exports these to a hook and to anything a hook runs. They name the
-# repository the hook fired in and they OUTRANK `git -C <path>`, so a command
-# meant for a layer checkout silently reads this tree instead. Derived from
-# git's own canonical list (`--local-env-vars`) rather than hand-copied, so a
-# git version that adds one is picked up here without a second edit; unioned
-# with this file's own prior list so nothing already relied on here is lost if
-# a future git ever drops an entry --local-env-vars used to report.
+# git's local env vars (`rev-parse --local-env-vars`) unioned with a fixed list; they outrank `git -C <path>`.
 _GIT_SCOPE_HAND = frozenset((
     "GIT_DIR", "GIT_INDEX_FILE", "GIT_WORK_TREE", "GIT_OBJECT_DIRECTORY",
     "GIT_COMMON_DIR", "GIT_CONFIG", "GIT_PREFIX"))
@@ -249,10 +218,8 @@ def git(path: Path, *args, timeout=30):
 def ancestry(top: Path, entry: dict, pin: str, head: str):
     """How far a pin is behind the head, as a phrase, or None.
 
-    Strictly opportunistic. sources/ is a clone the build already made, so the
-    distance costs nothing where it exists -- but `check` promises no checkout,
-    so an absent or unfetched one degrades to today's output rather than
-    refusing or fetching behind the caller's back."""
+    Reads sources/ where a clone exists; an absent or unfetched one yields None
+    without fetching."""
     path = entry.get("path")
     if not isinstance(path, str) or not path.strip():
         return None
@@ -273,8 +240,7 @@ def ancestry(top: Path, entry: dict, pin: str, head: str):
 def ls_remote(url: str, branch: str):
     """The head of one branch at a remote, or a refusal message.
 
-    Both git prompts are closed off because a hang is not a refusal: a url that
-    has gone private fails instead of waiting on a credential nobody types."""
+    Both git prompts are closed, so a url needing a credential fails."""
     ref = f"refs/heads/{branch}"
     try:
         run = subprocess.run(["git", "ls-remote", url, ref],
@@ -297,8 +263,7 @@ def ls_remote(url: str, branch: str):
         return None, (f"{url} answers {ref} with {len(lines)} refs, so the "
                       "head it names is ambiguous")
 
-    # The ref is compared, not assumed: ls-remote matches a ref TAIL, so a
-    # differently-named upstream branch can answer and be reported as this one.
+    # ls-remote matches a ref tail, so the returned ref is compared.
     fields = lines[0].split()
     if len(fields) != 2 or not SHA.match(fields[0]) or fields[1] != ref:
         return None, (f"{url} answers {ref} with {lines[0]!r}, which is not "
@@ -321,9 +286,7 @@ def check() -> int:
         return refuse(why)
     repos, default_branch, pin_files = loaded
 
-    # Per layer: the recipes carrying records, and how many of their findings
-    # are unpatched. The first is what the report says, the second is what it
-    # ranks on -- see contribution().
+    # Per layer: the recipes carrying records, and how many of their findings are unpatched.
     manifest = newest_manifest(top)
     hijacks, by_layer = [], None
     if manifest is not None:
@@ -378,8 +341,7 @@ def check() -> int:
             (name, branch, explicit is not None, commit, head, url, phrase,
              weight, ancestry(top, entry, commit, head)))
 
-    # Every entry reading as the self repo means the discriminator stopped
-    # discriminating, which would empty the report without emptying the pins.
+    # Every entry reading as the self repo would empty the report.
     if len(excluded) > 1:
         return refuse(f"{', '.join(sorted(excluded))} all carry neither `url:` "
                       "nor `commit:`, and only one entry resolves to this "
@@ -387,9 +349,7 @@ def check() -> int:
     if not found[BEHIND] and not found[CURRENT]:
         return refuse(f"{INCLUDES}/ pins no upstream repository")
 
-    # `behind` ranked by what the bump could move, so the first line is the pin
-    # worth reading. A pin behind by a quarter of security backports and one
-    # whose layer reaches no recipe in the image are the same line otherwise.
+    # `behind` ranked by unpatched findings the bump could move.
     found[BEHIND].sort(key=lambda r: (-r[7], r[0]))
     for status in (BEHIND, CURRENT):
         for (name, branch, explicit, pin, head, url, phrase, _,
@@ -414,20 +374,16 @@ def check() -> int:
     report_hijacks(hijacks)
     print("`behind` says the head has moved off the pin, not that the pin is "
           "unsafe; what those commits carry is a separate read. "
-          "See docs/layer-currency.md.")
+          "See docs/security.md.")
 
-    # Reports, never gates: exit 0 with findings. A nonzero exit is reserved for
-    # a report that cannot be trusted. See docs/layer-currency.md.
     return 0
 
 
 def gap(name: str, fetch: bool) -> int:
     """Which unpatched findings the commits between a pin and its head name.
 
-    Offline against the clone kas already made. `--fetch` is opt-in and is the
-    only thing here that writes to sources/: fetching inside a report would
-    break the no-checkout promise this file opens with, and a silent one would
-    make a stale clone indistinguishable from an upstream with nothing new."""
+    Offline against the clone kas already made; `--fetch` is the only thing
+    here that writes to sources/."""
     if yaml is None:
         return refuse("python3 has no yaml module, so no pin could be parsed "
                       "-- run uv sync to install PyYAML into the repo "
@@ -468,10 +424,7 @@ def gap(name: str, fetch: bool) -> int:
         return refuse(f"{path} does not hold the pinned commit {pin[:12]}, so "
                       "the range could not be walked -- re-run with --fetch")
 
-    # An empty range offline is two situations that print identically: upstream
-    # genuinely has nothing new, or this clone was never fetched past the pin.
-    # Reporting a bare 0 would read as the first whichever it was, and the
-    # difference is exactly what the caller is asking about.
+    # An empty range offline is either nothing upstream or a clone never fetched past the pin.
     if head == pin:
         print(f"SKIPPED: {ref} in {path} sits on the pin itself, so the range "
               "is empty. That is either an upstream with nothing new or a "
@@ -516,10 +469,8 @@ def gap(name: str, fetch: bool) -> int:
     report_hijacks(hijacks)
     print("`would plausibly close` is what a commit message NAMES, not what a "
           "rebuild proves. The authoritative answer is bumping the pin and "
-          "re-running `just cve-build`. See docs/layer-currency.md.")
+          "re-running `just cve-build`. See docs/security.md.")
 
-    # Reports, never gates: exit 0 with findings. A nonzero exit is reserved for
-    # a report that cannot be trusted. See docs/layer-currency.md.
     return 0
 
 

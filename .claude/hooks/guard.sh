@@ -1,32 +1,10 @@
 #!/usr/bin/env bash
 # PreToolUse guard. Exit 2 blocks the tool call; stderr is fed back to the model.
 #
-# Each rule below corresponds to a failure that actually happened, or to an
-# irreversible action that currently depends on recall. CONTRIBUTING.md and
-# CLAUDE.md carry the reasoning needed to plan correctly; this is the backstop
-# for when recall fails. Prose is a suggestion, this is a gate -- and neither
-# replaces the other, because a model that has not read the prose proposes the
-# banned thing, gets blocked, and wastes a turn.
+# Device identity is read only from gitignored `local/device-identity.md`.
 #
-# Scope is THIS repository's hazards: a board that must not be touched, a disk
-# that must not be overwritten, a lifeline that must not be cut. A rule the
-# global guard already implements is not repeated here -- two enforcers of one
-# rule drift -- so PR merges live there and not in this file. A rule it does NOT
-# implement is not covered by saying it belongs elsewhere: rule 7 (bare -f on
-# pkill/pgrep) is here because nothing host-wide carries it.
-#
-# Device identity is read ONLY from gitignored `local/device-identity.md`. This
-# repository is PUBLIC: a tracked address is the thing the repository exists to
-# not publish, so a guard keyed on one would be its own leak.
-#
-# Fail-open everywhere except the grant: no jq, no payload, no identity file,
-# or an unparseable anything, and the call goes through. A guard that blocks on
-# its own breakage gets disabled, and then it guards nothing. A missing map
-# says so on stderr -- fail-open is a degradation, and a silent one cannot be
-# told from a rule that looked and found nothing. The one exception is
-# tools/prod-authorize.sh's grant: missing, expired, malformed or symlinked all
-# count as no grant, because the grant WIDENS access rather than narrowing it,
-# and failing open there would be the opposite of a degradation.
+# Fail-open: no jq, no payload, no identity file or an unparseable input lets the call through. The
+# exception is the prod grant: a missing, expired, malformed or symlinked grant counts as no grant.
 #
 # Self-test: bash .claude/hooks/guard-test.sh  (wired into `just guards` and CI)
 set -uo pipefail
@@ -38,20 +16,12 @@ tool=$(printf '%s' "$payload" | jq -r '.tool_name // empty' 2>/dev/null) || exit
 [ -n "$tool" ] || exit 0
 
 REPO=${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}
-# This and KIOSK_IDENTITY_FILE below are overridable so the self-test can drive
-# real fixtures rather than the machine it happens to run on. A test that only
-# passes on one host measures that host.
+# Like KIOSK_IDENTITY_FILE below, overridable so the self-test can use fixtures.
 SYSFS=${KIOSK_SYSFS_ROOT:-/sys}
 
-# `local/` is gitignored, so it exists in the PRIMARY worktree and nowhere else.
-# Resolving the map as `$REPO/local/...` therefore found nothing from a linked
-# worktree -- and a worktree is exactly where device work happens, so rules 1
-# and 3 fail-opened in the one place they are most needed, silently.
-#
-# `git rev-parse --git-common-dir` names the SHARED git directory (the primary
-# tree's `.git`, whichever worktree asks), so its parent is the primary worktree
-# root. The answer is relative to $REPO when asked from the primary tree itself
-# and absolute from a linked one, so both spellings are handled.
+# `local/` exists only in the primary worktree, so the map resolves through
+# `git rev-parse --git-common-dir`, which is relative to $REPO from the primary tree and absolute
+# from a linked one.
 IDFILE=${KIOSK_IDENTITY_FILE:-}
 if [ -z "$IDFILE" ]; then
     IDFILE=$REPO/local/device-identity.md
@@ -64,16 +34,12 @@ if [ -z "$IDFILE" ]; then
         fi
     fi
 fi
-# Fail-open stays, but never silently: a disarmed prod rule that says nothing is
-# indistinguishable from a prod rule that looked and found nothing to block.
-# Said only for Bash, the only tool the map can decide anything about.
+# A missing map is reported on stderr, for Bash calls only.
 if [ ! -f "$IDFILE" ] && [ "$tool" = Bash ]; then
     printf '%s\n' "guard.sh: no local/device-identity.md reachable from $REPO -- the PROD-board rules (1, 3) are INERT for this call." >&2
 fi
 
-# tools/prod-authorize.sh writes this, resolved exactly like IDFILE above (a
-# linked worktree has no local/ of its own, and the grant must be found where
-# it was written, not fail open there). Overridable for the same reason.
+# Written by tools/prod-authorize.sh; resolved like IDFILE and overridable by KIOSK_PROD_AUTH_FILE.
 PAFILE=${KIOSK_PROD_AUTH_FILE:-}
 if [ -z "$PAFILE" ]; then
     PAFILE=$REPO/local/prod-auth
@@ -87,17 +53,8 @@ if [ -z "$PAFILE" ]; then
     fi
 fi
 
-# A valid grant holds `expires=<unix-int>` with that time still in the future,
-# and nothing else -- trailing blank lines aside, since `$(cat …)` strips those
-# the same way it strips a single trailing newline. Never a symlink: a
-# symlinked grant could point anywhere, so it is never trusted regardless of
-# what it resolves to. Anything else (missing key, non-integer, extra content)
-# is malformed, and malformed blocks the same as absent.
-#
-# This is the ONLY validity check (owner, 2026-09-28, following
-# orchestrator-gate.sh's precedent): tools/prod-authorize.sh's `--show` prints
-# the file as written and does not re-validate it, so there is nothing else to
-# keep in step with.
+# A valid grant is `expires=<unix-int>` with that time strictly in the future and nothing else
+# (trailing blank lines aside), and never a symlink; anything else is no grant.
 grant_valid() {
     [ -f "$PAFILE" ] && [ ! -L "$PAFILE" ] || return 1
     content=$(cat "$PAFILE" 2>/dev/null)
@@ -111,10 +68,8 @@ grant_valid() {
     [ "$exp" -gt "$(date +%s)" ]
 }
 
-# One `key = value` from the map's ```identity fence, empty when absent. Scoped
-# to the fence so the prose around it -- which necessarily shows the format --
-# cannot answer a lookup. The value may itself contain '=', so the split is at
-# the FIRST one.
+# One `key = value` from the map's ```identity fence, empty when absent; the split is at the
+# first `=`.
 id_value() {
     [ -f "$IDFILE" ] || return 0
     awk -v want="$1" '
@@ -136,19 +91,8 @@ Bash)
     cmd=$(printf '%s' "$payload" | jq -r '.tool_input.command // empty' 2>/dev/null)
     [ -n "$cmd" ] || exit 0
 
-    # Heredoc bodies are data OR commands, decided by what consumes them. A
-    # commit message or a document that merely mentions a banned pattern is not
-    # an invocation -- blocking that was the ancestor guard's own first false
-    # positive, caught when it refused the very commit that added it. But
-    # `ssh <board> 'bash -s' <<'EOF'` is how tools/kiosk-ssh.sh documents batching
-    # remote work, and every line of THAT body runs on the board. Stripping it
-    # disarmed rules 1, 4 and 5 for the repository's own documented idiom.
-    #
-    # So: a body is kept when its opener names a shell interpreter (the body is
-    # that shell's input) and dropped otherwise. Only shells -- a python or perl
-    # heredoc is not shell syntax, and scanning it for shell verbs matches words,
-    # not commands. `.sh` filenames and `~/.ssh/` paths are excluded by the
-    # surrounding character classes, so `cat > tools/x.sh <<EOF` still drops.
+    # A heredoc body is kept when its opener names a shell interpreter (ssh, bash, sh, zsh, dash, ksh)
+    # and dropped otherwise; `.sh` filenames and `~/.ssh/` paths do not count as openers.
     code=$(printf '%s\n' "$cmd" | awk -v shre='(^|[^[:alnum:]_.-])(ssh|bash|sh|zsh|dash|ksh)([^[:alnum:]_.-]|$)' '
         !inhd && match($0, /<<-?['"'"'"]?[A-Za-z_][A-Za-z0-9_]*['"'"'"]?/) {
             t = substr($0, RSTART, RLENGTH)
@@ -160,40 +104,22 @@ Bash)
         inhd { if (keep) print; next }
         { print }')
 
-    # Whole-token view of the command, for matching an ssh target without a
-    # regex built from a value (an address is full of '.', which an ERE reads as
-    # "any character"). '/' is deliberately NOT a separator: splitting on it
-    # would turn the MACHINE component of
-    # build/tmp-<machine>/deploy/images/<machine>/... into a bare token equal to
-    # the prod board's hostname, and every explicit-path bundle command would
-    # false-block.
-    # Shell punctuation and quoting all count as separators -- an address inside
-    # an array assignment, `ssh=(ssh -o … root@<addr>)`, otherwise ends in a
-    # token with a trailing ')' and matches nothing.
-    #
-    # tr sets are the same length on purpose: fifteen separators, fifteen
-    # spaces. GNU tr silently pads a short second set by repeating its last
-    # character, which would hide a miscount here rather than report one.
+    # Whole-token view of the command, for matching an ssh target without building a regex from a
+    # value. Shell punctuation and quotes are separators; `/` is not, so the MACHINE component of a
+    # build path is not a bare token. The two tr sets are the same length: GNU tr pads a short second
+    # set silently.
     norm=" $(printf '%s' "$code" | tr '@=:,"'"'"'();|&<>\t\n' '               ') "
 
     has_token() { [[ $norm == *" $1 "* ]]; }
 
-    # Whitespace-split words of the command, for position-aware matching. Globbing
-    # is off around the split: an unquoted `*` in the command would otherwise
-    # expand against the working directory and replace the word with filenames.
+    # Whitespace-split words of the command, with globbing off.
     set -f
     # shellcheck disable=SC2206
     WORDS=($code)
     set +f
 
-    # Every ssh invocation in the command, as `target<TAB>remote-command` lines.
-    #
-    # Position is the whole point. A bare hostname TOKEN cannot stand for "this
-    # targets that board": the prod hostname is also the Yocto MACHINE name, so
-    # `MACHINE=<host> just build` and every build path would false-match. Only
-    # the first non-option word after an ssh client is a target, and only the
-    # word after THAT is the remote command -- which is what separates
-    # `ssh <host> reboot` from `ssh <host> 'grep -c reboot /var/log/messages'`.
+    # Every ssh invocation as `target<TAB>remote-command` lines: the target is the first non-option
+    # word after an ssh client, the remote command the word after it.
     ssh_pairs=$(
         armed=0
         skip=0
@@ -206,11 +132,8 @@ Bash)
             esac
             [ "$armed" -eq 1 ] || continue
             if [ "$skip" -eq 1 ]; then skip=0; continue; fi
-            # Options BEFORE the target are the ssh client's; options after it
-            # belong to the remote command's own prefix and take a different
-            # list, so the two stages are separated rather than sharing one
-            # `-*) continue`, which swallowed `-u` and then read its value `root`
-            # as the remote command.
+            # Options before the target are the ssh client's; options after it belong to the remote
+            # command's prefix and take a different list.
             if [ -z "$target" ]; then
                 case "$w" in
                     # ssh options that take a separate value; the value is not a target.
@@ -220,19 +143,11 @@ Bash)
                 esac
                 target=$w; continue
             fi
-            # A privilege or assignment prefix is not the remote command --
-            # `ssh <board> 'sudo reboot'` reboots the board, and reading the
-            # prefix as the verb made `sudo` a one-word bypass of rule 1.
+            # A privilege or assignment prefix is not the remote command.
             case "$w" in
                 sudo | doas | env | nice | ionice | command | time | timeout | stdbuf | setsid | nohup | chrt) continue ;;
                 [A-Za-z_]*=*) continue ;;
-                # A wrapper option that takes a SEPARATE value: the value is not
-                # the remote command either. `ssh <board> sudo -u root reboot`
-                # otherwise reported `-u` as the verb and rule 1 saw no power
-                # word at all -- the same hole CMDPOS closes for local commands.
-                # Value-taking options only, listed rather than inferred: sudo's
-                # `-n` and `-i` take NO value, so skipping a word after them
-                # would step over the very verb this is looking for.
+                # Wrapper options that take a separate value, listed and not inferred: sudo's `-n` and `-i` take none.
                 -u | -g | -U | -C | -p | -r | -t | --user | --group | --chdir)
                     skip=1; continue ;;
                 -*) continue ;;
@@ -243,138 +158,56 @@ Bash)
         done
         [ -n "$target" ] && printf '%s\t\n' "$target"
     )
-    # Matched with bash string tests, never `… | grep -q`: -q exits on the first
-    # hit, the producer dies of SIGPIPE at 141, and pipefail returns that -- the
-    # test would read false precisely when the pattern matches.
+    # Bash string tests, not `| grep -q`: under pipefail the SIGPIPE status inverts a match.
     ssh_target() { [[ $'\n'$ssh_pairs$'\n' == *$'\n'"$1"$'\t'* ]]; }
-    # Tolerates a path prefix on the verb (`/sbin/poweroff`, `../bin/reboot`):
-    # the captured verb is the whole word, slashes included, and a bare-name
-    # match alone missed every absolute-path spelling of a power verb.
+    # Tolerates a path prefix on the verb (`/sbin/poweroff`).
     ssh_verb() {
         [[ $'\n'$ssh_pairs$'\n' == *$'\t'"$1"$'\n'* ]] && return 0
         [[ $'\n'$ssh_pairs$'\n' == *$'\t'*"/$1"$'\n'* ]]
     }
 
-    # True when $1 is the value of a `host=` recipe argument (`just … host=<host>`).
-    # The pair is what makes this safe: `MACHINE=<host>` normalises to a different
-    # pair and does not match.
+    # True when $1 is the value of a `host=` recipe argument (`just … host=<host>`); `MACHINE=<host>`
+    # does not match.
     host_arg() { [[ $norm == *" host $1 "* ]]; }
 
-    # Command position, tolerating the privilege and assignment prefixes the real
-    # invocations carry. Every rule below that anchors a VERB anchors it with
-    # this: a bare `(^|[;&|(]|&&|\|\|)[[:space:]]*` anchor is defeated by typing
-    # `sudo` in front, and `sudo` is the natural hand-run spelling for most of
-    # what these rules protect -- a /boot write, a reboot, an image write all
-    # need root, and justfiles/deploy.just itself runs `"${SUDO[@]}" bmaptool`.
-    # Anything using the bare anchor is a hole; the self-test carries a
-    # sudo-prefixed must-block case per rule so a regression fails the build.
-    #
-    # The prefix is one REPEATING group of elements in any order and quantity,
-    # not assignments-then-wrappers. Ordering them let `env VAR=V <cmd>` past
-    # every rule that anchors here -- and an assignment AFTER the wrapper word is
-    # the ONLY way `env` is ever used, so the ordered form was open to the
-    # commonest spelling there is. `sudo VAR=V <cmd>` and `env VAR=V sudo <cmd>`
-    # are the same hole.
+    # Command position, tolerating privilege and assignment prefixes. Every rule that anchors a verb
+    # uses it; the prefix is one repeating group of elements in any order.
     CMDWRAP='sudo|doas|env|nice|ionice|command|time|timeout|stdbuf|setsid|nohup|chrt'
     # An element: a wrapper word, a NAME=value assignment, an attached option, or
     # a bare numeric argument (`timeout 60`, `nice 10`).
     CMDELEM="((${CMDWRAP})|[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*|-[^[:space:]]+|[0-9]+[smhd]?)[[:space:]]+"
-    # An option's SEPARATE value (`-u root`, `-n 5`) is accepted once, in the
-    # final slot before the command. Deliberately not part of the repeating group
-    # above: the value pattern matches any word, so mid-prefix it would swallow a
-    # real command as some option's value and re-anchor on the word after it --
-    # `sudo -n grep -c reboot /var/log/messages` would read as a `reboot` in
-    # command position and false-block the main legitimate activity on prod.
+    # An option's separate value (`-u root`) is accepted once, in the last slot before the command;
+    # inside the repeating group it would swallow a real command as the value.
     CMDPOS="(^|[;&|(]|&&|\\|\\|)[[:space:]]*(${CMDELEM})*(-[^[:space:]]+[[:space:]]+[^-[:space:]][^[:space:]]*[[:space:]]+)?"
 
-    # --- RULE 1 -- destructive operation aimed at the PROD board -------------
-    # The prod unit is wall-mounted and carries the live soak run (issue #40).
-    # An OTA, a reboot, a rollback or a reprovision there ends a run that cannot
-    # be replayed, and a bad slot costs a physical trip. The owner's standing
-    # rule is that prod is read-only unless tools/prod-authorize.sh has granted
-    # a time-boxed exception (grant_valid(), above); the Justfile's own
-    # refusals cover the tree-state half, not the which-board half, so this is
-    # the one that knows.
-    #
-    # The grant only widens OTA/install/reboot/rollback/reprovision. flash,
-    # tools/rauc-rotate and any power-off verb (shutdown, halt, poweroff, kexec)
-    # stay blocked no matter what the grant says -- see always_blocked below.
-    #
-    # Read-only recipes (status, screenshot, soak-summary, kiosk-backup,
-    # rauc-status, tcp-state, kiosk-preflight) are NOT here: blocking those
-    # would block the only way to observe the board this rule protects.
-    #
-    # BOTH spellings, recipe and direct script, the way tools/provision.sh and
-    # tools/rauc-rotate already appear beside their recipes.
-    #
-    # Limit, stated rather than hidden: the target must be visible IN THIS
-    # COMMAND. A `KIOSK_HOST` exported in an earlier tool call is invisible to a
-    # hook that runs per call, and no rule here can see it.
+    # --- RULE 1 -- destructive operation aimed at the PROD board ---
+    # A valid grant (grant_valid) widens only OTA/install/reboot/rollback/reprovision; flash,
+    # tools/rauc-rotate and any power-off verb stay blocked (always_blocked). Read-only recipes are not
+    # matched. Recipe and direct-script spellings are both matched. The target must be visible in the
+    # same command: an exported `KIOSK_HOST` is invisible.
     prod_addr=$(id_value prod.address)
     prod_host=$(id_value public.prod.hostname)
     targets_prod=0
     [ -n "$prod_addr" ] && has_token "$prod_addr" && targets_prod=1
-    # Hostname only where the word sits in a TARGET position: `user@host`, the
-    # first non-option word after an ssh client, or a `host=` recipe argument. A
-    # bare hostname token is also the Yocto MACHINE name, which appears in
-    # legitimate build paths and in `MACHINE=` assignments.
+    # The hostname counts only in target position: `user@host`, the first non-option word after an
+    # ssh client, or a `host=` recipe argument.
     if [ -n "$prod_host" ]; then
         case "$code" in *"@$prod_host"*) targets_prod=1 ;; esac
         ssh_target "$prod_host" && targets_prod=1
         host_arg "$prod_host" && targets_prod=1
     fi
-    # The power verbs are anchored the way every other alternative here is.
-    # Unanchored, `reboot` fired on the word itself, and
-    # `ssh <prod> 'grep -c reboot /var/log/messages'` is an OBSERVATION --
-    # reading the soak log for reboot events is the main legitimate activity on
-    # that board, and the block message promises observation is allowed. Two
-    # verb positions: command position (CMDPOS, so a `sudo` prefix is not a way
-    # past it), and the remote command of an ssh (`ssh_verb`), which is where an
-    # argument to a grep is not.
+    # Power verbs match at command position (CMDPOS) and as the remote command of an ssh (ssh_verb);
+    # an argument of grep is neither. A verb ends at VERBEND: whitespace, one of `;&|)'"`, or end of
+    # string.
     #
-    # No quotes are stripped anywhere (content-reviewer B1a/N1, second pass):
-    # stripping even just the command's LAST character opened back up on any
-    # SUFFIX after the closing quote -- `ssh <host> '... && poweroff' 2>&1`,
-    # `| tee log`, `; echo done`, a trailing `)`, a second line -- none of
-    # which is the command's own last character, so the verb was never
-    # exposed. Matching runs on $code as-is, and a verb's END is a TERMINATOR
-    # CLASS instead of "whitespace or end of string": whitespace, `;&|)'"`, or
-    # end of string. A closing quote or paren ends the verb exactly like a
-    # space does, whatever comes after it -- `poweroff'`, `poweroff)`,
-    # `poweroff;` are all now a match, matching CMDPOS's own anchor set (which
-    # already treats `;&|(` as command punctuation, not text).
-    #
-    # The one shape this still cannot tell from a real chained command is a
-    # quoted regex alternation whose power verb is any branch but the FIRST,
-    # wherever it sits on the line -- `grep -cE 'panic|poweroff' /var/log/
-    # messages` and `grep -cE 'a|poweroff|b' ...` alike: the `|` right before
-    # the verb reads as CMDPOS's own pipe anchor, and the quote (or the next
-    # `|`) right behind the verb now ends it like whitespace would. Accepted as
-    # a documented residual (owner, 2026-09-28: fail-closed is this guard's
-    # posture) -- `grep -e panic -e poweroff` is the workaround, and both sides
-    # are proven in guard-test.sh. An alternation with the power verb FIRST
-    # (`'reboot|panic'`) is unaffected: nothing anchors immediately before it,
-    # only after -- and `reboot` first is grant-scoped, not always-blocked, so
-    # it still needs a grant like any other reboot.
+    # Residual: a quoted alternation whose power verb is any branch but the first
+    # (`grep -cE 'panic|poweroff'`) reads as a chained command and blocks; `grep -e panic -e poweroff`
+    # is allowed. `reboot` first is grant-scoped, not always-blocked.
     VERBEND="([[:space:];&|)'\"]|\$)"
-    #
-    # `reboot` alone is GRANT-SCOPED, below -- UNLESS it carries one of its own
-    # power-off-equivalent flags (`-p`, `--poweroff`, `--halt`), which leaves
-    # the board off exactly like the always-blocked verbs and is never in scope
-    # for a grant (owner, 2026-09-28). shutdown/halt/poweroff/kexec are
-    # always-blocked outright, and so are two more forms of "go to runlevel
-    # 0/off" the docs already promise stay blocked: `sh -c poweroff` (or any of
-    # bash/zsh/dash/ksh) and `init 0` / `telinit 0`.
-    #
-    # Each of these three is checked TWO ways, ORed, neither alone enough:
-    # CMDPOS anchors a LOCAL or CHAINED verb (`rauc install ... && reboot -p`,
-    # `&& sh -c 'poweroff'`), but cannot reach one that is itself the remote
-    # command of an ssh call (`ssh <prod> reboot -p`, `ssh <prod> sh -c
-    # poweroff`) -- "ssh" is not a CMDWRAP word, so CMDPOS's own prefix chain
-    # never reaches past it. ssh_verb covers exactly that gap, gated on the
-    # verb it captured actually BEING reboot/a shell/init -- a blind text
-    # search blocked an OBSERVATION whose real verb is `grep`
-    # (content-reviewer N1: `grep reboot ... --halt`, `grep -c 'reboot -p'`).
+    # `reboot` alone is grant-scoped, but `reboot -p/--poweroff/--halt`, `sh -c poweroff` (bash, zsh,
+    # dash, ksh) and `init 0`/`telinit 0` are always blocked. Each is checked twice: CMDPOS covers local
+    # and chained verbs, ssh_verb covers the remote command of an ssh call, which CMDPOS cannot reach,
+    # gated on the captured verb being reboot, a shell or init.
     prod_reboot=0
     ssh_verb reboot && prod_reboot=1
     prod_power=0
@@ -397,9 +230,7 @@ Bash)
     for v in sh bash zsh dash ksh; do
         ssh_verb "$v" && prod_shc=1
     done
-    # -e, not a bare pattern: a pattern starting with `-` reads as an option to
-    # grep itself ("invalid option -- '['"), GNU grep and this sandbox's ugrep
-    # alike.
+    # -e: a pattern starting with `-` reads as a grep option.
     if [ "$prod_shc" -eq 1 ] && printf '%s' "$code" | grep -qE \
         -e "-c[[:space:]]+[\"']?(\\S*/)?(shutdown|halt|poweroff|kexec)${VERBEND}"; then
         prod_power=1
@@ -455,29 +286,11 @@ MSG
         exit 2
     fi
 
-    # --- RULE 2 -- writing an image to a NON-REMOVABLE block device ---------
-    # `just flash /dev/sdX` and `dd of=...` are one character away from the
-    # workstation's own disk, and the mistake is unrecoverable and instant. The
-    # Justfile refuses a build from a dirty tree; nothing in it asks whether the
-    # TARGET is a card. Classification is read from sysfs rather than assumed
-    # from the name, because /dev/sda is a card reader on one host and the root
-    # disk on the next.
-    #
-    # Unknown devices are ALLOWED -- a name that resolves to nothing (the
-    # README's own `/dev/sdX` placeholder) is not evidence of a system disk, and
-    # failing closed on the unknown would make the rule unusable.
-    #
-    # CMDPOS is what let `sudo bmaptool copy <image> /dev/sda` through when this
-    # rule used a bare `(dd|bmaptool)` anchor. The writer list is not just
-    # dd/bmaptool either -- a redirect, `tee`, `wipefs` or `mkfs` reach the same
-    # platter -- and `just provision-fresh-card <device>` mounts and writes
-    # partition 4 as root one README line below `just flash`.
+    # --- RULE 2 -- writing an image to a non-removable block device ---
+    # Classification reads sysfs `removable`, not the device name; unknown device names are allowed.
     if printf '%s' "$code" | grep -qE \
         "${CMDPOS}(dd|bmaptool|wipefs|mkfs(\.[A-Za-z0-9]+)?|sgdisk|sfdisk|fdisk|parted|blkdiscard)([[:space:]]|$)|just[[:space:]]+(flash|provision-fresh-card)([[:space:]]|$)|of=[\"']?/dev/|>[[:space:]]*[\"']?/dev/(sd|hd|vd|xvd|nvme|mmcblk|loop|disk)|[[:space:]]tee([[:space:]]+-[^[:space:]]+)*[[:space:]]+[\"']?/dev/"; then
-        # `/dev/disk/by-id/...` is captured whole and resolved: taking only the
-        # leading `/dev/disk` made it an unknown name, which is the allowed path.
-        # DEVROOT is overridable for the same reason SYSFS is -- a self-test that
-        # can only run against this machine's /dev measures this machine.
+        # `/dev/disk/by-id/...` is captured whole and resolved under DEVROOT (KIOSK_DEV_ROOT) to its disk node.
         DEVROOT=${KIOSK_DEV_ROOT:-/dev}
         for dev in $(printf '%s' "$code" | grep -oE "/dev/(disk/by-[a-z]+/[^[:space:]\"'\`]+|[A-Za-z0-9]+)" | sort -u); do
             written=$dev
@@ -520,18 +333,10 @@ MSG
         done
     fi
 
-    # --- RULE 3 -- 2>/dev/null on an ssh to a board -------------------------
-    # A suppressed probe makes a broken CHECK indistinguishable from a broken
-    # DEVICE. This produced a false "kernel missing from slot A" on 2026-08-13:
-    # the mount had failed and the error vanished.
-    #
-    # Scoped to one command SEGMENT, because suppression on an unrelated local
-    # command in the same call is not a suppressed device probe -- checking the
-    # whole command once blocked `tail file 2>/dev/null` merely because an ssh
-    # appeared elsewhere in the call. The HOST, though, is looked for across the
-    # whole command: the array style used here puts it on the definition line
+    # --- RULE 3 -- 2>/dev/null on an ssh to a board ---
+    # Checked per command segment (split at `&&`, `||`, `;`), while the board is looked for across the
+    # whole command: the array style puts the host on a definition line,
     #   ssh=(ssh -o ... root@<addr>); timeout 60 "${ssh[@]}" 'cmd' 2>/dev/null
-    # so the dangerous segment names ssh but never the host.
     board_named=0
     for key in prod.address bench.address; do
         v=$(id_value "$key")
@@ -545,16 +350,8 @@ MSG
             host_arg "$v" && board_named=1
         fi
     done
-    # `ssh` is word-anchored, as every sibling rule in this file is. A bare
-    # substring match blocked `ssh-keygen -R <addr> 2>/dev/null` -- a local
-    # known_hosts edit, and the routine step after reflashing a board -- and
-    # `cat ~/.ssh/known_hosts 2>/dev/null`, on the `.ssh/` path component. The
-    # trailing class excludes '/' and '-' for those two; the repository's own ssh
-    # wrapper is named, because it IS the probe.
-    #
-    # Counted with -c rather than ended with `grep -q`: -q exits on the first hit
-    # and the producer dies of SIGPIPE at 141, which pipefail then returns -- the
-    # condition would read false precisely when the pattern matches.
+    # `ssh` is word-anchored, so `ssh-keygen` and `.ssh/` paths do not match; kiosk-ssh.sh is named.
+    # Counted with -c: `grep -q` under pipefail inverts a match.
     suppressed=$(printf '%s\n' "$code" | sed -e 's/&&/\n/g' -e 's/||/\n/g' -e 's/;/\n/g' \
                  | grep -cE "2>/dev/null.*((^|[^[:alnum:]_.-])ssh([^[:alnum:]_/-]|$)|kiosk-ssh\.sh)|((^|[^[:alnum:]_.-])ssh([^[:alnum:]_/-]|$)|kiosk-ssh\.sh).*2>/dev/null") || true
     if [ "$board_named" -eq 1 ] && [ "${suppressed:-0}" -gt 0 ]; then
@@ -567,12 +364,8 @@ MSG
         exit 2
     fi
 
-    # --- RULE 4 -- THE LIFELINE ---------------------------------------------
-    # SSH over wlan0 is the only way to reach a board. Losing it costs a
-    # physical trip to a wall-mounted unit -- the single failure class this
-    # project spends real caution to avoid, and there is no remote undo.
-    # Masking logind / userdbd / resolved / zram is deliberate (kiosk-hardware,
-    # issue #17) and stays allowed; only the network path is protected.
+    # --- RULE 4 -- the lifeline ---
+    # Only the network path is protected; masking logind, userdbd, resolved and zram is allowed.
     if printf '%s' "$code" | grep -qE 'systemctl[^|;&]*(disable|mask|stop)' \
        && printf '%s' "$code" | grep -qE '(sshd|ssh\.service|ssh\.socket|wpa[-_]supplicant|systemd-networkd|dhcpcd|networking)'; then
         cat >&2 <<'MSG'
@@ -586,27 +379,12 @@ MSG
         exit 2
     fi
 
-    # --- RULE 5 -- /boot is the ONE partition with no A/B protection --------
-    # The kernel and rootfs are per-slot and fall back on their own, but
-    # cmdline.txt, config.txt and uboot.env are SHARED, so a bad write breaks
-    # BOTH slots and needs the card pulled. Reads are fine. `rauc status mark-*`
-    # writes uboot.env as normal operation and is allowed.
-    #
-    # THREE anchored shapes, because the ancestor of this rule over-matched
-    # three times: unanchored `fw_setenv` fired on the word inside an echo; `cp`
-    # matched a READ of /boot; and "a-r-m" contains "rm", so `arch/arm/boot/dts/`
-    # blocked a read-only `ls` of the kernel source tree. The general fix for the
-    # last is that /boot/ counts as THE /boot mount only when it STARTS a path --
-    # preceded by whitespace, start of line, or '='. That also stops
-    # /mnt/root/boot/ (a slot rootfs reached by bind mount) being mistaken for
-    # the shared FAT partition.
+    # --- RULE 5 -- /boot has no A/B protection ---
+    # Reads are allowed, as is `rauc status mark-*`. /boot/ counts only at the start of a path (after
+    # whitespace, start of line or '='), so `arch/arm/boot/` and `/mnt/root/boot/` do not match.
     B='(^|[[:space:]]|=)/boot/'
-    # The escape hatch is read from the COMMAND TEXT, not the environment. This
-    # hook runs in its own process BEFORE the command executes, so an inline
-    # `VAR=1 cmd` prefix -- which is what the message tells you to type -- never
-    # reaches it as a variable. Checking the environment here looked right,
-    # passed a test that exported the variable, and opened the gate the first
-    # time it was really used.
+    # The escape hatch is read from the command text, not the environment: the hook runs before the
+    # command, so an inline `VAR=1 cmd` prefix is only text.
     if ! printf '%s' "$cmd" | grep -qE '(^|[[:space:]])KIOSK_ALLOW_BOOT_WRITE=1[[:space:]]' && {
          printf '%s' "$code" | grep -qE "${CMDPOS}fw_setenv([[:space:]]|$)" ||
          printf '%s' "$code" | grep -qE ">>?[[:space:]]*/boot/" ||
@@ -631,10 +409,8 @@ MSG
         exit 2
     fi
 
-    # --- RULE 6 -- `; echo $?` after a pipeline -----------------------------
-    # A pipeline reports the LAST command's status, so `just verify | tail -50 ;
-    # echo $?` reports tail. A failing gate reads green. Done exactly that on
-    # 2026-08-13 and the number had to be retracted in the same message.
+    # --- RULE 6 -- `; echo $?` after a pipeline ---
+    # A pipeline reports the last command's status.
     if printf '%s' "$code" | grep -qE '\|[^|]*;[[:space:]]*echo[^;]*\$\?'; then
         cat >&2 <<'MSG'
 BLOCKED: `; echo $?` after a pipeline reports the LAST command's exit status
@@ -646,15 +422,9 @@ MSG
         exit 2
     fi
 
-    # --- RULE 7 -- bare -f on pkill/pgrep -----------------------------------
-    # The pattern being searched for is IN the harness's own shell command line,
-    # so `-f` matches that line and the tool call kills itself. Happened twice on
-    # 2026-08-13, exit 144.
-    #
-    # This one is here rather than in the global guard because there is no
-    # host-wide rule to inherit: the global guard covers PR merges and nothing
-    # else. `-x -f '<exact argv>'` is the safe spelling and stays allowed --
-    # the first option token has to END in f for this to fire.
+    # --- RULE 7 -- bare -f on pkill/pgrep ---
+    # `-f` matches the harness's own command line. `-x -f '<exact argv>'` stays allowed: the first
+    # option token must end in f.
     if printf '%s' "$code" | grep -qE "${CMDPOS}(pkill|pgrep)[[:space:]]+-[a-zA-Z]*f([[:space:]]|$)"; then
         cat >&2 <<'MSG'
 BLOCKED: a bare -f on pkill/pgrep matches this harness's own shell command line,
@@ -674,19 +444,14 @@ Edit|Write|MultiEdit|NotebookEdit)
     [ -n "$fp" ] || exit 0
     case "$fp" in
     "$REPO"/*)
-        # --- RULE 8 -- editing the build tree mid-build ---------------------
-        # bitbake parses every recipe at start. Editing now either changes
-        # nothing (you build stale content believing otherwise) or invalidates
-        # the run -- a multi-hour build (README.md §"Quick start"). Done twice
-        # on 2026-08-13.
-        # Environment-dependent by nature, and the self-test says so rather than
-        # asserting a block that only holds while a build is up.
+        # --- RULE 8 -- editing the build tree during a build ---
+        # Fires only while a kas container is running.
         if timeout 5 docker ps --format '{{.Image}}' 2>/dev/null | grep -qi 'kas'; then
             cat >&2 <<MSG
 BLOCKED: a kas/bitbake build container is running, and this edits the build tree.
 
 bitbake parsed these recipes at start -- editing now either changes nothing or
-invalidates a multi-hour run (README.md §"Quick start").
+invalidates a multi-hour run (docs/image.md §"What a rebuild costs").
 
 Instead: develop in a git worktree and merge after the build finishes.
   git -C $REPO worktree list
