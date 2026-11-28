@@ -8,6 +8,8 @@ config := env('KAS_CONFIG', 'kiosk-zero-w.yaml')
 
 image-name := "core-image-base"
 
+rootfs-file := "build/tmp-" + machine + "/deploy/images/" + machine + "/" + image-name + "-" + machine + ".rootfs.ext4"
+
 kiosk-host := env('KIOSK_HOST', '')
 
 fleet-key := "kiosk-2026"

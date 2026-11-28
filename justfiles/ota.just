@@ -1,6 +1,5 @@
-# Reads: kiosk-host
+# Reads: kiosk-host, rootfs-file
 
-kiosk-image-file := "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/core-image-base-raspberrypi0-wifi.rootfs.ext4"
 kiosk-bundle-file := "build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/update-bundle-raspberrypi0-wifi.raucb"
 
 [group('ota')]
@@ -10,7 +9,7 @@ kiosk-bundle kconfig="kiosk-zero-w.yaml":
 
 [group('ota')]
 [doc("Refuse a delivery that cannot work: a missing file, the reproducibility gate, slot size")]
-kiosk-preflight image=kiosk-image-file bundle=kiosk-bundle-file host=kiosk-host:
+kiosk-preflight image=rootfs-file bundle=kiosk-bundle-file host=kiosk-host:
     tools/kiosk-preflight.sh {{host}} {{image}} {{bundle}}
 
 [group('ota')]
@@ -25,7 +24,7 @@ kiosk-reboot host=kiosk-host timeout="300": && (kiosk-status host)
 
 [group('ota')]
 [doc("Build the bundle, preflight, and install it on the device")]
-kiosk-ota host=kiosk-host kconfig="kiosk-zero-w.yaml": (kiosk-bundle kconfig) (kiosk-preflight kiosk-image-file kiosk-bundle-file host) (kiosk-install host kiosk-bundle-file)
+kiosk-ota host=kiosk-host kconfig="kiosk-zero-w.yaml": (kiosk-bundle kconfig) (kiosk-preflight rootfs-file kiosk-bundle-file host) (kiosk-install host kiosk-bundle-file)
     @echo "Delivered and installed. Verify, then: just kiosk-reboot {{host}}"
 
 [group('ota')]
