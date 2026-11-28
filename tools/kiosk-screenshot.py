@@ -30,7 +30,7 @@ import time
 import zlib
 from pathlib import Path
 
-_SSH = ("ssh", "-oBatchMode=yes", "-oStrictHostKeyChecking=no", "-oUserKnownHostsFile=/dev/null", "-oConnectTimeout=10")
+_SSH = Path(__file__).resolve().parent / "kiosk-ssh.sh"
 _CAPTURE = "date '+device clock at capture: %H:%M:%S' >&2; kiosk-drmgrab"
 _LINEAR = 0
 _T_TILED = 0x0700000000000001
@@ -137,7 +137,7 @@ def main() -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     if out.exists():
         sys.exit(f"{out} exists -- refusing to overwrite a capture you may be about to read as fresh")
-    capture = subprocess.run([*_SSH, sys.argv[1], _CAPTURE], stdout=subprocess.PIPE)
+    capture = subprocess.run([_SSH, sys.argv[1], _CAPTURE], stdout=subprocess.PIPE)
     if capture.returncode != 0:
         sys.exit("capture failed on the device")
     try:

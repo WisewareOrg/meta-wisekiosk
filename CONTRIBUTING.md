@@ -107,6 +107,32 @@ this reason.
 relative links resolve from the citing file's own directory, and a leading `/` fails. Never anchor a
 *directory* link — anchor its `README.md`.
 
+## Justfile conventions
+
+- **A recipe is its attributes and a few plain lines.** Every listed recipe carries `[group()]`, then
+  `[doc()]`, and a body that is a call to one tool or a short sequence of `just` and tool calls. No
+  `if`, `case`, loop, `trap`, heredoc or `ssh` goes in a justfile: anything of that kind is a
+  `tools/<recipe>.sh` that the recipe calls in one line. The one exception is a check list (`rc=0`,
+  one `|| rc=1` per check, `exit $rc`), under `[script('bash')]`.
+- **A justfile carries no comments.** `[doc()]` is the documentation, and a fact a reader needs goes
+  in the doc text or in the document that owns it. A sub-justfile has one header line listing the
+  variables it reads. `help` stays ungrouped at the top of the list and `default` is `[private]`.
+- **Groups** are build, clean, check, audit, deploy, provision, ota, device and rotate. `device` holds
+  the looks at a board and the boot-profile launcher; `ota` holds whatever changes a board's slots.
+- **A recipe that reaches a board takes `host=kiosk-host`**, in the `root@<addr>` ssh-target form
+  that [`docs/device.md`](docs/device.md) §"Reaching a board" owns. `rotate-run` and `rotate-verify`
+  keep `host` required: a default would let `KIOSK_HOST` pick the board for a keyring change.
+  `tcp-state`'s `kiosk-addr` is exempt, because it reads this host's sockets.
+- **Nothing in a recipe or a tool opens a connection to a board except
+  [`tools/kiosk-ssh.sh`](tools/kiosk-ssh.sh)**, which holds the one host-key policy and keepalive. A
+  recipe reaches a board through that helper or through a `tools/` script that uses it. The one
+  exception is the interactive first contact in `tools/rauc-provision-ssh.sh`, which may ask for a
+  password.
+- **Python tools run through `{{py}}`.**
+- **Names are kebab-case and say what the operator gets.** Families share a prefix: `kiosk-` for one
+  board's state, plus `rotate-` and `cve-`. A new wrapped tool takes the recipe's name. Existing names
+  stand, because tests and docs call them.
+
 ## Tickets, branches and pull requests
 
 Work on a branch and land through a pull request; nothing goes directly to `main`. A pull request

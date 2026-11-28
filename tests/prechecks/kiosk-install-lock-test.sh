@@ -68,6 +68,7 @@ mkdir -p "$scratch/co/tools" "$scratch/bin" "$scratch/state" "$scratch/home"
 export HOME=$scratch/home LOG=$scratch/log STATE=$scratch/state RELEASE=$scratch/release
 : > "$LOG"
 cp "$shipped" "$scratch/co/tools/kiosk-install.sh"
+cp "$root/tools/kiosk-ssh.sh" "$scratch/co/tools/kiosk-ssh.sh"
 printf '#!/bin/sh\nexit 0\n' > "$scratch/co/tools/reproducibility-gate.sh"
 : > "$scratch/co/tools/kiosk-install-ftrace-filter.txt"
 chmod +x "$scratch/co/tools/"*.sh

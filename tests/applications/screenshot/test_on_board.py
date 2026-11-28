@@ -145,7 +145,7 @@ class TestOnBoard:
         with tempfile.TemporaryDirectory() as directory:
             png = Path(directory) / "panel.png"
             command = subprocess.run(
-                ["just", "screenshot", self.board.host.rpartition("@")[2], png],
+                ["just", "screenshot", self.board.host, png],
                 capture_output=True,
                 text=True,
                 timeout=_SCREENSHOT_TIMEOUT_SECONDS,

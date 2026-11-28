@@ -43,9 +43,8 @@ reused. During a boot profile the connection is itself an instrument — see
 
 1. **Is it reachable?** If not, `kiosk-find.sh` on the LAN before assuming it is down — the
    board may have taken a different address, and the script reports every Pi OUI it sees with
-   whether tcp/22 answers, so a re-addressed device looks nothing like an absent one. If it
-   answers there but not over SSH, close a stale multiplex master (`kiosk-ssh.sh <host>
-   --close`) before diagnosing anything else. Read the `L2 view:` line first: on `none` the run
+   whether tcp/22 answers, so a re-addressed device looks nothing like an absent one.
+   Read the `L2 view:` line first: on `none` the run
    proves only which addresses replied, never that a silent one is unused.
 2. **Is it rendering?** `kiosk-screenshot.py`. A blank result exits 1 with a PNG. A correct-but-stale
    result is a different fault with the same appearance, which is why the script takes the device

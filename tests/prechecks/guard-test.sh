@@ -181,14 +181,13 @@ t "MACHINE name in paths" ALLOW "$(b "just kiosk-install host=root@$BENCH bundle
 t "MACHINE= assignment"   ALLOW "$(b "MACHINE=$PHOST just build")"
 t "MACHINE name, ls path" ALLOW "$(b "ls build/tmp-$PHOST/deploy/images/$PHOST/")"
 echo "--- must ALLOW: observing PROD is not destroying it ---"
-t "prod soak-summary"     ALLOW "$(b "just soak-summary root@$PROD 24")"
+t "prod kiosk-status"     ALLOW "$(b "just kiosk-status root@$PROD")"
 t "prod screenshot"       ALLOW "$(b "just screenshot root@$PROD")"
 t "prod backup"           ALLOW "$(b "just kiosk-backup host=root@$PROD")"
-t "prod rauc-status"      ALLOW "$(b "just rauc-status root@$PROD")"
 t "prod preflight"        ALLOW "$(b "just kiosk-preflight host=root@$PROD")"
 # Reading the soak log for reboot events is allowed.
 t "prod grep for reboot"  ALLOW "$(b "ssh root@$PROD 'grep -c reboot /var/log/messages'")"
-t "prod soak | grep"      ALLOW "$(b "just soak-summary root@$PROD 24 | grep reboot")"
+t "prod status | grep"    ALLOW "$(b "just kiosk-status root@$PROD | grep reboot")"
 # After the sudo prefix the verb is the real command word, not an argument of grep.
 t "prod sudo grep reboot" ALLOW "$(b "ssh root@$PROD 'sudo grep -c reboot /var/log/messages'")"
 # An option's separate value is not accepted mid-prefix: `sudo -n grep -c reboot` is a read.
@@ -345,7 +344,6 @@ KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: direct install tool"     ALLOW "$(
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-install"           ALLOW "$(b "just kiosk-install host=root@$PROD")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: rauc install literal"    ALLOW "$(b "ssh root@$PROD rauc install /data/update.raucb")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-reboot"            ALLOW "$(b "just kiosk-reboot host=root@$PHOST")"
-KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: just reboot"             ALLOW "$(b "just reboot root@$PROD")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl reboot"        ALLOW "$(b "ssh root@$PROD systemctl reboot")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: ssh bare reboot"         ALLOW "$(b "ssh root@$PROD reboot")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-rollback"          ALLOW "$(b "just kiosk-rollback host=root@$PROD")"

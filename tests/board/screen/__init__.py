@@ -122,7 +122,7 @@ class Screen(Part):
         with tempfile.TemporaryDirectory() as directory:
             png = Path(directory) / "panel.png"
             tool = subprocess.run(
-                ["just", "screenshot", self._board.host.rpartition("@")[2], png],
+                ["just", "screenshot", self._board.host, png],
                 capture_output=True,
                 text=True,
                 timeout=_PICTURE_TIMEOUT_SECONDS,

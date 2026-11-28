@@ -12,8 +12,7 @@ HOST=${1:?usage: rauc-rotate-verify.sh <host> <new-cert> [--empirical old.raucb 
 NEW_CERT=${2:?need <new-cert> path}
 shift 2
 
-SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10"
-SCP="scp -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10"
+SSH="$(cd "$(dirname "$0")" && pwd)/kiosk-ssh.sh"
 
 fp() { openssl x509 -in "$1" -noout -fingerprint -sha256 | sed 's/.*=//'; }
 NEW_FP=$(fp "$NEW_CERT")
@@ -38,7 +37,7 @@ if [ "${1:-}" = "--empirical" ]; then
     $SSH "$HOST" "date -u -s '$(date -u '+%Y-%m-%d %H:%M:%S')'" >/dev/null
 
     echo "== empirical negative: an OLD-signed bundle must be REJECTED"
-    $SCP "$OLD_B" "$HOST:/data/verify.raucb" >/dev/null
+    $SSH "$HOST" 'cat > /data/verify.raucb' < "$OLD_B"
     if OUT=$($SSH "$HOST" 'rauc info /data/verify.raucb' 2>&1); then
         echo "FAIL: device ACCEPTED an old-signed bundle -- the old key is still trusted"; rc=1
     elif [ "$(printf '%s' "$OUT" | grep -ciE 'signature|verif|not trusted|unknown ca|certificate')" -gt 0 ]; then
@@ -48,7 +47,7 @@ if [ "${1:-}" = "--empirical" ]; then
     fi
 
     echo "== empirical positive: a NEW-signed bundle must be ACCEPTED"
-    $SCP "$NEW_B" "$HOST:/data/verify.raucb" >/dev/null
+    $SSH "$HOST" 'cat > /data/verify.raucb' < "$NEW_B"
     if $SSH "$HOST" 'rauc info /data/verify.raucb' >/dev/null 2>&1; then
         echo "  ok: new-signed bundle accepted"
     else

@@ -58,7 +58,7 @@ target_activated() {
 nginx_image="nginx:1.30.8-alpine@sha256:8eb04fe3b385090e9aa02961f77398ad09b6bf33ab07f6669a5bb7acce22c0d3"
 server=
 
-ssh=(ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
+ssh=("$(cd "$(dirname "$0")" && pwd)/kiosk-ssh.sh")
 host=
 url=
 served=0
@@ -124,7 +124,7 @@ stream() {
     # the lock; the subshell becomes the ssh, so $! is the ssh.
     (
         exec 8>&-
-        exec "${ssh[@]}" -o ServerAliveInterval=2 -o ServerAliveCountMax=3 "$host" "$2" > >(stamp "$1") 2>&1
+        exec "${ssh[@]}" "$host" "$2" > >(stamp "$1") 2>&1
     ) &
     capture_pids+=("$!")
 }
@@ -290,7 +290,7 @@ main() {
     start_capture
     arm "$root"
     local rc=0
-    "${ssh[@]}" -o ServerAliveInterval=5 -o ServerAliveCountMax=6 "$host" "rauc install $url" || rc=$?
+    "${ssh[@]}" "$host" "rauc install $url" || rc=$?
     stop_capture
     stop_server
     if [ "$rc" -ne 0 ]; then

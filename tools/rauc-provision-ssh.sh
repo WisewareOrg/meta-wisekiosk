@@ -10,8 +10,8 @@ PUB=${SSH_PUBKEY:-$HOME/.ssh/id_ed25519.pub}
 test -f "$PUB" || { echo "no public key at $PUB (set SSH_PUBKEY)" >&2; exit 1; }
 KEY=$(cat "$PUB")
 
-# First contact accepts the host key once.
-ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 "$HOST" "
+# First contact is interactive, so it is the one ssh here that does not go through kiosk-ssh.sh.
+ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 "$HOST" "
     umask 077; mkdir -p /root/.ssh
     if grep -qxF '$KEY' /root/.ssh/authorized_keys 2>/dev/null; then
         echo 'key already present'
@@ -20,5 +20,4 @@ ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10 "$HOST" "
     fi"
 
 echo "verifying key auth..."
-ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-    -o ConnectTimeout=10 "$HOST" 'echo "key-auth OK: $(hostname)"'
+"$(dirname "$0")/kiosk-ssh.sh" "$HOST" "echo \"key-auth OK: \$(hostname)\""
