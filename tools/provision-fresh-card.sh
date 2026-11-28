@@ -10,12 +10,12 @@
 set -uo pipefail
 
 usage() {
-    awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "$0"
+    echo "usage: provision-fresh-card.sh <device> <mountpoint>" >&2
+    exit 2
 }
 
 if [ "$#" -ne 2 ]; then
-    usage >&2
-    exit 2
+    usage
 fi
 DEVICE=$1 MOUNTPOINT=$2
 ROOT=$(cd "$(dirname "$0")/.." && pwd)

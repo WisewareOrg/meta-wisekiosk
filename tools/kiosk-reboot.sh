@@ -10,12 +10,12 @@
 set -euo pipefail
 
 usage() {
-    awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "$0"
+    echo "usage: kiosk-reboot.sh root@<host> [timeout]" >&2
+    exit 2
 }
 
 if [ -z "${1:-}" ]; then
-    usage >&2
-    exit 2
+    usage
 fi
 host=$1
 timeout=${2:-300}

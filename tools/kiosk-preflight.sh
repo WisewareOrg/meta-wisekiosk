@@ -12,12 +12,12 @@
 set -euo pipefail
 
 usage() {
-    awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "$0"
+    echo "usage: kiosk-preflight.sh root@<host> <image> <bundle>" >&2
+    exit 2
 }
 
 if [ -z "${1:-}" ] || [ -z "${2:-}" ] || [ -z "${3:-}" ]; then
-    usage >&2
-    exit 2
+    usage
 fi
 host=$1 image=$2 bundle=$3
 

@@ -32,7 +32,7 @@ commit, `pyproject.toml` and `uv.lock` — is committed.
 
 ```sh
 just                # the recipe roster, each beside what it does
-just check          # every check CI runs, each one even when an earlier one fails
+just check          # every check CI runs, stopping at the first failure
 just verify         # `just check`, then the docs against what the built image ships
 just install-hooks  # once per clone: point core.hooksPath at .githooks
 ```
@@ -112,8 +112,7 @@ relative links resolve from the citing file's own directory, and a leading `/` f
 - **A recipe is its attributes and a few plain lines.** Every listed recipe carries `[group()]`, then
   `[doc()]`, and a body that is a call to one tool or a short sequence of `just` and tool calls. No
   `if`, `case`, loop, `trap`, heredoc or `ssh` goes in a justfile: anything of that kind is a
-  `tools/<recipe>.sh` that the recipe calls in one line. The one exception is a check list (`rc=0`,
-  one `|| rc=1` per check, `exit $rc`), under `[script('bash')]`.
+  `tools/<recipe>.sh` that the recipe calls in one line.
 - **A justfile carries no comments.** `[doc()]` is the documentation, and a fact a reader needs goes
   in the doc text or in the document that owns it. A sub-justfile has one header line listing the
   variables it reads. `help` stays ungrouped at the top of the list and `default` is `[private]`.

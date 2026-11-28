@@ -13,12 +13,12 @@
 set -euo pipefail
 
 usage() {
-    awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "$0"
+    echo "usage: flash.sh <device> <wic.bz2> <rootfs.ext4> <fleet-cert>" >&2
+    exit 2
 }
 
 if [ "$#" -ne 4 ]; then
-    usage >&2
-    exit 2
+    usage
 fi
 DEVICE=$1 IMAGE=$2 ROOTFS=$3 FLEET_CERT=$4
 ROOT=$(cd "$(dirname "$0")/.." && pwd)

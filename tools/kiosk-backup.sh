@@ -11,12 +11,12 @@
 set -euo pipefail
 
 usage() {
-    awk 'NR==1{next} /^#/{sub(/^# ?/,""); print; next} {exit}' "$0"
+    echo "usage: kiosk-backup.sh root@<host>" >&2
+    exit 2
 }
 
 if [ "$#" -ne 1 ]; then
-    usage >&2
-    exit 2
+    usage
 fi
 host=$1
 cd "$(dirname "$0")/.."
