@@ -200,7 +200,7 @@ after against it.
 the faults on the whole board, the waits, and the way to a run's fixtures; everything else belongs to
 a part, a subclass of `Part` that `Board.__init__` builds. Their class docstrings say what each one
 holds. A part registers its undos on `board.cleanup` and reaches a sibling only through the board's
-public path (ruff's SLF001 gates that). A part never holds the record: every method returns what it
+public path. A part never holds the record: every method returns what it
 measured, and the test records it. A recorded read returns its raw text, with the parse where a
 record needs it. A named result type exists only where the value is passed whole, carries methods,
 or has neighbouring fields of one type that a reorder could silently swap. `tests/board/` imports
