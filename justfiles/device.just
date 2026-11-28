@@ -1,4 +1,4 @@
-# Reads: kiosk-host
+# Reads: kiosk-host, py
 
 [group('device')]
 [doc("Show whether the kiosk service is active, the booted slot and the boot-order counters")]

@@ -21,9 +21,10 @@ replaces looking at the panel with reading something definite. The ordered loop 
 
 ## A look, or a measurement
 
-[`docs/testing.md`](../../../docs/testing.md) §"Running it" owns the split: a **look** reads state and
-changes nothing, and a **measurement** is a number something is acted on, so it is a pytest case
-under `tests/diagnostics` run through the bench driver.
+A **look** reads state and changes nothing, so it is a `just` recipe. A **measurement** is a number
+something is acted on, so it is a pytest case under `tests/diagnostics` run through the bench driver:
+outside the driver a board is only inspected, as [`docs/testing.md`](../../../docs/testing.md)
+§"Running it" says.
 
 | Question | Instrument |
 |---|---|
@@ -37,7 +38,8 @@ under `tests/diagnostics` run through the bench driver.
 
 Reach for the cheapest instrument that can *fail*: a look costs seconds, a boot profile costs a boot
 of the thing under diagnosis. Read the soak log before rebooting a degraded board, as a reboot
-destroys the only series that could say what was happening.
+destroys the only series that could say what was happening: `tools/kiosk-ssh.sh <host> 'kiosk-soak.sh --summary'`,
+read as [the kiosk-soak README](../../../meta-wisekiosk/recipes-core/kiosk-soak/README.md) says.
 
 ## A measurement is a diagnostic test
 
