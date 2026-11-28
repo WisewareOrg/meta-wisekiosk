@@ -137,7 +137,7 @@ root, pinned in `pyproject.toml` and `uv.lock`. The Justfile and `tools/ci-guard
 refuses rather than skips when its prerequisite is missing.
 
 ```sh
-curl -L -o ~/bin/kas-container https://raw.githubusercontent.com/siemens/kas/5.4/kas-container
+curl -L -o ~/bin/kas-container https://raw.githubusercontent.com/siemens/kas/5.5/kas-container
 chmod +x ~/bin/kas-container
 ```
 
