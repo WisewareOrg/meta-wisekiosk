@@ -32,12 +32,12 @@ commit, `pyproject.toml` and `uv.lock` — is committed.
 
 ```sh
 just                # the recipe roster, each beside what it does
-just check          # the prechecks, links, identity, requirements and ADR checks, stopping at the first failure
+just check          # the prechecks, links, identity, requirements and ADR checks, each one even when another fails
 just verify         # `just check`, then the docs against what the built image ships
 just install-hooks  # once per clone: point core.hooksPath at .githooks
 ```
 
-`just check` runs `pytest tests/prechecks` (the self-tests of the device guard, the CVE and
+`just check`, which is [`tools/check.sh`](tools/check.sh), runs `pytest tests/prechecks` (the self-tests of the device guard, the CVE and
 host-side tools and the screenshot decoder, plus the one-install-path test),
 [`tools/doc-links.py`](tools/doc-links.py), [`tools/scrub-identity.py`](tools/scrub-identity.py)
 `--check`, wise-ci's `check-reqs` over the requirements tree

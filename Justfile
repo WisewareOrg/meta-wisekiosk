@@ -48,18 +48,14 @@ spotless: clean
     rm -rf sources/
 
 [group('check')]
-[doc("Run the repository checks CI runs through just, stopping at the first failure: prechecks, Markdown links, device identity, requirements, ADRs. CI passes --allow-partial")]
+[doc("Run every repository check, each one even after another fails, and name the failures; CI passes --allow-partial")]
 check *flags:
-    {{py}} -m pytest --confcutdir=tests/prechecks tests/prechecks
-    {{py}} tools/doc-links.py
-    {{py}} tools/scrub-identity.py --check {{flags}}
-    uv run --locked check-reqs --root docs/requirements
-    uv run --locked check-adrs
+    tools/check.sh {{flags}}
 
 [group('check')]
-[doc("Run `just check`, then check docs against what the built image ships (skips if unbuilt)")]
-verify: check
-    {{py}} tools/doc-image.py check
+[doc("Run every check, then check docs against what the built image ships (skips if unbuilt)")]
+verify:
+    tools/check.sh --image
 
 [group('check')]
 [doc("Install the pre-commit hook for this checkout")]
