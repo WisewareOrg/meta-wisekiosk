@@ -46,7 +46,7 @@ spotless: clean
     rm -rf sources/
 
 [group('check')]
-[doc("Run the repository checks, stopping at the first failure: prechecks, Markdown links, device identity, requirements, ADRs. CI passes --allow-partial")]
+[doc("Run the repository checks CI runs through just, stopping at the first failure: prechecks, Markdown links, device identity, requirements, ADRs. CI passes --allow-partial")]
 check *flags:
     {{py}} -m pytest --confcutdir=tests/prechecks tests/prechecks
     {{py}} tools/doc-links.py

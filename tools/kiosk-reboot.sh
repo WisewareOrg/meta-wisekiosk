@@ -14,7 +14,7 @@ usage() {
     exit 2
 }
 
-if [ -z "${1:-}" ]; then
+if [ -z "${1:-}" ] || [ "$1" = "--help" ]; then
     usage
 fi
 host=$1

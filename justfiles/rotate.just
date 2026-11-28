@@ -1,5 +1,5 @@
 
-# Reads: fleet-key, config
+# Reads: fleet-key, config, kiosk-host
 
 keys-root := justfile_directory() / "local/keys"
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Runs the checks CI runs: `just check`. Install with: just install-hooks
-# The global gitleaks hook runs too, and every check runs even when an earlier one fails.
+# The global gitleaks hook runs too, and it runs even when `just check` fails.
 rc=0
 
 # Uses the repo .venv just when present, else the one on PATH.

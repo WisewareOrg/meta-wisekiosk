@@ -15,7 +15,7 @@ usage() {
     exit 2
 }
 
-if [ "$#" -ne 1 ]; then
+if [ "$#" -ne 1 ] || [ "$1" = "--help" ]; then
     usage
 fi
 host=$1
@@ -27,6 +27,6 @@ if [ -e "$out" ]; then
     echo "$out exists -- move it aside rather than overwriting today's backup"
     exit 1
 fi
-tools/kiosk-ssh.sh "$host" 'tar -czf - -C / data' > "$out"
+tools/kiosk-ssh.sh "$host" 'tar -czf - -C / data' > "$out" || { echo "the transfer failed"; rm -f "$out"; exit 1; }
 gzip -t "$out" || { echo "$out does not decompress -- the transfer was cut short"; rm -f "$out"; exit 1; }
 echo "wrote $out ($(du -h "$out" | cut -f1))"

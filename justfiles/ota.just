@@ -9,7 +9,7 @@ kiosk-bundle kconfig="kiosk-zero-w.yaml":
     tools/kas-run.sh shell {{kconfig}} -c "bitbake update-bundle"
 
 [group('ota')]
-[doc("Refuse a delivery that cannot work: slot size, stale bundle")]
+[doc("Refuse a delivery that cannot work: a missing file, the reproducibility gate, slot size")]
 kiosk-preflight image=kiosk-image-file bundle=kiosk-bundle-file host=kiosk-host:
     tools/kiosk-preflight.sh {{host}} {{image}} {{bundle}}
 
@@ -20,8 +20,8 @@ kiosk-install host=kiosk-host bundle=kiosk-bundle-file:
 
 [group('ota')]
 [doc("Reboot the board and wait for the kiosk to answer again")]
-kiosk-reboot host=kiosk-host timeout="300":
-    tools/kiosk-reboot.sh {{host}} {{timeout}} && just kiosk-status {{host}}
+kiosk-reboot host=kiosk-host timeout="300": && (kiosk-status host)
+    tools/kiosk-reboot.sh {{host}} {{timeout}}
 
 [group('ota')]
 [doc("Build the bundle, preflight, and install it on the device")]
