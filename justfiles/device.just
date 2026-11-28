@@ -18,7 +18,7 @@ tcp-state kiosk-addr port="8080":
 [group('device')]
 [doc("Read the panel's buffer into a PNG, and fail if it is blank")]
 screenshot host=kiosk-host out="":
-    {{py}} tools/kiosk-screenshot.py {{host}} {{out}}
+    {{py}} meta-wisekiosk/recipes-core/kiosk-drmgrab/kiosk-screenshot.py {{host}} {{out}}
 
 [group('device')]
 [doc("Profile one boot end to end on the board LG_ENV names; samples land in local/, the checkout ends on a detached HEAD")]

@@ -17,7 +17,7 @@ from typing import NamedTuple
 
 from picture import pixels
 
-_TOOL = Path(__file__).resolve().parents[2] / "tools" / "kiosk-screenshot.py"
+_TOOL = Path(__file__).resolve().parents[3] / "meta-wisekiosk" / "recipes-core" / "kiosk-drmgrab" / "kiosk-screenshot.py"
 # takes what ssh takes: options, the host, the command
 _SSH = """\
 while [ "${1#-o}" != "$1" ]; do shift; done

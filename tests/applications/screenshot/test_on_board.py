@@ -14,7 +14,7 @@ import pytest
 from board import Board
 from board.app.inspector import NoPageError
 from board.part import invalid_if
-from prechecks.picture import pixels
+from picture import pixels
 
 # starts painting every pixel of the page a colour that names its place, once in each page load, and gives
 # the size painted once that is done, which can outlast one read

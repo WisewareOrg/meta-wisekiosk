@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Capture the buffer the kiosk's panel is scanning out, whoever drew it, as a PNG.
 
-    tools/kiosk-screenshot.py root@<host> [out.png]
+    kiosk-screenshot.py root@<host> [out.png]
 
 Exits 0 with a PNG; 1 with a PNG and BLANK if every pixel is the same; any other failure is 1 with the
 reason on stderr.
@@ -30,7 +30,7 @@ import time
 import zlib
 from pathlib import Path
 
-_SSH = Path(__file__).resolve().parent / "kiosk-ssh.sh"
+_SSH = Path(__file__).resolve().parents[3] / "tools" / "kiosk-ssh.sh"
 _CAPTURE = "date '+device clock at capture: %H:%M:%S' >&2; kiosk-drmgrab"
 _LINEAR = 0
 _T_TILED = 0x0700000000000001

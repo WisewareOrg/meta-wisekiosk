@@ -1,7 +1,7 @@
 /* kiosk-drmgrab: write the buffer the panel is scanning out to stdout.
  *
  * One line, `<width> <height> <pitch> <fourcc> <modifier>`, then the buffer's
- * bytes as they lie in memory; tools/kiosk-screenshot.py decodes them. It is the
+ * bytes as they lie in memory; kiosk-screenshot.py, beside the recipe, decodes them. It is the
  * first lit CRTC's primary plane. Needs root, as DRM gives no one else a handle
  * to another client's buffer. Any failure exits 1 with the reason on stderr and
  * nothing on stdout.

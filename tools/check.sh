@@ -3,10 +3,11 @@
 #
 #   tools/check.sh [--allow-partial] [--image]
 #
-# Checks, in order: pytest over tests/prechecks, tools/doc-links.py, tools/scrub-identity.py --check,
-# wise-ci's check-reqs over docs/requirements, and check-adrs. --allow-partial is passed to the
-# identity scan, for a clone that lacks local/device-identity.md. --image adds tools/doc-image.py,
-# which reads the image build/ holds. The interpreter is $py, which just exports.
+# Checks, in order: pytest over tests/prechecks and the screenshot decoder test,
+# tools/doc-links.py, tools/scrub-identity.py --check, wise-ci's check-reqs over docs/requirements,
+# and check-adrs. --allow-partial is passed to the identity scan, for a clone that lacks
+# local/device-identity.md. --image adds tools/doc-image.py, which reads the image build/ holds. The
+# interpreter is $py, which just exports, else the repo .venv's python3 when present.
 #
 # Exit: 0 every check passed; 1 at least one failed; 2 an unknown flag.
 set -uo pipefail
@@ -27,7 +28,10 @@ for arg in "$@"; do
 done
 
 cd "$(dirname "$0")/.." || exit 1
-py=${py:-python3}
+if [ -z "${py:-}" ]; then
+    py=python3
+    [ -x .venv/bin/python3 ] && py=.venv/bin/python3
+fi
 failed=()
 
 run() {
@@ -36,7 +40,7 @@ run() {
     "$@" || failed+=("$name")
 }
 
-run prechecks "$py" -m pytest --confcutdir=tests/prechecks tests/prechecks
+run prechecks "$py" -m pytest tests/prechecks tests/applications/screenshot/test_decoder.py
 run doc-links "$py" tools/doc-links.py
 run scrub-identity "$py" tools/scrub-identity.py "${scrub[@]}"
 run check-reqs uv run --locked check-reqs --root docs/requirements

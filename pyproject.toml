@@ -13,11 +13,14 @@ dev = [
     "check-adrs",
     "check-reqs",
     "interrogate>=1.7.0",
+    "labgrid==26.0.1",
     "pydoclint>=0.12.0",
     "pytest>=9.2.0",
     "python-kasa",
     "ruff>=0.17.6",
     "rust-just>=1.59.0",
+    "tenacity==9.2.1",
+    { include-group = "tests" },
 ]
 # Imported by the test helpers; installed by bench.toml's precondition hook.
 tests = [

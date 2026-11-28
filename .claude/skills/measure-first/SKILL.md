@@ -29,7 +29,7 @@ outside the driver a board is only inspected, as [`docs/testing.md`](../../../do
 | Question | Instrument |
 |---|---|
 | Is it up, which slot is booted? | `just kiosk-status` |
-| Is the panel showing the right thing, right now? | `just screenshot`; its [header](../../../tools/kiosk-screenshot.py) says how to read it and what it cannot tell |
+| Is the panel showing the right thing, right now? | `just screenshot`; its [header](../../../meta-wisekiosk/recipes-core/kiosk-drmgrab/kiosk-screenshot.py) says how to read it and what it cannot tell |
 | Is the browser fetching the page, and did its scripts run? | `just tcp-state`, on the host serving the page; its [header](../../../tools/kiosk-tcp-state.sh) says which faults it hides |
 | The board does not answer and its address is unknown | `just find`; its [header](../../../tools/kiosk-find.sh) names the L2 view it used, and `none` proves only which addresses replied |
 | Is memory flat or climbing over hours? | TST014 in `tests/target_suite/test_memory.py`, with `--soak` for the day-long run |

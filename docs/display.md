@@ -78,7 +78,7 @@ covered.
 The correct picture of a healthy kiosk is often a page nobody is watching, and the board has no
 display server to ask. [`kiosk-drmgrab`](../meta-wisekiosk/recipes-core/kiosk-drmgrab/README.md) on
 the board reads the buffer the panel is scanning out, and
-[`tools/kiosk-screenshot.py`](../tools/kiosk-screenshot.py) (`just screenshot`) runs it over ssh and
+[`kiosk-screenshot.py`](../meta-wisekiosk/recipes-core/kiosk-drmgrab/kiosk-screenshot.py) (`just screenshot`) runs it over ssh and
 writes an image on the workstation. The engine's remote inspector, when switched on, answers on the
 board's loopback, and [`tests/board/app/inspector.py`](../tests/board/app/inspector.py) reaches it
 through a forwarded port.

@@ -103,7 +103,7 @@ runs with `--skip-build` against a running board.
 
 `tests/applications/screenshot` is the suite of the screenshot application, which runs on the board.
 It is separate from the image suite and the diagnostics, and the queue job does not run it.
-The tool's decoder test, `tests/prechecks/test_decoder.py`, on constructed buffers and no board, runs in `just check` and CI. `bench test
+`test_decoder.py`, on constructed buffers and no board, runs in `just check` and CI. `bench test
 <ref> -- tests/applications/screenshot -k on_board -rP` installs the candidate and runs
 `test_on_board.py`; without the `-k`, the runner also runs `tests/target_suite`.
 
