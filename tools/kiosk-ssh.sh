@@ -9,8 +9,7 @@
 #
 # Every call is its own connection, and each costs the board CPU: batch a session's reads into one
 # `bash -s` script. Host keys are neither checked nor remembered, because a slot generates its key on
-# its first boot (meta-wisekiosk/recipes-connectivity/openssh/README.md). The keepalive ends a session
-# 30 s after the board stops answering, longer than the ~15 s hardware watchdog.
+# its first boot (meta-wisekiosk/recipes-connectivity/openssh/README.md).
 #
 # Keeps ssh stderr unfiltered (no LogLevel=ERROR) so connection errors show.
 #
