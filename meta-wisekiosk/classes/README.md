@@ -20,7 +20,7 @@ Two bbclasses, both enabled from `kiosk-zero-w.yaml`.
   not exist, so it leaves this symlink alone.
 - `ROOTFS_POSTPROCESS_COMMAND` takes the bare function name, never `name;`: `image.bbclass` splits the
   raw value on whitespace into vardeps, so a glued `;` names no function and the body reaches no task
-  hash. `tools/ci-guards.sh` checks for the trailing `;`.
+  hash.
 - `just build` runs `tools/write-build-rev.sh`, which supplies `KIOSK_BUILDINFO_REV`. How the commit
   reaches the image is in [`docs/image.md`](../../docs/image.md) §"What commit an image was built from".
 

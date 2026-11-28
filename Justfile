@@ -76,55 +76,34 @@ spotless: clean
     rm -rf build/
     rm -rf sources/
 
-# === Repository guards ===
+# === Checks ===
 
-[group('guards')]
+[group('check')]
 [script('bash')]
-[doc("Run repository guards: the invariants in tools/ci-guards.sh, self-tests included, and the device-identity scan")]
-guards:
+[doc("Run every check CI runs: prechecks, Markdown links, device identity, requirements, ADRs. CI passes --allow-partial")]
+check *flags:
     rc=0
-    tools/ci-guards.sh || rc=1
-    tools/scrub-identity.py --check || rc=1
-    if [ $rc -ne 0 ]; then echo; echo "guards FAILED"; fi
+    {{py}} -m pytest --confcutdir=tests/prechecks tests/prechecks || rc=1
+    {{py}} tools/doc-links.py || rc=1
+    {{py}} tools/scrub-identity.py --check {{flags}} || rc=1
+    uv run --locked check-reqs --root docs/requirements || rc=1
+    uv run --locked check-adrs || rc=1
     exit $rc
 
-[group('guards')]
+[group('check')]
+[script('bash')]
+[doc("Run `just check`, then check docs against what the built image ships (skips if unbuilt)")]
+verify:
+    rc=0
+    {{just_executable()}} check || rc=1
+    {{py}} tools/doc-image.py check || rc=1
+    exit $rc
+
+[group('check')]
 [doc("Install the pre-commit hook for this checkout")]
 install-hooks:
     git config core.hooksPath .githooks
-    @echo "core.hooksPath -> .githooks (pre-commit runs tools/ci-guards.sh)"
-
-# === Documentation checks ===
-
-[group('check')]
-[script('bash')]
-[doc("Run every documentation check")]
-verify:
-    rc=0
-    {{py}} tools/doc-links.py || rc=1
-    {{py}} tools/doc-image.py check || rc=1
-    if [ $rc -ne 0 ]; then echo; echo "verify FAILED"; fi
-    exit $rc
-
-[group('check')]
-[doc("Check that every tracked Markdown cross-reference resolves")]
-links:
-    {{py}} tools/doc-links.py
-
-[group('check')]
-[doc("Check the requirements tree with wise-ci's check-reqs")]
-reqs:
-    uv run --locked check-reqs --root docs/requirements
-
-[group('check')]
-[doc("Check docs/decisions/ and every ADR citation with wise-ci's check-adrs")]
-adrs:
-    uv run --locked check-adrs
-
-[group('check')]
-[doc("Check docs against what the built image ships (skips if unbuilt)")]
-image:
-    {{py}} tools/doc-image.py check
+    @echo "core.hooksPath -> .githooks (pre-commit runs just check)"
 
 # === Image audit ===
 

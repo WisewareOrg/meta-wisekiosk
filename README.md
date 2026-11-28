@@ -154,10 +154,11 @@ meta-wisekiosk/                    <- the repository (project scaffolding)
 │   └── recipes-*/
 ├── Justfile, justfiles/           build, OTA and device commands
 ├── tools/                         provisioning, bundle delivery, device debugging, doc gate,
-│                                  CI guards, the identity scan, the build-commit writer and
+│                                  the identity scan, the build-commit writer and
 │                                  reproducibility gate
 ├── docs/                          subsystem documents, decisions/, requirements/
-├── tests/                         the bench runner's suites
+├── tests/                         the bench runner's suites; tests/prechecks/ needs no board and is
+│                                  what `just check` runs besides the doc and identity tools
 └── sources/                       gitignored; everything kas fetches lands here
 ```
 

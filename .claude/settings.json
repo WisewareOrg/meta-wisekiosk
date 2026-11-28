@@ -53,17 +53,14 @@
   },
   "permissions": {
     "allow": [
+      "Bash(just check)",
       "Bash(just verify)",
-      "Bash(just links)",
-      "Bash(just guards)",
-      "Bash(just image)",
       "Bash(just --list)",
       "Bash(just find:*)",
-      "Bash(tools/ci-guards.sh)",
       "Bash(tools/scrub-identity.py --check)",
       "Bash(python3 tools/doc-links.py)",
       "Bash(python3 tools/doc-image.py check)",
-      "Bash(bash .claude/hooks/guard-test.sh)"
+      "Bash(bash tests/prechecks/guard-test.sh)"
     ]
   }
 }

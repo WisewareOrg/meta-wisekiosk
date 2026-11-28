@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Self-test for tools/app-lockfile.py. Run by `just guards` and by CI.
+"""Self-test for tools/app-lockfile.py. Run by `just check` and by CI.
 
     app-lockfile-test.py        -- every case
 
@@ -22,7 +22,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-TOOLS = Path(__file__).resolve().parent
+TOOLS = Path(__file__).resolve().parents[2] / "tools"
 sys.dont_write_bytecode = True
 
 

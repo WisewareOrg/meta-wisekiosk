@@ -1,6 +1,6 @@
 name: guards
 
-# Repository guards, requirements and ADR checks, Markdown cross-references and the identity scan.
+# `just check`, then a gitleaks scan of the history.
 on:
   pull_request:
   merge_group:
@@ -27,7 +27,6 @@ jobs:
           sudo tar -xzf /tmp/gitleaks.tgz -C /usr/local/bin gitleaks
           gitleaks version
 
-      # uv: the wise-ci actions, and `uv sync`, which builds the .venv ci-guards.sh uses
       - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
           version: "0.13.9"
@@ -35,29 +34,12 @@ jobs:
       - name: Install the pinned dev environment
         run: uv sync --locked
 
-      - name: Run repository guards
-        run: tools/ci-guards.sh
+      # The known-value half of the identity scan reads gitignored local/device-identity.md,
+      # which a clone lacks, so --allow-partial.
+      - name: Run the checks
+        run: uv run --locked just check --allow-partial
 
-      # !cancelled(): runs even when the guards step failed.
-      - uses: WisewareOrg/wise-ci/check-reqs@375abaa8c7a9e1a98a95317ac955f3767efd8656
+      # !cancelled(): runs even when the checks failed.
+      - name: Scan the history for secrets
         if: ${{ !cancelled() }}
-        with:
-          root: docs/requirements
-
-      # !cancelled(): runs even when an earlier step failed.
-      - uses: WisewareOrg/wise-ci/check-adrs@375abaa8c7a9e1a98a95317ac955f3767efd8656
-        if: ${{ !cancelled() }}
-
-      # Pure stdlib, no install step. tools/doc-image.py is not run: it needs a built rootfs.
-      #
-      # !cancelled(): runs even when an earlier step failed; a cancelled run stays cancelled.
-      - name: Check Markdown cross-references
-        if: ${{ !cancelled() }}
-        run: python3 tools/doc-links.py
-
-      # Pattern half of the identity scan: the known-value half reads gitignored
-      # local/device-identity.md, which a clone lacks, so --allow-partial.
-      # ci-guards.sh guard 11 (the identity scan wired into every route) asserts this step exists.
-      - name: Scan for device identity
-        if: ${{ !cancelled() }}
-        run: tools/scrub-identity.py --check --allow-partial
+        run: gitleaks detect --config .gitleaks.toml --no-banner --redact --exit-code 1

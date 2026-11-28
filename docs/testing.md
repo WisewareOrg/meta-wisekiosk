@@ -4,7 +4,7 @@ What proves a change is good enough to ship, at each tier.
 
 | Tier | Guarantees | Runs |
 |---|---|---|
-| Static (`just guards`, CI) | Repository invariants hold: no secret or identity reaches a tracked file, shell and YAML parse, every wiring self-test passes. | Every commit (pre-commit hook), every PR and merge-group commit (CI). |
+| Static (`just check`, CI) | The prechecks hold: no identity reaches a tracked file, Markdown links, requirements and ADRs resolve, every self-test in `tests/prechecks/` passes. | Every commit (pre-commit hook), every PR and merge-group commit (CI). |
 | Build (`just build`) | The kas config resolves and bitbake completes: an image artifact exists. | On demand, locally — never in CI, which does not build. |
 | Host (`tests/host_suite`) | Both checks pass before any install: the rootfs is attributable to a clean, pushed commit, and `systemd-analyze verify`/`systemctl is-enabled`, run against the unpacked rootfs, are clean for every unit this layer's recipes ship. | After the build, never under `bench test --skip-build`. |
 | Device smoke (`tests/target_suite`) | The candidate, installed on the bench board by an image update, passes every active `TST` item whose check is in `tests/target_suite`. Each item in the [requirements tree](requirements/README.md) states its own stimulus and pass condition. | `bench run`, once per queue job. |
@@ -103,7 +103,7 @@ runs with `--skip-build` against a running board.
 
 `tests/applications/screenshot` is the suite of the screenshot application, which runs on the board.
 It is separate from the image suite and the diagnostics, and the queue job does not run it.
-`test_decoder.py`, on constructed buffers and no board, runs in `just guards` and CI. `bench test
+The tool's decoder test, `tests/prechecks/test_decoder.py`, on constructed buffers and no board, runs in `just check` and CI. `bench test
 <ref> -- tests/applications/screenshot -k on_board -rP` installs the candidate and runs
 `test_on_board.py`; without the `-k`, the runner also runs `tests/target_suite`.
 
@@ -225,7 +225,3 @@ goes.
 `pytest_collection_modifyitems` runs the marked tests after every other, and an install from a test
 without the mark fails it. A case marked
 `@pytest.mark.soak` is deselected unless the run passes `--soak`.
-
-**The lint gate.** [`tools/ci-guards.sh`](../tools/ci-guards.sh) runs the repo `.venv`'s
-pinned `ruff check` (the select in `pyproject.toml`), `ruff format --check`, `interrogate --fail-under
-100` and `pydoclint` over every tracked `tests/*.py`; a missing tool fails the guard.

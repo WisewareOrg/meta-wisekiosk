@@ -1,12 +1,11 @@
 #!/bin/sh
-# Runs the guards CI runs. Install with: just install-hooks
-# tools/doc-image.py is not run: it needs a populated build/ rootfs (`just image`).
-# Every check runs even when an earlier one fails.
+# Runs the checks CI runs: `just check`. Install with: just install-hooks
+# The global gitleaks hook runs too, and every check runs even when an earlier one fails.
 rc=0
 
-# Uses the repo .venv python when present, else python3.
-py=python3
-[ -x ".venv/bin/python3" ] && py="$PWD/.venv/bin/python3"
+# Uses the repo .venv just when present, else the one on PATH.
+just=just
+[ -x ".venv/bin/just" ] && just="$PWD/.venv/bin/just"
 
 # This repo's core.hooksPath overrides the global one, so the global gitleaks pre-commit is run
 # explicitly; an armed global hook that is missing fails the commit.
@@ -25,9 +24,5 @@ if [ -n "$global_dir" ]; then
     fi
 fi
 
-tools/ci-guards.sh || rc=1
-"$py" tools/doc-links.py || rc=1
-# Strict identity scan: fails when the identity map is unreadable. ci-guards.sh guard 11 (the
-# identity scan wired into every route) asserts this call exists.
-"$py" tools/scrub-identity.py --check || rc=1
+"$just" check || rc=1
 exit $rc

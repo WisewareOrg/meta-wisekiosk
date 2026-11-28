@@ -25,7 +25,7 @@ recorded as context in the run record, and this tree never asserts them.
 
 The gate — [`wise-ci`](https://github.com/WisewareOrg/wise-ci)'s shared `check-reqs`, pinned by
 commit in `.github/workflows/guards.yml` for the CI `guards` job and in `pyproject.toml`/`uv.lock`
-for `just reqs`, which runs it locally on demand — it reviews the whole tree, not a diff, so every
+for `just check`, which runs it locally on demand — it reviews the whole tree, not a diff, so every
 run checks every item.
 
 The tree holds the appliance's own needs. The application's requirements stay in the application's

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Self-test for .claude/hooks/guard.sh, run by `just guards` and by CI.
+# Self-test for .claude/hooks/guard.sh, run by `just check` and by CI.
 #
 # The payloads contain the patterns the guard blocks, so they live in this file and not in a Bash
 # tool call. Every rule has must-block and must-allow cases, and every input shape the guard
@@ -11,7 +11,7 @@
 #     inside legitimate build paths.
 set -uo pipefail
 
-G="$(cd "$(dirname "$0")" && pwd)/guard.sh"
+G="$(cd "$(dirname "$0")/../.." && pwd)/.claude/hooks/guard.sh"
 T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT
 

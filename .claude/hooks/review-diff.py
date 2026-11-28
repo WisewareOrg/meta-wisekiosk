@@ -9,9 +9,7 @@ exits 2 with the matching questions on stderr. Claude Code blocks the commit and
 feeds that text to the model, which answers the questions and re-runs the commit.
 No prompt reaches the human. Fires the same way inside subagents.
 
-The group names here and the `**Group**` headings in CONTRIBUTING.md must match;
-the `tools/ci-guards.sh` check that the hook's group names equal the headings
-enforces it.
+The group names here and the `**Group**` headings in CONTRIBUTING.md must match.
 
 A marker keyed on the staged content (`git write-tree`, plus the unstaged tracked
 diff under `-a`) is the loop guard: the first attempt at a given content-state
@@ -347,8 +345,7 @@ def select_groups(changed):
 
     The six names below must match the `**Group**` headings in CONTRIBUTING.md's
     "## Review checklist" character for character; a name that matches nothing
-    selects no questions. The `tools/ci-guards.sh` group-name check fails on any
-    name present on one side only.
+    selects no questions.
     """
     needed = set()
     for path in changed:

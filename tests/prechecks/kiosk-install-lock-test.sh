@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Self-test for the per-board install lock, from this host, in tools/kiosk-install.sh.
 #
-#   tools/kiosk-install-lock-test.sh
+#   tests/prechecks/kiosk-install-lock-test.sh
 #
 # Runs the SHIPPED script (or the one named by KIOSK_INSTALL_UNDER_TEST) from a scratch checkout with stubs for
 # ssh, docker, curl, getent and the reproducibility gate first on PATH. The stub ssh answers the reads, blocks
@@ -44,7 +44,7 @@
 # Exit: 0 every case passed; 1 a case failed.
 set -u
 
-root=$(cd "$(dirname "$0")/.." && pwd)
+root=$(cd "$(dirname "$0")/../.." && pwd)
 shipped=${KIOSK_INSTALL_UNDER_TEST:-$root/tools/kiosk-install.sh}
 scratch=$(mktemp -d)
 tag=lt$$

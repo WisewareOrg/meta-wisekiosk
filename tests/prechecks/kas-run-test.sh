@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Self-test for tools/kas-run.sh: the build lock and the keys directory.
 #
-#   tools/kas-run-test.sh
+#   tests/prechecks/kas-run-test.sh
 #
 # Runs the SHIPPED script (or the one named by KAS_RUN_UNDER_TEST) from scratch checkouts, with
 # HOME in a scratch directory and a stub `kas-container` first on PATH that records when it begins
@@ -49,7 +49,7 @@ if [ "$(id -u)" -eq 0 ]; then
     exit 1
 fi
 
-root=$(cd "$(dirname "$0")/.." && pwd)
+root=$(cd "$(dirname "$0")/../.." && pwd)
 shipped=${KAS_RUN_UNDER_TEST:-$root/tools/kas-run.sh}
 scratch=$(mktemp -d)
 finish() {
