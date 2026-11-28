@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 
 _OOM = re.compile(r"^\[\s*(\d+\.\d+)\].*(?:Out of memory|deadlocked on memory)")
 _SOAK_LOG = "/data/kiosk-soak.log"
-# kiosk-soak.timer's OnUnitActiveSec, and kiosk-soak.sh's own gap rule, as its --summary applies it
 _SOAK_INTERVAL_SECONDS = 300
 _SOAK_MAX_GAP_SECONDS = 450
 # lines read beyond one per interval, so a period's first and last samples are in the tail

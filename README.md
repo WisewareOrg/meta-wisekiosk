@@ -98,7 +98,6 @@ This is the only index of the repository's documents.
 | [`tests/replay/README.md`](tests/replay/README.md) | What a replay set holds, and how one is re-recorded |
 | [`.claude/skills/kiosk-debug/SKILL.md`](.claude/skills/kiosk-debug/SKILL.md) | Which instrument diagnoses a running kiosk |
 | [`.claude/skills/measure-first/SKILL.md`](.claude/skills/measure-first/SKILL.md) | How a question about the board is measured and tested |
-| [`.claude/skills/webkit-inspector/SKILL.md`](.claude/skills/webkit-inspector/SKILL.md) | How the engine's remote inspector is driven |
 
 Each module of the layer has a README: what it puts on the image, how it fits, and its knobs.
 

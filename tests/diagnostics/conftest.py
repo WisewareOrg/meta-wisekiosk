@@ -4,17 +4,21 @@ from collections.abc import Iterator
 
 import pytest
 from board import Board
-from board.updates import Installed
 from labgrid import Target
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _install_candidate(install_candidate: Installed | None) -> None:
-    """Activate `install_candidate` (tests/conftest.py) for every test in this suite.
+def _install_candidate(bench_candidate: str | None, request: pytest.FixtureRequest) -> None:
+    """Activate `install_candidate` (tests/conftest.py) for every test in this suite, when there is a build.
+
+    Under `--skip-build` there is no candidate, so nothing is cleared and nothing is installed.
 
     Args:
-        install_candidate: the start-of-run install.
+        bench_candidate: the commit under test, or None outside a build.
+        request: the pytest request, which activates `install_candidate`.
     """
+    if bench_candidate is not None:
+        request.getfixturevalue("install_candidate")
 
 
 @pytest.fixture

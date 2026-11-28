@@ -80,5 +80,5 @@ display server to ask. [`kiosk-drmgrab`](../meta-wisekiosk/recipes-core/kiosk-dr
 the board reads the buffer the panel is scanning out, and
 [`tools/kiosk-screenshot.py`](../tools/kiosk-screenshot.py) (`just screenshot`) runs it over ssh and
 writes an image on the workstation. The engine's remote inspector, when switched on, answers on the
-board's loopback and is reached through an ssh tunnel
-([`.claude/skills/webkit-inspector/SKILL.md`](../.claude/skills/webkit-inspector/SKILL.md)).
+board's loopback, and [`tests/board/app/inspector.py`](../tests/board/app/inspector.py) reaches it
+through a forwarded port.
