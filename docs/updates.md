@@ -184,11 +184,11 @@ stops with recovery guidance if either fails.
    gate, so the tree is committed and pushed before this step, which takes two full builds.
 3. **Give the host ssh key access** — `just rotate-provision-ssh root@<host>`, once per board that
    lacks it.
-4. **Rotate the bench board and prove it** — `just rotate-run root@<bench> <name>`, then
-   `just rotate-verify root@<bench> <name> --empirical build/rotation/transition.raucb build/rotation/new-signed.raucb`,
+4. **Rotate one board and prove it** — `just rotate-run root@<host> <name>`, then
+   `just rotate-verify root@<host> <name> --empirical build/rotation/transition.raucb build/rotation/new-signed.raucb`,
    which shows an old-signed bundle refused and a new-signed one accepted.
 5. **Rotate every other board** the same way, by `just rotate-run`. Flashing a card with the new
-   keyring is the fallback, never a step ahead of the bench proof.
+   keyring is the fallback, never a step ahead of the first board's proof.
 
 `just rotate-verify` without `--empirical` compares the board's keyring fingerprint with the new
 certificate; because the keyring is one self-signed certificate, a match already means old-signed

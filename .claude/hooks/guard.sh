@@ -373,7 +373,7 @@ BLOCKED: that disables part of the LIFELINE (sshd / wpa_supplicant /
 systemd-networkd / dhcpcd / networking).
 
 SSH over wlan0 is the only way to reach this device, and there is no remote
-undo. `just kiosk-recover` reverses the boot trims that ARE reversible; this is
+undo. `/data/RECOVER.sh` reverses the boot trims that ARE reversible; this is
 not one of them.
 MSG
         exit 2

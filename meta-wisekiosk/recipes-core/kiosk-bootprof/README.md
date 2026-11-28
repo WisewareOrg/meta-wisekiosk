@@ -20,7 +20,7 @@ installs it into the rootfs.
   that missed their grid slot (`late`). `#M` lines list each kernel module with the time it first
   appeared in `/proc/modules`.
 
-Part of [the measurement tools](../../../docs/testing.md).
+Part of [the testing tiers](../../../docs/testing.md) §"Running it".
 
 ## Knobs
 
