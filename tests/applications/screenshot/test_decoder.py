@@ -1,6 +1,6 @@
 """Screenshot suite: the tool turns a constructed buffer into the picture it holds, or refuses it.
 
-Host only, on the standard library; `just check` and CI run it. Each test runs the
+Host only, on the standard library; CI runs it. Each test runs the
 tool itself, with a stand-in `ssh` that runs the capture command on this host and a stand-in
 `kiosk-drmgrab` that writes the buffer. The buffers and their pixels are worked out here, without the
 tool's decoder.

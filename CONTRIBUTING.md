@@ -32,21 +32,20 @@ commit, `pyproject.toml` and `uv.lock` — is committed.
 
 ```sh
 just                # the recipe roster, each beside what it does
-just check          # the prechecks, links, identity, requirements and ADR checks, each one even when another fails
-just verify         # `just check`, then the docs against what the built image ships
 just install-hooks  # once per clone: point core.hooksPath at .githooks
 ```
 
-`just check`, which is [`tools/check.sh`](tools/check.sh), runs `pytest tests/prechecks` (the self-tests of the device guard, the CVE and
-host-side tools and the screenshot decoder, plus the one-install-path test),
-[`tools/doc-links.py`](tools/doc-links.py), [`tools/scrub-identity.py`](tools/scrub-identity.py)
-`--check`, wise-ci's `check-reqs` over the requirements tree
-([`docs/requirements/README.md`](docs/requirements/README.md)) and `check-adrs` over
-[`docs/decisions/`](docs/decisions/README.md) and every ADR citation. The pre-commit hook and CI's
-`guards` workflow both run it, so a commit cannot pass locally and fail there on them. CI adds a
-gitleaks scan of the history. The `lint` workflow runs shellcheck over every tracked shell script
-and actionlint over the workflows, and `codeql` analyses the tooling. `just verify`'s second half
-needs a populated `build/` and is local-only: CI never builds.
+The pre-commit hook runs the identity scan, [`tools/scrub-identity.py`](tools/scrub-identity.py)
+`--check`, and the global gitleaks hook. CI's `guards` workflow runs each check as its own step, so a
+failure shows on its own: `pytest tests/prechecks tests/applications/screenshot/test_decoder.py` (the
+self-tests of the device guard, the CVE and host-side tools, the screenshot decoder, plus the
+one-install-path test), [`tools/doc-links.py`](tools/doc-links.py), the identity scan, wise-ci's
+`check-reqs` over the requirements tree ([`docs/requirements/README.md`](docs/requirements/README.md)),
+`check-adrs` over [`docs/decisions/`](docs/decisions/README.md) and every ADR citation, and a gitleaks
+scan of the history. Any of them runs by hand with the command the workflow gives. The `lint`
+workflow runs shellcheck over every tracked shell script and actionlint over the workflows, and
+`codeql` analyses the tooling. `python3 tools/doc-image.py check` needs a populated `build/` and is
+local-only: CI never builds.
 
 `tools/scrub-identity.py --check` has two halves and says which ran. The pattern half needs no
 configuration and runs everywhere. The known-value half reads `local/device-identity.md`, which is
@@ -56,8 +55,8 @@ an SSID has no recognisable shape; only the map can catch one, and only where th
 **A PARTIAL scan exits 1.** A run that could not perform half its search must not return the code
 for "nothing found", so the absence of the map is a finding wherever the map could exist. The one
 caller that structurally cannot hold it — CI, which clones without `local/` — passes
-`just check --allow-partial` and carries the reason in its own step. On a checkout with no map the pre-commit
-hook and `just check` therefore fail where CI passes: create `local/device-identity.md`, or pass
+`--allow-partial` and carries the reason in its own step. On a checkout with no map the pre-commit
+hook therefore fails where CI passes: create `local/device-identity.md`, or pass
 `--allow-partial` yourself and know that a hostname or an SSID went unlooked-for.
 
 None of the above builds or boots anything — [`docs/testing.md`](docs/testing.md) covers the tiers
@@ -150,7 +149,7 @@ CI, not only a local run, and walk the checklist below against the diff.
 spelled-differently-but-valid variant, confirm the seed landed, and re-run the finding's own
 reproduction against the fix. A check that looks identical passing and failing has measured nothing —
 which is why `.claude/hooks/guard.sh` and the CVE and currency tools ship with self-tests in
-[`tests/prechecks/`](tests/prechecks/), which `just check` runs.
+[`tests/prechecks/`](tests/prechecks/), which CI runs.
 
 ## Review checklist
 
@@ -214,7 +213,7 @@ silently to whatever occupies it after a renumber.
 
 **Docs**
 
-15. **Cross-references resolve.** Does `just check` pass — relative links from the citing file's own
+15. **Cross-references resolve.** Does `python3 tools/doc-links.py` pass — relative links from the citing file's own
     directory, GFM anchors on real headings, section references by name, no anchored directory link,
     no address?
 16. **One home.** Is each fact stated in the document that owns it, and cited rather than restated

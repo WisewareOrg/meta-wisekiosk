@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Self-test for tools/app-lockfile.py. Run by `just check` and by CI.
+"""Self-test for tools/app-lockfile.py. Run by CI.
 
     app-lockfile-test.py        -- every case
 

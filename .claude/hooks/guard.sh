@@ -6,7 +6,7 @@
 # Fail-open: no jq, no payload, no identity file or an unparseable input lets the call through. The
 # exception is the prod grant: a missing, expired, malformed or symlinked grant counts as no grant.
 #
-# Self-test: bash tests/prechecks/guard-test.sh  (run by `just check` and CI)
+# Self-test: bash tests/prechecks/guard-test.sh  (run by CI)
 set -uo pipefail
 
 command -v jq > /dev/null 2>&1 || exit 0

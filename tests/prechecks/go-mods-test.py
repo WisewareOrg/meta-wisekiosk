@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Self-test for tools/go-mods.py's rendering seam. Run by `just check` and by CI.
+"""Self-test for tools/go-mods.py's rendering seam. Run by CI.
 
     go-mods-test.py             -- every case
 

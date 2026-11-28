@@ -1,6 +1,6 @@
 name: guards
 
-# `just check`, then a gitleaks scan of the history.
+# The prechecks, Markdown cross-references, the identity scan, requirements, ADRs and a gitleaks scan.
 on:
   pull_request:
   merge_group:
@@ -34,12 +34,28 @@ jobs:
       - name: Install the pinned dev environment
         run: uv sync --locked
 
+      - name: Run the prechecks
+        run: uv run --locked pytest tests/prechecks tests/applications/screenshot/test_decoder.py
+
+      # !cancelled(): runs even when an earlier step failed.
+      - name: Check Markdown cross-references
+        if: ${{ !cancelled() }}
+        run: python3 tools/doc-links.py
+
       # The known-value half of the identity scan reads gitignored local/device-identity.md,
       # which a clone lacks, so --allow-partial.
-      - name: Run the checks
-        run: uv run --locked just check --allow-partial
+      - name: Scan for device identity
+        if: ${{ !cancelled() }}
+        run: python3 tools/scrub-identity.py --check --allow-partial
 
-      # !cancelled(): runs even when the checks failed.
+      - name: Check the requirements tree
+        if: ${{ !cancelled() }}
+        run: uv run --locked check-reqs --root docs/requirements
+
+      - name: Check the ADRs
+        if: ${{ !cancelled() }}
+        run: uv run --locked check-adrs
+
       - name: Scan the history for secrets
         if: ${{ !cancelled() }}
         run: gitleaks detect --config .gitleaks.toml --no-banner --redact --exit-code 1

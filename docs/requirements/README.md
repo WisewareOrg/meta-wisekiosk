@@ -24,9 +24,8 @@ mechanisms that deliver a need. They live in the launcher, the recipes and `docs
 recorded as context in the run record, and this tree never asserts them.
 
 The gate — [`wise-ci`](https://github.com/WisewareOrg/wise-ci)'s shared `check-reqs`, pinned by
-commit in `.github/workflows/guards.yml` for the CI `guards` job and in `pyproject.toml`/`uv.lock`
-for `just check`, which runs it locally on demand — it reviews the whole tree, not a diff, so every
-run checks every item.
+commit in `pyproject.toml`/`uv.lock` and run by the CI `guards` job — it reviews the whole tree, not a
+diff, so every run checks every item.
 
 The tree holds the appliance's own needs. The application's requirements stay in the application's
 own tree; no item here realises, cites or tracks one of them.

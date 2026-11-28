@@ -48,20 +48,10 @@ spotless: clean
     rm -rf sources/
 
 [group('check')]
-[doc("Run every repository check, each one even after another fails, and name the failures; CI passes --allow-partial")]
-check *flags:
-    tools/check.sh {{flags}}
-
-[group('check')]
-[doc("Run every check, then check docs against what the built image ships (skips if unbuilt)")]
-verify:
-    tools/check.sh --image
-
-[group('check')]
 [doc("Install the pre-commit hook for this checkout")]
 install-hooks:
     git config core.hooksPath .githooks
-    @echo "core.hooksPath -> .githooks (pre-commit runs just check)"
+    @echo "core.hooksPath -> .githooks (pre-commit runs the identity scan)"
 
 [group('audit')]
 [doc("Report the CVE findings from the last audit build (skips if unbuilt); --layer/--exclude/--min-cvss narrow the detail")]

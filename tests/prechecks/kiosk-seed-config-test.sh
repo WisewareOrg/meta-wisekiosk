@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Self-test for meta-wisekiosk/recipes-core/kiosk-provision/files/kiosk-seed-config.
-# Run by `just check` and by CI.
+# Run by CI.
 #
 # The script seeds /data/config/config.json from the image's shipped default only when none
 # exists; an existing file, including an empty one, stays byte-for-byte unchanged.

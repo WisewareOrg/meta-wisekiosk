@@ -156,7 +156,7 @@ meta-wisekiosk/                    <- the repository (project scaffolding)
 │                                  reproducibility gate
 ├── docs/                          subsystem documents, decisions/, requirements/
 ├── tests/                         the bench runner's suites; tests/prechecks/ needs no board and is
-│                                  what `just check` runs besides the doc and identity tools
+│                                  what CI runs besides the doc and identity tools
 └── sources/                       gitignored; everything kas fetches lands here
 ```
 

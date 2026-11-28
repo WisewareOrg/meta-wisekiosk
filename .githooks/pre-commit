@@ -1,11 +1,10 @@
 #!/bin/sh
-# Runs the checks CI runs: `just check`. Install with: just install-hooks
-# The global gitleaks hook and `just check` both run; `just check` runs every check.
+# Runs the global gitleaks hook and the identity scan. Install with: just install-hooks
 rc=0
 
-# Uses the repo .venv just when present, else the one on PATH.
-just=just
-[ -x ".venv/bin/just" ] && just="$PWD/.venv/bin/just"
+# Uses the repo .venv python when present, else python3.
+py=python3
+[ -x ".venv/bin/python3" ] && py="$PWD/.venv/bin/python3"
 
 # This repo's core.hooksPath overrides the global one, so the global gitleaks pre-commit is run
 # explicitly; an armed global hook that is missing fails the commit.
@@ -24,5 +23,5 @@ if [ -n "$global_dir" ]; then
     fi
 fi
 
-"$just" check || rc=1
+"$py" tools/scrub-identity.py --check || rc=1
 exit $rc

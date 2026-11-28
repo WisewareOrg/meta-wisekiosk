@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Self-test for .claude/hooks/guard.sh, run by `just check` and by CI.
+# Self-test for .claude/hooks/guard.sh, run by CI.
 #
 # The payloads contain the patterns the guard blocks, so they live in this file and not in a Bash
 # tool call. Every rule has must-block and must-allow cases, and every input shape the guard
@@ -158,7 +158,7 @@ t "env VAR= sudo rm"      BLOCK "$(b 'env KIOSK=1 sudo rm /boot/cmdline.txt')"
 t "sudo -u root rm /boot" BLOCK "$(b 'sudo -u root rm /boot/cmdline.txt')"
 t "nice -n 5 tee /boot"   BLOCK "$(b 'nice -n 5 tee /boot/config.txt')"
 t "timeout 60 rm /boot"   BLOCK "$(b 'timeout 60 rm /boot/cmdline.txt')"
-t "exit-echo after pipe"  BLOCK "$(b 'just verify | tail -50 ; echo "exit=$?"')"
+t "exit-echo after pipe"  BLOCK "$(b 'just build | tail -50 ; echo "exit=$?"')"
 t "kiosk-ssh + suppress"  BLOCK "$(b "tools/kiosk-ssh.sh root@$BENCH uptime 2>/dev/null")"
 t "pkill bare -f"         BLOCK "$(b "$KILLPAT -f doseresp.sh")"
 t "pgrep after &&"        BLOCK "$(b "cd /tmp && $GREPPAT -f nettest")"
@@ -237,7 +237,7 @@ t "sudo -u root sysctl"   ALLOW "$(b 'sudo -u root systemctl is-active sshd')"
 t "slot rootfs boot"      ALLOW "$(b 'cd /mnt/root/boot && cat /data/uImage-arm1 > uImage')"
 t "rauc mark-good"        ALLOW "$(b 'rauc status mark-good booted')"
 t "fw_setenv mentioned"   ALLOW "$(b 'echo "re-arm via rauc, not fw_setenv"')"
-t "pipe, no exit echo"    ALLOW "$(b 'just verify | tail -50')"
+t "pipe, no exit echo"    ALLOW "$(b 'just build | tail -50')"
 t "heredoc body mentions" ALLOW "$(b "$(printf 'git commit -F - <<EOF\nnote: fw_setenv is refused by the guard\nEOF')")"
 # A heredoc whose opener names a file, not an interpreter, is data.
 t "doc heredoc mentions"  ALLOW "$(b "$(printf "cat > docs/note.md <<'EOF'\nrauc install on prod is refused, as is a reboot there\nEOF")")"

@@ -18,7 +18,6 @@ dev = [
     "pytest>=9.2.0",
     "python-kasa",
     "ruff>=0.17.6",
-    "rust-just>=1.59.0",
     "tenacity==9.2.1",
     { include-group = "tests" },
 ]
