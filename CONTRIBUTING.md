@@ -32,24 +32,19 @@ commit, `pyproject.toml` and `uv.lock` — is committed.
 
 ```sh
 just                # the recipe roster, each beside what it does
-just verify         # every documentation check: cross-references + docs-vs-image
-just links          # cross-references only
-just guards         # repository invariants: secrets, identity, syntax, wiring;
-                    # runs the self-tests of the device guard, the CVE tools and the host-side tools too
-just reqs           # the requirements tree, through wise-ci's check-reqs
-just adrs           # docs/decisions/ and every ADR citation, through wise-ci's check-adrs
 just install-hooks  # once per clone: point core.hooksPath at .githooks
-bash .claude/hooks/guard-test.sh   # the device guard's self-test on its own
 ```
 
-The pre-commit hook runs [`tools/ci-guards.sh`](tools/ci-guards.sh),
-[`tools/doc-links.py`](tools/doc-links.py) and [`tools/scrub-identity.py`](tools/scrub-identity.py)
-`--check`. CI runs the same three in its `guards` workflow, so a commit cannot pass locally and fail
-there on them, plus wise-ci's `check-reqs` over the requirements tree
-([`docs/requirements/README.md`](docs/requirements/README.md)) and `check-adrs` over
-[`docs/decisions/`](docs/decisions/README.md) and every ADR citation. The `lint` workflow runs
-shellcheck over every tracked shell script and actionlint over the workflows, and `codeql` analyses
-the tooling. `just image` and `just verify`'s second half need a populated `build/` and are
+The pre-commit hook runs the identity scan, [`tools/scrub-identity.py`](tools/scrub-identity.py)
+`--check`, and the global gitleaks hook. CI's `guards` workflow runs each check as its own step, so a
+failure shows on its own: `pytest tests/prechecks tests/applications/screenshot/test_decoder.py` (the
+self-tests of the device guard, the CVE and host-side tools, the screenshot decoder, plus the
+one-install-path test), [`tools/doc-links.py`](tools/doc-links.py), the identity scan, wise-ci's
+`check-reqs` over the requirements tree ([`docs/requirements/README.md`](docs/requirements/README.md)),
+`check-adrs` over [`docs/decisions/`](docs/decisions/README.md) and every ADR citation, and a gitleaks
+scan of the history. Any of them runs by hand with the command the workflow gives. The `lint`
+workflow runs shellcheck over every tracked shell script and actionlint over the workflows, and
+`codeql` analyses the tooling. `python3 tools/doc-image.py check` needs a populated `build/` and is
 local-only: CI never builds.
 
 `tools/scrub-identity.py --check` has two halves and says which ran. The pattern half needs no
@@ -61,7 +56,7 @@ an SSID has no recognisable shape; only the map can catch one, and only where th
 for "nothing found", so the absence of the map is a finding wherever the map could exist. The one
 caller that structurally cannot hold it — CI, which clones without `local/` — passes
 `--allow-partial` and carries the reason in its own step. On a checkout with no map the pre-commit
-hook and `just guards` therefore fail where CI passes: create `local/device-identity.md`, or pass
+hook therefore fails where CI passes: create `local/device-identity.md`, or pass
 `--allow-partial` yourself and know that a hostname or an SSID went unlooked-for.
 
 None of the above builds or boots anything — [`docs/testing.md`](docs/testing.md) covers the tiers
@@ -111,6 +106,31 @@ this reason.
 relative links resolve from the citing file's own directory, and a leading `/` fails. Never anchor a
 *directory* link — anchor its `README.md`.
 
+## Justfile conventions
+
+- **A recipe is its attributes and a few plain lines.** Every listed recipe carries `[group()]`, then
+  `[doc()]`, and a body that is a call to one tool or a short sequence of `just` and tool calls. No
+  `if`, `case`, loop, `trap`, heredoc or `ssh` goes in a justfile: anything of that kind is a
+  `tools/<recipe>.sh` that the recipe calls in one line.
+- **A justfile carries no comments.** `[doc()]` is the documentation, and a fact a reader needs goes
+  in the doc text or in the document that owns it. A sub-justfile has one header line listing the
+  variables it reads. `help` stays ungrouped at the top of the list and `default` is `[private]`.
+- **Groups** are build, clean, check, audit, deploy, provision, ota, device and rotate. `device` holds
+  the looks at a board and the boot-profile launcher; `ota` holds whatever changes a board's slots.
+- **A recipe that reaches a board takes `host=kiosk-host`**, in the `root@<addr>` ssh-target form
+  that [`docs/device.md`](docs/device.md) §"Reaching a board" owns. `rotate-run` and `rotate-verify`
+  keep `host` required: a default would let `KIOSK_HOST` pick the board for a keyring change.
+  `tcp-state`'s `kiosk-addr` is exempt, because it reads this host's sockets.
+- **Nothing in a recipe or a tool opens a connection to a board except
+  [`tools/kiosk-ssh.sh`](tools/kiosk-ssh.sh)**, which holds the one host-key policy and keepalive. A
+  recipe reaches a board through that helper or through a `tools/` script that uses it. The one
+  exception is the interactive first contact in `tools/rauc-provision-ssh.sh`, which may ask for a
+  password.
+- **Python tools run through `{{py}}`.**
+- **Names are kebab-case and say what the operator gets.** Families share a prefix: `kiosk-` for one
+  board's state, plus `rotate-` and `cve-`. A new wrapped tool takes the recipe's name. Existing names
+  stand, because tests and docs call them.
+
 ## Tickets, branches and pull requests
 
 Work on a branch and land through a pull request; nothing goes directly to `main`. A pull request
@@ -128,10 +148,8 @@ CI, not only a local run, and walk the checklist below against the diff.
 **A gate is not verified until you have watched it fail.** Seed the defect *and* the
 spelled-differently-but-valid variant, confirm the seed landed, and re-run the finding's own
 reproduction against the fix. A check that looks identical passing and failing has measured nothing —
-which is why `.claude/hooks/guard.sh` ships with `guard-test.sh` beside it, why the CVE and currency
-tools ship with [`tools/cve-tools-test.py`](tools/cve-tools-test.py) beside them, and why every guard
-in [`tools/ci-guards.sh`](tools/ci-guards.sh) existence-checks the paths it scans before scanning
-them.
+which is why `.claude/hooks/guard.sh` and the CVE and currency tools ship with self-tests in
+[`tests/prechecks/`](tests/prechecks/), which CI runs.
 
 ## Review checklist
 
@@ -139,9 +157,7 @@ Each question is an obligation on the author that leaves no artifact, so no chec
 reviewer is the mechanism. `.claude/hooks/review-diff.py` selects the groups below from the paths a
 commit records and puts those questions in front of the model before the commit lands; the group
 names there and the `**Group**` headings here are one taxonomy authored in two files, and a rename in
-either place would silently select nothing. [`tools/ci-guards.sh`](tools/ci-guards.sh) holds
-the two sides equal — a name on one side only, or a group carrying no numbered question, fails the
-guards.
+either place would silently select nothing.
 
 **Cite a question by number *and* name** — `question 8, *One-way lock*`. A bare number resolves
 silently to whatever occupies it after a renumber.
@@ -197,7 +213,7 @@ silently to whatever occupies it after a renumber.
 
 **Docs**
 
-15. **Cross-references resolve.** Does `just links` pass — relative links from the citing file's own
+15. **Cross-references resolve.** Does `python3 tools/doc-links.py` pass — relative links from the citing file's own
     directory, GFM anchors on real headings, section references by name, no anchored directory link,
     no address?
 16. **One home.** Is each fact stated in the document that owns it, and cited rather than restated

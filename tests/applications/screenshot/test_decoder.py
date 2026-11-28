@@ -1,6 +1,6 @@
 """Screenshot suite: the tool turns a constructed buffer into the picture it holds, or refuses it.
 
-Host only, on the standard library; `just guards` and CI run it as a script. Each test runs the
+Host only, on the standard library; CI runs it. Each test runs the
 tool itself, with a stand-in `ssh` that runs the capture command on this host and a stand-in
 `kiosk-drmgrab` that writes the buffer. The buffers and their pixels are worked out here, without the
 tool's decoder.
@@ -17,7 +17,7 @@ from typing import NamedTuple
 
 from picture import pixels
 
-_TOOL = Path(__file__).resolve().parents[3] / "tools" / "kiosk-screenshot.py"
+_TOOL = Path(__file__).resolve().parents[3] / "meta-wisekiosk" / "recipes-core" / "kiosk-drmgrab" / "kiosk-screenshot.py"
 # takes what ssh takes: options, the host, the command
 _SSH = """\
 while [ "${1#-o}" != "$1" ]; do shift; done

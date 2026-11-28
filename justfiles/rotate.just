@@ -1,17 +1,4 @@
-# RAUC signing-key rotation.
-#
-# Replaces the key the devices trust with a fresh per-project key. The full flow, on the bench
-# board first, then on every other board:
-#
-#   just rotate-keygen [name]                # new key, gitignored, never committed
-#   just rotate-build [name]                 # transition + end-state bundles
-#   just rotate-provision-ssh root@<host>    # once, if key auth is not set up
-#   just rotate-run root@<bench> [name]      # the bench board first
-#   just rotate-verify root@<bench> [name] --empirical build/rotation/transition.raucb build/rotation/new-signed.raucb
-#   just rotate-run root@<host> [name]       # then every other board
-#
-# `name` selects a dir under the gitignored local/keys; the default is `fleet-key` in the root
-# Justfile. docs/updates.md §"Rotating the signing key" covers the order.
+# Reads: fleet-key, config, kiosk-host
 
 keys-root := justfile_directory() / "local/keys"
 
@@ -25,16 +12,14 @@ rotate-keygen name=fleet-key:
 rotate-provision-ssh host=kiosk-host:
     tools/rauc-provision-ssh.sh "{{host}}"
 
-# `name` is the new key; OLD_KEYDIR is the `fleet-key` directory.
 [group('rotate')]
-[doc("Build the transition and end-state bundles for a rotation")]
+[doc("Build the transition and end-state bundles for a rotation; OLD_KEYDIR is the fleet-key directory")]
 rotate-build name=fleet-key:
     OLD_KEYDIR="{{keys-root}}/{{fleet-key}}" tools/rauc-rotate-build.sh "{{keys-root}}/{{name}}" {{config}}
 
 [group('rotate')]
 [doc("Rotate the signing key on one device (transition then end-state)")]
 rotate-run host name=fleet-key *flags:
-    # Gated via kiosk-preflight inside rauc-rotate.sh; held by ci-guards guard 10.
     tools/rauc-rotate.sh "{{host}}" "{{keys-root}}/{{name}}" {{flags}}
 
 [group('rotate')]

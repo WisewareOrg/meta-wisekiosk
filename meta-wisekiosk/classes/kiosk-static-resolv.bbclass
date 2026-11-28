@@ -14,5 +14,4 @@ kiosk_set_static_resolv() {
 
 # Bare name, no trailing `;`: image.bbclass uses the raw value as vardeps and splits it on
 # whitespace, so a glued `func;` names no function and its body reaches no task hash.
-# tools/ci-guards.sh polices the trailing `;`.
 ROOTFS_POSTPROCESS_COMMAND += "kiosk_set_static_resolv"

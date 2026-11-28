@@ -96,9 +96,7 @@ This is the only index of the repository's documents.
 | [`docs/requirements/README.md`](docs/requirements/README.md) | What the appliance owes its viewer and operator, and which check verifies each |
 | [`docs/decisions/README.md`](docs/decisions/README.md) | Which choices took a trade study, what was rejected, and why |
 | [`tests/replay/README.md`](tests/replay/README.md) | What a replay set holds, and how one is re-recorded |
-| [`.claude/skills/kiosk-debug/SKILL.md`](.claude/skills/kiosk-debug/SKILL.md) | Which instrument diagnoses a running kiosk |
 | [`.claude/skills/measure-first/SKILL.md`](.claude/skills/measure-first/SKILL.md) | How a question about the board is measured and tested |
-| [`.claude/skills/webkit-inspector/SKILL.md`](.claude/skills/webkit-inspector/SKILL.md) | How the engine's remote inspector is driven |
 
 Each module of the layer has a README: what it puts on the image, how it fits, and its knobs.
 
@@ -154,10 +152,11 @@ meta-wisekiosk/                    <- the repository (project scaffolding)
 │   └── recipes-*/
 ├── Justfile, justfiles/           build, OTA and device commands
 ├── tools/                         provisioning, bundle delivery, device debugging, doc gate,
-│                                  CI guards, the identity scan, the build-commit writer and
+│                                  the identity scan, the build-commit writer and
 │                                  reproducibility gate
 ├── docs/                          subsystem documents, decisions/, requirements/
-├── tests/                         the bench runner's suites
+├── tests/                         the bench runner's suites; tests/prechecks/ needs no board and is
+│                                  what CI runs besides the doc and identity tools
 └── sources/                       gitignored; everything kas fetches lands here
 ```
 

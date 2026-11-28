@@ -25,7 +25,7 @@ esac
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 cd "$REPO"
 
-SSH="ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10"
+SSH="tools/kiosk-ssh.sh"
 IMG="build/tmp-raspberrypi0-wifi/deploy/images/raspberrypi0-wifi/core-image-base-raspberrypi0-wifi.rootfs.ext4"
 T="build/rotation/transition.raucb"
 N="build/rotation/new-signed.raucb"

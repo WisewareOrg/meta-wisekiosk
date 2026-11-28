@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Self-test for the per-board install lock, from this host, in tools/kiosk-install.sh.
 #
-#   tools/kiosk-install-lock-test.sh
+#   tests/prechecks/kiosk-install-lock-test.sh
 #
 # Runs the SHIPPED script (or the one named by KIOSK_INSTALL_UNDER_TEST) from a scratch checkout with stubs for
 # ssh, docker, curl, getent and the reproducibility gate first on PATH. The stub ssh answers the reads, blocks
@@ -44,7 +44,7 @@
 # Exit: 0 every case passed; 1 a case failed.
 set -u
 
-root=$(cd "$(dirname "$0")/.." && pwd)
+root=$(cd "$(dirname "$0")/../.." && pwd)
 shipped=${KIOSK_INSTALL_UNDER_TEST:-$root/tools/kiosk-install.sh}
 scratch=$(mktemp -d)
 tag=lt$$
@@ -68,6 +68,7 @@ mkdir -p "$scratch/co/tools" "$scratch/bin" "$scratch/state" "$scratch/home"
 export HOME=$scratch/home LOG=$scratch/log STATE=$scratch/state RELEASE=$scratch/release
 : > "$LOG"
 cp "$shipped" "$scratch/co/tools/kiosk-install.sh"
+cp "$root/tools/kiosk-ssh.sh" "$scratch/co/tools/kiosk-ssh.sh"
 printf '#!/bin/sh\nexit 0\n' > "$scratch/co/tools/reproducibility-gate.sh"
 : > "$scratch/co/tools/kiosk-install-ftrace-filter.txt"
 chmod +x "$scratch/co/tools/"*.sh

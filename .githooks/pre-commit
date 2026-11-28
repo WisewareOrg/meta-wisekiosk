@@ -1,7 +1,5 @@
 #!/bin/sh
-# Runs the guards CI runs. Install with: just install-hooks
-# tools/doc-image.py is not run: it needs a populated build/ rootfs (`just image`).
-# Every check runs even when an earlier one fails.
+# Runs the global gitleaks hook and the identity scan. Install with: just install-hooks
 rc=0
 
 # Uses the repo .venv python when present, else python3.
@@ -25,9 +23,5 @@ if [ -n "$global_dir" ]; then
     fi
 fi
 
-tools/ci-guards.sh || rc=1
-"$py" tools/doc-links.py || rc=1
-# Strict identity scan: fails when the identity map is unreadable. ci-guards.sh guard 11 (the
-# identity scan wired into every route) asserts this call exists.
 "$py" tools/scrub-identity.py --check || rc=1
 exit $rc

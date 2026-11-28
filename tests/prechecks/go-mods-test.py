@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Self-test for tools/go-mods.py's rendering seam. Run by `just guards` and by CI.
+"""Self-test for tools/go-mods.py's rendering seam. Run by CI.
 
     go-mods-test.py             -- every case
 
@@ -22,7 +22,7 @@ import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
-TOOLS = Path(__file__).resolve().parent
+TOOLS = Path(__file__).resolve().parents[2] / "tools"
 sys.dont_write_bytecode = True
 
 

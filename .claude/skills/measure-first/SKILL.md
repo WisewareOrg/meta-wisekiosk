@@ -1,38 +1,54 @@
 ---
 name: measure-first
 description: >-
-  Measure and test the board instead of inferring — pick a metric that tracks what a person sees
-  on the panel, write the measurement as a diagnostic test under tests/diagnostics and run it
-  through the bench driver, A/B without the board's own drift faking the result, test a hypothesis
-  with a cheap injection before paying for a build, and question the mechanism when tuning
-  plateaus. Invoke when the panel stutters or judders, when a change has to be proved faster or
-  slower on real hardware, when the numbers say "fine" but the fault is still seen, or when an
-  experiment needs a probe and a parser.
+  Look at and measure the board instead of inferring. Diagnose a running wisekiosk device that has
+  no keyboard and a display whose correct state is a black screen: pick the cheapest instrument that
+  can fail (a look through a `just` recipe, or a measurement as a diagnostic test under
+  tests/diagnostics run through the bench driver), pick a metric that tracks what a person sees on
+  the panel, A/B without the board's own drift faking the result, test a hypothesis with a cheap
+  injection before paying for a build, and question the mechanism when tuning plateaus. Invoke when
+  the kiosk is unreachable, blank, stale, slow to come up or suspected of leaking memory, when the
+  panel stutters or judders, when a change has to be proved faster or slower on real hardware, when
+  the numbers say "fine" but the fault is still seen, or when an experiment needs a probe and a
+  parser.
 ---
 
 # Measure first, and measure what the eye sees
 
-[`kiosk-debug`](../kiosk-debug/SKILL.md) decides which instrument to reach for. This decides what
-counts as an answer once one is in hand, how to take it on the board, and how to get the next one
-faster. The ordered loop and the pre-trust list are [`CHECKLIST.md`](CHECKLIST.md).
+The screen cannot report its own state, and the device has no keyboard, so every instrument here
+replaces looking at the panel with reading something definite. The ordered loop is
+[`CHECKLIST.md`](CHECKLIST.md).
+
+## A look, or a measurement
+
+A **look** reads state and changes nothing, so it is a `just` recipe. A **measurement** is a number
+something is acted on, so it is a pytest case under `tests/diagnostics` run through the bench driver:
+outside the driver a board is only inspected, as [`docs/testing.md`](../../../docs/testing.md)
+§"Running it" says.
+
+| Question | Instrument |
+|---|---|
+| Is it up, which slot is booted? | `just kiosk-status` |
+| Is the panel showing the right thing, right now? | `just screenshot`; its [header](../../../meta-wisekiosk/recipes-core/kiosk-drmgrab/kiosk-screenshot.py) says how to read it and what it cannot tell |
+| Is the browser fetching the page, and did its scripts run? | `just tcp-state`, on the host serving the page; its [header](../../../tools/kiosk-tcp-state.sh) says which faults it hides |
+| The board does not answer and its address is unknown | `just find`; its [header](../../../tools/kiosk-find.sh) names the L2 view it used, and `none` proves only which addresses replied |
+| Is memory flat or climbing over hours? | TST014 in `tests/target_suite/test_memory.py`, with `--soak` for the day-long run |
+| Where is boot time going? | `just bootprofile`, through [`tests/diagnostics/test_boot_profile.py`](../../../tests/diagnostics/test_boot_profile.py) |
+| Any other number | A new case under `tests/diagnostics` |
+
+Reach for the cheapest instrument that can *fail*: a look costs seconds, a boot profile costs a boot
+of the thing under diagnosis. Read the soak log before rebooting a degraded board, as a reboot
+destroys the only series that could say what was happening: `tools/kiosk-ssh.sh <host> 'kiosk-soak.sh --summary'`,
+read as [the kiosk-soak README](../../../meta-wisekiosk/recipes-core/kiosk-soak/README.md) says.
 
 ## A measurement is a diagnostic test
 
-Every measurement on a board is a pytest case under `tests/diagnostics`, run through the bench
-driver ([`docs/testing.md`](../../../docs/testing.md) §"Running it"):
-
-```sh
-bench test <ref> --skip-build -- tests/diagnostics -k <name> -rP   # against the board as it is
-bench test <ref> -- tests/diagnostics -k <name> -rP                # build and install <ref> first
-```
-
-The runner's record names the board and the commit it ran, so the number carries its own
-provenance; a number taken by hand, through an ad hoc script or an ssh one-liner, carries none and
-is not evidence. The test reaches the board through `tests/board/`: `board.app.turn_the_inspector_on`
-and `board.app.inspector.evaluate` run script in the page, and every change a part makes is undone
-by the board's cleanup when the test ends. A diagnostic records what it measured and judges
-nothing unless a bound already exists; a check against a requirement's bound belongs in the target
-suite under that requirement ([`docs/testing.md`](../../../docs/testing.md) §"Writing a
+A number taken through an ad hoc script or an ssh one-liner carries no provenance and is not
+evidence; the runner's record names the board and the commit. The test reaches the board through
+`tests/board/`: `board.app.turn_the_inspector_on` and `board.app.inspector.evaluate` run script in the
+page, and the board's cleanup undoes every change a part makes. A diagnostic records what it measured
+and judges nothing unless a bound already exists; a check against a requirement's bound belongs in
+the target suite under that requirement ([`docs/testing.md`](../../../docs/testing.md) §"Writing a
 target-suite test").
 
 ## What makes a number an answer
@@ -106,10 +122,14 @@ usually a different **mechanism**, not a different constant.
 - **One driver of the board at a time.** Two sessions driving one board clobber each other's probes
   and restarts. Drive it from one session; write probes and parsers, and analyse, off the board.
 - **`2>/dev/null` on an ssh to a board is blocked** by `.claude/hooks/guard.sh`. A suppressed probe
-  cannot tell a broken check from a broken board. Let stderr through, or capture it and print it on
-  failure.
-- **An ssh session costs the board CPU.** On a single saturated core the connection is itself an
-  instrument; batch reads, and keep connections out of a window being measured
-  ([`meta-wisekiosk/recipes-core/kiosk-bootprof/README.md`](../../../meta-wisekiosk/recipes-core/kiosk-bootprof/README.md)).
-- **Leave the board as you found it.** What a diagnostic changes, the board's cleanup undoes.
+  cannot tell a broken check from a broken board.
+- **A connection costs the board CPU.** Batch reads through
+  [`tools/kiosk-ssh.sh`](../../../tools/kiosk-ssh.sh), and keep connections out of a window being measured
+  ([`kiosk-bootprof`](../../../meta-wisekiosk/recipes-core/kiosk-bootprof/README.md)).
+- **`pgrep -f <pattern>` matches your own command line** over ssh, so it finds your shell. Use
+  `pidof` for the browser: busybox `pgrep -x` matches the full path the launcher runs as.
+- **Sample twice before believing a one-shot read.** One sample cannot tell a state from a moment.
+- **A failed or BLANK capture is not a frozen panel.** A panel left on a text console comes back
+  with `chvt 1` ([`docs/display.md`](../../../docs/display.md)); a remote `systemctl restart kiosk`
+  does not bring it forward.
 - **Keep runs apart.** Numbers from different boards, builds or runs never share a table.

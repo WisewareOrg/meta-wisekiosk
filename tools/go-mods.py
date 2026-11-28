@@ -8,7 +8,7 @@ codegen tool's own import path to populate a scratch GOMODCACHE with exactly
 the modules it needs, then renders one SRC_URI pair per file the proxy
 served. See meta-wisekiosk/recipes-wisekiosk/wisekiosk/README.md.
 
-`render_inc` is the importable seam tools/go-mods-test.py drives directly, on
+`render_inc` is the importable seam tests/prechecks/go-mods-test.py drives directly, on
 a fabricated cache -- no clone, no network, no real `go`. `fetch_cache` is the
 only function that touches either.
 """

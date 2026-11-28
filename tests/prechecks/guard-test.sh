@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Self-test for .claude/hooks/guard.sh, run by `just guards` and by CI.
+# Self-test for .claude/hooks/guard.sh, run by CI.
 #
 # The payloads contain the patterns the guard blocks, so they live in this file and not in a Bash
 # tool call. Every rule has must-block and must-allow cases, and every input shape the guard
@@ -11,7 +11,7 @@
 #     inside legitimate build paths.
 set -uo pipefail
 
-G="$(cd "$(dirname "$0")" && pwd)/guard.sh"
+G="$(cd "$(dirname "$0")/../.." && pwd)/.claude/hooks/guard.sh"
 T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT
 
@@ -158,7 +158,7 @@ t "env VAR= sudo rm"      BLOCK "$(b 'env KIOSK=1 sudo rm /boot/cmdline.txt')"
 t "sudo -u root rm /boot" BLOCK "$(b 'sudo -u root rm /boot/cmdline.txt')"
 t "nice -n 5 tee /boot"   BLOCK "$(b 'nice -n 5 tee /boot/config.txt')"
 t "timeout 60 rm /boot"   BLOCK "$(b 'timeout 60 rm /boot/cmdline.txt')"
-t "exit-echo after pipe"  BLOCK "$(b 'just verify | tail -50 ; echo "exit=$?"')"
+t "exit-echo after pipe"  BLOCK "$(b 'just build | tail -50 ; echo "exit=$?"')"
 t "kiosk-ssh + suppress"  BLOCK "$(b "tools/kiosk-ssh.sh root@$BENCH uptime 2>/dev/null")"
 t "pkill bare -f"         BLOCK "$(b "$KILLPAT -f doseresp.sh")"
 t "pgrep after &&"        BLOCK "$(b "cd /tmp && $GREPPAT -f nettest")"
@@ -181,14 +181,13 @@ t "MACHINE name in paths" ALLOW "$(b "just kiosk-install host=root@$BENCH bundle
 t "MACHINE= assignment"   ALLOW "$(b "MACHINE=$PHOST just build")"
 t "MACHINE name, ls path" ALLOW "$(b "ls build/tmp-$PHOST/deploy/images/$PHOST/")"
 echo "--- must ALLOW: observing PROD is not destroying it ---"
-t "prod soak-summary"     ALLOW "$(b "just soak-summary root@$PROD 24")"
+t "prod kiosk-status"     ALLOW "$(b "just kiosk-status root@$PROD")"
 t "prod screenshot"       ALLOW "$(b "just screenshot root@$PROD")"
 t "prod backup"           ALLOW "$(b "just kiosk-backup host=root@$PROD")"
-t "prod rauc-status"      ALLOW "$(b "just rauc-status root@$PROD")"
 t "prod preflight"        ALLOW "$(b "just kiosk-preflight host=root@$PROD")"
 # Reading the soak log for reboot events is allowed.
 t "prod grep for reboot"  ALLOW "$(b "ssh root@$PROD 'grep -c reboot /var/log/messages'")"
-t "prod soak | grep"      ALLOW "$(b "just soak-summary root@$PROD 24 | grep reboot")"
+t "prod status | grep"    ALLOW "$(b "just kiosk-status root@$PROD | grep reboot")"
 # After the sudo prefix the verb is the real command word, not an argument of grep.
 t "prod sudo grep reboot" ALLOW "$(b "ssh root@$PROD 'sudo grep -c reboot /var/log/messages'")"
 # An option's separate value is not accepted mid-prefix: `sudo -n grep -c reboot` is a read.
@@ -238,7 +237,7 @@ t "sudo -u root sysctl"   ALLOW "$(b 'sudo -u root systemctl is-active sshd')"
 t "slot rootfs boot"      ALLOW "$(b 'cd /mnt/root/boot && cat /data/uImage-arm1 > uImage')"
 t "rauc mark-good"        ALLOW "$(b 'rauc status mark-good booted')"
 t "fw_setenv mentioned"   ALLOW "$(b 'echo "re-arm via rauc, not fw_setenv"')"
-t "pipe, no exit echo"    ALLOW "$(b 'just verify | tail -50')"
+t "pipe, no exit echo"    ALLOW "$(b 'just build | tail -50')"
 t "heredoc body mentions" ALLOW "$(b "$(printf 'git commit -F - <<EOF\nnote: fw_setenv is refused by the guard\nEOF')")"
 # A heredoc whose opener names a file, not an interpreter, is data.
 t "doc heredoc mentions"  ALLOW "$(b "$(printf "cat > docs/note.md <<'EOF'\nrauc install on prod is refused, as is a reboot there\nEOF")")"
@@ -345,7 +344,6 @@ KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: direct install tool"     ALLOW "$(
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-install"           ALLOW "$(b "just kiosk-install host=root@$PROD")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: rauc install literal"    ALLOW "$(b "ssh root@$PROD rauc install /data/update.raucb")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-reboot"            ALLOW "$(b "just kiosk-reboot host=root@$PHOST")"
-KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: just reboot"             ALLOW "$(b "just reboot root@$PROD")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: systemctl reboot"        ALLOW "$(b "ssh root@$PROD systemctl reboot")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: ssh bare reboot"         ALLOW "$(b "ssh root@$PROD reboot")"
 KIOSK_PROD_AUTH_FILE="$GRANT_VALID" t "grant: kiosk-rollback"          ALLOW "$(b "just kiosk-rollback host=root@$PROD")"

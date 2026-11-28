@@ -88,7 +88,7 @@ serves HTTP and HTTPS only and refuses the `git://` port.
    does not apply fails here, which means upstream touched a patched file.
 3. Regenerate such a patch against the new upstream commit with `git format-patch` into
    `patches/<repo>/`, keeping its header's reason and upstream status.
-4. Run `just guards`.
+4. Run `python3 tools/doc-links.py`.
 
 A bump of poky to a new release series also moves the hash-equivalence server's own clone (below):
 check it out at the new pin and restart `bitbake-hashserv.service` before building against it.
@@ -130,11 +130,10 @@ Node.js the frontend build runs on is
 
 `kas-container` runs the build in a container, so a working Docker is the first prerequisite. The
 flash and update paths also need `git`, `debugfs` (`e2fsprogs`) and `openssl`. The repository's own
-Python tooling — PyYAML for the guards and the currency reports, and the pinned ruff, interrogate
-and pydoclint for the lint of the tests — installs with `uv sync` into `.venv/` at the repository
-root, pinned in `pyproject.toml` and `uv.lock`. The Justfile and `tools/ci-guards.sh` use that
-`.venv` when it exists, since neither `just` nor a git hook reads a shell startup file; each tool
-refuses rather than skips when its prerequisite is missing.
+Python tooling — PyYAML for the currency reports and pytest for the prechecks — installs with
+`uv sync` into `.venv/` at the repository root, pinned in `pyproject.toml` and `uv.lock`. The Justfile
+and the pre-commit hook use that `.venv` when it exists, since neither `just` nor a git hook reads a
+shell startup file; each tool refuses rather than skips when its prerequisite is missing.
 
 ```sh
 curl -L -o ~/bin/kas-container https://raw.githubusercontent.com/siemens/kas/5.4/kas-container

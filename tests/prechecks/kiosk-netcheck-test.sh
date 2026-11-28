@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Self-test for kiosk-netcheck's restart and proof decisions.
 #
-#   tools/kiosk-netcheck-test.sh
+#   tests/prechecks/kiosk-netcheck-test.sh
 #
 # Runs the SHIPPED script, meta-wisekiosk/recipes-core/kiosk-netcheck/files/kiosk-netcheck,
 # with only its /data and /proc paths pointed into a scratch directory, and the board's
@@ -21,7 +21,7 @@
 # Exit: 0 every case passed; 1 a case failed or the script's paths changed.
 set -u
 
-root=$(cd "$(dirname "$0")/.." && pwd)
+root=$(cd "$(dirname "$0")/../.." && pwd)
 shipped=$root/meta-wisekiosk/recipes-core/kiosk-netcheck/files/kiosk-netcheck
 scratch=$(mktemp -d)
 trap 'rm -rf "$scratch"' EXIT

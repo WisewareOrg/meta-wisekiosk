@@ -123,16 +123,15 @@ case "$MODE" in
     echo "staged $DEST"
     ;;
   device)
-    ssh_opts=(-o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10)
     # --owner/--group stop tar preserving this host's uid/gid. The archive names STAGE's children,
     # not `.`, so /data keeps its own mode. rc is captured per remote step to name the failing one.
     rc=0
-    tar -C "$STAGE" --owner=root --group=root --numeric-owner -cf - config etc RECOVER.sh | ssh "${ssh_opts[@]}" "$DEST" \
+    tar -C "$STAGE" --owner=root --group=root --numeric-owner -cf - config etc RECOVER.sh | "$REPO/tools/kiosk-ssh.sh" "$DEST" \
         'mkdir -p /data/config /data/etc && tar -C /data -xf - && chown -R 0:0 /data/config /data/etc && chmod 0600 /data/config/wpa_supplicant.conf && sync' || rc=$?
     [ "$rc" -eq 0 ] || { echo "could not write /data on $DEST (tar|ssh rc=$rc) -- nothing was provisioned" >&2; exit 1; }
 
     rc=0
-    ssh "${ssh_opts[@]}" "$DEST" 'ls -l /data/config /data/etc/machine-id /data/RECOVER.sh' || rc=$?
+    "$REPO/tools/kiosk-ssh.sh" "$DEST" 'ls -l /data/config /data/etc/machine-id /data/RECOVER.sh' || rc=$?
     [ "$rc" -eq 0 ] || { echo "wrote /data on $DEST but could not read it back (ssh rc=$rc) -- check it by hand" >&2; exit 1; }
     echo "provisioned $DEST"
     ;;
