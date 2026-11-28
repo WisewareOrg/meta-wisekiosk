@@ -13,7 +13,10 @@ root=$(cd "$(dirname "$0")/../.." && pwd)
 scratch=$(mktemp -d)
 trap 'rm -rf "$scratch"' EXIT
 mkdir "$scratch/bin"
-printf '#!/bin/bash\nprintf "%%s\\n" "$@" > "$ARGV"\n' > "$scratch/bin/ssh"
+cat > "$scratch/bin/ssh" <<'STUB'
+#!/bin/bash
+printf '%s\n' "$@" > "$ARGV"
+STUB
 chmod +x "$scratch/bin/ssh"
 export PATH=$scratch/bin:$PATH ARGV=$scratch/argv
 
